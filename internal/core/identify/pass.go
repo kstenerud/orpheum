@@ -63,8 +63,15 @@ type Report struct {
 	// AwaitingListings are matched series with a season listing to fetch: missing, or older
 	// than a new episode it does not list (D209 §3).
 	AwaitingListings []int64
-	// OwedArtwork are the images items' sources name that are not stored yet (D212).
-	OwedArtwork []OwedArtwork
+	// NamedImages are the images each item's provider names, every pass and every match; the
+	// artwork service fetches what it does not hold (D212).
+	NamedImages []NamedImages
+	// Rematched are items a match moved to another work at a source they followed, with the new
+	// work's images: the earlier work's images go (D223 §9).
+	Rematched []NamedImages
+	// BesideTheMedia are the images a pass found beside its library's media; an image not found
+	// again goes (D215 §1). Nil from a match.
+	BesideTheMedia *LocalImages
 }
 
 // NewPass returns the identification pass.
@@ -104,7 +111,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 			titleIDByKey: map[string]int64{}, seriesIDByName: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, nfosByFolder: map[string][]namedNFO{}, titleIDByFolder: map[string]int64{},
 			evidence: map[int64][]titleSpec{}, titleIDByFile: map[int64]int64{}, extraReasonByFile: map[int64]string{},
-			localArt: map[int64][]ArtRef{}, seriesIDByFolder: map[string]int64{},
+			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
 			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{},
 		}
@@ -147,10 +154,10 @@ type libraryFiler struct {
 	titleIDByFolder   map[string]int64 // a film's folder, for its extras
 	evidence          map[int64][]titleSpec
 	titleIDByFile     map[int64]int64
-	extraReasonByFile map[int64]string     // an extra's file, and why it is one (D163)
-	localArt          map[int64][]ArtRef   // the images beside each item (D215)
-	seriesIDByFolder  map[string]int64     // the folder a series' images sit in
-	seriesSpecByID    map[int64]seriesSpec // what this pass's files say about each series
+	extraReasonByFile map[int64]string       // an extra's file, and why it is one (D163)
+	localArt          map[int64][]LocalImage // the images beside each item (D215)
+	seriesIDByFolder  map[string]int64       // the folder a series' images sit in
+	seriesSpecByID    map[int64]seriesSpec   // what this pass's files say about each series
 	seriesMatchByID   map[int64]sqlcgen.GetSeriesForMatchRow
 	listings          map[string][]Episode // parsed season listings, by "series/season"
 }
@@ -208,12 +215,8 @@ func (filer *libraryFiler) identify(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, itemID := range slices.Sorted(maps.Keys(filer.localArt)) {
-		if err := filer.oweArtwork(ctx, itemID, SourceLocal, filer.localArt[itemID]); err != nil {
-			return err
-		}
-	}
-	return filer.retireLocalArtwork(ctx)
+	filer.reportLocalImages()
+	return nil
 }
 
 // knowSeriesByFolder lets the name an episode's folders give find the series its neighbours are

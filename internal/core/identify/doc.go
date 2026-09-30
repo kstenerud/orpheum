@@ -84,15 +84,25 @@
 //     TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
-//   - The images a matched item's source names and its artwork does not hold are reported
-//     owing, by every pass and by the match itself, to whatever follows the pass (D212).
-//     TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld.
+//   - Images are found here and held by the artwork service: this package never imports
+//     internal/core/artwork nor writes the artwork table, and reports what it found to whatever
+//     follows the pass, which the server's wiring hands to the artwork service (schema.md, "Who
+//     writes each table"). TestArch_EachTableHasOneWritingPackage; the import, review.
+//   - The images a matched item's source names are reported by every pass and by the match
+//     itself (D212); a rematch reports the new work's images, so the earlier work's go (D223 §9).
+//     TestPass_ReportsTheImagesAMatchNamesOnEveryPass, TestChoose_ARematchReportsTheNewWorksImages.
 //   - Images beside the media are matched to their film, series or episode by Kodi's and
-//     Jellyfin's names and owed in every library at once; where the library reads NFO files the
-//     provider's image of a kind beside the media is not fetched, and in a TMDB-only library it
-//     is, to replace it (D215). TestPass_ImagesBesideTheMediaAreOwedByTheirConventionalNames,
+//     Jellyfin's names and found in every library at once, and each pass reports all it found, so
+//     one no longer found goes; where the library reads NFO files the provider's image of a kind
+//     beside the media is not fetched, and in a TMDB-only library it is, to replace it (D215).
+//     TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames,
+//     TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported,
 //     TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched,
 //     TestPass_ATMDBOnlyLibraryStillFetchesTheProvidersImageToReplaceTheOneBesideTheMedia.
+//   - A person's refresh, and the artwork service's recheck of a missing image, ask for the
+//     item's missing images again through the ImageRetrier the wiring sets (D213 §1, §2).
+//     TestRefresh_ARefreshThatLooksAgainAsksForTheItemsImagesAgain,
+//     TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime.
 //   - A refresh fetches the source an item follows again — a series with each season it keeps,
 //     an episode through its series — takes the provider's values under a person's overrides, and
 //     keeps our copy of an item the provider dropped (D213 §2, §4).
@@ -123,9 +133,8 @@
 //   - pass.go, load.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
 //     stored match says to it; text.go: how the pass writes a name, and sortkeys.go: keying and
 //     folding every name again when the sort locale, the collation or the fold changes;
-//     localart.go: the images beside the media; artwork.go: the images an item's source names
-//     that are owed, and RecordImage, through which the artwork service records what it stored
-//     (this package writes the artwork table, schema.md); vocabulary.go: the schema's closed sets.
+//     localart.go: the images beside the media; artwork.go: what the pass reports of the images
+//     it found, for the artwork service; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and

@@ -3,20 +3,15 @@
 package identify
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
+	"maps"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
-
-// SourceLocal is an image beside the media, read and re-encoded by the node (D215).
-const SourceLocal = "local"
 
 // isSeasonFolder is whether a folder is a series' season folder, named as the filename parser
 // reads one, or its specials: an image in one is a season's, which nothing shows yet.
@@ -26,51 +21,42 @@ func isSeasonFolder(name string) bool {
 
 // folderImageNames are the names an image has in a film's or a series' folder, most specific
 // first within each kind (D215 §2, Kodi's and Jellyfin's names).
-func folderImageNames() []ArtRef {
-	return []ArtRef{
-		{Kind: ArtPoster, Ref: "poster"},
-		{Kind: ArtPoster, Ref: "folder"},
-		{Kind: ArtPoster, Ref: "cover"},
-		{Kind: ArtBackdrop, Ref: "fanart"},
-		{Kind: ArtBackdrop, Ref: "backdrop"},
-		{Kind: ArtBackdrop, Ref: "background"},
-		{Kind: ArtLogo, Ref: "clearlogo"},
-		{Kind: ArtLogo, Ref: "logo"},
+func folderImageNames() []imageName {
+	return []imageName{
+		{kind: library.ArtPoster, name: "poster"},
+		{kind: library.ArtPoster, name: "folder"},
+		{kind: library.ArtPoster, name: "cover"},
+		{kind: library.ArtBackdrop, name: "fanart"},
+		{kind: library.ArtBackdrop, name: "backdrop"},
+		{kind: library.ArtBackdrop, name: "background"},
+		{kind: library.ArtLogo, name: "clearlogo"},
+		{kind: library.ArtLogo, name: "logo"},
 	}
 }
 
 // videoImageSuffixes are the suffixes an image beside one video has: "<name>-poster.jpg".
-func videoImageSuffixes() []ArtRef {
-	return []ArtRef{
-		{Kind: ArtPoster, Ref: "-poster"},
-		{Kind: ArtBackdrop, Ref: "-fanart"},
-		{Kind: ArtBackdrop, Ref: "-backdrop"},
-		{Kind: ArtLogo, Ref: "-clearlogo"},
-		{Kind: ArtLogo, Ref: "-logo"},
-		{Kind: ArtStill, Ref: "-thumb"},
+func videoImageSuffixes() []imageName {
+	return []imageName{
+		{kind: library.ArtPoster, name: "-poster"},
+		{kind: library.ArtBackdrop, name: "-fanart"},
+		{kind: library.ArtBackdrop, name: "-backdrop"},
+		{kind: library.ArtLogo, name: "-clearlogo"},
+		{kind: library.ArtLogo, name: "-logo"},
+		{kind: library.ArtStill, name: "-thumb"},
 	}
 }
 
-// LocalRef is how a make_artwork_sizes job names an image beside the media: its file, and its size and
-// modification time, so a changed file is owed again.
-func LocalRef(fileID, sizeBytes, mtimeMs int64) string {
-	return fmt.Sprintf("file:%d:%d:%d", fileID, sizeBytes, mtimeMs)
-}
-
-// LocalRefFileID is the id of the file a LocalRef names.
-func LocalRefFileID(ref string) (int64, bool) {
-	var fileID, sizeBytes, mtimeMs int64
-	if _, err := fmt.Sscanf(ref, "file:%d:%d:%d", &fileID, &sizeBytes, &mtimeMs); err != nil {
-		return 0, false
-	}
-	return fileID, true
+// imageName is a name, or a name's suffix, that says an image's kind.
+type imageName struct {
+	kind string
+	name string
 }
 
 // localChoice is one image found for an item's kind, and how specific its name is: the lower,
 // the more.
 type localChoice struct {
-	ref  ArtRef
-	rank int
+	image LocalImage
+	rank  int
 }
 
 // mapLocalArtwork finds, for each film, series and episode, the images beside it by their
@@ -93,46 +79,31 @@ func (filer *libraryFiler) mapLocalArtwork() {
 		if !found {
 			continue
 		}
-		choice.ref.Ref = LocalRef(file.ID, ptr.ValueOrZero(file.SizeBytes), ptr.ValueOrZero(file.ModifiedAt))
+		choice.image.ItemID, choice.image.FileID = itemID, file.ID
+		choice.image.SizeBytes = ptr.ValueOrZero(file.SizeBytes)
+		choice.image.ModifiedAtMs = ptr.ValueOrZero(file.ModifiedAt)
 		if chosen[itemID] == nil {
 			chosen[itemID] = map[string]localChoice{}
 		}
-		if held, taken := chosen[itemID][choice.ref.Kind]; !taken || choice.rank < held.rank {
-			chosen[itemID][choice.ref.Kind] = choice
+		if held, taken := chosen[itemID][choice.image.Kind]; !taken || choice.rank < held.rank {
+			chosen[itemID][choice.image.Kind] = choice
 		}
 	}
 	for itemID, kinds := range chosen {
-		for _, choice := range kinds {
-			filer.localArt[itemID] = append(filer.localArt[itemID], choice.ref)
+		for _, kind := range slices.Sorted(maps.Keys(kinds)) {
+			filer.localArt[itemID] = append(filer.localArt[itemID], kinds[kind].image)
 		}
 	}
 }
 
-// retireLocalArtwork removes the images beside the media that this pass no longer found beside
-// their item: a deleted poster.jpg, or a video renamed away from its image. Without it, a removed
-// image kept showing, ranked first (D215 §1).
-func (filer *libraryFiler) retireLocalArtwork(ctx context.Context) error {
-	items, err := filer.queries.ListItemsWithLiveUnchosenLocalArtwork(ctx, &filer.library.ID)
-	if err != nil {
-		return fmt.Errorf("list the library's local artwork: %w", err)
+// reportLocalImages reports every image the pass found beside the library's media, by item: the
+// artwork service fetches what it does not hold, and retires an image no longer found (D215 §1).
+func (filer *libraryFiler) reportLocalImages() {
+	found := &LocalImages{LibraryID: filer.library.ID}
+	for _, itemID := range slices.Sorted(maps.Keys(filer.localArt)) {
+		found.Images = append(found.Images, filer.localArt[itemID]...)
 	}
-	for _, itemID := range items {
-		found := make([]string, 0, len(filer.localArt[itemID]))
-		for _, ref := range filer.localArt[itemID] {
-			found = append(found, ref.Ref)
-		}
-		encoded, err := json.Marshal(found)
-		if err != nil {
-			return fmt.Errorf("encode item %d's local artwork: %w", itemID, err)
-		}
-		err = filer.queries.RetireArtworkNotFound(ctx, sqlcgen.RetireArtworkNotFoundParams{
-			RemovedAt: &filer.nowMs, ItemID: itemID, Source: SourceLocal, FoundRefs: string(encoded),
-		})
-		if err != nil {
-			return fmt.Errorf("retire item %d's local artwork no longer found: %w", itemID, err)
-		}
-	}
-	return nil
+	filer.report.BesideTheMedia = found
 }
 
 // localImageOwner is the item an image beside the media belongs to, and its kind, by its name.
@@ -142,26 +113,26 @@ func (filer *libraryFiler) localImageOwner(
 	folder := path.Dir(imagePath)
 	stem := strings.TrimSuffix(path.Base(imagePath), path.Ext(imagePath))
 	for rank, named := range videoImageSuffixes() {
-		rest, cut := strings.CutSuffix(strings.ToLower(stem), named.Ref)
+		rest, cut := strings.CutSuffix(strings.ToLower(stem), named.name)
 		if !cut {
 			continue
 		}
 		titleID, placed := filer.titleIDByFile[videoFileIDByStem[strings.ToLower(folder)+"/"+rest]]
-		if !placed || !showsArtKind(filer.titleKind(titleID), named.Kind) {
+		if !placed || !showsArtKind(filer.titleKind(titleID), named.kind) {
 			return 0, localChoice{}, false
 		}
-		return titleID, localChoice{ref: ArtRef{Kind: named.Kind}, rank: rank}, true
+		return titleID, localChoice{image: LocalImage{Kind: named.kind}, rank: rank}, true
 	}
 	for rank, named := range folderImageNames() {
-		if !strings.EqualFold(stem, named.Ref) {
+		if !strings.EqualFold(stem, named.name) {
 			continue
 		}
 		rank += len(videoImageSuffixes()) // a name for one video is more specific than one for the folder
 		if titleID, isFilm := filer.titleIDByFolder[folder]; isFilm {
-			return titleID, localChoice{ref: ArtRef{Kind: named.Kind}, rank: rank}, true
+			return titleID, localChoice{image: LocalImage{Kind: named.kind}, rank: rank}, true
 		}
 		if seriesID, isSeries := filer.seriesIDByFolder[folder]; isSeries {
-			return seriesID, localChoice{ref: ArtRef{Kind: named.Kind}, rank: rank}, true
+			return seriesID, localChoice{image: LocalImage{Kind: named.kind}, rank: rank}, true
 		}
 	}
 	return 0, localChoice{}, false
@@ -171,9 +142,9 @@ func (filer *libraryFiler) localImageOwner(
 // film its poster, backdrop and logo.
 func showsArtKind(titleKind, artKind string) bool {
 	if titleKind == library.TitleKindEpisode {
-		return artKind == ArtStill
+		return artKind == library.ArtStill
 	}
-	return titleKind == KindMovie && artKind != ArtStill
+	return titleKind == KindMovie && artKind != library.ArtStill
 }
 
 // titleKind is a placed title's kind, from its evidence.
@@ -197,12 +168,12 @@ func seriesFolderOf(episodePath string) string {
 // withoutLocalKinds drops the provider's images of the kinds an item has beside it, where the
 // library prefers images beside the media: those are not fetched. A TMDB-only library fetches
 // them, to replace what is beside the media (D215 §1).
-func (filer *libraryFiler) withoutLocalKinds(itemID int64, refs []ArtRef) []ArtRef {
+func (filer *libraryFiler) withoutLocalKinds(itemID int64, refs []ImageRef) []ImageRef {
 	local := filer.localArt[itemID]
 	if len(local) == 0 || filer.library.MetadataSource == sourceTMDB {
 		return refs
 	}
-	var kept []ArtRef
+	var kept []ImageRef
 	for _, ref := range refs {
 		covered := false
 		for _, have := range local {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -120,8 +121,8 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	if film.ID != "9019" || film.Name != "Metropolis" || film.Year != 1995 || film.RuntimeMs != 170*60_000 ||
 		film.OriginalLang != "en" || film.Tagline == "" ||
 		!maps.Equal(film.IDs, map[string]string{"tmdb": "9019", "imdb": "tt0234567"}) ||
-		!slices.Equal(film.Artwork, []identify.ArtRef{
-			{Kind: identify.ArtPoster, Ref: "/metropolis.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-wide.jpg"},
+		!slices.Equal(film.Artwork, []identify.ImageRef{
+			{Kind: library.ArtPoster, Ref: "/metropolis.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-wide.jpg"},
 		}) {
 		t.Errorf("parsed %+v", film)
 	}

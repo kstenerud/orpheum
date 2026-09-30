@@ -17,14 +17,13 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // Waits the service makes: for a node to connect, and for its answer.
@@ -39,6 +38,14 @@ const webpSuffix = ".webp"
 // Queue is where the make_artwork_sizes jobs go: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
+}
+
+// Rechecker has an item's record refreshed at a time, with the images it is missing asked for
+// again (D213 §1): identify's refresh, which the server's wiring hands in, so this package never
+// imports identify. D231 §4 replaces this seam: a refresh becomes a stored fact, requested-at and
+// whether to fetch images again, that a sweep derives the work from.
+type Rechecker interface {
+	Recheck(ctx context.Context, itemID int64, at time.Time) error
 }
 
 // Nodes is the node channel: the node to send work to, and its command queue.
@@ -65,15 +72,16 @@ type Settings interface {
 
 // Parts are what the service is built from.
 type Parts struct {
-	Database *store.Database
-	Queue    Queue
-	Nodes    Nodes
-	ArtFiles ArtFiles
-	Cache    *store.Cache // when each image was last served
-	Settings Settings
-	Fetchers map[string]Fetcher // by source: "tmdb"
-	Clock    clock.Clock
-	Logger   *slog.Logger
+	Database  *store.Database
+	Queue     Queue
+	Rechecker Rechecker
+	Nodes     Nodes
+	ArtFiles  ArtFiles
+	Cache     *store.Cache // when each image was last served
+	Settings  Settings
+	Fetchers  map[string]Fetcher // by source: "tmdb"
+	Clock     clock.Clock
+	Logger    *slog.Logger
 	// AnswerWait is how long a job waits for the node's answer; two minutes when zero.
 	AnswerWait time.Duration
 }
@@ -101,30 +109,20 @@ func NewService(parts Parts) *Service {
 
 // artworkJobArgs is a make_artwork_sizes job's arguments: the images one item's source names that are not stored.
 type artworkJobArgs struct {
-	ArtworkSource string    `json:"artworkSource"`
-	Refs          []owedRef `json:"refs"`
+	ArtworkSource string `json:"artworkSource"`
+	Refs          []Ref  `json:"refs"`
 	// SourceSha256 and SizeNames make sizes of a stored image that are made only on request, from its
 	// source fetched again (D212 §2, §3).
 	SourceSha256 string                  `json:"sourceSha256,omitempty"`
 	SizeNames    []nodeproto.ArtSizeName `json:"sizeNames,omitempty"`
 }
 
-// owedRef is one image the job fetches: its kind, and the source's reference to it.
-type owedRef struct {
-	Kind      string `json:"kind"`
-	SourceRef string `json:"sourceRef"`
-}
-
-// QueueOwed queues a job for each item with images owed. An item with a job already open is left to
+// queueOwed queues a job for each item with images owed. An item with a job already open is left to
 // it; what that job does not store is owed again at the next pass.
-func (service *Service) QueueOwed(ctx context.Context, items []identify.OwedArtwork) {
+func (service *Service) queueOwed(ctx context.Context, items []ItemImages) {
 	queued := 0
 	for _, item := range items {
-		refs := make([]owedRef, 0, len(item.Refs))
-		for _, ref := range item.Refs {
-			refs = append(refs, owedRef{Kind: ref.Kind, SourceRef: ref.Ref})
-		}
-		args, err := json.Marshal(artworkJobArgs{ArtworkSource: item.Source, Refs: refs})
+		args, err := json.Marshal(artworkJobArgs{ArtworkSource: item.Source, Refs: item.Refs})
 		if err == nil {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
@@ -153,7 +151,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
-	if !known && args.ArtworkSource != identify.SourceLocal {
+	if !known && args.ArtworkSource != SourceLocal {
 		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
 			args.ArtworkSource)))
 	}
@@ -177,7 +175,7 @@ type wantedImage struct {
 	jobID  int64
 	itemID int64
 	source string
-	ref    owedRef
+	ref    Ref
 }
 
 func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wantedImage) error {
@@ -192,7 +190,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	command := nodeproto.Artwork{JobID: want.jobID, Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
 	sourceSha256Hex := ""
-	if want.source == identify.SourceLocal {
+	if want.source == SourceLocal {
 		nodeID, command.AbsolutePath, err = service.localFile(ctx, want.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
 			return service.recordRefusal(ctx, want, err.Error())
@@ -221,7 +219,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 // localFile is the node that holds an image beside the media and its path there. A file gone
 // since it was owed is ErrNoImage; its node not connected, a wait that costs no attempt.
 func (service *Service) localFile(ctx context.Context, ref string) (int64, *nodeproto.Path, error) {
-	fileID, parsed := identify.LocalRefFileID(ref)
+	fileID, parsed := localRefFileID(ref)
 	if !parsed {
 		return 0, nil, fmt.Errorf("%q: %w", ref, ErrNoImage)
 	}
@@ -259,10 +257,7 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("list item %d's artwork: %w", want.itemID, err)
 	}
-	return slices.ContainsFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
-		return row.Kind == want.ref.Kind && row.Source == want.source && row.SourceRef != nil &&
-			*row.SourceRef == want.ref.SourceRef
-	}), nil
+	return holds(rows, want.source, want.ref), nil
 }
 
 // reEncode sends a source to the node and waits for its answer, by the job id the command
@@ -363,37 +358,14 @@ func (service *Service) recordRefusal(ctx context.Context, want wantedImage, why
 	return service.record(ctx, want, nil)
 }
 
-// record records the item's image through identify, which writes the artwork table; a stored image
-// replaces the source's earlier one of its kind, never a person's choice.
-func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte) error {
-	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		_, err := store.OrNotFound(queries.GetItemKind(ctx, want.itemID))
-		if errors.Is(err, store.ErrNotFound) {
-			return nil // removed since it was queued
-		}
-		if err != nil {
-			return fmt.Errorf("read item %d: %w", want.itemID, err)
-		}
-		image := identify.ItemImage{
-			ItemID: want.itemID, Source: want.source, SourceSha256: sourceSha256,
-			Ref: identify.ArtRef{Kind: want.ref.Kind, Ref: want.ref.SourceRef},
-		}
-		return identify.RecordImage(ctx, queries, image, service.parts.Clock.Now().UnixMilli())
-	})
-	if err != nil {
-		return fmt.Errorf("record item %d's %s: %w", want.itemID, want.ref.Kind, err)
-	}
-	return nil
-}
-
 // shapeOf is the shape an artwork kind is cut to.
 func shapeOf(kind string) (nodeproto.Shape, bool) {
 	switch kind {
-	case identify.ArtPoster:
+	case library.ArtPoster:
 		return nodeproto.ShapePortrait, true
-	case identify.ArtBackdrop, identify.ArtStill:
+	case library.ArtBackdrop, library.ArtStill:
 		return nodeproto.ShapeLandscape, true
-	case identify.ArtLogo:
+	case library.ArtLogo:
 		return nodeproto.ShapeLogo, true
 	}
 	return "", false

@@ -43,12 +43,12 @@ is the evidence. The first column names each package by its path; the check read
 | --- | --- | --- |
 | `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: queueDueRefreshes metadata.go:146, queueMeasurements :174 (hard-coded `measureSweepEvery = time.Hour` :170), keepSortAndSearchKeysCurrent :199, maintainArtworkCache artwork.go:45. ⚑ OPS: a whole offline doctor, doctor.go:34-290 |
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
-| `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches with its own breaker (retry.go:43). ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go) |
+| `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches with its own breaker (retry.go:43). ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |
 | `internal/core/backup` | OPS | — |
 | `internal/core/datadir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
 | `internal/core/decide` | R7 | — (pure: imports errors, fmt, slices, nodeproto; depguard `decide-sees-capabilities`) |
-| `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go) |
+| `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
 | `internal/core/identify/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility) |
 | `internal/core/jobs` | R8 | — |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
@@ -109,7 +109,7 @@ is the evidence. The first column names each package by its path; the check read
 | Periodic sweeps and timers | cmd/orpheum ×4, jobs runner, nodes supervisor | Hand-written loops at metadata.go:146/174/199 and artwork.go:45. Each picks its own period: a setting, a constant, or a literal 24 h and 1 h |
 | Doctor findings | cmd/orpheum, api | cmd/orpheum/doctor.go:25-38 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:17-28 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` (doctor.go:108) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
-| Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** identify writes it alone; the artwork service records through `identify.RecordImage`. Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
+| Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (cmd/orpheum/artwork.go). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
 | A person's or device's choices | preferences (`preference`); auth (`device.audio_output`) | **Fixed 2026-09-30:** a person's choices live only in internal/core/preferences, and `setting` lost its unused `user` scope and `/me/settings`; how a device makes sound stays on its row, a fact about its speakers. Was: playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 |
 | The admin's tunables | config file, `setting` | cmd/orpheum/config.go:101-160 holds starting values in code (prepared_budget_gib, probe_timeout_seconds, status_interval_seconds …); settings/registry.go holds D200 settings. config.go:141 couples one to the other in prose: "keep it well under the core's node_silent_after_seconds" |
 | Media-request authentication | api ×2 spellings | **Fixed 2026-09-30:** `requireSignedInForMedia` returns the principal and signs every byte path in. Was: media_cookie.go:47, and the same steps inline at playback.go:209, :240 and subtitle.go:122 |
@@ -254,8 +254,12 @@ identify both itemizes (it builds Title, Version and Extra identity, and decides
 matches. library also wrote `file.filing` (observe.go:184), and identify and artwork both wrote
 `artwork`. Nothing assigned a table to one owner. Built: schema.md's
 [owners table](plans/schema.md#who-writes-each-table) names one writing package per table;
-library writes `file` and identify files through it; identify writes `artwork` and the artwork
-service records through it (artwork already imports identify, so identify could not call it);
+library writes `file` and identify files through it; the artwork service writes `artwork` and
+owns the image vocabulary, and identify, which finds an item's images, reports them for the
+server's wiring to hand to it: neither package imports the other, and a refresh's request to look
+at images again, and artwork's recheck of a missing image, cross through the wiring too, until
+D231 §4 makes a refresh a stored fact (the owner, 2026-09-30: *"Wouldn't the artwork service be
+responsible for the artwork stuff? Identify would make use of it."*);
 `TestArch_EachTableHasOneWritingPackage` maps each query file's writes to the packages calling
 them, by type-checking, and fails on a second writer.
 

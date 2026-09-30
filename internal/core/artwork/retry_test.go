@@ -4,17 +4,15 @@ package artwork
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // failingFetcher is a source whose image server fails with err, counting the calls.
@@ -33,35 +31,21 @@ func (source *failingFetcher) Fetch(context.Context, string) (Unsanitised, error
 func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
-	queue := &jobstest.Queue{}
-	bench.service.parts.Queue = queue
-	gone := owedRef{Kind: identify.ArtPoster, SourceRef: "/gone.jpg"}
+	gone := Ref{Kind: library.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)
-	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetchMetadata || (*queue)[0].ItemID != bench.itemID ||
-		!(*queue)[0].RunnableAt.Equal(bench.service.parts.Clock.Now().Add(12*time.Hour)) {
-		t.Fatalf("queued %+v; want the item's record refreshed once, twelve hours on", *queue)
-	}
-	var args struct {
-		IsRefresh         bool `json:"isRefresh"`
-		ShouldRetryImages bool `json:"shouldRetryImages"`
-	}
-	if err := json.Unmarshal([]byte((*queue)[0].ArgsJSON), &args); err != nil || !args.IsRefresh ||
-		!args.ShouldRetryImages {
-		t.Errorf("the recheck's args %s (%v)", (*queue)[0].ArgsJSON, err)
+	want := []recheck{{itemID: bench.itemID, at: bench.service.parts.Clock.Now().Add(12 * time.Hour)}}
+	if !slices.EqualFunc(bench.rechecks.asked, want, func(a, b recheck) bool {
+		return a.itemID == b.itemID && a.at.Equal(b.at)
+	}) {
+		t.Fatalf("rechecks %+v; want the item's record refreshed once, twelve hours on", bench.rechecks.asked)
 	}
 	// The recheck's refresh asks for the images again: it removes the rows it left.
-	err := bench.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		return queries.RetryItemArtwork(t.Context(), sqlcgen.RetryItemArtworkParams{
-			RemovedAt: new(int64(1)), ItemID: bench.itemID,
-		})
-	})
-	if err != nil {
+	if err := bench.service.RetryImages(t.Context(), bench.itemID); err != nil {
 		t.Fatal(err)
 	}
-	*queue = nil
 	bench.handle(t, gone)
-	if len(*queue) != 0 {
-		t.Errorf("queued %+v after the second miss; want it given up", *queue)
+	if len(bench.rechecks.asked) != 1 {
+		t.Errorf("rechecks %+v after the second miss; want it given up", bench.rechecks.asked)
 	}
 	if rows := bench.rows(t); len(rows) != 1 || rows[0].SourceSha256 != nil {
 		t.Errorf("rows %+v; want the miss held, so no pass asks for it again", rows)
@@ -77,7 +61,7 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 	if !isFake {
 		t.Fatal("the bench's clock is not a fake")
 	}
-	job := bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"})
+	job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/p.jpg"})
 	for range breakAfterFailures {
 		err := bench.service.Handle(t.Context(), job)
 		var wait *jobs.RetryAtError
@@ -107,7 +91,7 @@ func TestService_ARateLimitWaitsWithoutCostingAnAttempt(t *testing.T) {
 	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{
 		err: &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute},
 	}
-	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"}))
+	err := bench.service.Handle(t.Context(), bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/p.jpg"}))
 	if wait, isWait := errors.AsType[*jobs.RetryAtError](err); !isWait ||
 		!wait.At.Equal(bench.service.parts.Clock.Now().Add(time.Minute)) {
 		t.Errorf("a 429: %v; want a wait of a minute", err)

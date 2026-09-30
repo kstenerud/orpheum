@@ -943,7 +943,8 @@ get cancelled; `fetch_queue` was the first of what would have become four.
 
 Each table has one writing package: the one package whose code calls the table's `INSERT`,
 `UPDATE` and `DELETE` queries. Any other package that changes the table asks that package, through
-a function that takes the caller's transaction (`library.FileAs`, `identify.RecordImage`), so
+a function that takes the caller's transaction (`library.FileAs`) or hands it what it found
+(identify's report of an item's images, which the server's wiring gives `artwork.Service.Take`), so
 the rules a table's rows keep live in one place (the architecture map's F5, decided 2026-09-30).
 `TestArch_EachTableHasOneWritingPackage` reads this table and the queries' callers and fails on a
 second writer, or on a writer this table does not name. A table no package writes yet says
@@ -951,7 +952,7 @@ second writer, or on a writer this table does not name. A table no package write
 
 | Table | Database | Writing package | Notes |
 | --- | --- | --- | --- |
-| `artwork` | library.db | `internal/core/identify` | the artwork service records what it stored through `identify.RecordImage` |
+| `artwork` | library.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
 | `collection` | library.db | `internal/core/identify` | |
 | `collection_member` | library.db | `internal/core/identify` | |
 | `device` | library.db | `internal/core/auth` | |

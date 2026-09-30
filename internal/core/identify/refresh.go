@@ -230,23 +230,28 @@ func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneRespons
 	return nil
 }
 
+// ImageRetrier makes items' missing and refused images owed again, for their re-derivation to
+// find (D213 §1, §2): the artwork service, which writes the artwork table and which the server's
+// wiring hands in through SetImageRetrier, so this package never imports it. D231 §4 replaces
+// this seam: a person's refresh becomes a stored fact, requested-at and whether to fetch images
+// again, that the work is derived from.
+type ImageRetrier interface {
+	RetryImages(ctx context.Context, itemIDs ...int64) error
+}
+
+// SetImageRetrier sets what a refresh that asks for images again calls. Until it is set, a
+// refresh asks for no image again. Set it before any job runs.
+func (matcher *Matcher) SetImageRetrier(retrier ImageRetrier) {
+	matcher.imageRetrier = retrier
+}
+
 // retryImages makes an item's missing and refused images owed again, for its re-derivation to
 // report (D213 §1, §2).
 func (matcher *Matcher) retryImages(ctx context.Context, itemIDs ...int64) error {
-	now := matcher.clock.Now().UnixMilli()
-	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		for _, itemID := range itemIDs {
-			err := queries.RetryItemArtwork(ctx, sqlcgen.RetryItemArtworkParams{RemovedAt: &now, ItemID: itemID})
-			if err != nil {
-				return err //nolint:wrapcheck // wrapped below
-			}
-		}
+	if matcher.imageRetrier == nil {
 		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("ask again for the images of %v: %w", itemIDs, err)
 	}
-	return nil
+	return matcher.imageRetrier.RetryImages(ctx, itemIDs...) //nolint:wrapcheck // the artwork service's, wrapped there
 }
 
 func (matcher *Matcher) retrySeriesImages(ctx context.Context, seriesID int64) error {
@@ -287,6 +292,20 @@ func NewRefresher(
 	logger *slog.Logger,
 ) *Refresher {
 	return &Refresher{database: database, queue: queue, settings: refreshSettings, clock: clockSource, logger: logger}
+}
+
+// Recheck queues an item's refresh at a time, with the images it is missing asked for again: the
+// one look the artwork service takes at an image its source said was missing (D213 §1). The
+// server's wiring hands the refresher to the artwork service for it.
+func (refresher *Refresher) Recheck(ctx context.Context, itemID int64, at time.Time) error {
+	job, err := RefreshJob(itemID, "an image it names is missing; its record is looked at again once", at, true, 0)
+	if err != nil {
+		return err
+	}
+	if _, err = refresher.queue.Enqueue(ctx, job); err != nil {
+		return fmt.Errorf("queue item %d's recheck: %w", itemID, err)
+	}
+	return nil
 }
 
 // Request queues a person's refresh of a title or series, with its missing images asked for

@@ -28,11 +28,11 @@ type titleSpec struct {
 	tagline        string
 	ids            map[string]string
 	lockedFields   []string
-	artwork        []ArtRef // the images its source names
-	source         string   // "nfo", "none", a provider's name, or "" while a provider match is pending
-	sourceID       string   // the title's id at its source, when its ids do not say (an episode's)
-	identification string   // identified or unidentified
-	reason         string   // why a file is unidentified
+	artwork        []ImageRef // the images its source names
+	source         string     // "nfo", "none", a provider's name, or "" while a provider match is pending
+	sourceID       string     // the title's id at its source, when its ids do not say (an episode's)
+	identification string     // identified or unidentified
+	reason         string     // why a file is unidentified
 }
 
 // fromNFO takes an NFO as the title's source: its values over the path's, and its locked fields
@@ -253,9 +253,7 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 	if err != nil {
 		return titleResolution{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
-	if owedErr := filer.oweArtwork(ctx, titleID, spec.source, spec.artwork); owedErr != nil {
-		return titleResolution{}, owedErr
-	}
+	filer.reportImages(titleID, spec.source, spec.artwork)
 	identification, err := store.OrNotFound(filer.queries.GetTitleIdentification(ctx, titleID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return titleResolution{}, fmt.Errorf("read title %d's identification: %w", titleID, err)

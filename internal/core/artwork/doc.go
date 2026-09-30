@@ -3,13 +3,24 @@
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under
 // content-addressed names in the cache directory, recording each in the item's artwork rows in
-// library.db through identify.RecordImage, since identify writes that table. It serves them: a
-// stored size as it is, JPEG cut from the WebP of its size, and a size not made by redirecting to
-// the nearest one there. It is the one core package that decodes an image
+// library.db. It owns the image vocabulary and is the artwork table's one writer: identify finds
+// the images an item's source names and those beside the media and reports them, and the
+// server's wiring hands them to Take (identify and artwork never import each other). It serves
+// them: a stored size as it is, JPEG cut from the WebP of its size, and a size not made by
+// redirecting to the nearest one there. It is the one core package that decodes an image
 // (D212 §5; the depguard rule core-no-image).
 //
 // # Invariants
 //
+//   - This package writes the artwork table and nothing else does; it imports no identify, which
+//     reaches it only through the server's wiring. TestArch_EachTableHasOneWritingPackage; the
+//     import, review.
+//   - Of the images a pass or a match found, what an item holds, stored or refused, is not asked
+//     for again; a rematch retires the earlier work's images and a pass the images no longer
+//     beside the media, never a person's choice (D212, D215 §1, D223 §9).
+//     TestTake_QueuesOnlyTheImagesTheItemDoesNotHold, TestTake_QueuesOneJobPerItemThatFetchesWhatItNames,
+//     TestTake_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks,
+//     TestTake_AnImageNoLongerBesideTheMediaIsRetired.
 //   - The artwork store takes bytes from one place: the node's answer to an artwork command
 //     (D212 §8). A download is an Unsanitised value whose bytes only the node command reads.
 //     TestService_StoresOnlyTheNodesAnswer.
@@ -37,7 +48,8 @@
 //     first, then the source the library prefers (D215).
 //     TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders.
 //   - A missing image is looked into once: its record is refreshed after the CDN stops answering
-//     from its cached 404, and a second miss gives it up (D213 §1).
+//     from its cached 404, and a second miss gives it up (D213 §1). The refresh is asked of the
+//     Rechecker the wiring hands in, identify's refresher.
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
 //   - A host that fails five times in a row is left alone, probed once per step of
 //     RetrySchedule; a rate limit waits without costing an attempt (D213 §5).
@@ -61,7 +73,8 @@
 //
 // # Where to change
 //
-//   - source.go: the unsanitised download and the fetcher interface; service.go: the queue's
+//   - images.go: the image vocabulary, what a pass found (Take), and every write to the artwork
+//     table; source.go: the unsanitised download and the fetcher interface; service.go: the queue's
 //     jobs, the node command and its answer, and the store; serve.go: answering a request;
 //     retry.go: the host's breaker, the retry schedule and the recheck of a missing image;
 //     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.

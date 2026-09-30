@@ -231,9 +231,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	if err != nil {
 		return err
 	}
-	if err := filer.oweArtwork(ctx, seriesID, source, own.artwork); err != nil {
-		return err
-	}
+	filer.reportImages(seriesID, source, own.artwork)
 	if known && isSeriesMatched(seriesMatchRow) {
 		seasons, err := seasonsToFetch(ctx, filer.queries, provider, seriesID)
 		if err != nil {
@@ -250,7 +248,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 type seriesSourceValues struct {
 	values  map[string]string
 	source  string
-	artwork []ArtRef
+	artwork []ImageRef
 }
 
 // seriesValues are a series' own values and their source: a person's chosen match over all;

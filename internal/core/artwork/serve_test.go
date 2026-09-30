@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -25,7 +25,7 @@ func (bench *bench) storePoster(t *testing.T, source []byte, sizes ...nodeproto.
 		}
 		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
-	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
+	bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
 	return Received(source).sourceSha256Hex()
 }
 
