@@ -110,7 +110,7 @@ loop to work:**
   - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - `[node]`: `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
     `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
-    (200), `prepared_kept_after_play_h` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
+    (200), `prepared_kept_after_play_hours` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
     renditions within D217 §5's budget.
   - `[log]`: `level`, `format` (`text` or `json`)
 

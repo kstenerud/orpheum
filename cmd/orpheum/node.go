@@ -217,7 +217,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
 		MaxBytes:             config.Node.PreparedBudgetGiB << 30,
-		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
+		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayHours) * time.Hour,
 		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
