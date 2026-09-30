@@ -19,3 +19,16 @@ func TestBCP47_NormalisesEveryFormItMeets(t *testing.T) {
 		}
 	}
 }
+
+func TestIsWellFormed_AcceptsBCP47sShapeOnly(t *testing.T) {
+	t.Parallel()
+	for tag, want := range map[string]bool{
+		"en": true, "pt-BR": true, "zh-Hant-TW": true, "en-x-foo": true, "de-1996": true,
+		"": false, "e": false, "english": false, "en-": false, "en-toolongsub": false, "en;rm": false,
+		"en_GB": false,
+	} {
+		if got := langtag.IsWellFormed(tag); got != want {
+			t.Errorf("IsWellFormed(%q) = %t, want %t", tag, got, want)
+		}
+	}
+}
