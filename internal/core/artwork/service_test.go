@@ -135,22 +135,8 @@ func (art memoryStore) HasArt(sourceSha256Hex, name string) (bool, error) {
 	return found, nil
 }
 
-// fakeRechecker records the rechecks asked for: each item, and when.
-type fakeRechecker struct{ asked []recheck }
-
-type recheck struct {
-	itemID int64
-	at     time.Time
-}
-
-func (rechecker *fakeRechecker) Recheck(_ context.Context, itemID int64, at time.Time) error {
-	rechecker.asked = append(rechecker.asked, recheck{itemID: itemID, at: at})
-	return nil
-}
-
 type bench struct {
 	service  *Service
-	rechecks *fakeRechecker
 	database *store.Database
 	node     *fakeNode
 	art      memoryStore
@@ -175,9 +161,8 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	art := memoryStore{}
 	config := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
-	rechecks := &fakeRechecker{}
 	service := NewService(Parts{
-		Database: database, Queue: &jobstest.Queue{}, Rechecker: rechecks, Nodes: node, ArtFiles: art,
+		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
 		Cache:    storetest.OpenCache(t),
 		Settings: config,
 		Fetchers: map[string]Fetcher{"tmdb": images},
@@ -186,7 +171,7 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	})
 	node.service = service
 	return &bench{
-		service: service, rechecks: rechecks, database: database, node: node, art: art, itemID: itemID,
+		service: service, database: database, node: node, art: art, itemID: itemID,
 		settings: config, clock: fakeClock,
 	}
 }

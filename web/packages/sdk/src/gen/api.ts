@@ -1082,6 +1082,7 @@ export interface components {
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
             episodes: components["schemas"]["EpisodeBody"][] | null;
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
             /** Format: int64 */
             id: number;
             identificationState?: string;
@@ -1091,6 +1092,11 @@ export interface components {
             libraryId: number;
             name: string;
             overview?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
             /** Format: int64 */
             year?: number;
         };
@@ -1309,6 +1315,12 @@ export interface components {
             id: number;
             name: string;
         };
+        FetchFailureBody: {
+            /** Format: int64 */
+            failedAt: number;
+            /** @description What the provider or the job said */
+            failure: string;
+        };
         FetchSubtitleInputBody: {
             language: string;
             /** Format: int64 */
@@ -1461,6 +1473,7 @@ export interface components {
             secret: string;
         };
         ItemBody: {
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
             /** @description Where its own values come from: nfo, tmdb, or none */
             followedSource?: string;
             /** @description Its id at its provider */
@@ -1474,6 +1487,11 @@ export interface components {
             /** Format: int64 */
             libraryId: number;
             name: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
             /** Format: int64 */
             year?: number;
         };
@@ -1481,6 +1499,7 @@ export interface components {
             art: components["schemas"]["ArtBody"];
             episode?: components["schemas"]["EpisodePlaceBody"];
             extras: components["schemas"]["ExtraBody"][] | null;
+            fetchFailure?: components["schemas"]["FetchFailureBody"];
             followedSource?: string;
             /** Format: int64 */
             id: number;
@@ -1491,6 +1510,11 @@ export interface components {
             libraryId: number;
             name: string;
             overview?: string;
+            /**
+             * Format: int64
+             * @description When a person asked for it to be refreshed, while no fetch has answered yet
+             */
+            refreshRequestedAt?: number;
             /** Format: int64 */
             runtimeMs?: number;
             tagline?: string;

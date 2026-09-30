@@ -331,6 +331,9 @@
               "null"
             ]
           },
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -353,6 +356,11 @@
           },
           "overview": {
             "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
           },
           "year": {
             "format": "int64",
@@ -1021,6 +1029,24 @@
         ],
         "type": "object"
       },
+      "FetchFailureBody": {
+        "additionalProperties": false,
+        "properties": {
+          "failedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "failure": {
+            "description": "What the provider or the job said",
+            "type": "string"
+          }
+        },
+        "required": [
+          "failure",
+          "failedAt"
+        ],
+        "type": "object"
+      },
       "FetchSubtitleInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1501,6 +1527,9 @@
       "ItemBody": {
         "additionalProperties": false,
         "properties": {
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
           "followedSource": {
             "description": "Where its own values come from: nfo, tmdb, or none",
             "type": "string"
@@ -1538,6 +1567,11 @@
           "name": {
             "type": "string"
           },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
+          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -1570,6 +1604,9 @@
               "null"
             ]
           },
+          "fetchFailure": {
+            "$ref": "#/components/schemas/FetchFailureBody"
+          },
           "followedSource": {
             "type": "string"
           },
@@ -1597,6 +1634,11 @@
           },
           "overview": {
             "type": "string"
+          },
+          "refreshRequestedAt": {
+            "description": "When a person asked for it to be refreshed, while no fetch has answered yet",
+            "format": "int64",
+            "type": "integer"
           },
           "runtimeMs": {
             "format": "int64",

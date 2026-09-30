@@ -96,12 +96,6 @@ func TestEnqueue_QueuesATargetOnceWhileItIsOpen(t *testing.T) {
 	}); err != nil || !added {
 		t.Errorf("a finished job's subject could not be queued again: %v", err)
 	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetchMetadata, Target{ItemID: 7}); err != nil || !ever {
-		t.Errorf("EverQueued forgot subject 7: %v", err)
-	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetchMetadata, Target{ItemID: 8}); err != nil || ever {
-		t.Errorf("EverQueued claims subject 8, never queued: %v", err)
-	}
 }
 
 func TestRunDue_RunsTheHighestPriorityFirst(t *testing.T) {

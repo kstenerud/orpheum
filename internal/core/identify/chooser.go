@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -70,6 +71,35 @@ type ItemSummary struct {
 	IdentificationState string
 	FollowedSource      string
 	FollowedSourceID    string
+	// FetchFailure is why its last fetch failed through its own fault, and when; nil when it did
+	// not. A person's refresh, "try again", clears it (D231 §4).
+	FetchFailure *FetchFailure
+	// RefreshRequestedAt is when a person asked for it to be refreshed, while no fetch has
+	// answered yet; zero when nobody is waiting.
+	RefreshRequestedAt time.Time
+}
+
+// FetchFailure is an item's own failure to be fetched: what the provider or the job said, and
+// when.
+type FetchFailure struct {
+	Failure  string
+	FailedAt time.Time
+}
+
+// fetchFailureOf is a failure as a list's row has it, or nil.
+func fetchFailureOf(failure *string, failedAt *int64) *FetchFailure {
+	if failure == nil {
+		return nil
+	}
+	return &FetchFailure{Failure: *failure, FailedAt: time.UnixMilli(ptr.ValueOrZero(failedAt))}
+}
+
+// requestedAtOf is a refresh request's time as a list's row has it, or zero.
+func requestedAtOf(requestedAt *int64) time.Time {
+	if requestedAt == nil {
+		return time.Time{}
+	}
+	return time.UnixMilli(*requestedAt)
 }
 
 // Items lists the titles and series in one state of identification, by name.
@@ -88,16 +118,20 @@ func (chooser *Chooser) Items(ctx context.Context, identification string) ([]Ite
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: row.IdentificationState,
-			FollowedSource:   ptr.ValueOrZero(row.FollowedSource),
-			FollowedSourceID: ptr.ValueOrZero(row.FollowedSourceID),
+			FollowedSource:     ptr.ValueOrZero(row.FollowedSource),
+			FollowedSourceID:   ptr.ValueOrZero(row.FollowedSourceID),
+			FetchFailure:       fetchFailureOf(row.FetchFailure, row.FetchFailedAt),
+			RefreshRequestedAt: requestedAtOf(row.RefreshRequestedAt),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-			FollowedSource:   ptr.ValueOrZero(row.FollowedSource),
-			FollowedSourceID: ptr.ValueOrZero(row.FollowedSourceID),
+			FollowedSource:     ptr.ValueOrZero(row.FollowedSource),
+			FollowedSourceID:   ptr.ValueOrZero(row.FollowedSourceID),
+			FetchFailure:       fetchFailureOf(row.FetchFailure, row.FetchFailedAt),
+			RefreshRequestedAt: requestedAtOf(row.RefreshRequestedAt),
 		})
 	}
 	slices.SortStableFunc(items, func(a, b ItemSummary) int {
@@ -195,7 +229,8 @@ func (chooser *Chooser) searchAgain(ctx context.Context, item target) ([]Candida
 }
 
 // Choose matches a film or series to a work a person chose: fetched, stored and permanent, over
-// any NFO and every later pass (D172, D209). The candidates are no longer needed.
+// any NFO and every later pass (D172, D209). The candidates are no longer needed, and the item's
+// own failure to be fetched, and a refresh it answers, are settled (D231 §4).
 func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, providerID string) error {
 	item, err := chooser.readTarget(ctx, itemID)
 	if err != nil {
@@ -214,6 +249,9 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 		err = chooser.matcher.accept(ctx, provider, item.title, providerID, identificationConfirmed)
 	}
 	if err != nil {
+		return err
+	}
+	if err := chooser.matcher.settle(ctx, itemID, chooser.matcher.clock.Now().UnixMilli()); err != nil {
 		return err
 	}
 	return chooser.dropCandidates(ctx, itemID)

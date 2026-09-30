@@ -7,8 +7,10 @@
 // open for its kind and target, retries with jittered back-off, snoozes without spending an
 // attempt, parks the work of a destination that is down and probes it (D231 §5, §6), cancels,
 // returns what a stop left running, refuses a job past its attempt limit, and recovers from a
-// panic in a handler. internal/core/jobs is Orpheum's use of it: the kinds, their targets and
-// handlers, and its destinations.
+// panic in a handler. Work is derived by sweeps from the program's own state, so the queue is a
+// cache of what that state implies (D231 §3); a job that fails is recorded by its kind as its
+// item's own failure (§4, §10). internal/core/jobs is Orpheum's use of it: the kinds, their
+// targets and handlers, and its destinations.
 //
 // # Invariants
 //
@@ -65,6 +67,22 @@
 //   - A cancelled queued job never runs; a running one's context ends with ErrCancelled; either
 //     stays cancelled whatever its handler answers after.
 //     TestCancel_AQueuedJobNeverRunsAndARunningOnesContextEndsWithErrCancelled.
+//   - A sweep derives work again from the program's state: a job lost, cancelled or never queued
+//     is queued by the next sweep, and one already queued merges (D231 §3, §9).
+//     TestSweep_WorkLostFromTheQueueIsDerivedAgainAndARepeatMerges.
+//   - Sweeping runs every sweep at start, each again when its interval has passed, those asked
+//     for, and every one when a destination comes back.
+//     TestSweeping_RunsEverySweepAtOnceThenEachOnItsTimerAndWhenAskedOrADestinationReturns.
+//   - A request a sweep derived looks at no parked destination, whatever its priority.
+//     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce.
+//   - A job that fails is recorded by its kind's FailureRecorder as its item's own failure: at its
+//     attempt limit, on a permanent answer, or refused at its claim; a parked or cancelled job is
+//     not (D231 §4, §10). TestRunDue_AJobThatFailsRecordsItsItemsFailureAndOneThatParksOrIsCancelledDoesNot.
+//   - What became of a finished job is no fact a program derives work from: the storage lists the
+//     newest jobs for a person and the open ones for a cancel, and nothing else (D231 §3).
+//     TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory.
+//   - CancelWhere cancels the open work of what a program retires, and Forget drops its parked
+//     destination (D231 §7). TestCancelWhere_CancelsTheOpenWorkOfWhatIsRetiredAndForgetDropsItsDestination.
 //   - Time comes from a clock.Clock and jitter from the Random a queue is given, so every wait is
 //     testable. Enforced by the forbidigo rule tagged [clock]; the tests use clocktest and
 //     jobqueuetest.Random.
@@ -74,6 +92,7 @@
 // # Read before changing
 //
 //   - D231 §2, §8, §10: our own queue, generic; one job per target, merged; jittered back-off.
+//   - D231 §3, §4, §9: work derived by sweeps; an item's failure a fact; cancel stops a run.
 //   - D231 §5, §6: destinations, what counts as down, parking and probing.
 //   - D233 §6: a panic is the tool's failure, and a claim checks the attempt count.
 //   - D170: provider rate limits and back-off.
@@ -84,7 +103,8 @@
 //   - job.go: the kinds, states, requests, jobs and rows. storage.go: what a storage keeps and
 //     what a claim passes over. answers.go: what a handler can answer. queue.go: enqueue and its
 //     merge, cancel, progress, the listing. runner.go: claiming, probing, running and recording
-//     each outcome. destination.go: parked destinations, their probes and their state.
+//     each outcome, and a kind's failure recorder. destination.go: parked destinations, their
+//     probes and their state. sweep.go: the sweeps, and cancelling what is retired.
 //     backoff.go: the back-off and its jitter.
 //   - internal/store/jobs.go: the storage on cache.db. jobqueuetest: the storage in memory.
 package jobqueue

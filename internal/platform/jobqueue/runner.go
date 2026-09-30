@@ -21,6 +21,8 @@ type Runner[T comparable] struct {
 	kind          Kind
 	handler       Handler[T]
 	retrySchedule []time.Duration
+	// recordFailure records a job's failure as its item's own, when the kind gives one.
+	recordFailure FailureRecorder[T]
 	// unrecorded is an outcome the storage failed to write, written before anything is claimed.
 	unrecorded *Outcome
 	// wake is this runner's own wake-up, left there when a job of its kind is queued.
@@ -37,6 +39,18 @@ func (queue *Queue[T]) NewRunner(kind Kind, handler Handler[T]) *Runner[T] {
 // as the back-off's is.
 func (runner *Runner[T]) WithRetrySchedule(retrySchedule []time.Duration) *Runner[T] {
 	runner.retrySchedule = retrySchedule
+	return runner
+}
+
+// FailureRecorder records that a job failed as its item's own failure, a fact in the program's
+// state that its sweep passes over and a person may clear (D231 §4, §10), with what the job's last
+// attempt said: the attempt limit reached, a permanent answer, or a claim past the limit. A
+// destination's being down is never one: that job parked.
+type FailureRecorder[T comparable] func(ctx context.Context, job Job[T], failure string) error
+
+// WithFailureRecorder has the runner's kind record each failed job as its item's own failure.
+func (runner *Runner[T]) WithFailureRecorder(record FailureRecorder[T]) *Runner[T] {
+	runner.recordFailure = record
 	return runner
 }
 
@@ -178,12 +192,21 @@ func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed cla
 		runner.queue.logger.WarnContext(ctx, "a job reached its attempt limit when claimed", "kind", job.Kind,
 			"target", job.Target, "attemptLimit", attemptLimit)
 		runner.endProbes(ctx, claimed.probesOf, nil)
+		runner.recordItemsFailure(ctx, job, refusal)
 		return runner.record(ctx, Outcome{
 			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber - 1,
 			LastFailure: refusal,
 		})
 	}
-	answer := runner.handle(ctx, job, claimed)
+	isCancelled, answer := runner.handle(ctx, job, claimed)
+	if isCancelled {
+		// Cancelled: it stays so whatever it answered, and a cancel is no failure of its item.
+		runner.endProbes(ctx, claimed.probesOf, answer)
+		return runner.record(ctx, Outcome{
+			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber,
+			LastFailure: errorText(answer),
+		})
+	}
 	if runner.queue.isStorageFailure(answer) {
 		answer = Park(Parking{Destination: runner.queue.storageDestination, Reason: storageReason(answer)}, answer)
 	}
@@ -213,9 +236,12 @@ func (runner *Runner[T]) endProbes(ctx context.Context, probesOf []Destination, 
 // handle runs one job's handler in a context a cancel ends (Queue.Cancel), which says it is a
 // job's (IsInJob) and which destination it probes (ProbeOf). A panic in the handler is recovered
 // and answered as the tool's failure (D233 §6), so one job cannot bring the program down.
-func (runner *Runner[T]) handle(ctx context.Context, job Job[T], claimed claimedRow[T]) (answer error) {
+func (runner *Runner[T]) handle(
+	ctx context.Context, job Job[T], claimed claimedRow[T],
+) (isCancelled bool, answer error) {
 	jobCtx, stop := context.WithCancelCause(context.WithValue(ctx, jobContextKey{}, true))
 	defer stop(nil)
+	defer func() { isCancelled = errors.Is(context.Cause(jobCtx), ErrCancelled) }()
 	if destination := claimed.row.Destination; slices.Contains(claimed.probesOf, destination) {
 		jobCtx = context.WithValue(jobCtx, probeContextKey{}, destination)
 	}
@@ -228,7 +254,15 @@ func (runner *Runner[T]) handle(ctx context.Context, job Job[T], claimed claimed
 			answer = &toolError{err: &PanicError{Value: recovered}, isPanic: true}
 		}
 	}()
-	return runner.handler(jobCtx, job)
+	return false, runner.handler(jobCtx, job)
+}
+
+// errorText is an answer's words, or "" for none.
+func errorText(answer error) string {
+	if answer == nil {
+		return ""
+	}
+	return answer.Error()
 }
 
 // finish records a job's outcome from its handler's answer. A job parked on a destination is
@@ -311,8 +345,9 @@ func (runner *Runner[T]) wait(ctx context.Context, job Job[T], outcome Outcome, 
 	return runner.record(ctx, outcome)
 }
 
-// fail ends a job as failed, with why.
+// fail ends a job as failed, with why, and records it as its item's own failure.
 func (runner *Runner[T]) fail(ctx context.Context, job Job[T], why string) error {
+	runner.recordItemsFailure(ctx, job, why)
 	return runner.record(ctx, Outcome{
 		ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber, LastFailure: why,
 	})
@@ -331,4 +366,17 @@ func (runner *Runner[T]) record(ctx context.Context, outcome Outcome) error {
 		return fmt.Errorf("record job %d's outcome: %w", outcome.ID, err)
 	}
 	return nil
+}
+
+// recordItemsFailure records a failed job as its item's own failure, when the kind records one. A
+// failure to record it is logged, and the job still fails: the fact not written, its sweep derives
+// the work again, and it is recorded when that fails.
+func (runner *Runner[T]) recordItemsFailure(ctx context.Context, job Job[T], why string) {
+	if runner.recordFailure == nil {
+		return
+	}
+	if err := runner.recordFailure(ctx, job, why); err != nil {
+		runner.queue.logger.ErrorContext(ctx, "could not record a job's failure as its item's", "kind", job.Kind,
+			"target", job.Target, "err", err)
+	}
 }

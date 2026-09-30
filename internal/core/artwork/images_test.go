@@ -146,3 +146,111 @@ func TestTake_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
 		t.Errorf("with poster.jpg gone: %v live, want %v: the person's choice, the poster retired", live, want)
 	}
 }
+
+// inLibrary puts the bench item in a new library taking its data as metadataSource, with a node
+// holding its root at /m, and returns the node and library.
+func (bench *bench) inLibrary(t *testing.T, metadataSource string) (nodeID, libraryID int64) {
+	t.Helper()
+	nodeID, libraryID = librarytest.NodeWithLibrary(t, bench.database,
+		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: metadataSource, Root: "/m"})
+	storetest.ExecRaw(t, bench.database.Path(),
+		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
+	return nodeID, libraryID
+}
+
+func TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		metadataSource string
+		want           []Ref
+	}{
+		{"nfo_then_tmdb", []Ref{{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"}}},
+		{"tmdb", []Ref{
+			{Kind: library.ArtPoster, SourceRef: "/poster.jpg"}, {Kind: library.ArtBackdrop, SourceRef: "/back.jpg"},
+		}},
+	} {
+		t.Run(tc.metadataSource, func(t *testing.T) {
+			t.Parallel()
+			bench := newBench(t, fakeFetcher{})
+			queue := &jobstest.Queue{}
+			bench.service.parts.Queue = queue
+			_, libraryID := bench.inLibrary(t, tc.metadataSource)
+			poster := LocalImage{
+				ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 1, ModifiedAtMs: 1,
+			}
+			beside := &LocalImages{LibraryID: libraryID, Images: []LocalImage{poster}}
+			named := []ItemImages{{ItemID: bench.itemID, Source: "tmdb", Refs: []Ref{
+				{Kind: library.ArtPoster, SourceRef: "/poster.jpg"},
+				{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"},
+			}}}
+			// A pass finds the poster beside the film, and TMDB's poster and backdrop named.
+			bench.service.Take(t.Context(), Found{BesideTheMedia: beside, Named: named})
+			if got := queuedRefs(t, queue)["tmdb"]; !slices.Equal(got, tc.want) {
+				t.Errorf("after a pass, TMDB images owed %+v, want %+v: a poster that would never show is not "+
+					"fetched (D215)", got, tc.want)
+			}
+			// A match names them again, and finds no image beside the film of its own.
+			*queue = nil
+			bench.service.Take(t.Context(), Found{Named: named})
+			if got := queuedRefs(t, queue)["tmdb"]; !slices.Equal(got, tc.want) {
+				t.Errorf("after a match, TMDB images owed %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTake_ARefusedImageBesideTheMediaIsOwedAgainOnceAScanHasSeenItsFile(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	queue := &jobstest.Queue{}
+	bench.service.parts.Queue = queue
+	nodeID, libraryID := bench.inLibrary(t, "nfo")
+	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
+		"INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at) "+
+			"VALUES (40, %d, %d, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 'attached', 1, 1000)",
+		libraryID, nodeID))
+	poster := LocalImage{ItemID: bench.itemID, Kind: library.ArtPoster, FileID: 40, SizeBytes: 1, ModifiedAtMs: 1}
+	ref := localRef(poster)
+	// The node could not read it at 2000: its disk was away, though no scan had found so yet.
+	bench.insert(t, sqlcgen.InsertArtworkParams{
+		Kind: library.ArtPoster, Source: SourceLocal, SourceRef: &ref, RefusedAt: new(int64(2000)),
+		Refusal: new("the node refused it: no such file"),
+	})
+	found := Found{BesideTheMedia: &LocalImages{LibraryID: libraryID, Images: []LocalImage{poster}}}
+	bench.service.Take(t.Context(), found)
+	if len(*queue) != 0 {
+		t.Fatalf("queued %+v; want the refusal held until a scan sees the file again", *queue)
+	}
+	storetest.ExecRaw(t, bench.database.Path(), "UPDATE file SET last_seen_at = 3000 WHERE id = 40")
+	bench.service.Take(t.Context(), found)
+	if got := queuedRefs(t, queue)[SourceLocal]; !slices.Equal(got, []Ref{{Kind: library.ArtPoster, SourceRef: ref}}) {
+		t.Errorf("queued %+v once a scan saw the file again; want the poster asked for once more (G9)", got)
+	}
+	if rows := bench.rows(t); len(rows) != 0 {
+		t.Errorf("rows %+v; want the stale refusal retired", rows)
+	}
+}
+
+func TestRecordFailure_AnArtworkJobThatGaveUpHoldsItsImagesAsRefusedWithWhy(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	stored := Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"}
+	failed := Ref{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"}
+	bench.insert(t, sqlcgen.InsertArtworkParams{
+		Kind: stored.Kind, Source: "tmdb", SourceRef: &stored.SourceRef, SourceSha256: []byte{1},
+	})
+	if err := bench.service.RecordFailure(t.Context(), bench.job(stored, failed), "status 500"); err != nil {
+		t.Fatal(err)
+	}
+	rows := bench.rows(t)
+	var refused []sqlcgen.ListLiveArtworkRow
+	for _, row := range rows {
+		if row.SourceSha256 == nil {
+			refused = append(refused, row)
+		}
+	}
+	if len(rows) != 2 || len(refused) != 1 || refused[0].Kind != library.ArtBackdrop ||
+		refused[0].RefusedAt == nil || *refused[0].RefusedAt != bench.clock.Now().UnixMilli() {
+		t.Errorf("rows %+v; want the backdrop held as refused, when it was given up (D231 section 10)", rows)
+	}
+}

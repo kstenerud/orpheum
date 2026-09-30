@@ -37,14 +37,6 @@ type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 }
 
-// Rechecker has an item's record refreshed at a time, with the images it is missing asked for
-// again (D213 §1): identify's refresh, which the server's wiring hands in, so this package never
-// imports identify. D231 §4 replaces this seam: a refresh becomes a stored fact, requested-at and
-// whether to fetch images again, that a sweep derives the work from.
-type Rechecker interface {
-	Recheck(ctx context.Context, itemID int64, at time.Time) error
-}
-
 // Nodes is the node channel (nodes.Service): the node to send work to, and its command queue,
 // which parks a job on a node that is not connected (D231 §11).
 type Nodes interface {
@@ -71,16 +63,15 @@ type Settings interface {
 
 // Parts are what the service is built from.
 type Parts struct {
-	Database  *store.Database
-	Queue     Queue
-	Rechecker Rechecker
-	Nodes     Nodes
-	ArtFiles  ArtFiles
-	Cache     *store.Cache // when each image was last served
-	Settings  Settings
-	Fetchers  map[string]Fetcher // by source: "tmdb"
-	Clock     clock.Clock
-	Logger    *slog.Logger
+	Database *store.Database
+	Queue    Queue
+	Nodes    Nodes
+	ArtFiles ArtFiles
+	Cache    *store.Cache // when each image was last served
+	Settings Settings
+	Fetchers map[string]Fetcher // by source: "tmdb"
+	Clock    clock.Clock
+	Logger   *slog.Logger
 	// AnswerWait is how long a job waits for the node's answer; two minutes when zero.
 	AnswerWait time.Duration
 }
@@ -91,6 +82,7 @@ type Service struct {
 
 	answers  *nodes.AnswerRouter[nodeproto.ArtworkResult]
 	holdings *holdings
+	beside   *besideTheMedia
 }
 
 // NewService returns the service.
@@ -100,7 +92,7 @@ func NewService(parts Parts) *Service {
 	}
 	return &Service{
 		parts: parts, answers: nodes.NewAnswerRouter[nodeproto.ArtworkResult](parts.Logger, "an artwork answer"),
-		holdings: newHoldings(),
+		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
 	}
 }
 
@@ -206,7 +198,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 		var download Unsanitised
 		download, err = service.fetch(ctx, fetcher, want.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
-			return service.recordMissing(ctx, fetcher, want, err)
+			return service.recordMissing(ctx, want, err)
 		}
 		if err == nil {
 			command.SourceImage, sourceSha256Hex = download.bytes, download.sourceSha256Hex()
@@ -339,7 +331,7 @@ func (service *Service) keep(
 	if err := service.noteCannotMake(ctx, sourceSha256Hex, sizesTooLarge(shape, result.Images)); err != nil {
 		return err
 	}
-	return service.record(ctx, want, sourceSha256)
+	return service.record(ctx, want, sourceSha256, nil)
 }
 
 // storableImages is what of the node's answer may be stored: sizes asked for, in WebP. It says why
@@ -366,12 +358,39 @@ func isWebP(image []byte) bool {
 	return len(image) > 12 && bytes.Equal(image[:4], []byte("RIFF")) && bytes.Equal(image[8:12], []byte("WEBP"))
 }
 
-// recordRefusal records an image that could not be stored, so it is not fetched again; an older image
-// of the kind stays shown.
+// recordRefusal records an image that could not be stored, with why and when, so it is not
+// fetched again until a person's refresh asks (D231 §4); an older image of the kind stays shown.
 func (service *Service) recordRefusal(ctx context.Context, want wantedImage, why string) error {
 	service.parts.Logger.WarnContext(ctx, "an image was not stored", "itemId", want.itemID,
 		"source", want.source, "sourceRef", want.ref.SourceRef, "reason", why)
-	return service.record(ctx, want, nil)
+	return service.record(ctx, want, nil, &refusal{why: why})
+}
+
+// RecordFailure records a make_artwork_sizes job that failed as its images' own failure (D231 §4,
+// §10): each image it named that its item does not hold is recorded as refused, with why, so the
+// sweep does not ask for it again until a person's refresh does. A job making sizes on request
+// records nothing: the next request asks again.
+func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
+	var args artworkJobArgs
+	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil || len(args.SizeNames) > 0 {
+		return nil //nolint:nilerr // arguments that cannot be read name no image to record
+	}
+	for _, ref := range args.Refs {
+		want := wantedImage{jobID: job.ID, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
+		if _, known := shapeOf(ref.Kind); !known {
+			continue
+		}
+		held, err := service.isHeld(ctx, want)
+		if err != nil {
+			return err
+		}
+		if !held {
+			if err := service.recordRefusal(ctx, want, "given up: "+failure); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // shapeOf is the shape an artwork kind is cut to.

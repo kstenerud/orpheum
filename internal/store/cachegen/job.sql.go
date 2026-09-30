@@ -137,6 +137,60 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 	return id, err
 }
 
+const listEveryOpenJob = `-- name: ListEveryOpenJob :many
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
+FROM job
+WHERE state IN ('queued', 'running')
+ORDER BY id
+`
+
+// Every queued and running job: what a retire action looks through for the work it cancels
+// (D231 section 7).
+func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryOpenJob)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Job{}
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.ItemID,
+			&i.RenditionID,
+			&i.StreamID,
+			&i.FetchedSubtitleID,
+			&i.FileID,
+			&i.ArgsJSON,
+			&i.Priority,
+			&i.State,
+			&i.Destination,
+			&i.RunnableAt,
+			&i.IsSnoozed,
+			&i.AttemptCount,
+			&i.LastAttemptToolFailed,
+			&i.ProgressFraction,
+			&i.Reason,
+			&i.LastFailure,
+			&i.CreatedAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listJobs = `-- name: ListJobs :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
@@ -384,36 +438,4 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 		&i.FinishedAt,
 	)
 	return i, err
-}
-
-const wasJobEverQueued = `-- name: WasJobEverQueued :one
-SELECT EXISTS (
-  SELECT 1 FROM job WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
-  AND fetched_subtitle_id IS ?5 AND file_id IS ?6
-) AS found
-`
-
-type WasJobEverQueuedParams struct {
-	Kind              string
-	ItemID            *int64
-	RenditionID       *int64
-	StreamID          *int64
-	FetchedSubtitleID *int64
-	FileID            *int64
-}
-
-// Whether any job of this kind was ever queued for this target: a first fetch happens once
-// (D170), and a later one is a person's request.
-func (q *Queries) WasJobEverQueued(ctx context.Context, arg WasJobEverQueuedParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, wasJobEverQueued,
-		arg.Kind,
-		arg.ItemID,
-		arg.RenditionID,
-		arg.StreamID,
-		arg.FetchedSubtitleID,
-		arg.FileID,
-	)
-	var found bool
-	err := row.Scan(&found)
-	return found, err
 }

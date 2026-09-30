@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -71,7 +73,9 @@ type Found struct {
 func (service *Service) Take(ctx context.Context, found Found) {
 	named := found.Named
 	if found.BesideTheMedia != nil {
-		named = append(slices.Clone(named), localItemImages(found.BesideTheMedia.Images)...)
+		local := localItemImages(found.BesideTheMedia.Images)
+		service.beside.keep(found.BesideTheMedia.LibraryID, local)
+		named = append(slices.Clone(named), local...)
 	}
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return service.retireUnnamed(ctx, queries, found)
@@ -156,8 +160,10 @@ func retireAllBut(ctx context.Context, queries *sqlcgen.Queries, kept ItemImages
 }
 
 // owed is, of the images each item's source names, those its artwork does not hold: new ones,
-// and ones the source changed. One the node refused is held, with no hash, and not asked for
-// again.
+// and ones the source changed. One that could not be stored is held, with no hash, and not asked
+// for again, except an image beside the media that a scan has seen since, whose disk may have
+// been away (G9). In a library that shows an image beside the media first, a provider's image of
+// a kind beside the item's media is not owed: it would never show (D215).
 func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemImages, error) {
 	var owed []ItemImages
 	for _, item := range named {
@@ -165,9 +171,20 @@ func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemIma
 		if err != nil {
 			return nil, fmt.Errorf("list item %d's artwork: %w", item.ItemID, err)
 		}
+		localKinds, err := service.kindsShownFromBesideTheMedia(ctx, item, rows)
+		if err != nil {
+			return nil, err
+		}
 		var missing []Ref
 		for _, ref := range item.Refs {
-			if !holds(rows, item.Source, ref) {
+			if slices.Contains(localKinds, ref.Kind) {
+				continue
+			}
+			isOwed, err := service.isOwed(ctx, rows, item.Source, ref)
+			if err != nil {
+				return nil, err
+			}
+			if isOwed {
 				missing = append(missing, ref)
 			}
 		}
@@ -178,6 +195,101 @@ func (service *Service) owed(ctx context.Context, named []ItemImages) ([]ItemIma
 	return owed, nil
 }
 
+// isOwed is whether an image a source names is owed: not held, stored or refused, or refused
+// beside the media before a scan saw its file again, whose stale refusal is retired so the image
+// is asked for once more.
+func (service *Service) isOwed(
+	ctx context.Context, rows []sqlcgen.ListLiveArtworkRow, source string, ref Ref,
+) (bool, error) {
+	index := slices.IndexFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
+		return row.Kind == ref.Kind && row.Source == source && row.SourceRef != nil && *row.SourceRef == ref.SourceRef
+	})
+	if index < 0 {
+		return true, nil
+	}
+	refused := rows[index]
+	if source != SourceLocal || refused.SourceSha256 != nil || refused.RefusedAt == nil {
+		return false, nil
+	}
+	fileID, _ := localRefFileID(ref.SourceRef)
+	lastSeenAt, err := store.OrNotFound(service.parts.Database.Read().GetFileLastSeenAt(ctx, fileID))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && lastSeenAt <= *refused.RefusedAt) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read file %d: %w", fileID, err)
+	}
+	now := service.parts.Clock.Now().UnixMilli()
+	err = service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.RetireArtworkRow(ctx, sqlcgen.RetireArtworkRowParams{RemovedAt: &now, ID: refused.ID})
+	})
+	if err != nil {
+		return false, fmt.Errorf("ask again for item's %s beside the media: %w", ref.Kind, err)
+	}
+	return true, nil
+}
+
+// kindsShownFromBesideTheMedia are the kinds of image an item shows from beside its media rather
+// than from its provider, when its source is a provider and its library prefers the images
+// beside the media: those the last pass found there, and those stored from there.
+func (service *Service) kindsShownFromBesideTheMedia(
+	ctx context.Context, item ItemImages, rows []sqlcgen.ListLiveArtworkRow,
+) ([]string, error) {
+	if item.Source == SourceLocal {
+		return nil, nil
+	}
+	metadataSource, err := store.OrNotFound(service.parts.Database.Read().GetItemLibraryMetadataSource(ctx,
+		item.ItemID))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !library.PrefersImagesBesideTheMedia(metadataSource)) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read item %d's library: %w", item.ItemID, err)
+	}
+	kinds := service.beside.kindsOf(item.ItemID)
+	for _, row := range rows {
+		if row.Source == SourceLocal && row.SourceSha256 != nil && !slices.Contains(kinds, row.Kind) {
+			kinds = append(kinds, row.Kind)
+		}
+	}
+	return kinds, nil
+}
+
+// besideTheMedia is, per library, the kinds of image the last pass found beside each item's
+// media: what a match, which finds no local images of its own, reads to know which of a
+// provider's images would never show. Held in memory: the sweep's pass at start fills it.
+type besideTheMedia struct {
+	mutex                sync.Mutex
+	kindsByItemByLibrary map[int64]map[int64][]string // guarded by mutex
+}
+
+// keep replaces a library's local kinds with what a pass found.
+func (beside *besideTheMedia) keep(libraryID int64, found []ItemImages) {
+	kindsByItem := map[int64][]string{}
+	for _, item := range found {
+		for _, ref := range item.Refs {
+			if !slices.Contains(kindsByItem[item.ItemID], ref.Kind) {
+				kindsByItem[item.ItemID] = append(kindsByItem[item.ItemID], ref.Kind)
+			}
+		}
+	}
+	beside.mutex.Lock()
+	defer beside.mutex.Unlock()
+	beside.kindsByItemByLibrary[libraryID] = kindsByItem
+}
+
+// kindsOf are the kinds of image the last pass found beside an item's media.
+func (beside *besideTheMedia) kindsOf(itemID int64) []string {
+	beside.mutex.Lock()
+	defer beside.mutex.Unlock()
+	for _, kindsByItem := range beside.kindsByItemByLibrary {
+		if kinds, found := kindsByItem[itemID]; found {
+			return slices.Clone(kinds)
+		}
+	}
+	return nil
+}
+
 // holds reports whether an item's live artwork has an image, stored or refused.
 func holds(rows []sqlcgen.ListLiveArtworkRow, source string, ref Ref) bool {
 	return slices.ContainsFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
@@ -185,12 +297,28 @@ func holds(rows []sqlcgen.ListLiveArtworkRow, source string, ref Ref) bool {
 	})
 }
 
-// record records an item's image: stored, or, with no hash, refused, so it is not fetched again
-// (D213 §1). A stored image retires the source's earlier one of its kind, never a person's
-// choice, so an older image stays shown only until a newer one is stored. An item removed since
-// it was queued records nothing.
-func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte) error {
+// refusal is why an image could not be stored, and whether its source said it was not there.
+type refusal struct {
+	why               string
+	isMissingAtSource bool
+}
+
+// record records an item's image: stored, or, with no hash, refused, with why and when, so it is
+// not fetched again (D213 §1, D231 §4). A stored image retires the source's earlier one of its
+// kind, never a person's choice, so an older image stays shown only until a newer one is stored.
+// An item removed since it was queued records nothing.
+func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte, refused *refusal) error {
 	now := service.parts.Clock.Now().UnixMilli()
+	insert := sqlcgen.InsertArtworkParams{
+		ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
+		SourceSha256: sourceSha256,
+	}
+	if refused != nil {
+		insert.RefusedAt, insert.Refusal = &now, &refused.why
+		if refused.isMissingAtSource {
+			insert.IsMissingAtSource = 1
+		}
+	}
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, err := store.OrNotFound(queries.GetItemKind(ctx, want.itemID))
 		if errors.Is(err, store.ErrNotFound) {
@@ -199,10 +327,7 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 		if err != nil {
 			return fmt.Errorf("read item %d: %w", want.itemID, err)
 		}
-		id, err := queries.InsertArtwork(ctx, sqlcgen.InsertArtworkParams{
-			ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
-			SourceSha256: sourceSha256,
-		})
+		id, err := queries.InsertArtwork(ctx, insert)
 		if err != nil || sourceSha256 == nil {
 			return err
 		}

@@ -97,6 +97,29 @@ func (pass *Pass) sorter(ctx context.Context) (*textindex.Sorter, error) {
 	return sorter, nil
 }
 
+// IdentifyAll identifies every live library again, as a scan's pass does: the sweep that derives,
+// from library.db alone, the season listings and the images each item's sources name, which the
+// pass's report hands on (D231 §3). A library that fails is logged, and the others still run; it
+// says how many passes ran.
+func (pass *Pass) IdentifyAll(ctx context.Context) (int, error) {
+	libraryIDs, err := pass.database.Read().ListLiveLibraryIDs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list the libraries: %w", err)
+	}
+	passed := 0
+	for _, libraryID := range libraryIDs {
+		if _, err := pass.IdentifyLibrary(ctx, libraryID); err != nil {
+			if ctx.Err() != nil {
+				return passed, fmt.Errorf("identify library %d: %w", libraryID, ctx.Err())
+			}
+			pass.logger.ErrorContext(ctx, "a library's pass failed", "libraryId", libraryID, "err", err)
+			continue
+		}
+		passed++
+	}
+	return passed, nil
+}
+
 // IdentifyLibrary identifies every video in a library, in one transaction.
 func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report, error) {
 	var report Report

@@ -297,3 +297,23 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 		t.Errorf("once the root came back, the measurement = %+v; want it run once, to FFmpeg's answer", job)
 	}
 }
+
+func TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	service := harness.server.dependencies.Load().Playback
+	job := jobs.Job{ID: 91, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
+	if err := service.RecordMeasurementFailure(t.Context(), job, "node 1 refused five times"); err != nil {
+		t.Fatal(err)
+	}
+	if files := harness.filesToMeasure(t); !slices.Equal(files, []int64{2}) {
+		t.Errorf("the sweep finds %v to measure; want only file 2, file 1's failure kept (D231 section 10)", files)
+	}
+	rows, err := harness.database.Read().ListLoudnessOfPayload(t.Context(), []byte{0x0a, 0x0b})
+	if err != nil || len(rows) != 1 || rows[0].Failure == nil ||
+		!strings.Contains(*rows[0].Failure, "refused five times") {
+		t.Errorf("file 1's loudness %+v (%v); want its failure and why", rows, err)
+	}
+}

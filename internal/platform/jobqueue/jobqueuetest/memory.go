@@ -203,13 +203,17 @@ func (memory *Memory[T]) List(_ context.Context, limit int64) ([]jobqueue.Row[T]
 	return rows[:min(int64(len(rows)), limit)], nil
 }
 
-// EverQueued is whether any job of kind was queued for target.
-func (memory *Memory[T]) EverQueued(_ context.Context, kind jobqueue.Kind, target T) (bool, error) {
+// ListOpen is every queued and running job, oldest first.
+func (memory *Memory[T]) ListOpen(context.Context) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
-	return slices.ContainsFunc(memory.rows, func(row jobqueue.Row[T]) bool {
-		return row.Kind == kind && row.Target == target
-	}), nil
+	var open []jobqueue.Row[T]
+	for _, row := range memory.rows {
+		if row.State == jobqueue.StateQueued || row.State == jobqueue.StateRunning {
+			open = append(open, row)
+		}
+	}
+	return open, nil
 }
 
 // find is the row with id, or nil. The caller holds the mutex.

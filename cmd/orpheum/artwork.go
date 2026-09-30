@@ -18,7 +18,7 @@ import (
 // fetches what is owed from TMDB's image server, and takes the node's answers, which are the
 // artwork store's one way in. The two packages never import each other: here identify's report
 // is handed to the service, the service is what a refresh asks to look at images again, and the
-// refresher is what the service asks for a recheck.
+// rechecks it says are due are what the refresh sweep queues (jobServices.sweeps).
 func newArtwork(
 	ctx context.Context, opened openedServices, directories *datadir.Directories,
 	imageBaseURL string, logger *slog.Logger,
@@ -26,8 +26,7 @@ func newArtwork(
 	httpClient := opened.jobServices.outboundClient
 	images := tmdb.NewImageFetcher(httpClient, imageBaseURL, opened.jobServices.providerServices.tmdbImages)
 	service := artwork.NewService(artwork.Parts{
-		Database: opened.database, Queue: opened.jobServices.queue, Rechecker: opened.jobServices.refresher,
-		Nodes: opened.nodes, ArtFiles: directories,
+		Database: opened.database, Queue: opened.jobServices.queue, Nodes: opened.nodes, ArtFiles: directories,
 		Cache:    opened.cache,
 		Settings: opened.settings,
 		Fetchers: map[string]artwork.Fetcher{"tmdb": images},

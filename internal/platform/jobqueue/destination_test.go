@@ -148,6 +148,14 @@ func TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce(t *testing.T) {
 	if len(fake.ran) != 1 {
 		t.Fatalf("ran %q; a request below a person's priority must not probe", fake.ran)
 	}
+	// A sweep deriving a person's request again, at their priority, is no one waiting now.
+	jobs.enqueue(t, jobqueue.Request[target]{
+		Kind: kindFetch, Target: "derived", Priority: 20, IsDerived: true,
+		Destination: host,
+	})
+	if state, _ := jobs.queue.DestinationState(host); !state.NextProbeAt.After(jobs.clock.Now()) {
+		t.Fatalf("after a sweep's request, the next probe is at %v; want it left on its back-off", state.NextProbeAt)
+	}
 	fake.isDown = false
 	// A person's repeat request for the parked job: it names no destination; its job's is used.
 	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "background", Priority: 20})
@@ -155,7 +163,7 @@ func TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce(t *testing.T) {
 		t.Fatalf("after a person's request, the next probe is at %v; want now", state.NextProbeAt)
 	}
 	jobs.runDue(t, runner)
-	if want := []target{"background", "background", "another"}; !slices.Equal(fake.ran, want) {
+	if want := []target{"background", "background", "derived", "another"}; !slices.Equal(fake.ran, want) {
 		t.Errorf("ran %q; want the person's job as the probe at once, then the rest", fake.ran)
 	}
 }

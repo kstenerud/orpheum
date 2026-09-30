@@ -3,7 +3,8 @@
 // Package identify matches titles to provider metadata: the filename parser, NFO read, the TMDB
 // client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. An
 // ambiguous match is never guessed. A fetched response is stored and never refetched except by a
-// person or the rolling refresh (D213); re-deriving a title reads only stored input.
+// person or the rolling refresh (D213); re-deriving a title reads only stored input. What it owes
+// a provider is derived from library.db by its sweeps, never read from job history (D231 §3).
 //
 // # Invariants
 //
@@ -93,16 +94,30 @@
 //     TestPass_ReportsTheImagesAMatchNamesOnEveryPass, TestChoose_ARematchReportsTheNewWorksImages.
 //   - Images beside the media are matched to their film, series or episode by Kodi's and
 //     Jellyfin's names and found in every library at once, and each pass reports all it found, so
-//     one no longer found goes; where the library reads NFO files the provider's image of a kind
-//     beside the media is not fetched, and in a TMDB-only library it is, to replace it (D215).
+//     one no longer found goes; every image a provider names is reported, and which are owed where
+//     the library prefers the images beside the media is the artwork service's to say (D215).
 //     TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames,
 //     TestPass_AnImageNoLongerBesideTheMediaIsNoLongerReported,
-//     TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched,
-//     TestPass_ATMDBOnlyLibraryStillFetchesTheProvidersImageToReplaceTheOneBesideTheMedia.
-//   - A person's refresh, and the artwork service's recheck of a missing image, ask for the
-//     item's missing images again through the ImageRetrier the wiring sets (D213 §1, §2).
+//     TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia.
+//   - A person's refresh, and the recheck of a missing image, ask for the item's missing images
+//     again through the ImageRetrier the wiring sets (D213 §1, §2); a recheck is queued by the
+//     refresh sweep from the artwork's refusal, never held as a job dated ahead (D231 §3).
 //     TestRefresh_ARefreshThatLooksAgainAsksForTheItemsImagesAgain,
-//     TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime.
+//     TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainDerivedBySweep.
+//   - A film or series is owed its first match until it has an answer: matched, "not found", or
+//     a failure of its own; each sweep queues it again whatever became of an earlier job, so one
+//     lost with cache.db, cancelled, or parked while its host was down is not lost (D231 §3,
+//     replacing D170's "once per item"). The pass reports the same, from the same queries.
+//     TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsLost.
+//   - A fetch that fails through the item's own fault, its last attempt included, is a fact in
+//     library.db (fetch_failure) with its reason and time: the sweeps pass the item over, the
+//     identification list and its page show it, and a person's refresh, "try again", clears it,
+//     as a fetch that succeeds does (D231 §4, §10).
+//     TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh.
+//   - A person's refresh is a fact (refresh_request), not a job: the refresh sweep queues it until
+//     a fetch that read it succeeds or fails, and whichever fetch of the item runs does what it
+//     asked, images included, so a request lost with cache.db or merged into a rolling refresh
+//     still happens (D231 §4). TestHandle_APersonsRefreshIsAFactWhicheverFetchRunsDoesAndAnswers.
 //   - A refresh fetches the source an item follows again — a series with each season it keeps,
 //     an episode through its series — takes the provider's values under a person's overrides, and
 //     keeps our copy of an item the provider dropped (D213 §2, §4).
@@ -110,8 +125,8 @@
 //     TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy,
 //     TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps.
 //   - The rolling refresh queues an item once its data is older than its provider's setting,
-//     somewhere in the period's last quarter by its id, never with the setting at 0; a person's
-//     refresh is queued whenever asked (D213 §3).
+//     somewhere in the period's last quarter by its id, never with the setting at 0, and never an
+//     item with a failure of its own; a person's refresh is queued whenever asked (D213 §3).
 //     TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod.
 //
 // # Read before changing
@@ -123,6 +138,8 @@
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
 //   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
+//   - D231 §3, §4: work derived from library.db by sweeps; an item's own failure and a person's
+//     refresh are facts, not job rows.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.
 //
@@ -137,8 +154,8 @@
 //     it found, for the artwork service; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
-//     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and
-//     the rolling refresh.
+//     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh, the
+//     rolling refresh, and the fetch sweeps (first matches, requests, rechecks).
 //   - chooser.go: what a person does — list, choose, override. The TMDB client is
 //     internal/core/providers/tmdb.
 //   - identifytest/: the fake TMDB that this package's tests and the API's share. The tests that

@@ -30,11 +30,10 @@ type LocalImages struct {
 	Images    []LocalImage
 }
 
-// reportImages reports the images an item's source names. Where the library prefers images
-// beside the media, the kinds found there are left out: those are not fetched (D215 §1). An NFO
-// names none of its own, and an item with no source has none.
+// reportImages reports the images an item's source names, every one: which are owed, where the
+// library prefers images beside the media, is the artwork service's to say, for a pass and a
+// match alike (D215 §1). An NFO names none of its own, and an item with no source has none.
 func (filer *libraryFiler) reportImages(itemID int64, source string, refs []ImageRef) {
-	refs = filer.withoutLocalKinds(itemID, refs)
 	if len(refs) == 0 || source == "" || source == sourceNFO || source == sourceNone {
 		return
 	}

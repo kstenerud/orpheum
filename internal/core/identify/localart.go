@@ -164,24 +164,3 @@ func seriesFolderOf(episodePath string) string {
 	}
 	return folder
 }
-
-// withoutLocalKinds drops the provider's images of the kinds an item has beside it, where the
-// library prefers images beside the media: those are not fetched. A TMDB-only library fetches
-// them, to replace what is beside the media (D215 §1).
-func (filer *libraryFiler) withoutLocalKinds(itemID int64, refs []ImageRef) []ImageRef {
-	local := filer.localArt[itemID]
-	if len(local) == 0 || filer.library.MetadataSource == sourceTMDB {
-		return refs
-	}
-	var kept []ImageRef
-	for _, ref := range refs {
-		covered := false
-		for _, have := range local {
-			covered = covered || have.Kind == ref.Kind
-		}
-		if !covered {
-			kept = append(kept, ref)
-		}
-	}
-	return kept
-}

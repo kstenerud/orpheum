@@ -218,17 +218,17 @@ func (jobStorage *JobStorage) List(ctx context.Context, limit int64) ([]jobqueue
 	return listed, nil
 }
 
-// EverQueued is whether a job of kind was ever queued for target.
-func (jobStorage *JobStorage) EverQueued(ctx context.Context, kind jobqueue.Kind, target JobTarget) (bool, error) {
-	columns := target.columns()
-	found, err := jobStorage.cache.Read().WasJobEverQueued(ctx, cachegen.WasJobEverQueuedParams{
-		Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
-		FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-	})
+// ListOpen is every queued and running job.
+func (jobStorage *JobStorage) ListOpen(ctx context.Context) ([]jobqueue.Row[JobTarget], error) {
+	rows, err := jobStorage.cache.Read().ListEveryOpenJob(ctx)
 	if err != nil {
-		return false, fmt.Errorf("look for a %s job for %+v: %w", kind, target, err)
+		return nil, fmt.Errorf("list the open jobs: %w", err)
 	}
-	return found, nil
+	listed := make([]jobqueue.Row[JobTarget], 0, len(rows))
+	for _, row := range rows {
+		listed = append(listed, jobRow(row))
+	}
+	return listed, nil
 }
 
 // jobTargetColumns are a target as the job table holds it: NULL where unset.

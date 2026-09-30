@@ -22,3 +22,14 @@ const (
 	ArtLogo     = "logo"
 	ArtStill    = "still"
 )
+
+// MetadataSourceTMDB is a library that takes its data from TMDB only; the others take NFO files
+// first, or only (D184).
+const MetadataSourceTMDB = "tmdb"
+
+// PrefersImagesBesideTheMedia is whether a library shows an image beside the media over its
+// provider's of the same kind: every library but one that takes TMDB only (D215 §1), as
+// ListShownArtwork orders them.
+func PrefersImagesBesideTheMedia(metadataSource string) bool {
+	return metadataSource != MetadataSourceTMDB
+}

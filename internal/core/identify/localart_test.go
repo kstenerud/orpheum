@@ -93,25 +93,7 @@ func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T)
 	}
 }
 
-func TestPass_ATMDBOnlyLibraryStillFetchesTheProvidersImageToReplaceTheOneBesideTheMedia(t *testing.T) {
-	t.Parallel()
-	lib := newTestLibrary(t, "movies", "tmdb")
-	film := heat
-	film.Artwork = []identify.ImageRef{{Kind: library.ArtPoster, Ref: "/p.jpg"}}
-	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
-	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
-	lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
-	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
-		t.Fatalf("outcome %s", outcome)
-	}
-	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
-	titleID := lib.titlesByPath()[rel].TitleID
-	if tmdb := namedKinds(report, "tmdb")[titleID]; !slices.Equal(tmdb, []string{library.ArtPoster}) {
-		t.Errorf("TMDB names %v; a TMDB-only library fetches its poster to replace the one beside the film", tmdb)
-	}
-}
-
-func TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched(t *testing.T) {
+func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
 	film := heat
@@ -126,8 +108,11 @@ func TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched(t *testing.T) {
 	}
 	report := lib.scan(videoRecord(rel), imageRecord("Metropolis (1995)/poster.jpg"))
 	titleID := lib.titlesByPath()[rel].TitleID
-	if tmdb := namedKinds(report, "tmdb")[titleID]; !slices.Equal(tmdb, []string{library.ArtBackdrop}) {
-		t.Errorf("TMDB names %v; want only the backdrop, since a poster sits beside the film (D215 §1)", tmdb)
+	// Which of them is owed, the library's preference says, and the artwork service decides for a
+	// pass and a match alike (TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed).
+	tmdb := namedKinds(report, "tmdb")[titleID]
+	if !slices.Equal(tmdb, []string{library.ArtBackdrop, library.ArtPoster}) {
+		t.Errorf("TMDB names %v; want its poster and backdrop, reported as they are", tmdb)
 	}
 	if local := localKinds(report)[titleID]; !slices.Equal(local, []string{library.ArtPoster}) {
 		t.Errorf("beside it found %v, want the poster", local)

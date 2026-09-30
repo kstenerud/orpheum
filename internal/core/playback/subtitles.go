@@ -358,6 +358,37 @@ func nonNil(text []byte) []byte {
 	return text
 }
 
+// RecordSubtitleFailure records an extract_subtitle or convert_fetched_subtitle job that failed as
+// its track's own failure (D231 §4, §10): the playback shows it failed, and the next play of its
+// video asks again, a play being the request.
+func (service *Service) RecordSubtitleFailure(ctx context.Context, job jobs.Job, failure string) error {
+	var key sqlcgen.GetSubtitleTextParams
+	switch job.Kind {
+	case jobs.KindExtractSubtitle:
+		stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
+		if errors.Is(err, store.ErrNotFound) || (err == nil && stream.PayloadHash == nil) {
+			return nil // its file was scanned again or is gone
+		}
+		if err != nil {
+			return fmt.Errorf("read stream %d: %w", job.StreamID, err)
+		}
+		key = textKey(stream.PayloadHash, stream.StreamIndex)
+	case jobs.KindConvertFetchedSubtitle:
+		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
+		if errors.Is(err, store.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
+		}
+		key = fetchedKey(fetched.BodyGzip)
+	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindPrepare, jobs.KindMeasureLoudness,
+		jobs.KindScan, jobs.KindBackup:
+		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
+	}
+	return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: "given up: " + failure})
+}
+
 // TakeSubtitleText takes a node's answer to an extract_subtitle command to the job waiting for it.
 func (service *Service) TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
 	service.subtitleTextAnswers.Deliver(ctx, nodeID, answer.JobID, answer)

@@ -10,13 +10,14 @@ VALUES (sqlc.arg(kind), sqlc.arg(item_id), sqlc.arg(rendition_id), sqlc.arg(stre
         sqlc.arg(destination), sqlc.arg(created_at))
 RETURNING id;
 
--- name: WasJobEverQueued :one
--- Whether any job of this kind was ever queued for this target: a first fetch happens once
--- (D170), and a later one is a person's request.
-SELECT EXISTS (
-  SELECT 1 FROM job WHERE kind = sqlc.arg(kind) AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
-  AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
-) AS found;
+-- name: ListEveryOpenJob :many
+-- Every queued and running job: what a retire action looks through for the work it cancels
+-- (D231 section 7).
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
+FROM job
+WHERE state IN ('queued', 'running')
+ORDER BY id;
 
 -- name: ListOpenJobs :many
 -- The queued and running jobs of this kind for this target: at most one of each (D231 section 8).

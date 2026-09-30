@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -53,9 +54,9 @@ const FetchDestination = jobs.DestinationTMDBAPI
 // A refresh behind a queued refresh asks for the images again if either does. A match and a
 // refresh do different things (a refresh fetches again only what is stored, and a match fetches
 // a season listing a new episode needs), so one never folds into the other: the queued job keeps
-// its own arguments, as before the merge existed, until D231 §4 makes a refresh a fact of its
-// own. A running fetch covers a request of its own mode that asks for no images it does not; any
-// other request is queued to follow it.
+// its own arguments. A person's refresh is a fact the job reads when it runs (refresh_request,
+// D231 §4), so whichever job runs does what they asked. A running fetch covers a request of its
+// own mode that asks for no images it does not; any other request is queued to follow it.
 func FetchArgsMerge() jobs.ArgsMerge {
 	return jobs.ArgsMerge{
 		Merge: func(queued, requested string) (string, error) {
@@ -286,9 +287,8 @@ func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneRespons
 
 // ImageRetrier makes items' missing and refused images owed again, for their re-derivation to
 // find (D213 §1, §2): the artwork service, which writes the artwork table and which the server's
-// wiring hands in through SetImageRetrier, so this package never imports it. D231 §4 replaces
-// this seam: a person's refresh becomes a stored fact, requested-at and whether to fetch images
-// again, that the work is derived from.
+// wiring hands in through SetImageRetrier, so this package never imports it. A refresh asks it
+// when its job's arguments or the person's stored request (refresh_request) say to.
 type ImageRetrier interface {
 	RetryImages(ctx context.Context, itemIDs ...int64) error
 }
@@ -325,8 +325,9 @@ type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 }
 
-// Refresher queues refreshes: a person's, of one title or series whenever they like, and the
-// rolling refresh of every item whose data is older than its provider's setting (D213 §2, §3).
+// Refresher queues fetches: a person's refresh, of one title or series whenever they like, the
+// rolling refresh of every item whose data is older than its provider's setting (D213 §2, §3),
+// and, as the fetch sweeps, what library.db says is owed (D231 §3).
 type Refresher struct {
 	database *store.Database
 	queue    Queue
@@ -348,22 +349,10 @@ func NewRefresher(
 	return &Refresher{database: database, queue: queue, settings: refreshSettings, clock: clockSource, logger: logger}
 }
 
-// Recheck queues an item's refresh at a time, with the images it is missing asked for again: the
-// one look the artwork service takes at an image its source said was missing (D213 §1). The
-// server's wiring hands the refresher to the artwork service for it.
-func (refresher *Refresher) Recheck(ctx context.Context, itemID int64, at time.Time) error {
-	job, err := RefreshJob(itemID, "an image it names is missing; its record is looked at again once", at, true, 0)
-	if err != nil {
-		return err
-	}
-	if _, err = refresher.queue.Enqueue(ctx, job); err != nil {
-		return fmt.Errorf("queue item %d's recheck: %w", itemID, err)
-	}
-	return nil
-}
-
-// Request queues a person's refresh of a title or series, with its missing images asked for
-// again, and reports whether one was queued rather than already waiting.
+// Request records a person's refresh of a title or series, with its missing images asked for
+// again, clearing a failure of its own ("try again"), and queues its fetch at their priority; it
+// reports whether a job was queued rather than one already waiting. The request is a fact the
+// refresh sweep queues again until a fetch answers it (D231 §4), so it outlives cache.db.
 func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, error) {
 	if _, err := store.OrNotFound(refresher.database.Read().GetItemKind(ctx, itemID)); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -371,7 +360,22 @@ func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, er
 		}
 		return false, fmt.Errorf("read item %d: %w", itemID, err)
 	}
-	job, err := RefreshJob(itemID, "a person asked for it to be refreshed", time.Time{}, true, personRefreshPriority)
+	err := refresher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if clearErr := queries.ClearFetchFailure(ctx, itemID); clearErr != nil {
+			return fmt.Errorf("clear its failure: %w", clearErr)
+		}
+		requestErr := queries.RequestRefresh(ctx, sqlcgen.RequestRefreshParams{
+			ItemID: itemID, RequestedAt: refresher.clock.Now().UnixMilli(), ShouldFetchImages: 1,
+		})
+		if requestErr != nil {
+			return fmt.Errorf("keep the request: %w", requestErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("record item %d's refresh: %w", itemID, err)
+	}
+	job, err := RefreshJob(itemID, personsRefreshReason, time.Time{}, true, personRefreshPriority)
 	if err != nil {
 		return false, err
 	}
@@ -380,6 +384,108 @@ func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, er
 		return false, fmt.Errorf("queue item %d's refresh: %w", itemID, err)
 	}
 	return queued, nil
+}
+
+// personsRefreshReason is why a person's refresh is queued, as the job view says it.
+const personsRefreshReason = "a person asked for it to be refreshed"
+
+// QueueRequested queues the fetch of every live item a person asked to refresh that no fetch has
+// answered yet, at their priority (D231 §4): the refresh sweep. It says how many it queued.
+func (refresher *Refresher) QueueRequested(ctx context.Context) (int, error) {
+	requests, err := refresher.database.Read().ListRefreshRequests(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list the refreshes people asked for: %w", err)
+	}
+	queued := 0
+	for _, request := range requests {
+		job, err := RefreshJob(request.ItemID, personsRefreshReason, time.Time{}, request.ShouldFetchImages != 0,
+			personRefreshPriority)
+		if err != nil {
+			return queued, err
+		}
+		added, err := refresher.enqueueDerived(ctx, job)
+		if err != nil {
+			return queued, err
+		}
+		queued += added
+	}
+	return queued, nil
+}
+
+// FirstMatchJob is the fetch_metadata job that matches a film or series no source has answered
+// for yet (D170).
+func FirstMatchJob(itemID int64) jobs.Request {
+	return jobs.Request{
+		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID}, Destination: FetchDestination,
+		Reason: "the first match for a newly identified title or series",
+	}
+}
+
+// QueueFirstMatches queues the first match of every film and series in a library matched at a
+// provider that has no answer yet: not matched, not "not found", and no failure of its own. The
+// match is owed until then, however often an earlier job for it was lost (D231 §3, which
+// replaces D170's "once per item"). It says how many it queued.
+func (refresher *Refresher) QueueFirstMatches(ctx context.Context) (int, error) {
+	queries := refresher.database.Read()
+	libraryIDs, err := queries.ListFetchedLibraryIDs(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list the libraries matched at a provider: %w", err)
+	}
+	queued := 0
+	for _, libraryID := range libraryIDs {
+		films, err := queries.ListTitlesAwaitingMatch(ctx, &libraryID)
+		if err != nil {
+			return queued, fmt.Errorf("list library %d's films awaiting a match: %w", libraryID, err)
+		}
+		series, err := queries.ListSeriesAwaitingMatch(ctx, &libraryID)
+		if err != nil {
+			return queued, fmt.Errorf("list library %d's series awaiting a match: %w", libraryID, err)
+		}
+		for _, itemID := range slices.Concat(films, series) {
+			added, err := refresher.enqueueDerived(ctx, FirstMatchJob(itemID))
+			if err != nil {
+				return queued, err
+			}
+			queued += added
+		}
+	}
+	return queued, nil
+}
+
+// RecheckReason is why a recheck of a missing image is queued, as the job view says it.
+const RecheckReason = "an image it names is missing; its record is looked at again once"
+
+// QueueRechecks queues the refresh of each item with an image its source said was missing and
+// that is due its one recheck (D213 §1), with the images it is missing asked for again: derived
+// from the artwork's refusal, which the artwork service reads (DueRechecks), never held as a job
+// dated ahead (D231 §3). It says how many it queued.
+func (refresher *Refresher) QueueRechecks(ctx context.Context, itemIDs []int64) (int, error) {
+	queued := 0
+	for _, itemID := range itemIDs {
+		job, err := RefreshJob(itemID, RecheckReason, time.Time{}, true, 0)
+		if err != nil {
+			return queued, err
+		}
+		added, err := refresher.enqueueDerived(ctx, job)
+		if err != nil {
+			return queued, err
+		}
+		queued += added
+	}
+	return queued, nil
+}
+
+// enqueueDerived queues a job a sweep derived, and says whether it added one (1) or merged (0).
+func (refresher *Refresher) enqueueDerived(ctx context.Context, job jobs.Request) (int, error) {
+	job.IsDerived = true
+	added, err := refresher.queue.Enqueue(ctx, job)
+	if err != nil {
+		return 0, fmt.Errorf("queue item %d's fetch: %w", job.ItemID, err)
+	}
+	if added {
+		return 1, nil
+	}
+	return 0, nil
 }
 
 // Sweep queues a refresh of every item whose data from a provider is due: older than the
@@ -426,11 +532,8 @@ func (refresher *Refresher) queueDue(ctx context.Context, itemID int64, provider
 	if err != nil {
 		return false, err
 	}
-	added, err := refresher.queue.Enqueue(ctx, job)
-	if err != nil {
-		return false, fmt.Errorf("queue item %d's refresh: %w", itemID, err)
-	}
-	return added, nil
+	added, err := refresher.enqueueDerived(ctx, job)
+	return added > 0, err
 }
 
 // dueAfter is how old an item's data gets before it is refreshed: between three quarters of the

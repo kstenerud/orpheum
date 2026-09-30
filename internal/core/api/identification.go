@@ -12,20 +12,38 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
 const tagIdentification = "Identification"
 
 // ItemBody is one title or series in a list.
 type ItemBody struct {
-	ID                  int64  `json:"id"`
-	LibraryID           int64  `json:"libraryId"`
-	Kind                string `enum:"movie,episode,extra,series" json:"kind"`
-	Name                string `json:"name"`
-	Year                int64  `json:"year,omitempty"`
-	IdentificationState string `enum:"identified,ambiguous,unidentified,confirmed" json:"identificationState"`
-	FollowedSource      string `doc:"Where its own values come from: nfo, tmdb, or none" json:"followedSource,omitempty"` //nolint:lll // one struct tag
-	FollowedSourceID    string `doc:"Its id at its provider" json:"followedSourceId,omitempty"`
+	ID                  int64             `json:"id"`
+	LibraryID           int64             `json:"libraryId"`
+	Kind                string            `enum:"movie,episode,extra,series" json:"kind"`
+	Name                string            `json:"name"`
+	Year                int64             `json:"year,omitempty"`
+	IdentificationState string            `enum:"identified,ambiguous,unidentified,confirmed" json:"identificationState"`            //nolint:lll // one struct tag
+	FollowedSource      string            `doc:"Where its own values come from: nfo, tmdb, or none" json:"followedSource,omitempty"` //nolint:lll // one struct tag
+	FollowedSourceID    string            `doc:"Its id at its provider" json:"followedSourceId,omitempty"`
+	FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
+	RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
+}
+
+// FetchFailureBody is a film's or series' own failure to be fetched, not its provider's being
+// down (D231 §4): its page shows it, and a refresh, "try again", clears it.
+type FetchFailureBody struct {
+	Failure  string `doc:"What the provider or the job said" json:"failure"`
+	FailedAt int64  `json:"failedAt"`
+}
+
+// fetchFailureBody is a failure as a row holds it, or nil.
+func fetchFailureBody(failure *string, failedAt *int64) *FetchFailureBody {
+	if failure == nil {
+		return nil
+	}
+	return &FetchFailureBody{Failure: *failure, FailedAt: ptr.ValueOrZero(failedAt)}
 }
 
 // ItemsInput asks for the titles and series in one state of identification.
@@ -144,11 +162,16 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 	output := &ItemsOutput{}
 	output.Body.Items = make([]ItemBody, 0, len(items))
 	for _, item := range items {
-		output.Body.Items = append(output.Body.Items, ItemBody{
+		body := ItemBody{
 			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
 			IdentificationState: item.IdentificationState,
 			FollowedSource:      item.FollowedSource, FollowedSourceID: item.FollowedSourceID,
-		})
+			RefreshRequestedAt: unixMillisOrZero(item.RefreshRequestedAt),
+		}
+		if failure := item.FetchFailure; failure != nil {
+			body.FetchFailure = &FetchFailureBody{Failure: failure.Failure, FailedAt: failure.FailedAt.UnixMilli()}
+		}
+		output.Body.Items = append(output.Body.Items, body)
 	}
 	return output, nil
 }

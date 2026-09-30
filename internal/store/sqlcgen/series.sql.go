@@ -138,6 +138,7 @@ JOIN library ON library.id = item.library_id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'series'
   AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
   AND collection.followed_source IS NOT 'none'
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id
@@ -148,7 +149,8 @@ WHERE item.library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'se
 ORDER BY collection.id
 `
 
-// Series in a provider's library that are not matched and have an episode no NFO speaks for.
+// Series in a provider's library that are not matched, have an episode no NFO speaks for, and
+// have no failure of their own (D231 section 3).
 func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesAwaitingMatch, libraryID)
 	if err != nil {
@@ -174,10 +176,13 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 
 const listSeriesByIdentification = `-- name: ListSeriesByIdentification :many
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
-  item.library_id, item_text.name
+  item.library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
+  refresh_request.requested_at AS refresh_requested_at
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
+LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, collection.id
 `
@@ -190,9 +195,13 @@ type ListSeriesByIdentificationRow struct {
 	FollowedSourceID    *string
 	LibraryID           *int64
 	Name                *string
+	FetchFailure        *string
+	FetchFailedAt       *int64
+	RefreshRequestedAt  *int64
 }
 
-// The series in one state of identification, for the chooser's list.
+// The series in one state of identification, for the chooser's list, with a failure of their own
+// to be fetched and a person's refresh waiting (D231 section 4).
 func (q *Queries) ListSeriesByIdentification(ctx context.Context, identificationState *string) ([]ListSeriesByIdentificationRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, identificationState)
 	if err != nil {
@@ -210,6 +219,9 @@ func (q *Queries) ListSeriesByIdentification(ctx context.Context, identification
 			&i.FollowedSourceID,
 			&i.LibraryID,
 			&i.Name,
+			&i.FetchFailure,
+			&i.FetchFailedAt,
+			&i.RefreshRequestedAt,
 		); err != nil {
 			return nil, err
 		}

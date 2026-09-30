@@ -548,6 +548,34 @@ func (q *Queries) ListLibraryTitles(ctx context.Context, libraryID *int64) ([]Li
 	return items, nil
 }
 
+const listLiveLibraryIDs = `-- name: ListLiveLibraryIDs :many
+SELECT id FROM library WHERE removed_at IS NULL ORDER BY id
+`
+
+// Every live library, which the identification sweep passes over (D231 section 3).
+func (q *Queries) ListLiveLibraryIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveLibraryIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNamesWithSortAndSearchKeys = `-- name: ListNamesWithSortAndSearchKeys :many
 SELECT item_text.item_id, item_text.name, item_text.search_alternates, title.kind AS title_kind,
   collection.kind AS collection_kind, sort_key.listing AS keyed_listing, sort_key.collation_key

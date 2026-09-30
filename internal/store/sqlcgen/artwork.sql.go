@@ -85,20 +85,54 @@ func (q *Queries) GetFileForArtwork(ctx context.Context, id int64) (GetFileForAr
 	return i, err
 }
 
+const getFileLastSeenAt = `-- name: GetFileLastSeenAt :one
+SELECT last_seen_at FROM file WHERE id = ?1 AND removed_at IS NULL
+`
+
+// When a scan last saw a file: an image beside the media refused before then is owed again.
+func (q *Queries) GetFileLastSeenAt(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFileLastSeenAt, id)
+	var last_seen_at int64
+	err := row.Scan(&last_seen_at)
+	return last_seen_at, err
+}
+
+const getItemLibraryMetadataSource = `-- name: GetItemLibraryMetadataSource :one
+SELECT library.metadata_source
+FROM item
+JOIN library ON library.id = item.library_id
+WHERE item.id = ?1
+`
+
+// Where an item's library takes its data from: one that takes NFO files first shows an image
+// beside the media over a provider's (D215), so a provider's of the same kind is not fetched.
+func (q *Queries) GetItemLibraryMetadataSource(ctx context.Context, itemID int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getItemLibraryMetadataSource, itemID)
+	var metadata_source string
+	err := row.Scan(&metadata_source)
+	return metadata_source, err
+}
+
 const insertArtwork = `-- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, refused_at, refusal, is_missing_at_source)
+VALUES (?1, ?2, ?3, ?4, ?5,
+  ?6, ?7, ?8)
 RETURNING id
 `
 
 type InsertArtworkParams struct {
-	ItemID       int64
-	Kind         string
-	Source       string
-	SourceRef    *string
-	SourceSha256 []byte
+	ItemID            int64
+	Kind              string
+	Source            string
+	SourceRef         *string
+	SourceSha256      []byte
+	RefusedAt         *int64
+	Refusal           *string
+	IsMissingAtSource int64
 }
 
+// A stored image, with its hash; or one that could not be stored, with none, and when and why
+// (D231 section 4), and whether its source said it was not there (D213 section 1).
 func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertArtwork,
 		arg.ItemID,
@@ -106,6 +140,9 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 		arg.Source,
 		arg.SourceRef,
 		arg.SourceSha256,
+		arg.RefusedAt,
+		arg.Refusal,
+		arg.IsMissingAtSource,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -153,6 +190,52 @@ func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSo
 	return items, nil
 }
 
+const listItemsDueRecheck = `-- name: ListItemsDueRecheck :many
+SELECT DISTINCT artwork.item_id
+FROM artwork
+JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
+WHERE artwork.source = ?1 AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NULL
+  AND artwork.is_missing_at_source = 1 AND artwork.refused_at <= ?2
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork earlier
+    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind AND earlier.source = artwork.source
+      AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
+  )
+ORDER BY artwork.item_id
+`
+
+type ListItemsDueRecheckParams struct {
+	Source        string
+	RefusedBefore *int64
+}
+
+// The live items with an image their source said was missing, not yet looked at again, and
+// refused before refused_before, a CDN's 404 lifetime ago: each is owed one refresh that asks for
+// its images again (D213 section 1), derived here rather than held as a job (D231 section 3). A
+// recheck removes the row it looks at again, so a removed miss of the same image is one rechecked.
+func (q *Queries) ListItemsDueRecheck(ctx context.Context, arg ListItemsDueRecheckParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listItemsDueRecheck, arg.Source, arg.RefusedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listItemsWithLiveUnchosenLocalArtwork = `-- name: ListItemsWithLiveUnchosenLocalArtwork :many
 SELECT DISTINCT artwork.item_id
 FROM item
@@ -189,7 +272,7 @@ func (q *Queries) ListItemsWithLiveUnchosenLocalArtwork(ctx context.Context, lib
 
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
-SELECT id, kind, source, source_ref, source_sha256, is_chosen
+SELECT id, kind, source, source_ref, source_sha256, is_chosen, refused_at
 FROM artwork
 WHERE item_id = ?1 AND removed_at IS NULL
 ORDER BY kind, is_chosen DESC, id DESC
@@ -202,6 +285,7 @@ type ListLiveArtworkRow struct {
 	SourceRef    *string
 	SourceSha256 []byte
 	IsChosen     int64
+	RefusedAt    *int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -223,6 +307,7 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 			&i.SourceRef,
 			&i.SourceSha256,
 			&i.IsChosen,
+			&i.RefusedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -307,6 +392,22 @@ func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNo
 		arg.Source,
 		arg.FoundRefs,
 	)
+	return err
+}
+
+const retireArtworkRow = `-- name: RetireArtworkRow :exec
+UPDATE artwork SET removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type RetireArtworkRowParams struct {
+	RemovedAt *int64
+	ID        int64
+}
+
+// An image beside the media that was refused, owed again once a scan has seen its file since
+// (a disk that was away and came back, G9).
+func (q *Queries) RetireArtworkRow(ctx context.Context, arg RetireArtworkRowParams) error {
+	_, err := q.db.ExecContext(ctx, retireArtworkRow, arg.RemovedAt, arg.ID)
 	return err
 }
 
