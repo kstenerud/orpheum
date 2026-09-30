@@ -17063,3 +17063,110 @@ declarations in unrelated screens' stylesheets.
    or into §2's table.
 
 **Status:** Decided 2026-09-30; §2's table and the watch list are kept by every audit.
+
+## D230 — The last subtitle and audio language chosen in a series follows its unwatched episodes, worked out at play time
+
+**Decided** (2026-09-30), by the project owner, after M3's closing audit found D223 §8 half built
+(audit-2026-09-29 §9 A3). **Replaces D219 §2–§4 and D223 §8**; D219 §1 (a choice is kept per
+person and per file) and D24's three rules about what a choice is still hold.
+
+1. **Why.** The owner's scenario: watching *Dag* while adding its episodes one at a time, English
+   subtitles chosen in episode 1, *"Now I binge watch eps 3-7 and I expect them all to show
+   english subtitles, even though I only selected when watching ep1"*, including episodes added
+   after the choice and a file swapped for one that gained the track. And on intent: *"If the
+   track was broken and I chose another track (say, simplified english), there's no way to know
+   my actual intent. Same goes if I'd chosen English subtitles while watching ep1 and then chose
+   French on ep3. Maybe my grandma is over and so we use French subtitles that day. At best we
+   can use the last chosen language (subtitle or audio track) for any unwatched episodes in a
+   series."*
+2. **The rule.** A person's last chosen subtitle language, and last chosen audio language, in a
+   series (or among a film's copies) applies to its **unwatched** episodes (or copies). A
+   **started** episode counts as watched (the owner: *"started counts as 'watched' for purposes
+   of subtitles and audio"*) and plays again with what was last used in it.
+3. **A language, not a track.** An unwatched episode plays the track of that language, preferring
+   the same kind (forced, for the deaf and hard of hearing, plain) and then the same title. *Off*
+   is a choice and follows as *off*. An episode with no track in that language plays without
+   subtitles (or with its default audio) until it has one: a fallback is not a choice (D24).
+4. **Worked out at play time, never copied.** What is stored is the person's last choice per work
+   and what was last used in each started file; a file's tracks are matched when it plays. Nothing
+   is carried between files, so an episode added later, or a file whose tracks change, follows
+   without any refresh (the audit's derived-data class, agent-failures A4).
+5. **Audio is new.** The audio language chosen was not remembered before; it now is, by the same
+   rule.
+
+**Status:** Decided 2026-09-30.
+
+## D231 — Work is derived from state, the job queue is a regenerable cache, and a destination that is down parks its work
+
+**Decided** (2026-09-30), by the project owner, after M3's closing audit (audit-2026-09-29 §9 A4,
+A8), research into how queues handle unreliable destinations and a survey of Go queue libraries
+([queueing-2026-09-30](../design/research/queueing-2026-09-30.md)), and a scenario walk
+([scenarios.md](../design/plans/scenarios.md) S22–S29, S70–S78). **Revises** D170's mechanism
+(its intent, one fetch per answer and every refetch a person's act, stands), **replaces** D213 §5's
+image breaker, and **amends** D41 and D208 with the retire actions of §7.
+
+1. **Why.** The owner: *"for jobs we can't complete due to larger issues (server down, DNS not
+   working, etc), it feels like we need to offload the jobs to another queue that waits for the
+   issue at that layer to solve itself. There's no reason to hammer a server for 1000 things when
+   1 alive check is enough to set those jobs aside until the machine comes back."* And: *"jobs
+   that only get triggered once for a particular file, never to be brought up again in a sweep.
+   If that job gets killed somehow, we'll never get what it was supposed to fetch, and there will
+   be no way to ask."* And: *"If we can remove state from the queue, then that means the queue is
+   100% regeneratable, and doesn't need to live in the main db."*
+2. **Our own queue, in its own generic package.** No library does per-destination parking; the one
+   candidate (River's SQLite driver) costs more than it saves (the survey). The owner: *"make this
+   queue somewhat generic and in its own package so that we can re-use it for any future
+   job-shaped things."* The package owns claiming, priority, back-off, parking, probing and
+   merging, and knows no Orpheum kind, target or destination; its storage is an interface that
+   `internal/store` implements on cache.db, so only store touches SQLite.
+3. **Level-triggered work.** Every job is derived by a sweep from durable state in library.db;
+   the queue is a cache of the work that state implies, and a request to enqueue is a hint to run
+   sooner. **cache.db can be deleted at any moment and nothing is lost but timing**
+   (`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`). Sweeps run at start, on their timers,
+   after each pass and when a destination unparks. D170's "ever queued" lookup goes: a first match
+   is owed until the item has an answer.
+4. **Facts, not job rows.** A failure that is the item's own (not its destination's) is a fact in
+   library.db with its reason and time: the sweep skips it, the page shows it, and "try again"
+   clears it. A person's request whose action cannot simply be redone is a fact too: in Cut A,
+   refresh (requested-at, and whether to fetch images again). Play-driven work needs none; the
+   next play asks again.
+5. **Destinations.** A job names the destination it needs: `tmdb-api`, `tmdb-images`,
+   `opensubtitles`, each node, each root or mount a scan found missing, and the core's own
+   storage. A destination is **down** on a failure that says nothing about the item: connection
+   refused, DNS, timeout, HTTP 502/503/504 (a plain 500 is the item's); a node not connected or
+   silent; a root or mount missing; a write failing for want of space or with an I/O error. A
+   missing or refused key parks `tmdb-api` with that reason, and it unparks when the secret
+   changes. A node that answers "no room" parks prepares on its prepared directory until its status
+   shows room. "Changed since the scan" is the item's failure: no attempt spent, the job ends, and
+   the node is asked to rescan that path. A 429 keeps waiting for the time the server gave.
+6. **Parking.** Work for a down destination is not claimed and spends no attempt; parked time
+   counts against nothing. One probe checks an outside host, on a back-off from 30 s towards an
+   hour; a failed probe costs nothing. A node's hello is its probe; a root returns when a scan
+   finds it. A person's request for parked work probes at once (the owner: *"waking a job when a
+   user needs something: We should also make an attempt then to unpark the queue"*), and a
+   person's synchronous call to a parked host always tries and counts as the probe. When a
+   destination returns, its work resumes in priority order. Parked state is in memory: after a
+   restart, the first job probes again.
+7. **Retiring.** A root, a node and a library each have a retire action (a library's is delete),
+   which tombstones their files, keeping history on the Title (D173), and cancels their work. A
+   deleted library's Titles are tombstoned, hidden with their history, so a film that reappears
+   elsewhere brings it back (D208 §2); each person's watch history stays. Offline never ends
+   without an admin (D41): the System page shows "offline since", and the admin is reminded after
+   a week.
+8. **One job per target, merged.** A target has at most one queued and one running job. A repeat
+   request merges into the queued one: the higher priority, a job waiting to retry woken, and
+   arguments merged where the kind allows; while one runs, a request it already covers is dropped
+   and another becomes the one queued follow-up.
+9. **Cancel stops a run, not the work.** The sweep may queue it again if the state still implies
+   it; stopping for good is a change of state (retire, delete, a feature turned off).
+10. **Back-off and giving up.** ±10% jitter on every retry. `job_attempt_limit` counts only the
+    item's own failures; a job that exhausts it is recorded as the item's failure (§4).
+11. **Nodes.** The node table says truthfully whether a node is connected, when it was last heard,
+    and whether it is gone. A command to a node that is not connected parks its job instead of
+    being dropped. A reconnecting node is not sent commands of jobs that have ended, and its hello
+    returns the jobs that were running on it to the queue.
+12. **What a person sees.** The job view shows parked work as "waiting for TMDB — unreachable since
+    14:02, next check 14:10"; the System page lists each destination's state; play, subtitle and
+    refresh answers can say "waiting for <destination> (since …)" beside "preparing".
+
+**Status:** Decided 2026-09-30.
