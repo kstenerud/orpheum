@@ -194,6 +194,65 @@ D231 §3, §4, §7, §9; F1.
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`, and an architecture test that nothing reads
   job history as a fact. Closes G7, G9, G10, G14, G15, S22–S24, S71, S78.
 
+**Built** (2026-09-30), but for the weekly reminder:
+
+- Step 0029 (D228: 0028 folded into the baseline) adds `fetch_failure`, `refresh_request`, an
+  image's `refused_at`, `refusal` and `is_missing_at_source`, `library_root.retired_at`,
+  `root_state.unavailable_since`, `root_mount.missing_since` and `subtitle_text` (cache schema
+  version 22 drops cache.db's), and renames the grant kind `invite` to `issued_secret`.
+- `jobqueue` runs sweeps (`AddSweep`, `Sweeping`: at start, on each sweep's interval, when asked,
+  after every identification pass, and whenever a destination comes back); a derived request looks
+  at no parked destination. A kind's `FailureRecorder` records a job that failed at its limit,
+  permanently or refused at its claim as its item's own failure; a parked or cancelled job records
+  nothing. `EverQueued` and its query are gone. The server registers six sweeps (cmd/orpheum):
+  first matches, people's refreshes, rechecks, the rolling refresh, identification passes and
+  loudness; each kind's work is derived by one or asked for by a play
+  (`TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact`).
+- A fetch's own failure is `fetch_failure`, shown on the title, series and identification pages and
+  cleared by a person's refresh ("try again"); a refresh is `refresh_request`, queued by its sweep
+  until a fetch that read it ends. A recheck is derived from the refused image a CDN's 404 lifetime
+  later. A refused image beside the media is owed again once a scan has seen its file since (G9).
+- The retire actions (`library.Admin`): `RetireRoot` tombstones the live files the root holds (those
+  on disks mounted inside it too), and the root is scanned no more; `RetireNode` does that for
+  each of the node's roots in every library, and the node service removes the node
+  (`nodes.Service.RemoveNode`), so its name enrols a new node; `Delete` has identification hide the
+  library's films, series and episodes (`identify.Pass.HideTitlesOfDeletedLibrary`: tombstones
+  with no `merged_into`), then retires its roots and tombstones its files. Each then cancels, by
+  `jobs.Queue.CancelRetired`, the queued, parked and running jobs of those files, their streams and
+  fetched subtitles, the titles left with no live file, and the destinations it forgets (the roots,
+  the disks mounted inside them, a node's own and its prepared directory's), then forgets them. A
+  deleted library's film that reappears in another library, by its NFO's provider id or by a
+  match, brings its title back with its history (D208 §2). The API: `POST
+  /libraries/{id}/roots/retire`, `DELETE /libraries/{id}`, `POST /nodes/retire`; the web offers
+  each, confirmed by a second press.
+- "Offline since": a scan that cannot read a root, or withholds its removals, keeps
+  `unavailable_since` from the first such scan in a row; a disk a scan did not find keeps
+  `missing_since`; a scan that finds them clears it. `GET /system` lists them (`offline`), and the
+  System page shows each with since when.
+- Tests: `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`,
+  `TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled`,
+  `TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`
+  (internal/core/api); `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges` (internal/core/jobs);
+  `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming` (cmd/orpheum);
+  `TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory` (internal/archtest).
+
+**Deviations and what Phase 4 must know:**
+
+- **The weekly reminder is not built** (P39): the code has no way to tell the admin anything
+  outside a page they open (no notification, no message, no reminder), and inventing one is a
+  design decision for the owner. The System page shows "offline since"; the reminder, and the
+  setting for its interval, wait for the owner's choice of how an admin is told.
+- A retired node leaves the node table rather than showing "gone": the table lists live nodes, and
+  a retired one's name may enrol again as a new node.
+- A prepare already queued or running for a retired file on a live node is not cancelled: its
+  target is a rendition in cache.db, which the retire does not read. It is play-driven and ends on
+  its own; one waiting on a missing root is cancelled with the root's destination.
+- A deleted library's series is hidden with its episodes but not brought back when its films
+  reappear elsewhere: D231 §7 names a film, and a series has no provider-id lookup across
+  libraries yet.
+- The retire's steps owned by other packages (hiding titles, removing the node) are separate
+  transactions from the library's: a failure between them is finished by retrying the action.
+
 ## Phase 4 — the link to the node
 
 D233 §2, §3, §4, §7, §9.

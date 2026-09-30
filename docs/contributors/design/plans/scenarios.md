@@ -291,8 +291,12 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   2. A retire action at each level cancels the jobs of what it removes (D173).
   3. Offline never ends without the admin (D41); the System page shows "offline since", with a
      reminder after a week.
-- **Status:** **gap G7**, **G9** (the node's refusal of an image on a root the scan has not yet
-  found missing is still kept). G6 **closed** 2026-09-30 (the jobs rebuild's Phase 2): work reading a
+- **Status:** **holds**, but for the weekly reminder (G7, open: P39)
+  (`TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`, the
+  jobs rebuild's Phase 3): the System page says since when a root or disk is offline, and the
+  admin's retire tombstones its files, cancels their work and forgets the root. G9 **closed**
+  2026-09-30: a refused image beside the media is owed again once a scan has seen its file since.
+  G6 **closed** 2026-09-30 (the jobs rebuild's Phase 2): work reading a
   file under a missing root or disk parks on it, a local image included, and the loudness sweep
   passes such files over
   (`TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot`,
@@ -314,7 +318,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - There is no retire action.
 - **Design:** D231: node jobs wait while the node is configured, and removing the node cancels
   them. Answer 2 covers the retire action.
-- **Status:** **gap G7**. G3 **closed** 2026-09-30: the node table says connected, silent or
+- **Status:** **holds** (`TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled`,
+  the jobs rebuild's Phase 3): the admin retires the node; its roots are retired, its parked work
+  cancelled, and it is removed, so its name enrols a new node. G3 **closed** 2026-09-30: the node table says connected, silent or
   awaiting its hello truthfully, and its jobs park on it at no cost
   (`TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise`).
 
@@ -326,7 +332,12 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Today:** there is no delete-library action. Its jobs would run until they failed.
 - **Design:** answer 2 (a library is deleted and its jobs cancelled). **Still open: what a
   deleted library's Titles become.**
-- **Status:** **gap G7**; **question Q14** (the open part, carried).
+- **Status:** **holds** (`TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`,
+  the jobs rebuild's Phase 3): its work is cancelled and its titles hidden with their history; a
+  film of it that reappears elsewhere brings its title back
+  (`TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack`,
+  `TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack`). Q14 answered by
+  D231 §7.
 
 ### S25 — TMDB is down overnight while 200 films are added
 
@@ -461,7 +472,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231 merges a request while queued, waiting or parked: the higher priority wins,
   a job in back-off is woken, and args are merged where the kind allows. The design is silent
   on a request that arrives while the job is running.
-- **Status:** **gap G11**, **G13**; **question Q9**.
+- **Status:** **holds** for queued, waiting and parked, and for a request a running job covers or
+  not (`TestScenario_S71_ARepeatRequestRaisesWakesAndMerges`,
+  `TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsksForTheImagesAgain`);
+  G11 **closed** (the jobs rebuild's Phase 1), Q9 answered by D231 §8. **Gap G13** (a rendition
+  restarted while its job runs) is the node link's, Phase 4.
 
 ### S72 — The core restarts with jobs parked, running and waiting to retry
 
@@ -578,7 +593,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     whether cache.db survived, which is the symptom of the problem.
   - **Lost:** the person's refresh (and its retry-images flag), and the D213 §1 recheck. The
     missing image is already recorded as refused, so it is held and never owed again.
-- **Status:** **gap G10**, **G14**, **G15**; **questions Q5**, **Q6**, **Q7**.
+- **Status:** **holds** (`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`, the jobs rebuild's
+  Phase 3): the matches owed, the person's refresh with its images and the recheck are derived
+  again from library.db, and a failure of the item's own is not retried. G10, G14, G15
+  **closed**; Q5, Q6, Q7 answered by D231.
 
 ---
 
@@ -694,11 +712,15 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 - `TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`: two attempts per job at
   most, one probe per step, all 200 matched. **Built 2026-09-30** (cmd/orpheum): one attempt each.
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`: the property test above, the owner's
-  principle.
+  principle. **Built 2026-09-30** (cmd/orpheum).
 - `TestScenario_S22_AnOfflineRootParksItsJobsAndSweepsQueueNothing`, and its retire follow-up.
+  The follow-up **built 2026-09-30** (internal/core/api) as
+  `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`; the
+  parking half holds by Phase 2's tests.
 - `TestScenario_S26_ANodesHelloReturnsItsRunningJobsWithoutCost`.
 - `TestScenario_S27_AReconnectedNodeIsSentOnlyLiveCommands`.
 - `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges`: queued, back-off, parked and running.
+  **Built 2026-09-30** (internal/core/jobs).
 - `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`. **Built 2026-09-30** (cmd/orpheum).
 - `TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`.
   **Built 2026-09-30** (cmd/orpheum).
@@ -768,15 +790,15 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 | **G4** | A reconnected node is sent the commands of jobs that have ended; a job that gives up on silence sends no cancel; a retry can run a second FFmpeg in the same rendition directory | S26, S27 |
 | **G5** | A node's hello does not return the jobs that were running on it to the queue; they wait out `maxSilence` and spend an attempt | S26 |
 | **G6** | **Closed 2026-09-30:** a root or disk a scan found missing is a destination; its files' jobs park on it and the loudness sweep passes them over. Was: its files' jobs ran and refused, and the sweep queued them again every hour | S22 |
-| **G7** | No retire action for a root, node or library (answer 2); no "offline since" or weekly reminder (answer 3) | S22, S23, S24 |
+| **G7** | **Closed 2026-09-30** but for the weekly reminder (P39: no channel to the admin exists yet): a root, a node and a library each have a retire action that cancels their work, and the System page says since when storage is offline. Was: no retire action; no "offline since" or reminder | S22, S23, S24 |
 | **G8** | A prepare that fails for good on silence or refusals leaves its rendition `running`; the player shows "preparing" until it is reloaded | S26, S28, S29, S74 |
-| **G9** | A node's refusal to read a local image (its disk offline) is recorded as the image's permanent refusal | S22, S76 |
-| **G10** | A lost first match is never queued again (`EverQueued`); a failed match looks the same as one not yet tried | S25, S78 |
-| **G11** | A repeat request is dropped: its priority is not raised, a job in back-off is not woken, and args are not merged (D231 agreed merge) | S70, S71 |
+| **G9** | **Closed 2026-09-30:** a refused image beside the media is owed again once a scan has seen its file since. Was: a node's refusal to read a local image (its disk offline) was the image's permanent refusal | S22, S76 |
+| **G10** | **Closed 2026-09-30:** a first match is owed until the item has an answer, and a failure of its own is a fact. Was: a lost first match was never queued again (`EverQueued`); a failed match looked the same as one not yet tried | S25, S78 |
+| **G11** | **Closed 2026-09-30** (the jobs rebuild's Phase 1): a repeat request raises the priority, wakes a job in back-off, and merges its arguments. Was: it was dropped | S70, S71 |
 | **G12** | **Closed 2026-09-30:** the core's storage is a destination that parks the queue, logged once, with an unwritten outcome written when there is room; a paid download's link is kept. Was: a failed `writeFinish` left a job `running`; runners logged every second | S77 |
 | **G13** | A rendition restarted while its job runs is marked complete under the new run id, with nothing in that directory | S71 |
-| **G14** | The D213 §1 recheck exists only as a future-dated job: lost on a discard, dropped next to an open fetch, and never derived | S71, S78 |
-| **G15** | A person's refresh exists only as a job row: lost on a discard, merged away by an open rolling refresh, and the person is never told | S70, S78 |
+| **G14** | **Closed 2026-09-30:** the D213 §1 recheck is derived from the refused image. Was: it existed only as a future-dated job, lost on a discard and dropped next to an open fetch | S71, S78 |
+| **G15** | **Closed 2026-09-30:** a person's refresh is a fact the sweep queues until a fetch that read it ends. Was: it existed only as a job row, lost on a discard and merged away by an open rolling refresh | S70, S78 |
 | **Q5** | Answered by D231 (2026-09-30): A principle is missing: is work edge-triggered or level-triggered? | S22–S29, S70–S78 |
 | **Q6** | Answered by D231 (2026-09-30): A fact is missing: where does "this item failed, for its own reasons" live? | S22–S29, S70–S78 |
 | **Q7** | Answered by D231 (2026-09-30): A person's intent has no durable home: is a request a fact or forgettable? | S22–S29, S70–S78 |
