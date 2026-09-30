@@ -152,3 +152,23 @@ func TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory(t *
 		t.Error("a status with room did not unpark the prepared directory (D231 §5)")
 	}
 }
+
+func TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, 0)
+	ctx := t.Context()
+	retired := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID
+	if err := harness.service.RemoveNode(ctx, retired); err != nil {
+		t.Fatal(err)
+	}
+	if connection, _ := harness.service.NodeConnection(ctx, retired); connection != AwaitingHello ||
+		harness.service.IsConnected(ctx, retired) {
+		t.Errorf("a retired node is %s, want %s and not connected", connection, AwaitingHello)
+	}
+	if _, status := harness.poll(t, retired, 0); status != http.StatusConflict {
+		t.Errorf("a retired node's poll answered %d, want %d: say hello first", status, http.StatusConflict)
+	}
+	if enrolled := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID; enrolled == retired {
+		t.Errorf("its name said hello again as node %d, the retired one; want a new node", enrolled)
+	}
+}

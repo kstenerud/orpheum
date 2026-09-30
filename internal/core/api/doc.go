@@ -45,7 +45,9 @@
 //   - The System page lists what is down, each with why, since when and its next check, and each
 //     outside host's provider: its rate, its background share, its quota and its credentials
 //     (D231 §5, §12). Each node says whether it is connected, silent or awaiting its hello
-//     (D231 §11). TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider.
+//     (D231 §11). TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider. It lists each root
+//     and disk a scan found missing with since when (D41, D231 §7).
+//     TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline.
 //   - A job waiting on a destination that is down says which, as a person reads it, why, since
 //     when, and when it is looked at next, if a check brings it back (D231 §12).
 //     TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck.
@@ -76,7 +78,11 @@
 //     asks for scans and pages the scanner's view; a user sees only the libraries. Enforced by
 //     TestLibraries_AnAdminCreatesOneOverTheNodesRoots,
 //     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery, TestFiles_PagesWhatTheScannerSaw
-//     and TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk.
+//     and TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk. An admin retires a
+//     root or a node, or deletes a library, and its work is cancelled (D231 §7).
+//     TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays,
+//     TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled,
+//     TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory.
 //   - Any signed-in user browses films and series, a title's detail, a series and search; a
 //     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify

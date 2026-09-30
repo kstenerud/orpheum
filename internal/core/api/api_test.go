@@ -103,13 +103,15 @@ func newHarness(t *testing.T) testHarness {
 		Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService,
 	})
+	nodes.database, nodes.clock = database, now
 	nodes.takeSubtitleText = func(nodeID int64, answer nodeproto.SubtitleText) {
 		playbackService.TakeSubtitleText(t.Context(), nodeID, answer)
 	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
-		Chooser: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
+		Chooser:   identify.NewChooser(matcher, pass),
+		Libraries: library.NewAdmin(database, now, nodes, library.Retirement{Work: queue, Titles: pass}),
 		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
 		Browser:   library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{

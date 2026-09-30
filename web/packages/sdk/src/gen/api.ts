@@ -488,6 +488,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/libraries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7) */
+        delete: operations["deleteLibrary"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries/{id}/mounts/gone": {
         parameters: {
             query?: never;
@@ -516,6 +533,23 @@ export interface paths {
         put?: never;
         /** Approve a root's withheld removals; its next scan removes what it does not see (admin; D208) */
         post: operations["postLibraryRemovals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/libraries/{id}/roots/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7) */
+        post: operations["postLibraryRootRetire"];
         delete?: never;
         options?: never;
         head?: never;
@@ -670,6 +704,23 @@ export interface paths {
         get: operations["getNodes"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nodes/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7) */
+        post: operations["postNodeRetire"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1624,6 +1675,20 @@ export interface components {
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
         };
+        OfflineBody: {
+            /** Format: int64 */
+            libraryId: number;
+            libraryName: string;
+            /** @description The missing disk's mount point inside the root; absent when the root itself is offline */
+            mountPath?: string;
+            nodeName: string;
+            rootPath: string;
+            /**
+             * Format: int64
+             * @description When the first scan that found it missing ran, in Unix milliseconds
+             */
+            since: number;
+        };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
             watchStats: components["schemas"]["WatchStatsBody"];
@@ -1816,6 +1881,16 @@ export interface components {
         };
         RescanOutputBody: {
             isScanning: boolean;
+        };
+        RetiredOutputBody: {
+            /** Format: int64 */
+            cancelledJobCount: number;
+            /** Format: int64 */
+            removedFileCount: number;
+        };
+        RetireNodeInputBody: {
+            /** @description The node's configured name */
+            nodeName: string;
         };
         RootActionInputBody: {
             /** @description The node's configured name */
@@ -2083,6 +2158,7 @@ export interface components {
             destinations: components["schemas"]["DestinationBody"][] | null;
             findings: components["schemas"]["FindingBody"][] | null;
             nodes: components["schemas"]["SystemNodeBody"][] | null;
+            offline: components["schemas"]["OfflineBody"][] | null;
             providers: components["schemas"]["ProviderBody"][] | null;
             server: components["schemas"]["ServerBody"];
         };
@@ -3307,6 +3383,40 @@ export interface operations {
             };
         };
     };
+    deleteLibrary: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetiredOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     postLibraryMountGone: {
         parameters: {
             query?: never;
@@ -3370,6 +3480,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RescanOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postLibraryRootRetire: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RootActionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetiredOutputBody"];
                 };
             };
             /** @description Error */
@@ -3699,6 +3847,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postNodeRetire: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetireNodeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetiredOutputBody"];
                 };
             };
             /** @description Error */

@@ -3,12 +3,15 @@
 package api
 
 import (
+	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -165,4 +168,185 @@ func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *test
 	if len(harness.nodes.commanded) != 0 {
 		t.Error("a command was sent for an extraction that waits")
 	}
+}
+
+// retire is one of the retire actions, as an admin sends it (D231 §7).
+func (harness testHarness) retire(t *testing.T, admin, method, path string, body any) RetiredOutput {
+	t.Helper()
+	answer := harness.do(t, method, path, admin, body)
+	var retired RetiredOutput
+	if err := json.Unmarshal([]byte(answer.body), &retired.Body); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("%s %s = %d %s", method, path, answer.status, answer.body)
+	}
+	return retired
+}
+
+// system is the System page, as an admin sees it.
+func (harness testHarness) system(t *testing.T, admin string) SystemOutput {
+	t.Helper()
+	answer := harness.do(t, http.MethodGet, "/system", admin, nil)
+	var system SystemOutput
+	if err := json.Unmarshal([]byte(answer.body), &system.Body); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("GET /system = %d %s", answer.status, answer.body)
+	}
+	return system
+}
+
+// watchedFilm2 gives film 2 a title (identifyFilm) and a place the admin stopped watching it at.
+func (harness testHarness) watchedFilm2(t *testing.T) {
+	t.Helper()
+	harness.identifyFilm(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at)
+		 SELECT id, 2, 60000, 1, 1 FROM user`)
+}
+
+// checkHistoryKept checks that the admin's place in film 2 survived: history is never deleted
+// (D173).
+func (harness testHarness) checkHistoryKept(t *testing.T) {
+	t.Helper()
+	position, err := harness.database.Read().GetPlayPosition(t.Context(), sqlcgen.GetPlayPositionParams{
+		UserID: 1, FileID: 2,
+	})
+	if err != nil || position.PositionMs != 60000 {
+		t.Errorf("the admin's place in film 2 = %+v, %v; want it kept (D173)", position, err)
+	}
+}
+
+// queueWork queues the requests and parks the destinations, as the queue finds them down.
+func (harness testHarness) queueWork(t *testing.T, requests []jobs.Request, parked ...jobs.Destination) {
+	t.Helper()
+	for _, request := range requests {
+		request.Reason = "test"
+		if _, err := harness.queue.Enqueue(t.Context(), request); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, destination := range parked {
+		harness.queue.Park(t.Context(), jobs.Parking{Destination: destination, Reason: "missing", AwaitsSignal: true})
+	}
+}
+
+// checkAllCancelled checks that every job in the view was cancelled, and that none of the
+// destinations is parked any more.
+func (harness testHarness) checkAllCancelled(t *testing.T, admin string, forgotten ...jobs.Destination) {
+	t.Helper()
+	listed := harness.listedJobs(t, admin)
+	if len(listed) == 0 {
+		t.Fatal("no jobs listed")
+	}
+	for _, job := range listed {
+		if job.State != "cancelled" {
+			t.Errorf("job %+v is %s, want cancelled with what was retired", job, job.State)
+		}
+	}
+	for _, destination := range forgotten {
+		if _, isParked := harness.queue.DestinationState(destination); isParked {
+			t.Errorf("%s is still parked; nothing brings a retired destination back", destination)
+		}
+	}
+}
+
+// S22: the disk under a root dies for good. The System page says since when it is offline; the
+// admin retires the root; its files become tombstones, their jobs, parked on the root, are
+// cancelled, the root is forgotten, the sweeps queue nothing for them again, and the history
+// stays on the title (D41, D173, D231 §7).
+func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.watchedFilm2(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'unreadable', 9000, 5000)`)
+	root := jobs.RootDestination(1, "/media")
+	harness.queueWork(t, []jobs.Request{
+		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}, Destination: root},
+		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
+	}, root)
+	if system := harness.system(t, admin); len(system.Body.Offline) != 1 || system.Body.Offline[0].Since != 5000 {
+		t.Fatalf("the System page's offline list = %+v; want /media since 5000 (D41)", system.Body.Offline)
+	}
+	retired := harness.retire(t, admin, http.MethodPost, "/libraries/1/roots/retire",
+		map[string]string{"nodeName": "local", "path": "/media"})
+	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+		t.Errorf("the retire = %+v; want the root's 3 files removed and both jobs cancelled", retired.Body)
+	}
+	harness.checkAllCancelled(t, admin, root)
+	playback := harness.server.dependencies.Load().Playback
+	if queued, err := playback.QueueMeasurements(t.Context()); err != nil || queued != 0 {
+		t.Errorf("the loudness sweep after the retire queued %d, %v; want nothing for a retired root's files",
+			queued, err)
+	}
+	if system := harness.system(t, admin); len(system.Body.Offline) != 0 {
+		t.Errorf("the offline list after the retire = %+v; want it empty: the admin ended it", system.Body.Offline)
+	}
+	harness.checkHistoryKept(t)
+}
+
+// S23: the node machine is retired for good. The admin retires the node; its roots are retired,
+// their files tombstoned, the jobs parked on it cancelled, and it is forgotten; the history
+// stays (D231 §7, §11).
+func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.watchedFilm2(t)
+	harness.nodes.isAway.Store(true)
+	node := jobs.NodeDestination(1)
+	harness.queueWork(t, []jobs.Request{
+		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}, Destination: node},
+		{Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 7}, Destination: node},
+	}, node)
+	retired := harness.retire(t, admin, http.MethodPost, "/nodes/retire", map[string]string{"nodeName": "local"})
+	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+		t.Errorf("the retire = %+v; want the node's 3 files removed and both its jobs cancelled", retired.Body)
+	}
+	harness.checkAllCancelled(t, admin, node)
+	var libraries LibrariesOutput
+	answer := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if err := json.Unmarshal([]byte(answer.body), &libraries.Body); err != nil || len(libraries.Body.Libraries) != 1 ||
+		len(libraries.Body.Libraries[0].Roots) != 0 {
+		t.Errorf("the libraries after the node was retired = %s; want Films with no roots", answer.body)
+	}
+	again := harness.do(t, http.MethodPost, "/nodes/retire", admin, map[string]string{"nodeName": "local"})
+	if again.status != http.StatusNotFound {
+		t.Errorf("retiring it again = %d %s, want 404: it is gone", again.status, again.body)
+	}
+	harness.checkHistoryKept(t)
+}
+
+// S24: the admin deletes a library. Its jobs are cancelled, and nothing is fetched for it again;
+// its titles are hidden, tombstoned with their history, and each person's watch history stays
+// (D208 §2, D231 §7). A film of it that reappears elsewhere brings its title back:
+// TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack,
+// TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack (internal/core/identify).
+func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.watchedFilm2(t)
+	if title := harness.do(t, http.MethodGet, "/items/30", admin, nil); title.status != http.StatusOK {
+		t.Fatalf("the film before the delete = %d %s", title.status, title.body)
+	}
+	harness.queueWork(t, []jobs.Request{
+		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
+		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}},
+	})
+	retired := harness.retire(t, admin, http.MethodDelete, "/libraries/1", nil)
+	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+		t.Errorf("the delete = %+v; want its 3 files removed and both its jobs cancelled", retired.Body)
+	}
+	harness.checkAllCancelled(t, admin, jobs.RootDestination(1, "/media"))
+	if title := harness.do(t, http.MethodGet, "/items/30", admin, nil); title.status != http.StatusNotFound {
+		t.Errorf("the deleted library's film = %d %s; want it hidden", title.status, title.body)
+	}
+	if again := harness.do(t, http.MethodDelete, "/libraries/1", admin, nil); again.status != http.StatusNotFound {
+		t.Errorf("deleting it again = %d %s, want 404", again.status, again.body)
+	}
+	harness.checkHistoryKept(t)
 }

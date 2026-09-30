@@ -5,10 +5,15 @@ package library
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // fakeNodes is the node channel with one connected node, "local", that named its roots.
@@ -16,6 +21,37 @@ type fakeNodes struct {
 	id     int64
 	roots  []string
 	queued []nodeproto.Command
+	// removed are the nodes an admin retired.
+	removed []int64
+	// database is where a retired node is removed, as the node service does, at clock's time.
+	database *store.Database
+	clock    clock.Clock
+}
+
+func (nodes *fakeNodes) RemoveNode(ctx context.Context, nodeID int64) error {
+	nodes.removed = append(nodes.removed, nodeID)
+	if err := corenodes.Remove(ctx, nodes.database, nodes.clock, nodeID); err != nil {
+		return fmt.Errorf("remove node %d: %w", nodeID, err)
+	}
+	return nil
+}
+
+// fakeWork is the job queue, keeping the work each retire asked it to cancel.
+type fakeWork struct {
+	cancelled []jobs.RetiredWork
+}
+
+// noTitles is identification with no titles to hide.
+type noTitles struct{}
+
+func (noTitles) HideTitlesOfDeletedLibrary(context.Context, int64) ([]int64, error) { return nil, nil }
+
+// retirementOf is what a retire asks of other packages, with work as the job queue.
+func retirementOf(work *fakeWork) Retirement { return Retirement{Work: work, Titles: noTitles{}} }
+
+func (work *fakeWork) CancelRetired(_ context.Context, retired jobs.RetiredWork) (int, error) {
+	work.cancelled = append(work.cancelled, retired)
+	return len(retired.FileIDs), nil
 }
 
 func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
@@ -51,7 +87,7 @@ func TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root, "/media/shows"}}
-	admin := NewAdmin(world.database, world.clock, nodes)
+	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(&fakeWork{}))
 	_, absent := admin.Create(t.Context(), showsRequest("elsewhere", "/media/shows"))
 	if !errors.Is(absent, ErrNodeNotConnected) {
 		t.Errorf("a node that has not said hello: %v, want ErrNodeNotConnected", absent)
@@ -78,7 +114,8 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a"), skipRecord("notes.txt", nodeproto.SkipExtension)}, true)
-	admin := NewAdmin(world.database, world.clock, &fakeNodes{id: world.nodeID, roots: []string{root}})
+	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
+	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(t.Context())
 	if err != nil || len(libraries) != 1 {
 		t.Fatalf("List = %+v, %v", libraries, err)
@@ -96,7 +133,7 @@ func TestAdmin_ScanAsksEachConnectedRootsNode(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
-	admin := NewAdmin(world.database, world.clock, nodes)
+	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +153,7 @@ func TestAdmin_FilesPagesByIDAndFilters(t *testing.T) {
 	world.scan([]nodeproto.Record{
 		observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"), skipRecord("notes.txt", nodeproto.SkipExtension),
 	}, true)
-	admin := NewAdmin(world.database, world.clock, &fakeNodes{})
+	admin := NewAdmin(world.database, world.clock, &fakeNodes{}, retirementOf(&fakeWork{}))
 	first, err := admin.Files(t.Context(), FilesQuery{Limit: 2})
 	if err != nil || len(first.Files) != 2 || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)

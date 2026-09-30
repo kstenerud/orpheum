@@ -45,7 +45,11 @@
 //   - A renamed or moved file is identified again from its new path, unless a person confirmed
 //     its match (D208 §1). TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed.
 //   - A title with no live files left follows them to another library, found by provider id
-//     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary.
+//     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary. A deleted library's film that
+//     reappears in another, named by the same provider id by its NFO or by a match, brings its
+//     title back with its history (D231 §7).
+//     TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack,
+//     TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack.
 //   - A match is never guessed: a provider id in hand skips the search, a single result matching
 //     the name and year is accepted, and anything else is ambiguous with its results kept (D172).
 //     TestMatch_AProviderIDInHandSkipsTheSearch, TestMatch_AnAmbiguousSearchIsNeverGuessed,

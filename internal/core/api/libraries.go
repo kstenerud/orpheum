@@ -107,6 +107,30 @@ type RescanOutput struct {
 	}
 }
 
+// RetireNodeInput names a node an admin retires, by its name.
+type RetireNodeInput struct {
+	AuthorizationHeader
+	Body struct {
+		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
+	}
+}
+
+// RetiredOutput says what a retire took out of the library (D231 §7).
+type RetiredOutput struct {
+	Body struct {
+		// RemovedFileCount is how many live files became tombstones, their history kept.
+		RemovedFileCount int `json:"removedFileCount"`
+		// CancelledJobCount is how many queued, waiting or running jobs of theirs were cancelled.
+		CancelledJobCount int `json:"cancelledJobCount"`
+	}
+}
+
+func retiredOutput(retired library.Retired) *RetiredOutput {
+	output := &RetiredOutput{}
+	output.Body.RemovedFileCount, output.Body.CancelledJobCount = retired.RemovedFileCount, retired.CancelledJobCount
+	return output
+}
+
 // FilesInput pages through what the scanner saw.
 type FilesInput struct {
 	AuthorizationHeader
@@ -174,6 +198,18 @@ func (server *Server) registerLibraries() {
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
 	}, server.postLibraryMountGone)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postLibraryRootRetire", Method: http.MethodPost, Path: "/libraries/{id}/roots/retire", Tags: tags,
+		Summary: "Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7)",
+	}, server.postLibraryRootRetire)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "deleteLibrary", Method: http.MethodDelete, Path: "/libraries/{id}", Tags: tags,
+		Summary: "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
+	}, server.deleteLibrary)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postNodeRetire", Method: http.MethodPost, Path: "/nodes/retire", Tags: tags,
+		Summary: "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
+	}, server.postNodeRetire)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFiles", Method: http.MethodGet, Path: "/files",
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
@@ -315,6 +351,42 @@ func (server *Server) postLibraryMountGone(ctx context.Context, input *RootActio
 	return output, nil
 }
 
+func (server *Server) postLibraryRootRetire(ctx context.Context, input *RootActionInput) (*RetiredOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	retired, err := dependencies.Libraries.RetireRoot(ctx, input.ID, input.Body.NodeName, input.Body.Path)
+	if err != nil {
+		return nil, server.libraryError(ctx, "retire a root", err)
+	}
+	return retiredOutput(retired), nil
+}
+
+func (server *Server) deleteLibrary(ctx context.Context, input *LibraryInput) (*RetiredOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	retired, err := dependencies.Libraries.Delete(ctx, input.ID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "delete a library", err)
+	}
+	return retiredOutput(retired), nil
+}
+
+func (server *Server) postNodeRetire(ctx context.Context, input *RetireNodeInput) (*RetiredOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	retired, err := dependencies.Libraries.RetireNode(ctx, input.Body.NodeName)
+	if err != nil {
+		return nil, server.libraryError(ctx, "retire a node", err)
+	}
+	return retiredOutput(retired), nil
+}
+
 func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
@@ -366,6 +438,8 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the cursor is not one this server gave")
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
+	case errors.Is(err, library.ErrNoNode):
+		return newError(http.StatusNotFound, CodeNotFound, "no such node")
 	case errors.Is(err, library.ErrNameTaken):
 		return newError(http.StatusConflict, CodeConflict, "a library with that name already exists")
 	case errors.Is(err, library.ErrNodeNotConnected):

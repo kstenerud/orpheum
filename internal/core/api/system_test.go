@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // finishPrepare records a prepare node 1 finished of file, made with encoder at speed.
@@ -211,5 +212,33 @@ func TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider(t *testing.T) {
 	}
 	if subtitles.RatePerSecond != 5 || subtitles.Down != nil || subtitles.Quota != nil {
 		t.Errorf("OpenSubtitles is %+v; want 5 a second, up, its quota not said yet", subtitles)
+	}
+}
+
+func TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'unreadable', 9000, 5000)`,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present, missing_since)
+		 VALUES (1, '/media', '/media/disk1', 21, 0, 3000)`)
+	got := harness.do(t, http.MethodGet, "/system", admin, nil)
+	var system SystemOutput
+	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
+		t.Fatalf("GET /system = %d %s", got.status, got.body)
+	}
+	want := []OfflineBody{
+		{
+			LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", MountPath: "/media/disk1",
+			Since: 3000,
+		},
+		{LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", Since: 5000},
+	}
+	if !slices.Equal(system.Body.Offline, want) {
+		t.Errorf("offline = %+v, want the disk since 3000 and the root since its first missing scan, 5000 (D41)",
+			system.Body.Offline)
 	}
 }

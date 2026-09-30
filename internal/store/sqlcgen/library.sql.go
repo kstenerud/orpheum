@@ -278,7 +278,7 @@ SELECT library_root.root_path, library_root.node_id, node.name AS node_name, roo
 FROM library_root
 JOIN node ON node.id = library_root.node_id
 LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
-WHERE library_root.library_id = ?1
+WHERE library_root.library_id = ?1 AND library_root.retired_at IS NULL
 ORDER BY library_root.root_path
 `
 

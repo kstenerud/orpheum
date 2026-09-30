@@ -337,6 +337,32 @@ func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Conne
 	return Silent, node.lastHeard
 }
 
+// RemoveNode removes a node an admin retired (D231 §7), as Remove does, and forgets it: its
+// queued commands are dropped, and its next request is told to say hello first.
+func (service *Service) RemoveNode(ctx context.Context, nodeID int64) error {
+	if err := Remove(ctx, service.database, service.clock, nodeID); err != nil {
+		return err
+	}
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	delete(service.connectedNodes, nodeID)
+	return nil
+}
+
+// Remove marks a node an admin retired as gone (D231 §7): its name, saying hello again, enrols a
+// new node.
+func Remove(ctx context.Context, database *store.Database, clockSource clock.Clock, nodeID int64) error {
+	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		nowMs := clockSource.Now().UnixMilli()
+		_, err := queries.RemoveNode(ctx, sqlcgen.RemoveNodeParams{RemovedAt: &nowMs, ID: nodeID})
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("remove node %d: %w", nodeID, err)
+	}
+	return nil
+}
+
 // IsConnected is whether a node is connected now: a long-poll for its commands open, or heard
 // within node_silent_after_seconds. Work on its files can be sent to it.
 func (service *Service) IsConnected(ctx context.Context, nodeID int64) bool {

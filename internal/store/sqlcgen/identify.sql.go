@@ -430,7 +430,7 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 
 const listLibraryRoots = `-- name: ListLibraryRoots :many
 
-SELECT node_id, root_path FROM library_root WHERE library_id = ? ORDER BY root_path
+SELECT node_id, root_path FROM library_root WHERE library_id = ? AND retired_at IS NULL ORDER BY root_path
 `
 
 type ListLibraryRootsRow struct {
@@ -702,12 +702,13 @@ func (q *Queries) ListSeriesEpisodePlaces(ctx context.Context, collectionID int6
 }
 
 const listTitlesByProviderID = `-- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.identification_state, title.kind
+SELECT title.id, item.library_id, title.identification_state, title.kind, item.removed_at
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id
-WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ? AND item.removed_at IS NULL
-ORDER BY title.id
+WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ?
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
+ORDER BY item.removed_at IS NOT NULL, title.id
 `
 
 type ListTitlesByProviderIDParams struct {
@@ -720,8 +721,11 @@ type ListTitlesByProviderIDRow struct {
 	LibraryID           *int64
 	IdentificationState string
 	Kind                string
+	RemovedAt           *int64
 }
 
+// The titles a provider's id names: the live ones, and those of a deleted library, tombstoned
+// with no merged_into, which a film that reappears brings back (D208 section 2, D231 section 7).
 func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByProviderIDParams) ([]ListTitlesByProviderIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, listTitlesByProviderID, arg.Provider, arg.ProviderID)
 	if err != nil {
@@ -736,6 +740,7 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 			&i.LibraryID,
 			&i.IdentificationState,
 			&i.Kind,
+			&i.RemovedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -751,7 +756,7 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 }
 
 const moveItemToLibrary = `-- name: MoveItemToLibrary :exec
-UPDATE item SET library_id = ?1 WHERE id = ?2
+UPDATE item SET library_id = ?1, removed_at = NULL WHERE id = ?2
 `
 
 type MoveItemToLibraryParams struct {
@@ -759,6 +764,7 @@ type MoveItemToLibraryParams struct {
 	ID        int64
 }
 
+// A title follows its files to another library, a deleted library's brought back with them.
 func (q *Queries) MoveItemToLibrary(ctx context.Context, arg MoveItemToLibraryParams) error {
 	_, err := q.db.ExecContext(ctx, moveItemToLibrary, arg.LibraryID, arg.ID)
 	return err

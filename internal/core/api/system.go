@@ -58,7 +58,22 @@ type SystemOutput struct {
 		// at next (D231 §12); Providers each outside host's provider service (D231 §5).
 		Destinations []DestinationBody `json:"destinations"`
 		Providers    []ProviderBody    `json:"providers"`
+		// Offline are the roots and disks scans have found missing, the longest offline first:
+		// offline never ends without an admin, who retires one, or a scan that finds it (D41,
+		// D231 §7).
+		Offline []OfflineBody `json:"offline"`
 	}
+}
+
+// OfflineBody is a root, or a disk mounted inside one, that scans have found missing, and since
+// when.
+type OfflineBody struct {
+	LibraryID   int64  `json:"libraryId"`
+	LibraryName string `json:"libraryName"`
+	NodeName    string `json:"nodeName"`
+	RootPath    string `json:"rootPath"`
+	MountPath   string `doc:"The missing disk's mount point inside the root; absent when the root itself is offline" json:"mountPath,omitempty"` //nolint:lll // one struct tag
+	Since       int64  `doc:"When the first scan that found it missing ran, in Unix milliseconds" json:"since"`
 }
 
 // ServerBody is the server's own facts.
@@ -240,6 +255,17 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	output.Body.Destinations = make([]DestinationBody, 0)
 	for _, state := range dependencies.Jobs.ParkedDestinations() {
 		output.Body.Destinations = append(output.Body.Destinations, destinationBody(state, nodeName))
+	}
+	offline, err := dependencies.Libraries.Offline(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "list what is offline", err)
+	}
+	output.Body.Offline = make([]OfflineBody, 0, len(offline))
+	for _, missing := range offline {
+		output.Body.Offline = append(output.Body.Offline, OfflineBody{
+			LibraryID: missing.LibraryID, LibraryName: missing.LibraryName, NodeName: missing.NodeName,
+			RootPath: missing.RootPath, MountPath: missing.MountPath, Since: missing.Since.UnixMilli(),
+		})
 	}
 	output.Body.Providers = make([]ProviderBody, 0, len(dependencies.Providers))
 	for _, provider := range dependencies.Providers {

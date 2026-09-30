@@ -148,6 +148,109 @@ func (q *Queries) ListMissingMountsOfNode(ctx context.Context, nodeID int64) ([]
 	return items, nil
 }
 
+const listOfflineDisks = `-- name: ListOfflineDisks :many
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, root_mount.root_path,
+  root_mount.mount_path, CAST(root_mount.missing_since AS INTEGER) AS missing_since
+FROM root_mount
+JOIN library_root ON library_root.node_id = root_mount.node_id AND library_root.root_path = root_mount.root_path
+  AND library_root.retired_at IS NULL
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = root_mount.node_id AND node.removed_at IS NULL
+WHERE root_mount.is_present = 0 AND root_mount.missing_since IS NOT NULL
+ORDER BY root_mount.missing_since, library.id, root_mount.mount_path
+`
+
+type ListOfflineDisksRow struct {
+	LibraryID    int64
+	LibraryName  string
+	NodeName     string
+	RootPath     string
+	MountPath    string
+	MissingSince int64
+}
+
+// The disks mounted inside such roots that scans have found missing, and since when.
+func (q *Queries) ListOfflineDisks(ctx context.Context) ([]ListOfflineDisksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOfflineDisks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOfflineDisksRow{}
+	for rows.Next() {
+		var i ListOfflineDisksRow
+		if err := rows.Scan(
+			&i.LibraryID,
+			&i.LibraryName,
+			&i.NodeName,
+			&i.RootPath,
+			&i.MountPath,
+			&i.MissingSince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOfflineRoots = `-- name: ListOfflineRoots :many
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, library_root.root_path,
+  CAST(root_state.unavailable_since AS INTEGER) AS unavailable_since
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = library_root.node_id AND node.removed_at IS NULL
+JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND root_state.unavailable_since IS NOT NULL
+ORDER BY root_state.unavailable_since, library.id, library_root.root_path
+`
+
+type ListOfflineRootsRow struct {
+	LibraryID        int64
+	LibraryName      string
+	NodeName         string
+	RootPath         string
+	UnavailableSince int64
+}
+
+// The roots of live libraries, on live nodes and not retired, that scans have found unavailable,
+// and since when: what the System page says is offline until an admin retires it or a scan finds
+// it (D41, D231 section 7).
+func (q *Queries) ListOfflineRoots(ctx context.Context) ([]ListOfflineRootsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOfflineRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOfflineRootsRow{}
+	for rows.Next() {
+		var i ListOfflineRootsRow
+		if err := rows.Scan(
+			&i.LibraryID,
+			&i.LibraryName,
+			&i.NodeName,
+			&i.RootPath,
+			&i.UnavailableSince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRootMounts = `-- name: ListRootMounts :many
 SELECT mount_path, filesystem_device, is_present
 FROM root_mount
@@ -231,7 +334,8 @@ INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, l
 VALUES (?1, ?2, ?3, ?4, 'complete', ?5)
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, last_scan_outcome = 'complete',
-  last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0
+  last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0,
+  unavailable_since = NULL
 `
 
 type RecordRootCompleteParams struct {
@@ -242,7 +346,8 @@ type RecordRootCompleteParams struct {
 	LastScanAt       int64
 }
 
-// A complete scan: its facts become the known-good ones later scans are compared against.
+// A complete scan: its facts become the known-good ones later scans are compared against, and the
+// root is no longer unavailable.
 func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootComplete,
 		arg.NodeID,
@@ -255,16 +360,19 @@ func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootComplete
 }
 
 const recordRootMountMissing = `-- name: RecordRootMountMissing :exec
-UPDATE root_mount SET is_present = 0 WHERE node_id = ? AND mount_path = ?
+UPDATE root_mount SET is_present = 0, missing_since = coalesce(missing_since, ?1)
+WHERE node_id = ?2 AND mount_path = ?3
 `
 
 type RecordRootMountMissingParams struct {
-	NodeID    int64
-	MountPath string
+	MissingSince *int64
+	NodeID       int64
+	MountPath    string
 }
 
+// A disk a scan did not find where it was: missing since the first such scan in a row.
 func (q *Queries) RecordRootMountMissing(ctx context.Context, arg RecordRootMountMissingParams) error {
-	_, err := q.db.ExecContext(ctx, recordRootMountMissing, arg.NodeID, arg.MountPath)
+	_, err := q.db.ExecContext(ctx, recordRootMountMissing, arg.MissingSince, arg.NodeID, arg.MountPath)
 	return err
 }
 
@@ -272,7 +380,7 @@ const recordRootMountPresent = `-- name: RecordRootMountPresent :exec
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 VALUES (?1, ?2, ?3, ?4, 1)
 ON CONFLICT (node_id, mount_path) DO UPDATE SET
-  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1
+  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1, missing_since = NULL
 `
 
 type RecordRootMountPresentParams struct {
@@ -293,12 +401,14 @@ func (q *Queries) RecordRootMountPresent(ctx context.Context, arg RecordRootMoun
 }
 
 const recordRootNotComplete = `-- name: RecordRootNotComplete :exec
-INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason)
+INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason,
+  unavailable_since)
 VALUES (?1, ?2, ?3, ?4, ?5,
-  ?6)
+  ?6, ?4)
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
-  withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason
+  withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
+  unavailable_since = coalesce(root_state.unavailable_since, excluded.last_scan_at)
 `
 
 type RecordRootNotCompleteParams struct {
@@ -311,7 +421,8 @@ type RecordRootNotCompleteParams struct {
 }
 
 // A scan that could not read its root, or whose removals wait for the admin: the known-good
-// facts stay as they were.
+// facts stay as they were, and the root is unavailable since the first such scan in a row (D41,
+// D231 section 7).
 func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootNotComplete,
 		arg.NodeID,

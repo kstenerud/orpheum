@@ -45,3 +45,47 @@ func (queue *Queue) CancelWhere(
 
 // Forget drops a retired destination: its work was cancelled, and nothing brings it back.
 func (queue *Queue) Forget(destination Destination) { queue.queue.Forget(destination) }
+
+// RetiredWork is what a retire took out of the library (D231 §7): the items, files, streams and
+// fetched subtitles whose jobs end, and the destinations nothing brings back.
+type RetiredWork struct {
+	ItemIDs            []int64
+	FileIDs            []int64
+	StreamIDs          []int64
+	FetchedSubtitleIDs []int64
+	// Destinations are the retired roots and the disks mounted inside them, and a retired node's
+	// own and its prepared directory's.
+	Destinations []Destination
+}
+
+// CancelRetired cancels every queued, parked and running job of what a retire took out, by its
+// target or by the destination it waits on, then forgets those destinations. It says how many
+// jobs it cancelled.
+func (queue *Queue) CancelRetired(ctx context.Context, work RetiredWork) (int, error) {
+	items, files := setOf(work.ItemIDs), setOf(work.FileIDs)
+	streams, fetchedSubtitles := setOf(work.StreamIDs), setOf(work.FetchedSubtitleIDs)
+	destinations := setOf(work.Destinations)
+	cancelled, err := queue.CancelWhere(ctx, func(target Target, destination Destination) bool {
+		return items[target.ItemID] || files[target.FileID] || streams[target.StreamID] ||
+			fetchedSubtitles[target.FetchedSubtitleID] || destinations[destination]
+	})
+	if err != nil {
+		return cancelled, err
+	}
+	for _, destination := range work.Destinations {
+		queue.Forget(destination)
+	}
+	return cancelled, nil
+}
+
+// setOf is the set of values, never holding the zero value, which is a target's unset column.
+func setOf[V comparable](values []V) map[V]bool {
+	set := make(map[V]bool, len(values))
+	var zero V
+	for _, value := range values {
+		if value != zero {
+			set[value] = true
+		}
+	}
+	return set
+}

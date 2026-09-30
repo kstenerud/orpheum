@@ -14,7 +14,7 @@ import (
 func adminOf(world *harness) (*Admin, *fakeNodes, int64) {
 	world.t.Helper()
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
-	admin := NewAdmin(world.database, world.clock, nodes)
+	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(world.t.Context())
 	if err != nil || len(libraries) != 1 {
 		world.t.Fatalf("List = %+v, %v", libraries, err)

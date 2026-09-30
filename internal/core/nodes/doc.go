@@ -41,6 +41,9 @@
 //     brings back the prepares parked on its prepared directory (D231 §5, §6).
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode,
 //     TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory.
+//   - A node an admin retired is removed and forgotten: it is told to say hello first, and its
+//     name, saying hello again, enrols a new node (D231 §7).
+//     TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode.
 //
 // # Read before changing
 //
