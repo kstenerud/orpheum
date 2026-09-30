@@ -98,6 +98,9 @@
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
+//   - The text a node made of a track, or why it could not, is kept in library.db, not cache.db:
+//     making it again reads a whole video (the architecture map's F1, D231 §3).
+//     TestSubtitles_ExtractedTextIsKeptInLibraryDBWhichOutlivesCacheDB.
 //   - A rendition the node finished records what made its video and how fast, as the node said
 //     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
 //   - A subtitle fetched on request is found by the work's ids or the series' and place, and the

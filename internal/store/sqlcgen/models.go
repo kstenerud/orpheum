@@ -34,3 +34,12 @@ type Setting struct {
 	SetAt       int64
 	IsModified  int64
 }
+
+type SubtitleText struct {
+	SourceHash  []byte
+	StreamIndex int64
+	ASS         []byte
+	VTT         []byte
+	Failure     *string
+	MadeAt      int64
+}

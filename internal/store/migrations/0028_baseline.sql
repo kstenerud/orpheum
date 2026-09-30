@@ -1,14 +1,14 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 97bc2b8fded96059c919bddee38d7e6747e4c4fca854b68919e6a4188bcc3614
--- The baseline (D228): library.db's schema at version 27 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0027 (D185's first schema, the steps
--- D200 to D227 added, 0026's index for the newest-first listings, and 0027's names for what is
--- held), and builds the schema and the seeded rows they built; the checksum above is
--- 0027_names_say_what_they_hold.sql's, which a database migrated through that step recorded.
--- Until the owner declares migrations live, a schema change folds the last step into this file,
--- which moves up to its version, and adds the change as the one step after it. The tables are
--- documented in docs/contributors/design/plans/schema.md.
+-- orpheum:baseline folds ed9e4cc7c65b95a7d8fb79a917915800d0418ee834bde4b59cb4b02d6ce4cfa5
+-- The baseline (D228): library.db's schema at version 28 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0028 (D185's first schema, the steps
+-- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
+-- and 0028's choices that follow the work, D230), and builds the schema and the seeded rows they
+-- built; the checksum above is 0028_choices_follow_the_work.sql's, which a database migrated
+-- through that step recorded. Until the owner declares migrations live, a schema change folds
+-- the last step into this file, which moves up to its version, and adds the change as the one
+-- step after it. The tables are documented in docs/contributors/design/plans/schema.md.
 -- The runner owns application_id, user_version and compatible_version; this file holds DDL and
 -- the two built-in roles only.
 
@@ -470,20 +470,16 @@ CREATE TABLE "grant" (                                     -- class A (D154)
 ) WITHOUT ROWID;
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
 
-CREATE TABLE setting (                                     -- class A
-  scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
-  user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL for 'server'
-  key         TEXT NOT NULL,             -- a name from the settings registry in code
+CREATE TABLE setting (                                     -- class A: the server's (D200)
+  key         TEXT NOT NULL PRIMARY KEY, -- a name from the settings registry in code
   value_json  TEXT NOT NULL,             -- JSON
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
   set_at      INTEGER NOT NULL,
   -- Whether a person set it (D201 section 1): any manual set marks it, even to its starting
   -- value; "set to default" clears it; a release that changes a starting value moves every
   -- unmarked row to the new one.
-  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),
-  CHECK ((scope = 'server') = (user_id IS NULL))
+  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1))
 );
-CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
 
 CREATE TABLE secret (                                      -- class A, sealed (D194)
   scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
@@ -555,13 +551,15 @@ CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
-CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103)
+CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  scope       TEXT NOT NULL CHECK (scope IN ('user','library','series','device','file')),
-  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
-  axis        TEXT NOT NULL,               -- 'subtitle_offset_ms', 'subtitle_choice' (a file's);
-                                           -- 'dialogue_boost', 'levelling' (a person's own)
-  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset ≠ false
+  scope       TEXT NOT NULL CHECK (scope IN ('user','library','work','device','file')),
+  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; a work's is its series' or its title's item
+  axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'subtitle_used',
+                                           -- 'audio_used'; a work's 'subtitle_language',
+                                           -- 'audio_language'; a person's own 'dialogue_boost',
+                                           -- 'levelling'
+  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset is not false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;

@@ -76,3 +76,18 @@ func TestCacheVersion_IsDeclaredByTheSchema(t *testing.T) {
 		t.Errorf("CacheVersion() = %d, %v", version, err)
 	}
 }
+
+func TestOpenCache_HoldsNoSubtitleTextWhichLibraryDBKeeps(t *testing.T) {
+	t.Parallel()
+	// Making a track's text again reads a whole video: it is kept in library.db, and cache.db,
+	// which a release may discard, holds none (the architecture map's F1, D231 section 3).
+	const named = "SELECT name FROM sqlite_master WHERE name = 'subtitle_text'"
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	if rows := queryRows(t, cache.database, named, 1); len(rows) != 0 {
+		t.Errorf("cache.db has %v, want no subtitle_text", rows)
+	}
+	library := openMigrated(t)
+	if rows := queryRows(t, library, named, 1); len(rows) != 1 {
+		t.Errorf("library.db has %v, want subtitle_text", rows)
+	}
+}

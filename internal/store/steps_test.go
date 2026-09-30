@@ -274,7 +274,7 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-func TestMigrate_Step0028KeepsAWorksLastChoiceAndWhatStartedFilesUsedAndSpellsOutSettingUnits(t *testing.T) {
+func TestMigrate_Step0029NamesAnIssuedSecretAndKeepsSinceWhenARootOrDiskIsMissing(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -284,39 +284,19 @@ func TestMigrate_Step0028KeepsAWorksLastChoiceAndWhatStartedFilesUsedAndSpellsOu
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	// A series (item 20) with episodes 21, 22 and 23 (files 1, 2 and 3; file 5 is episode 21's other
-	// copy) and a film (item 30, file 4). English was chosen in file 1 and carried to 2 and 3, of
-	// which only 3 was started; forced French was chosen later in file 5; the film's subtitles were
-	// turned off.
-	const english = `{"streamId":7,"track":{"language":"en","title":"Full","isHearingImpaired":true}}`
+	// An invitation and a session derived from another, a root a scan could not read at 50, one
+	// read at 60 with a disk inside it missing, and one read cleanly at 70.
 	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)",
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at) VALUES
+		 (X'01', 'invite', 1, 'register', 1), (X'02', 'session', 1, 'role', 2)`,
+		`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, parent_secret_sha256, issued_at) VALUES
+		 (X'03', 'cast', 1, 'role', X'02', 3)`,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
-			"VALUES (1, 'All', 'mixed', 'nfo', 'manual', 0, 1)",
-		`INSERT INTO item (id, kind, library_id, added_at) VALUES
-		 (20, 'collection', 1, 1), (21, 'title', 1, 1), (22, 'title', 1, 1), (23, 'title', 1, 1), (30, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, identification_state) VALUES (21, 'episode', 'identified'),
-		 (22, 'episode', 'identified'), (23, 'episode', 'identified'), (30, 'movie', 'identified')`,
-		"INSERT INTO collection (id, kind, membership, created_by) VALUES (20, 'series', 'explicit', 'scanner')",
-		"INSERT INTO collection_member (collection_id, member_title) VALUES (20, 21), (20, 22), (20, 23)",
-		"INSERT INTO version (id, title_id, created_at) VALUES "+
-			"(1, 21, 1), (2, 22, 1), (3, 23, 1), (4, 30, 1), (5, 21, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, filing, version_id, first_seen_at, last_seen_at) VALUES
-		 (1, 1, 1, '/1', 'listed', 1, 1, 1), (2, 1, 1, '/2', 'listed', 2, 1, 1), (3, 1, 1, '/3', 'listed', 3, 1, 1),
-		 (4, 1, 1, '/4', 'listed', 4, 1, 1), (5, 1, 1, '/5', 'listed', 5, 1, 1)`,
-		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at) VALUES (1, 3, 60000, 1, 12)`,
-		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at) VALUES
-		 (1, 'file', 1, 'subtitle_choice', '`+english+`', 10),
-		 (1, 'file', 2, 'subtitle_choice', '{"streamId":8,"isCarriedFromWork":true,"track":{"language":"en"}}', 10),
-		 (1, 'file', 3, 'subtitle_choice', '{"streamId":9,"isCarriedFromWork":true,"track":{"language":"en"}}', 10),
-		 (1, 'file', 5, 'subtitle_choice', '{"streamId":6,"track":{"language":"fr","isForced":true}}', 20),
-		 (1, 'file', 4, 'subtitle_choice', '{"isOff":true}', 30),
-		 (1, 'file', 4, 'subtitle_offset_ms', '500', 30),
-		 (2, 'user', 0, 'levelling', 'false', 5)`,
-		`INSERT INTO setting (scope, user_id, key, value_json, is_modified, set_at) VALUES
-		 ('server', NULL, 'job_first_retry_delay_s', '30', 1, 1), ('server', NULL, 'tmdb_refresh_after_d', '7', 0, 1),
-		 ('server', NULL, 'signin_failure_limit', '5', 0, 1), ('user', 1, 'old_key', '1', 1, 1)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at) VALUES
+		 (1, '/gone', 'unreadable', 50), (1, '/disks', 'complete', 60), (1, '/fine', 'complete', 70)`,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES
+		 (1, '/disks', '/disks/a', 7, 0), (1, '/disks', '/disks/b', 8, 1)`)
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
@@ -326,26 +306,20 @@ func TestMigrate_Step0028KeepsAWorksLastChoiceAndWhatStartedFilesUsedAndSpellsOu
 		want    string
 	}{
 		{
-			"SELECT user_id, scope, scope_id, axis, value_json, set_at FROM preference " +
-				"ORDER BY user_id, scope, scope_id, axis",
-			6,
-			"[[1 file 1 subtitle_used " +
-				`{"streamId":7,"track":{"language":"en","containerTitle":"Full","kind":"hearing_impaired"}} 10] ` +
-				`[1 file 3 subtitle_used ` +
-				`{"streamId":9,"track":{"language":"en","containerTitle":"","kind":"plain"}} 10] ` +
-				`[1 file 4 subtitle_offset_ms 500 30] [1 file 4 subtitle_used {"isOff":true} 30] ` +
-				`[1 file 5 subtitle_used ` +
-				`{"streamId":6,"track":{"language":"fr","containerTitle":"","kind":"forced"}} 20] ` +
-				`[1 work 20 subtitle_language {"language":"fr","containerTitle":"","kind":"forced"} 20] ` +
-				`[1 work 30 subtitle_language {"isOff":true} 30] [2 user 0 levelling false 5]]`,
+			`SELECT hex(secret_sha256), kind, ifnull(hex(parent_secret_sha256), '') FROM "grant" ORDER BY 1`, 3,
+			"[[01 issued_secret ] [02 session ] [03 cast 02]]",
 		},
 		{
-			"SELECT key, value_json, is_modified FROM setting ORDER BY key", 3,
-			"[[job_first_retry_delay_seconds 30 1] [signin_failure_limit 5 0] [tmdb_refresh_after_days 7 0]]",
+			"SELECT root_path, ifnull(unavailable_since, 0) FROM root_state ORDER BY 1", 2,
+			"[[/disks 0] [/fine 0] [/gone 50]]",
+		},
+		{
+			"SELECT mount_path, ifnull(missing_since, 0) FROM root_mount ORDER BY 1", 2,
+			"[[/disks/a 60] [/disks/b 0]]",
 		},
 	} {
 		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
-			t.Errorf("after step 0028, %s =\n%s\nwant\n%s (D230)", check.query, got, check.want)
+			t.Errorf("after step 0029, %s =\n%s\nwant\n%s (D231)", check.query, got, check.want)
 		}
 	}
 }

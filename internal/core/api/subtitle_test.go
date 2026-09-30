@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -64,22 +65,10 @@ func (harness testHarness) extract(
 // payloadHash.
 func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, streamIndex int64, text string) {
 	t.Helper()
-	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
-		err := queries.RequestSubtitleText(t.Context(), cachegen.RequestSubtitleTextParams{
-			SourceHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
+	err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.KeepSubtitleText(t.Context(), sqlcgen.KeepSubtitleTextParams{
+			SourceHash: payloadHash, StreamIndex: streamIndex, ASS: []byte(text), VTT: []byte(text), MadeAt: 2,
 		})
-		if err != nil {
-			return fmt.Errorf("want the text: %w", err)
-		}
-		finished := int64(2)
-		err = queries.SetSubtitleTextComplete(t.Context(), cachegen.SetSubtitleTextCompleteParams{
-			ASS: []byte(text), VTT: []byte(text), FinishedAt: &finished,
-			SourceHash: payloadHash, StreamIndex: streamIndex,
-		})
-		if err != nil {
-			return fmt.Errorf("complete the text: %w", err)
-		}
-		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -203,6 +192,28 @@ func TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain(t 
 	harness.play(t, user, chrome(2))
 	if queued := harness.subtitleJobCount(t); queued != 1 {
 		t.Errorf("playing again queued %d extractions in all, want none after the first", queued)
+	}
+}
+
+func TestSubtitles_ExtractedTextIsKeptInLibraryDBWhichOutlivesCacheDB(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	harness.play(t, user, chrome(2))
+	extracted := nodeproto.SubtitleText{ASS: []byte("[Script Info]"), VTT: []byte("WEBVTT")}
+	if _, err := harness.extract(t, 93, extracted); err != nil {
+		t.Fatalf("the job ended %v, want done", err)
+	}
+	// Making it again reads the whole video, so it is not cache.db's to lose (the architecture
+	// map's F1; D231 section 3).
+	kept, err := harness.database.Read().GetSubtitleText(t.Context(), sqlcgen.GetSubtitleTextParams{
+		SourceHash: []byte{0x0c, 0x0d}, StreamIndex: 2,
+	})
+	if err != nil || string(kept.ASS) != "[Script Info]" || string(kept.VTT) != "WEBVTT" || kept.Failure != nil {
+		t.Errorf("library.db keeps %+v (%v), want the text the node made", kept, err)
 	}
 }
 

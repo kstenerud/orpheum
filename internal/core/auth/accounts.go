@@ -16,9 +16,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// The invitations D218 makes: grants of kind invite, single use, each in its own scope.
+// The invitations D218 makes: grants of kind issued_secret, a secret handed to a person to pass on,
+// single use, each in its own scope.
 const (
-	grantKindInvite = "invite"
+	grantKindIssuedSecret = "issued_secret"
 	// A registration invitation, which lets its person set a password (D218 §1).
 	grantScopeRegister = "register"
 	// A device code, which signs a new device in as its person (D218 §3).
@@ -99,13 +100,13 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	expires := now.Add(registrationInvitationLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
-			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeRegister,
+			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeRegister,
 		})
 		if revokeErr != nil {
 			return fmt.Errorf("withdraw the earlier invitation: %w", revokeErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			SecretSha256: tokenHash(secret), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeRegister,
+			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeRegister,
 			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
 		})
 	})
@@ -168,13 +169,13 @@ func (service *Service) IssueDeviceCode(
 	expires := now.Add(deviceCodeLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
-			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
+			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeAddDevice,
 		})
 		if revokeErr != nil {
 			return fmt.Errorf("withdraw the last code: %w", revokeErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			SecretSha256: tokenHash(code), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeAddDevice,
+			SecretSha256: tokenHash(code), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeAddDevice,
 			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), DeviceName: &deviceName, DeviceID: deviceID,
 		})
 	})
@@ -196,7 +197,7 @@ type WaitingCode struct {
 func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*WaitingCode, error) {
 	waiting, err := store.OrNotFound(service.database.Read().GetLatestLiveGrantOfUser(ctx,
 		sqlcgen.GetLatestLiveGrantOfUserParams{
-			UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
+			UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeAddDevice,
 			Now: new(service.clock.Now().UnixMilli()),
 		}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -294,7 +295,7 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 		if lookErr != nil {
 			return lookErr
 		}
-		if found.Kind != grantKindInvite || found.Scope != scope || found.UserID == nil {
+		if found.Kind != grantKindIssuedSecret || found.Scope != scope || found.UserID == nil {
 			return store.ErrNotFound
 		}
 		grant = found

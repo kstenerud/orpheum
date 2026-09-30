@@ -427,7 +427,7 @@ CREATE TABLE position (                                    -- season/episode, or
 );
 
 -- table preference
-CREATE TABLE "preference" (                              -- class A (D24, D57, D90, D103, D230)
+CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL CHECK (scope IN ('user','library','work','device','file')),
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; a work's is its series' or its title's item
@@ -525,7 +525,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
 );
 
 -- table setting
-CREATE TABLE "setting" (                                 -- class A: the server's (D200)
+CREATE TABLE setting (                                     -- class A: the server's (D200)
   key         TEXT NOT NULL PRIMARY KEY, -- a name from the settings registry in code
   value_json  TEXT NOT NULL,             -- JSON
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard

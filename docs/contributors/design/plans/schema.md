@@ -123,12 +123,22 @@ CREATE TABLE library_root (                                -- class O: as the no
   library_id INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   root_path       TEXT NOT NULL,
+  retired_at INTEGER,                    -- an admin retired it (D231 section 7); migration 0029
   PRIMARY KEY (library_id, node_id, root_path)
 );
 ```
 
 A node's roots are set on the node and never remotely ([D107](../../decisions/working-notes.md));
 the core records what the node says it serves.
+
+**A root, a node and a library each have a retire action** ([D231](../../decisions/working-notes.md)
+§7), a library's being its delete. Retiring tombstones the files ([D173](../../decisions/working-notes.md):
+their history stays on their titles) and cancels their work. A retired root keeps its
+`library_root` row with `retired_at`, and is scanned no more; a retired node is `node.removed_at`,
+and its name enrols a new node if it ever says hello again; a deleted library is
+`library.removed_at`, and its items are tombstoned (`item.removed_at` with no `merged_into`), hidden
+with their history, so a film of it that reappears in another library brings its title back
+([D208](../../decisions/working-notes.md) §2).
 
 ```sql
 CREATE TABLE root_scan (                                   -- class O
@@ -154,6 +164,7 @@ CREATE TABLE root_state (                                  -- class O; migration
   withheld_scan_started_at  INTEGER,                -- the withheld scan's start: what it did not see goes
   withheld_reason TEXT,                   -- once the admin confirms
   are_removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (are_removals_approved IN (0, 1)),  -- class A
+  unavailable_since INTEGER,              -- the first of the scans since the last complete one; 0029
   PRIMARY KEY (node_id, root_path)
 );
 CREATE TABLE root_mount (                                  -- class O; migration 0004
@@ -162,6 +173,7 @@ CREATE TABLE root_mount (                                  -- class O; migration
   mount_path    TEXT NOT NULL,           -- NFC, absolute on the node, like file.path
   filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
   is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
+  missing_since INTEGER,                 -- the first scan that found it missing; migration 0029
   PRIMARY KEY (node_id, mount_path)
 );
 ```
@@ -174,7 +186,10 @@ removed more than `scan_withhold_removals_over_percent` of the root and more tha
 authored column here, cleared by the scan it lets remove).
 `root_mount` is each mount boundary a complete scan crossed: a boundary that comes back as an
 empty directory on the root's own device is a disk that is not there, and its files wait
-rather than go, until it returns or an admin says it is gone.
+rather than go, until it returns or an admin says it is gone. `unavailable_since` and
+`missing_since` are when scans began finding a root or a disk missing: the System page's
+"offline since", and the admin's reminder after `offline_reminder_after_days`, since offline never
+ends without the admin ([D41](../../decisions/working-notes.md), D231 §7).
 
 **The Cut A node has no enrolment credential.** It is the core's child on a Unix socket whose
 permissions are the boundary ([D193](../../decisions/working-notes.md)); a remote node's credential arrives with remote nodes, as a
@@ -476,7 +491,12 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   source_ref  TEXT,
   source_sha256 BLOB,                     -- the derived sizes live in cache/ under this
   is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
-  removed_at  INTEGER
+  removed_at  INTEGER,
+  -- 0029: an image that could not be stored, when and why, and whether its source said it was
+  -- not there (a 404, rechecked once, D213 section 1)
+  refused_at  INTEGER,
+  refusal     TEXT,
+  is_missing_at_source INTEGER NOT NULL DEFAULT 0 CHECK (is_missing_at_source IN (0, 1))
 );
 CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1;
 CREATE INDEX artwork_item ON artwork(item_id, kind);
@@ -491,6 +511,15 @@ CREATE TABLE item_tag (
   PRIMARY KEY (tag_id, item_id)
 ) WITHOUT ROWID;
 ```
+
+An image that could not be stored is a row with no `source_sha256`: its item holds it, so it is
+not asked for again, and an older image of the kind stays shown. Its `refusal` and `refused_at`
+are the item's own failure, a fact that a person's refresh with images clears (D231 §4). One its
+source said was missing is looked at once more: the refresh sweep asks for the item's record
+again once the source's CDN has stopped answering from its cached 404 (twelve hours for TMDB),
+derived from this row and never held as a job (D213 §1, D231 §3), and a second miss gives it up.
+A refused image beside the media is owed again once a scan has seen its file since, so a disk
+that was away brings its images back (G9).
 
 The columns in `title` and `item_text` are **the resolved values** — override, else the
 title's source, else local fallbacks ([D183](../../decisions/working-notes.md)) — and are
@@ -603,7 +632,7 @@ CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;  -- a per
 CREATE TABLE "grant" (                                     -- class A (D154)
   secret_sha256        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
   kind        TEXT NOT NULL CHECK (kind IN ('session','link','cast','join','api_key',
-                'adapter','node','relay','invite')),
+                'adapter','node','relay','issued_secret')),  -- 0029: named for what it covers
   user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL,
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
@@ -617,8 +646,10 @@ CREATE TABLE "grant" (                                     -- class A (D154)
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;  -- 0023: was grant_subject
 ```
 
-`invite` is a ninth grant kind, added for [D174](../../decisions/working-notes.md): single use,
-and redeeming it creates the outsider's user with the role **asked when the invite was made**
+`issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
+[D174](../../decisions/working-notes.md) as `invite` and named for what it covers in migration 0029
+(the jobs rebuild's Phase 3): single use, and redeeming an invitation creates the outsider's user
+with the role **asked when the invite was made**
 ([D184](../../decisions/working-notes.md)); ceilings and a lease join that question when they
 exist.
 [D218](../../decisions/working-notes.md)'s accounts use it too, in two scopes: `register`, a
@@ -809,6 +840,28 @@ it. An episode has no response of its own; it takes its values from its season's
 0007 the table was keyed on `title_id`, which left a series nowhere to keep its match — the one
 table that did not follow D186.
 
+```sql
+CREATE TABLE fetch_failure (                               -- class F; migration 0029
+  item_id   INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  failure   TEXT NOT NULL,               -- what the provider or the job said
+  failed_at INTEGER NOT NULL
+);
+CREATE TABLE refresh_request (                             -- class A; migration 0029
+  item_id      INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  requested_at INTEGER NOT NULL,
+  should_fetch_images INTEGER NOT NULL CHECK (should_fetch_images IN (0, 1))
+);
+```
+
+**Work is derived from these facts, not held as jobs** ([D231](../../decisions/working-notes.md)
+§3, §4). A film or series with no answer yet (not matched, not "not found", no failure of its
+own) is owed its first match, whatever became of an earlier job for it; one whose host was down
+parked rather than failed, and stays owed. A failure that is the item's own, a job's last
+attempt included, is a `fetch_failure`: the sweeps pass it over, its page shows it, and a
+person's refresh, "try again", clears it, as a fetch that succeeds does. A person's refresh is a
+`refresh_request`, which a sweep queues until a fetch that began after it ends; so a request lost
+with `cache.db`, or merged into a rolling refresh, still happens, images and all.
+
 **Moved here from `cache.db` by the second audit.** The resolved columns of `title` and
 `item_text` re-derive from these bodies, and D170 forbids refetching them, so losing them was
 never "only a cache" — deleting `cache.db` would have forced exactly the refetch the design rules
@@ -835,7 +888,8 @@ reference scale, and removes a failure mode.
 > hash as well as a bytes file's payload hash (M3's closing audit, D227); version 20 gave a job
 > `is_snoozed`, so a repeat request wakes a job in back-off but not one waiting for a time it was
 > given, and `last_attempt_tool_failed`, the tool's failure kept apart from the job's own
-> (D231 §8, D233 §6: the jobs rebuild's Phase 1).
+> (D231 §8, D233 §6: the jobs rebuild's Phase 1); version 21 gave a job its `destination` (D231
+> §5, Phase 2); version 22 moved `subtitle_text` to `library.db` (the architecture map's F1, Phase 3).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -914,41 +968,49 @@ A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under t
 directory, which the node alone deletes from (D217 §5); this row is the core's note of what it
 asked for and what the node said. Its prepare job's target is the row's id, `rendition_id` (D217 §3).
 
-```sql
-CREATE TABLE subtitle_text (                               -- D217 §6, D224 §5: by its source
-  -- What the text was made from: an embedded track's bytes file, by its payload hash as it was
-  -- when extracted (D179), or a fetched subtitle, by the SHA-256 of its stored body_gzip.
-  source_hash  BLOB NOT NULL,
-  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
-  state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
-  ass          BLOB,                     -- once complete: for JASSUB
-  vtt          BLOB,                     -- once complete: for the cast receiver
-  failure        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
-  created_at   INTEGER NOT NULL,
-  finished_at  INTEGER,
-  PRIMARY KEY (source_hash, stream_index)
-);
-```
-
-A text track is extracted when its video is first played (D217 §6): a track inside the video,
-or a subtitle file beside it, converted whole. Its text is kept by the payload hash of the file
-its bytes are in and its stream index there, a subtitle file's one track being its stream 0, so
-a move or a rescan keeps it. Its extraction job's target is the `stream` row, `stream_id` (D217 §3).
-A `stream` row keeps its id for as long as its file has that track: a video observed again has
-its rows changed in place by stream index, and only a track its probe no longer has is dropped;
-a subtitle file's row is changed in place too. A job whose stream is gone fails, and the next
-play queues another. The text is a few
-hundred kilobytes at most, so it is kept in the row rather than beside the art.
+The text made from a subtitle track is kept in `library.db` since version 22 (below, *Subtitle
+text*): making it again reads a whole video, which is not "only timing" (the architecture map's
+F1).
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
 here is referenced by anything authored. **Losing `cache.db` costs re-queued work and
-re-transcodes; it loses nothing** — a lost `match_candidate` means an ambiguous title's choice
+re-transcodes; it loses nothing** (D231 §3,
+`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`): every job is derived again from `library.db`
+by its sweep, or asked for again by the next play. A lost `match_candidate` means an ambiguous title's choice
 screen searches once more, which is a search the user asked for, and running jobs restart from
 zero because their output is a cache.
 
 **One queue, not one per kind** (principles §4). Metadata fetches, prepare jobs, scans and
 backups differ in what runs them and in `args_json`, not in how they wait, retry, report progress or
 get cancelled; `fetch_queue` was the first of what would have become four.
+
+## Subtitle text — in `library.db`
+
+```sql
+CREATE TABLE subtitle_text (                               -- class O; migration 0029 (F1)
+  source_hash  BLOB NOT NULL,            -- the payload hash of the bytes' file, or a fetched body's SHA-256
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
+  ass          BLOB,                     -- for JASSUB; NULL when it could not be made
+  vtt          BLOB,                     -- for the cast receiver; NULL when it could not be made
+  failure      TEXT,                     -- why it could not be made: FFmpeg's exit and stderr tail
+  made_at      INTEGER NOT NULL,
+  PRIMARY KEY (source_hash, stream_index),
+  CHECK ((failure IS NULL) = (ass IS NOT NULL AND vtt IS NOT NULL))
+);
+```
+
+A text track is extracted when its video is first played (D217 §6): a track inside the video,
+or a subtitle file beside it, converted whole. Its text is kept by the payload hash of the file
+its bytes are in and its stream index there, a subtitle file's one track being its stream 0, so
+a move or a rescan keeps it; a fetched subtitle's by the SHA-256 of its stored body (D224 §5).
+A row is only what the node made, or why it could not: a track being made has none, and a play
+of a track that could not be made asks again. Its extraction job's target is the `stream` row,
+`stream_id` (D217 §3). A `stream` row keeps its id for as long as its file has that track: a
+video observed again has its rows changed in place by stream index, and only a track its probe
+no longer has is dropped; a subtitle file's row is changed in place too. A job whose stream is
+gone fails, and the next play queues another. The text is a few hundred kilobytes at most, so it
+is kept in the row rather than beside the art. It was in `cache.db` until migration 0029, where a
+routine release discarded it and every embedded track was read whole again (F1).
 
 ## Who writes each table
 
@@ -972,6 +1034,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `extra_relation` | library.db | `internal/core/identify` | |
 | `favourite` | library.db | none yet | |
 | `fetched_subtitle` | library.db | `internal/core/playback` | |
+| `fetch_failure` | library.db | none yet | |
 | `field_override` | library.db | `internal/core/identify` | |
 | `file` | library.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
 | `grant` | library.db | `internal/core/auth` | |
@@ -993,6 +1056,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `preference` | library.db | `internal/core/preferences` | |
 | `progress_hide` | library.db | `internal/core/playback` | |
 | `provider_response` | library.db | `internal/core/identify` | |
+| `refresh_request` | library.db | none yet | |
 | `role` | library.db | none yet | the baseline seeds the built-in roles |
 | `root_mount` | library.db | `internal/core/library` | |
 | `root_scan` | library.db | `internal/core/library` | |
@@ -1003,6 +1067,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `setting` | library.db | `internal/core/settings` | |
 | `sort_key` | library.db | `internal/core/identify` | |
 | `stream` | library.db | `internal/core/library` | |
+| `subtitle_text` | library.db | `internal/core/playback` | |
 | `tag` | library.db | none yet | |
 | `title` | library.db | `internal/core/identify` | |
 | `user` | library.db | `internal/core/auth` | |
@@ -1014,7 +1079,6 @@ second writer, or on a writer this table does not name. A table no package write
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
 | `prepared_rendition` | cache.db | `internal/core/playback` | |
-| `subtitle_text` | cache.db | `internal/core/playback` | |
 
 ## Not in Cut A, and additive
 

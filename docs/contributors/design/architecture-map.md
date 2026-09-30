@@ -144,7 +144,7 @@ with `secret.key` only under `--include-key`). Which package writes each table i
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: chooser.go:155-178 searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | prepared_rendition (index of node renditions) | cache.db | T3 | no | ⚑ discarded on every cache schema bump (serve.go:202-212, now version 19). The node's files survive, but no row names them and a new `run_id` is minted, so the renditions are re-made and the old ones sit until the budget evicts them (prepared/doc.go) |
-| subtitle_text (ass, vtt) | cache.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | no | ⚑ discarded on every cache schema bump |
+| subtitle_text (ass, vtt) | library.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by migration 0029 (F1, the jobs rebuild's Phase 3) |
 | secret.key | state dir | T1 | only with --include-key | by design (D194) |
 | setup-code file | state dir | transient | no | — |
 | backups/*.sqlite, pre-restore and pre-migrate snapshots | state dir | T1 copies | — | same disk (doctor.go:268 says so); manual until M4's scheduled backups (cut-a M4, D223 §6) |
