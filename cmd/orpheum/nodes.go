@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
 // commandPollHold is how long a node's long-poll for commands is held when there is nothing to
@@ -48,7 +48,7 @@ func runNodeChannel(
 	ctx context.Context, config Config, opened openedServices, startNode nodes.Starter, logger *slog.Logger,
 ) (stop func() error, err error) {
 	service := opened.nodes
-	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocketName)
+	listener, err := unixsocket.Listen(config.Server.SocketDir, coreSocketName)
 	if err != nil {
 		return nil, err
 	}

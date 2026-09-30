@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/artwork"
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
@@ -34,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
 // coreSocketName is the core's socket's name in server.socket_dir (cut-a §2).
@@ -225,7 +225,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 func serveBytes(
 	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory, logger *slog.Logger,
 ) (func(), error) {
-	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocketName)
+	listener, err := unixsocket.Listen(config.Server.SocketDir, nodeSocketName)
 	if err != nil {
 		return nil, err
 	}

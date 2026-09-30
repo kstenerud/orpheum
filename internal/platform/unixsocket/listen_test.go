@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package datadir
+package unixsocket
 
 import (
 	"net"
@@ -10,10 +10,10 @@ import (
 	"testing"
 )
 
-func TestListenUnix_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
+func TestListen_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
 	t.Parallel()
 	directory := filepath.Join(t.TempDir(), "run")
-	listener, err := ListenUnix(directory, "core.sock")
+	listener, err := Listen(directory, "core.sock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestListenUnix_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
 	if closeErr := listener.Close(); closeErr != nil {
 		t.Fatal(closeErr)
 	}
-	again, err := ListenUnix(directory, "core.sock")
+	again, err := Listen(directory, "core.sock")
 	if err != nil {
 		t.Fatalf("listen over a stale socket: %v", err)
 	}
@@ -51,21 +51,21 @@ func TestListenUnix_MakesAPrivateSocketAndReplacesAStaleOne(t *testing.T) {
 	}
 }
 
-func TestListenUnix_RefusesToRemoveWhatIsNotASocket(t *testing.T) {
+func TestListen_RefusesToRemoveWhatIsNotASocket(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
 	path := filepath.Join(directory, "core.sock")
 	if err := os.WriteFile(path, []byte("somebody's file"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ListenUnix(directory, "core.sock"); err == nil || !strings.Contains(err.Error(), "not a socket") {
+	if _, err := Listen(directory, "core.sock"); err == nil || !strings.Contains(err.Error(), "not a socket") {
 		t.Errorf("error = %v, want a refusal", err)
 	}
 	if contents, err := os.ReadFile(path); err != nil || string(contents) != "somebody's file" {
 		t.Errorf("the file became %q, %v; it must be left alone", contents, err)
 	}
 	long := filepath.Join(directory, strings.Repeat("d", 100))
-	if _, err := ListenUnix(long, "core.sock"); err == nil || !strings.Contains(err.Error(), "at most") {
+	if _, err := Listen(long, "core.sock"); err == nil || !strings.Contains(err.Error(), "at most") {
 		t.Errorf("an over-long path: error = %v, want a refusal naming the limit", err)
 	}
 }

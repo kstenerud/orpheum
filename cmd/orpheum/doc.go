@@ -23,6 +23,9 @@
 //     interface (D207); node runs the node's loop on its own. The node refuses to run while
 //     node.confinement_policy is "require" and a confinement mechanism is not in force (D112).
 //     Enforced by TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired.
+//   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
+//     own packages do not (D33); what both roles need is in internal/platform. Enforced by the
+//     depguard rule node-role-boundary.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestDispatch_PlannedSubcommandsAreNotImplementedYet in main_test.go.
