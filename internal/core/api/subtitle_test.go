@@ -73,7 +73,7 @@ func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, 
 		}
 		finished := int64(2)
 		err = queries.SetSubtitleTextComplete(t.Context(), cachegen.SetSubtitleTextCompleteParams{
-			Ass: []byte(text), Vtt: []byte(text), FinishedAt: &finished,
+			ASS: []byte(text), VTT: []byte(text), FinishedAt: &finished,
 			BytesPayloadHash: payloadHash, StreamIndex: streamIndex,
 		})
 		if err != nil {

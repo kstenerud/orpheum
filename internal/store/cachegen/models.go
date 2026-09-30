@@ -17,7 +17,7 @@ type Job struct {
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
-	ArgsJson          string
+	ArgsJSON          string
 	Priority          int64
 	State             string
 	NodeID            *int64
@@ -55,8 +55,8 @@ type PreparedRendition struct {
 	Failure              *string
 	VideoEncoder         *string
 	RealtimeFactor       *float64
-	CarriedGainsDbJson   string
-	AudioLanguagesJson   string
+	CarriedGainsDBJSON   string
+	AudioLanguagesJSON   string
 	CreatedAt            int64
 	FinishedAt           *int64
 }
@@ -65,8 +65,8 @@ type SubtitleText struct {
 	BytesPayloadHash []byte
 	StreamIndex      int64
 	State            string
-	Ass              []byte
-	Vtt              []byte
+	ASS              []byte
+	VTT              []byte
 	Failure          *string
 	CreatedAt        int64
 	FinishedAt       *int64

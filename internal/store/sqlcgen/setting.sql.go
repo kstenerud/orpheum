@@ -34,7 +34,7 @@ WHERE scope = 'server' AND key = ?
 
 type GetServerSettingRow struct {
 	Key         string
-	ValueJson   string
+	ValueJSON   string
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
@@ -45,7 +45,7 @@ func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSe
 	var i GetServerSettingRow
 	err := row.Scan(
 		&i.Key,
-		&i.ValueJson,
+		&i.ValueJSON,
 		&i.SetByUserID,
 		&i.SetAt,
 		&i.IsModified,
@@ -61,12 +61,12 @@ ON CONFLICT (scope, ifnull(user_id, 0), key) DO NOTHING
 
 type InsertServerSettingIfMissingParams struct {
 	Key       string
-	ValueJson string
+	ValueJSON string
 	SetAt     int64
 }
 
 func (q *Queries) InsertServerSettingIfMissing(ctx context.Context, arg InsertServerSettingIfMissingParams) error {
-	_, err := q.db.ExecContext(ctx, insertServerSettingIfMissing, arg.Key, arg.ValueJson, arg.SetAt)
+	_, err := q.db.ExecContext(ctx, insertServerSettingIfMissing, arg.Key, arg.ValueJSON, arg.SetAt)
 	return err
 }
 
@@ -80,7 +80,7 @@ type ListAllSettingsRow struct {
 	Scope     string
 	UserID    *int64
 	Key       string
-	ValueJson string
+	ValueJSON string
 }
 
 func (q *Queries) ListAllSettings(ctx context.Context) ([]ListAllSettingsRow, error) {
@@ -96,7 +96,7 @@ func (q *Queries) ListAllSettings(ctx context.Context) ([]ListAllSettingsRow, er
 			&i.Scope,
 			&i.UserID,
 			&i.Key,
-			&i.ValueJson,
+			&i.ValueJSON,
 		); err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ ORDER BY key
 
 type ListServerSettingsRow struct {
 	Key         string
-	ValueJson   string
+	ValueJSON   string
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
@@ -141,7 +141,7 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 		var i ListServerSettingsRow
 		if err := rows.Scan(
 			&i.Key,
-			&i.ValueJson,
+			&i.ValueJSON,
 			&i.SetByUserID,
 			&i.SetAt,
 			&i.IsModified,
@@ -168,7 +168,7 @@ ORDER BY key
 
 type ListUserSettingsRow struct {
 	Key         string
-	ValueJson   string
+	ValueJSON   string
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
@@ -185,7 +185,7 @@ func (q *Queries) ListUserSettings(ctx context.Context, userID *int64) ([]ListUs
 		var i ListUserSettingsRow
 		if err := rows.Scan(
 			&i.Key,
-			&i.ValueJson,
+			&i.ValueJSON,
 			&i.SetByUserID,
 			&i.SetAt,
 			&i.IsModified,
@@ -209,14 +209,14 @@ WHERE scope = 'server' AND key = ?3 AND is_modified = 0 AND value_json != ?1
 `
 
 type UpdateUnmodifiedServerSettingParams struct {
-	ValueJson string
+	ValueJSON string
 	SetAt     int64
 	Key       string
 }
 
 // Moves a setting nobody changed to a release's new starting value; a changed one is left alone.
 func (q *Queries) UpdateUnmodifiedServerSetting(ctx context.Context, arg UpdateUnmodifiedServerSettingParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateUnmodifiedServerSetting, arg.ValueJson, arg.SetAt, arg.Key)
+	result, err := q.db.ExecContext(ctx, updateUnmodifiedServerSetting, arg.ValueJSON, arg.SetAt, arg.Key)
 	if err != nil {
 		return 0, err
 	}
@@ -233,7 +233,7 @@ DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by
 
 type UpsertServerSettingParams struct {
 	Key         string
-	ValueJson   string
+	ValueJSON   string
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
@@ -242,7 +242,7 @@ type UpsertServerSettingParams struct {
 func (q *Queries) UpsertServerSetting(ctx context.Context, arg UpsertServerSettingParams) error {
 	_, err := q.db.ExecContext(ctx, upsertServerSetting,
 		arg.Key,
-		arg.ValueJson,
+		arg.ValueJSON,
 		arg.SetByUserID,
 		arg.SetAt,
 		arg.IsModified,
@@ -262,7 +262,7 @@ DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by
 type UpsertUserSettingParams struct {
 	UserID      *int64
 	Key         string
-	ValueJson   string
+	ValueJSON   string
 	SetByUserID *int64
 	SetAt       int64
 	IsModified  int64
@@ -272,7 +272,7 @@ func (q *Queries) UpsertUserSetting(ctx context.Context, arg UpsertUserSettingPa
 	_, err := q.db.ExecContext(ctx, upsertUserSetting,
 		arg.UserID,
 		arg.Key,
-		arg.ValueJson,
+		arg.ValueJSON,
 		arg.SetByUserID,
 		arg.SetAt,
 		arg.IsModified,

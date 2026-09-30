@@ -228,9 +228,9 @@ func (service *Service) Subtitle(
 	}
 	switch row.State {
 	case subtitleComplete:
-		text := row.Ass
+		text := row.ASS
 		if format == FormatWebVTT {
-			text = row.Vtt
+			text = row.VTT
 		}
 		return Subtitle{Readiness: Complete, Text: text}, nil
 	case subtitleFailed:
@@ -345,7 +345,7 @@ func (service *Service) finishSubtitle(
 			})
 		}
 		return queries.SetSubtitleTextComplete(ctx, cachegen.SetSubtitleTextCompleteParams{
-			Ass: answer.ASS, Vtt: answer.VTT, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
+			ASS: answer.ASS, VTT: answer.VTT, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
 			StreamIndex: key.StreamIndex,
 		})
 	})

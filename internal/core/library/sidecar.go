@@ -53,7 +53,7 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
 			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
 			FilingReason: &reason,
-			NfoBody:      sidecar.NFOBody, SeenAt: batch.nowMs, ID: existing.ID,
+			NFOBody:      sidecar.NFOBody, SeenAt: batch.nowMs, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
@@ -67,7 +67,7 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
 		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
 		SidecarKind: &kind, FilingReason: &reason,
-		NfoBody: sidecar.NFOBody, SeenAt: batch.nowMs,
+		NFOBody: sidecar.NFOBody, SeenAt: batch.nowMs,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)

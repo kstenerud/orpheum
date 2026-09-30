@@ -48,7 +48,7 @@ WHERE id = ?
 type GetNodeStatusRow struct {
 	ID             int64
 	Name           string
-	LastStatusJson *string
+	LastStatusJSON *string
 	LastStatusAt   *int64
 }
 
@@ -58,7 +58,7 @@ func (q *Queries) GetNodeStatus(ctx context.Context, id int64) (GetNodeStatusRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.LastStatusJson,
+		&i.LastStatusJSON,
 		&i.LastStatusAt,
 	)
 	return i, err
@@ -138,12 +138,12 @@ UPDATE node SET last_status_json = ?1, last_status_at = ?2 WHERE id = ?3
 `
 
 type UpdateNodeStatusParams struct {
-	LastStatusJson *string
+	LastStatusJSON *string
 	LastStatusAt   *int64
 	ID             int64
 }
 
 func (q *Queries) UpdateNodeStatus(ctx context.Context, arg UpdateNodeStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeStatus, arg.LastStatusJson, arg.LastStatusAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateNodeStatus, arg.LastStatusJSON, arg.LastStatusAt, arg.ID)
 	return err
 }

@@ -152,7 +152,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
 	}
 	if broken.Filing != FilingErrored || *broken.FilingReason != "permission_denied" ||
-		broken.ErrorDetailJson == nil || !strings.Contains(*broken.ErrorDetailJson, `"modeText":"-rw-------"`) {
+		broken.ErrorDetailJSON == nil || !strings.Contains(*broken.ErrorDetailJSON, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}
 	world.checkStreams(alien.ID)

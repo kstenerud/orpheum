@@ -136,7 +136,7 @@ func (q *Queries) GetJob(ctx context.Context, id int64) (Job, error) {
 		&i.StreamID,
 		&i.FetchedSubtitleID,
 		&i.FileID,
-		&i.ArgsJson,
+		&i.ArgsJSON,
 		&i.Priority,
 		&i.State,
 		&i.NodeID,
@@ -168,7 +168,7 @@ type InsertJobParams struct {
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
-	ArgsJson          string
+	ArgsJSON          string
 	Priority          int64
 	RunnableAt        int64
 	Reason            *string
@@ -185,7 +185,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 		arg.StreamID,
 		arg.FetchedSubtitleID,
 		arg.FileID,
-		arg.ArgsJson,
+		arg.ArgsJSON,
 		arg.Priority,
 		arg.RunnableAt,
 		arg.Reason,
@@ -222,7 +222,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 			&i.StreamID,
 			&i.FetchedSubtitleID,
 			&i.FileID,
-			&i.ArgsJson,
+			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
 			&i.NodeID,
@@ -269,7 +269,7 @@ type NextQueuedJobRow struct {
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
-	ArgsJson          string
+	ArgsJSON          string
 	Priority          int64
 	RunnableAt        int64
 	AttemptCount      int64
@@ -288,7 +288,7 @@ func (q *Queries) NextQueuedJob(ctx context.Context, arg NextQueuedJobParams) (N
 		&i.StreamID,
 		&i.FetchedSubtitleID,
 		&i.FileID,
-		&i.ArgsJson,
+		&i.ArgsJSON,
 		&i.Priority,
 		&i.RunnableAt,
 		&i.AttemptCount,

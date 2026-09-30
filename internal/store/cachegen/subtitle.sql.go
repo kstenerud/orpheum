@@ -30,8 +30,8 @@ func (q *Queries) GetSubtitleText(ctx context.Context, arg GetSubtitleTextParams
 		&i.BytesPayloadHash,
 		&i.StreamIndex,
 		&i.State,
-		&i.Ass,
-		&i.Vtt,
+		&i.ASS,
+		&i.VTT,
 		&i.Failure,
 		&i.CreatedAt,
 		&i.FinishedAt,
@@ -64,8 +64,8 @@ WHERE bytes_payload_hash = ? AND stream_index = ?
 `
 
 type SetSubtitleTextCompleteParams struct {
-	Ass              []byte
-	Vtt              []byte
+	ASS              []byte
+	VTT              []byte
 	FinishedAt       *int64
 	BytesPayloadHash []byte
 	StreamIndex      int64
@@ -73,8 +73,8 @@ type SetSubtitleTextCompleteParams struct {
 
 func (q *Queries) SetSubtitleTextComplete(ctx context.Context, arg SetSubtitleTextCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, setSubtitleTextComplete,
-		arg.Ass,
-		arg.Vtt,
+		arg.ASS,
+		arg.VTT,
 		arg.FinishedAt,
 		arg.BytesPayloadHash,
 		arg.StreamIndex,

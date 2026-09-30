@@ -384,7 +384,7 @@ type ListIdentifyFilesRow struct {
 	PayloadHash        []byte
 	VersionID          *int64
 	AttachedToFile     *int64
-	ProbeJson          *string
+	ProbeJSON          *string
 	IdentifiedFromPath *string
 	SizeBytes          *int64
 	ModifiedAt         *int64
@@ -410,7 +410,7 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 			&i.PayloadHash,
 			&i.VersionID,
 			&i.AttachedToFile,
-			&i.ProbeJson,
+			&i.ProbeJSON,
 			&i.IdentifiedFromPath,
 			&i.SizeBytes,
 			&i.ModifiedAt,

@@ -249,8 +249,8 @@ ORDER BY artwork.item_id, artwork.is_chosen DESC,
 `
 
 type ListShownArtworkParams struct {
-	ItemIds string
-	Kind    string
+	ItemIDListJSON string
+	Kind           string
 }
 
 type ListShownArtworkRow struct {
@@ -262,7 +262,7 @@ type ListShownArtworkRow struct {
 // choice first; then the source the item's library prefers, an image beside the media unless the
 // library takes TMDB only, D215; then the newest stored. The caller keeps each item's first row.
 func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkParams) ([]ListShownArtworkRow, error) {
-	rows, err := q.db.QueryContext(ctx, listShownArtwork, arg.ItemIds, arg.Kind)
+	rows, err := q.db.QueryContext(ctx, listShownArtwork, arg.ItemIDListJSON, arg.Kind)
 	if err != nil {
 		return nil, err
 	}

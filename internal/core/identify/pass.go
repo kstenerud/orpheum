@@ -288,7 +288,7 @@ func (filer *libraryFiler) fileFilmOrEpisode(
 func (filer *libraryFiler) movieSpec(file sqlcgen.ListIdentifyFilesRow, parsed ParsedPath) titleSpec {
 	spec := titleSpec{
 		kind: KindMovie, name: parsed.Name, year: parsed.Year, ids: parsed.ProviderIDs,
-		runtimeMs: probeRuntimeMs(file.ProbeJson),
+		runtimeMs: probeRuntimeMs(file.ProbeJSON),
 	}
 	if nfo, found := filer.nfoFor(file); found && nfo.Kind == KindMovie {
 		spec.fromNFO(nfo)

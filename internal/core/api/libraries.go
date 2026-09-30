@@ -337,8 +337,8 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 			FilingReason: row.FilingReason, SizeBytes: row.SizeBytes,
 			FirstSeenAt: row.FirstSeenAt, LastSeenAt: row.LastSeenAt,
 		}
-		if row.ErrorDetailJson != nil {
-			detail, err := library.DecodeErrorDetail(*row.ErrorDetailJson)
+		if row.ErrorDetailJSON != nil {
+			detail, err := library.DecodeErrorDetail(*row.ErrorDetailJSON)
 			if err != nil {
 				return nil, server.libraryError(ctx, "list files", err)
 			}

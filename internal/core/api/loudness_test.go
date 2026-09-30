@@ -228,8 +228,8 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 		integrated := check.integrated
 		err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
-				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLufs: &integrated,
-				TruePeakDbtp: check.peak, MeasuredAt: 1,
+				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLUFS: &integrated,
+				TruePeakDBTP: check.peak, MeasuredAt: 1,
 			})
 		})
 		if err != nil {

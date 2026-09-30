@@ -32,7 +32,7 @@ func (browser *Browser) shownArtSourceSha256s(
 		return nil, fmt.Errorf("encode %d item ids: %w", len(itemIDs), err)
 	}
 	rows, err := browser.database.Read().ListShownArtwork(ctx, sqlcgen.ListShownArtworkParams{
-		ItemIds: string(itemIDsJSON), Kind: kind,
+		ItemIDListJSON: string(itemIDsJSON), Kind: kind,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the %s of %d items: %w", kind, len(itemIDs), err)
