@@ -9,8 +9,8 @@ import { useTranslation } from "react-i18next";
 import { dateTimeText } from "./date-time-text.ts";
 
 /**
- * A registration invitation or a device code to pass on: shown large enough to read from across a room,
- * selectable to copy, with when it stops working.
+ * A registration invitation or a device code to pass on: shown large enough to read from across
+ * a room, selectable to copy, with when it stops working.
  */
 export function Share(props: {
   readonly kind: "link" | "code";
