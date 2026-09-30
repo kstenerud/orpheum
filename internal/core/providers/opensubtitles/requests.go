@@ -294,6 +294,7 @@ func (client *Client) Allowance(ctx context.Context) (Allowance, error) {
 	if err := client.callAuthorised(ctx, allowance, &answer); err != nil {
 		return Allowance{}, err
 	}
+	client.provider.RecordAllowance(answer.Data.AllowedDownloads)
 	client.provider.RecordQuota(answer.Data.RemainingDownloads, time.Time{})
 	return Allowance{
 		RemainingDownloads: answer.Data.RemainingDownloads, AllowedDownloads: answer.Data.AllowedDownloads,

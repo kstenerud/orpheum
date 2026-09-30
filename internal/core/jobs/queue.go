@@ -150,9 +150,10 @@ func NewQueue(parts QueueParts) *Queue {
 // newQueue is the queue over storage: cache.db's job table, or a test's.
 func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 	return &Queue{queue: jobqueue.New(storage, parts.Clock, jobqueue.Config{
-		Policy: retryPolicy{settings: parts.Settings}, Random: parts.Random, Logger: parts.Logger,
-		ArgsMerges: parts.ArgsMerges, PersonsRequestPriority: PriorityPersonsRequest,
-		StorageDestination: DestinationCoreStorage, IsStorageFailure: store.IsStorageFailure,
+		Policy: settingsPolicy{settings: parts.Settings}, Probes: settingsPolicy{settings: parts.Settings},
+		Random: parts.Random, Logger: parts.Logger, ArgsMerges: parts.ArgsMerges,
+		PersonsRequestPriority: PriorityPersonsRequest,
+		StorageDestination:     DestinationCoreStorage, IsStorageFailure: store.IsStorageFailure,
 	})}
 }
 
@@ -189,13 +190,13 @@ func (queue *Queue) RequeueRunning(ctx context.Context) (int64, error) {
 // Wake tells every runner there may be work before its next tick.
 func (queue *Queue) Wake() { queue.queue.Wake() }
 
-// retryPolicy reads the queue's retry policy from the settings.
-type retryPolicy struct {
+// settingsPolicy reads the queue's retry policy and its probe back-off from the settings.
+type settingsPolicy struct {
 	settings Settings
 }
 
 // AttemptLimit is job_attempt_limit.
-func (policy retryPolicy) AttemptLimit(ctx context.Context) (int64, error) {
+func (policy settingsPolicy) AttemptLimit(ctx context.Context) (int64, error) {
 	attemptLimit, err := policy.settings.Int(ctx, settings.JobAttemptLimit)
 	if err != nil {
 		return 0, fmt.Errorf("read job_attempt_limit: %w", err)
@@ -204,7 +205,7 @@ func (policy retryPolicy) AttemptLimit(ctx context.Context) (int64, error) {
 }
 
 // FirstRetryDelay is job_first_retry_delay_seconds.
-func (policy retryPolicy) FirstRetryDelay(ctx context.Context) (time.Duration, error) {
+func (policy settingsPolicy) FirstRetryDelay(ctx context.Context) (time.Duration, error) {
 	firstRetryDelay, err := policy.settings.Duration(ctx, settings.JobFirstRetryDelaySeconds)
 	if err != nil {
 		return 0, fmt.Errorf("read job_first_retry_delay_seconds: %w", err)
@@ -221,3 +222,21 @@ func MarkStalled(err error) error { return jobqueue.ToolFailed(fmt.Errorf("stall
 
 // MarkPermanent marks a handler's error as one no retry can fix.
 func MarkPermanent(err error) error { return jobqueue.Permanent(err) }
+
+// FirstProbeDelay is destination_first_probe_delay_seconds.
+func (policy settingsPolicy) FirstProbeDelay(ctx context.Context) (time.Duration, error) {
+	delay, err := policy.settings.Duration(ctx, settings.DestinationFirstProbeDelaySeconds)
+	if err != nil {
+		return 0, fmt.Errorf("read destination_first_probe_delay_seconds: %w", err)
+	}
+	return delay, nil
+}
+
+// LongestProbeDelay is destination_longest_probe_delay_seconds.
+func (policy settingsPolicy) LongestProbeDelay(ctx context.Context) (time.Duration, error) {
+	delay, err := policy.settings.Duration(ctx, settings.DestinationLongestProbeDelaySeconds)
+	if err != nil {
+		return 0, fmt.Errorf("read destination_longest_probe_delay_seconds: %w", err)
+	}
+	return delay, nil
+}

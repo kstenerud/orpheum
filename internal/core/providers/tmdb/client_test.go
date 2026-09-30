@@ -66,7 +66,8 @@ func newClientOn(t *testing.T, base string, key fixedKey, fakeClock *clocktest.F
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(httpClient, base, key, APIService(providerstest.NewHealth(t, fakeClock), fakeClock))
+	service := APIService(providerstest.NewHealth(t, fakeClock), fakeClock, providerstest.Settings{})
+	return New(httpClient, base, key, service)
 }
 
 // newImageFetcher is TMDB's image downloader calling base, with its provider service on a fake
@@ -79,7 +80,8 @@ func newImageFetcher(t *testing.T, httpClient *http.Client, base string) *ImageF
 // newImageFetcherOn is newImageFetcher with its provider service on fakeClock.
 func newImageFetcherOn(t *testing.T, httpClient *http.Client, base string, fakeClock *clocktest.Fake) *ImageFetcher {
 	t.Helper()
-	return NewImageFetcher(httpClient, base, ImagesService(providerstest.NewHealth(t, fakeClock), fakeClock))
+	service := ImagesService(providerstest.NewHealth(t, fakeClock), fakeClock, providerstest.Settings{})
+	return NewImageFetcher(httpClient, base, service)
 }
 
 func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
@@ -319,7 +321,7 @@ func TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground(
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := New(httpClient, server.URL, fixedKey("k"), APIService(health, fakeClock))
+	client := New(httpClient, server.URL, fixedKey("k"), APIService(health, fakeClock, providerstest.Settings{}))
 	health.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
 	query := identify.Query{Kind: "movie", Name: "Metropolis"}
 	background := providers.WithImportance(t.Context(), providers.Background)

@@ -5,6 +5,10 @@ package jobs
 import (
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
 
 func TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt(t *testing.T) {
@@ -37,6 +41,22 @@ func TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt(t *testing.T) {
 		}
 		if words := DescribeDestination(check.destination, nodeName); words != check.words {
 			t.Errorf("%q is described as %q, want %q", check.destination, words, check.words)
+		}
+	}
+}
+
+func TestPark_TheProbeBackoffIsTheSettings(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	settingstest.Set(t, jobs.config, settings.DestinationFirstProbeDelaySeconds, "10")
+	settingstest.Set(t, jobs.config, settings.DestinationLongestProbeDelaySeconds, "25")
+	for index, want := range []time.Duration{10 * time.Second, 20 * time.Second, 25 * time.Second} {
+		parking := Parking{Destination: DestinationTMDBAPI, Reason: "unreachable", IsProbe: index > 0}
+		jobs.queue.Park(t.Context(), parking)
+		state, _ := jobs.queue.DestinationState(DestinationTMDBAPI)
+		if state.NextProbeAt.Sub(jobs.clock.Now()) != want {
+			t.Errorf("probe %d is due in %v, want %v: destination_first_probe_delay_seconds doubling to "+
+				"destination_longest_probe_delay_seconds", index+1, state.NextProbeAt.Sub(jobs.clock.Now()), want)
 		}
 	}
 }

@@ -15,12 +15,17 @@
 //
 // # Invariants
 //
-//   - Background work keeps below its share of a host's rate (0.8 of TMDB's 40 a second, D231
-//     §5), so a person's request always finds room, and every caller keeps to the whole rate.
+//   - Background work keeps below its share of a host's rate (tmdb_background_rate_share_percent,
+//     starting at 80% of tmdb_requests_per_second's 40, D231 §5), so a person's request always
+//     finds room, and every caller keeps to the whole rate.
 //     TestAsk_BackgroundKeepsBelowItsShareOfTheRateAndAPersonFindsRoom.
-//   - Background work never spends the last downloads kept for people (OpenSubtitles' 5 of the
-//     day), and nobody spends past the quota the host said, until its reset.
-//     TestAsk_BackgroundNeverSpendsTheLastDownloadsKeptForPeople.
+//   - A host's limits are the settings, read at each request, so an admin's change takes effect
+//     at the next. TestAsk_KeepsToTheLimitsTheSettingsSayAtEachRequest.
+//   - Background work never spends the last downloads held back for people
+//     (opensubtitles_downloads_reserved_for_people_percent of the day's allowance the host said,
+//     starting at 25%, rounded up to whole downloads), and nobody spends past the quota the host
+//     said, until its reset.
+//     TestAsk_BackgroundNeverSpendsTheLastDownloadsHeldBackForPeople.
 //   - A person's call to a parked host always tries, and counts as its probe: a failure backs the
 //     next probe off, a success unparks it (D231 §6); background is answered parked, with why and
 //     since when. TestCall_APersonsCallToAParkedHostAlwaysTriesAndIsItsProbe.

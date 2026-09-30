@@ -1733,13 +1733,17 @@ export interface components {
             };
         };
         QuotaBody: {
-            /** Format: int64 */
-            remaining: number;
             /**
              * Format: int64
-             * @description How many of those left background work never spends
+             * @description How many the host allows a day; 0 before it said
              */
+            allowed: number;
+            /** Format: int64 */
+            remaining: number;
+            /** Format: int64 */
             reservedForPeople: number;
+            /** Format: int64 */
+            reservedForPeoplePercent: number;
             /** Format: int64 */
             resetAt?: number;
         };

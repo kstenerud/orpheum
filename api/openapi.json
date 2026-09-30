@@ -2419,12 +2419,20 @@
       "QuotaBody": {
         "additionalProperties": false,
         "properties": {
+          "allowed": {
+            "description": "How many the host allows a day; 0 before it said",
+            "format": "int64",
+            "type": "integer"
+          },
           "remaining": {
             "format": "int64",
             "type": "integer"
           },
           "reservedForPeople": {
-            "description": "How many of those left background work never spends",
+            "format": "int64",
+            "type": "integer"
+          },
+          "reservedForPeoplePercent": {
             "format": "int64",
             "type": "integer"
           },
@@ -2435,6 +2443,8 @@
         },
         "required": [
           "remaining",
+          "allowed",
+          "reservedForPeoplePercent",
           "reservedForPeople"
         ],
         "type": "object"

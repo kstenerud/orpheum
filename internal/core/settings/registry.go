@@ -17,39 +17,45 @@ type Key string
 // The settings. Every opinionated value the server acts on is one of these, so each choice is a
 // row that can be read and changed, not a default in code (D200). Units are in the name.
 const (
-	ShouldCheckForUpdates               Key = "should_check_for_updates"
-	SignInFailureLimit                  Key = "signin_failure_limit"
-	SignInFailureWindowSeconds          Key = "signin_failure_window_seconds"
-	SessionIdleExpiryHours              Key = "session_idle_expiry_hours"
-	SessionLastUsedWriteIntervalSeconds Key = "session_last_used_write_interval_seconds"
-	Argon2MemoryKiB                     Key = "argon2_memory_kib"
-	Argon2Iterations                    Key = "argon2_iterations"
-	Argon2Parallelism                   Key = "argon2_parallelism"
-	SecretLastCharsShown                Key = "secret_last_chars_shown"
-	BackupAgeWarningHours               Key = "backup_age_warning_hours"
-	ShouldServeDebugPProf               Key = "should_serve_debug_pprof"
-	ShouldServeDebugMetrics             Key = "should_serve_debug_metrics"
-	NodeSilentAfterSeconds              Key = "node_silent_after_seconds"
-	NodeRestartAfterSilentSeconds       Key = "node_restart_after_silent_seconds"
-	NodeRestartAfterExitSeconds         Key = "node_restart_after_exit_seconds"
-	ShouldScanOnNodeHello               Key = "should_scan_on_node_hello"
-	ScanWithholdRemovalsOverPercent     Key = "scan_withhold_removals_over_percent"
-	ScanWithholdRemovalsOverFiles       Key = "scan_withhold_removals_over_files"
-	JobAttemptLimit                     Key = "job_attempt_limit"
-	JobFirstRetryDelaySeconds           Key = "job_first_retry_delay_seconds"
-	ProviderTimeoutSeconds              Key = "provider_timeout_seconds"
-	SortLocale                          Key = "sort_locale"
-	ArtworkMaxSourcePixels              Key = "artwork_max_source_pixels"
-	ArtworkWebPQuality                  Key = "artwork_webp_quality"
-	TMDBRefreshAfterDays                Key = "tmdb_refresh_after_days"
-	MetadataRefreshCheckEveryHours      Key = "metadata_refresh_check_every_hours"
-	ArtworkCacheCeilingGiB              Key = "artwork_cache_ceiling_gib"
-	RemovedItemArtworkKeptDays          Key = "removed_item_artwork_kept_days"
-	RemoteBitRateCeilingKbps            Key = "remote_bit_rate_ceiling_kbps"
-	MediaTokenIdleExpiryHours           Key = "media_token_idle_expiry_hours"
-	HLSSegmentLengthSeconds             Key = "hls_segment_length_seconds"
-	ResumeMinPercent                    Key = "resume_min_percent"
-	FinishedAfterPercent                Key = "finished_after_percent"
+	ShouldCheckForUpdates                          Key = "should_check_for_updates"
+	SignInFailureLimit                             Key = "signin_failure_limit"
+	SignInFailureWindowSeconds                     Key = "signin_failure_window_seconds"
+	SessionIdleExpiryHours                         Key = "session_idle_expiry_hours"
+	SessionLastUsedWriteIntervalSeconds            Key = "session_last_used_write_interval_seconds"
+	Argon2MemoryKiB                                Key = "argon2_memory_kib"
+	Argon2Iterations                               Key = "argon2_iterations"
+	Argon2Parallelism                              Key = "argon2_parallelism"
+	SecretLastCharsShown                           Key = "secret_last_chars_shown"
+	BackupAgeWarningHours                          Key = "backup_age_warning_hours"
+	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
+	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
+	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
+	NodeRestartAfterSilentSeconds                  Key = "node_restart_after_silent_seconds"
+	NodeRestartAfterExitSeconds                    Key = "node_restart_after_exit_seconds"
+	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
+	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
+	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
+	JobAttemptLimit                                Key = "job_attempt_limit"
+	JobFirstRetryDelaySeconds                      Key = "job_first_retry_delay_seconds"
+	ProviderTimeoutSeconds                         Key = "provider_timeout_seconds"
+	DestinationFirstProbeDelaySeconds              Key = "destination_first_probe_delay_seconds"
+	DestinationLongestProbeDelaySeconds            Key = "destination_longest_probe_delay_seconds"
+	TMDBRequestsPerSecond                          Key = "tmdb_requests_per_second"
+	TMDBBackgroundRateSharePercent                 Key = "tmdb_background_rate_share_percent"
+	OpenSubtitlesRequestsPerSecond                 Key = "opensubtitles_requests_per_second"
+	OpenSubtitlesDownloadsReservedForPeoplePercent Key = "opensubtitles_downloads_reserved_for_people_percent"
+	SortLocale                                     Key = "sort_locale"
+	ArtworkMaxSourcePixels                         Key = "artwork_max_source_pixels"
+	ArtworkWebPQuality                             Key = "artwork_webp_quality"
+	TMDBRefreshAfterDays                           Key = "tmdb_refresh_after_days"
+	MetadataRefreshCheckEveryHours                 Key = "metadata_refresh_check_every_hours"
+	ArtworkCacheCeilingGiB                         Key = "artwork_cache_ceiling_gib"
+	RemovedItemArtworkKeptDays                     Key = "removed_item_artwork_kept_days"
+	RemoteBitRateCeilingKbps                       Key = "remote_bit_rate_ceiling_kbps"
+	MediaTokenIdleExpiryHours                      Key = "media_token_idle_expiry_hours"
+	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
+	ResumeMinPercent                               Key = "resume_min_percent"
+	FinishedAfterPercent                           Key = "finished_after_percent"
 )
 
 // Kind is a setting value's JSON type.
@@ -79,6 +85,10 @@ type Definition struct {
 	Question    string
 	IsExposed   bool
 	Description string
+	// StartSource says where the starting value came from: the owner's choice on a date, a best
+	// guess and its basis, what was measured and when, or a provider's documentation. The owner
+	// tunes values in use, and a good one becomes the starting value.
+	StartSource string
 }
 
 // LengthOf is count of the setting's unit as a time.Duration; zero for a setting with no unit.
@@ -152,6 +162,29 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"seconds before a failed job's first retry; each later retry waits twice as long, up to a day"),
 		durationSetting(ProviderTimeoutSeconds, time.Second, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
+		sourced(durationSetting(DestinationFirstProbeDelaySeconds, time.Second, "30", 1, 3600,
+			"seconds after an outside host is found down before it is looked at again; each later look waits "+
+				"twice as long, up to destination_longest_probe_delay_seconds (D231 §6)"),
+			"D231 §6: the owner's decision, 2026-09-30"),
+		sourced(durationSetting(DestinationLongestProbeDelaySeconds, time.Second, "3600", 1, 24*3600,
+			"the longest, in seconds, an outside host that stays down waits between looks: an hour (D231 §6)"),
+			"D231 §6: the owner's decision, 2026-09-30"),
+		sourced(integerSetting(TMDBRequestsPerSecond, "40", 1, 50,
+			"requests a second we keep to with TMDB's API, and apart with its image server (D231 §5)"),
+			"TMDB's developer documentation: upper limits \"somewhere in the 40 requests per second range\" "+
+				"(developer.themoviedb.org/docs/rate-limiting, read 2026-09-25); its CDN's 50 is the bound"),
+		sourced(integerSetting(TMDBBackgroundRateSharePercent, "80", 1, 100,
+			"percent of tmdb_requests_per_second the server's own work may use, so a person's request always "+
+				"finds room (D231 §5)"),
+			"the owner's choice, 2026-09-30"),
+		sourced(integerSetting(OpenSubtitlesRequestsPerSecond, "5", 1, 5,
+			"requests a second we keep to with OpenSubtitles (D231 §5)"),
+			"OpenSubtitles' best practices: \"5 requests per 1 second per IP address\", which is also the bound"),
+		sourced(integerSetting(OpenSubtitlesDownloadsReservedForPeoplePercent, "25", 0, 100,
+			"percent of the OpenSubtitles account's downloads a day held back for people: the server's own "+
+				"work never spends the last of them, rounded up to whole downloads (D231 §5)"),
+			"best guess: 5 of a free account's 20 a day (a VIP account has 1000; opensubtitles-api.md); "+
+				"the owner's choice of a percentage, 2026-09-30"),
 		{
 			Key: SortLocale, Kind: KindString, StartJSON: json.RawMessage(`"en"`),
 			Pattern:     regexp.MustCompile(langtag.WellFormedPattern),
@@ -185,6 +218,12 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"percent of a file's length after which it counts as finished: it leaves Continue Watching and plays "+
 				"from the start (play-state.md)"),
 	}
+}
+
+// sourced is definition with where its starting value came from.
+func sourced(definition Definition, startSource string) Definition {
+	definition.StartSource = startSource
+	return definition
 }
 
 // day is the unit of a setting whose key ends _days.

@@ -48,6 +48,9 @@ type Config struct {
 	Logger *slog.Logger
 	// ArgsMerges are the kinds that merge their arguments their own way.
 	ArgsMerges map[Kind]ArgsMerge
+	// Probes is the probe back-off of a parked destination; nil keeps FirstProbeDelay and
+	// LongestProbeDelay.
+	Probes ProbePolicy
 	// PersonsRequestPriority is the lowest priority a person's request has: one at it or above
 	// for a job whose destination is parked looks at the destination at once (D231 §6). Zero or
 	// less, and no request probes.
@@ -71,6 +74,7 @@ type Queue[T comparable] struct {
 	logger     *slog.Logger
 	argsMerges map[Kind]ArgsMerge
 
+	probes                 ProbePolicy
 	personsRequestPriority int64
 	storageDestination     Destination
 	isStorageFailure       func(err error) bool
@@ -95,7 +99,7 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 	}
 	return &Queue[T]{
 		storage: storage, clock: clockSource, policy: config.Policy, random: config.Random, logger: config.Logger,
-		argsMerges: config.ArgsMerges, personsRequestPriority: config.PersonsRequestPriority,
+		argsMerges: config.ArgsMerges, probes: config.Probes, personsRequestPriority: config.PersonsRequestPriority,
 		storageDestination: config.StorageDestination, isStorageFailure: isStorageFailure,
 		destinations:         destinations{parkedBy: map[Destination]*parkedDestination{}},
 		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},

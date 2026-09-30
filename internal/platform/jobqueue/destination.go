@@ -4,6 +4,7 @@ package jobqueue
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -46,8 +47,18 @@ type DestinationState struct {
 	IsProbing bool
 }
 
-// The probe back-off: an outside host is looked at 30 s after it went down, then after twice the
-// wait each time, up to an hour (D231 §6), each wait jittered as a retry's is.
+// ProbePolicy is what the queue reads when a destination parks: how long before its first probe,
+// after which each waits twice as long, and the longest any waits. Each wait is jittered as a
+// retry's is.
+type ProbePolicy interface {
+	FirstProbeDelay(ctx context.Context) (time.Duration, error)
+	LongestProbeDelay(ctx context.Context) (time.Duration, error)
+}
+
+// The probe back-off a queue given no ProbePolicy keeps, and one whose policy cannot be read falls
+// back to: 30 s doubling to an hour, D231 §6's. They are fixed here, not settings: this package
+// knows none, and a program sets its own back-off through ProbePolicy (Orpheum's are
+// destination_first_probe_delay_seconds and destination_longest_probe_delay_seconds).
 const (
 	FirstProbeDelay   = 30 * time.Second
 	LongestProbeDelay = time.Hour
@@ -125,16 +136,27 @@ func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 	case !parking.ProbeAt.IsZero():
 		parked.state.NextProbeAt = parking.ProbeAt
 	default:
-		parked.state.NextProbeAt = now.Add(queue.jittered(ctx, probeDelay(parked.probeStep)))
+		parked.state.NextProbeAt = now.Add(queue.jittered(ctx, queue.probeDelay(ctx, parked.probeStep)))
 	}
 }
 
-// probeDelay is the wait before a destination's probe at a step of its back-off.
-func probeDelay(step int64) time.Duration {
-	wait := FirstProbeDelay
+// probeDelay is the wait before a destination's probe at a step of its back-off, as the queue's
+// ProbePolicy says.
+func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration {
+	first, longest := FirstProbeDelay, LongestProbeDelay
+	if queue.probes != nil {
+		readFirst, firstErr := queue.probes.FirstProbeDelay(ctx)
+		readLongest, longestErr := queue.probes.LongestProbeDelay(ctx)
+		if err := errors.Join(firstErr, longestErr); err != nil {
+			queue.logger.WarnContext(ctx, "could not read the probe back-off; keeping 30 s to an hour", "err", err)
+		} else {
+			first, longest = readFirst, max(readLongest, readFirst)
+		}
+	}
+	wait := first
 	for range step {
-		if wait >= LongestProbeDelay/2 {
-			return LongestProbeDelay
+		if wait >= longest/2 {
+			return longest
 		}
 		wait *= 2
 	}
@@ -246,7 +268,7 @@ func (queue *Queue[T]) endProbeUnanswered(ctx context.Context, destination Desti
 		return
 	}
 	parked.state.IsProbing = false
-	parked.state.NextProbeAt = queue.clock.Now().Add(queue.jittered(ctx, probeDelay(parked.probeStep)))
+	parked.state.NextProbeAt = queue.clock.Now().Add(queue.jittered(ctx, queue.probeDelay(ctx, parked.probeStep)))
 }
 
 // isParked is whether a destination is parked.

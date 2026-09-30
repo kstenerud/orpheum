@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
@@ -24,16 +25,61 @@ type Health interface {
 	Unpark(ctx context.Context, destination jobs.Destination)
 }
 
-// Limits are what a provider keeps its callers to.
+// Limits are what a provider keeps its callers to: an admin's settings, each host's own.
 type Limits struct {
-	// RatePerSecond is the request rate we keep to, whoever asks.
+	// RatePerSecond is the request rate we keep to, whoever asks; at least one.
 	RatePerSecond float64
-	// BackgroundShare is the part of that rate background work may use, 0 to 1 (D231 §5: 0.8 for
-	// TMDB, so a person's request always finds room).
+	// BackgroundShare is the part of that rate background work may use, 0 to 1 (D231 §5), so a
+	// person's request always finds room; 0 is all of it.
 	BackgroundShare float64
-	// ReservedForPeople is how many of the day's counted requests (OpenSubtitles' downloads)
-	// background work never spends; 0 for a host that counts none.
-	ReservedForPeople int
+	// ReservedForPeoplePercent is the percent of the day's counted requests (OpenSubtitles'
+	// downloads) held back for people: background work never spends the last of them, that
+	// percent of the host's allowance rounded up to whole requests; 0 for a host that counts none.
+	ReservedForPeoplePercent int
+}
+
+// LimitsOf reads a host's limits when a request asks: from the settings, so a change takes effect
+// at the next request, or fixed (FixedLimits).
+type LimitsOf func(ctx context.Context) (Limits, error)
+
+// Settings are the settings a host's limits are read from: settings.Service.
+type Settings interface {
+	Int(ctx context.Context, key settings.Key) (int64, error)
+}
+
+// SettingsLimits reads a host's limits from the settings: its rate, the percent of it background
+// work may use, and the percent of its counted requests held back for people. A key left "" is not
+// read, and the limit it would give is none: all of the rate, nothing held back.
+func SettingsLimits(
+	settingsReader Settings, rate, backgroundSharePercent, reservedForPeoplePercent settings.Key,
+) LimitsOf {
+	return func(ctx context.Context) (Limits, error) {
+		read := func(key settings.Key) (int64, error) {
+			if key == "" {
+				return 0, nil
+			}
+			value, err := settingsReader.Int(ctx, key)
+			if err != nil {
+				return 0, fmt.Errorf("read %s: %w", key, err)
+			}
+			return value, nil
+		}
+		perSecond, rateErr := read(rate)
+		percent, shareErr := read(backgroundSharePercent)
+		reserved, reservedErr := read(reservedForPeoplePercent)
+		if err := errors.Join(rateErr, shareErr, reservedErr); err != nil {
+			return Limits{}, err
+		}
+		return Limits{
+			RatePerSecond: float64(perSecond), BackgroundShare: float64(percent) / 100,
+			ReservedForPeoplePercent: int(reserved),
+		}, nil
+	}
+}
+
+// FixedLimits are limits that do not change.
+func FixedLimits(limits Limits) LimitsOf {
+	return func(context.Context) (Limits, error) { return limits, nil }
 }
 
 // Config is one outside host's provider service.
@@ -41,7 +87,7 @@ type Config struct {
 	// Name is the host as a person knows it: "TMDB", "TMDB's image server", "OpenSubtitles".
 	Name        string
 	Destination jobs.Destination
-	Limits      Limits
+	Limits      LimitsOf
 	// CredentialsName is what the host's credentials are called, as a person reads it: "key",
 	// "login".
 	CredentialsName string
@@ -102,11 +148,14 @@ const (
 )
 
 // quotaUnknownResetWait is how long a job waits for a spent quota whose host did not say when its
-// count starts again.
+// count starts again. It is fixed, not a setting: a fallback only, since OpenSubtitles names its
+// reset in every reply that spends a download.
 const quotaUnknownResetWait = time.Hour
 
-// maxPaceWait is the longest a call waits in place for its turn under our own rate: a token is a
-// fraction of a second away at any rate a provider keeps to, and a longer wait is the host's.
+// maxPaceWait is the longest a call waits in place for its turn under our own rate. It is fixed,
+// not a setting: an internal bound that tells our own pacing from a host's wait, since a turn is a
+// fraction of a second away at any rate the settings allow (at least one a second), and a longer
+// wait is only ever the host's Retry-After.
 const maxPaceWait = 2 * time.Second
 
 // Service is one outside host's provider (D231 §5, the owner 2026-09-30): it owns the host's
@@ -118,11 +167,15 @@ type Service struct {
 	health Health
 	clock  clock.Clock
 
-	mutex       sync.Mutex
-	everyone    *bucket // guarded by mutex: the whole rate
-	background  *bucket // guarded by mutex: background's share of it
+	mutex sync.Mutex
+	// limits are the host's limits as last read; everyone and background are the rate kept for
+	// every caller and for background work's share of it. All guarded by mutex.
+	limits      Limits
+	everyone    *bucket
+	background  *bucket
 	waitUntil   time.Time
 	quota       quota
+	allowed     allowance
 	credentials CredentialsState
 }
 
@@ -134,19 +187,43 @@ type quota struct {
 	resetAt   time.Time
 }
 
-// New returns a host's provider service, its health kept by health.
+// allowance is how many counted requests the host allows a day, as it last said; 0 before it
+// said. It outlives a reset: an account's level changes rarely.
+type allowance int
+
+// reservedFor is how many of the allowance are held back for people at percent, rounded up to
+// whole requests.
+func (allowed allowance) reservedFor(percent int) int {
+	return (int(allowed)*percent + 99) / 100
+}
+
+// New returns a host's provider service, its health kept by health. Its limits are read at each
+// request; until one is read, it keeps to a request a second.
 func New(config Config, health Health, clockSource clock.Clock) *Service {
-	now := clockSource.Now()
-	share := config.Limits.BackgroundShare
+	return &Service{
+		config: config, health: health, clock: clockSource, limits: Limits{RatePerSecond: 1},
+		credentials: CredentialsUnknown,
+	}
+}
+
+// readLimits reads the host's limits and has the rate follow them; limits that cannot be read are
+// the last that could. The caller holds the mutex.
+func (service *Service) readLimits(ctx context.Context, now time.Time) {
+	if limits, err := service.config.Limits(ctx); err == nil {
+		limits.RatePerSecond = max(limits.RatePerSecond, 1)
+		service.limits = limits
+	}
+	share := service.limits.BackgroundShare
 	if share <= 0 || share > 1 {
 		share = 1
 	}
-	return &Service{
-		config: config, health: health, clock: clockSource,
-		everyone:    newBucket(config.Limits.RatePerSecond, now),
-		background:  newBucket(config.Limits.RatePerSecond*share, now),
-		credentials: CredentialsUnknown,
+	rate := service.limits.RatePerSecond
+	if service.everyone == nil { // the first read: the buckets start full
+		service.everyone, service.background = newBucket(rate, now), newBucket(rate*share, now)
+		return
 	}
+	service.everyone.setRate(rate, now)
+	service.background.setRate(rate*share, now)
 }
 
 // Destination is the host's destination in the job queue.
@@ -161,6 +238,7 @@ func (service *Service) Ask(ctx context.Context, cost Cost) Answer {
 	now := service.clock.Now()
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
+	service.readLimits(ctx, now)
 	if now.Before(service.waitUntil) {
 		return Answer{Verdict: VerdictAt, At: service.waitUntil, Why: service.config.Name + " asked us to wait"}
 	}
@@ -208,9 +286,10 @@ func (service *Service) quotaRefusal(importance Importance, now time.Time) (Answ
 		return Answer{}, false
 	case held.remaining <= 0:
 		return Answer{Verdict: VerdictQuotaSpent, At: held.resetAt, Why: "the day's downloads are spent"}, true
-	case importance == Background && held.remaining <= service.config.Limits.ReservedForPeople:
+	case importance == Background &&
+		held.remaining <= service.allowed.reservedFor(service.limits.ReservedForPeoplePercent):
 		return Answer{
-			Verdict: VerdictQuotaSpent, At: held.resetAt, Why: "the day's last downloads are kept for people",
+			Verdict: VerdictQuotaSpent, At: held.resetAt, Why: "the day's last downloads are held back for people",
 		}, true
 	}
 	return Answer{}, false
@@ -358,6 +437,14 @@ func (service *Service) CredentialsChanged(ctx context.Context) {
 	}
 }
 
+// RecordAllowance notes how many counted requests the host said it allows a day: OpenSubtitles'
+// allowed_downloads, which its login and its account's details say.
+func (service *Service) RecordAllowance(allowed int) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	service.allowed = allowance(max(allowed, 0))
+}
+
 // RecordQuota notes what the host said of its counted requests: how many are left, and when the
 // count starts again.
 func (service *Service) RecordQuota(remaining int, resetAt time.Time) {
@@ -426,18 +513,22 @@ type State struct {
 	Parked *jobs.DestinationState
 }
 
-// QuotaState is a host's counted requests: how many are left, when the count starts again, and
-// how many of those left background work never spends.
+// QuotaState is a host's counted requests: how many are left, when the count starts again, how
+// many it allows a day (0 before it said), and how many of them background work never spends, the
+// percent held back for people rounded up.
 type QuotaState struct {
-	Remaining         int
-	ResetAt           time.Time
-	ReservedForPeople int
+	Remaining                int
+	ResetAt                  time.Time
+	Allowed                  int
+	ReservedForPeoplePercent int
+	ReservedForPeople        int
 }
 
-// State is what the service knows of its host now.
-func (service *Service) State() State {
+// State is what the service knows of its host now, its limits as the settings say them.
+func (service *Service) State(ctx context.Context) State {
 	now := service.clock.Now()
 	service.mutex.Lock()
+	service.readLimits(ctx, now)
 	state := State{
 		Name: service.config.Name, Destination: service.config.Destination,
 		RatePerSecond: service.everyone.ratePerSecond, BackgroundRatePerSecond: service.background.ratePerSecond,
@@ -448,8 +539,9 @@ func (service *Service) State() State {
 	}
 	if held := service.quota; held.isKnown && (held.resetAt.IsZero() || now.Before(held.resetAt)) {
 		state.Quota = &QuotaState{
-			Remaining: held.remaining, ResetAt: held.resetAt,
-			ReservedForPeople: service.config.Limits.ReservedForPeople,
+			Remaining: held.remaining, ResetAt: held.resetAt, Allowed: int(service.allowed),
+			ReservedForPeoplePercent: service.limits.ReservedForPeoplePercent,
+			ReservedForPeople:        service.allowed.reservedFor(service.limits.ReservedForPeoplePercent),
 		}
 	}
 	service.mutex.Unlock()

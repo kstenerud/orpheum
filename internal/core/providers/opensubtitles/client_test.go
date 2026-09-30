@@ -135,7 +135,8 @@ func (fake *fakeProvider) serveLogin(writer http.ResponseWriter, request *http.R
 	if fake.loginHost != "" {
 		host = fake.loginHost
 	}
-	reply(writer, fmt.Sprintf(`{"token":%q,"base_url":%q,"status":200}`, token, host))
+	reply(writer, fmt.Sprintf(`{"token":%q,"base_url":%q,"user":{"allowed_downloads":20},"status":200}`,
+		token, host))
 }
 
 // serveDownload answers a download: the link and what is left, or a spent quota.
@@ -181,7 +182,7 @@ func newProvider(t *testing.T, keys LoginSecrets) (*fakeProvider, *Client, *cloc
 	}
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC))
 	client, err := New(httpClient, fake.server.URL+"/api/v1", keys, fakeClock,
-		Service(providerstest.NewHealth(t, fakeClock), fakeClock))
+		Service(providerstest.NewHealth(t, fakeClock), fakeClock, providerstest.Settings{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,26 +499,29 @@ func TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload(t
 	}
 }
 
-func TestDownload_BackgroundNeverSpendsTheDownloadsKeptForPeopleAndAsksNothing(t *testing.T) {
+func TestDownload_BackgroundNeverSpendsTheDownloadsHeldBackForPeopleAndAsksNothing(t *testing.T) {
 	t.Parallel()
+	// The login says a free account's 20 a day; opensubtitles_downloads_reserved_for_people_percent
+	// starts at 25: 5 held back.
+	const heldBack = 5
 	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
-	fake.remaining = ReservedForPeople + 1
+	fake.remaining = heldBack + 1
 	if _, err := client.Download(t.Context(), 7); err != nil {
 		t.Fatal(err)
 	}
 	background := providers.WithImportance(t.Context(), providers.Background)
 	_, err := client.Download(background, 8)
 	if spent, isSpent := errors.AsType[*providers.QuotaSpentError](err); !isSpent || spent == nil {
-		t.Errorf("background with %d downloads left: %v; want them kept for people (D231 §5)", ReservedForPeople, err)
+		t.Errorf("background with %d downloads left: %v; want them held back for people (D231 §5)", heldBack, err)
 	}
 	fake.mutex.Lock()
 	remaining := fake.remaining
 	fake.mutex.Unlock()
-	if remaining != ReservedForPeople {
+	if remaining != heldBack {
 		t.Errorf("OpenSubtitles has %d left, want %d: background asked for a download it must not spend",
-			remaining, ReservedForPeople)
+			remaining, heldBack)
 	}
 	if _, err := client.Download(t.Context(), 8); err != nil {
-		t.Errorf("a person's download with the last %d left: %v, want it made", ReservedForPeople, err)
+		t.Errorf("a person's download with the last %d left: %v, want it made", heldBack, err)
 	}
 }

@@ -67,7 +67,7 @@ func newJobServices(
 		Cache: opened.cache, Clock: clock.System{}, Settings: opened.settings, Random: rand.Reader, Logger: logger,
 		ArgsMerges: jobArgsMerges(),
 	})
-	hosts := newHostProviders(queue, opened.secrets)
+	hosts := newHostProviders(queue, opened.secrets, clock.System{}, opened.settings)
 	providers := identify.Providers{"tmdb": tmdb.New(httpClient, outside.tmdbBaseURL, opened.secrets, hosts.tmdbAPI)}
 	subtitler, err := opensubtitles.New(
 		httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{}, hosts.openSubtitles)
@@ -114,11 +114,13 @@ func (hosts hostProviders) all() []*coreproviders.Service {
 
 // newHostProviders builds each outside host's provider service, its health kept in the job queue,
 // and has a person's change of a host's key or login try it again.
-func newHostProviders(queue *jobs.Queue, secretStore *secrets.Store) hostProviders {
+func newHostProviders(
+	queue *jobs.Queue, secretStore *secrets.Store, clockSource clock.Clock, settingsReader coreproviders.Settings,
+) hostProviders {
 	hosts := hostProviders{
-		tmdbAPI:       tmdb.APIService(queue, clock.System{}),
-		tmdbImages:    tmdb.ImagesService(queue, clock.System{}),
-		openSubtitles: opensubtitles.Service(queue, clock.System{}),
+		tmdbAPI:       tmdb.APIService(queue, clockSource, settingsReader),
+		tmdbImages:    tmdb.ImagesService(queue, clockSource, settingsReader),
+		openSubtitles: opensubtitles.Service(queue, clockSource, settingsReader),
 	}
 	secretStore.OnChange(func(ctx context.Context, name secrets.Name) {
 		switch name {

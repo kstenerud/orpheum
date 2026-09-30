@@ -243,7 +243,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	}
 	output.Body.Providers = make([]ProviderBody, 0, len(dependencies.Providers))
 	for _, provider := range dependencies.Providers {
-		output.Body.Providers = append(output.Body.Providers, providerBody(provider.State(), nodeName))
+		output.Body.Providers = append(output.Body.Providers, providerBody(provider.State(ctx), nodeName))
 	}
 	output.Body.Nodes = make([]SystemNodeBody, 0, len(listed))
 	for _, node := range listed {
