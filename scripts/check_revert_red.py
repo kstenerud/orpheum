@@ -78,6 +78,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
+import revert_red_reruns as reruns
+from revert_red_trees import link_installed_packages
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 
 # A commit whose type claims a behaviour change owes a red-on-revert.
@@ -469,43 +471,6 @@ def is_not_linux(path: str) -> bool:
 # installed packages, which once passed every TypeScript file as red because vitest was absent.
 RUNNER_MISSING = 127
 
-# Package caches a run writes, which the worktree keeps its own of rather than share.
-PACKAGE_CACHES = (".vite", ".vite-temp", ".vitest", ".cache")
-
-
-def link_installed_packages(source: Path, tree: Path) -> None:
-    """Give the worktree the web packages the working tree has installed, without installing.
-
-    git worktree copies only tracked files, so node_modules is absent, and the web suite cannot
-    run. Each node_modules under web/ is made in the worktree as a directory of links: an
-    installed package links to the working tree's copy, and a workspace link (@orpheum/sdk ->
-    ../../packages/sdk) is copied as the relative link it is, so it resolves to the worktree's
-    own package, the one a revert changes.
-    """
-    web = source / "web"
-    if not web.is_dir():
-        return
-    for installed in sorted(web.rglob("node_modules")):
-        relative = installed.relative_to(source)
-        if "node_modules" in relative.parts[:-1] or not installed.is_dir():
-            continue
-        _mirror_packages(installed, tree / relative, scoped=True)
-
-
-def _mirror_packages(installed: Path, into: Path, scoped: bool) -> None:
-    into.mkdir(parents=True, exist_ok=True)
-    for entry in installed.iterdir():
-        if entry.name in PACKAGE_CACHES:
-            continue
-        target = into / entry.name
-        if entry.is_symlink():
-            target.symlink_to(os.readlink(entry))
-        elif scoped and entry.name.startswith("@") and entry.is_dir():
-            _mirror_packages(entry, target, scoped=False)
-        else:
-            target.symlink_to(entry.resolve())
-
-
 def is_build_failure(output: str) -> bool:
     """Whether a failing run failed to compile rather than to assert.
 
@@ -652,30 +617,76 @@ def probe_trees(head: str, count: int) -> list[str]:
     return trees
 
 
+def why_not_probed(base: str, head: str, path: str, changes: list[Change]) -> str:
+    """Why a path a targeted run named is not probed: '' when it is owed a probe."""
+    if any(c.path == path for c in changes):
+        types = types_touching(base, head, path)
+        if claims_behavior_change(types):
+            return ""
+        return f"exempt: only {', '.join(sorted(t or '?' for t in types))} commits touched it"
+    if is_test_file(path):
+        return "test code, never asked to go red"
+    if not is_probed_kind(path):
+        return f"no probe for this kind of file ({Path(path).suffix or Path(path).name})"
+    return f"not changed in {base[:12]}..{head[:12]}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True, help="ref the branch forked from")
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--timeout", type=int, default=900, help="seconds per test run")
     ap.add_argument("--jobs", type=int, default=0, help="files probed at once (default: half the CPUs)")
+    only = ap.add_mutually_exclusive_group()
+    only.add_argument("--only", nargs="+", metavar="PATH", help="probe only these paths, still judged "
+                      "against --base..--head; a full run is still required before the branch is done")
+    only.add_argument("--rerun-failed", action="store_true", help="probe only the paths the last run "
+                      "against the same --base failed on (the head may have moved)")
     args = ap.parse_args()
 
     for name, ref in (("--base", args.base), ("--head", args.head)):
         if not rev_exists(ref):
             print(f"{name} {ref!r} is not a commit this repository can resolve.")
             return 1
+    base = _git("rev-parse", f"{args.base}^{{commit}}").stdout.strip()
+    head = _git("rev-parse", f"{args.head}^{{commit}}").stdout.strip()
 
-    changes = changed_sources(args.base, args.head)
-    owed = [c for c in changes if claims_behavior_change(types_touching(args.base, args.head, c.path))]
+    wanted: list[str] | None = None
+    if args.rerun_failed:
+        wanted, ran_on, problem = reruns.recorded_failures(base)
+        if problem:
+            print(problem)
+            return 1
+        if not wanted:
+            print(f"The last revert-red run against {base[:12]} failed on nothing; nothing to re-run.")
+            return 0
+        print(f"Re-running the {len(wanted)} file(s) the last run (at {ran_on[:12]}) failed on.")
+    elif args.only:
+        wanted = [p.removeprefix("./") for p in args.only]
+
+    changes = changed_sources(base, head)
+    owed = [c for c in changes if claims_behavior_change(types_touching(base, head, c.path))]
     exempt = len(changes) - len(owed)
-    if not owed:
+    unknown = False
+    if wanted is not None:
+        owed = [c for c in owed if c.path in wanted]
+        for path in wanted:
+            why = why_not_probed(base, head, path, changes)
+            if why:
+                print(f"Not probed: {path}  — {why}")
+                unknown = unknown or (args.only is not None and why.startswith("not changed"))
+        if not owed:
+            reruns.finish(base, head, wanted, [], targeted=True)
+            return 1 if unknown else 0
+    elif not owed:
+        reruns.finish(base, head, [], [], targeted=False)
         # A behavioral commit whose every file fell out of scope is not a pass; it
         # is the gate reporting that it checked nothing, and it must say which
         # files and why. Printing "no behavioral source changes" over a `fix` that
         # rewrote scheduling logic is exactly how yoloAI's smoke harness went unchecked
         # for as long as it did — the message was true of what the gate could see
         # and false about the commit.
-        unchecked = unchecked_behavioral_files(args.base, args.head)
+        unchecked = unchecked_behavioral_files(base, head)
         if unchecked:
             print(
                 f"Nothing was checked in {args.base}..{args.head}, but a feat/fix/perf commit "
@@ -694,7 +705,12 @@ def main() -> int:
 
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
     with hold_probe_trees():
-        return probe_all(args, owed, exempt, min(jobs, len(owed)))
+        reruns.begin(base)
+        status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted)
+    if wanted is not None:
+        print("\nA targeted run: the full `make check-revert-red` (or `make check-pr`) is still "
+              "required before the branch is done.")
+    return 1 if unknown else status
 
 
 def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
@@ -704,9 +720,10 @@ def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
             for path, why in unchecked_behavioral_files(base, head, probed, include_tests=False)]
 
 
-def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: int) -> int:
+def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, timeout: int,
+              wanted: list[str] | None) -> int:
     try:
-        trees = probe_trees(args.head, jobs)
+        trees = probe_trees(head, jobs)
     except RuntimeError as problem:
         print(f"Could not prepare the worktrees to test in:\n{problem}")
         return 1
@@ -717,14 +734,18 @@ def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: i
     def probe_in_a_free_tree(change: Change) -> Outcome:
         tree = free.get()
         try:
-            return probe(tree, args.base, args.head, change, args.timeout)
+            return probe(tree, base, head, change, timeout)
         finally:
             free.put(tree)
 
     with ThreadPoolExecutor(max_workers=len(trees)) as pool:
         outcomes = list(pool.map(probe_in_a_free_tree, owed))
 
-    outcomes += unprobed(args.base, args.head, owed)
+    # A targeted run reports on the paths it was given; their skips were printed already.
+    if wanted is None:
+        outcomes += unprobed(base, head, owed)
+    reruns.finish(base, head, wanted or [c.path for c in owed], [o.path for o in outcomes if o.is_failure],
+                  targeted=wanted is not None)
     print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
     print(report(outcomes))
 

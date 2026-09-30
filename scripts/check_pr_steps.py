@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# ABOUTME: Records each `make check-pr` step's pass or fail with the commit it ran on, and runs
+# ABOUTME: `make check-pr-failed`: only the steps that did not pass, revert-red on its failed files.
+"""check-pr's steps, recorded one by one so a fix-and-re-run loop repeats only what failed.
+
+`make check-pr` takes minutes, most of them in steps that passed. It records each step at
+`<git-common-dir>/check-pr/last-results`:
+
+* `start --base B` begins an empty record for a run against B.
+* `record STEP -- COMMAND...` runs one step's command, records whether it passed with the commit
+  HEAD was at, and exits with the command's status.
+* `rerun --base B --last LAST STEP...` is `make check-pr-failed`. The Makefile names the steps
+  (PR_STEPS, and PR_LAST_STEP, which runs alone after them). It re-runs, the same way, each step
+  that failed or has no result (it never ran: the last step runs only after the others pass), and
+  names each one it skipped with the commit it passed on. Revert-red, when it ran and failed,
+  re-runs only its failed files (`check_revert_red.py --rerun-failed`).
+
+A re-run's green is not check-pr's green: the skipped steps passed on an older commit, and the
+fixes since may have broken them. So `rerun` always ends by saying the full `make check-pr` is
+still required, and nothing here writes the check stamp or anything else a hook trusts.
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from typing import Any
+
+import last_run
+import revert_red_reruns
+
+GATE = "check-pr"
+NAME = "last-results"
+REVERT_RED = "check-revert-red"
+STEP_TARGET = "pr-step-"  # the Makefile's wrapper that runs a step and records it
+
+
+def start(base: str) -> None:
+    last_run.update(GATE, NAME, lambda _old: {"base": base, "results": {}})
+
+
+def record(step: str, command: list[str]) -> int:
+    status = subprocess.run(command, check=False).returncode
+    head = last_run.commit_of("HEAD") or ""
+
+    def change(old: dict[str, Any] | None) -> dict[str, Any]:
+        new = old or {"base": "", "results": {}}
+        new["results"][step] = {"passed": status == 0, "commit": head}
+        return new
+    last_run.update(GATE, NAME, change)
+    return status
+
+
+def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str], list[str]]:
+    """The steps to re-run, in order, and a line for each one skipped."""
+    again, skipped = [], []
+    for step in steps:
+        result = results.get(step)
+        if result is None or not result["passed"]:
+            again.append(step)
+            continue
+        when = "this commit" if result["commit"] == head else "an older commit"
+        skipped.append(f"  {step}  — passed on {result['commit'][:12]}, {when}")
+    return again, skipped
+
+
+def rerun(base: str, steps: list[str], last: str, jobs: int) -> int:
+    record_ = last_run.read(GATE, NAME)
+    if record_ is None:
+        print(f"No check-pr run is recorded ({last_run.record_path(GATE, NAME)}); run `make check-pr`.")
+        return 1
+    if record_.get("base") != base:
+        print(f"The last check-pr ran against base {str(record_.get('base'))[:12]}, not {base[:12]}; "
+              "its results answer a different question. Run `make check-pr` against this base.")
+        return 1
+    results = record_.get("results", {})
+    again, skipped = plan(results, [*steps, last], last_run.commit_of("HEAD") or "")
+    if skipped:
+        print("Skipped: these passed at the last check-pr, and the fixes since may have broken them:")
+        print("\n".join(skipped))
+    status = 0
+    first = [s for s in again if s != last]
+    if first:
+        print(f"Re-running: {' '.join(first)}", flush=True)
+        status = subprocess.run(["make", "--no-print-directory", f"-j{jobs}", "-k", "--output-sync=target",
+                                 f"BASE={base}", *[STEP_TARGET + s for s in first]], check=False).returncode
+    if last in again:
+        if status == 0:
+            status = rerun_last(last, last in results, base)
+        else:
+            print(f"{last} did not run: it runs only after the steps above pass.")
+    print("\nA re-run of what failed, not the gate: the full `make check-pr` is still required "
+          "before the branch is done.")
+    return status
+
+
+def rerun_last(last: str, ran: bool, base: str) -> int:
+    """The last step again: revert-red on its failed files alone when it ran and failed and its
+    own record of them is whole, and all of it otherwise."""
+    target = last
+    if last == REVERT_RED and ran:
+        _, _, problem = revert_red_reruns.recorded_failures(base)
+        if problem:
+            print(f"{problem}\nSo all of it runs again.")
+        else:
+            target = "check-revert-red-failed"
+    print(f"Re-running: {target}", flush=True)
+    return record(last, ["make", "--no-print-directory", target, f"BASE={base}"])
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="action", required=True)
+    begin = sub.add_parser("start")
+    begin.add_argument("--base", required=True)
+    one = sub.add_parser("record")
+    one.add_argument("step")
+    one.add_argument("command", nargs=argparse.REMAINDER)
+    again = sub.add_parser("rerun")
+    again.add_argument("--base", required=True)
+    again.add_argument("--last", required=True, help="the step that runs alone after the others")
+    again.add_argument("--jobs", type=int, default=4)
+    again.add_argument("steps", nargs="+")
+    args = ap.parse_args()
+
+    if args.action == "start":
+        start(last_run.commit_of(args.base) or args.base)
+        return 0
+    if args.action == "record":
+        command = args.command[1:] if args.command[:1] == ["--"] else args.command
+        return record(args.step, command)
+    return rerun(last_run.commit_of(args.base) or args.base, args.steps, args.last, args.jobs)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
