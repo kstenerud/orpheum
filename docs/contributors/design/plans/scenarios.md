@@ -679,6 +679,48 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   it is an integration-tier test.
 - S75 already holds and needs only a regression test: a conversion runs with quota at zero.
 
+### Scenarios S79–S91: work handed to a node (walk before D233; decided by D233)
+
+- **S79 — A hung FFmpeg during a prepare.** An encode stops making progress, with its process
+  alive. *Expected:* the node's watchdog kills it within about 2 minutes and answers "stalled";
+  the core retries at no cost to the item; the slot frees; other encodes proceed. A second stall
+  on the same file records an item fact with "stalled twice". *Today:* a livelock (#4).
+- **S80 — A hung loudness measurement.** *Expected:* as S79. The item is not failed for a hang,
+  and the node's measure slot comes back. *Today:* the slot is gone until the node restarts, and
+  the file is eventually blamed.
+- **S81 — A finished prepare's `done` is lost in flight.** *Expected:* the outbox redelivers it;
+  the core accepts it by run id even if the job gave up; nothing is re-encoded. *Today:* the core
+  waits 5 minutes, then re-encodes over the complete rendition.
+- **S82 — The core restarts during an hour-long encode.** *Expected:* the encode continues; at
+  hello the node lists it; the core adopts it without re-dispatching; progress resumes in the job
+  view. *Today:* the co-located node is killed; the job requeues, dispatches before hello, and
+  waits 5 minutes.
+- **S83 — A late answer from an earlier attempt.** Attempt 1 is slow, attempt 2 starts, then
+  attempt 1's `done` arrives. *Expected:* it is rejected by token, or accepted as the rendition
+  only if its run id is the current one. *Today:* attempt 2 accepts it while its own FFmpeg is
+  still writing.
+- **S84 — cache.db is discarded while a node holds finished-unacked results.** *Expected:* the
+  results match by content (hash, run id), never by a reused job id.
+- **S85 — One artwork answer fails to post (the core is busy, or the answer is over its bound).**
+  *Expected:* it goes to the outbox; other work is untouched. *Today:* the session ends, every
+  FFmpeg dies, and every root is rescanned.
+- **S86 — A file whose probe or parse panics the core, or crashes the node.** *Expected:* one
+  job fails; the next start refuses it at its limit; the node reports "crashed during X"; the
+  System page shows a crash loop. *Today:* an endless restart loop.
+- **S87 — A play-now prepare on a node parked overnight.** *Expected:* the viewer has gone, so
+  it is dropped or demoted; tonight's play is not queued behind it. *Today:* it runs first, at
+  priority 1000.
+- **S88 — Two nodes; node A's prepares wait on a busy slot.** *Expected:* a play on node B
+  starts at once. *Today:* it can wait behind global prepare runners held by A's jobs.
+- **S89 — A remote node on an older build receives a command it does not know.** *Expected:* it
+  refuses explicitly, or the core parks the node with the reason "version mismatch". *Today:*
+  silence, timeouts and attempts spent.
+- **S90 — A double click on "download subtitle".** *Expected:* one quota spent, and the same
+  answer twice. *Today:* two downloads.
+- **S91 — The owner stops the core with a cancel pending for a running node job.** *Expected:* at
+  hello, reconciliation tells the node to stop it. *Today:* the cancel is lost with memory (moot
+  today only because the node dies too).
+
 ## Gaps and questions
 
 | | What | Scenarios |
