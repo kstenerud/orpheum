@@ -24,8 +24,9 @@
 //   - A queued job wakes a runner of its own kind at once; no other kind's runner takes its
 //     wake-up, so it never waits for the next tick. TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce.
 //   - A failure retries with doubling back-off up to job_attempt_limit, then fails.
-//     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails. The doubling stops at the longest
-//     time.Duration rather than overflowing, whatever the limit allows.
+//     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails. The doubling stops at a day, so a
+//     job that keeps failing retries daily until the limit, and never overflows whatever the
+//     limit allows. TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit,
 //     TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows.
 //   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
