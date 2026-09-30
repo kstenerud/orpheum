@@ -930,6 +930,71 @@ zero because their output is a cache.
 backups differ in what runs them and in `args_json`, not in how they wait, retry, report progress or
 get cancelled; `fetch_queue` was the first of what would have become four.
 
+## Who writes each table
+
+Each table has one writing package: the one package whose code calls the table's `INSERT`,
+`UPDATE` and `DELETE` queries. Any other package that changes the table asks that package, through
+a function that takes the caller's transaction (`library.FileAs`, `identify.RecordImage`), so
+the rules a table's rows keep live in one place (the architecture map's F5, decided 2026-09-30).
+`TestArch_EachTableHasOneWritingPackage` reads this table and the queries' callers and fails on a
+second writer, or on a writer this table does not name. A table no package writes yet says
+*none yet*; its first writer is named here in the change that adds it.
+
+| Table | Database | Writing package | Notes |
+| --- | --- | --- | --- |
+| `artwork` | library.db | `internal/core/identify` | the artwork service records what it stored through `identify.RecordImage` |
+| `collection` | library.db | `internal/core/identify` | |
+| `collection_member` | library.db | `internal/core/identify` | |
+| `device` | library.db | `internal/core/auth` | |
+| `edition` | library.db | none yet | |
+| `edition_text` | library.db | none yet | |
+| `extra_relation` | library.db | `internal/core/identify` | |
+| `favourite` | library.db | none yet | |
+| `fetched_subtitle` | library.db | `internal/core/playback` | |
+| `field_override` | library.db | `internal/core/identify` | |
+| `file` | library.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
+| `grant` | library.db | `internal/core/auth` | |
+| `group_text` | library.db | none yet | |
+| `item` | library.db | `internal/core/identify` | |
+| `item_fts`, `item_fts_tri` | library.db | `internal/core/identify` | kept by `item_text`'s triggers |
+| `item_provider_id` | library.db | `internal/core/identify` | |
+| `item_tag` | library.db | none yet | |
+| `item_text` | library.db | `internal/core/identify` | |
+| `library` | library.db | `internal/core/library` | |
+| `library_root` | library.db | `internal/core/library` | |
+| `loudness` | library.db | `internal/core/playback` | |
+| `node` | library.db | `internal/core/nodes` | |
+| `ordering` | library.db | `internal/core/identify` | |
+| `play_event` | library.db | `internal/core/playback` | |
+| `play_position` | library.db | `internal/core/playback` | |
+| `play_span` | library.db | `internal/core/playback` | |
+| `position` | library.db | `internal/core/identify` | |
+| `preference` | library.db | `internal/core/playback` | |
+| `progress_hide` | library.db | `internal/core/playback` | |
+| `provider_response` | library.db | `internal/core/identify` | |
+| `role` | library.db | none yet | the baseline seeds the built-in roles |
+| `root_mount` | library.db | `internal/core/library` | |
+| `root_scan` | library.db | `internal/core/library` | |
+| `root_state` | library.db | `internal/core/library` | |
+| `schema_meta` | library.db | `internal/store` | the migration runner's own statements |
+| `schema_step` | library.db | `internal/store` | the migration runner's own statements |
+| `secret` | library.db | `internal/core/secrets` | |
+| `setting` | library.db | `internal/core/settings` | |
+| `sort_key` | library.db | `internal/core/identify` | |
+| `stream` | library.db | `internal/core/library` | |
+| `tag` | library.db | none yet | |
+| `title` | library.db | `internal/core/identify` | |
+| `user` | library.db | `internal/core/auth` | |
+| `user_deny` | library.db | none yet | |
+| `user_rating` | library.db | none yet | |
+| `version` | library.db | `internal/core/identify` | |
+| `watchlist` | library.db | none yet | |
+| `art_served` | cache.db | `internal/core/artwork` | |
+| `job` | cache.db | `internal/core/jobs` | |
+| `match_candidate` | cache.db | `internal/core/identify` | |
+| `prepared_rendition` | cache.db | `internal/core/playback` | |
+| `subtitle_text` | cache.db | `internal/core/playback` | |
+
 ## Not in Cut A, and additive
 
 Each arrives with its feature as a new table or column, precluding nothing
