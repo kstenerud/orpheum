@@ -49,6 +49,24 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A14 — Research framed from one symptom, so the field's standard concerns went unasked (2026-09-30)
+
+- **What happened:** asked how queues handle work for a destination that is down, I briefed the
+  research on that question alone. It answered it well (per-destination state, parking, one
+  probe) and D231 was agreed on it. The owner then asked what happens when a node gets stuck, when
+  a finished result never arrives, and across restarts, and the code's answers were bad: a hung
+  FFmpeg holds its slot for ever, a lost result means redoing the work, and a core restart cancels
+  every running encode. Delivery guarantees, leases, idempotent results and reconciliation are
+  standard in the same literature (Celery, SQS, Temporal); the brief never asked for them. The
+  owner: *"this should have come out of our research on queueing best practices. Is there
+  anything else we've missed?"*
+- **Caught by:** the owner's questions.
+- **Practice:** a research brief first asks for the field's standard list of concerns, with
+  sources, and has each marked covered, a gap, or not relevant to us; only then the question that
+  prompted it. The second pass on coordinator and worker job systems ran that way. No gate can
+  check the scope of a question; the audit checklist's item 16 asks it of every design question
+  before a milestone.
+
 ### A13 — JSON written out by hand beside the struct that reads it, so a rename missed it (2026-09-29)
 
 - **What happened:** `RefreshJob` built a fetch job's arguments with `fmt.Sprintf` and the JSON

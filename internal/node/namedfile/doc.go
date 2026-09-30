@@ -12,8 +12,10 @@
 //   - Only a regular file is opened: a directory, device or pipe at the path is refused
 //     (ErrNotRegular) before anything is read. TestOpen_RefusesWhatIsNotARegularFile.
 //   - A file whose payload hash is not the one named is refused (ErrChanged), even after its hash
-//     was remembered: a file whose size or time changed is hashed again.
-//     TestOpen_RefusesAFileThatIsNoLongerTheOneNamed.
+//     was remembered: a file whose inode, size, modification time or ctime changed is hashed
+//     again, so a same-size copy that keeps the mtime is caught.
+//     TestOpen_RefusesAFileThatIsNoLongerTheOneNamed,
+//     TestOpen_RefusesASameSizeReplacementThatKeptItsModificationTime.
 //   - A file named under a root the node was not given is refused (ErrNoRoot, D107), as is a name
 //     with no path or a payload hash that is not hex (ErrBadName).
 //     TestOpenNamed_FindsTheRootByItsPathAndRefusesABadName.
@@ -29,5 +31,5 @@
 //
 // # Where to change
 //
-//   - namedfile.go.
+//   - namedfile.go; inode_<os>.go for the inode and ctime.
 package namedfile

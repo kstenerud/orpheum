@@ -35,19 +35,23 @@ var (
 // requests come for one file at a time; the bound only stops a long-running node growing.
 const maxRemembered = 1024
 
-// Hashes remembers each file's payload hash while its size and time stay the same, so a file
+// Hashes remembers each file's payload hash while its inode, size and times stay the same, so a file
 // opened again and again, as a player's range requests open it, is hashed once.
 type Hashes struct {
 	mutex         sync.Mutex
 	hashByVersion map[fileVersion][]byte // guarded by mutex
 }
 
-// fileVersion is what a file looked like when its payload hash was computed: a file whose size or
-// time changed is hashed again.
+// fileVersion is what a file looked like when its payload hash was computed: a file whose inode,
+// size, modification time or inode change time (ctime) changed is hashed again. Size and mtime
+// alone pass a same-size replacement that keeps its mtime (cp -p, rsync -t); the inode and ctime
+// catch it, since nothing short of changing the clock sets a ctime back.
 type fileVersion struct {
 	root, path string
 	sizeBytes  int64
 	modifiedAt time.Time
+	inode      uint64
+	changedAt  time.Time
 }
 
 // NewHashes remembers nothing yet.
@@ -114,7 +118,11 @@ func open(
 	if !info.Mode().IsRegular() {
 		return nil, nil, fmt.Errorf("%s: %w", relativePath, ErrNotRegular)
 	}
-	version := fileVersion{root.Path(), relativePath, info.Size(), info.ModTime()}
+	inode, changedAt := inodeAndChangedAt(info)
+	version := fileVersion{
+		root: root.Path(), path: relativePath, sizeBytes: info.Size(), modifiedAt: info.ModTime(),
+		inode: inode, changedAt: changedAt,
+	}
 	found, err := hashes.payloadHashOf(file, version)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w: %w", relativePath, ErrUnhashable, err)
