@@ -88,10 +88,21 @@ func (matcher *Matcher) acceptSeries(
 		provider: provider.Name(), seriesID: series.ID, metadata: metadata, identification: identification,
 	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		kept, joinErr := joinDeletedSeries(ctx, queries, provider.Name(), metadata.ID, series, now)
+		if joinErr != nil {
+			return joinErr
+		}
+		found.seriesID = kept
 		return recordSeries(ctx, queries, found, bodyGzip, now)
 	})
 	if err != nil {
 		return fmt.Errorf("record series %d's match: %w", series.ID, err)
+	}
+	if found.seriesID != series.ID { // joined to a deleted library's series, which came back
+		series, err = matcher.database.Read().GetSeriesForMatch(ctx, found.seriesID)
+		if err != nil {
+			return fmt.Errorf("read series %d: %w", found.seriesID, err)
+		}
 	}
 	series.FollowedSourceID, series.IdentificationState = &metadata.ID, &identification
 	_, err = matcher.fetchSeasonListings(ctx, provider, series)

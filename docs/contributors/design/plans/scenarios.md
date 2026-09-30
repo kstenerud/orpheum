@@ -336,8 +336,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   the jobs rebuild's Phase 3): its work is cancelled and its titles hidden with their history; a
   film of it that reappears elsewhere brings its title back
   (`TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack`,
-  `TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack`). Q14 answered by
-  D231 §7.
+  `TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack`), and so does a
+  series, each episode with it as its file reappears
+  (`TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack`,
+  `TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack`). Q14 answered by D231 §7.
 
 ### S25 — TMDB is down overnight while 200 films are added
 

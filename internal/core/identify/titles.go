@@ -81,7 +81,7 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 		key = movieKey(spec.name, spec.year)
 	}
 	if id, found := filer.titleIDByKey[key]; found {
-		return id, nil
+		return id, filer.bringEpisodeBack(ctx, id)
 	}
 	libraryID := filer.library.ID
 	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{

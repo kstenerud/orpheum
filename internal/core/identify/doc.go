@@ -49,7 +49,11 @@
 //     reappears in another, named by the same provider id by its NFO or by a match, brings its
 //     title back with its history (D231 §7).
 //     TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack,
-//     TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack.
+//     TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack. A deleted library's
+//     series comes back the same way, by its tvshow.nfo's provider id or by a match, and each
+//     episode with it as its file reappears; a matched series' episodes it did not have join it.
+//     TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack,
+//     TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack.
 //   - A match is never guessed: a provider id in hand skips the search, a single result matching
 //     the name and year is accepted, and anything else is ambiguous with its results kept (D172).
 //     TestMatch_AProviderIDInHandSkipsTheSearch, TestMatch_AnAmbiguousSearchIsNeverGuessed,

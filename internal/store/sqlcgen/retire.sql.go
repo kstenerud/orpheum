@@ -298,7 +298,7 @@ type TombstoneItemsOfLibraryParams struct {
 }
 
 // A deleted library's films, series and episodes, tombstoned and hidden with their history: a
-// film of it that reappears in another library brings its title back (D208 section 2, D231
+// film or series of it that reappears in another library comes back (D208 section 2, D231
 // section 7). A tombstone with no merged_into is one of these.
 func (q *Queries) TombstoneItemsOfLibrary(ctx context.Context, arg TombstoneItemsOfLibraryParams) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, tombstoneItemsOfLibrary, arg.RemovedAt, arg.LibraryID)

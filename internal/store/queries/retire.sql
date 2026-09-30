@@ -65,7 +65,7 @@ ORDER BY title.id;
 
 -- name: TombstoneItemsOfLibrary :many
 -- A deleted library's films, series and episodes, tombstoned and hidden with their history: a
--- film of it that reappears in another library brings its title back (D208 section 2, D231
+-- film or series of it that reappears in another library comes back (D208 section 2, D231
 -- section 7). A tombstone with no merged_into is one of these.
 UPDATE item SET removed_at = sqlc.arg(removed_at)
 WHERE library_id = sqlc.arg(library_id) AND removed_at IS NULL

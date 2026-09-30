@@ -38,6 +38,22 @@ func (q *Queries) CountItemsMissingSortKey(ctx context.Context, locale string) (
 	return count, err
 }
 
+const countLiveFilesOfSeries = `-- name: CountLiveFilesOfSeries :one
+SELECT count(*)
+FROM file
+JOIN version ON version.id = file.version_id
+JOIN collection_member ON collection_member.member_title = version.title_id
+WHERE collection_member.collection_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL
+`
+
+// A series' live files: live files of the live versions of its episodes.
+func (q *Queries) CountLiveFilesOfSeries(ctx context.Context, collectionID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLiveFilesOfSeries, collectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLiveFilesOfTitle = `-- name: CountLiveFilesOfTitle :one
 SELECT count(*)
 FROM file
@@ -664,11 +680,60 @@ func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverri
 	return items, nil
 }
 
+const listSeriesByProviderID = `-- name: ListSeriesByProviderID :many
+SELECT collection.id, item.library_id, item.removed_at
+FROM item_provider_id
+JOIN collection ON collection.id = item_provider_id.item_id AND collection.kind = 'series'
+JOIN item ON item.id = collection.id
+WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ?
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
+ORDER BY item.removed_at IS NOT NULL, collection.id
+`
+
+type ListSeriesByProviderIDParams struct {
+	Provider   string
+	ProviderID string
+}
+
+type ListSeriesByProviderIDRow struct {
+	ID        int64
+	LibraryID *int64
+	RemovedAt *int64
+}
+
+// The series a provider's id names: the live ones, and those of a deleted library, tombstoned
+// with no merged_into, which a series whose episodes reappear brings back (D208 section 2,
+// D231 section 7).
+func (q *Queries) ListSeriesByProviderID(ctx context.Context, arg ListSeriesByProviderIDParams) ([]ListSeriesByProviderIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesByProviderID, arg.Provider, arg.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeriesByProviderIDRow{}
+	for rows.Next() {
+		var i ListSeriesByProviderIDRow
+		if err := rows.Scan(&i.ID, &i.LibraryID, &i.RemovedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeriesEpisodePlaces = `-- name: ListSeriesEpisodePlaces :many
-SELECT position.title_id, position.group_number, position.number_in_group
+SELECT position.title_id, position.group_number, position.number_in_group, item.removed_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
+JOIN item ON item.id = position.title_id
 WHERE ordering.collection_id = ? AND ordering.name = 'aired'
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
 ORDER BY position.sort_order
 `
 
@@ -676,8 +741,11 @@ type ListSeriesEpisodePlacesRow struct {
 	TitleID       int64
 	GroupNumber   *int64
 	NumberInGroup *int64
+	RemovedAt     *int64
 }
 
+// A series' episodes in its aired order: the live ones, and those hidden with a deleted library,
+// which come back with their files (D231 section 7).
 func (q *Queries) ListSeriesEpisodePlaces(ctx context.Context, collectionID int64) ([]ListSeriesEpisodePlacesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesEpisodePlaces, collectionID)
 	if err != nil {
@@ -687,7 +755,12 @@ func (q *Queries) ListSeriesEpisodePlaces(ctx context.Context, collectionID int6
 	items := []ListSeriesEpisodePlacesRow{}
 	for rows.Next() {
 		var i ListSeriesEpisodePlacesRow
-		if err := rows.Scan(&i.TitleID, &i.GroupNumber, &i.NumberInGroup); err != nil {
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+			&i.RemovedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -755,6 +828,24 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 	return items, nil
 }
 
+const moveEpisodeToSeries = `-- name: MoveEpisodeToSeries :exec
+UPDATE collection_member SET collection_id = ?1
+WHERE collection_id = ?2 AND member_title = ?3
+`
+
+type MoveEpisodeToSeriesParams struct {
+	ToSeries   int64
+	FromSeries int64
+	TitleID    *int64
+}
+
+// An episode joins another series at the same place: its membership, and its place in the
+// aired order, which moves to the other series' own.
+func (q *Queries) MoveEpisodeToSeries(ctx context.Context, arg MoveEpisodeToSeriesParams) error {
+	_, err := q.db.ExecContext(ctx, moveEpisodeToSeries, arg.ToSeries, arg.FromSeries, arg.TitleID)
+	return err
+}
+
 const moveItemToLibrary = `-- name: MoveItemToLibrary :exec
 UPDATE item SET library_id = ?1, removed_at = NULL WHERE id = ?2
 `
@@ -767,6 +858,22 @@ type MoveItemToLibraryParams struct {
 // A title follows its files to another library, a deleted library's brought back with them.
 func (q *Queries) MoveItemToLibrary(ctx context.Context, arg MoveItemToLibraryParams) error {
 	_, err := q.db.ExecContext(ctx, moveItemToLibrary, arg.LibraryID, arg.ID)
+	return err
+}
+
+const movePositionToOrdering = `-- name: MovePositionToOrdering :exec
+UPDATE position SET ordering_id = ?1
+WHERE ordering_id = ?2 AND title_id = ?3
+`
+
+type MovePositionToOrderingParams struct {
+	ToOrdering   int64
+	FromOrdering int64
+	TitleID      int64
+}
+
+func (q *Queries) MovePositionToOrdering(ctx context.Context, arg MovePositionToOrderingParams) error {
+	_, err := q.db.ExecContext(ctx, movePositionToOrdering, arg.ToOrdering, arg.FromOrdering, arg.TitleID)
 	return err
 }
 
