@@ -124,3 +124,14 @@ setting key goes to the owner first.
        `TestArch_` test could hold is proposed to the owner as a gate.
     6. Record the date, what changed since the last map, and the findings in the milestone's audit
        note (plan-deviations.md).
+21. **Hardcoded values** (the owner, 2026-09-30: "keep watch for hardcoded values that ought to be
+    config"). Every number added since the last audit is one of: a setting with a starting value (an
+    admin's choice about behaviour: how often, how long, how much; its unit spelled out in its key);
+    a config key (a fact about the deployment, or a behaviour choice that start-up or a node needs
+    before any database is open); or a named constant with a comment saying why it is fixed (a
+    protocol value or an internal safety bound). Each setting's starting value names its source: a
+    best guess and its basis, a measurement, or the owner's tuning.
+22. **Promote tuned values** (the owner, 2026-09-30: "We start with a best guess and then refine as
+    we discover things"). Read the settings the owner changed on their server (`GET /settings`
+    with only the modified ones); for each, promote the owner's value to the starting value with
+    its source updated, or record why it is particular to that server.
