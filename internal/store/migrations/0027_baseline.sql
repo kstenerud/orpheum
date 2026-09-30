@@ -1,14 +1,14 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 85aa54684e6f9fcb419d3dd638fd37b1d79aaf539bebbdf46891256f9c87c29f
--- The baseline (D228): library.db's schema at version 26 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0026 (D185's first schema, the steps
--- D200 to D227 added, and 0026's index for the newest-first listings), and builds the schema and
--- the seeded rows they built; the checksum above is 0026_newest_first_index.sql's, which a
--- database migrated through that step recorded. Until the owner declares migrations live, a
--- schema change folds the last step into this file, which moves up to its version, and adds the
--- change as the one step after it. The tables are documented in
--- docs/contributors/design/plans/schema.md.
+-- orpheum:baseline folds 97bc2b8fded96059c919bddee38d7e6747e4c4fca854b68919e6a4188bcc3614
+-- The baseline (D228): library.db's schema at version 27 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0027 (D185's first schema, the steps
+-- D200 to D227 added, 0026's index for the newest-first listings, and 0027's names for what is
+-- held), and builds the schema and the seeded rows they built; the checksum above is
+-- 0027_names_say_what_they_hold.sql's, which a database migrated through that step recorded.
+-- Until the owner declares migrations live, a schema change folds the last step into this file,
+-- which moves up to its version, and adds the change as the one step after it. The tables are
+-- documented in docs/contributors/design/plans/schema.md.
 -- The runner owns application_id, user_version and compatible_version; this file holds DDL and
 -- the two built-in roles only.
 
@@ -124,7 +124,7 @@ CREATE TABLE file (                                        -- class I (identity 
   -- changed keeps its title; a renamed or moved one is identified again, unless a person
   -- confirmed its match.
   identified_from_path TEXT,             -- class O
-  reported_path_bytes BLOB,              -- class I: the bytes the node reported, the file's key (D211)
+  reported_path_raw BLOB,              -- class I: the bytes the node reported, the file's key (D211)
   opensubtitles_hash TEXT,               -- 16 hex digits of OpenSubtitles' moviehash (D224); NULL until scanned
   is_identity_confirmed INTEGER NOT NULL DEFAULT 1
     CHECK (is_identity_confirmed IN (0, 1)),  -- D179: 0 after a rebuild, until re-seen
@@ -132,7 +132,7 @@ CREATE TABLE file (                                        -- class I (identity 
 );
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_bytes) WHERE removed_at IS NULL;
+CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
 
 CREATE TABLE stream (                                      -- class O; not "track" (D186)
@@ -376,7 +376,8 @@ CREATE TABLE provider_response (                           -- class F: the store
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
-  fetched_at  INTEGER NOT NULL,
+  fetched_at  INTEGER NOT NULL,          -- when body_gzip was fetched: the body's age
+  last_asked_at INTEGER NOT NULL,        -- when the provider was last asked, with or without a new body
   body_gzip   BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
   PRIMARY KEY (item_id, provider, part)
 );
@@ -462,7 +463,7 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
   issued_at   INTEGER NOT NULL,
   expires_at  INTEGER,
-  last_seen_at INTEGER,
+  last_used_at INTEGER,
   revoked_at  INTEGER,
   device_name TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT

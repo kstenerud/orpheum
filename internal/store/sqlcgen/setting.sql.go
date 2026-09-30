@@ -11,38 +11,24 @@ import (
 
 const deleteSetting = `-- name: DeleteSetting :exec
 DELETE FROM setting
-WHERE scope = ?1 AND user_id IS ?2 AND key = ?3
+WHERE key = ?1
 `
 
-type DeleteSettingParams struct {
-	Scope  string
-	UserID *int64
-	Key    string
-}
-
 // Only for a row no setting reads: a known setting is reset, never deleted (D202).
-func (q *Queries) DeleteSetting(ctx context.Context, arg DeleteSettingParams) error {
-	_, err := q.db.ExecContext(ctx, deleteSetting, arg.Scope, arg.UserID, arg.Key)
+func (q *Queries) DeleteSetting(ctx context.Context, key string) error {
+	_, err := q.db.ExecContext(ctx, deleteSetting, key)
 	return err
 }
 
-const getServerSetting = `-- name: GetServerSetting :one
+const getSetting = `-- name: GetSetting :one
 SELECT key, value_json, set_by_user_id, set_at, is_modified
 FROM setting
-WHERE scope = 'server' AND key = ?
+WHERE key = ?
 `
 
-type GetServerSettingRow struct {
-	Key         string
-	ValueJSON   string
-	SetByUserID *int64
-	SetAt       int64
-	IsModified  int64
-}
-
-func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSettingRow, error) {
-	row := q.db.QueryRowContext(ctx, getServerSetting, key)
-	var i GetServerSettingRow
+func (q *Queries) GetSetting(ctx context.Context, key string) (Setting, error) {
+	row := q.db.QueryRowContext(ctx, getSetting, key)
+	var i Setting
 	err := row.Scan(
 		&i.Key,
 		&i.ValueJSON,
@@ -53,92 +39,42 @@ func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSe
 	return i, err
 }
 
-const insertServerSettingIfMissing = `-- name: InsertServerSettingIfMissing :exec
-INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at)
-VALUES ('server', NULL, ?1, ?2, NULL, ?3)
-ON CONFLICT (scope, ifnull(user_id, 0), key) DO NOTHING
+const insertSettingIfMissing = `-- name: InsertSettingIfMissing :exec
+INSERT INTO setting (key, value_json, set_by_user_id, set_at)
+VALUES (?1, ?2, NULL, ?3)
+ON CONFLICT (key) DO NOTHING
 `
 
-type InsertServerSettingIfMissingParams struct {
+type InsertSettingIfMissingParams struct {
 	Key       string
 	ValueJSON string
 	SetAt     int64
 }
 
-func (q *Queries) InsertServerSettingIfMissing(ctx context.Context, arg InsertServerSettingIfMissingParams) error {
-	_, err := q.db.ExecContext(ctx, insertServerSettingIfMissing, arg.Key, arg.ValueJSON, arg.SetAt)
+func (q *Queries) InsertSettingIfMissing(ctx context.Context, arg InsertSettingIfMissingParams) error {
+	_, err := q.db.ExecContext(ctx, insertSettingIfMissing, arg.Key, arg.ValueJSON, arg.SetAt)
 	return err
 }
 
-const listAllSettings = `-- name: ListAllSettings :many
-SELECT scope, user_id, key, value_json
-FROM setting
-ORDER BY scope, user_id, key
-`
-
-type ListAllSettingsRow struct {
-	Scope     string
-	UserID    *int64
-	Key       string
-	ValueJSON string
-}
-
-func (q *Queries) ListAllSettings(ctx context.Context) ([]ListAllSettingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAllSettings)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListAllSettingsRow{}
-	for rows.Next() {
-		var i ListAllSettingsRow
-		if err := rows.Scan(
-			&i.Scope,
-			&i.UserID,
-			&i.Key,
-			&i.ValueJSON,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listServerSettings = `-- name: ListServerSettings :many
+const listSettings = `-- name: ListSettings :many
 
 SELECT key, value_json, set_by_user_id, set_at, is_modified
 FROM setting
-WHERE scope = 'server'
 ORDER BY key
 `
-
-type ListServerSettingsRow struct {
-	Key         string
-	ValueJSON   string
-	SetByUserID *int64
-	SetAt       int64
-	IsModified  int64
-}
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Runtime settings (schema.md, setting; D181, D200). Every key the registry in
+// The server's runtime settings (schema.md, setting; D181, D200). Every key the registry in
 // internal/core/settings declares has a row, written with its starting value on first start.
-func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listServerSettings)
+func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
+	rows, err := q.db.QueryContext(ctx, listSettings)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListServerSettingsRow{}
+	items := []Setting{}
 	for rows.Next() {
-		var i ListServerSettingsRow
+		var i Setting
 		if err := rows.Scan(
 			&i.Key,
 			&i.ValueJSON,
@@ -159,79 +95,35 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 	return items, nil
 }
 
-const listUserSettings = `-- name: ListUserSettings :many
-SELECT key, value_json, set_by_user_id, set_at, is_modified
-FROM setting
-WHERE scope = 'user' AND user_id = ?
-ORDER BY key
-`
-
-type ListUserSettingsRow struct {
-	Key         string
-	ValueJSON   string
-	SetByUserID *int64
-	SetAt       int64
-	IsModified  int64
-}
-
-func (q *Queries) ListUserSettings(ctx context.Context, userID *int64) ([]ListUserSettingsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUserSettings, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUserSettingsRow{}
-	for rows.Next() {
-		var i ListUserSettingsRow
-		if err := rows.Scan(
-			&i.Key,
-			&i.ValueJSON,
-			&i.SetByUserID,
-			&i.SetAt,
-			&i.IsModified,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateUnmodifiedServerSetting = `-- name: UpdateUnmodifiedServerSetting :execrows
+const updateUnmodifiedSetting = `-- name: UpdateUnmodifiedSetting :execrows
 UPDATE setting SET value_json = ?1, set_at = ?2
-WHERE scope = 'server' AND key = ?3 AND is_modified = 0 AND value_json != ?1
+WHERE key = ?3 AND is_modified = 0 AND value_json != ?1
 `
 
-type UpdateUnmodifiedServerSettingParams struct {
+type UpdateUnmodifiedSettingParams struct {
 	ValueJSON string
 	SetAt     int64
 	Key       string
 }
 
 // Moves a setting nobody changed to a release's new starting value; a changed one is left alone.
-func (q *Queries) UpdateUnmodifiedServerSetting(ctx context.Context, arg UpdateUnmodifiedServerSettingParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateUnmodifiedServerSetting, arg.ValueJSON, arg.SetAt, arg.Key)
+func (q *Queries) UpdateUnmodifiedSetting(ctx context.Context, arg UpdateUnmodifiedSettingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateUnmodifiedSetting, arg.ValueJSON, arg.SetAt, arg.Key)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-const upsertServerSetting = `-- name: UpsertServerSetting :exec
-INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at, is_modified)
-VALUES ('server', NULL, ?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (scope, ifnull(user_id, 0), key)
+const upsertSetting = `-- name: UpsertSetting :exec
+INSERT INTO setting (key, value_json, set_by_user_id, set_at, is_modified)
+VALUES (?1, ?2, ?3, ?4, ?5)
+ON CONFLICT (key)
 DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
               is_modified = excluded.is_modified
 `
 
-type UpsertServerSettingParams struct {
+type UpsertSettingParams struct {
 	Key         string
 	ValueJSON   string
 	SetByUserID *int64
@@ -239,38 +131,8 @@ type UpsertServerSettingParams struct {
 	IsModified  int64
 }
 
-func (q *Queries) UpsertServerSetting(ctx context.Context, arg UpsertServerSettingParams) error {
-	_, err := q.db.ExecContext(ctx, upsertServerSetting,
-		arg.Key,
-		arg.ValueJSON,
-		arg.SetByUserID,
-		arg.SetAt,
-		arg.IsModified,
-	)
-	return err
-}
-
-const upsertUserSetting = `-- name: UpsertUserSetting :exec
-INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at, is_modified)
-VALUES ('user', ?1, ?2, ?3, ?4, ?5,
-        ?6)
-ON CONFLICT (scope, ifnull(user_id, 0), key)
-DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
-              is_modified = excluded.is_modified
-`
-
-type UpsertUserSettingParams struct {
-	UserID      *int64
-	Key         string
-	ValueJSON   string
-	SetByUserID *int64
-	SetAt       int64
-	IsModified  int64
-}
-
-func (q *Queries) UpsertUserSetting(ctx context.Context, arg UpsertUserSettingParams) error {
-	_, err := q.db.ExecContext(ctx, upsertUserSetting,
-		arg.UserID,
+func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSetting,
 		arg.Key,
 		arg.ValueJSON,
 		arg.SetByUserID,

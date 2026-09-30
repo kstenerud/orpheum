@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -66,7 +67,7 @@ type StartPlaybackOutput struct {
 		URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
 		Profile  string       `enum:"remux,h264-8m" json:"profile,omitempty"`
 		// NotDirectReasons say why it is not played directly, to show on screen (D188).
-		NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
+		NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
 		// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
 		// the first segment exists.
 		IsPreparing bool `json:"isPreparing"`
@@ -75,6 +76,12 @@ type StartPlaybackOutput struct {
 		// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
 		// URLs answer 425 until it is (D217 §6).
 		Subtitles []SubtitleTrackBody `json:"subtitles"`
+		// AudioTracks are the file's own audio tracks, by their place among them, which a person
+		// chooses among (D230 §5).
+		AudioTracks []AudioTrackBody `json:"audioTracks"`
+		// StartingAudioStreamID is the audio track the playback starts with: the person's choice,
+		// or the one a player starts with; absent when the file has no sound.
+		StartingAudioStreamID int64 `json:"startingAudioStreamId,omitempty"`
 		// Preferences are the person's choices for this file, which the player starts with.
 		Preferences PlaybackPreferencesBody `json:"preferences"`
 		// ResumePositionMs is where the player starts, without asking (D188): where the person
@@ -89,6 +96,17 @@ type StartPlaybackOutput struct {
 		// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
 		Levelling LevellingBody `json:"levelling"`
 	}
+}
+
+// AudioTrackBody is one of a file's own audio tracks.
+type AudioTrackBody struct {
+	StreamID int64 `json:"streamId"`
+	// AudioTrackIndex is its place among the file's audio tracks, as a prepared copy's audio
+	// renditions name it.
+	AudioTrackIndex int    `json:"audioTrackIndex"`
+	Language        string `doc:"BCP 47; empty when nothing names one" json:"language"`
+	ContainerTitle  string `json:"containerTitle,omitempty"`
+	Kind            string `enum:"plain,commentary,described" json:"kind"`
 }
 
 // MasterInput asks for a prepared playback's master playlist.
@@ -194,6 +212,16 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		})
 	}
 	output.Body.Subtitles = subtitleTracks(started)
+	output.Body.AudioTracks = make([]AudioTrackBody, 0, len(started.AudioTracks))
+	for _, track := range started.AudioTracks {
+		output.Body.AudioTracks = append(output.Body.AudioTracks, AudioTrackBody{
+			StreamID: track.StreamID, AudioTrackIndex: track.AudioTrackIndex, Language: track.Language,
+			ContainerTitle: track.ContainerTitle, Kind: string(track.Kind),
+		})
+	}
+	if started.StartingAudio != nil {
+		output.Body.StartingAudioStreamID = started.StartingAudio.StreamID
+	}
 	output.Body.Preferences = playbackPreferencesBody(started.Preferences)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
@@ -291,8 +319,8 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
 	case errors.Is(err, playback.ErrNoSubtitle):
 		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
-	case errors.Is(err, playback.ErrNoTrack):
-		return newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such subtitle track")
+	case errors.Is(err, preferences.ErrNoTrack):
+		return newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such track")
 	case errors.Is(err, playback.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such item")
 	case errors.Is(err, playback.ErrNothingToSearchBy):

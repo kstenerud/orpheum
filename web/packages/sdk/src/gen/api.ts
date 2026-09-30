@@ -235,7 +235,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's choices for one file: its subtitle offset, its subtitle track */
+        /** Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow */
         put: operations["setFilePreferences"];
         post?: never;
         delete?: never;
@@ -659,24 +659,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** This user's own settings */
-        get: operations["getMySettings"];
-        /** Change this user's own settings, all or none */
-        put: operations["putMySettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/nodes": {
         parameters: {
             query?: never;
@@ -1018,6 +1000,13 @@ export interface components {
             /** @description An episode's frame */
             stillSha256?: string;
         };
+        AudioChoiceBody: {
+            /**
+             * Format: int64
+             * @description The chosen track, an audio stream of the file's
+             */
+            streamId: number;
+        };
         AudioRenditionBody: {
             /** Format: int64 */
             audioTrackIndex: number;
@@ -1029,6 +1018,17 @@ export interface components {
             isDialogueBoosted: boolean;
             language: string;
             levelling: components["schemas"]["LevellingBody"];
+        };
+        AudioTrackBody: {
+            /** Format: int64 */
+            audioTrackIndex: number;
+            containerTitle?: string;
+            /** @enum {string} */
+            kind: "plain" | "commentary" | "described";
+            /** @description BCP 47; empty when nothing names one */
+            language: string;
+            /** Format: int64 */
+            streamId: number;
         };
         BuildBody: {
             binarySha256?: string;
@@ -1597,6 +1597,7 @@ export interface components {
             videoCodecs: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
         };
         PlaybackPreferencesBody: {
+            audioChoice?: components["schemas"]["AudioChoiceBody"];
             isDialogueBoostOn: boolean;
             isLevellingOn: boolean;
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
@@ -1804,6 +1805,7 @@ export interface components {
             user: components["schemas"]["UserBody"];
         };
         SetFilePreferencesInputBody: {
+            audioChoice?: components["schemas"]["AudioChoiceBody"];
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
@@ -1883,17 +1885,20 @@ export interface components {
             /** @enum {string} */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             audioRenditions?: components["schemas"]["AudioRenditionBody"][] | null;
+            audioTracks: components["schemas"]["AudioTrackBody"][] | null;
             /** @enum {string} */
             delivery: "direct" | "hls";
             isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
-            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
+            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
             preferences: components["schemas"]["PlaybackPreferencesBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             /** Format: int64 */
             resumePositionMs: number;
+            /** Format: int64 */
+            startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
@@ -1946,7 +1951,6 @@ export interface components {
              * @description The chosen track, a subtitle fetched for the file
              */
             fetchedSubtitleId?: number;
-            readonly isCarriedFromWork?: boolean;
             isOff?: boolean;
             /**
              * Format: int64
@@ -2018,10 +2022,6 @@ export interface components {
             /** @description The release that stopped reading it; empty for a typo */
             retiredIn?: string;
             retiredReason?: string;
-            /** @enum {string} */
-            scope: "server" | "user";
-            /** Format: int64 */
-            userId?: number;
             value: unknown;
         };
         UnusedOutputBody: {
@@ -2487,10 +2487,7 @@ export interface operations {
     };
     deleteUnusedConfig: {
         parameters: {
-            query?: {
-                /** @description The user whose row it is; 0 or absent for a server row */
-                userId?: number;
-            };
+            query?: never;
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -3597,74 +3594,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getMySettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putMySettings: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutSettingsInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsOutputBody"];
-                };
             };
             /** @description Error */
             default: {

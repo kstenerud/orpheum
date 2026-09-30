@@ -185,7 +185,7 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	ctx := t.Context()
 	const limit, window = 3, time.Minute
 	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
-	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowS, "60")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowSeconds, "60")
 	fixture.createUser(t, "partner", "right", RoleUser)
 	for range limit {
 		_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7", laptop)
@@ -229,8 +229,8 @@ func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryH, "1")
-	settingstest.Set(t, fixture.settings, settings.SessionLastUsedWriteIntervalS, "60")
+	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryHours, "1")
+	settingstest.Set(t, fixture.settings, settings.SessionLastUsedWriteIntervalSeconds, "60")
 	fixture.createUser(t, "owner", "right", RoleAdmin)
 	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
 	if err != nil {

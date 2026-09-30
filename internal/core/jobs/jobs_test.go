@@ -29,7 +29,7 @@ func newFixture(t *testing.T) fixture {
 	t.Helper()
 	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
 	settingstest.Set(t, config, settings.JobAttemptLimit, "3")
-	settingstest.Set(t, config, settings.JobFirstRetryDelayS, "10")
+	settingstest.Set(t, config, settings.JobFirstRetryDelaySeconds, "10")
 	cache := storetest.OpenCache(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.NewTextHandler(t.Output(), nil))
@@ -369,7 +369,7 @@ func TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows(t *testi
 	t.Parallel()
 	jobs := newFixture(t)
 	settingstest.Set(t, jobs.config, settings.JobAttemptLimit, "100")
-	settingstest.Set(t, jobs.config, settings.JobFirstRetryDelayS, "86400")
+	settingstest.Set(t, jobs.config, settings.JobFirstRetryDelaySeconds, "86400")
 	jobs.enqueue(t, 1, 0)
 	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		return errors.New("the provider answered 500")

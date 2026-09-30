@@ -66,16 +66,16 @@ func newPrepares(parts Parts) *prepares {
 
 // want makes sure a rendition of file in profile is complete or on its way, at the highest
 // priority, and returns its row. One whose source changed, that failed, that was made with
-// another segment length than hls_segment_length_s now asks for, or whose audio tracks were tagged
+// another segment length than hls_segment_length_seconds now asks for, or whose audio tracks were tagged
 // with other languages than the file's probe now gives them, is prepared again: a relabelled track
 // keeps the payload hash (D179), and the master playlist names each track's language.
 func (all *prepares) want(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) (cachegen.PreparedRendition, error) {
 	var row cachegen.PreparedRendition
-	segmentLengthS, settingErr := all.settings.Int(ctx, settings.HLSSegmentLengthS)
+	segmentLengthS, settingErr := all.settings.Int(ctx, settings.HLSSegmentLengthSeconds)
 	if settingErr != nil {
-		return row, fmt.Errorf("read hls_segment_length_s: %w", settingErr)
+		return row, fmt.Errorf("read hls_segment_length_seconds: %w", settingErr)
 	}
 	runID, runErr := all.newRunID()
 	if runErr != nil {

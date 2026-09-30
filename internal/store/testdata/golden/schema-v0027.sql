@@ -447,7 +447,7 @@ CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
 -- table provider_response
-CREATE TABLE "provider_response" (                       -- class F: the stored input (D170)
+CREATE TABLE provider_response (                           -- class F: the stored input (D170)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing

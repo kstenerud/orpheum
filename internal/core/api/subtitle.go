@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 )
 
 // SubtitleTrackBody is one text subtitle track, in the two forms it is served in (cut-a §6).
@@ -110,9 +111,9 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a subtitle", playback.ErrNoSubtitle)
 	}
-	track := playback.TrackRef{StreamID: id}
+	track := preferences.TrackRef{StreamID: id}
 	if match[1] == "f" {
-		track = playback.TrackRef{FetchedSubtitleID: id}
+		track = preferences.TrackRef{FetchedSubtitleID: id}
 	}
 	format, contentType := playback.FormatASS, assContentType
 	if match[3] == string(playback.FormatWebVTT) {

@@ -47,9 +47,9 @@ and a new decision is made only when code or a measurement forces one.
   and relays.
 - **Finding and resuming:** browse and search, play state and Continue Watching, artwork.
 - **Subtitles:** embedded and sidecar with libass, a sync offset control, **acquisition on
-  request** with the server's OpenSubtitles login ([D224](contributors/decisions/working-notes.md)). Subtitles start off; a person's
-  choice is kept per file and carried to the work's other files ([D223](contributors/decisions/working-notes.md) §3,
-  [D219](contributors/decisions/working-notes.md)).
+  request** with the server's OpenSubtitles login ([D224](contributors/decisions/working-notes.md)). Subtitles start off; the last subtitle and
+  audio language a person chose in a series follows its unwatched episodes, worked out at play time
+  ([D223](contributors/decisions/working-notes.md) §3, [D230](contributors/decisions/working-notes.md)).
 - **Quiet dialogue:** [D83](contributors/decisions/working-notes.md)'s dialogue boost in the downmix, with the device declaring
   stereo speakers, and loudness levelling: the node measures each sound in a job, and the player
   applies a gain towards -23 LUFS ([D226](contributors/decisions/working-notes.md)).

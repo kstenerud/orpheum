@@ -113,6 +113,11 @@ counted:
     in a slot of its own, not "two remux or extract jobs".
   - **Search** (D193 §4, standards/sql.md §4) is three static hand-written statements, one per
     route (D48), not a filter builder: M2 needed no filter, so nothing is assembled at run time.
+  - **Added 2026-09-30, with D230 and the architecture map's F2 and F6.** §3's layout gains
+    `internal/core/preferences`, which keeps a person's choices. §5: `GET/PUT /me/settings` are
+    gone, since no setting is a person's; `PUT /files/{id}/preferences` also takes `audioChoice`;
+    the playback answer also has `audioTracks` and `startingAudioStreamId`; and the transcode
+    reasons also have `audio_track`, a chosen sound other than the one the original plays first.
 - **Why the plan missed it:** the plan was written before the packages, keys and paths existed,
   and each milestone added what its features needed without the frozen text following; only the
   names had a decision (D227) that reached back into it.

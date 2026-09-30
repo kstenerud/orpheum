@@ -9,83 +9,54 @@ import (
 	"context"
 )
 
-const deletePreference = `-- name: DeletePreference :exec
-DELETE FROM preference
-WHERE user_id = ?1 AND scope = ?2 AND scope_id = ?3 AND axis = ?4
-`
-
-type DeletePreferenceParams struct {
-	UserID  int64
-	Scope   string
-	ScopeID int64
-	Axis    string
-}
-
-func (q *Queries) DeletePreference(ctx context.Context, arg DeletePreferenceParams) error {
-	_, err := q.db.ExecContext(ctx, deletePreference,
-		arg.UserID,
-		arg.Scope,
-		arg.ScopeID,
-		arg.Axis,
-	)
-	return err
-}
-
-const getTitleOfFile = `-- name: GetTitleOfFile :one
-SELECT version.title_id
+const getWorkOfFile = `-- name: GetWorkOfFile :one
+SELECT CAST(coalesce((
+  SELECT collection_member.collection_id FROM collection_member
+  JOIN collection ON collection.id = collection_member.collection_id AND collection.kind = 'series'
+  WHERE collection_member.member_title = version.title_id
+  ORDER BY collection_member.collection_id LIMIT 1
+), version.title_id) AS INTEGER) AS work_id
 FROM file
 JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
 WHERE file.id = ?1 AND file.removed_at IS NULL
 `
 
-// The title a live file is a version of.
-func (q *Queries) GetTitleOfFile(ctx context.Context, fileID int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getTitleOfFile, fileID)
-	var title_id int64
-	err := row.Scan(&title_id)
-	return title_id, err
+// The work a live file is of (D230): the series its title is an episode of, or the title itself,
+// a film or an episode in no series, as the item that names it.
+func (q *Queries) GetWorkOfFile(ctx context.Context, fileID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getWorkOfFile, fileID)
+	var work_id int64
+	err := row.Scan(&work_id)
+	return work_id, err
 }
 
-const listFilesOfWork = `-- name: ListFilesOfWork :many
-SELECT DISTINCT file.id
-FROM version
-JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
-WHERE version.removed_at IS NULL AND version.title_id IN (
-  SELECT CAST(?1 AS INTEGER) AS member_title
-  UNION
-  SELECT sibling.member_title FROM collection_member AS own
-  JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
-  JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
-  WHERE own.member_title = ?1
-)
-ORDER BY file.id
+const keepPreferenceUnlessSet = `-- name: KeepPreferenceUnlessSet :exec
+INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+ON CONFLICT (user_id, scope, scope_id, axis) DO NOTHING
 `
 
-// The live files of a work, for carrying a choice across it (D219): of the title, or when the
-// title is an episode in a series, of every episode of that series.
-// It starts from the work's titles, so it reads their versions and files by index, never every
-// file (sql.md section 11).
-func (q *Queries) ListFilesOfWork(ctx context.Context, titleID int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesOfWork, titleID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []int64{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type KeepPreferenceUnlessSetParams struct {
+	UserID    int64
+	Scope     string
+	ScopeID   int64
+	Axis      string
+	ValueJSON string
+	SetAt     int64
+}
+
+// A value kept only where the axis has none at the scope: what a started file used, which a choice
+// made in the file has already set (D230).
+func (q *Queries) KeepPreferenceUnlessSet(ctx context.Context, arg KeepPreferenceUnlessSetParams) error {
+	_, err := q.db.ExecContext(ctx, keepPreferenceUnlessSet,
+		arg.UserID,
+		arg.Scope,
+		arg.ScopeID,
+		arg.Axis,
+		arg.ValueJSON,
+		arg.SetAt,
+	)
+	return err
 }
 
 const listPreferencesAtScope = `-- name: ListPreferencesAtScope :many
@@ -147,8 +118,8 @@ type SetPreferenceParams struct {
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// A person's preferences (schema.md, preference; D24, D90): one value per axis at a scope. A
-// value set equal to the starting one is still a choice, so it is stored, never deleted.
+// A person's preferences (schema.md, preference; D24, D90, D230): one value per axis at a scope.
+// A value set equal to the starting one is still a choice, so it is stored, never deleted.
 func (q *Queries) SetPreference(ctx context.Context, arg SetPreferenceParams) error {
 	_, err := q.db.ExecContext(ctx, setPreference,
 		arg.UserID,

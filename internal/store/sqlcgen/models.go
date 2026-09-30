@@ -26,3 +26,11 @@ type Secret struct {
 	SetByUserID *int64
 	SetAt       int64
 }
+
+type Setting struct {
+	Key         string
+	ValueJSON   string
+	SetByUserID *int64
+	SetAt       int64
+	IsModified  int64
+}

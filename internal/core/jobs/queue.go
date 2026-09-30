@@ -290,7 +290,7 @@ func (retry *RetryAtError) Unwrap() error { return retry.Err }
 
 // MarkBlocked marks a handler's error as one that holds every job of its kind until something
 // outside the queue changes — a provider's key unset or refused — so the kind waits
-// job_first_retry_delay_s, and the wait costs the job no attempt.
+// job_first_retry_delay_seconds, and the wait costs the job no attempt.
 func MarkBlocked(err error) error { return &blocked{err: err} }
 
 type blocked struct{ err error }
@@ -299,7 +299,7 @@ func (failure *blocked) Error() string { return failure.err.Error() }
 func (failure *blocked) Unwrap() error { return failure.err }
 
 // MarkStalled marks a handler's error as a tool that stalled on the job, a hang that says nothing
-// of the target: the job is tried again after job_first_retry_delay_s at no cost of an attempt,
+// of the target: the job is tried again after job_first_retry_delay_seconds at no cost of an attempt,
 // and its next attempt knows the last one stalled (Job.PreviousAttemptStalled), so its handler can
 // make a second stall in a row the target's failure. The job remembers it only by the prefix of
 // its last failure; D231's item facts replace that.

@@ -13,8 +13,9 @@
 //   - A report's records reach the ingest in order, batched, and as soon as the stream goes
 //     quiet; a record out of sequence is refused. TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
 //     TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
-//   - A node silent for node_silent_after_s is reported; silent for node_restart_after_silent_s it is
-//     restarted; one that exits is started again after node_restart_after_exit_s, so it cannot spin.
+//   - A node silent for node_silent_after_seconds is reported; silent for
+//     node_restart_after_silent_seconds it is restarted; one that exits is started again after
+//     node_restart_after_exit_seconds, so it cannot spin.
 //     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.
 //   - A node's artwork answer, bounded, goes to the artwork service and nowhere else; one from a
 //     node that has not said hello is refused (D212 §8).

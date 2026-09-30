@@ -56,7 +56,7 @@ const (
 
 // refreshPeriods are the settings that say, per provider, how old its data may get (D213 §3).
 func refreshPeriods() map[string]settings.Key {
-	return map[string]settings.Key{"tmdb": settings.TMDBRefreshAfterD}
+	return map[string]settings.Key{"tmdb": settings.TMDBRefreshAfterDays}
 }
 
 // refresh fetches an item's record again from the source it follows and re-derives it: a film,

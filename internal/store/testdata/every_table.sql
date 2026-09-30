@@ -74,9 +74,8 @@ INSERT INTO group_text (collection_id, group_number, language, name, overview) V
 INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
   VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1);
-INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at)
-  VALUES ('server', NULL, 'should_check_for_updates', 'false', 1, 1790000000000),
-         ('user', 2, 'caption_size', '"large"', 2, 1790000000000);
+INSERT INTO setting (key, value_json, set_by_user_id, set_at)
+  VALUES ('should_check_for_updates', 'false', 1, 1790000000000);
 INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)
   VALUES ('server', NULL, 'tmdb_api_key', 7, X'000102030405060708090A0B0C0D0E0F1011121314151617', X'DEADBEEF',
           'WXYZ', 1, 1790000000000);
@@ -94,7 +93,8 @@ INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 17
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-  VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000);
+  VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000),
+         (2, 'work', 3, 'audio_language', '{"language":"en","kind":"plain"}', 1790000000000);
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
   VALUES (1, 'tmdb', '', 1790000000000, 1790000300000, X'1F8B0800');
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)

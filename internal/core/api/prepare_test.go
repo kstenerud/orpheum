@@ -195,16 +195,16 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	harness.play(t, user, chrome(2))
 	first := harness.prepareRenditionOne(t, 81)
 	if first.SegmentLengthSeconds != 2 {
-		t.Errorf("the first copy asked for %d-second segments, want hls_segment_length_s's 2",
+		t.Errorf("the first copy asked for %d-second segments, want hls_segment_length_seconds's 2",
 			first.SegmentLengthSeconds)
 	}
 	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
 		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
 	}
 	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_length_s'")
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'hls_segment_length_seconds'")
 	if changed := harness.play(t, user, chrome(2)); !changed.IsPreparing {
-		t.Errorf("played after hls_segment_length_s changed: %+v, want the copy made again", changed)
+		t.Errorf("played after hls_segment_length_seconds changed: %+v, want the copy made again", changed)
 	}
 	again := harness.prepareRenditionOne(t, 82)
 	if again.SegmentLengthSeconds != 6 {

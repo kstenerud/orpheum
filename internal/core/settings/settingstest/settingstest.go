@@ -32,7 +32,7 @@ func Seeded(tb testing.TB, database *store.Database) *settings.Service {
 func Set(tb testing.TB, service *settings.Service, key settings.Key, value string) {
 	tb.Helper()
 	encoded := map[string]json.RawMessage{string(key): json.RawMessage(value)}
-	if err := service.Set(tb.Context(), nil, encoded, nil, false); err != nil {
+	if err := service.Set(tb.Context(), encoded, nil, false); err != nil {
 		tb.Fatalf("set %s to %s: %v", key, value, err)
 	}
 }

@@ -219,7 +219,7 @@ func seedSettings(ctx context.Context, settingsService *settings.Service, values
 		}
 		encoded[key] = text
 	}
-	return settingsService.Set(ctx, nil, encoded, nil, false)
+	return settingsService.Set(ctx, encoded, nil, false)
 }
 
 func seedSecrets(

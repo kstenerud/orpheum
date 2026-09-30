@@ -180,9 +180,9 @@ func (runner *Runner) retryPolicy(ctx context.Context) (attemptLimit int64, firs
 	if err != nil {
 		return 0, 0, fmt.Errorf("read job_attempt_limit: %w", err)
 	}
-	firstRetryDelay, err = runner.queue.settings.Duration(ctx, settings.JobFirstRetryDelayS)
+	firstRetryDelay, err = runner.queue.settings.Duration(ctx, settings.JobFirstRetryDelaySeconds)
 	if err != nil {
-		return 0, 0, fmt.Errorf("read job_first_retry_delay_s: %w", err)
+		return 0, 0, fmt.Errorf("read job_first_retry_delay_seconds: %w", err)
 	}
 	return attemptLimit, firstRetryDelay, nil
 }

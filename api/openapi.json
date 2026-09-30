@@ -91,6 +91,21 @@
         },
         "type": "object"
       },
+      "AudioChoiceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "streamId": {
+            "description": "The chosen track, an audio stream of the file's",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "streamId"
+        ],
+        "type": "object"
+      },
       "AudioRenditionBody": {
         "additionalProperties": false,
         "properties": {
@@ -119,6 +134,41 @@
           "isDialogueBoosted",
           "levelling",
           "carriedGainDb"
+        ],
+        "type": "object"
+      },
+      "AudioTrackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioTrackIndex": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "containerTitle": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "plain",
+              "commentary",
+              "described"
+            ],
+            "type": "string"
+          },
+          "language": {
+            "description": "BCP 47; empty when nothing names one",
+            "type": "string"
+          },
+          "streamId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "streamId",
+          "audioTrackIndex",
+          "language",
+          "kind"
         ],
         "type": "object"
       },
@@ -1965,6 +2015,9 @@
       "PlaybackPreferencesBody": {
         "additionalProperties": false,
         "properties": {
+          "audioChoice": {
+            "$ref": "#/components/schemas/AudioChoiceBody"
+          },
           "isDialogueBoostOn": {
             "type": "boolean"
           },
@@ -2648,6 +2701,9 @@
       "SetFilePreferencesInputBody": {
         "additionalProperties": false,
         "properties": {
+          "audioChoice": {
+            "$ref": "#/components/schemas/AudioChoiceBody"
+          },
           "subtitleChoice": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -2906,6 +2962,15 @@
               "null"
             ]
           },
+          "audioTracks": {
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "delivery": {
             "enum": [
               "direct",
@@ -2930,6 +2995,7 @@
                 "audio_codec",
                 "bandwidth",
                 "dialogue_boost",
+                "audio_track",
                 "user_choice"
               ],
               "type": "string"
@@ -2953,6 +3019,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "startingAudioStreamId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "subtitles": {
             "items": {
               "$ref": "#/components/schemas/SubtitleTrackBody"
@@ -2973,6 +3043,7 @@
           "notDirectReasons",
           "isPreparing",
           "subtitles",
+          "audioTracks",
           "preferences",
           "resumePositionMs",
           "mediaToken",
@@ -3096,10 +3167,6 @@
             "description": "The chosen track, a subtitle fetched for the file",
             "format": "int64",
             "type": "integer"
-          },
-          "isCarriedFromWork": {
-            "readOnly": true,
-            "type": "boolean"
           },
           "isOff": {
             "type": "boolean"
@@ -3316,22 +3383,10 @@
           "retiredReason": {
             "type": "string"
           },
-          "scope": {
-            "enum": [
-              "server",
-              "user"
-            ],
-            "type": "string"
-          },
-          "userId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "value": {}
         },
         "required": [
           "key",
-          "scope",
           "value"
         ],
         "type": "object"
@@ -4082,17 +4137,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "description": "The user whose row it is; 0 or absent for a server row",
-            "explode": false,
-            "in": "query",
-            "name": "userId",
-            "schema": {
-              "description": "The user whose row it is; 0 or absent for a server row",
-              "format": "int64",
-              "type": "integer"
-            }
           }
         ],
         "responses": {
@@ -4399,7 +4443,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track",
+        "summary": "Keep a person's choices in one file: its subtitle offset, its subtitle and audio tracks, whose languages its work's unwatched files follow",
         "tags": [
           "Playback"
         ]
@@ -5790,98 +5834,6 @@
         "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling",
         "tags": [
           "Playback"
-        ]
-      }
-    },
-    "/me/settings": {
-      "get": {
-        "operationId": "getMySettings",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "This user's own settings",
-        "tags": [
-          "Settings"
-        ]
-      },
-      "put": {
-        "operationId": "putMySettings",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutSettingsInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Change this user's own settings, all or none",
-        "tags": [
-          "Settings"
         ]
       }
     },

@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -89,10 +90,11 @@ func newHarness(t *testing.T) testHarness {
 	}
 	// One queue, as the server has: a cancel reaches the job the runner is running.
 	queue := jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler))
+	preferencesService := preferences.NewService(database, now)
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Cache: cache, Queue: queue,
 		Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-		MaxSilence: time.Minute, Subtitler: subtitler,
+		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService,
 	})
 	nodes.takeSubtitleText = func(nodeID int64, answer nodeproto.SubtitleText) {
 		playbackService.TakeSubtitleText(t.Context(), nodeID, answer)
@@ -108,6 +110,7 @@ func newHarness(t *testing.T) testHarness {
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
 		Playback:    playbackService,
+		Preferences: preferencesService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
 		NodeReports: nodes,
@@ -343,9 +346,9 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	if !strings.Contains(changed.body, `"setByUserId":1`) {
 		t.Errorf("PUT /settings = %s, want it to name the admin who set it as setByUserId (D227)", changed.body)
 	}
-	mine := harness.do(t, http.MethodGet, "/me/settings", user, nil)
-	if mine.status != http.StatusOK || !strings.Contains(mine.body, `"settings":[]`) {
-		t.Errorf("GET /me/settings = %d %s, want an empty list, not null", mine.status, mine.body)
+	// A person's own choices are preferences, not settings (the architecture map's F6).
+	if mine := harness.do(t, http.MethodGet, "/me/settings", user, nil); mine.status != http.StatusNotFound {
+		t.Errorf("GET /me/settings = %d %s, want 404: no setting is a person's", mine.status, mine.body)
 	}
 }
 
@@ -449,10 +452,10 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('signin_falure_limit', '3', 1)")
 	unused := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
 	if unused.status != http.StatusOK ||
-		!strings.Contains(unused.body, `"unusedSettings":[{"key":"signin_falure_limit","scope":"server","value":3}]`) {
+		!strings.Contains(unused.body, `"unusedSettings":[{"key":"signin_falure_limit","value":3}]`) {
 		t.Errorf("GET /config/unused = %d %s", unused.status, unused.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/config/unused/signin_failure_limit", admin, nil),

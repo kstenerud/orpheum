@@ -20,17 +20,15 @@ import (
 var (
 	// ErrUnknownSetting is returned for a key the registry does not declare.
 	ErrUnknownSetting = errors.New("no such setting")
-	// ErrWrongScope is returned for a server setting set as a user's, or the reverse.
-	ErrWrongScope = errors.New("the setting belongs to the other scope")
 	// ErrInvalidValue is returned for a value of the wrong JSON type, or out of its bounds, and
-	// for a setting read as the wrong kind or scope.
+	// for a setting read as the wrong kind.
 	ErrInvalidValue = errors.New("the value has the wrong type or is out of bounds")
 	// ErrNotExposed is returned when the settings page is asked to change a setting it does not
 	// show; /config changes every setting.
 	ErrNotExposed = errors.New("the setting is not on the settings page; change it through /config")
-	// ErrNoServerSetting is returned when a server setting is named that is not one: a key the
-	// registry does not declare, or a user's setting. Reset names the setting it resets; Set's
-	// ErrUnknownSetting and ErrWrongScope are a value it was given that cannot be set.
+	// ErrNoServerSetting is returned when a setting is named that the registry does not declare:
+	// Reset names the setting it resets, where Set's ErrUnknownSetting is a value it was given
+	// that cannot be set.
 	ErrNoServerSetting = errors.New("no such server setting")
 	// ErrUnanswered is returned when a question nobody has answered is read as a value.
 	ErrUnanswered = errors.New("the setting is a question nobody has answered yet")
@@ -98,7 +96,7 @@ func NewService(database *store.Database, clockSource clock.Clock, logger *slog.
 // error and never a value that exists only in memory.
 func (service *Service) heal(ctx context.Context, definition Definition) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
+		return queries.InsertSettingIfMissing(ctx, sqlcgen.InsertSettingIfMissingParams{
 			Key: string(definition.Key), ValueJSON: compactJSON(definition.StartJSON),
 			SetAt: service.clock.Now().UnixMilli(),
 		})
@@ -111,17 +109,16 @@ func (service *Service) heal(ctx context.Context, definition Definition) error {
 	return nil
 }
 
-// List returns every setting of a scope with its value in force: ownerUserID is the user for
-// the user scope and nil for the server's. With exposedOnly it returns only what the settings
-// page shows.
-func (service *Service) List(ctx context.Context, ownerUserID *int64, exposedOnly bool) ([]Entry, error) {
-	scope, storedByKey, err := service.storedSettings(ctx, ownerUserID)
+// List returns every setting with its value in force. With exposedOnly it returns only what the
+// settings page shows.
+func (service *Service) List(ctx context.Context, exposedOnly bool) ([]Entry, error) {
+	storedByKey, err := service.storedSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
 	entries := []Entry{}
 	for _, definition := range Registry() {
-		if definition.Scope != scope || (exposedOnly && !definition.IsExposed) {
+		if exposedOnly && !definition.IsExposed {
 			continue
 		}
 		row, isSeeded := storedByKey[string(definition.Key)]
@@ -146,32 +143,18 @@ type storedSetting struct {
 	IsModified  bool
 }
 
-func (service *Service) storedSettings(
-	ctx context.Context, ownerUserID *int64,
-) (Scope, map[string]storedSetting, error) {
-	storedByKey := map[string]storedSetting{}
-	if ownerUserID == nil {
-		rows, err := service.database.Read().ListServerSettings(ctx)
-		if err != nil {
-			return ScopeServer, nil, fmt.Errorf("list server settings: %w", err)
-		}
-		for _, row := range rows {
-			storedByKey[row.Key] = storedSetting{
-				Value: row.ValueJSON, SetByUserID: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
-			}
-		}
-		return ScopeServer, storedByKey, nil
-	}
-	rows, err := service.database.Read().ListUserSettings(ctx, ownerUserID)
+func (service *Service) storedSettings(ctx context.Context) (map[string]storedSetting, error) {
+	rows, err := service.database.Read().ListSettings(ctx)
 	if err != nil {
-		return ScopeUser, nil, fmt.Errorf("list user settings: %w", err)
+		return nil, fmt.Errorf("list settings: %w", err)
 	}
+	storedByKey := map[string]storedSetting{}
 	for _, row := range rows {
 		storedByKey[row.Key] = storedSetting{
 			Value: row.ValueJSON, SetByUserID: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
 		}
 	}
-	return ScopeUser, storedByKey, nil
+	return storedByKey, nil
 }
 
 // Int reads an integer server setting.
@@ -215,11 +198,10 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	if !known {
 		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
 	}
-	if definition.Kind != kind || definition.Scope != ScopeServer {
-		return fmt.Errorf("%s is a %s %s setting, read as a %s server one: %w",
-			key, definition.Scope, definition.Kind, kind, ErrInvalidValue)
+	if definition.Kind != kind {
+		return fmt.Errorf("%s is a %s setting, read as a %s one: %w", key, definition.Kind, kind, ErrInvalidValue)
 	}
-	row, err := store.OrNotFound(service.database.Read().GetServerSetting(ctx, string(key)))
+	row, err := store.OrNotFound(service.database.Read().GetSetting(ctx, string(key)))
 	if errors.Is(err, store.ErrNotFound) {
 		if healErr := service.heal(ctx, definition); healErr != nil {
 			return healErr
@@ -238,18 +220,13 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 }
 
 // Set stores values, each checked against the registry, in one transaction: all of them or
-// none. The owner, ownerUserID, is the user for user settings and nil for server settings;
-// setByUserID is who changed them, nil for the dev seed. With exposedOnly, a key the settings page does not
-// show is refused.
+// none. The person who changed them is setByUserID, nil for the dev seed. With exposedOnly, a key
+// the settings page does not show is refused.
 func (service *Service) Set(
-	ctx context.Context, ownerUserID *int64, values map[string]json.RawMessage, setByUserID *int64, exposedOnly bool,
+	ctx context.Context, values map[string]json.RawMessage, setByUserID *int64, exposedOnly bool,
 ) error {
-	scope := ScopeServer
-	if ownerUserID != nil {
-		scope = ScopeUser
-	}
 	for key, value := range values {
-		if err := checkValue(Key(key), scope, value, exposedOnly); err != nil {
+		if err := checkValue(Key(key), value, exposedOnly); err != nil {
 			return err
 		}
 	}
@@ -257,8 +234,7 @@ func (service *Service) Set(
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for key, value := range values {
 			write := settingWrite{
-				ownerUserID: ownerUserID, key: key, value: compactJSON(value), setByUserID: setByUserID, setAt: setAt,
-				isModified: true,
+				key: key, value: compactJSON(value), setByUserID: setByUserID, setAt: setAt, isModified: true,
 			}
 			if err := upsert(ctx, queries, write); err != nil {
 				return fmt.Errorf("set %s: %w", key, err)
@@ -266,7 +242,7 @@ func (service *Service) Set(
 		}
 		return nil
 	})
-	if err != nil || scope != ScopeServer {
+	if err != nil {
 		return err
 	}
 	keys := make([]Key, 0, len(values))
@@ -277,11 +253,11 @@ func (service *Service) Set(
 	return nil
 }
 
-// Reset writes a server setting's starting value back and clears its modified mark, so it follows
+// Reset writes a setting's starting value back and clears its modified mark, so it follows
 // its starting value again when a release changes it: "set to default".
 func (service *Service) Reset(ctx context.Context, key Key, setByUserID *int64) error {
 	definition, known := Lookup(key)
-	if !known || definition.Scope != ScopeServer {
+	if !known {
 		return fmt.Errorf("%q: %w", key, ErrNoServerSetting)
 	}
 	setAt := service.clock.Now().UnixMilli()
@@ -299,7 +275,6 @@ func (service *Service) Reset(ctx context.Context, key Key, setByUserID *int64) 
 
 // settingWrite is one setting being written.
 type settingWrite struct {
-	ownerUserID *int64
 	key         string
 	value       string
 	setByUserID *int64
@@ -312,27 +287,18 @@ func upsert(ctx context.Context, queries *sqlcgen.Queries, write settingWrite) e
 	if write.isModified {
 		modified = 1
 	}
-	if write.ownerUserID == nil {
-		return queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: write.key, ValueJSON: write.value, SetByUserID: write.setByUserID, SetAt: write.setAt,
-			IsModified: modified,
-		})
-	}
-	return queries.UpsertUserSetting(ctx, sqlcgen.UpsertUserSettingParams{
-		UserID: write.ownerUserID, Key: write.key, ValueJSON: write.value, SetByUserID: write.setByUserID,
-		SetAt: write.setAt, IsModified: modified,
+	return queries.UpsertSetting(ctx, sqlcgen.UpsertSettingParams{
+		Key: write.key, ValueJSON: write.value, SetByUserID: write.setByUserID, SetAt: write.setAt,
+		IsModified: modified,
 	})
 }
 
-// checkValue refuses an unknown key, the wrong scope, a hidden key on the settings page, or a value
-// of the wrong kind or out of bounds.
-func checkValue(key Key, scope Scope, value json.RawMessage, exposedOnly bool) error {
+// checkValue refuses an unknown key, a hidden key on the settings page, or a value of the wrong
+// kind or out of bounds.
+func checkValue(key Key, value json.RawMessage, exposedOnly bool) error {
 	definition, known := Lookup(key)
 	if !known {
 		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
-	}
-	if definition.Scope != scope {
-		return fmt.Errorf("%s: %w", key, ErrWrongScope)
 	}
 	if exposedOnly && !definition.IsExposed {
 		return fmt.Errorf("%s: %w", key, ErrNotExposed)

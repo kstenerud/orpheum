@@ -13,7 +13,7 @@ import (
 )
 
 // The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for, two
-// seconds unless the owner changed hls_segment_length_s (D217 §3), and an EVENT playlist that grows
+// seconds unless the owner changed hls_segment_length_seconds (D217 §3), and an EVENT playlist that grows
 // while the job runs, so playback starts before it ends.
 const (
 	defaultSegmentLengthSeconds = 2

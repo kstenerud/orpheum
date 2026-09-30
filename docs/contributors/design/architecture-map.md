@@ -53,10 +53,11 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/jobs` | R8 | — |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
 | `internal/core/nodes` | R8 | — |
-| `internal/core/playback` | R6b (play state) | ⚑ R8: handles three node job kinds (prepare.go, subtitles.go:278, loudness.go:195). ⚑ R1: subtitle search and fetch (fetch.go:58). ⚑ R7: levelling gains (loudness.go:80-155). ⚑ preferences store (preferences.go). Five jobs in one package |
+| `internal/core/playback` | R6b (play state) | ⚑ R8: handles three node job kinds (prepare.go, subtitles.go:278, loudness.go:195). ⚑ R1: subtitle search and fetch (fetch.go:58). ⚑ R7: levelling gains (loudness.go:80-155). Four jobs in one package; the preferences store moved out on 2026-09-30 (F2) |
+| `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/playback/opensubtitles` | R1 | — |
 | `internal/core/secrets` | R5 (secret custody) | — |
-| `internal/core/settings` | R6a | — (its `user` scope has no definitions: see F6) |
+| `internal/core/settings` | R6a | — (the server's alone: its unused `user` scope was removed on 2026-09-30, F6) |
 | `internal/core/textindex` | R3 (cheap: folding, CLDR keys, search routing) | ⚑ CONTAIN: the one display sanitiser (Line/Prose, used by library/clean.go:22-37, auth, opensubtitles) |
 | `internal/core/together`, `internal/core/turn` | LIVE (doc-only stubs) | — |
 | `internal/core/webclient` | R9 (delivers the client) | — |
@@ -109,8 +110,8 @@ is the evidence. The first column names each package by its path; the check read
 | Doctor findings | cmd/orpheum, api | cmd/orpheum/doctor.go:25-38 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:17-28 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` (doctor.go:108) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
 | Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** identify writes it alone; the artwork service records through `identify.RecordImage`. Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
-| A person's or device's choices | playback (`preference`), auth (`device.audio_output`), settings (`setting` scope `user`) | playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 (the scope is live, but registry.go defines no user setting) |
-| The admin's tunables | config file, `setting` | cmd/orpheum/config.go:101-160 holds starting values in code (prepared_budget_gib, probe_timeout_seconds, status_interval_seconds …); settings/registry.go holds D200 settings. config.go:141 couples one to the other in prose: "keep it well under the core's node_silent_after_s" |
+| A person's or device's choices | preferences (`preference`); auth (`device.audio_output`) | **Fixed 2026-09-30:** a person's choices live only in internal/core/preferences, and `setting` lost its unused `user` scope and `/me/settings`; how a device makes sound stays on its row, a fact about its speakers. Was: playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 |
+| The admin's tunables | config file, `setting` | cmd/orpheum/config.go:101-160 holds starting values in code (prepared_budget_gib, probe_timeout_seconds, status_interval_seconds …); settings/registry.go holds D200 settings. config.go:141 couples one to the other in prose: "keep it well under the core's node_silent_after_seconds" |
 | Media-request authentication | api ×2 spellings | **Fixed 2026-09-30:** `requireSignedInForMedia` returns the principal and signs every byte path in. Was: media_cookie.go:47, and the same steps inline at playback.go:209, :240 and subtitle.go:122 |
 | Byte-path cache headers | api ×4 literals | **Fixed 2026-09-30:** one named constant per kind of bytes, in media_cookie.go. Was: art.go:19, playback.go:225/255/257, subtitle.go:142, with `"private, max-age=86400"` twice |
 
@@ -223,7 +224,9 @@ The frame's T3 rule ("kept across restarts") is stricter than both. The two choi
 
 Either way, `loudness` is re-classed as T3 in schema.md.
 
-**F2. A package with five jobs: core/playback.** *Decided 2026-09-30; built with D230/D231.*
+**F2. A package with five jobs: core/playback.** *Decided 2026-09-30; built with D230/D231. The
+preferences part was built with D230 on 2026-09-30: internal/core/preferences keeps a person's
+choices, which playback and the API use; the node-work split waits for D231.*
 It holds play state (R6b), the per-person preference store, three node job handlers (prepare,
 subtitle extraction, loudness), subtitle fetching (R1) and the levelling decision (R7). The
 recommendation: split the node-work orchestration out (subtitle text, loudness, and possibly
@@ -257,7 +260,10 @@ service records through it (artwork already imports identify, so identify could 
 them, by type-checking, and fails on a second writer.
 
 **F6. A responsibility with three owners: a person's and a device's choices.**
-*Decided 2026-09-30; built with D230/D231.*
+*Decided 2026-09-30; built with D230 on 2026-09-30: a person's choices live only in
+internal/core/preferences; `device.audio_output` stays on the device row, a fact about its
+speakers rather than a choice; `setting`'s `user` scope, which nothing defined, is gone with
+`/me/settings`.*
 These live in `preference` (with a `device` scope), `device.audio_output`, and a `setting` scope
 `user` that has no definitions. The recommendation: one home for per-person and per-device choices
 (probably `preference`), and either drop the unused user scope or give it a stated purpose.

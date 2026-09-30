@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
@@ -159,7 +160,7 @@ type FetchRequest struct {
 
 // Fetched is a subtitle fetched on request, and what the account has left.
 type Fetched struct {
-	Track              TrackRef
+	Track              preferences.TrackRef
 	RemainingDownloads int
 	DownloadsResetAt   time.Time
 }
@@ -215,8 +216,8 @@ func (service *Service) FetchSubtitle(
 	if err != nil {
 		return Fetched{}, fmt.Errorf("keep the fetched subtitle: %w", err)
 	}
-	track := TrackRef{FetchedSubtitleID: id}
-	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, SubtitleChoice{TrackRef: track}); chooseErr != nil {
+	track := preferences.TrackRef{FetchedSubtitleID: id}
+	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, preferences.Used{TrackRef: track}); chooseErr != nil {
 		return Fetched{}, chooseErr
 	}
 	return Fetched{

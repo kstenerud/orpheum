@@ -164,7 +164,7 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 		t.Fatalf("once due: queued %d %+v (%v); want Metropolis, behind everything else", count, *queue, err)
 	}
 	*queue = nil
-	settingstest.Set(t, lib.settings, settings.TMDBRefreshAfterD, "0")
+	settingstest.Set(t, lib.settings, settings.TMDBRefreshAfterDays, "0")
 	if count, err := refresher.Sweep(t.Context()); err != nil || count != 0 {
 		t.Errorf("with the period set to 0: queued %d (%v); want never", count, err)
 	}

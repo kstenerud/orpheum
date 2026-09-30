@@ -139,7 +139,7 @@ func configKeys() []configKey {
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
 		{
 			tableNode, "status_interval_seconds", "10",
-			"seconds between the node's status records; keep it well under the core's node_silent_after_s",
+			"seconds between the node's status records; keep it well under the core's node_silent_after_seconds",
 		},
 		{
 			tableNode, "prepared_dir", `"/var/cache/orpheum/prepared"`,

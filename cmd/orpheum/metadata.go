@@ -50,7 +50,7 @@ type jobServices struct {
 func newJobServices(
 	ctx context.Context, opened openedServices, outside wiring, logger *slog.Logger,
 ) (jobServices, error) {
-	providerTimeout, err := opened.settings.Duration(ctx, settings.ProviderTimeoutS)
+	providerTimeout, err := opened.settings.Duration(ctx, settings.ProviderTimeoutSeconds)
 	if err != nil {
 		return jobServices{}, err
 	}
@@ -115,7 +115,7 @@ func (services jobServices) runners() jobRunners {
 }
 
 // startBackgroundLoops starts a runner for every kind of job, the look for data due a refresh
-// (when it starts and every metadata_refresh_check_every_h, D213 §3), the look for files to
+// (when it starts and every metadata_refresh_check_every_hours, D213 §3), the look for files to
 // measure, and the artwork cache's upkeep. They run until the returned stop is called.
 func (services jobServices) startBackgroundLoops(ctx context.Context, logger *slog.Logger) (stop func()) {
 	loopsContext, cancel := context.WithCancel(ctx)
@@ -141,7 +141,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	return func() { cancel(); loops.Wait() }
 }
 
-// queueDueRefreshes queues the rolling refresh: now, then every metadata_refresh_check_every_h,
+// queueDueRefreshes queues the rolling refresh: now, then every metadata_refresh_check_every_hours,
 // read afresh each time so a change takes effect at the next look.
 func (services jobServices) queueDueRefreshes(ctx context.Context, logger *slog.Logger) {
 	for {
@@ -152,7 +152,7 @@ func (services jobServices) queueDueRefreshes(ctx context.Context, logger *slog.
 		if queued > 0 {
 			logger.InfoContext(ctx, "queued refreshes of data that is due", "queuedCount", queued)
 		}
-		checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryH)
+		checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryHours)
 		if err != nil {
 			checkEvery = 24 * time.Hour
 		}

@@ -42,7 +42,7 @@ func TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange(t *te
 		t.Error("at start, a name was left with no sort key in the sort locale")
 	}
 	swedish := map[string]json.RawMessage{string(settings.SortLocale): json.RawMessage(`"sv"`)}
-	err := config.Set(t.Context(), nil, swedish, nil, false)
+	err := config.Set(t.Context(), swedish, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

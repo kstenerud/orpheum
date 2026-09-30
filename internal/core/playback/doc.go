@@ -20,16 +20,15 @@
 //     nothing (D217 §7, D165). Enforced by
 //     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
-//   - A subtitle choice is kept per file, as the file's own, and carried to the work's other files
-//     with none of their own, by language and kind, never over a file's own (D219). Enforced by
-//     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn. A choice keeps
-//     what its track is, so a rescan's new stream ids find it again, and a file whose tracks lost
-//     it has no choice rather than a gone one (D223 §8). Enforced by
-//     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks. Choosing reads the file,
-//     its tracks, the work's files and their choices in the transaction that keeps the choice, so
-//     it never decides on what that transaction does not see. Enforced by
-//     TestCarryChoice_SeesAnOwnChoiceKeptEarlierInItsTransaction. A subtitle offset is kept only
-//     for a file the transaction that keeps it finds playable. Enforced by
+//   - A playback starts with the subtitle and audio tracks internal/core/preferences works out
+//     from the file's tracks as they are now, and a play report keeps what it started with as what
+//     the started file used (D230). Enforced by
+//     TestSubtitleChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes and
+//     TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes (internal/core/api).
+//     A chosen audio track that is not the one the original starts with is played prepared, since a
+//     browser plays the original's first (decide's audio_track). A choice or a subtitle offset is
+//     kept only for a file, and among tracks, the transaction that keeps it reads, so it never
+//     decides on what that transaction does not see. Enforced by
 //     TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved.
 //   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
@@ -44,7 +43,7 @@
 //     or after finished_after_percent of a known length; an unknown length is never read as
 //     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
 //   - A media token grants nothing alone: its bytes are served only to the person and session
-//     that started the playback, and only until it has been idle for media_token_idle_expiry_h (D217
+//     that started the playback, and only until it has been idle for media_token_idle_expiry_hours (D217
 //     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
 //   - A direct playback's bytes come from the file's node, named by root, path and payload
 //     hash; the core never opens the file (D193 §1). Enforced by
@@ -57,7 +56,7 @@
 //     TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain.
 //   - Each making of a copy writes into a run directory of its own, so no request reaches an
 //     earlier making's files. Enforced by TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
-//   - A copy is made with hls_segment_length_s's segment length, and one made with another length is
+//   - A copy is made with hls_segment_length_seconds's segment length, and one made with another length is
 //     made again when next played. Enforced by
 //     TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
 //   - A copy records the language each audio track was tagged with, and one whose tracks the file's
@@ -125,7 +124,7 @@
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback; §6, subtitles.
-//   - D219: a subtitle choice per file, carried across the work; D24: what a choice is.
+//   - D230: the last language chosen in a work follows its unwatched files; D24: what a choice is.
 //   - D157: a position belongs to the File.
 //   - D165: the log records state changes and spans; an offline device must not rewind.
 //   - D180: a prepared rendition's play state is its source's.
@@ -147,6 +146,7 @@
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
 //     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
 //     fetched on request, and the job that converts one. loudness.go: the gain that levels a
-//     sound, the sweep for files to measure and the measurement job. stall.go: a
+//     sound, the sweep for files to measure and the measurement job. choices.go: a person's
+//     choices in a file, kept through internal/core/preferences, and a file's audio tracks. stall.go: a
 //     node's word that FFmpeg stalled. Next Up comes after M3.
 package playback

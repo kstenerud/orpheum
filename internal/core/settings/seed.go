@@ -20,7 +20,7 @@ type SeedReport struct {
 	Unused []UnusedSetting
 }
 
-// Seed writes the starting value of every server setting that has no row: all of them on a new
+// Seed writes the starting value of every setting that has no row: all of them on a new
 // server, on an upgrade the keys the new release introduced, and any row that was removed. A row
 // nobody changed follows its starting value, so a release that changes one — to fix a bad
 // choice — moves it; a row a person set, even to the starting value, is never touched. It also
@@ -30,21 +30,16 @@ func (service *Service) Seed(ctx context.Context) (SeedReport, error) {
 	report := SeedReport{Inserted: []Key{}, Updated: []Key{}, Unused: []UnusedSetting{}}
 	setAt := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		rows, err := queries.ListAllSettings(ctx)
+		rows, err := queries.ListSettings(ctx)
 		if err != nil {
 			return fmt.Errorf("list setting keys: %w", err)
 		}
 		report.Unused = unusedIn(rows)
 		isPresentByKey := map[string]bool{}
 		for _, row := range rows {
-			if row.Scope == string(ScopeServer) {
-				isPresentByKey[row.Key] = true
-			}
+			isPresentByKey[row.Key] = true
 		}
 		for _, definition := range Registry() {
-			if definition.Scope != ScopeServer {
-				continue
-			}
 			seedErr := seedOne(ctx, queries, definition, isPresentByKey[string(definition.Key)], setAt, &report)
 			if seedErr != nil {
 				return seedErr
@@ -62,7 +57,7 @@ func seedOne(
 ) error {
 	start := compactJSON(definition.StartJSON)
 	if !isPresent {
-		err := queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
+		err := queries.InsertSettingIfMissing(ctx, sqlcgen.InsertSettingIfMissingParams{
 			Key: string(definition.Key), ValueJSON: start, SetAt: setAt,
 		})
 		if err != nil {
@@ -71,7 +66,7 @@ func seedOne(
 		report.Inserted = append(report.Inserted, definition.Key)
 		return nil
 	}
-	updatedCount, err := queries.UpdateUnmodifiedServerSetting(ctx, sqlcgen.UpdateUnmodifiedServerSettingParams{
+	updatedCount, err := queries.UpdateUnmodifiedSetting(ctx, sqlcgen.UpdateUnmodifiedSettingParams{
 		Key: string(definition.Key), ValueJSON: start, SetAt: setAt,
 	})
 	if err != nil {

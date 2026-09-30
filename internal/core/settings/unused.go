@@ -26,17 +26,12 @@ func RetiredKeys() []RetiredKey {
 // UnusedSetting is a setting row no setting of this release reads: a key a release retired, or
 // one no release has used, which is most likely a typo.
 type UnusedSetting struct {
-	Scope     Scope
-	UserID    *int64
 	Key       string
 	ValueJSON string
 	Retired   *RetiredKey // nil when no release ever used the key
 }
 
 func (unused UnusedSetting) String() string {
-	if unused.UserID != nil {
-		return fmt.Sprintf("%s (user %d)", unused.Key, *unused.UserID)
-	}
 	return unused.Key
 }
 
@@ -45,30 +40,25 @@ var ErrInUse = errors.New("the setting is in use; set it to default instead of d
 
 // Unused lists the setting rows no setting of this release reads, without changing anything.
 func (service *Service) Unused(ctx context.Context) ([]UnusedSetting, error) {
-	rows, err := service.database.Read().ListAllSettings(ctx)
+	rows, err := service.database.Read().ListSettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list setting keys: %w", err)
 	}
 	return unusedIn(rows), nil
 }
 
-// DeleteUnused removes a row no setting reads (ownerUserID nil for a server row). A setting this release
-// reads is refused: it is set to default, never deleted (D202).
-func (service *Service) DeleteUnused(ctx context.Context, key string, ownerUserID *int64) error {
+// DeleteUnused removes a row no setting reads. A setting this release reads is refused: it is set
+// to default, never deleted (D202).
+func (service *Service) DeleteUnused(ctx context.Context, key string) error {
 	if _, known := Lookup(Key(key)); known {
 		return fmt.Errorf("%s: %w", key, ErrInUse)
 	}
-	scope := ScopeServer
-	if ownerUserID != nil {
-		scope = ScopeUser
-	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		params := sqlcgen.DeleteSettingParams{Scope: string(scope), UserID: ownerUserID, Key: key}
-		return queries.DeleteSetting(ctx, params)
+		return queries.DeleteSetting(ctx, key)
 	})
 }
 
-func unusedIn(rows []sqlcgen.ListAllSettingsRow) []UnusedSetting {
+func unusedIn(rows []sqlcgen.Setting) []UnusedSetting {
 	retired := map[string]RetiredKey{}
 	for _, retiredKey := range RetiredKeys() {
 		retired[retiredKey.Key] = retiredKey
@@ -78,7 +68,7 @@ func unusedIn(rows []sqlcgen.ListAllSettingsRow) []UnusedSetting {
 		if _, known := Lookup(Key(row.Key)); known {
 			continue
 		}
-		setting := UnusedSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key, ValueJSON: row.ValueJSON}
+		setting := UnusedSetting{Key: row.Key, ValueJSON: row.ValueJSON}
 		if retiredKey, isRetired := retired[row.Key]; isRetired {
 			setting.Retired = &retiredKey
 		}

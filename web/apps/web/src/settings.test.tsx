@@ -52,7 +52,7 @@ describe("settings", () => {
           onReset={ignore}
           settings={[
             {
-              key: "tmdb_refresh_after_d",
+              key: "tmdb_refresh_after_days",
               kind: "integer",
               description: "days",
               value: 90,
