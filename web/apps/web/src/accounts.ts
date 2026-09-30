@@ -16,14 +16,14 @@ interface SignInResult {
 }
 
 /**
- * The address a registration invitation is shared as: the secret after #, so the browser never sends it
- * to the server's logs or anyone else (D218 §1).
+ * The link a registration invitation is shared as: the secret after #, so the browser never sends
+ * it to the server's logs or anyone else (D218 §1).
  */
 export function registrationUrl(origin: string, secret: string): string {
   return `${origin}/register#${secret}`;
 }
 
-/** The secret a registration invitation carries after #, or undefined when there is none. */
+/** The secret a registration invitation's link carries after #, or undefined when there is none. */
 export function secretFromHash(hash: string): string | undefined {
   const secret = hash.startsWith("#") ? hash.slice(1) : hash;
   return secret === "" ? undefined : secret;

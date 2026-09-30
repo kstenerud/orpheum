@@ -50,7 +50,7 @@ function memoryStorage(): Storage {
 }
 
 describe("accounts", () => {
-  it("puts a registration invitation's secret after #, and reads it back from there", () => {
+  it("puts a registration link's secret after #, and reads it back from there", () => {
     const url = registrationUrl("https://orpheum.example", "abc_DEF-123");
     expect(url).toBe("https://orpheum.example/register#abc_DEF-123");
     expect(secretFromHash(new URL(url).hash)).toBe("abc_DEF-123");
@@ -176,7 +176,7 @@ describe("accounts", () => {
     ]);
   });
 
-  it("shares a registration invitation at this app's own origin", () => {
+  it("shares a registration link at this app's own origin", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <IssuedInvitationView
@@ -191,7 +191,7 @@ describe("accounts", () => {
     expect(markup).toContain(`${testOrigin}/register#abc_DEF-123`);
   });
 
-  it("draws a registration invitation as a QR code, an image with its own alt text", () => {
+  it("draws a registration link as a QR code, an image with its own alt text", () => {
     const url = "https://orpheum.example/register#secret";
     const { path, moduleCount } = qrPath(url);
     expect(moduleCount).toBeGreaterThanOrEqual(21);
