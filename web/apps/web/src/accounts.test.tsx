@@ -19,13 +19,13 @@ import {
   signInWithCode,
   signOutElsewhere,
 } from "./accounts.ts";
-import { PeopleList } from "./people.tsx";
+import { IssuedInvitationView, PeopleList } from "./people.tsx";
 import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { television } from "./test-fixtures.ts";
-import { withServices } from "./test-services.tsx";
+import { testOrigin, withServices } from "./test-services.tsx";
 import { DeviceList, deviceState } from "./your-devices.tsx";
 
 /** A Storage kept in memory, as a tab's sessionStorage is. */
@@ -174,6 +174,21 @@ describe("accounts", () => {
       { methodAndPath: "DELETE /me/devices/5", body: undefined },
       { methodAndPath: "POST /me/devices/sign-out-elsewhere", body: undefined },
     ]);
+  });
+
+  it("shares a registration link at this app's own origin", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <IssuedInvitationView
+          issued={{
+            kind: "link",
+            name: "Ada",
+            invitation: { secret: "abc_DEF-123", expiresAt: 1 },
+          }}
+        />,
+      ),
+    );
+    expect(markup).toContain(`${testOrigin}/register#abc_DEF-123`);
   });
 
   it("draws a registration link as a QR code, an image with its own alt text", () => {

@@ -60,10 +60,11 @@ export function People(): JSX.Element {
 /** What was just issued, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
 export function IssuedInvitationView(props: { readonly issued: IssuedInvitation }): JSX.Element {
   const { t } = useTranslation();
+  const { navigation } = useServices();
   const { issued } = props;
   const text =
     issued.kind === "link"
-      ? registrationUrl(window.location.origin, issued.invitation.secret)
+      ? registrationUrl(navigation.origin(), issued.invitation.secret)
       : issued.invitation.secret;
   return (
     <div className="people__issued">

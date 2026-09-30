@@ -6,6 +6,7 @@ import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import { watchForSignOut } from "./signed-out-watch.ts";
 import { servedBy, type Answer } from "./test-dom.tsx";
+import { testOrigin } from "./test-services.tsx";
 
 /** A navigation that keeps where it was told to go. */
 function recordingNavigation(went: Route[]): Navigation {
@@ -14,6 +15,11 @@ function recordingNavigation(went: Route[]): Navigation {
     go: (route) => {
       went.push(route);
     },
+    replace: (route) => {
+      went.push(route);
+    },
+    origin: () => testOrigin,
+    fragment: () => "",
     subscribe: () => () => undefined,
   };
 }
