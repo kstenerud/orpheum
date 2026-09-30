@@ -10,9 +10,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"unicode"
-
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -156,9 +153,9 @@ func singleMatch(query Query, candidates []Candidate, isYearRequired bool) (Cand
 		return Candidate{}, false
 	}
 	var found []Candidate
-	want := foldName(query.Name)
+	want := textindex.SameWork(query.Name)
 	for _, candidate := range candidates {
-		named := foldName(candidate.Name) == want || foldName(candidate.OriginalName) == want
+		named := textindex.SameWork(candidate.Name) == want || textindex.SameWork(candidate.OriginalName) == want
 		if named && (query.Year == 0 || candidate.Year == query.Year) {
 			found = append(found, candidate)
 		}
@@ -167,26 +164,6 @@ func singleMatch(query Query, candidates []Candidate, isYearRequired bool) (Cand
 		return Candidate{}, false
 	}
 	return found[0], true
-}
-
-// foldName folds a name for comparison: NFC, case-folded, punctuation dropped, spaces
-// collapsed (D49: letters of every script are kept).
-func foldName(name string) string {
-	var builder strings.Builder
-	isSpacePending := false
-	for _, character := range norm.NFC.String(name) {
-		switch {
-		case unicode.IsLetter(character) || unicode.IsNumber(character):
-			if isSpacePending && builder.Len() > 0 {
-				builder.WriteByte(' ')
-			}
-			builder.WriteRune(unicode.ToLower(character))
-			isSpacePending = false
-		case unicode.IsSpace(character):
-			isSpacePending = true
-		}
-	}
-	return builder.String()
 }
 
 // accept fetches the work, stores the response and re-derives the title from it, identified by

@@ -21,6 +21,13 @@
 //   - The filename parser is a pure function of a path, tested against a corpus that includes
 //     non-Latin names, and no expression uses an ASCII-only class (D49).
 //     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass.
+//   - Whether two names name the same work is textindex.SameWork's answer, and nothing else's: a
+//     candidate against the file, a film's name and year, a series' folder against the series
+//     filed, an extra's name against its folder (D232).
+//     TestPass_ASeriesWhoseFoldersSpellItsNameTwoWaysIsOneSeries,
+//     TestPass_ANewFolderSpellingAFiledSeriesNameAnotherWayJoinsIt,
+//     TestPass_AFilmSpelledAnotherWayWithItsYearIsTheSameFilm,
+//     TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold.
 //   - An NFO's locked fields become overrides and the rest is the title's source; its watch
 //     counts are not read (D182, D183). TestParseNFO_AKodiMovieWithItsCorrectionsLocked.
 //   - A library asked for "TMDB only, ignore NFO files" reads none: not their values, ids or

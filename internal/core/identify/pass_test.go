@@ -223,6 +223,59 @@ func TestPass_ASeriesFromItsFoldersAndItsTvshowNFO(t *testing.T) {
 	}
 }
 
+// D232: what makes two names one work is one fold. A series whose folders spell its name two
+// ways, as "Lantern's X" and "Marvels X", is one series, as the matcher already took it to be.
+func TestPass_ASeriesWhoseFoldersSpellItsNameTwoWaysIsOneSeries(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	lib.scan(
+		videoRecord("Lantern's Agents/Season 01/Lantern's Agents - S01E01.mkv"),
+		videoRecord("Lanterns Agents/Season 01/Lanterns Agents - S01E02.mkv"),
+	)
+	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
+	if err != nil || len(series) != 1 {
+		t.Fatalf("series %+v, %v; want one series for both spellings", series, err)
+	}
+	episodes, err := lib.database.Read().ListSeriesEpisodePlaces(t.Context(), series[0].ID)
+	if err != nil || len(episodes) != 2 {
+		t.Errorf("the series' episodes %+v, %v; want both", episodes, err)
+	}
+}
+
+// The series already filed, under the name its tvshow.nfo gives it, is found by a new folder
+// that spells that name another way.
+func TestPass_ANewFolderSpellingAFiledSeriesNameAnotherWayJoinsIt(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	filed := []nodeproto.Record{
+		nfoRecord("Agents/tvshow.nfo", `<tvshow><title>Lantern's Agents</title></tvshow>`),
+		videoRecord("Agents/Season 01/Agents - S01E01.mkv"),
+	}
+	lib.scan(filed...)
+	lib.scan(append(filed, videoRecord("Lanterns Agents/Season 01/Lanterns Agents - S01E02.mkv"))...)
+	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
+	if err != nil || len(series) != 1 || series[0].Name == nil || *series[0].Name != "Lantern's Agents" {
+		t.Fatalf("series %+v, %v; want Lantern's Agents alone", series, err)
+	}
+}
+
+// A film whose file and folder spell its name another way than the one already filed is the
+// same film.
+func TestPass_AFilmSpelledAnotherWayWithItsYearIsTheSameFilm(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	lib.scan(
+		videoRecord("Moth-Lantern (2002)/Moth-Lantern (2002).mkv"),
+		videoRecord("Moth Lantern (2002)/Moth Lantern (2002) 4K.mkv"),
+	)
+	files := lib.titlesByPath()
+	first := files["Moth-Lantern (2002)/Moth-Lantern (2002).mkv"]
+	second := files["Moth Lantern (2002)/Moth Lantern (2002) 4K.mkv"]
+	if first.TitleID == 0 || first.TitleID != second.TitleID {
+		t.Errorf("the two files are titles %d and %d; want one film", first.TitleID, second.TitleID)
+	}
+}
+
 func TestPass_RunningAgainChangesNothing(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo")

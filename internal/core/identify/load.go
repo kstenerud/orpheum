@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
@@ -81,7 +82,7 @@ func (filer *libraryFiler) loadTitles(ctx context.Context, libraryID int64) erro
 		if show.Name == nil {
 			continue
 		}
-		filer.seriesIDByName[strings.ToLower(*show.Name)] = show.ID
+		filer.seriesIDByName[textindex.SameWork(*show.Name)] = show.ID
 		episodes, listErr := filer.queries.ListSeriesEpisodePlaces(ctx, show.ID)
 		if listErr != nil {
 			return fmt.Errorf("list the episodes of %s: %w", *show.Name, listErr)

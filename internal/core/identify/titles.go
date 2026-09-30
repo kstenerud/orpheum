@@ -9,9 +9,9 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -55,7 +55,7 @@ func (spec *titleSpec) fromNFO(nfo NFO) {
 }
 
 func movieKey(name string, year int) string {
-	return KindMovie + "|" + strings.ToLower(name) + "|" + strconv.Itoa(year)
+	return KindMovie + "|" + textindex.SameWork(name) + "|" + strconv.Itoa(year)
 }
 
 func episodeKey(seriesID int64, season, episode int) string {

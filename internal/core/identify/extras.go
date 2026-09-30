@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -104,7 +105,7 @@ func extraBySuffix(relativePath string) (foundExtra, bool) {
 	folder := path.Dir(relativePath)
 	stem := strings.TrimSuffix(path.Base(relativePath), path.Ext(relativePath))
 	rest, suffix := cutExtraSuffix(stem)
-	if suffix == "" || foldName(rest) != foldName(path.Base(folder)) {
+	if suffix == "" || textindex.SameWork(rest) != textindex.SameWork(path.Base(folder)) {
 		return foundExtra{}, false
 	}
 	return foundExtra{ownerFolder: folder, extraType: extraTypeOfSuffix(suffix), evidence: "its name"}, true
