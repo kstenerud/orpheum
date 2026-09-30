@@ -68,8 +68,9 @@ def expand_variables(makefile: str, text: str) -> str:
 
 
 def revert_red_waits_for_the_tiers(makefile: str) -> bool:
-    """Whether check-pr runs check-revert-red in a make of its own after the parallel one."""
-    recipe = re.search(r"^check-pr:.*\n((?:\t.*\n)+)", makefile, re.M)
+    """Whether check-pr runs check-revert-red in a make of its own after the parallel one. The
+    steps are check-pr-verbose's; check-pr runs it quietly (scripts/quiet_gate.py)."""
+    recipe = re.search(r"^check-pr-verbose:.*\n((?:\t.*\n)+)", makefile, re.M)
     if recipe is None:
         return False
     body = expand_variables(makefile, recipe.group(1).replace("\\\n", " "))
@@ -84,11 +85,12 @@ class CheckPrWiring(unittest.TestCase):
 
     def test_revert_red_runs_after_the_timing_tiers_not_beside_them(self):
         self.assertTrue(revert_red_waits_for_the_tiers(self.MAKEFILE))
-        beside = ("check-pr:\n\t@$(MAKE) -j4 test-integration test-browser check-revert-red lint-commits\n")
+        beside = ("check-pr-verbose:\n\t@$(MAKE) -j4 test-integration test-browser check-revert-red lint-commits\n")
         self.assertFalse(revert_red_waits_for_the_tiers(beside))
 
     def test_every_branch_gate_resolves_its_base_the_one_way(self):
-        for target in ("check-pr", "check-pr-failed", "check-revert-red", "check-revert-red-failed",
+        self.assertRegex(self.MAKEFILE, r"(?m)^check-pr:.*\n\t.*quiet_gate\.py .*check-pr-verbose")
+        for target in ("check-pr-verbose", "check-pr-failed", "check-revert-red", "check-revert-red-failed",
                        "check-test-weakening", "check-decision-status", "lint-commits"):
             recipe = re.search(rf"^{target}:.*\n\t(.*)", self.MAKEFILE, re.M)
             self.assertIsNotNone(recipe, target)
