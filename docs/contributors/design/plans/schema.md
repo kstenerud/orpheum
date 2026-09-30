@@ -787,6 +787,10 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
 -- provider's own (D224 §4).
 ```
 
+**An admin's dismissal of the offline reminder is a preference at `user` scope**:
+`offline_reminder_dismissed_at` holds when, in Unix milliseconds, and hides the reminder from them
+for `offline_reminder_interval_days` (D231 §7, P39).
+
 **A sync offset is a preference at `file` scope**, because it is expressed in seconds of one
 file ([D173](../../decisions/working-notes.md)); a series-wide offset would be the same axis at
 `work` scope, which is what D90 asked for.

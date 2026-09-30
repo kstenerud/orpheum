@@ -70,6 +70,7 @@ const (
 	ContinueWatchingMaxWorks                       Key = "continue_watching_max_works"
 	JobViewMaxJobs                                 Key = "job_view_max_jobs"
 	SystemPageRecentPreparesPerNode                Key = "system_page_recent_prepares_per_node"
+	OfflineReminderIntervalDays                    Key = "offline_reminder_interval_days"
 )
 
 // Kind is a setting value's JSON type.
@@ -286,6 +287,10 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),
+		sourced(durationSetting(OfflineReminderIntervalDays, day, "7", 1, 365,
+			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
+				"after them while any is still offline (D231 §7)"),
+			"best guess: a weekly reminder, the owner 2026-09-30"),
 		sourced(durationSetting(LibraryCheckEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for changes that a new library checked on an interval starts with; each "+
 				"library keeps its own once made"),

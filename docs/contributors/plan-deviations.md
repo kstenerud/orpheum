@@ -49,7 +49,11 @@ counted:
   not, since building it means choosing how an admin is told, a design decision.
 - **Why the plan missed it:** the decision named an outcome ("is reminded") without the means, and
   the walk of scenarios S22–S24 took the means for granted.
-- **Cost:** the reminder and its interval setting wait for the owner.
+- **Cost:** the reminder and its interval setting waited for the owner.
+- **Resolved** (2026-09-30): the owner chose a banner. An admin sees on every page how many library
+  folders and disks are offline since when, leading to the System page; dismissing it hides it from
+  them for `offline_reminder_interval_days` (starting at 7), kept as their preference, and it comes
+  back after that while anything is still offline (jobs-rebuild.md, Phase 3).
 - **Process lesson:** when a decision says someone "is told" or "is reminded", check that a channel
   to them exists, and name it in the decision if it does not.
 

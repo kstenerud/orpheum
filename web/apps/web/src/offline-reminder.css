@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.offline-reminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-page);
+  margin: 0 0 var(--space-page);
+  padding: var(--space-page);
+  border-left: 4px solid var(--color-problem);
+  background: var(--color-surface);
+}
+
+.offline-reminder__text {
+  margin: 0;
+}

@@ -549,6 +549,17 @@ export const en = {
     reset: "Reset to the starting value",
     on: "On",
   },
+  offlineReminder: {
+    label: "Offline storage",
+    oneFolder: "1 library folder",
+    folders: "{{count}} library folders",
+    oneDisk: "1 disk",
+    disks: "{{count}} disks",
+    foldersAndDisks: "{{folders}} and {{disks}}",
+    offlineSince: "{{what}} offline since {{since}}.",
+    see: "See the System page",
+    dismiss: "Remind me later",
+  },
   shell: {
     notFound: "There is nothing at this address.",
   },

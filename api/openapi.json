@@ -2040,6 +2040,33 @@
         ],
         "type": "object"
       },
+      "OfflineReminderOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "diskCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isShown": {
+            "type": "boolean"
+          },
+          "rootCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Unix milliseconds; absent when nothing is offline",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "isShown",
+          "rootCount",
+          "diskCount"
+        ],
+        "type": "object"
+      },
       "PersonOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6309,6 +6336,83 @@
         "summary": "Retire a node for good: its roots are retired and its work is cancelled (admin; D231 §7)",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/offline-reminder": {
+      "get": {
+        "operationId": "getOfflineReminder",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflineReminderOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether to remind the admin that folders or disks are offline, and how many since when (admin; D231 §7)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/offline-reminder/dismissal": {
+      "post": {
+        "operationId": "dismissOfflineReminder",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Hide the offline reminder from this admin for offline_reminder_interval_days (admin; D231 §7)",
+        "tags": [
+          "Running it"
         ]
       }
     },

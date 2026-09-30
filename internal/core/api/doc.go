@@ -48,6 +48,9 @@
 //     (D231 §11). TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider. It lists each root
 //     and disk a scan found missing with since when (D41, D231 §7).
 //     TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline.
+//   - An admin is reminded of what is offline, how many folders and disks since when, until they
+//     dismiss it; it comes back after offline_reminder_interval_days while anything is still
+//     offline (D231 §7, P39). TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInterval.
 //   - A job waiting on a destination that is down says which, as a person reads it, why, since
 //     when, and when it is looked at next, if a check brings it back (D231 §12).
 //     TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck.
