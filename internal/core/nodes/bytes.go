@@ -6,8 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
+
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
 // ErrNodeSilent is a node the core cannot reach: it has not said hello, or its byte socket does
@@ -24,14 +25,9 @@ type ByteSocketClient struct {
 
 // NewByteSocketClient reads from the node socket at socketPath, for nodes the service has heard from.
 func NewByteSocketClient(service *Service, socketPath string) *ByteSocketClient {
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
-		},
-		// A player's reads come one range after another; keep the connection for the next.
-		MaxIdleConnsPerHost: 4,
-	}
+	transport := unixsocket.Transport(socketPath)
+	// A player's reads come one range after another; keep the connection for the next.
+	transport.MaxIdleConnsPerHost = 4
 	return &ByteSocketClient{service: service, httpClient: &http.Client{Transport: transport}}
 }
 
