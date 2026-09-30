@@ -10,12 +10,10 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
 const tagJobs = "Jobs"
-
-// jobViewLimit is how many of the newest jobs the job view lists.
-const jobViewLimit = 200
 
 // JobKind is a job's kind, documented as one of jobs.Kinds, so the API names every kind the
 // queue has without a second list to keep in step.
@@ -89,7 +87,11 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 	if err != nil {
 		return nil, err
 	}
-	views, err := dependencies.Jobs.List(ctx, jobViewLimit)
+	maxJobs, err := dependencies.Settings.Int(ctx, settings.JobViewMaxJobs)
+	if err != nil {
+		return nil, server.settingsError(ctx, "read job_view_max_jobs", err)
+	}
+	views, err := dependencies.Jobs.List(ctx, maxJobs)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "list jobs", err)
 	}

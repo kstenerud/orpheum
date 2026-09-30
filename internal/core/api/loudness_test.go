@@ -241,6 +241,41 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 	}
 }
 
+// The level and the most a sound is raised are the admin's: loudness_target_lufs and
+// loudness_max_raise_db (D226 §3).
+func TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"UPDATE setting SET value_json = '-16', is_modified = 1 WHERE key = 'loudness_target_lufs'",
+		"UPDATE setting SET value_json = '10', is_modified = 1 WHERE key = 'loudness_max_raise_db'")
+	for _, check := range []struct {
+		what       string
+		integrated float64
+		want       float64
+	}{
+		{"a film just under the new level", -18.8, 2.8},
+		{"a quiet one, raised only as far as allowed", -40.0, 10.0},
+	} {
+		storetest.ExecRaw(t, harness.databasePath, "DELETE FROM loudness")
+		integrated, peak := check.integrated, -30.0
+		err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+			return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
+				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLUFS: &integrated,
+				TruePeakDBTP: &peak, MeasuredAt: 1,
+			})
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := harness.play(t, user, chrome(1)).Levelling; got.GainDB != check.want {
+			t.Errorf("%s at -16 LUFS, raised at most 10 dB: %+v, want a gain of %v", check.what, got, check.want)
+		}
+	}
+}
+
 func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

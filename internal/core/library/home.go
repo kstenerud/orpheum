@@ -14,12 +14,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// maxContinueWatchingRows is how many works Continue Watching shows.
-const maxContinueWatchingRows = 20
-
-// maxRecentPositionsRead is how many of a person's most recent positions Continue Watching is chosen
-// from: enough for its rows once finished and barely started files are passed over.
-const maxRecentPositionsRead = 200
+// recentPositionsReadPerWork is how many of a person's most recent positions Continue Watching is
+// chosen from, for each work it may show (continue_watching_max_works): enough for its rows once
+// finished and barely started files are passed over.
+const recentPositionsReadPerWork = 10
 
 // InProgress is one row of Continue Watching: a work, and the file of it the person was most
 // recently partway through (play-state.md).
@@ -45,8 +43,12 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 	if err != nil {
 		return nil, err
 	}
+	maxWorks, err := browser.settings.Int(ctx, settings.ContinueWatchingMaxWorks)
+	if err != nil {
+		return nil, fmt.Errorf("read continue_watching_max_works: %w", err)
+	}
 	rows, err := browser.database.Read().ListRecentPlayPositions(ctx, sqlcgen.ListRecentPlayPositionsParams{
-		UserID: userID, MaxRows: maxRecentPositionsRead,
+		UserID: userID, MaxRows: maxWorks * recentPositionsReadPerWork,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the recent positions: %w", err)
@@ -66,7 +68,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 			continue
 		}
 		partwayFileCountByTitle[row.TitleID]++
-		if _, placed := rowIndexByTitle[row.TitleID]; placed || len(inProgress) == maxContinueWatchingRows {
+		if _, placed := rowIndexByTitle[row.TitleID]; placed || int64(len(inProgress)) == maxWorks {
 			continue
 		}
 		rowIndexByTitle[row.TitleID] = len(inProgress)

@@ -13,19 +13,35 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// The level a sound is brought towards and the limits on its gain (D226 §3): EBU R128's target,
-// chosen from the owner's films so typical ones change little; a true peak no higher than -1
-// dBTP; and no sound raised more than 20 dB into its own noise.
-const (
-	targetLUFS      = -23.0
-	peakCeilingDBTP = -1.0
-	maxRaiseDB      = 20.0
-)
+// peakCeilingDBTP is the highest true peak a gain may bring a sound to (D226 §3): fixed, not a
+// setting, because above it a sound clips when it is decoded or resampled. The level a sound is
+// brought towards and the most it is raised are the settings loudness_target_lufs and
+// loudness_max_raise_db.
+const peakCeilingDBTP = -1.0
+
+// loudnessAim is the level a sound is brought towards and the most it is raised (D226 §3).
+type loudnessAim struct {
+	targetLUFS, maxRaiseDB float64
+}
+
+// aim reads the level and the most a sound is raised from their settings.
+func (service *Service) aim(ctx context.Context) (loudnessAim, error) {
+	target, err := service.settings.Int(ctx, settings.LoudnessTargetLUFS)
+	if err != nil {
+		return loudnessAim{}, fmt.Errorf("read loudness_target_lufs: %w", err)
+	}
+	maxRaise, err := service.settings.Int(ctx, settings.LoudnessMaxRaiseDB)
+	if err != nil {
+		return loudnessAim{}, fmt.Errorf("read loudness_max_raise_db: %w", err)
+	}
+	return loudnessAim{targetLUFS: float64(target), maxRaiseDB: float64(maxRaise)}, nil
+}
 
 // The mixes of a track library.db's loudness table names (measured_mix): the multichannel sound
 // as it is, which a receiver plays, and the stereo a stereo device hears (D226 §1).
@@ -49,13 +65,17 @@ type soundKey struct {
 
 // levellings are the gains that level each measured sound of the bytes with payloadHash.
 func (service *Service) levellings(ctx context.Context, payloadHash []byte) (map[soundKey]Levelling, error) {
+	aim, err := service.aim(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := service.database.Read().ListLoudnessOfPayload(ctx, payloadHash)
 	if err != nil {
 		return nil, fmt.Errorf("read the loudness: %w", err)
 	}
 	levels := make(map[soundKey]Levelling, len(rows))
 	for _, row := range rows {
-		if level, isMeasured := levellingOf(row); isMeasured {
+		if level, isMeasured := levellingOf(row, aim); isMeasured {
 			levels[soundKey{row.StreamIndex, row.MeasuredMix}] = level
 		}
 	}
@@ -64,14 +84,14 @@ func (service *Service) levellings(ctx context.Context, payloadHash []byte) (map
 
 // levellingOf is the gain that brings a measured sound to the level, within its limits; a sound
 // that could not be measured has none, and silence, which has no peak, is left as it is.
-func levellingOf(row sqlcgen.Loudness) (Levelling, bool) {
+func levellingOf(row sqlcgen.Loudness, aim loudnessAim) (Levelling, bool) {
 	if row.Failure != nil || row.IntegratedLUFS == nil {
 		return Levelling{}, false
 	}
 	if row.TruePeakDBTP == nil {
 		return Levelling{IsMeasured: true}, true
 	}
-	gain := min(targetLUFS-*row.IntegratedLUFS, peakCeilingDBTP-*row.TruePeakDBTP, maxRaiseDB)
+	gain := min(aim.targetLUFS-*row.IntegratedLUFS, peakCeilingDBTP-*row.TruePeakDBTP, aim.maxRaiseDB)
 	return Levelling{IsMeasured: true, GainDB: math.Round(gain*10) / 10}, true
 }
 

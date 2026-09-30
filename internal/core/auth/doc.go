@@ -35,9 +35,11 @@
 //     written and read as a device code is (D223 §2). Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce and
 //     TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced.
-//   - An account is made with no password and a registration invitation: 256 bits, seven days, once,
-//     and only the newest works; the old password works until the new one is set (D218 §1, §5).
-//     Enforced by TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn and
+//   - An account is made with no password and a registration invitation: 256 bits, for
+//     registration_invitation_life_days (seven to start), once, and only the newest works; the old
+//     password works until the new one is set (D218 §1, §5). Enforced by
+//     TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn,
+//     TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
 //     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
 //   - A device code is eight safe32 characters, read as safe32 reads them, for ten minutes, once;
 //     a wrong one counts against the address's failed sign-ins (D218 §3, §4). Enforced by

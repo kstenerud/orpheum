@@ -68,6 +68,18 @@ const setting = {
   setAt: 1,
 };
 
+/** The hours a new library checked on an interval starts at, which the create form reads. */
+const libraryCheck = {
+  key: "library_check_every_hours",
+  kind: "integer",
+  description: "hours between checks",
+  value: 24,
+  startingValue: 24,
+  isModified: false,
+  isExposed: false,
+  setAt: 1,
+};
+
 /** What the viewer is told for each refusal these tests send, and never the server's note. */
 const conflict = "That clashes with something that already exists.";
 const notFound = "That is no longer here: it may have been removed. Go back and try again.";
@@ -92,6 +104,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     const services = servedBy({
       "GET /libraries": [200, { libraries: [] }],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<Libraries />, services));
@@ -103,6 +116,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library] }],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries/3/scan": refusal(404, "not_found"),
       "POST /libraries/3/removals": refusal(409, "conflict"),
     });
@@ -153,6 +167,7 @@ describe("a request that never reaches the server says so, rather than nothing",
     const services = servedBy({
       "GET /libraries": [200, { libraries: [library] }],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries/3/scan": unreachable,
     });
     mounted = await mount(withServices(<Libraries />, services));
@@ -164,6 +179,7 @@ describe("a request that never reaches the server says so, rather than nothing",
     const services = servedBy({
       "GET /libraries": [200, { libraries: [] }],
       "GET /nodes": [200, { nodes: [] }],
+      "GET /config": [200, { settings: [libraryCheck] }],
       "POST /libraries": unreachable,
     });
     mounted = await mount(withServices(<Libraries />, services));

@@ -29,6 +29,37 @@ export function blankLibrary(): NewLibrary {
 /** A node, and the roots it configured when it is connected. */
 export type LibraryNode = components["schemas"]["NodeBody"];
 
+/** A server setting, as /config lists it. */
+type Setting = components["schemas"]["SettingBody"];
+
+/**
+ * The hours between checks a new library checked on an interval starts with: the server's
+ * library_check_every_hours, so the form holds no default of its own (D200).
+ */
+export function checkEveryHoursToStart(settings: readonly Setting[]): number {
+  const value = settings.find((setting) => setting.key === "library_check_every_hours")?.value;
+  if (typeof value !== "number") {
+    throw new Error("the server did not say library_check_every_hours");
+  }
+  return value;
+}
+
+/**
+ * The draft with how changes are noticed chosen: an interval starts at hoursToStart unless hours
+ * were already given, and any other choice takes none, since the server refuses hours without an
+ * interval.
+ */
+export function withChangeDetection(
+  draft: NewLibrary,
+  changeDetection: NewLibrary["changeDetection"],
+  hoursToStart: number,
+): NewLibrary {
+  const { checkEveryHours, ...rest } = draft;
+  return changeDetection === "interval"
+    ? { ...rest, changeDetection, checkEveryHours: checkEveryHours ?? hoursToStart }
+    : { ...rest, changeDetection };
+}
+
 /** The roots chosen, with one ticked or unticked. */
 export function withRootChosen(
   roots: readonly string[],
@@ -159,7 +190,9 @@ function WhatItHolds(props: {
 /** The three questions, each answer saying what it means (D184). */
 function ThreeQuestions(props: {
   readonly draft: NewLibrary;
+  readonly checkEveryHoursToStart: number;
   readonly setAnswer: SetAnswer;
+  readonly onDraftChange: (draft: NewLibrary) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft, setAnswer } = props;
@@ -183,7 +216,7 @@ function ThreeQuestions(props: {
         name="changes"
         value={draft.changeDetection}
         onChange={(value) => {
-          setAnswer("changeDetection", value);
+          props.onDraftChange(withChangeDetection(draft, value, props.checkEveryHoursToStart));
         }}
         choices={[
           ["watch", t("libraries.changesWatch")],
@@ -198,7 +231,7 @@ function ThreeQuestions(props: {
             type="number"
             min={1}
             required
-            value={draft.checkEveryHours ?? 24}
+            value={draft.checkEveryHours ?? props.checkEveryHoursToStart}
             onChange={(event) => {
               setAnswer("checkEveryHours", Number(event.target.value));
             }}
@@ -237,6 +270,8 @@ function WritableChoice(props: {
 export function CreateLibraryForm(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
+  /** The server's library_check_every_hours, which an interval starts at. */
+  readonly checkEveryHoursToStart: number;
   readonly problem: string;
   readonly onDraftChange: (draft: NewLibrary) => void;
   readonly onSubmit: () => void;
@@ -250,7 +285,12 @@ export function CreateLibraryForm(props: {
     <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
       <h2 id="create-library-heading">{t("libraries.createHeading")}</h2>
       <WhatItHolds draft={draft} setAnswer={setAnswer} />
-      <ThreeQuestions draft={draft} setAnswer={setAnswer} />
+      <ThreeQuestions
+        draft={draft}
+        checkEveryHoursToStart={props.checkEveryHoursToStart}
+        setAnswer={setAnswer}
+        onDraftChange={props.onDraftChange}
+      />
       <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
       {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
       <button type="submit">{t("libraries.create")}</button>
@@ -264,9 +304,12 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
   const [problem, setProblem] = useState("");
-  const [nodes] = useResource("nodes", async () => {
-    const nodesBody = dataOrThrow(await api.GET("/nodes"));
-    return nodesBody.nodes ?? [];
+  const [choices] = useResource("create-library", async () => {
+    const [nodesAnswer, configAnswer] = await Promise.all([api.GET("/nodes"), api.GET("/config")]);
+    return {
+      nodes: dataOrThrow(nodesAnswer).nodes ?? [],
+      checkEveryHoursToStart: checkEveryHoursToStart(dataOrThrow(configAnswer).settings ?? []),
+    };
   });
   const submit = (): void => {
     setProblem("");
@@ -285,11 +328,12 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   };
   return (
     <Loaded
-      resource={nodes}
+      resource={choices}
       render={(value) => (
         <CreateLibraryForm
           draft={draft}
-          nodes={value}
+          nodes={value.nodes}
+          checkEveryHoursToStart={value.checkEveryHoursToStart}
           problem={problem}
           onDraftChange={setDraft}
           onSubmit={submit}

@@ -12,9 +12,31 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
+
+func TestRetrySchedule_IsTheWaitsTheSettingLists(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	schedule, err := RetrySchedule(t.Context(), bench.settings)
+	week := []time.Duration{
+		time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 12 * time.Hour,
+		24 * time.Hour, 24 * time.Hour, 24 * time.Hour, 24 * time.Hour, 24 * time.Hour, 24 * time.Hour, 24 * time.Hour,
+	}
+	if err != nil || !slices.Equal(schedule, week) {
+		t.Errorf("the starting schedule is %v, %v; want a minute, five, half an hour, two hours, twelve, then "+
+			"daily for a week (D213 §5)", schedule, err)
+	}
+	settingstest.Set(t, bench.settings, settings.ArtworkSecondsBeforeEachRetry, `"10,3600"`)
+	schedule, err = RetrySchedule(t.Context(), bench.settings)
+	if err != nil || !slices.Equal(schedule, []time.Duration{10 * time.Second, time.Hour}) {
+		t.Errorf("with artwork_seconds_before_each_retry at 10,3600: %v, %v; want ten seconds, then an hour",
+			schedule, err)
+	}
+}
 
 // failingFetcher is a source whose image server fails with err, counting the calls.
 type failingFetcher struct {

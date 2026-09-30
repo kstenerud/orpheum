@@ -7,7 +7,23 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
+
+func TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	settingstest.Set(t, fixture.settings, settings.RegistrationInvitationLifeDays, "30")
+	_, invitation, err := fixture.service.CreateAccount(t.Context(), "traveller", RoleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if life := invitation.ExpiresAt.Sub(fixture.clock.Now()); life != 30*24*time.Hour {
+		t.Errorf("with registration_invitation_life_days at 30, the invitation lasts %v, want 30 days", life)
+	}
+}
 
 func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	t.Parallel()

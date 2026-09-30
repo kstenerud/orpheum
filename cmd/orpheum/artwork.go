@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -69,9 +70,10 @@ func itemImages(named []identify.NamedImages) []artwork.ItemImages {
 }
 
 // maintainArtworkCache holds the artwork cache to its ceiling until ctx ends (D212 §6): a sweep
-// when the server starts, daily, and whenever a write takes it past the ceiling; and when each
-// image was served is written hourly and when it stops.
-func maintainArtworkCache(ctx context.Context, service *artwork.Service, logger *slog.Logger) {
+// when the server starts, every artwork_cache_sweep_every_hours, and whenever a write takes it past
+// the ceiling; and when each image was served is written every
+// artwork_served_at_flush_every_seconds and when it stops. Each wait is read afresh when it ends.
+func maintainArtworkCache(ctx context.Context, service *artwork.Service, config settingReader, logger *slog.Logger) {
 	sweep := func() {
 		if _, err := service.Sweep(ctx); err != nil && ctx.Err() == nil {
 			logger.ErrorContext(ctx, "the artwork cache sweep failed", "err", err)
@@ -83,9 +85,10 @@ func maintainArtworkCache(ctx context.Context, service *artwork.Service, logger 
 		}
 	}
 	sweep()
-	daily, hourly := time.NewTicker(24*time.Hour), time.NewTicker(time.Hour)
-	defer daily.Stop()
-	defer hourly.Stop()
+	sweepTimer := time.NewTimer(lengthOrStarting(ctx, config, settings.ArtworkCacheSweepEveryHours, logger))
+	flushTimer := time.NewTimer(lengthOrStarting(ctx, config, settings.ArtworkServedAtFlushEverySeconds, logger))
+	defer sweepTimer.Stop()
+	defer flushTimer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -93,10 +96,12 @@ func maintainArtworkCache(ctx context.Context, service *artwork.Service, logger 
 			return
 		case <-service.SweepWakes():
 			sweep()
-		case <-daily.C:
+		case <-sweepTimer.C:
 			sweep()
-		case <-hourly.C:
+			sweepTimer.Reset(lengthOrStarting(ctx, config, settings.ArtworkCacheSweepEveryHours, logger))
+		case <-flushTimer.C:
 			flush(ctx)
+			flushTimer.Reset(lengthOrStarting(ctx, config, settings.ArtworkServedAtFlushEverySeconds, logger))
 		}
 	}
 }

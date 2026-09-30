@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
@@ -26,11 +27,10 @@ const (
 	grantScopeAddDevice = "add_device"
 )
 
-// How long each invitation lasts (D218 §1, §3).
-const (
-	registrationInvitationLife = 7 * 24 * time.Hour
-	deviceCodeLife             = 10 * time.Minute
-)
+// deviceCodeLife is how long a device code works (D218 §3): fixed, not a setting, because it
+// bounds the phishing a code typed on another screen invites. A registration invitation's life is
+// the setting registration_invitation_life_days.
+const deviceCodeLife = 10 * time.Minute
 
 var (
 	// ErrBadInvitation is a registration invitation or device code that is unknown, used, expired or
@@ -96,8 +96,12 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	if err != nil {
 		return IssuedSecret{}, err
 	}
+	life, err := service.settings.Duration(ctx, settings.RegistrationInvitationLifeDays)
+	if err != nil {
+		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
+	}
 	now := service.clock.Now()
-	expires := now.Add(registrationInvitationLife)
+	expires := now.Add(life)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
 			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeRegister,

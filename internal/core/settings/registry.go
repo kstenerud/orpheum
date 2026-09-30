@@ -56,6 +56,18 @@ const (
 	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
 	ResumeMinPercent                               Key = "resume_min_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
+	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
+	LibraryCheckEveryHours                         Key = "library_check_every_hours"
+	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
+	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
+	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
+	ArtworkJPEGQuality                             Key = "artwork_jpeg_quality"
+	ArtworkSecondsBeforeEachRetry                  Key = "artwork_seconds_before_each_retry"
+	ArtworkCacheSweepEveryHours                    Key = "artwork_cache_sweep_every_hours"
+	ArtworkServedAtFlushEverySeconds               Key = "artwork_served_at_flush_every_seconds"
+	ContinueWatchingMaxWorks                       Key = "continue_watching_max_works"
+	JobViewMaxJobs                                 Key = "job_view_max_jobs"
+	SystemPageRecentPreparesPerNode                Key = "system_page_recent_prepares_per_node"
 )
 
 // Kind is a setting value's JSON type.
@@ -149,7 +161,7 @@ func Registry() []Definition {
 			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
 		integerSetting(ScanWithholdRemovalsOverFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
-	}, jobMetadataAndPlaybackDefinitions()...)
+	}, append(jobMetadataAndPlaybackDefinitions(), upkeepAndDisplayDefinitions()...)...)
 }
 
 // jobMetadataAndPlaybackDefinitions are the rest of Registry: jobs, fetching metadata and
@@ -220,6 +232,58 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 	}
 }
 
+// upkeepAndDisplayDefinitions are the rest of Registry: how long an invitation lasts, a new
+// library's check interval, the loudness level, artwork's quality and upkeep, and how many rows
+// the screens list. The owner made each a setting on 2026-09-30, answering the sweep for
+// hardcoded values ("We're basically giving full tweak capability"), each with its basis.
+func upkeepAndDisplayDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
+			"days a registration invitation works before its person needs a new one (D218 §1)"),
+			"D218 §1: the owner's flow, 2026-09-25"),
+		sourced(durationSetting(LibraryCheckEveryHours, time.Hour, "24", 1, 8760,
+			"hours between looks for changes that a new library checked on an interval starts with; each "+
+				"library keeps its own once made"),
+			"best guess: daily, as metadata_refresh_check_every_hours; the web form had it as its own default"),
+		sourced(integerSetting(LoudnessTargetLUFS, "-23", -40, -5,
+			"LUFS a measured sound is raised or lowered towards (D226 §3)"),
+			"D226 §3: EBU R128's target, chosen from the owner's films (-18.8 to -30.0 LUFS measured "+
+				"2026-09-28) so typical ones change little"),
+		sourced(integerSetting(LoudnessMaxRaiseDB, "20", 0, 60,
+			"the most dB a quiet sound is raised, so its own noise is not brought up with it (D226 §3)"),
+			"D226 §3: the owner's decision, 2026-09-28; best guess, not measured"),
+		sourced(durationSetting(LoudnessSweepEveryHours, time.Hour, "1", 1, 8760,
+			"hours between looks for files whose loudness is not measured yet; a scan also starts one (D226 §2)"),
+			"best guess: hourly, so a file a scan missed waits no longer than that"),
+		sourced(integerSetting(ArtworkJPEGQuality, "85", 1, 100,
+			"the quality the core cuts JPEG artwork at, 1 to 100, for clients without WebP (D212 §4)"),
+			"best guess: a common JPEG quality where artifacts are rarely seen; not measured"),
+		sourced(Definition{
+			Key: ArtworkSecondsBeforeEachRetry, Kind: KindString,
+			StartJSON: json.RawMessage(`"60,300,1800,7200,43200,86400,86400,86400,86400,86400,86400,86400"`),
+			Pattern:   regexp.MustCompile(`^[1-9]\d{0,6}(,[1-9]\d{0,6}){0,99}$`),
+			Description: "seconds before each retry of making an image's sizes that failed through no fault of " +
+				"the image, comma-separated; after the last it fails. Read when the server starts (D213 §5)",
+		}, "D213 §5: a minute, five, half an hour, two hours, twelve, then daily for a week"),
+		sourced(durationSetting(ArtworkCacheSweepEveryHours, time.Hour, "24", 1, 8760,
+			"hours between sweeps that hold the artwork cache to its ceiling; a write past it also starts one "+
+				"(D212 §6)"),
+			"best guess: daily; a write past the ceiling sweeps at once anyway"),
+		sourced(durationSetting(ArtworkServedAtFlushEverySeconds, time.Second, "3600", 1, 86400,
+			"seconds between writes of when each image was last served, which eviction orders by (D212 §6)"),
+			"best guess: hourly; eviction needs no finer grain, and a stop writes them too"),
+		sourced(integerSetting(ContinueWatchingMaxWorks, "20", 1, 500,
+			"how many works Continue Watching shows at most"),
+			"best guess: a row or two on a screen"),
+		sourced(integerSetting(JobViewMaxJobs, "200", 1, 10000,
+			"how many of the newest jobs the job view lists"),
+			"best guess: enough to see a scan's work, few enough to load at once"),
+		sourced(integerSetting(SystemPageRecentPreparesPerNode, "10", 1, 1000,
+			"how many of a node's finished prepares the System page lists"),
+			"best guess: enough to compare recent encode speeds"),
+	}
+}
+
 // sourced is definition with where its starting value came from.
 func sourced(definition Definition, startSource string) Definition {
 	definition.StartSource = startSource
@@ -252,4 +316,16 @@ func Lookup(key Key) (Definition, bool) {
 		}
 	}
 	return Definition{}, false
+}
+
+// StartingDuration is a length-of-time setting's starting value: what a reader that must go on
+// when the setting cannot be read falls back on, so the fallback is the registry's and never a
+// copy of it. Zero for a key that is not a length of time.
+func StartingDuration(key Key) time.Duration {
+	definition, known := Lookup(key)
+	var count int64
+	if !known || json.Unmarshal(definition.StartJSON, &count) != nil {
+		return 0
+	}
+	return definition.LengthOf(count)
 }
