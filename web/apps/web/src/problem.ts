@@ -11,8 +11,9 @@ export { ApiProblem, dataOrThrow, throwIfRefused } from "@orpheum/sdk";
 /**
  * What to tell a person about a failure, in their language, with what they can do about it: by
  * the server's code, and for a session that ended, why; a screen that knows more about one code
- * says so in overrides, keyed by the code in camelCase ("authRequired"). A failure that is not the
- * server's (the network, the browser) says what it can.
+ * says so in overrides, keyed by the code in camelCase ("authRequired"). A code this client does
+ * not know, and a failure that is neither the server's nor the network's, get general words:
+ * never the server's message or an error's own text (standards/typescript.md, Errors).
  */
 export function problemText(
   t: TFunction,
@@ -28,25 +29,30 @@ export function problemText(
     if (code === "authRequired") {
       return signedOutText(t, sessionEndReason(cause));
     }
-    return t(`problem.${code}`, { defaultValue: t("problem.unknown", { message: cause.message }) });
+    return t(`problem.${code}`, { defaultValue: t("problem.unknown") });
   }
   if (cause instanceof TypeError) {
     return t("problem.unreachable"); // fetch's own failure: no answer at all
   }
-  return t("problem.unknown", { message: cause instanceof Error ? cause.message : String(cause) });
+  return t("problem.unknown");
 }
 
 /**
  * What to tell a person about an outside provider's refusal (provider_error), by the reason the
- * server gives ("no_key"), from the screen's own catalogue of them: `reasons` names it
- * ("identify.providerReason"), and its `unknown` says a reason this client does not know. Any
- * other failure, or a provider_error without a reason, is problemText's.
+ * server gives ("no_key"), from the screen's own catalogue of them, which names its provider:
+ * `reasons` names it ("identify.providerReason"). A reason the screen has no words for gets the
+ * general words for it (problem.providerReason), and one this client does not know the screen's
+ * `unknown`. Any other failure, or a provider_error without a reason, is problemText's.
  */
 export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
   if (cause instanceof ApiProblem) {
     const reason = cause.withCode("provider_error")?.detail?.reason;
     if (reason !== undefined) {
-      return t(`${reasons}.${camelKey(reason)}`, { defaultValue: t(`${reasons}.unknown`) });
+      return t(`${reasons}.${camelKey(reason)}`, {
+        defaultValue: t(`problem.providerReason.${camelKey(reason)}`, {
+          defaultValue: t(`${reasons}.unknown`),
+        }),
+      });
     }
   }
   return problemText(t, cause);

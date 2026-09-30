@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { camelKey } from "../catalogue-key.ts";
 import { en } from "./en.ts";
 
 /** Every source file of the app, as text, tests left out. */
@@ -30,7 +31,81 @@ function hasText(catalogue: unknown, key: string): boolean {
   return typeof node === "string";
 }
 
+/** The API document, as text: the one list of the codes the server refuses with (cut-a §5.2). */
+const apiDocuments = Object.values(
+  import.meta.glob<string>("../../../../../api/openapi.json", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+);
+
+/** A field of a parsed JSON value, or undefined where there is none. */
+function field(value: unknown, name: string): unknown {
+  return typeof value === "object" && value !== null
+    ? new Map<string, unknown>(Object.entries(value)).get(name)
+    : undefined;
+}
+
+/** A schema's enumerated string values at a property. */
+function enumAt(schema: unknown, property: string): string[] {
+  const values = field(field(field(schema, "properties"), property), "enum");
+  return Array.isArray(values)
+    ? values.filter((value): value is string => typeof value === "string")
+    : [];
+}
+
+/**
+ * Every error code the API document declares, and for each code whose detail enumerates a
+ * reason, those reasons, read from ProblemBody's forms.
+ */
+function problemCodesAndReasons(document: string): { code: string; reasons: string[] }[] {
+  const schemas = field(field(JSON.parse(document), "components"), "schemas");
+  const forms = field(field(schemas, "ProblemBody"), "oneOf");
+  if (!Array.isArray(forms)) {
+    return [];
+  }
+  return forms.flatMap((form: unknown) => {
+    const reference = field(field(field(form, "properties"), "detail"), "$ref");
+    const detail =
+      typeof reference === "string" ? field(schemas, reference.split("/").at(-1) ?? "") : undefined;
+    const reasons = enumAt(detail, "reason");
+    return enumAt(form, "code").map((code) => ({ code, reasons }));
+  });
+}
+
+/** Where a code's reasons have their words, by the code in camelCase. */
+const reasonKeys: Readonly<Partial<Record<string, string>>> = {
+  authRequired: "problem.signedOut",
+  providerError: "problem.providerReason",
+};
+
+/**
+ * A code's own words, problem.<code> in camelCase, except where problemText words it by its
+ * reason: a session's end with no reason it knows says there is no session.
+ */
+const codeKeys: Readonly<Partial<Record<string, string>>> = {
+  authRequired: "problem.signedOut.noSession",
+};
+
 describe("the English catalogue", () => {
+  it("has words for every error code and every reason the API document declares", () => {
+    expect(apiDocuments).toHaveLength(1);
+    const declared = problemCodesAndReasons(apiDocuments[0] ?? "");
+    expect(declared.map(({ code }) => code)).toContain("not_found");
+    expect(declared.find(({ code }) => code === "provider_error")?.reasons).toContain("no_key");
+    const missing = declared.flatMap(({ code, reasons }) => [
+      ...(hasText(en, codeKeys[camelKey(code)] ?? `problem.${camelKey(code)}`) ? [] : [code]),
+      ...reasons
+        .map(
+          (reason) =>
+            `${reasonKeys[camelKey(code)] ?? `problem.${camelKey(code)}`}.${camelKey(reason)}`,
+        )
+        .filter((key) => !hasText(en, key)),
+    ]);
+    expect(missing).toEqual([]);
+  });
+
   it("finds the keys a file asks for", () => {
     expect(keysAskedFor('t("a.b"); x.t("c"); at("d"); t(\n  "e.f", {})')).toEqual([
       "a.b",

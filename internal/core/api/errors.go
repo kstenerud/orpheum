@@ -125,9 +125,40 @@ type QuotaExhaustedDetailBody struct {
 
 func (QuotaExhaustedDetailBody) problemCode() Code { return CodeQuotaExhausted }
 
-// ProviderRefusalDetailBody is provider_error's detail: why, in the provider's terms.
+// ProviderRefusalDetailBody is provider_error's detail: why, in the provider's terms, one of
+// providerReasons, which the document enumerates so a client can have words for each.
 type ProviderRefusalDetailBody struct {
-	Reason string `doc:"Such as no_key, key_refused, no_login, login_refused, not_configured, unavailable" json:"reason"` //nolint:lll // one struct tag
+	Reason ProviderReason `json:"reason"`
+}
+
+// ProviderReason is why an outside provider refused, as provider_error's detail says it.
+type ProviderReason string
+
+// The reasons a provider refuses.
+const (
+	ReasonNoKey         ProviderReason = "no_key"
+	ReasonKeyRefused    ProviderReason = "key_refused"
+	ReasonNoLogin       ProviderReason = "no_login"
+	ReasonLoginRefused  ProviderReason = "login_refused"
+	ReasonNotConfigured ProviderReason = "not_configured"
+	ReasonUnavailable   ProviderReason = "unavailable"
+)
+
+// providerReasons is every ProviderReason: the one list, which the document enumerates.
+func providerReasons() []ProviderReason {
+	return []ProviderReason{
+		ReasonNoKey, ReasonKeyRefused, ReasonNoLogin, ReasonLoginRefused, ReasonNotConfigured, ReasonUnavailable,
+	}
+}
+
+// Schema is a ProviderReason in the API document: a string, one of providerReasons.
+func (ProviderReason) Schema(huma.Registry) *huma.Schema {
+	reasons := providerReasons()
+	enum := make([]any, 0, len(reasons))
+	for _, reason := range reasons {
+		enum = append(enum, string(reason))
+	}
+	return &huma.Schema{Type: huma.TypeString, Enum: enum}
 }
 
 func (ProviderRefusalDetailBody) problemCode() Code { return CodeProviderError }
@@ -294,7 +325,7 @@ func codeForStatus(status int) Code {
 // providerRefusal is a provider's refusal as the API says it: provider_error, why in
 // detail.reason in the provider's terms, and the provider as the failing leg (cut-a §5.2),
 // whichever provider.
-func providerRefusal(reason, message string) error {
+func providerRefusal(reason ProviderReason, message string) error {
 	failure := newDetailedError(http.StatusServiceUnavailable, message, ProviderRefusalDetailBody{Reason: reason})
 	failure.ErrorBody.Error.FailedHop = HopProvider
 	return failure

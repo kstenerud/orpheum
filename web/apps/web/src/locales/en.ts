@@ -61,7 +61,17 @@ export const en = {
     internal:
       "Something went wrong on the server. Try again; if it keeps happening, the server's log says why.",
     unreachable: "The server could not be reached. Check the connection and try again.",
-    unknown: "Something went wrong: {{message}}",
+    unknown:
+      "Something went wrong. Try again; if it keeps happening, the server's log may say why.",
+    providerReason: {
+      noKey: "The outside service has no key set up. An admin can set it in Settings.",
+      keyRefused: "The outside service refused its key. An admin can change it in Settings.",
+      noLogin: "The outside service has no account set up. An admin can add one in Settings.",
+      loginRefused:
+        "The outside service refused the account's login. An admin can change it in Settings.",
+      notConfigured: "This server does not use that outside service.",
+      unavailable: "The outside service is not answering right now. Try again later.",
+    },
   },
   codeSignIn: {
     heading: "Sign in with a code",
@@ -182,6 +192,14 @@ export const en = {
     prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
     preparing: "Preparing — ready in a few seconds.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
+    failure: {
+      hlsUnsupported: "this browser cannot play streamed video",
+      aborted: "loading it was stopped",
+      network: "it could not be fetched from the server",
+      decode: "this browser could not decode it",
+      unsupported: "this browser does not play its format",
+      unknown: "the browser gave no reason",
+    },
     boost: "Dialogue boost",
     level: {
       switch: "Level loudness",

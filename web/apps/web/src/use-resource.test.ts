@@ -80,9 +80,10 @@ describe("useResource", () => {
     expect(problemText(t, ended, { authRequired: "a code that does not work" })).toBe(
       "a code that does not work",
     );
-    expect(problemText(t, new ApiProblem({ code: "brand_new", message: "odd" }))).toBe(
-      "Something went wrong: odd",
-    );
+    const unknown = problemText(t, new ApiProblem({ code: "brand_new", message: "odd" }));
+    expect(unknown).toContain("Something went wrong");
+    expect(unknown).not.toContain("odd");
+    expect(problemText(t, new Error("the browser's own words"))).toBe(unknown);
     expect(problemText(t, new TypeError("Failed to fetch"))).toBe(
       "The server could not be reached. Check the connection and try again.",
     );

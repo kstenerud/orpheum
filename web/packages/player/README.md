@@ -11,6 +11,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **Does not talk to the server itself**; it is handed URLs the SDK produced.
   `no-restricted-globals` bans `fetch` and `WebSocket` outside `packages/sdk`. (hls.js's
   own requests for media segments are the library's, not ours.)
+- **Says no words.** A failure is a code (`PlaybackFailure`, `src/failure.ts`), never English or
+  the browser's or hls.js's text; the app puts each in the viewer's words.
+  `failure.test.ts`, and the app's `play.test.tsx` for the words.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).

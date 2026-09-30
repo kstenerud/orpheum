@@ -111,6 +111,14 @@ func TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail(t *testing.T
 			t.Errorf("%s's detail.%s is documented as %q, want %q", code, want.field, got, want.kind)
 		}
 	}
+	var reasons []ProviderReason
+	for _, reason := range detailByCode[string(CodeProviderError)].Properties["reason"].Enum {
+		reasons = append(reasons, ProviderReason(reason))
+	}
+	if !slices.Equal(reasons, providerReasons()) {
+		t.Errorf("provider_error's reasons are documented as %v, want every ProviderReason, %v, so a "+
+			"client can have words for each", reasons, providerReasons())
+	}
 	if len(detailByCode) != len(problemDetails()) {
 		t.Errorf("%d codes document a detail, want the %d with one", len(detailByCode), len(problemDetails()))
 	}

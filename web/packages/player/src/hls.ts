@@ -2,6 +2,8 @@
 
 import Hls from "hls.js";
 
+import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
+
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
   /** Plays the audio rendition at index, in the master playlist's order. */
@@ -84,8 +86,8 @@ export function playHls(
   video: HTMLVideoElement,
   url: string,
   options: {
-    /** Called with why, when the playback cannot go on. */
-    readonly onFailed: (why: string) => void;
+    /** Called with why, as a code, when the playback cannot go on. */
+    readonly onFailed: (failure: PlaybackFailure) => void;
     /** The audio rendition to start with; the playlist's default when omitted. */
     readonly startAudioRenditionIndex?: number;
   },
@@ -96,13 +98,13 @@ export function playHls(
     return playNative(video, url);
   }
   if (method === "none") {
-    onFailed("this browser cannot play HLS");
+    onFailed("hls_unsupported");
     return { setAudioRendition: () => undefined, destroy: () => undefined };
   }
   const hls = new Hls();
   hls.on(Hls.Events.ERROR, (_event, data) => {
     if (data.fatal) {
-      onFailed(data.details);
+      onFailed(hlsErrorFailure(data));
     }
   });
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
