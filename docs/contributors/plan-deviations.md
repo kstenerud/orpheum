@@ -40,6 +40,19 @@ counted:
 
 ## Log
 
+### P39 — "The weekly reminder" assumed a way to tell the admin that does not exist (jobs rebuild Phase 3, 2026-09-30) · plan-gap
+
+- **Planned:** D231 §7 and the jobs rebuild's Phase 3: offline storage never ends without the
+  admin, "the System page shows 'offline since', and the admin is reminded after a week".
+- **What happened:** the code has no channel to the admin outside the pages they open: no
+  notification, message, e-mail or reminder mechanism. "Offline since" was built; the reminder was
+  not, since building it means choosing how an admin is told, a design decision.
+- **Why the plan missed it:** the decision named an outcome ("is reminded") without the means, and
+  the walk of scenarios S22–S24 took the means for granted.
+- **Cost:** the reminder and its interval setting wait for the owner.
+- **Process lesson:** when a decision says someone "is told" or "is reminded", check that a channel
+  to them exists, and name it in the decision if it does not.
+
 ### P38 — Failure classes were decided for one host and one job, and the others inherited none (M3, 2026-09-29) · plan-gap
 
 - **Planned:** standards/go.md §21 asks every call to another host to name its policy for a 404,
