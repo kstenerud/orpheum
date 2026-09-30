@@ -119,7 +119,7 @@
 //     localart.go: the images beside the media; artwork.go: the images an item's source names
 //     that are owed; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
-//     enters. match.go: the matcher and the fetch job's handler; match_series.go: a series' match
+//     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and
 //     the rolling refresh.
 //   - chooser.go: what a person does — list, choose, override. tmdb/: the TMDB client.

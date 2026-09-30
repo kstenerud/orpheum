@@ -3,20 +3,20 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 18
+-- cache schema version 19
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
-  -- What it works on, one column by kind (D227 section 2): fetch and artwork an item, prepare a
-  -- rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
+  -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
+  -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
   -- measure_loudness a file. At most one is set; scan and backup, not yet jobs, set none.
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
-  -- A kind's own arguments: a fetch's isRefresh and shouldRetryImages; an artwork job's
+  -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
@@ -71,14 +71,16 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   UNIQUE (source_file, profile)
 );
 
-CREATE TABLE subtitle_text (                               -- D217 section 6: by the payload hash of its bytes
-  bytes_payload_hash BLOB NOT NULL,      -- the file the track's bytes are in, as it was when extracted
-  stream_index INTEGER NOT NULL,         -- the track's stream index in that video
+CREATE TABLE subtitle_text (                               -- D217 section 6, D224 section 5: by its source
+  -- What the text was made from: an embedded track's bytes file, by its payload hash as it was
+  -- when extracted (D179), or a fetched subtitle, by the SHA-256 of its stored body_gzip.
+  source_hash  BLOB NOT NULL,
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
   state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
   ass          BLOB,                     -- once complete: for JASSUB
   vtt          BLOB,                     -- once complete: for the cast receiver
   failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
-  PRIMARY KEY (bytes_payload_hash, stream_index)
+  PRIMARY KEY (source_hash, stream_index)
 );

@@ -36,7 +36,7 @@ const (
 // webpSuffix ends the name of every WebP size the art directory holds: "portrait-m.webp".
 const webpSuffix = ".webp"
 
-// Queue is where the artwork jobs go: jobs.Queue.
+// Queue is where the make_artwork_sizes jobs go: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 }
@@ -98,7 +98,7 @@ func NewService(parts Parts) *Service {
 	}
 }
 
-// artworkJobArgs is an artwork job's arguments: the images one item's source names that are not stored.
+// artworkJobArgs is a make_artwork_sizes job's arguments: the images one item's source names that are not stored.
 type artworkJobArgs struct {
 	ArtworkSource string    `json:"artworkSource"`
 	Refs          []owedRef `json:"refs"`
@@ -127,7 +127,7 @@ func (service *Service) QueueOwed(ctx context.Context, items []identify.OwedArtw
 		if err == nil {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
-				Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: item.ItemID}, ArgsJSON: string(args),
+				Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: item.ItemID}, ArgsJSON: string(args),
 				Reason: "the images " + item.Source + " names for it",
 			})
 			if added {
@@ -144,16 +144,16 @@ func (service *Service) QueueOwed(ctx context.Context, items []identify.OwedArtw
 	}
 }
 
-// Handle runs one artwork job: each image it names is fetched, re-encoded by the node, and
+// Handle runs one make_artwork_sizes job: each image it names is fetched, re-encoded by the node, and
 // stored.
 func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	var args artworkJobArgs
 	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
-		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.MarkPermanent(err))
+		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
 	if !known && args.ArtworkSource != identify.SourceLocal {
-		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
+		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
 			args.ArtworkSource)))
 	}
 	for _, ref := range args.Refs {

@@ -22,9 +22,12 @@ type Kind string
 
 // The kinds of job (cut-a §5.3).
 const (
-	KindFetch   Kind = "fetch"
-	KindArtwork Kind = "artwork"
-	KindPrepare Kind = "prepare"
+	// KindFetchMetadata fetches an item's metadata from its provider; its target is the item.
+	KindFetchMetadata Kind = "fetch_metadata"
+	// KindMakeArtworkSizes makes the sizes of one of an item's images, fetching its source when
+	// no stored size can be cut down; its target is the item (D212).
+	KindMakeArtworkSizes Kind = "make_artwork_sizes"
+	KindPrepare          Kind = "prepare"
 	// KindExtractSubtitle extracts one text subtitle track; its target is the stream (D217 §3).
 	KindExtractSubtitle Kind = "extract_subtitle"
 	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its target is the
@@ -40,8 +43,8 @@ const (
 // description of a job is made from.
 func Kinds() []Kind {
 	return []Kind{
-		KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle, KindMeasureLoudness,
-		KindScan, KindBackup,
+		KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle,
+		KindMeasureLoudness, KindScan, KindBackup,
 	}
 }
 

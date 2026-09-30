@@ -207,7 +207,7 @@ func (service *Service) FetchSubtitle(
 // keeps it, as a subtitle file's is by its payload hash.
 func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
 	sum := sha256.Sum256(body)
-	return cachegen.GetSubtitleTextParams{BytesPayloadHash: sum[:]}
+	return cachegen.GetSubtitleTextParams{SourceHash: sum[:]}
 }
 
 // HandleConvertFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that

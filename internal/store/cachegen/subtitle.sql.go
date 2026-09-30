@@ -11,23 +11,24 @@ import (
 
 const getSubtitleText = `-- name: GetSubtitleText :one
 
-SELECT bytes_payload_hash, stream_index, state, ass, vtt, failure, created_at, finished_at
-FROM subtitle_text WHERE bytes_payload_hash = ? AND stream_index = ?
+SELECT source_hash, stream_index, state, ass, vtt, failure, created_at, finished_at
+FROM subtitle_text WHERE source_hash = ? AND stream_index = ?
 `
 
 type GetSubtitleTextParams struct {
-	BytesPayloadHash []byte
-	StreamIndex      int64
+	SourceHash  []byte
+	StreamIndex int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Extracted subtitles (schema.md, cache.db; D217 section 6): a video's text track as ASS and
-// WebVTT, kept by the payload hash of the file its bytes are in, so a move or a rescan keeps it.
+// Subtitle text (schema.md, cache.db; D217 section 6, D224 section 5): a text track as ASS and
+// WebVTT, kept by its source's hash: the payload hash of the file an embedded track's bytes are
+// in, so a move or a rescan keeps it, or the SHA-256 of a fetched subtitle's stored body.
 func (q *Queries) GetSubtitleText(ctx context.Context, arg GetSubtitleTextParams) (SubtitleText, error) {
-	row := q.db.QueryRowContext(ctx, getSubtitleText, arg.BytesPayloadHash, arg.StreamIndex)
+	row := q.db.QueryRowContext(ctx, getSubtitleText, arg.SourceHash, arg.StreamIndex)
 	var i SubtitleText
 	err := row.Scan(
-		&i.BytesPayloadHash,
+		&i.SourceHash,
 		&i.StreamIndex,
 		&i.State,
 		&i.ASS,
@@ -40,35 +41,35 @@ func (q *Queries) GetSubtitleText(ctx context.Context, arg GetSubtitleTextParams
 }
 
 const requestSubtitleText = `-- name: RequestSubtitleText :exec
-INSERT INTO subtitle_text (bytes_payload_hash, stream_index, created_at) VALUES (?, ?, ?)
-ON CONFLICT (bytes_payload_hash, stream_index) DO UPDATE
+INSERT INTO subtitle_text (source_hash, stream_index, created_at) VALUES (?, ?, ?)
+ON CONFLICT (source_hash, stream_index) DO UPDATE
 SET state = 'queued', failure = NULL, finished_at = NULL, created_at = excluded.created_at
 WHERE subtitle_text.state = 'failed'
 `
 
 type RequestSubtitleTextParams struct {
-	BytesPayloadHash []byte
-	StreamIndex      int64
-	CreatedAt        int64
+	SourceHash  []byte
+	StreamIndex int64
+	CreatedAt   int64
 }
 
 // A track wanted: new, or asked for again after it failed.
 func (q *Queries) RequestSubtitleText(ctx context.Context, arg RequestSubtitleTextParams) error {
-	_, err := q.db.ExecContext(ctx, requestSubtitleText, arg.BytesPayloadHash, arg.StreamIndex, arg.CreatedAt)
+	_, err := q.db.ExecContext(ctx, requestSubtitleText, arg.SourceHash, arg.StreamIndex, arg.CreatedAt)
 	return err
 }
 
 const setSubtitleTextComplete = `-- name: SetSubtitleTextComplete :exec
 UPDATE subtitle_text SET state = 'complete', ass = ?, vtt = ?, failure = NULL, finished_at = ?
-WHERE bytes_payload_hash = ? AND stream_index = ?
+WHERE source_hash = ? AND stream_index = ?
 `
 
 type SetSubtitleTextCompleteParams struct {
-	ASS              []byte
-	VTT              []byte
-	FinishedAt       *int64
-	BytesPayloadHash []byte
-	StreamIndex      int64
+	ASS         []byte
+	VTT         []byte
+	FinishedAt  *int64
+	SourceHash  []byte
+	StreamIndex int64
 }
 
 func (q *Queries) SetSubtitleTextComplete(ctx context.Context, arg SetSubtitleTextCompleteParams) error {
@@ -76,7 +77,7 @@ func (q *Queries) SetSubtitleTextComplete(ctx context.Context, arg SetSubtitleTe
 		arg.ASS,
 		arg.VTT,
 		arg.FinishedAt,
-		arg.BytesPayloadHash,
+		arg.SourceHash,
 		arg.StreamIndex,
 	)
 	return err
@@ -84,21 +85,21 @@ func (q *Queries) SetSubtitleTextComplete(ctx context.Context, arg SetSubtitleTe
 
 const setSubtitleTextFailed = `-- name: SetSubtitleTextFailed :exec
 UPDATE subtitle_text SET state = 'failed', failure = ?, finished_at = ?
-WHERE bytes_payload_hash = ? AND stream_index = ?
+WHERE source_hash = ? AND stream_index = ?
 `
 
 type SetSubtitleTextFailedParams struct {
-	Failure          *string
-	FinishedAt       *int64
-	BytesPayloadHash []byte
-	StreamIndex      int64
+	Failure     *string
+	FinishedAt  *int64
+	SourceHash  []byte
+	StreamIndex int64
 }
 
 func (q *Queries) SetSubtitleTextFailed(ctx context.Context, arg SetSubtitleTextFailedParams) error {
 	_, err := q.db.ExecContext(ctx, setSubtitleTextFailed,
 		arg.Failure,
 		arg.FinishedAt,
-		arg.BytesPayloadHash,
+		arg.SourceHash,
 		arg.StreamIndex,
 	)
 	return err

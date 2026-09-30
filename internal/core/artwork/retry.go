@@ -15,7 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// RetrySchedule is how an artwork job that failed through no fault of its image waits before
+// RetrySchedule is how a make_artwork_sizes job that failed through no fault of its image waits before
 // each retry, before it fails: a minute, five, half an hour, two hours, twelve, then daily for a
 // week (D213 §5).
 func RetrySchedule() []time.Duration {

@@ -1630,8 +1630,8 @@
           },
           "kind": {
             "enum": [
-              "fetch",
-              "artwork",
+              "fetch_metadata",
+              "make_artwork_sizes",
               "prepare",
               "extract_subtitle",
               "convert_fetched_subtitle",

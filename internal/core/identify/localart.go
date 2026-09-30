@@ -51,7 +51,7 @@ func videoImageSuffixes() []ArtRef {
 	}
 }
 
-// LocalRef is how an artwork job names an image beside the media: its file, and its size and
+// LocalRef is how a make_artwork_sizes job names an image beside the media: its file, and its size and
 // modification time, so a changed file is owed again.
 func LocalRef(fileID, sizeBytes, mtimeMs int64) string {
 	return fmt.Sprintf("file:%d:%d:%d", fileID, sizeBytes, mtimeMs)

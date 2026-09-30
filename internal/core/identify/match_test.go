@@ -210,7 +210,9 @@ func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	job := jobs.Job{Kind: jobs.KindFetch, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID}}
+	job := jobs.Job{
+		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID},
+	}
 	lib.provider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute})
 	err := lib.matcher.Handle(t.Context(), job)
 	retry, isRetry := errors.AsType[*jobs.RetryAtError](err)

@@ -26,7 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Matcher matches a film or a series to its library's provider: the fetch job's work (D170,
+// Matcher matches a film or a series to its library's provider: the fetch_metadata job's work (D170,
 // D209). A provider id in hand skips the search; a single result matching the name and year is
 // accepted; anything else is ambiguous, with the results kept for the chooser. It never guesses
 // (D172). A series' episodes then take their values from its season listings, which it fetches.
@@ -435,13 +435,13 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 	return nil
 }
 
-// Handle is the fetch job's handler. A provider's rate limit defers the queue until its time; a
+// Handle is the fetch_metadata job's handler. A provider's rate limit defers the queue until its time; a
 // key unset or refused holds it until a person fixes the key; an id the provider does not have
 // fails the job; anything else retries.
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	var args refreshArgs
 	if err := json.Unmarshal([]byte(cmp.Or(job.ArgsJSON, "{}")), &args); err != nil {
-		return fmt.Errorf("fetch job %d: %w", job.ID, jobs.MarkPermanent(err))
+		return fmt.Errorf("fetch_metadata job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	var outcome Outcome
 	var err error

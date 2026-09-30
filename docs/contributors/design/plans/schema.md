@@ -821,21 +821,23 @@ reference scale, and removes a failure mode.
 > version 16 gave each value one name in every layer (D227 §6); version 17 the languages a
 > rendition's audio tracks are tagged with, so a relabelled track, which keeps the payload hash
 > (D179), has its rendition made again; version 18 corrected the comment naming what a job's
-> `args_json` holds.
+> `args_json` holds; version 19 named the job kinds `fetch_metadata` and `make_artwork_sizes` for
+> what they do, and `subtitle_text`'s key `source_hash`, since it holds a fetched subtitle's body
+> hash as well as a bytes file's payload hash (M3's closing audit, D227).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
-  -- What it works on, one column by kind (D227 section 2): fetch and artwork an item, prepare a
-  -- rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
+  -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
+  -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
   -- measure_loudness a file. At most one is set; scan and backup, not yet jobs, set none.
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
-  -- A kind's own arguments: a fetch's isRefresh and shouldRetryImages; an artwork job's
+  -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
@@ -893,16 +895,18 @@ directory, which the node alone deletes from (D217 §5); this row is the core's 
 asked for and what the node said. Its prepare job's target is the row's id, `rendition_id` (D217 §3).
 
 ```sql
-CREATE TABLE subtitle_text (                               -- D217 §6: by the payload hash of its bytes
-  bytes_payload_hash BLOB NOT NULL,      -- the file the track's bytes are in, as it was when extracted
-  stream_index INTEGER NOT NULL,         -- the track's stream index in that video
+CREATE TABLE subtitle_text (                               -- D217 §6, D224 §5: by its source
+  -- What the text was made from: an embedded track's bytes file, by its payload hash as it was
+  -- when extracted (D179), or a fetched subtitle, by the SHA-256 of its stored body_gzip.
+  source_hash  BLOB NOT NULL,
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
   state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
   ass          BLOB,                     -- once complete: for JASSUB
   vtt          BLOB,                     -- once complete: for the cast receiver
   failure        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
-  PRIMARY KEY (bytes_payload_hash, stream_index)
+  PRIMARY KEY (source_hash, stream_index)
 );
 ```
 

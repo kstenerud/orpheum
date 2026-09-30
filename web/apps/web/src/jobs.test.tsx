@@ -17,8 +17,8 @@ import { withServices } from "./test-services.tsx";
  * renamed one, fails to compile here until the screen can say it.
  */
 const everyKind = [
-  "fetch",
-  "artwork",
+  "fetch_metadata",
+  "make_artwork_sizes",
   "prepare",
   "extract_subtitle",
   "convert_fetched_subtitle",
@@ -44,7 +44,7 @@ const preparing: Job = {
 
 const lookedUp: Job = {
   id: 4,
-  kind: "fetch",
+  kind: "fetch_metadata",
   itemId: 9,
   state: "failed",
   reason: "a new title",

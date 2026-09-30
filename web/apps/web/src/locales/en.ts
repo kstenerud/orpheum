@@ -338,8 +338,8 @@ export const en = {
     none: "No work has been done yet.",
     target: "{{kind}} #{{target}}",
     kind: {
-      fetch: "Looking up",
-      artwork: "Artwork",
+      fetchMetadata: "Looking up",
+      makeArtworkSizes: "Making artwork sizes",
       prepare: "Preparing a copy",
       extractSubtitle: "Extracting subtitles",
       measureLoudness: "Measuring loudness",

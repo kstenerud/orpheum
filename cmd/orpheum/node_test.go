@@ -114,8 +114,8 @@ func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs) != 1 || jobs[0].Kind != "fetch" || jobs[0].State == "failed" {
-		t.Errorf("cache.db holds %+v; want one fetch job, waiting (no TMDB key is set)", jobs)
+	if len(jobs) != 1 || jobs[0].Kind != "fetch_metadata" || jobs[0].State == "failed" {
+		t.Errorf("cache.db holds %+v; want one fetch_metadata job, waiting (no TMDB key is set)", jobs)
 	}
 }
 
