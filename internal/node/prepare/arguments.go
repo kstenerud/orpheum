@@ -4,7 +4,6 @@ package prepare
 
 import (
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -34,9 +33,6 @@ const (
 	boostedMix    = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+1.414*FC+0.707*BL|FR<FR+1.414*FC+0.707*BR"
 	StereoAsIsMix = "aformat=channel_layouts=stereo"
 )
-
-// safeLanguagePattern is a language tag FFmpeg's stream map can carry: letters and hyphens only.
-var safeLanguagePattern = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`)
 
 // mix is one audio rendition: its name in the stream map, which is also its directory, and its
 // filter.
@@ -116,9 +112,10 @@ func segmentLengthSeconds(asked int) int {
 	return asked
 }
 
-// streamMapLanguage is a track's tag as the stream map may carry it, or langtag.Undetermined.
+// streamMapLanguage is a track's tag as the stream map may carry it, or langtag.Undetermined: a
+// well-formed tag has only letters, digits and hyphens.
 func streamMapLanguage(tag string) string {
-	if safeLanguagePattern.MatchString(tag) {
+	if langtag.IsWellFormed(tag) {
 		return tag
 	}
 	return langtag.Undetermined
