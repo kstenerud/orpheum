@@ -102,8 +102,8 @@ func testConfig(t *testing.T) (Config, string) {
 listen = "127.0.0.1:0"
 data_dir = %q
 cache_dir = %q
-read_header_timeout_s = 10
-shutdown_grace_s = 10
+read_header_timeout_seconds = 10
+shutdown_grace_seconds = 10
 socket_dir = %q
 
 [database]
@@ -118,8 +118,8 @@ confinement_policy = "report"
 video_extensions = ["mkv"]
 subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
-probe_timeout_s = 60
-status_interval_s = 10
+probe_timeout_seconds = 60
+status_interval_seconds = 10
 prepared_dir = %q
 prepared_budget_gib = 1
 prepared_kept_after_play_hours = 72

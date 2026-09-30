@@ -111,7 +111,8 @@ loop to work:**
 - **`orpheum run --config <file>`**, reading TOML with exactly the keys in
   [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml); nothing defaults in code
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
-  - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
+  - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_seconds`,
+    `shutdown_grace_seconds`
   - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - `[node]`: `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
     `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`

@@ -117,7 +117,7 @@ func newHarness(t *testing.T) testHarness {
 			LibraryDatabase: database, CacheDatabase: cache,
 		},
 		ConfigFileKeys: []ConfigFileKey{{
-			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
+			Key: "server.shutdown_grace_seconds", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",
 		}},
 	})
@@ -413,7 +413,8 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
 	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"startingValue":5,"isModified":false,` +
 		`"minimum":1,"maximum":1000`
-	const file = `"configFileKeys":[{"key":"server.shutdown_grace_s","value":10,"startingValue":10,"isFromFile":false`
+	const file = `"configFileKeys":[{"key":"server.shutdown_grace_seconds","value":10,"startingValue":10,` +
+		`"isFromFile":false`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) || !strings.Contains(listed.body, file) {
 		t.Errorf("GET /config = %d %s", listed.status, listed.body)
 	}

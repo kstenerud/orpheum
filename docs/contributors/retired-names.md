@@ -94,3 +94,7 @@ trailer on the commit that removes it.
 | `scan_on_node_hello` | `should_scan_on_node_hello` | D227 §6 |
 | `secret_hint_chars` | `secret_last_chars_shown` | D227 §6 |
 | `prepared_grace_h` | `prepared_kept_after_play_h` | D227 §6 |
+| `read_header_timeout_s` | `read_header_timeout_seconds` | D227 §6; owner 2026-09-30 |
+| `shutdown_grace_s` | `shutdown_grace_seconds` | D227 §6; owner 2026-09-30 |
+| `probe_timeout_s` | `probe_timeout_seconds` | D227 §6; owner 2026-09-30 |
+| `status_interval_s` | `status_interval_seconds` | D227 §6; owner 2026-09-30 |
