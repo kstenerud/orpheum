@@ -27,6 +27,9 @@
 //     (internal/platform/jobqueue says how). TestEnqueue_QueuesATargetOnceWhileItIsOpen;
 //     a fetch's arguments merge as identify.FetchArgsMerge says, wired in cmd/orpheum:
 //     TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsksForTheImagesAgain.
+//     A repeat request raises a queued job, wakes one waiting to retry, looks at once at a parked
+//     one's destination, and follows a running one once if the run does not cover it.
+//     TestScenario_S71_ARepeatRequestRaisesWakesAndMerges.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
 //   - Several runners of one kind run its jobs at once, each job once.
 //     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
@@ -61,7 +64,10 @@
 //   - Every kind's work is derived by a sweep from library.db, or asked for by a play, and each
 //     kind whose item can fail records the failure as a fact there (D231 §3, §4, §10); the server
 //     registers them (cmd/orpheum).
-//     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact.
+//     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact. So
+//     cache.db can be discarded at any moment, losing only timing: the matches owed, a person's
+//     refresh and a recheck are derived again, and a failure of the item's own is not retried.
+//     TestScenario_S78_DiscardingCacheDBLosesOnlyTiming (cmd/orpheum).
 //   - A retire cancels the queued, parked and running work of what it took out, by target or by
 //     the destination it waits on, and forgets those destinations (D231 §7, §9).
 //     TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations.

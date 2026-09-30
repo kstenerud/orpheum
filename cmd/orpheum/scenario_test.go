@@ -3,12 +3,15 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -24,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -107,6 +112,8 @@ type jobsWorld struct {
 	t         *testing.T
 	database  *store.Database
 	cache     *store.Cache
+	config    *settings.Service
+	tmdbURL   string
 	clock     *clocktest.Fake
 	queue     *jobs.Queue
 	secrets   *secrets.Store
@@ -123,41 +130,50 @@ type jobsWorld struct {
 
 func newJobsWorld(t *testing.T, start time.Time) *jobsWorld {
 	t.Helper()
-	database, cache := storetest.OpenMigrated(t), storetest.OpenCache(t)
+	database := storetest.OpenMigrated(t)
 	config := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(start)
-	logger := slog.New(slog.DiscardHandler)
-	queue := jobs.NewQueue(jobs.QueueParts{
-		Cache: cache, Clock: fakeClock, Settings: config, Random: jobqueuetest.Unjittered(), Logger: logger,
-		ArgsMerges: jobArgsMerges(),
-	})
 	key, err := secrets.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	world := &jobsWorld{
-		t: t, database: database, cache: cache, clock: fakeClock, queue: queue,
+		t: t, database: database, clock: fakeClock, config: config,
 		secrets: secrets.NewStore(database, key, fakeClock, rand.Reader, config), tmdb: &fakeTMDBHost{t: t},
-		ingester: library.NewIngester(database, fakeClock, config, logger),
+		ingester: library.NewIngester(database, fakeClock, config, slog.New(slog.DiscardHandler)),
 	}
 	if setErr := world.secrets.Set(t.Context(), secrets.TMDBAPIKey, secrets.NewValue(scenarioKey), nil); setErr != nil {
 		t.Fatal(setErr)
 	}
-	world.hosts = newHostProviders(queue, world.secrets, fakeClock, config)
 	server := httptest.NewServer(http.HandlerFunc(world.tmdb.serve))
 	t.Cleanup(server.Close)
-	httpClient, err := outbound.NewClient(5*time.Second, "test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	client := tmdb.New(httpClient, server.URL, world.secrets, world.hosts.tmdbAPI)
-	world.pass = identify.NewPass(database, fakeClock, logger, identify.Providers{"tmdb": client}, config)
-	matcher := identify.NewMatcher(database, cache, world.pass, fakeClock, logger)
-	world.refresher = identify.NewRefresher(database, queue, config, fakeClock, logger)
-	world.runner = queue.NewRunner(jobs.KindFetchMetadata, matcher.Handle)
+	world.tmdbURL = server.URL
+	world.wireQueue(storetest.OpenCache(t))
 	world.nodeID, world.libraryID = librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb", Root: "/media"})
 	return world
+}
+
+// wireQueue wires the queue, TMDB's provider services and the matcher over cache, as serve
+// does: again over a new cache.db when a test discards the old one.
+func (world *jobsWorld) wireQueue(cache *store.Cache) {
+	world.t.Helper()
+	logger := slog.New(slog.DiscardHandler)
+	world.cache = cache
+	world.queue = jobs.NewQueue(jobs.QueueParts{
+		Cache: cache, Clock: world.clock, Settings: world.config, Random: jobqueuetest.Unjittered(), Logger: logger,
+		ArgsMerges: jobArgsMerges(),
+	})
+	world.hosts = newHostProviders(world.queue, world.secrets, world.clock, world.config)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		world.t.Fatal(err)
+	}
+	client := tmdb.New(httpClient, world.tmdbURL, world.secrets, world.hosts.tmdbAPI)
+	world.pass = identify.NewPass(world.database, world.clock, logger, identify.Providers{"tmdb": client}, world.config)
+	matcher := identify.NewMatcher(world.database, cache, world.pass, world.clock, logger)
+	world.refresher = identify.NewRefresher(world.database, world.queue, world.config, world.clock, logger)
+	world.runner = world.queue.NewRunner(jobs.KindFetchMetadata, matcher.Handle)
 }
 
 // addFilms lands a copy of count films and has their first matches queued, as a scan's pass does.
@@ -385,6 +401,99 @@ func TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges(t *testing.T) {
 	for _, job := range world.fetchJobs() {
 		if job.AttemptCount != 1 {
 			t.Errorf("fetch job %d spent %d attempts; the refused key costs none", job.ID, job.AttemptCount)
+		}
+	}
+}
+
+// missingPosterFetcher is TMDB's image server, as far as a recheck needs it: its CDN keeps a 404
+// for twelve hours (tmdb.ImageFetcher's).
+type missingPosterFetcher struct{}
+
+func (missingPosterFetcher) Fetch(context.Context, string) (artwork.Unsanitised, error) {
+	return artwork.Unsanitised{}, errors.New("the scenario fetches no image")
+}
+
+func (missingPosterFetcher) RecheckAfter() time.Duration {
+	return (&tmdb.ImageFetcher{}).RecheckAfter()
+}
+
+func (missingPosterFetcher) Destination() jobs.Destination { return jobs.DestinationTMDBImages }
+
+// openWork is each open job's item and arguments, the work the queue holds.
+func (world *jobsWorld) openWork() map[int64]string {
+	world.t.Helper()
+	rows, err := world.cache.Read().ListJobs(world.t.Context(), 1000)
+	if err != nil {
+		world.t.Fatal(err)
+	}
+	argsByItem := map[int64]string{}
+	for _, row := range rows {
+		if (row.State == "queued" || row.State == "running") && row.ItemID != nil {
+			argsByItem[*row.ItemID] = row.ArgsJSON
+		}
+	}
+	return argsByItem
+}
+
+// S78: cache.db is discarded under a running library, as a build with a new cache schema does at
+// start. The library has matches parked on TMDB, one failed for good, a person's refresh waiting
+// and a missing poster's recheck due tomorrow. Nothing is lost but timing: every piece of work
+// the library implies is derived again by the sweeps, and every request a person made is still
+// honoured (D231 §3, §4; G10, G14, G15).
+func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
+	t.Parallel()
+	world := newJobsWorld(t, time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	world.addFilms(0, 3)
+	world.runDue()
+	films := world.films()
+	refreshed, rechecked := films[0].TitleID, films[1].TitleID
+	world.tmdb.set(true)
+	world.addFilms(3, 3)
+	world.runDue() // films 3 to 5 park on TMDB
+	films = world.films()
+	failed := films[5].TitleID
+	if _, err := world.refresher.Request(t.Context(), refreshed); err != nil {
+		t.Fatal(err)
+	}
+	storetest.ExecRaw(t, world.database.Path(),
+		fmt.Sprintf(`INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (%d, 'a 500', 1)`, failed),
+		fmt.Sprintf(`INSERT INTO artwork (item_id, kind, source, source_ref, refused_at, refusal, is_missing_at_source)
+		 VALUES (%d, 'poster', 'tmdb', '/poster.jpg', %d, 'a 404', 1)`, rechecked, world.clock.Now().UnixMilli()))
+
+	world.wireQueue(storetest.OpenCache(t)) // cache.db discarded: a new, empty one
+	world.tmdb.set(false)
+	images := artwork.NewService(artwork.Parts{
+		Database: world.database, Queue: world.queue, Cache: world.cache, Settings: world.config,
+		Fetchers: map[string]artwork.Fetcher{"tmdb": missingPosterFetcher{}}, Clock: world.clock,
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	services := jobServices{queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass}
+	for _, sweep := range services.sweeps() {
+		if sweep.Name != sweepLoudness && sweep.Name != sweepRollingRefresh { // no files to measure; nothing due
+			world.queue.AddSweep(sweep)
+		}
+	}
+	world.queue.RunSweeps(t.Context())
+	want := map[int64]string{
+		films[3].TitleID: "{}", films[4].TitleID: "{}", // owed their first match, however it was lost
+		refreshed: `{"isRefresh":true,"shouldRetryImages":true}`, // the person's refresh, images and all
+	}
+	if got := world.openWork(); !maps.Equal(got, want) {
+		t.Errorf("the work derived again from library.db: %v, want %v: the matches owed and the person's refresh, "+
+			"not the film that failed for good, nor a recheck before its time", got, want)
+	}
+	world.runDue()
+	world.clock.Advance(13 * time.Hour) // past the CDN's 404
+	world.queue.RunSweeps(t.Context())
+	wantNextDay := map[int64]string{rechecked: `{"isRefresh":true,"shouldRetryImages":true}`}
+	if got := world.openWork(); !maps.Equal(got, wantNextDay) {
+		t.Errorf("the next day's work: %v; want the missing poster's one recheck, derived from its refusal", got)
+	}
+	world.runDue()
+	for number, film := range world.films() {
+		if isOwed := number != 5; isOwed != (film.IdentificationState == identifiedState) {
+			t.Errorf("film %d is %s; want every film matched but the one that failed for good", number,
+				film.IdentificationState)
 		}
 	}
 }

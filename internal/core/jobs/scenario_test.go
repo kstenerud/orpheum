@@ -5,8 +5,10 @@ package jobs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -126,5 +128,133 @@ func checkEveryJobDoneAtItsFirstAttempt(t *testing.T, queue *Queue) {
 	}
 	if len(queue.ParkedDestinations()) != 0 {
 		t.Errorf("still parked once there was room: %+v", queue.ParkedDestinations())
+	}
+}
+
+// The items of S71's four requests, one for each state its job is in when asked for again.
+const (
+	queuedItem  int64 = 1
+	waitingItem int64 = 2
+	parkedItem  int64 = 3
+	runningItem int64 = 4
+)
+
+// repeatWorld is S71's queue and its handler: the waiting item fails its first attempt, the
+// parked item's TMDB is down until it is not, and the running item's first run holds until
+// released.
+type repeatWorld struct {
+	t          *testing.T
+	fixed      fixture
+	ran        []int64
+	isTMDBDown bool
+	running    chan struct{}
+	release    chan struct{}
+}
+
+func (world *repeatWorld) request(itemID, priority int64, argsJSON string) {
+	world.t.Helper()
+	asked := Request{
+		Kind: KindFetchMetadata, Target: Target{ItemID: itemID}, Priority: priority, ArgsJSON: argsJSON,
+		Reason: "test",
+	}
+	if itemID == parkedItem {
+		asked.Destination = DestinationTMDBAPI
+	}
+	if _, err := world.fixed.queue.Enqueue(world.t.Context(), asked); err != nil {
+		world.t.Fatal(err)
+	}
+}
+
+func (world *repeatWorld) handle(_ context.Context, job Job) error {
+	world.ran = append(world.ran, job.ItemID)
+	switch {
+	case job.ItemID == waitingItem && job.AttemptNumber == 1:
+		return errors.New("a 500: the item's own failure")
+	case job.ItemID == parkedItem && world.isTMDBDown:
+		return Park(Parking{Destination: DestinationTMDBAPI, Reason: "unreachable"}, errors.New("refused"))
+	case job.ItemID == runningItem && job.ArgsJSON == "{}":
+		close(world.running)
+		<-world.release
+	}
+	return nil
+}
+
+// queuedCount is how many queued jobs an item has.
+func (world *repeatWorld) queuedCount(itemID int64) int {
+	world.t.Helper()
+	rows, err := world.fixed.cache.Read().ListJobs(world.t.Context(), 100)
+	if err != nil {
+		world.t.Fatal(err)
+	}
+	count := 0
+	for _, row := range rows {
+		if row.ItemID != nil && *row.ItemID == itemID && row.State == "queued" {
+			count++
+		}
+	}
+	return count
+}
+
+// S71: the same target is asked for again while its job is queued, waiting to retry, parked and
+// running. There is one job, which runs as soon as the most urgent request needs and does what
+// every request asked (D231 §6, §8).
+func TestScenario_S71_ARepeatRequestRaisesWakesAndMerges(t *testing.T) {
+	t.Parallel()
+	world := &repeatWorld{
+		t: t, fixed: newFixture(t), isTMDBDown: true, running: make(chan struct{}), release: make(chan struct{}),
+	}
+	runner := world.fixed.queue.NewRunner(KindFetchMetadata, world.handle)
+
+	// While queued: the higher priority wins.
+	world.request(queuedItem, -10, "")
+	world.request(queuedItem, PriorityPersonsRequest, "")
+	if job := world.fixed.job(t, queuedItem); job.Priority != PriorityPersonsRequest {
+		t.Errorf("queued: priority %d, want the person's %d", job.Priority, PriorityPersonsRequest)
+	}
+	world.fixed.runDue(t, runner)
+
+	// While waiting on its back-off: woken, so it runs now, not after the first retry delay.
+	world.request(waitingItem, 0, "")
+	world.fixed.runDue(t, runner)
+	if job := world.fixed.job(t, waitingItem); job.State != "queued" || job.AttemptCount != 1 {
+		t.Fatalf("after its own failure: %+v, want it waiting to retry", job)
+	}
+	world.request(waitingItem, PriorityPersonsRequest, "")
+	world.fixed.runDue(t, runner)
+	if job := world.fixed.job(t, waitingItem); job.State != stateDone {
+		t.Errorf("waiting to retry: %+v after a repeat request; want it woken and done at once", job)
+	}
+
+	// While parked: a person's request looks at the destination at once, at their priority.
+	world.request(parkedItem, 0, "")
+	world.fixed.runDue(t, runner)
+	world.isTMDBDown = false
+	world.request(parkedItem, PriorityPersonsRequest, "")
+	world.fixed.runDue(t, runner)
+	if job := world.fixed.job(t, parkedItem); job.State != stateDone || job.Priority != PriorityPersonsRequest ||
+		job.AttemptCount != 1 {
+		t.Errorf("parked: %+v after a person's request; want it tried at once, at their priority, with the "+
+			"parking costing no attempt", job)
+	}
+
+	// While running: a request it covers is dropped; one it does not is queued once to follow.
+	world.request(runningItem, 0, "")
+	done := make(chan error)
+	go func() { done <- runner.RunDue(t.Context()) }()
+	<-world.running
+	world.request(runningItem, 0, "") // covered: the same arguments
+	world.request(runningItem, 0, `{"shouldRetryImages":true}`)
+	world.request(runningItem, PriorityPersonsRequest, `{"shouldRetryImages":true}`)
+	followUps := world.queuedCount(runningItem)
+	close(world.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if followUps != 1 {
+		t.Errorf("while running: %d follow-ups queued, want one for what the run does not cover", followUps)
+	}
+	wantRan := []int64{queuedItem, waitingItem, waitingItem, parkedItem, parkedItem, runningItem, runningItem}
+	if !slices.Equal(world.ran, wantRan) {
+		t.Errorf("ran %v, want %v: each job once per request it had to meet", world.ran, wantRan)
 	}
 }
