@@ -103,10 +103,10 @@ func (service *Service) filePreferences(
 	for _, preference := range stored {
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
-			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.ValueJson, 10, 64)
+			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.ValueJSON, 10, 64)
 		case axisSubtitleChoice:
 			prefs.SubtitleChoice = &SubtitleChoice{}
-			err = json.Unmarshal([]byte(preference.ValueJson), prefs.SubtitleChoice)
+			err = json.Unmarshal([]byte(preference.ValueJSON), prefs.SubtitleChoice)
 		}
 		if err != nil {
 			return FilePreferences{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
@@ -125,9 +125,9 @@ func (service *Service) filePreferences(
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
-			prefs.IsDialogueBoostOn = preference.ValueJson == valueTrue
+			prefs.IsDialogueBoostOn = preference.ValueJSON == valueTrue
 		case axisLevelling:
-			prefs.IsLevellingOn = preference.ValueJson != valueFalse
+			prefs.IsLevellingOn = preference.ValueJSON != valueFalse
 		}
 	}
 	return prefs, nil
@@ -151,7 +151,7 @@ func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axi
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
-			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axis, ValueJson: value,
+			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axis, ValueJSON: value,
 			SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
@@ -188,7 +188,7 @@ func (service *Service) setFilePreference(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, axis, value string,
 ) error {
 	return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
-		UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axis, ValueJson: value,
+		UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axis, ValueJSON: value,
 		SetAt: service.clock.Now().UnixMilli(),
 	})
 }

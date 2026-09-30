@@ -137,7 +137,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	probe, err := decodeProbe(file.ProbeJson)
+	probe, err := decodeProbe(file.ProbeJSON)
 	if err != nil {
 		return Started{}, err
 	}
@@ -185,7 +185,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		started.IsPreparing = rendition.State != renditionComplete
 		started.AudioRenditions = audioRenditions(
 			prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
-		levelAudio(started.AudioRenditions, levels, probe, rendition.CarriedGainsDbJson)
+		levelAudio(started.AudioRenditions, levels, probe, rendition.CarriedGainsDBJSON)
 		if main, found := decide.MainAudio(probe); found {
 			started.Levelling = levels[soundKey{int64(main.StreamIndex), mixStereo}]
 		}
@@ -249,7 +249,7 @@ func (service *Service) DirectSource(
 	if err != nil {
 		return Source{}, err
 	}
-	probe, err := decodeProbe(file.ProbeJson)
+	probe, err := decodeProbe(file.ProbeJSON)
 	if err != nil {
 		return Source{}, err
 	}
@@ -299,7 +299,7 @@ func (service *Service) playableFile(
 	if err != nil {
 		return file, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	if file.ProbeJson == nil || file.PayloadHash == nil {
+	if file.ProbeJSON == nil || file.PayloadHash == nil {
 		return file, fmt.Errorf("%w: file %d was never probed and hashed", ErrNoFile, fileID)
 	}
 	return file, nil

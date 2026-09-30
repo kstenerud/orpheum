@@ -8,9 +8,9 @@ type Loudness struct {
 	PayloadHash    []byte
 	StreamIndex    int64
 	MeasuredMix    string
-	IntegratedLufs *float64
-	RangeLu        *float64
-	TruePeakDbtp   *float64
+	IntegratedLUFS *float64
+	RangeLU        *float64
+	TruePeakDBTP   *float64
 	Failure        *string
 	MeasuredAt     int64
 }

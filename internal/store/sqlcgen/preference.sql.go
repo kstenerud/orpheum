@@ -103,7 +103,7 @@ type ListPreferencesAtScopeParams struct {
 
 type ListPreferencesAtScopeRow struct {
 	Axis      string
-	ValueJson string
+	ValueJSON string
 }
 
 // A person's preferences at one scope: a file's sync offset, say.
@@ -116,7 +116,7 @@ func (q *Queries) ListPreferencesAtScope(ctx context.Context, arg ListPreference
 	items := []ListPreferencesAtScopeRow{}
 	for rows.Next() {
 		var i ListPreferencesAtScopeRow
-		if err := rows.Scan(&i.Axis, &i.ValueJson); err != nil {
+		if err := rows.Scan(&i.Axis, &i.ValueJSON); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -142,7 +142,7 @@ type SetPreferenceParams struct {
 	Scope     string
 	ScopeID   int64
 	Axis      string
-	ValueJson string
+	ValueJSON string
 	SetAt     int64
 }
 
@@ -155,7 +155,7 @@ func (q *Queries) SetPreference(ctx context.Context, arg SetPreferenceParams) er
 		arg.Scope,
 		arg.ScopeID,
 		arg.Axis,
-		arg.ValueJson,
+		arg.ValueJSON,
 		arg.SetAt,
 	)
 	return err

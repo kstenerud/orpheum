@@ -277,7 +277,7 @@ func (reader *reportReader) flush(ctx context.Context) error {
 		text := string(encoded)
 		statusAt := reader.service.clock.Now().UnixMilli()
 		return queries.UpdateNodeStatus(ctx, sqlcgen.UpdateNodeStatusParams{
-			LastStatusJson: &text, LastStatusAt: &statusAt, ID: reader.nodeID,
+			LastStatusJSON: &text, LastStatusAt: &statusAt, ID: reader.nodeID,
 		})
 	})
 }

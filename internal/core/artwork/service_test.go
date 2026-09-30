@@ -256,7 +256,7 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 		t.Fatalf("rows %+v; want the old poster, and the refused and missing ones held with no hash", rows)
 	}
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
-		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
+		ItemIDListJSON: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
 	})
 	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).sourceSha256()) {
 		t.Errorf("shown %+v (%v); want the old poster", shown, err)
@@ -375,7 +375,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	// TMDB's poster arrives later, and is still not what the film shows.
 	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
-		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
+		ItemIDListJSON: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
 	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, localSum[:]) {
 		t.Errorf("shown %+v (%v); want the image beside the media, stored under the hash the node read", shown, err)
@@ -385,7 +385,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		fmt.Sprintf("UPDATE library SET metadata_source = 'tmdb' WHERE id = %d", libraryID),
 		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
 	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
-		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
+		ItemIDListJSON: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
 	if err != nil || len(shown) == 0 ||
 		!bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).sourceSha256()) {

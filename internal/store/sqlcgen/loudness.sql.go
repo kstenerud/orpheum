@@ -86,9 +86,9 @@ func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte)
 			&i.PayloadHash,
 			&i.StreamIndex,
 			&i.MeasuredMix,
-			&i.IntegratedLufs,
-			&i.RangeLu,
-			&i.TruePeakDbtp,
+			&i.IntegratedLUFS,
+			&i.RangeLU,
+			&i.TruePeakDBTP,
 			&i.Failure,
 			&i.MeasuredAt,
 		); err != nil {
@@ -119,9 +119,9 @@ type UpsertLoudnessParams struct {
 	PayloadHash    []byte
 	StreamIndex    int64
 	MeasuredMix    string
-	IntegratedLufs *float64
-	RangeLu        *float64
-	TruePeakDbtp   *float64
+	IntegratedLUFS *float64
+	RangeLU        *float64
+	TruePeakDBTP   *float64
 	Failure        *string
 	MeasuredAt     int64
 }
@@ -131,9 +131,9 @@ func (q *Queries) UpsertLoudness(ctx context.Context, arg UpsertLoudnessParams) 
 		arg.PayloadHash,
 		arg.StreamIndex,
 		arg.MeasuredMix,
-		arg.IntegratedLufs,
-		arg.RangeLu,
-		arg.TruePeakDbtp,
+		arg.IntegratedLUFS,
+		arg.RangeLU,
+		arg.TruePeakDBTP,
 		arg.Failure,
 		arg.MeasuredAt,
 	)

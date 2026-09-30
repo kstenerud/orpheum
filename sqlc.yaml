@@ -36,6 +36,9 @@ sql:
         # Every parameter list becomes a Params struct once it has two or more parameters, so
         # a call site names each value.
         query_parameter_limit: 1
+        # Initialisms read as hand-written Go reads them (ArgsJSON, NFOBody, TruePeakDBTP):
+        # sqlc's default knows only "id". SHA-256 is Sha256 in both, as sqlc spells it unasked.
+        initialisms: [id, json, nfo, vtt, ass, db, dbtp, lufs, lu]
   # cache.db: one schema file, versioned by discard (migrations.md), generating its own package
   # so a library query cannot name a cache table (M2-1).
   - engine: sqlite
@@ -59,6 +62,7 @@ sql:
         emit_params_struct_pointers: false
         omit_unused_structs: true
         query_parameter_limit: 1
+        initialisms: [id, json, nfo, vtt, ass, db, dbtp, lufs, lu]
 # `sqlc vet` sees each query after sqlc has expanded `*` into a column list, so a SELECT * rule
 # here could never fire; TestArch_QueriesNameEveryColumn reads the .sql files instead.
 rules:

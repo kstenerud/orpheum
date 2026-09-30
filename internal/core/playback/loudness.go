@@ -65,13 +65,13 @@ func (service *Service) levellings(ctx context.Context, payloadHash []byte) (map
 // levellingOf is the gain that brings a measured sound to the level, within its limits; a sound
 // that could not be measured has none, and silence, which has no peak, is left as it is.
 func levellingOf(row sqlcgen.Loudness) (Levelling, bool) {
-	if row.Failure != nil || row.IntegratedLufs == nil {
+	if row.Failure != nil || row.IntegratedLUFS == nil {
 		return Levelling{}, false
 	}
-	if row.TruePeakDbtp == nil {
+	if row.TruePeakDBTP == nil {
 		return Levelling{IsMeasured: true}, true
 	}
-	gain := min(targetLUFS-*row.IntegratedLufs, peakCeilingDBTP-*row.TruePeakDbtp, maxRaiseDB)
+	gain := min(targetLUFS-*row.IntegratedLUFS, peakCeilingDBTP-*row.TruePeakDBTP, maxRaiseDB)
 	return Levelling{IsMeasured: true, GainDB: math.Round(gain*10) / 10}, true
 }
 
@@ -207,7 +207,7 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if len(loudnessRows) > 0 {
 		return nil
 	}
-	probe, err := decodeProbe(file.ProbeJson)
+	probe, err := decodeProbe(file.ProbeJSON)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -305,7 +305,7 @@ func loudnessRow(
 ) sqlcgen.UpsertLoudnessParams {
 	return sqlcgen.UpsertLoudnessParams{
 		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: mix,
-		IntegratedLufs: &measured.IntegratedLUFS, RangeLu: &measured.RangeLU, TruePeakDbtp: measured.TruePeakDBTP,
+		IntegratedLUFS: &measured.IntegratedLUFS, RangeLU: &measured.RangeLU, TruePeakDBTP: measured.TruePeakDBTP,
 		MeasuredAt: now,
 	}
 }

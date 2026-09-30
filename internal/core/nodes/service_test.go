@@ -287,8 +287,8 @@ func TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if node.LastStatusJson == nil || !strings.Contains(*node.LastStatusJson, `"activity":"idle"`) {
-		t.Errorf("the node's status is %v, want the last status record", node.LastStatusJson)
+	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"activity":"idle"`) {
+		t.Errorf("the node's status is %v, want the last status record", node.LastStatusJSON)
 	}
 	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastIngestedReportSeq != 300 {
 		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there",

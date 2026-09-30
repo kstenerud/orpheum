@@ -35,7 +35,7 @@ SELECT artwork.item_id, artwork.source_sha256
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.library_id
-WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids) AS TEXT)))
+WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;

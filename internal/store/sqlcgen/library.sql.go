@@ -176,7 +176,7 @@ type ListFilesPageRow struct {
 	Path            string
 	Filing          string
 	FilingReason    *string
-	ErrorDetailJson *string
+	ErrorDetailJSON *string
 	SizeBytes       *int64
 	FirstSeenAt     int64
 	LastSeenAt      int64
@@ -204,7 +204,7 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 			&i.Path,
 			&i.Filing,
 			&i.FilingReason,
-			&i.ErrorDetailJson,
+			&i.ErrorDetailJSON,
 			&i.SizeBytes,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,

@@ -170,7 +170,7 @@ type GetPlayableFileRow struct {
 	LibraryID         int64
 	ReportedPathBytes []byte
 	PayloadHash       []byte
-	ProbeJson         *string
+	ProbeJSON         *string
 	SizeBytes         *int64
 }
 
@@ -185,7 +185,7 @@ func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFil
 		&i.LibraryID,
 		&i.ReportedPathBytes,
 		&i.PayloadHash,
-		&i.ProbeJson,
+		&i.ProbeJSON,
 		&i.SizeBytes,
 	)
 	return i, err
@@ -280,8 +280,8 @@ type InsertFileParams struct {
 	PayloadBytes      *int64
 	Filing            string
 	FilingReason      *string
-	ErrorDetailJson   *string
-	ProbeJson         *string
+	ErrorDetailJSON   *string
+	ProbeJSON         *string
 	SeenAt            int64
 	OpensubtitlesHash *string
 }
@@ -298,8 +298,8 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.PayloadBytes,
 		arg.Filing,
 		arg.FilingReason,
-		arg.ErrorDetailJson,
-		arg.ProbeJson,
+		arg.ErrorDetailJSON,
+		arg.ProbeJSON,
 		arg.SeenAt,
 		arg.OpensubtitlesHash,
 	)
@@ -331,7 +331,7 @@ type InsertSidecarFileParams struct {
 	PayloadBytes      *int64
 	FilingReason      *string
 	SidecarKind       *string
-	NfoBody           []byte
+	NFOBody           []byte
 	SeenAt            int64
 }
 
@@ -349,7 +349,7 @@ func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFilePa
 		arg.PayloadBytes,
 		arg.FilingReason,
 		arg.SidecarKind,
-		arg.NfoBody,
+		arg.NFOBody,
 		arg.SeenAt,
 	)
 	var id int64
@@ -439,7 +439,7 @@ type ListLiveFilesByNodeRow struct {
 	PayloadBytes      *int64
 	Filing            string
 	FilingReason      *string
-	ErrorDetailJson   *string
+	ErrorDetailJSON   *string
 	FirstSeenAt       int64
 	LastSeenAt        int64
 }
@@ -463,7 +463,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 			&i.PayloadBytes,
 			&i.Filing,
 			&i.FilingReason,
-			&i.ErrorDetailJson,
+			&i.ErrorDetailJSON,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
 		); err != nil {
@@ -779,7 +779,7 @@ WHERE id = ?5
 type UpdateFileFilingAndLastSeenParams struct {
 	Filing          string
 	FilingReason    *string
-	ErrorDetailJson *string
+	ErrorDetailJSON *string
 	SeenAt          int64
 	ID              int64
 }
@@ -789,7 +789,7 @@ func (q *Queries) UpdateFileFilingAndLastSeen(ctx context.Context, arg UpdateFil
 	_, err := q.db.ExecContext(ctx, updateFileFilingAndLastSeen,
 		arg.Filing,
 		arg.FilingReason,
-		arg.ErrorDetailJson,
+		arg.ErrorDetailJSON,
 		arg.SeenAt,
 		arg.ID,
 	)
@@ -825,7 +825,7 @@ type UpdateObservedFileParams struct {
 	PayloadHash        []byte
 	PayloadBytes       *int64
 	UnidentifiedReason *string
-	ProbeJson          *string
+	ProbeJSON          *string
 	OpensubtitlesHash  *string
 	SeenAt             int64
 	ID                 int64
@@ -843,7 +843,7 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.PayloadHash,
 		arg.PayloadBytes,
 		arg.UnidentifiedReason,
-		arg.ProbeJson,
+		arg.ProbeJSON,
 		arg.OpensubtitlesHash,
 		arg.SeenAt,
 		arg.ID,
@@ -870,7 +870,7 @@ type UpdateSidecarFileParams struct {
 	PayloadBytes *int64
 	SidecarKind  *string
 	FilingReason *string
-	NfoBody      []byte
+	NFOBody      []byte
 	SeenAt       int64
 	ID           int64
 }
@@ -884,7 +884,7 @@ func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFilePa
 		arg.PayloadBytes,
 		arg.SidecarKind,
 		arg.FilingReason,
-		arg.NfoBody,
+		arg.NFOBody,
 		arg.SeenAt,
 		arg.ID,
 	)

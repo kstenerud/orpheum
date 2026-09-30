@@ -102,7 +102,7 @@ func (runner *Runner) claim(ctx context.Context, now time.Time) (Job, bool, erro
 			return fmt.Errorf("start job %d: %w", row.ID, startErr)
 		}
 		job = Job{
-			ID: row.ID, Kind: runner.kind, ArgsJSON: row.ArgsJson, AttemptNumber: row.AttemptCount + 1,
+			ID: row.ID, Kind: runner.kind, ArgsJSON: row.ArgsJSON, AttemptNumber: row.AttemptCount + 1,
 			Target: targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 		}
 		found = true

@@ -160,7 +160,7 @@ func (service *Service) prepareOrderFor(
 	if err != nil {
 		return prepareOrder{}, err
 	}
-	probe, err := decodeProbe(file.ProbeJson)
+	probe, err := decodeProbe(file.ProbeJSON)
 	if err != nil {
 		return prepareOrder{}, err
 	}

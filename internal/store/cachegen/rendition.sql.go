@@ -31,8 +31,8 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.Failure,
 		&i.VideoEncoder,
 		&i.RealtimeFactor,
-		&i.CarriedGainsDbJson,
-		&i.AudioLanguagesJson,
+		&i.CarriedGainsDBJSON,
+		&i.AudioLanguagesJSON,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -70,8 +70,8 @@ func (q *Queries) GetRenditionOfFileAndProfile(ctx context.Context, arg GetRendi
 		&i.Failure,
 		&i.VideoEncoder,
 		&i.RealtimeFactor,
-		&i.CarriedGainsDbJson,
-		&i.AudioLanguagesJson,
+		&i.CarriedGainsDBJSON,
+		&i.AudioLanguagesJSON,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -203,15 +203,15 @@ WHERE id = ?3
 `
 
 type SetRenditionAudioParams struct {
-	CarriedGainsDbJson string
-	AudioLanguagesJson string
+	CarriedGainsDBJSON string
+	AudioLanguagesJSON string
 	ID                 int64
 }
 
 // What a making puts in each audio track, as its job starts: the gain in its sound (D226 section 4)
 // and the language it is tagged with.
 func (q *Queries) SetRenditionAudio(ctx context.Context, arg SetRenditionAudioParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionAudio, arg.CarriedGainsDbJson, arg.AudioLanguagesJson, arg.ID)
+	_, err := q.db.ExecContext(ctx, setRenditionAudio, arg.CarriedGainsDBJSON, arg.AudioLanguagesJSON, arg.ID)
 	return err
 }
 

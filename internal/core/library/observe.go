@@ -142,7 +142,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
-		ProbeJson: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		ProbeJSON: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
@@ -160,7 +160,7 @@ func (batch *ingestBatch) updateObservedFile(
 		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
 		SizeBytes:  &observed.SizeBytes,
 		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
-		UnidentifiedReason: &reason, ProbeJson: &seenFile.probeJSON, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		UnidentifiedReason: &reason, ProbeJSON: &seenFile.probeJSON, OpensubtitlesHash: seenFile.openSubtitlesHash,
 		SeenAt: batch.nowMs,
 		ID:     id,
 	})
@@ -182,7 +182,7 @@ func (batch *ingestBatch) recordFiling(
 		}))
 	if err == nil {
 		err = batch.queries.UpdateFileFilingAndLastSeen(ctx, sqlcgen.UpdateFileFilingAndLastSeenParams{
-			Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: batch.nowMs, ID: existing.ID,
+			Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
@@ -194,7 +194,7 @@ func (batch *ingestBatch) recordFiling(
 	}
 	_, err = batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
-		Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: batch.nowMs,
+		Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)

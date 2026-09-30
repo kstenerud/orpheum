@@ -78,7 +78,7 @@ func (all *prepares) want(
 	if runErr != nil {
 		return row, runErr
 	}
-	probe, probeErr := decodeProbe(file.ProbeJson)
+	probe, probeErr := decodeProbe(file.ProbeJSON)
 	if probeErr != nil {
 		return row, probeErr
 	}
@@ -95,7 +95,7 @@ func (all *prepares) want(
 		case err != nil:
 		case !bytes.Equal(existing.SourcePayloadHash, file.PayloadHash) || existing.State == renditionFailed ||
 			existing.SegmentLengthSeconds != segmentLengthS ||
-			existing.State == renditionComplete && existing.AudioLanguagesJson != languages:
+			existing.State == renditionComplete && existing.AudioLanguagesJSON != languages:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
 				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: segmentLengthS,
 				RunID: runID,
@@ -238,7 +238,7 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gainsJSON, languagesJSON string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.SetRenditionAudio(ctx, cachegen.SetRenditionAudioParams{
-			CarriedGainsDbJson: gainsJSON, AudioLanguagesJson: languagesJSON,
+			CarriedGainsDBJSON: gainsJSON, AudioLanguagesJSON: languagesJSON,
 			ID: renditionID,
 		})
 	})

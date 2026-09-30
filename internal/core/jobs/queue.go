@@ -182,7 +182,7 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 		}
 		_, insertErr := queries.InsertJob(ctx, cachegen.InsertJobParams{
 			Kind: string(job.Kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
-			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ArgsJson: args, Priority: job.Priority,
+			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ArgsJSON: args, Priority: job.Priority,
 			RunnableAt: runnableAt.UnixMilli(), Reason: &reason, CreatedAt: queue.clock.Now().UnixMilli(),
 		})
 		if insertErr != nil {
