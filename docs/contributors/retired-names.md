@@ -114,3 +114,5 @@ trailer on the commit that removes it.
 | `media_token_idle_expiry_h` | `media_token_idle_expiry_hours` | D227 §6; owner 2026-09-30 |
 | `hls_segment_length_s` | `hls_segment_length_seconds` | D227 §6; owner 2026-09-30 |
 | `subtitle_choice` | `subtitle_used` (a file's) and `subtitle_language` (a work's) | D230 |
+| `'invite'` | `'issued_secret'`: the grant kind of a registration invitation and a device code; listed quoted, as a stored value, since "invite" is an ordinary word | D231, the jobs rebuild's Phase 3 |
+| `"invite"` | `"issued_secret"`, as above | D231, the jobs rebuild's Phase 3 |

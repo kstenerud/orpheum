@@ -21,7 +21,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -263,24 +262,16 @@ func (service *Service) convertFetched(
 
 // keepConvertedText keeps a fetched subtitle's converted text where a playback finds it.
 func (service *Service) keepConvertedText(
-	ctx context.Context, key cachegen.GetSubtitleTextParams, converted nodeproto.SubtitleText,
+	ctx context.Context, key sqlcgen.GetSubtitleTextParams, converted nodeproto.SubtitleText,
 ) error {
-	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.RequestSubtitleText(ctx, cachegen.RequestSubtitleTextParams{
-			SourceHash: key.SourceHash, StreamIndex: key.StreamIndex, CreatedAt: service.clock.Now().UnixMilli(),
-		})
-	})
-	if err != nil {
-		return fmt.Errorf("keep a fetched subtitle's text: %w", err)
-	}
 	return service.finishSubtitle(ctx, key, converted)
 }
 
 // fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as library.db
 // keeps it, as a subtitle file's is by its payload hash.
-func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
+func fetchedKey(body []byte) sqlcgen.GetSubtitleTextParams {
 	sum := sha256.Sum256(body)
-	return cachegen.GetSubtitleTextParams{SourceHash: sum[:]}
+	return sqlcgen.GetSubtitleTextParams{SourceHash: sum[:]}
 }
 
 // HandleConvertFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that

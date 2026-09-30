@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package auth is who may do what: local accounts, argon2id password hashes, sessions, invites,
-// and the single grant table from which every credential (session, invite, join, cast) is an
+// Package auth is who may do what: local accounts, argon2id password hashes, sessions, issued secrets,
+// and the single grant table from which every credential (session, issued secret, join, cast) is an
 // opaque, revocable, hashed row. There are two roles, admin and user; a Watch Together guest is
 // not a principal.
 //

@@ -62,14 +62,3 @@ type PreparedRendition struct {
 	CreatedAt            int64
 	FinishedAt           *int64
 }
-
-type SubtitleText struct {
-	SourceHash  []byte
-	StreamIndex int64
-	State       string
-	ASS         []byte
-	VTT         []byte
-	Failure     *string
-	CreatedAt   int64
-	FinishedAt  *int64
-}

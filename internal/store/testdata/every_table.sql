@@ -61,6 +61,8 @@ INSERT INTO field_override (item_id, field, language, override_value, origin, se
   VALUES (1, 'name', 'en', 'Direct Play Film', 'typed', 1, 1790000004000);
 INSERT INTO artwork (id, item_id, kind, language, source, source_ref, source_sha256, is_chosen)
   VALUES (1, 1, 'poster', 'en', 'nfo', 'poster.jpg', X'AABB', 1);
+INSERT INTO artwork (id, item_id, kind, source, source_ref, refused_at, refusal, is_missing_at_source)
+  VALUES (2, 1, 'backdrop', 'tmdb', '/gone.jpg', 1790000700000, 'no image there', 1);
 INSERT INTO tag (id, name) VALUES (1, 'favourite of the house');
 INSERT INTO item_tag (item_id, tag_id) VALUES (1, 1);
 
@@ -99,3 +101,8 @@ INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_a
   VALUES (1, 'tmdb', '', 1790000000000, 1790000300000, X'1F8B0800');
 INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
   VALUES (3, 'tmdb', 'season/2', 1790000000000, 1790000000000, X'1F8B0800');
+INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (2, 'TMDB answered 500 five times', 1790000400000);
+INSERT INTO refresh_request (item_id, requested_at, should_fetch_images) VALUES (1, 1790000500000, 1);
+INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at)
+  VALUES (X'0102', 3, CAST('[Script Info]' AS BLOB), CAST('WEBVTT' AS BLOB), NULL, 1790000600000),
+         (X'0103', 0, NULL, NULL, 'Invalid data found when processing input', 1790000600000);

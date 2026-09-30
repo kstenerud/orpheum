@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 21
+-- cache schema version 22
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,18 +77,4 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)
-);
-
-CREATE TABLE subtitle_text (                               -- D217 section 6, D224 section 5: by its source
-  -- What the text was made from: an embedded track's bytes file, by its payload hash as it was
-  -- when extracted (D179), or a fetched subtitle, by the SHA-256 of its stored body_gzip.
-  source_hash  BLOB NOT NULL,
-  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
-  state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
-  ass          BLOB,                     -- once complete: for JASSUB
-  vtt          BLOB,                     -- once complete: for the cast receiver
-  failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
-  created_at   INTEGER NOT NULL,
-  finished_at  INTEGER,
-  PRIMARY KEY (source_hash, stream_index)
 );
