@@ -2,7 +2,7 @@
 -- The identification pass (identification.md): it reads stored observations and writes titles.
 
 -- name: ListLibraryRoots :many
-SELECT node_id, root_path FROM library_root WHERE library_id = ? ORDER BY root_path;
+SELECT node_id, root_path FROM library_root WHERE library_id = ? AND retired_at IS NULL ORDER BY root_path;
 
 -- name: ListLiveLibraryIDs :many
 -- Every live library, which the identification sweep passes over (D231 section 3).
@@ -27,12 +27,15 @@ WHERE item.library_id = ? AND item.removed_at IS NULL
 ORDER BY title.id;
 
 -- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.identification_state, title.kind
+-- The titles a provider's id names: the live ones, and those of a deleted library, tombstoned
+-- with no merged_into, which a film that reappears brings back (D208 section 2, D231 section 7).
+SELECT title.id, item.library_id, title.identification_state, title.kind, item.removed_at
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id
-WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ? AND item.removed_at IS NULL
-ORDER BY title.id;
+WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ?
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
+ORDER BY item.removed_at IS NOT NULL, title.id;
 
 -- name: CountLiveFilesOfTitle :one
 -- A title's live files: live files of its live versions, as ListTitleFiles and
@@ -53,7 +56,8 @@ INSERT INTO item (kind, library_id, added_at) VALUES (sqlc.arg(kind), sqlc.arg(l
 RETURNING id;
 
 -- name: MoveItemToLibrary :exec
-UPDATE item SET library_id = sqlc.arg(library_id) WHERE id = sqlc.arg(id);
+-- A title follows its files to another library, a deleted library's brought back with them.
+UPDATE item SET library_id = sqlc.arg(library_id), removed_at = NULL WHERE id = sqlc.arg(id);
 
 -- name: InsertTitle :exec
 INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)

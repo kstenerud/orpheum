@@ -62,6 +62,9 @@
 //     kind whose item can fail records the failure as a fact there (D231 §3, §4, §10); the server
 //     registers them (cmd/orpheum).
 //     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact.
+//   - A retire cancels the queued, parked and running work of what it took out, by target or by
+//     the destination it waits on, and forgets those destinations (D231 §7, §9).
+//     TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations.
 //   - Nothing reads job history as a fact: only the queue, its storage and the job view read the
 //     job rows. TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory.
 //

@@ -269,8 +269,24 @@ func (matcher *Matcher) recordMatch(
 	return refile(ctx, queries, titleID, resolution.identification, resolution.reason)
 }
 
+// joinableTitle says whether a title the matched id names is one a title can join: another live
+// title of its library, or a deleted library's title of its kind, which comes back (D231 §7).
+func joinableTitle(
+	row sqlcgen.ListTitlesByProviderIDRow, title sqlcgen.GetTitleForMatchRow,
+) (isJoinable, isDeletedLibrarys bool) {
+	if row.ID == title.ID || title.LibraryID == nil {
+		return false, false
+	}
+	if row.RemovedAt != nil {
+		return row.Kind == title.Kind, true
+	}
+	return row.LibraryID != nil && *row.LibraryID == *title.LibraryID, false
+}
+
 // joinExisting moves a title's versions into another live title of its library that already
-// has the matched id, leaves a tombstone pointing there (D173), and returns the title that stays.
+// has the matched id, or into a deleted library's title that has it, which comes back into this
+// library with its history (D208 §2, D231 §7); it leaves a tombstone pointing there (D173), and
+// returns the title that stays.
 func joinExisting(
 	ctx context.Context, queries *sqlcgen.Queries, provider, id string, title sqlcgen.GetTitleForMatchRow, now int64,
 ) (int64, error) {
@@ -280,8 +296,15 @@ func joinExisting(
 		return 0, fmt.Errorf("look up %s %s: %w", provider, id, err)
 	}
 	for _, row := range rows {
-		if row.ID == title.ID || row.LibraryID == nil || title.LibraryID == nil || *row.LibraryID != *title.LibraryID {
+		isJoinable, isDeletedLibrarys := joinableTitle(row, title)
+		if !isJoinable {
 			continue
+		}
+		if isDeletedLibrarys {
+			back := sqlcgen.MoveItemToLibraryParams{LibraryID: title.LibraryID, ID: row.ID}
+			if moveErr := queries.MoveItemToLibrary(ctx, back); moveErr != nil {
+				return 0, fmt.Errorf("bring title %d back: %w", row.ID, moveErr)
+			}
 		}
 		move := sqlcgen.MoveVersionsBetweenTitlesParams{ToTitle: row.ID, FromTitle: title.ID}
 		err = queries.MoveVersionsBetweenTitles(ctx, move)

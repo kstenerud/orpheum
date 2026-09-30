@@ -160,7 +160,9 @@ func openAndWire(
 	}
 	dependencies.Chooser = opened.jobServices.chooser
 	dependencies.Refresher = opened.jobServices.refresher
-	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
+	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes, library.Retirement{
+		Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
+	})
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Artwork = opened.jobServices.artwork
 	dependencies.Playback = playback.NewService(playback.Parts{

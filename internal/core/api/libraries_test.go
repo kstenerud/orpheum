@@ -18,7 +18,9 @@ import (
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/host"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -43,9 +45,24 @@ type fakeNodes struct {
 	isAway atomic.Bool
 	// awayNodeID is another node than 1, enrolled and away while node 1 is connected; 0 for none.
 	awayNodeID int64
+	// database is where a retired node is removed, at clock's time.
+	database *store.Database
+	clock    clock.Clock
 	// takeSubtitleText is where the node's answers to a fetch's conversion go, which it answers at
 	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
 	takeSubtitleText func(nodeID int64, answer nodeproto.SubtitleText)
+}
+
+// RemoveNode removes a node an admin retired, as the node service does; node 1 is away from then
+// on.
+func (nodes *fakeNodes) RemoveNode(ctx context.Context, nodeID int64) error {
+	if nodeID == 1 {
+		nodes.isAway.Store(true)
+	}
+	if err := corenodes.Remove(ctx, nodes.database, nodes.clock, nodeID); err != nil {
+		return fmt.Errorf("remove node %d: %w", nodeID, err)
+	}
+	return nil
 }
 
 // unreadableText is a fetched subtitle the fake node cannot convert.

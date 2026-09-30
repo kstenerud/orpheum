@@ -114,11 +114,11 @@ func (batch *ingestBatch) missingMounts(ctx context.Context, scan *scanState) (m
 }
 
 // recordMounts keeps a complete scan's mount boundaries as the known-good ones, and marks those
-// it did not find as missing, keeping the device they were on.
+// it did not find as missing since the first scan that did not, keeping the device they were on.
 func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, missing map[string]bool) error {
 	for mountPath := range missing {
 		err := batch.queries.RecordRootMountMissing(ctx, sqlcgen.RecordRootMountMissingParams{
-			NodeID: batch.nodeID, MountPath: mountPath,
+			NodeID: batch.nodeID, MountPath: mountPath, MissingSince: &batch.nowMs,
 		})
 		if err != nil {
 			return fmt.Errorf("record %s as missing: %w", mountPath, err)

@@ -103,6 +103,7 @@ SELECT library_root.library_id
 FROM library_root
 JOIN library ON library.id = library_root.library_id
 WHERE library_root.node_id = ? AND library_root.root_path = ? AND library.removed_at IS NULL
+  AND library_root.retired_at IS NULL
 ORDER BY library_root.library_id
 LIMIT 1
 `
@@ -433,7 +434,7 @@ func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) (
 const listLibraryRootsOnNode = `-- name: ListLibraryRootsOnNode :many
 SELECT root_path
 FROM library_root
-WHERE library_id = ? AND node_id = ?
+WHERE library_id = ? AND node_id = ? AND retired_at IS NULL
 ORDER BY length(root_path) DESC, root_path
 `
 

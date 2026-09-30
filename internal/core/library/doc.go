@@ -88,6 +88,20 @@
 //     scan (D208). TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly,
 //     TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved.
 //
+//   - A root, a node and a library each have a retire action, a library's being its delete, and
+//     offline never ends without one or a scan that finds it (D41, D231 §7). A retire tombstones
+//     the live files it covers, keeping their history, is scanned no more, and cancels, through
+//     the job queue, the work of those files, of their streams and fetched subtitles, of titles
+//     left with no live file, and of the destinations it forgets: the roots, the disks mounted
+//     inside them, and a node's own. A deleted library's films, series and episodes are
+//     tombstoned with no merged_into, hidden with their history. A retired node is forgotten, so
+//     its name enrols a new node. TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItNoMore,
+//     TestRetireNode_RetiresItsRootsCancelsItsWorkAndForgetsIt,
+//     TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork.
+//
+//   - A root, or a disk mounted inside one, is offline since the first scan in a row that found
+//     it missing, until one finds it. TestOffline_IsSinceTheFirstScanThatFoundARootOrDiskMissingUntilOneFindsIt.
+//
 //   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
 //     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
 //     TestBrowse_FilmsNewestFirst. A title's extras, too, are only those with a live file.

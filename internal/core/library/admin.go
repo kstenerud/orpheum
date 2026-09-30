@@ -32,23 +32,25 @@ var (
 )
 
 // Nodes is what the admin service asks of the node channel: the roots a connected node named, by
-// name (D207), and a command queued to it.
+// name (D207), a command queued to it, and removing a node an admin retired.
 type Nodes interface {
 	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
 	Enqueue(nodeID int64, command nodeproto.Command)
+	RemoveNode(ctx context.Context, nodeID int64) error
 }
 
 // Admin is what an admin does with libraries: create one, list them, ask for a scan, and see
-// what the scanner saw (D163, D184).
+// what the scanner saw (D163, D184), and retire a root, a node or a library (D231 §7).
 type Admin struct {
-	database *store.Database
-	clock    clock.Clock
-	nodes    Nodes
+	database   *store.Database
+	clock      clock.Clock
+	nodes      Nodes
+	retirement Retirement
 }
 
-// NewAdmin returns the admin service.
-func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes) *Admin {
-	return &Admin{database: database, clock: clockSource, nodes: nodes}
+// NewAdmin returns the admin service; retirement is what a retire asks of other packages.
+func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes, retirement Retirement) *Admin {
+	return &Admin{database: database, clock: clockSource, nodes: nodes, retirement: retirement}
 }
 
 // NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what
