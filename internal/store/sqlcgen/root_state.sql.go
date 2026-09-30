@@ -110,6 +110,44 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 	return i, err
 }
 
+const listMissingMountsOfNode = `-- name: ListMissingMountsOfNode :many
+SELECT root_mount.mount_path, root_state.last_scan_at
+FROM root_mount
+LEFT JOIN root_state ON root_state.node_id = root_mount.node_id AND root_state.root_path = root_mount.root_path
+WHERE root_mount.node_id = ?1 AND root_mount.is_present = 0
+ORDER BY root_mount.mount_path
+`
+
+type ListMissingMountsOfNodeRow struct {
+	MountPath  string
+	LastScanAt *int64
+}
+
+// The disks mounted inside a node's roots that the last complete scan did not find, with when
+// their root was last scanned (D208, D231 section 5).
+func (q *Queries) ListMissingMountsOfNode(ctx context.Context, nodeID int64) ([]ListMissingMountsOfNodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMissingMountsOfNode, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMissingMountsOfNodeRow{}
+	for rows.Next() {
+		var i ListMissingMountsOfNodeRow
+		if err := rows.Scan(&i.MountPath, &i.LastScanAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRootMounts = `-- name: ListRootMounts :many
 SELECT mount_path, filesystem_device, is_present
 FROM root_mount
@@ -138,6 +176,43 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 	for rows.Next() {
 		var i ListRootMountsRow
 		if err := rows.Scan(&i.MountPath, &i.FilesystemDevice, &i.IsPresent); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnavailableRootsOfNode = `-- name: ListUnavailableRootsOfNode :many
+SELECT root_path, last_scan_at
+FROM root_state
+WHERE node_id = ?1 AND last_scan_outcome <> 'complete'
+ORDER BY root_path
+`
+
+type ListUnavailableRootsOfNodeRow struct {
+	RootPath   string
+	LastScanAt int64
+}
+
+// A node's roots whose last scan could not read them, or withheld its removals as a lost disk:
+// their files are not there to read (D208, D231 section 5).
+func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) ([]ListUnavailableRootsOfNodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnavailableRootsOfNode, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnavailableRootsOfNodeRow{}
+	for rows.Next() {
+		var i ListUnavailableRootsOfNodeRow
+		if err := rows.Scan(&i.RootPath, &i.LastScanAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

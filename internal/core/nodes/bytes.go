@@ -36,7 +36,7 @@ func NewByteSocketClient(service *Service, socketPath string) *ByteSocketClient 
 func (socketClient *ByteSocketClient) Do(ctx context.Context, nodeID int64, method, target string, header http.Header) (
 	*http.Response, error,
 ) {
-	if !socketClient.service.IsConnected(nodeID) {
+	if !socketClient.service.IsConnected(ctx, nodeID) {
 		return nil, ErrNodeSilent
 	}
 	request, err := http.NewRequestWithContext(ctx, method, "http://node"+target, http.NoBody)

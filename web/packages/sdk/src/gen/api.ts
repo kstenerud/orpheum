@@ -1574,7 +1574,7 @@ export interface components {
             previousDeviceId?: number;
         };
         NodeBody: {
-            /** @description Whether it has said hello since the server started */
+            /** @description Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds */
             isConnected: boolean;
             name: string;
             /** @description Its configured roots; empty while it is not connected */
@@ -1986,6 +1986,8 @@ export interface components {
         SystemNodeBody: {
             build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
+            /** @enum {string} */
+            connection: "connected" | "silent" | "awaiting_hello";
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegSha256?: string;
             ffmpegVersion?: string;
@@ -1993,7 +1995,7 @@ export interface components {
             gid: number;
             hardware?: components["schemas"]["HardwareBody"];
             host?: components["schemas"]["HostBody"];
-            /** @description Whether it has said hello since the server started */
+            /** @description Whether its connection is connected */
             isConnected: boolean;
             isServersBuild: boolean;
             /** Format: int64 */

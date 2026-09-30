@@ -52,9 +52,20 @@ type fakeNode struct {
 // fakeNodeID is the fake's one node: the first a test's database enrols.
 const fakeNodeID = 1
 
-func (node *fakeNode) LastHeardNodeID() (int64, bool) { return fakeNodeID, node.isConnected }
+func (node *fakeNode) ConnectedNodeID(context.Context) (int64, bool) {
+	return fakeNodeID, node.isConnected
+}
 
-func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == fakeNodeID && node.isConnected }
+// Send parks the job on a node that is not connected, as nodes.Service does.
+func (node *fakeNode) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
+	if nodeID != fakeNodeID || !node.isConnected {
+		return jobs.ParkOnNode(nodeID, time.Time{}, errors.New("not connected"))
+	}
+	node.Enqueue(nodeID, command)
+	return nil
+}
+
+func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()

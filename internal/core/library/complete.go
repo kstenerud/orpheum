@@ -82,6 +82,7 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
 	}
+	batch.foundPaths = append(batch.foundPaths, scan.root)
 	return nil
 }
 
@@ -134,6 +135,7 @@ func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, mis
 		if err != nil {
 			return fmt.Errorf("record the mount %s: %w", mountPath, err)
 		}
+		batch.foundPaths = append(batch.foundPaths, mountPath)
 	}
 	return nil
 }

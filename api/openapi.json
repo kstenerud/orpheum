@@ -1879,7 +1879,7 @@
         "additionalProperties": false,
         "properties": {
           "isConnected": {
-            "description": "Whether it has said hello since the server started",
+            "description": "Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds",
             "type": "boolean"
           },
           "name": {
@@ -3247,6 +3247,14 @@
               "null"
             ]
           },
+          "connection": {
+            "enum": [
+              "connected",
+              "silent",
+              "awaiting_hello"
+            ],
+            "type": "string"
+          },
           "disks": {
             "items": {
               "$ref": "#/components/schemas/DiskBody"
@@ -3273,7 +3281,7 @@
             "$ref": "#/components/schemas/HostBody"
           },
           "isConnected": {
-            "description": "Whether it has said hello since the server started",
+            "description": "Whether its connection is connected",
             "type": "boolean"
           },
           "isServersBuild": {
@@ -3306,6 +3314,7 @@
         },
         "required": [
           "name",
+          "connection",
           "isConnected",
           "isServersBuild",
           "uid",

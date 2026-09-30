@@ -18,6 +18,7 @@ afterEach(() => {
 
 const connected: SystemNode = {
   name: "local",
+  connection: "connected",
   isConnected: true,
   build: {
     name: "v0.3.0",
@@ -153,4 +154,34 @@ it("the System page shows each machine's build and system, and warns when it is 
   });
   expect(other).toContain("This machine runs a different Orpheum build from the server's.");
   expect(other).toContain("(built with uncommitted changes)");
+});
+
+it("the System page says a machine that stopped answering is silent, and when it was last heard (D231 §11)", async () => {
+  const silent = await shown({
+    name: "local",
+    connection: "silent",
+    isConnected: false,
+    isServersBuild: false,
+    uid: 0,
+    gid: 0,
+    lastHeardAt: 1_790_000_000_000,
+    confinement: [],
+    disks: [],
+    recentPrepares: [],
+  });
+  expect(silent).toContain("Not answering. Last heard from at");
+  expect(silent).not.toContain("FFmpeg runs");
+  mounted?.unmount();
+  const awaiting = await shown({
+    name: "attic",
+    connection: "awaiting_hello",
+    isConnected: false,
+    isServersBuild: false,
+    uid: 0,
+    gid: 0,
+    confinement: [],
+    disks: [],
+    recentPrepares: [],
+  });
+  expect(awaiting).toContain("Not heard from since the server started.");
 });

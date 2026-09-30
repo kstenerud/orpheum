@@ -139,8 +139,9 @@ func TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails(t *t
 	source := preparableFilm(t, root)
 	core.sendPrepare(1, source, "3/remux/full")
 	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
-		!strings.Contains(refused.Refusal, "past its limit") || refused.Failure != "" {
-		t.Errorf("a prepare the disk has no room for ended %+v, want refused, not failed", refused)
+		refused.RefusalCode != nodeproto.RefusedNoRoom || !strings.Contains(refused.Refusal, "past its limit") ||
+		refused.Failure != "" {
+		t.Errorf("a prepare the disk has no room for ended %+v, want refused for want of room, not failed", refused)
 	}
 	core.sendPrepare(2, source, "3/remux/broken")
 	if failed := finalPrepareReport(t, core); failed.State != nodeproto.PrepareFailed ||

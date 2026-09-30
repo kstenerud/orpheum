@@ -68,6 +68,15 @@
 //     waiting. Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete,
 //     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried and
 //     TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting.
+//   - A prepare, an extraction or a measurement for a node that is not connected, or that went
+//     away while its job waited, parks the job on the node at no cost of an attempt (D231 §11); a
+//     prepare the node refuses for want of room parks on its prepared directory until its status
+//     shows room; and one for a file under a root or mounted disk the last scan found missing
+//     parks on that root until a scan finds it, while the loudness sweep passes such files over
+//     (D231 §5). Enforced by TestPrepare_APrepareForANodeThatIsNotConnectedParksOnItAndSendsNothing,
+//     TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRoom and
+//     TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot
+//     (internal/core/api).
 //   - A node's word that FFmpeg stalled on a prepare, an extraction or a measurement costs its job
 //     no attempt, and two in a row are the target's failure. Enforced by
 //     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure,

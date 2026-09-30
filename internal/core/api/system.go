@@ -25,6 +25,8 @@ const recentPrepareCount = 10
 // NodeReports is what each connected node said about itself: nodes.Service.
 type NodeReports interface {
 	Facts(name string) (nodes.Facts, bool)
+	// NodeConnection is whether a node is connected and when it was last heard (D231 §11).
+	NodeConnection(ctx context.Context, nodeID int64) (nodes.Connection, time.Time)
 }
 
 // Sized is a database that can say how large it is: store.Database, store.Cache.
@@ -117,11 +119,15 @@ type DatabaseBody struct {
 	SizeBytes int64  `json:"sizeBytes"`
 }
 
-// SystemNodeBody is one node's facts, as it last said them; only its name and whether it is
-// connected while it is not.
+// SystemNodeBody is one node's facts, as it last said them since the server started, and whether
+// it is connected now (D231 §11); only its name and connection before it has said hello.
 type SystemNodeBody struct {
-	Name        string `json:"name"`
-	IsConnected bool   `doc:"Whether it has said hello since the server started" json:"isConnected"`
+	Name string `json:"name"`
+	// Connection is connected (polling for its commands, or heard within
+	// node_silent_after_seconds), silent (heard since the server started, not lately) or
+	// awaiting_hello (not heard since the server started).
+	Connection  string `enum:"connected,silent,awaiting_hello" json:"connection"`
+	IsConnected bool   `doc:"Whether its connection is connected" json:"isConnected"`
 	// LastHeardAt is when it last spoke since the server started, in Unix milliseconds.
 	LastHeardAt *int64 `json:"lastHeardAt,omitempty"`
 	// Build is what its binary was built from; IsServersBuild whether that is the server's own.
@@ -232,6 +238,11 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 			Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
 			RecentPrepares: []FinishedPrepareBody{},
 		}
+		connection, lastHeard := dependencies.NodeReports.NodeConnection(ctx, node.ID)
+		body.Connection, body.IsConnected = string(connection), connection == nodes.Connected
+		if !lastHeard.IsZero() {
+			body.LastHeardAt = new(lastHeard.UnixMilli())
+		}
 		if facts, found := dependencies.NodeReports.Facts(node.Name); found {
 			body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
 			if err != nil {
@@ -278,9 +289,7 @@ func measureDisk(path string) DiskBody {
 // fillNodeFacts fills in what a connected node last said about itself.
 func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Provenance) {
 	hello := facts.Hello
-	heard := facts.LastHeard.UnixMilli()
 	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
-	body.IsConnected, body.LastHeardAt = true, &heard
 	body.Build, body.IsServersBuild, body.Host = &nodeBuild, hello.Build.IsSame(serverBuild), &nodeHost
 	body.FFmpegVersion, body.FFmpegSha256 = hello.FFmpegVersion, hello.FFmpegSha256
 	body.UID, body.GID = hello.UID, hello.GID

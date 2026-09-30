@@ -44,11 +44,13 @@ type Rechecker interface {
 	Recheck(ctx context.Context, itemID int64, at time.Time) error
 }
 
-// Nodes is the node channel: the node to send work to, and its command queue.
+// Nodes is the node channel (nodes.Service): the node to send work to, and its command queue,
+// which parks a job on a node that is not connected (D231 §11).
 type Nodes interface {
-	LastHeardNodeID() (int64, bool)
-	IsConnected(nodeID int64) bool
+	ConnectedNodeID(ctx context.Context) (int64, bool)
+	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
 	Enqueue(nodeID int64, command nodeproto.Command)
+	Unanswered(ctx context.Context, nodeID int64, err error) error
 }
 
 // ArtFiles keeps the images' sizes: datadir.Directories.
@@ -197,7 +199,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 		}
 		if err == nil {
 			command.SourceImage, sourceSha256Hex = download.bytes, download.sourceSha256Hex()
-			nodeID, err = service.anyNode()
+			nodeID, err = service.anyNode(ctx)
 		}
 	}
 	if err != nil {
@@ -211,7 +213,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 }
 
 // localFile is the node that holds an image beside the media and its path there. A file gone
-// since it was owed is ErrNoImage; its node not connected, a wait that costs no attempt.
+// since it was owed is ErrNoImage; one under a root or mount the last scan found missing parks.
 func (service *Service) localFile(ctx context.Context, ref string) (int64, *nodeproto.Path, error) {
 	fileID, parsed := localRefFileID(ref)
 	if !parsed {
@@ -224,16 +226,24 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 	if err != nil {
 		return 0, nil, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	if !service.parts.Nodes.IsConnected(file.NodeID) {
-		return 0, nil, jobs.ParkOnNode(file.NodeID, time.Time{}, errors.New("it holds the image"))
+	missing, isMissing, err := library.UnavailableUnder(ctx, service.parts.Database.Read(), file.NodeID,
+		file.ReportedPathRaw)
+	if err != nil {
+		return 0, nil, err
+	}
+	if isMissing {
+		// Its disk is away: not the image's refusal, which would be kept for good (G9), but a wait
+		// for a scan that finds it (D231 §5).
+		return 0, nil, jobs.ParkOnMissingRoot(file.NodeID, missing.Path, missing.Since,
+			fmt.Errorf("file %d is under it", fileID))
 	}
 	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.ReportedPathRaw}, nil
 }
 
 // anyNode is a connected node to re-encode a download; with none, the job parks until any node
 // says hello.
-func (service *Service) anyNode() (int64, error) {
-	nodeID, connected := service.parts.Nodes.LastHeardNodeID()
+func (service *Service) anyNode(ctx context.Context) (int64, error) {
+	nodeID, connected := service.parts.Nodes.ConnectedNodeID(ctx)
 	if !connected {
 		return 0, jobs.Park(jobs.Parking{
 			Destination: jobs.DestinationAnyNode, Reason: "no node is connected", AwaitsSignal: true,
@@ -268,16 +278,19 @@ func (service *Service) reEncode(
 	answers := service.answers.Await(command.JobID)
 	defer service.answers.Forget(command.JobID)
 	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
-	service.parts.Nodes.Enqueue(nodeID,
+	err = service.parts.Nodes.Send(ctx, nodeID,
 		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command})
+	if err != nil {
+		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
+	}
 	timer := time.NewTimer(service.parts.AnswerWait)
 	defer timer.Stop()
 	select {
 	case result := <-answers:
 		return result, nil
 	case <-timer.C:
-		return nodeproto.ArtworkResult{}, fmt.Errorf("node %d did not answer within %s", nodeID,
-			service.parts.AnswerWait)
+		return nodeproto.ArtworkResult{}, service.parts.Nodes.Unanswered(ctx, nodeID,
+			fmt.Errorf("node %d did not answer within %s", nodeID, service.parts.AnswerWait))
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			service.parts.Nodes.Enqueue(nodeID, nodes.CancelCommand(command.JobID))

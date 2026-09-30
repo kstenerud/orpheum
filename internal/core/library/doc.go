@@ -59,6 +59,12 @@
 //     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //
+//   - A file under a root the last scan could not read or withheld, or under a disk missing from a
+//     mount point inside one, is not there to read: UnavailableUnder names that root or disk, and
+//     work that reads the file parks on it; a complete scan says which root and disks it found, so
+//     that work resumes (D231 §5, §6).
+//     TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo.
+//
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
 //
@@ -116,7 +122,8 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
-//     path's text; vocabulary.go: the filings, title kinds and image kinds identification shares;
-//     filing.go: FileAs and PutInVersion, through which identification records how a file is
-//     filed and which version holds it (this package writes the file table, schema.md).
+//     path's text; unavailable.go: the missing root or disk a file is under; vocabulary.go: the
+//     filings, title kinds and image kinds identification shares; filing.go: FileAs and
+//     PutInVersion, through which identification records how a file is filed and which version
+//     holds it (this package writes the file table, schema.md).
 package library

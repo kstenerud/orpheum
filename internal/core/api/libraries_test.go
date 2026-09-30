@@ -3,7 +3,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -46,9 +49,34 @@ type fakeNodes struct {
 // unreadableText is a fetched subtitle the fake node cannot convert.
 const unreadableText = "not a subtitle"
 
-func (nodes *fakeNodes) IsConnected(int64) bool { return !nodes.isAway.Load() }
+func (nodes *fakeNodes) IsConnected(context.Context, int64) bool { return !nodes.isAway.Load() }
 
-func (nodes *fakeNodes) ConnectedNodeRoots(name string) (int64, []string, bool) {
+// NodeConnection is node 1's: connected unless it is away, last heard when its facts say.
+func (nodes *fakeNodes) NodeConnection(_ context.Context, nodeID int64) (corenodes.Connection, time.Time) {
+	if nodeID != 1 || nodes.roots == nil {
+		return corenodes.AwaitingHello, time.Time{}
+	}
+	if nodes.isAway.Load() {
+		return corenodes.Silent, fakeNodeLastHeard
+	}
+	return corenodes.Connected, fakeNodeLastHeard
+}
+
+// fakeNodeLastHeard is when the fake node last spoke.
+var fakeNodeLastHeard = time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC)
+
+// Send parks the job on the node while it is away, as nodes.Service does.
+func (nodes *fakeNodes) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
+	if !nodes.IsConnected(ctx, nodeID) {
+		return fmt.Errorf("send: %w", jobs.ParkOnNode(nodeID, fakeNodeLastHeard, corenodes.ErrNodeSilent))
+	}
+	nodes.Enqueue(nodeID, command)
+	return nil
+}
+
+func (*fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
+
+func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
 	if name != "local" || nodes.roots == nil {
 		return 0, nil, false
 	}
@@ -61,7 +89,7 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		return corenodes.Facts{}, false
 	}
 	facts := corenodes.Facts{
-		NodeID: 1, LastHeard: time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
+		NodeID: 1, LastHeard: fakeNodeLastHeard,
 		Hello: nodeproto.Hello{
 			Name: "local", Build: nodes.build, FFmpegVersion: "ffmpeg version 7.1",
 			Host: host.System{

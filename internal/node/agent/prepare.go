@@ -155,7 +155,9 @@ func (agent *Agent) runPrepare(
 	}
 	made, err := agent.workers.Preparer.Prepare(ctx, sourcePath, command, onProgress)
 	if errors.Is(err, prepared.ErrNoRoom) {
-		return refused(err)
+		noRoom := refused(err)
+		noRoom.RefusalCode = nodeproto.RefusedNoRoom
+		return noRoom
 	}
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareStalled, Stall: stall}

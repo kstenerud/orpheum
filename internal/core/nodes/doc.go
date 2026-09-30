@@ -30,18 +30,32 @@
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
 //   - A node's last hello and last status are kept whole, for the System page (D225): its
 //     hardware, disks and prepared directory. TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks.
+//   - A node is connected while a long-poll for its commands is open or it was heard within
+//     node_silent_after_seconds, silent after, and awaiting its hello until it says one since the
+//     core started (D231 §11). TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
+//   - Work is sent with Send, which parks its job on a node that is not connected and sends
+//     nothing; a wait for an answer that runs out parks the job when the node went away, and is
+//     the job's own failure when it did not. TestSend_ACommandToANodeNotConnectedParksItsJobAndSendsNothing,
+//     TestUnanswered_ParksOnANodeThatWentAwayAndIsTheJobsOwnFailureOtherwise.
+//   - A node's hello brings back the work parked on it and on any node; its status showing room
+//     brings back the prepares parked on its prepared directory (D231 §5, §6).
+//     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode,
+//     TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory.
 //
 // # Read before changing
 //
 //   - D43, D44: the thin supervisor, and never exit when you could report.
 //   - D107: the socket's permissions are the authentication in Cut A.
 //   - D34, D37: liveness is judged from what the core observes.
+//   - D231 §5, §6, §11: a node not connected is a destination that parks its work, and its hello
+//     brings the work back.
 //   - docs/contributors/design/plans/cut-a.md §2 and §4; scanner.md, The core reads the report
 //     while it is still being written.
 //
 // # Where to change
 //
-//   - service.go: hello and enrolment, and each connected node's roots as its hello named them;
+//   - service.go: hello and enrolment, each node's connection, sending it work, and each
+//     connected node's roots as its hello named them;
 //     channel.go: commands, the report and artwork answers; supervisor.go: the child; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); answers.go: jobs waiting for a
 //     node's answer, and the cancel they send it.

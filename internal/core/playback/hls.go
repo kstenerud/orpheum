@@ -164,6 +164,9 @@ func (service *Service) prepareOrderFor(
 	if err != nil {
 		return prepareOrder{}, err
 	}
+	if parked := service.parkIfUnavailable(ctx, locatedOf(file)); parked != nil {
+		return prepareOrder{}, parked
+	}
 	source, err := service.bytesFileOf(ctx, locatedOf(file))
 	if err != nil {
 		return prepareOrder{}, err

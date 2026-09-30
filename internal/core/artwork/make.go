@@ -29,7 +29,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 	if base, found := service.baseNameFor(args.SourceSha256, args.SizeNames); found {
 		stored, err := service.parts.ArtFiles.ReadArt(args.SourceSha256, base)
 		if err == nil {
-			nodeID, nodeErr := service.anyNode()
+			nodeID, nodeErr := service.anyNode(ctx)
 			if nodeErr != nil {
 				return nodeErr
 			}
@@ -57,7 +57,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 	if err != nil {
 		return err
 	}
-	nodeID, err := service.anyNode()
+	nodeID, err := service.anyNode(ctx)
 	if err != nil {
 		return err
 	}

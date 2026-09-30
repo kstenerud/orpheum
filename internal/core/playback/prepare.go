@@ -182,6 +182,11 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	command, nodeID := order.command, order.nodeID
 	answers := all.reportAnswers.Await(job.ID)
 	defer all.reportAnswers.Forget(job.ID)
+	command.JobID = job.ID
+	err := all.nodes.Send(ctx, nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
+	if err != nil {
+		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+	}
 	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
@@ -189,8 +194,6 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
 		return err
 	}
-	command.JobID = job.ID
-	all.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
 	timer := time.NewTimer(all.maxSilence)
 	defer timer.Stop()
 	var waitingSince time.Time
@@ -203,8 +206,8 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 			}
 			timer.Reset(all.maxSilence)
 		case <-timer.C:
-			return fmt.Errorf("node %d said nothing about prepare %s for %s",
-				nodeID, command.RenditionDir, all.maxSilence)
+			return all.nodes.Unanswered(ctx, nodeID, fmt.Errorf("node %d said nothing about prepare %s for %s",
+				nodeID, command.RenditionDir, all.maxSilence))
 		case <-ctx.Done():
 			if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 				return all.abandon(ctx, job, nodeID)
@@ -245,9 +248,18 @@ func (all *prepares) takeReport(
 		return true, stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
 			func(failure string) error { return all.finish(ctx, job.RenditionID, nil, failure) })
 	case nodeproto.PrepareRefused:
-		// A refusal says nothing of the source's bytes (a full disk, a file changed since the
-		// scan): the job is tried again, as when the node says nothing.
-		return true, fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
+		refused := fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
+		if report.RefusalCode == nodeproto.RefusedNoRoom {
+			// Its prepared directory's disk is full: the node's prepares wait until its status
+			// shows room (D231 §5).
+			return true, jobs.Park(jobs.Parking{
+				Destination: jobs.PreparedDirectoryDestination(nodeID), Reason: "its disk has no room",
+				AwaitsSignal: true,
+			}, refused)
+		}
+		// Any other refusal says nothing of the source's bytes (a file changed since the scan):
+		// the job is tried again, as when the node says nothing.
+		return true, refused
 	}
 	return false, nil
 }

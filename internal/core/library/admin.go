@@ -34,7 +34,7 @@ var (
 // Nodes is what the admin service asks of the node channel: the roots a connected node named, by
 // name (D207), and a command queued to it.
 type Nodes interface {
-	ConnectedNodeRoots(name string) (int64, []string, bool)
+	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
 	Enqueue(nodeID int64, command nodeproto.Command)
 }
 
@@ -54,6 +54,7 @@ func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes) *A
 // NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what
 // a new library's roots are chosen from (D107; audit-2026-09-25, proposal 5).
 type NodeRoots struct {
+	ID          int64
 	Name        string
 	IsConnected bool
 	Roots       []string
@@ -67,11 +68,11 @@ func (admin *Admin) NodeRoots(ctx context.Context) ([]NodeRoots, error) {
 	}
 	listed := make([]NodeRoots, 0, len(enrolled))
 	for _, node := range enrolled {
-		_, roots, connected := admin.nodes.ConnectedNodeRoots(node.Name)
+		_, roots, connected := admin.nodes.ConnectedNodeRoots(ctx, node.Name)
 		if roots == nil {
 			roots = []string{}
 		}
-		listed = append(listed, NodeRoots{Name: node.Name, IsConnected: connected, Roots: roots})
+		listed = append(listed, NodeRoots{ID: node.ID, Name: node.Name, IsConnected: connected, Roots: roots})
 	}
 	return listed, nil
 }
@@ -85,7 +86,7 @@ type CreateRequest struct {
 
 // Create adds a library over roots the node configured, then asks the node to scan them.
 func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, error) {
-	nodeID, roots, connected := admin.nodes.ConnectedNodeRoots(request.NodeName)
+	nodeID, roots, connected := admin.nodes.ConnectedNodeRoots(ctx, request.NodeName)
 	if !connected {
 		return 0, fmt.Errorf("node %q: %w", request.NodeName, ErrNodeNotConnected)
 	}
@@ -184,7 +185,7 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	}
 	asked := 0
 	for _, root := range roots {
-		if admin.rescan(root) {
+		if admin.rescan(ctx, root) {
 			asked++
 		}
 	}
@@ -244,7 +245,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeNa
 	if err != nil {
 		return false, fmt.Errorf("approve %s's removals: %w", path, err)
 	}
-	return admin.rescan(root), nil
+	return admin.rescan(ctx, root), nil
 }
 
 // ForgetMount is the admin saying a disk missing from a mount point inside a root is gone for
@@ -282,7 +283,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 	if err != nil {
 		return false, fmt.Errorf("forget %s: %w", mountPath, err)
 	}
-	return admin.rescan(root), nil
+	return admin.rescan(ctx, root), nil
 }
 
 // libraryRoots are a live library's roots with their states.
@@ -331,8 +332,8 @@ func (admin *Admin) libraryNodeIDByName(ctx context.Context, libraryID int64, no
 }
 
 // rescan asks a root's node to scan it, if the node is connected, and reports whether it did.
-func (admin *Admin) rescan(root sqlcgen.ListLibraryRootStatesRow) bool {
-	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(root.NodeName)
+func (admin *Admin) rescan(ctx context.Context, root sqlcgen.ListLibraryRootStatesRow) bool {
+	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 	if !connected || nodeID != root.NodeID {
 		return false
 	}

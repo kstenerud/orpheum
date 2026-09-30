@@ -61,7 +61,14 @@ type fakeNodes struct{ sent chan nodeproto.Command }
 
 func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
-func (fakeNodes) IsConnected(int64) bool { return true }
+func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
+	node.Enqueue(nodeID, command)
+	return nil
+}
+
+func (fakeNodes) IsConnected(context.Context, int64) bool { return true }
+
+func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
 	t.Parallel()

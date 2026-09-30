@@ -183,7 +183,7 @@ func (service *Service) FetchSubtitle(
 	if err != nil {
 		return Fetched{}, err
 	}
-	if !service.nodes.IsConnected(file.NodeID) {
+	if !service.nodes.IsConnected(ctx, file.NodeID) {
 		return Fetched{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", file.NodeID, nodes.ErrNodeSilent)
 	}
 	downloaded, err := service.subtitler.Download(ctx, request.ProviderFileID)
@@ -234,10 +234,13 @@ func (service *Service) convertFetched(
 	conversionID := -service.fetchConversions.Add(1)
 	answers := service.subtitleTextAnswers.Await(conversionID)
 	defer service.subtitleTextAnswers.Forget(conversionID)
-	service.nodes.Enqueue(nodeID, nodeproto.Command{
+	err := service.nodes.Send(ctx, nodeID, nodeproto.Command{
 		Type:            nodeproto.CommandExtractSubtitle,
 		ExtractSubtitle: &nodeproto.ExtractSubtitle{JobID: conversionID, FetchedSubRip: text},
 	})
+	if err != nil {
+		return nodeproto.SubtitleText{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", nodeID, err)
+	}
 	timer := time.NewTimer(service.maxSilence)
 	defer timer.Stop()
 	select {
