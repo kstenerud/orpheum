@@ -63,10 +63,10 @@ type NodeConfig struct {
 	ProbeTimeoutS      int64    `toml:"probe_timeout_s"`
 	StatusIntervalS    int64    `toml:"status_interval_s"`
 	PreparedDir        string   `toml:"prepared_dir"`
-	// PreparedBudgetGiB, PreparedKeptAfterPlayH and PreparedDiskUsedLimitPercent keep the prepared
+	// PreparedBudgetGiB, PreparedKeptAfterPlayHours and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
-	PreparedKeptAfterPlayH       int64 `toml:"prepared_kept_after_play_h"`
+	PreparedKeptAfterPlayHours   int64 `toml:"prepared_kept_after_play_hours"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
 }
 
@@ -150,7 +150,7 @@ func configKeys() []configKey {
 			"GiB the prepared renditions may take; the least recently played go first past it (D217 §5)",
 		},
 		{
-			tableNode, "prepared_kept_after_play_h", "72",
+			tableNode, "prepared_kept_after_play_hours", "72",
 			"hours after its last play a prepared rendition is kept before any past it is evicted (D217 §5)",
 		},
 		{
@@ -284,7 +284,7 @@ func (config *Config) check() error {
 		"node.probe_timeout_s":                    config.Node.ProbeTimeoutS,
 		"node.status_interval_s":                  config.Node.StatusIntervalS,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
-		"node.prepared_kept_after_play_h":         config.Node.PreparedKeptAfterPlayH,
+		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
 	} {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))

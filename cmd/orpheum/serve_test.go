@@ -122,7 +122,7 @@ probe_timeout_s = 60
 status_interval_s = 10
 prepared_dir = %q
 prepared_budget_gib = 1
-prepared_kept_after_play_h = 72
+prepared_kept_after_play_hours = 72
 prepared_disk_used_limit_percent = 95
 
 [log]
