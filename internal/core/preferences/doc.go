@@ -26,9 +26,11 @@
 //     TestSubtitleChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes and
 //     TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes (internal/core/api).
 //   - A choice is a language, not a track: a file plays its track of that language of the same kind,
-//     then of the same title; off follows as off; a file with no track in the language plays
-//     without subtitles, or its main sound, and that fallback is not kept as a choice (D230 §3,
-//     D24). Enforced by TestMatchingTrack_PrefersTheSameKindThenTheSameTitle and
+//     then of the same title; the language is matched exactly first, then by its primary subtag
+//     (en-GB finds en, and en finds en-GB); off follows as off; a file with no track in the
+//     language plays without subtitles, or its main sound, and that fallback is not kept as a
+//     choice (D230 §3, D24). Enforced by TestMatchingTrack_PrefersTheSameKindThenTheSameTitle,
+//     TestWorkTrack_MatchesTheLanguageExactlyFirstThenByItsPrimarySubtag and
 //     TestSubtitleChoice_AnUnwatchedEpisodeTakesTheSameKindThenTheSameTitle (internal/core/api).
 //   - What a started file used is kept by the track and what it is, so a rescan's new stream ids
 //     find it again, and one whose track went follows the work again. Enforced by

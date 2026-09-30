@@ -33,7 +33,32 @@ func TestMatchingTrack_PrefersTheSameKindThenTheSameTitle(t *testing.T) {
 		{"the same title when no track is of the kind", Description{"en", KindCommentary, "Full"}, 2},
 		{"no track in the language", Description{"de", KindPlain, ""}, 0},
 	} {
-		got := matchingTrack(tracks, tc.chosen)
+		got := matchingTrack(tracks, tc.chosen, isSameTag)
+		if (got == nil && tc.want != 0) || (got != nil && got.StreamID != tc.want) {
+			t.Errorf("%s: matched %+v, want stream %d", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestWorkTrack_MatchesTheLanguageExactlyFirstThenByItsPrimarySubtag(t *testing.T) {
+	t.Parallel()
+	track := func(id int64, language string) Track {
+		return Track{TrackRef{StreamID: id}, Description{Language: language, Kind: KindPlain}}
+	}
+	for _, tc := range []struct {
+		name   string
+		tracks []Track
+		chosen string
+		want   int64
+	}{
+		{"en-GB finds an en track", []Track{track(1, "fr"), track(2, "en")}, "en-GB", 2},
+		{"en finds an en-GB track", []Track{track(1, "fr"), track(2, "en-GB")}, "en", 2},
+		{"an exact match first", []Track{track(1, "en"), track(2, "en-GB"), track(3, "en-US")}, "en-GB", 2},
+		{"an exact match first, the other way", []Track{track(1, "en-GB"), track(2, "en")}, "en", 2},
+		{"another region of the language", []Track{track(1, "pt-PT"), track(2, "de")}, "pt-BR", 1},
+		{"no track of the language", []Track{track(1, "fr"), track(2, "de")}, "en-GB", 0},
+	} {
+		got := workTrack(tc.tracks, Description{Language: tc.chosen, Kind: KindPlain})
 		if (got == nil && tc.want != 0) || (got != nil && got.StreamID != tc.want) {
 			t.Errorf("%s: matched %+v, want stream %d", tc.name, got, tc.want)
 		}

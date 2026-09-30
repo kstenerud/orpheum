@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -243,10 +244,31 @@ func startingTrack(tracks []Track, used *Used, language *Language) *TrackRef {
 	if language == nil || language.IsOff {
 		return nil
 	}
-	if track := matchingTrack(tracks, language.Description); track != nil {
+	if track := workTrack(tracks, language.Description); track != nil {
 		return &track.TrackRef
 	}
 	return nil
+}
+
+// workTrack is the track a work's chosen language finds (D230 §3): one of that language exactly,
+// else one of its primary language subtag, so a choice of en-GB finds an en track and a choice of
+// en an en-GB one; nil when neither is there.
+func workTrack(tracks []Track, chosen Description) *Track {
+	if track := matchingTrack(tracks, chosen, isSameTag); track != nil {
+		return track
+	}
+	return matchingTrack(tracks, chosen, isSamePrimaryLanguage)
+}
+
+// isSameTag is whether two BCP 47 tags are the same.
+func isSameTag(a, b string) bool { return a == b }
+
+// isSamePrimaryLanguage is whether two BCP 47 tags share their primary language subtag: en-GB
+// and en, or en-GB and en-US.
+func isSamePrimaryLanguage(a, b string) bool {
+	primaryA, _, _ := strings.Cut(a, "-")
+	primaryB, _, _ := strings.Cut(b, "-")
+	return strings.EqualFold(primaryA, primaryB)
 }
 
 // foundAgain is the track used names among tracks: by its id, or, when a rescan gave it a new one,
@@ -261,7 +283,7 @@ func foundAgain(tracks []Track, used *Used) *Track {
 	if used.Track == nil {
 		return nil
 	}
-	return matchingTrack(tracks, *used.Track)
+	return matchingTrack(tracks, *used.Track, isSameTag)
 }
 
 func trackByRef(tracks []Track, ref TrackRef) *Track {
@@ -273,14 +295,15 @@ func trackByRef(tracks []Track, ref TrackRef) *Track {
 	return nil
 }
 
-// matchingTrack is the track of the language described, preferring the same kind and then the same
-// title (D230 §3), or nil when none is in that language: a fallback is not a choice (D24).
-func matchingTrack(tracks []Track, described Description) *Track {
+// matchingTrack is the track of the language described, as sameLanguage compares tags,
+// preferring the same kind and then the same title (D230 §3), or nil when none is in that
+// language: a fallback is not a choice (D24).
+func matchingTrack(tracks []Track, described Description, sameLanguage func(a, b string) bool) *Track {
 	var best *Track
 	bestRank := -1
 	for index := range tracks {
 		track := &tracks[index]
-		if track.Language != described.Language {
+		if !sameLanguage(track.Language, described.Language) {
 			continue
 		}
 		rank := 0
