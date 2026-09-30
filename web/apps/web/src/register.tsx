@@ -19,7 +19,7 @@ export type RegisterProblem = "noLink" | "mismatch" | "refused";
 export function Register(): JSX.Element {
   const { t } = useTranslation();
   const { api, session, navigation } = useServices();
-  const [secret] = useState(() => secretFromHash(window.location.hash));
+  const [secret] = useState(() => secretFromHash(navigation.fragment()));
   const [password, setPassword] = useState("");
   const [passwordAgain, setPasswordAgain] = useState("");
   const [problem, setProblem] = useState<RegisterProblem | undefined>(
@@ -36,10 +36,11 @@ export function Register(): JSX.Element {
     }
     register(api, { secret, password, device: thisDevice(session) }).then(
       ({ token, user }) => {
-        // The secret is spent; it should not stay in the address or the history.
-        window.history.replaceState(null, "", "/");
+        // The secret rode in the fragment so no request carried it (D218 §1, the one exception
+        // to D154's rule). It is spent now, and Films takes its page's place, so it stays in
+        // neither the address nor the history, and Back leaves the app.
         session.signIn(token, user.device?.id);
-        navigation.go({ screen: "films" });
+        navigation.replace({ screen: "films" });
       },
       (cause: unknown) => {
         setRefusalText(problemText(t, cause, { authRequired: t("register.badLink") }));

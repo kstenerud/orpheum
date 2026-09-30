@@ -15,7 +15,7 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { testOrigin, withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -56,6 +56,7 @@ describe("a device code on the account page", () => {
       "The server is updating. Try again in a minute.",
     );
     expect(mounted.container.textContent).toContain("abcd-efgh");
+    expect(mounted.container.textContent).toContain(`open ${testOrigin}, choose I have a code`);
   });
 
   it("goes once it is used, and the device list is asked for again", async () => {

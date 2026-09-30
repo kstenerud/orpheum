@@ -84,10 +84,11 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
 /** A device code on screen: the code, for which device, and how to use it. */
 export function ShownDeviceCode(props: { readonly code: ShownCode }): JSX.Element {
   const { t } = useTranslation();
+  const { navigation } = useServices();
   return (
     <div className="device-code">
       <h2>{t("account.codeFor", { device: props.code.deviceName })}</h2>
-      <p>{t("account.useCode", { origin: window.location.origin })}</p>
+      <p>{t("account.useCode", { origin: navigation.origin() })}</p>
       <Share kind="code" text={props.code.secret} invitation={props.code} />
     </div>
   );

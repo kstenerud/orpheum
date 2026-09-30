@@ -2,33 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createNavigation, type Place } from "./navigation.ts";
-
-function fakePlace(start: string): Place & { back(to: string): void } {
-  const url = new URL(start, "http://orpheum.test");
-  const location = { pathname: url.pathname, search: url.search };
-  let popstate = (): void => undefined;
-  const move = (to: string): void => {
-    const next = new URL(to, "http://orpheum.test");
-    location.pathname = next.pathname;
-    location.search = next.search;
-  };
-  return {
-    location,
-    history: {
-      pushState: (_data, _unused, to) => {
-        move(to);
-      },
-    },
-    addEventListener: (_type, listener) => {
-      popstate = listener;
-    },
-    back: (to) => {
-      move(to);
-      popstate();
-    },
-  };
-}
+import { createNavigation } from "./navigation.ts";
+import { fakePlace, testOrigin } from "./test-services.tsx";
 
 describe("createNavigation", () => {
   it("reads the address, moves to a route and hears the back button", () => {
@@ -41,5 +16,16 @@ describe("createNavigation", () => {
     expect(place.location.search).toBe("?q=heat");
     place.back("/series");
     expect(heard).toEqual(["search", "series"]);
+  });
+
+  it("reads the origin and fragment, and replaces the current address in the history", () => {
+    const place = fakePlace("/register#abc_DEF-123");
+    const navigation = createNavigation(place);
+    expect(navigation.origin()).toBe(testOrigin);
+    expect(navigation.fragment()).toBe("abc_DEF-123");
+    navigation.replace({ screen: "films" });
+    expect(place.addresses).toEqual(["/films"]);
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(navigation.fragment()).toBe("");
   });
 });
