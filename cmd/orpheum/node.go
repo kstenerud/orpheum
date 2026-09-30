@@ -300,13 +300,6 @@ func describeNode(
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
-	confinementReport := make([]nodeproto.Confinement, 0, len(detected.confinement))
-	for _, state := range detected.confinement {
-		confinementReport = append(confinementReport, nodeproto.Confinement{
-			Mechanism: state.Mechanism, IsInForce: state.IsInForce, CauseCode: state.CauseCode, Reason: state.Reason,
-			Remedy: state.Remedy,
-		})
-	}
 	return nodeproto.Hello{
 		Name:          config.Node.Name,
 		Build:         thisBuild(),
@@ -314,7 +307,7 @@ func describeNode(
 		FFmpegVersion: firstLine,
 		FFmpegSha256:  ffmpegHash,
 		Capabilities:  capabilityNames(detected.encoderChoice.Usable()),
-		Confinement:   confinementReport,
+		Confinement:   confinementReport(detected.confinement),
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
 		Hardware:      hardwareReport(detected),
@@ -352,4 +345,16 @@ func fileSha256(path string) (string, error) {
 		return "", fmt.Errorf("hash %s: %w", path, err)
 	}
 	return hex.EncodeToString(digest.Sum(nil)), nil
+}
+
+// confinementReport is each confinement mechanism's state as a hello reports it (D112).
+func confinementReport(states []confine.State) []nodeproto.Confinement {
+	report := make([]nodeproto.Confinement, 0, len(states))
+	for _, state := range states {
+		report = append(report, nodeproto.Confinement{
+			Mechanism: state.Mechanism, IsInForce: state.IsInForce, CauseCode: state.CauseCode, Reason: state.Reason,
+			Remedy: state.Remedy,
+		})
+	}
+	return report
 }
