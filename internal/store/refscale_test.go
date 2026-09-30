@@ -418,6 +418,10 @@ func fullScansAllowed() map[string]string {
 		"ListSeriesByIdentification": "the same list's series, which are few",
 		"ListLibraries":              "a household has a handful of libraries",
 		"ListLiveNodes":              "a household has a handful of nodes",
+		"ListFetchedLibraryIDs":      "a household has a handful of libraries; the first-match sweep lists them",
+		"ListLiveLibraryIDs":         "a household has a handful of libraries; the identification sweep lists them",
+		"ListOfflineRoots":           "a household's libraries have a handful of roots; the System page lists them",
+		"ListOfflineDisks":           "a household's libraries have a handful of roots, whose missing disks this lists",
 	}
 }
 
