@@ -161,6 +161,34 @@ func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryI
 	}
 }
 
+func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	measurement := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2}, Reason: "test"}
+	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
+		t.Fatal(err)
+	}
+	playback := harness.server.dependencies.Load().Playback
+	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
+	ran := make(chan error, 1)
+	go func() { ran <- runner.RunDue(t.Context()) }()
+	command := <-harness.nodes.commanded
+	refusal := "the disk has no room"
+	answer := nodeproto.LoudnessResult{JobID: command.MeasureLoudness.JobID, Refusal: refusal}
+	playback.TakeLoudness(t.Context(), 1, answer)
+	if err := <-ran; err != nil {
+		t.Fatal(err)
+	}
+	job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness)
+	if job.State != "queued" || !strings.Contains(job.LastFailure, refusal) {
+		t.Errorf("the refused measurement = %+v, want queued to be tried again, with the refusal", job)
+	}
+}
+
 func TestLoudness_LevellingIsOnUntilThePersonTurnsItOff(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
