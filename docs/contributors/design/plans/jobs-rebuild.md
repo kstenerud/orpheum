@@ -269,6 +269,12 @@ D233 §2, §3, §4, §7, §9.
   work carries "wanted until".
 - A protocol number in the hello; an incompatible node parked; an unknown command refused.
 - Removes the negative ids of conversions done while a person waits (O2 replaces them).
+- A handler that fails after its command reached the node (a prepare whose cache write fails
+  after the send) leaves the node working on a job that will be retried: the core tells the node
+  to stop, or reconciliation at the next hello finds it. Suspected cause of the intermittent hang
+  in `TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain` under a
+  loaded `make check` (2026-09-30); the test's wait is now bounded and prints the queue's jobs, so
+  the next occurrence says which.
 - Closes G4, G5, G8, G13, S26–S28, S72, S79–S85, S87–S91.
 
 ## Phase 5 — the watchdog's second stage

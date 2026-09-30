@@ -59,7 +59,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	runner := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
-	if command := <-harness.nodes.commanded; command.Type != nodeproto.CommandPrepare {
+	if command := harness.nextCommand(t); command.Type != nodeproto.CommandPrepare {
 		t.Fatalf("the node was sent %+v, want the prepare", command)
 	}
 	if running := newestPrepareJob(t, harness.listedJobs(t, admin)); running.State != "running" {
@@ -69,7 +69,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusNoContent {
 		t.Fatalf("POST %s: %d, want 204", cancel, status)
 	}
-	stop := <-harness.nodes.commanded
+	stop := harness.nextCommand(t)
 	if stop.Type != nodeproto.CommandCancel || stop.Cancel == nil || stop.Cancel.JobID != queued.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, queued.ID)
 	}
@@ -122,14 +122,14 @@ func TestJobs_ACancelledSubtitleExtractionIsStoppedOnTheNode(t *testing.T) {
 	runner := harness.queue.NewRunner(jobs.KindExtractSubtitle, playback.HandleExtractSubtitle)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
-	if command := <-harness.nodes.commanded; command.Type != nodeproto.CommandExtractSubtitle {
+	if command := harness.nextCommand(t); command.Type != nodeproto.CommandExtractSubtitle {
 		t.Fatalf("the node was sent %+v, want the extraction", command)
 	}
 	cancel := "/jobs/" + strconv.FormatInt(extraction.ID, 10) + "/cancel"
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusNoContent {
 		t.Fatalf("POST %s: %d, want 204", cancel, status)
 	}
-	if stop := <-harness.nodes.commanded; stop.Type != nodeproto.CommandCancel || stop.Cancel.JobID != extraction.ID {
+	if stop := harness.nextCommand(t); stop.Type != nodeproto.CommandCancel || stop.Cancel.JobID != extraction.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, extraction.ID)
 	}
 	if err := <-ran; err != nil {

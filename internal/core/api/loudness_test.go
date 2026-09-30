@@ -35,7 +35,7 @@ func (harness testHarness) measureWith(
 		job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
 		finished <- service.HandleMeasureLoudness(t.Context(), job)
 	}()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	answer.JobID = jobID
 	service.TakeLoudness(t.Context(), 1, answer)
 	return command.MeasureLoudness, <-finished
@@ -120,7 +120,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		prepared <- harness.server.dependencies.Load().Playback.HandlePrepare(t.Context(),
 			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	}()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	if command.Prepare == nil || len(command.Prepare.AudioTracks) != 1 ||
 		command.Prepare.AudioTracks[0].CarriedGainDB != 5.0 {
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
@@ -176,7 +176,7 @@ func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.
 	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	refusal := "the disk has no room"
 	answer := nodeproto.LoudnessResult{JobID: command.MeasureLoudness.JobID, Refusal: refusal}
 	playback.TakeLoudness(t.Context(), 1, answer)
@@ -338,7 +338,10 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`)
 	harness.queue.Unpark(t.Context(), jobs.RootDestination(1, "/media"))
 	go func() {
-		command := <-harness.nodes.commanded
+		command, isSent := harness.commandWithin(t)
+		if !isSent {
+			return
+		}
 		playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{
 			JobID: command.MeasureLoudness.JobID, Failure: "Invalid data found when processing input",
 		})

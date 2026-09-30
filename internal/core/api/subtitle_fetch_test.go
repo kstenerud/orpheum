@@ -343,7 +343,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Target: jobs.Target{FetchedSubtitleID: fetchedID}}
 	go func() { finished <- playback.HandleConvertFetchedSubtitle(t.Context(), job) }()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	if sent := command.ExtractSubtitle; sent == nil || string(sent.FetchedSubRip) != fetchedText || sent.Video != nil {
 		t.Fatalf("the node was sent %+v, want the fetched text to convert (D224 §5)", command)
 	}
