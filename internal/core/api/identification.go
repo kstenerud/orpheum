@@ -247,13 +247,13 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 	case isLimited:
 		return providerRateLimited(limited)
 	case errors.Is(err, identify.ErrNoKey):
-		return providerRefusal("no_key",
+		return providerRefusal(ReasonNoKey,
 			"the metadata provider has no key set; an admin can set it in Settings")
 	case errors.Is(err, identify.ErrKeyRefused):
-		return providerRefusal("key_refused",
+		return providerRefusal(ReasonKeyRefused,
 			"the metadata provider refused its key; an admin can change it in Settings")
 	case errors.Is(err, outbound.ErrUnavailable):
-		return providerRefusal("unavailable", "the metadata provider is not answering; try again later")
+		return providerRefusal(ReasonUnavailable, "the metadata provider is not answering; try again later")
 	}
 	return server.logInternalError(ctx, action, err)
 }

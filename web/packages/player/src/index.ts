@@ -9,6 +9,8 @@
  * (D217 §7).
  */
 
+export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.ts";
+export type { PlaybackFailure } from "./failure.ts";
 export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";

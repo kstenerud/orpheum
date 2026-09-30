@@ -2,9 +2,16 @@
 
 import "./play.css";
 
-import { playHls, seekTo, type HlsPlayback } from "@orpheum/player";
+import {
+  mediaErrorFailure,
+  playHls,
+  seekTo,
+  type HlsPlayback,
+  type PlaybackFailure,
+} from "@orpheum/player";
 import { whenReady, type Api, type components, type PlayableFormats } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow, problemText } from "./problem.ts";
@@ -189,7 +196,9 @@ function usePreparedPlayback(
         if (!aborter.signal.aborted) {
           setIsWaiting(false);
           playbackRef.current = playHls(element, decision.url, {
-            onFailed: setFailure,
+            onFailed: (failure) => {
+              setFailure(playbackFailureText(t, failure));
+            },
             ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
           });
         }
@@ -215,7 +224,7 @@ function DirectVideo(props: PlayProps): JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
-    setFailure(mediaFailure(event.currentTarget.error));
+    setFailure(playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)));
   };
   return (
     <div className="play">
@@ -241,12 +250,9 @@ function DirectVideo(props: PlayProps): JSX.Element {
   );
 }
 
-/** What a media element's error says, in the browser's words, or its code when it gives none. */
-export function mediaFailure(error: Pick<MediaError, "code" | "message"> | null): string {
-  if (error === null) {
-    return "unknown";
-  }
-  return error.message === "" ? `MediaError ${String(error.code)}` : error.message;
+/** Why a video could not play, in the viewer's words, by the player's code for it. */
+export function playbackFailureText(t: TFunction, failure: PlaybackFailure): string {
+  return t(`play.failure.${camelKey(failure)}`);
 }
 
 /**

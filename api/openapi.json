@@ -2217,7 +2217,14 @@
         "additionalProperties": false,
         "properties": {
           "reason": {
-            "description": "Such as no_key, key_refused, no_login, login_refused, not_configured, unavailable",
+            "enum": [
+              "no_key",
+              "key_refused",
+              "no_login",
+              "login_refused",
+              "not_configured",
+              "unavailable"
+            ],
             "type": "string"
           }
         },

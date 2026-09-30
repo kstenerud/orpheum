@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./i18n.ts";
-
+import { playbackFailures } from "@orpheum/player";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { boostMixIndices, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
+import { i18n } from "./i18n.ts";
+import { boostMixIndices, playbackFailureText, PlayView, requestPlayback } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
@@ -87,12 +87,13 @@ describe("playing a file", () => {
     ).toBe(undefined);
   });
 
-  it("words a media element's failure in the browser's own terms, or its code", () => {
-    const failed = (code: number, message: string) => ({ code, message });
-    expect(mediaFailure(failed(4, "No video with supported format and MIME type found"))).toBe(
-      "No video with supported format and MIME type found",
-    );
-    expect(mediaFailure(failed(3, ""))).toBe("MediaError 3");
-    expect(mediaFailure(null)).toBe("unknown");
+  it("words every playback failure by the player's code, never the browser's text", () => {
+    const t = i18n.t.bind(i18n);
+    for (const failure of playbackFailures) {
+      const text = playbackFailureText(t, failure);
+      expect(text).not.toContain("play.failure");
+      expect(text).not.toBe("");
+    }
+    expect(playbackFailureText(t, "unsupported")).toBe("this browser does not play its format");
   });
 });
