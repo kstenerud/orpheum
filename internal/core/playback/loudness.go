@@ -190,8 +190,8 @@ const slowestReadBytesPerSecond = 20 << 20
 
 // HandleMeasureLoudness runs one measurement job (jobs.KindMeasureLoudness): the node that holds the file
 // measures its audio tracks, and this waits for its answer and keeps it by the file's payload
-// hash. A file whose bytes are already measured, as a second copy's are, is not measured again,
-// and FFmpeg's failure is kept and not retried.
+// hash. A file whose bytes are already measured, as a second copy's are, is not measured again;
+// FFmpeg's failure is kept and not retried, and a node's refusal is not kept and is retried.
 func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job) error {
 	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
 	if errors.Is(err, ErrNoFile) {
@@ -243,8 +243,10 @@ func (service *Service) measure(
 	select {
 	case answer := <-answers:
 		if answer.Refusal != "" {
-			// Nothing is kept: the next sweep asks again, of the file as it is then.
-			return jobs.MarkPermanent(errors.New(answer.Refusal))
+			// A refusal says nothing of the file's bytes (a full disk, a file changed since the
+			// scan): nothing is kept, and the job is tried again on its back-off, as when the node
+			// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
+			return fmt.Errorf("node %d refused to measure file %d: %s", file.NodeID, file.ID, answer.Refusal)
 		}
 		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
 		if answer.Failure != "" {
