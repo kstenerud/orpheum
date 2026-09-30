@@ -40,6 +40,41 @@ counted:
 
 ## Log
 
+### P38 — Failure classes were decided for one host and one job, and the others inherited none (M3, 2026-09-29) · plan-gap
+
+- **Planned:** standards/go.md §21 asks every call to another host to name its policy for a 404,
+  a 429, a 5xx, a timeout and a host that keeps failing. D213 §5 decided that policy, with a
+  breaker, for TMDB's images; D224 decided OpenSubtitles' 401, 406 and 429.
+- **What happened:** M3's closing audit walked every class for every host. TMDB's metadata fetch
+  had no pause for a failing host, and a failed first match is never queued again, so a
+  7.5-minute outage loses automatic matching for every title queued in it. A provider's 5xx
+  reached the person as `internal`. OpenSubtitles' dropped token (a 500) failed for a day, and
+  its login and download link could send the key or a download to any host. A node's refusal to
+  prepare, for a full disk, was kept as FFmpeg's permanent failure.
+- **Why the plan missed it:** each decision answered the host or job in front of it; nothing asked
+  the same question of the next one, and "refused" and "failed" were one field on the node
+  protocol until loudness split them.
+- **Cost:** six fix commits and four proposals (audit-2026-09-29 §5, §9 A).
+- **Process lesson:** when a policy is decided for one caller of a kind (a host, a job, a node
+  answer), list every other caller of that kind in the same decision and say whether it applies.
+
+### P37 — The branch gates' default base was days stale, so they checked almost nothing (M3, 2026-09-29) · gate-design
+
+- **Planned:** `make check-pr` compares the branch with `BASE`, `origin/main` by default: the
+  commit the branch forked from.
+- **What happened:** in the yoloAI sandbox the owner takes commits with `yoloai apply` and nothing
+  is pushed, so `origin/main` stayed where the sandbox began, 323 commits back. Against it,
+  revert-red saw 285 of 314 files as added, whose revert is a build failure rather than a test,
+  and test-weakening skips added test files: it listed 5 weakenings where the range held 60. Every
+  run that did not pass `BASE=` by hand passed while checking almost nothing, and the same stale
+  ref made agents' worktrees start at M0's tree.
+- **Why the plan missed it:** the gates were designed for a pushed branch and a pull request,
+  where the fork point is the remote's head; the sandbox's workflow has no push.
+- **Cost:** found by the closing M3 audit; a proposal for a local base ref (audit-2026-09-29
+  §9 E).
+- **Process lesson:** a gate that compares against a reference should print the reference and how
+  far back it is, and refuse one it cannot vouch for, rather than pass quietly.
+
 ### P36 — The code outgrew cut-a's layout, lists and counts, and the frozen text still shows the old ones (M3, 2026-09-29) · plan-gap
 
 - **Planned:** cut-a.md, frozen by D193 §8, fixes the repository layout (§3), the config file's
