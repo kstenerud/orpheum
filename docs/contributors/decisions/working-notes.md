@@ -17214,6 +17214,15 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
 12. **What a person sees.** The job view shows parked work as "waiting for TMDB — unreachable since
     14:02, next check 14:10"; the System page lists each destination's state; play, subtitle and
     refresh answers can say "waiting for <destination> (since …)" beside "preparing".
+    *Since 2026-09-30 (the owner: "we need feedback to the user about why we're balking", and "For
+    host down (parked), aren't we triggering a host check when the user clicks? In this case we'd
+    say 'TMDB hasn't been answering (since xxx). Checking the host now'"):* every time a person's
+    request is held back they are told why and until when, in the provider's words where we have
+    them, and a screen waits and retries on its own when a time is known. A host that asked us to
+    wait shows a countdown and goes ahead when it ends; a parked host shows "hasn't been answering
+    since … Checking now…", then either the result or "still isn't answering (since …); next check
+    …" with a try-again; spent quota shows when it resets; our own pacing shows a spinner, and words
+    past a couple of seconds; a missing or refused credential says who can fix it.
 
 **Status:** Decided 2026-09-30.
 

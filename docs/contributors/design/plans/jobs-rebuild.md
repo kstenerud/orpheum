@@ -229,6 +229,12 @@ D231 §12; D233 §8; F2.
 - Play, subtitle and refresh answers can say "waiting for <destination> (since …)"; the job view's
   parked states; the System page's destinations and queue health; finished rows pruned after 30
   days.
+- Every balk on a person's request says why and until when (D231 §12's 2026-09-30 note), closing
+  the gaps Phase 2's report listed: no screen reads `retryAfterMs`; "unavailable", node-away and
+  credential refusals carry no since or until; parked prepares look like "preparing". A test per
+  kind of balk: a 429's countdown and automatic retry; a parked host's check-now, back, still-down
+  states; quota's reset; pacing past a couple of seconds; credentials' who-can-fix-it; a play whose
+  node is away or whose root is missing.
 - `internal/core/playback` split along the map's lines: play state, subtitle fetching, node work,
   and the levelling decision into `decide`.
 - The scenario-tier tests for every scenario the phases closed that is not yet one; D231's and
