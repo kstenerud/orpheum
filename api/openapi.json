@@ -4150,7 +4150,7 @@
               "description": "BCP 47: en, pt-BR",
               "maxLength": 35,
               "minLength": 2,
-              "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+              "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$",
               "type": "string"
             }
           }
