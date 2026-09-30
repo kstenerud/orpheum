@@ -107,8 +107,18 @@ def speculative(
     return verdicts
 
 
-def run(cmd: list[str], env: dict[str, str], cwd: str) -> str:
+# golangci-lint's exit statuses that mean it ran: no issues, and issues found. Anything else (3
+# when another run held its lock) means it judged nothing, and empty output would read as "no
+# speculative API": a pass for a check that never ran.
+LINTER_RAN = (0, 1)
+
+
+def run(cmd: list[str], env: dict[str, str], cwd: str, ran: tuple[int, ...] | None = None) -> str:
+    """The command's output; with `ran`, a status outside it fails instead of reading as none."""
     proc = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, text=True, check=False)
+    if ran is not None and proc.returncode not in ran:
+        raise SystemExit(f"{' '.join(cmd[:2])} failed ({proc.returncode}), so nothing was judged:\n"
+                         f"{proc.stderr.strip()}")
     return proc.stdout
 
 
@@ -119,9 +129,13 @@ def collect(platform: str, linter: str, root: str) -> tuple[set[tuple[str, str, 
     if not listed.strip():
         raise SystemExit(f"go list produced nothing for {platform}; cannot judge what compiles there")
     found = run(
-        [linter, "run", "--no-config", "--default=none", "-E", "unused", "--tests=false", "./..."],
+        # --allow-serial-runners waits for another run's lock (make check's go-lint beside this,
+        # or another worktree's gate) instead of refusing to start.
+        [linter, "run", "--allow-serial-runners", "--no-config", "--default=none", "-E", "unused",
+         "--tests=false", "./..."],
         env,
         root,
+        LINTER_RAN,
     )
     return parse_findings(found), compiled_files(listed, root)
 

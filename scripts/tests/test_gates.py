@@ -6,11 +6,13 @@ import contextlib
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_claims as cc  # noqa: E402
@@ -494,3 +496,27 @@ class GateChangedTrailer(unittest.TestCase):
                 self.assertEqual(tw.check_gates(base, "HEAD"), 0)
         finally:
             __import__("os").chdir(cwd)
+
+
+class LinterLock(unittest.TestCase):
+    def test_a_linter_that_could_not_start_fails_rather_than_finding_nothing(self):
+        refused = ["sh", "-c", "echo 'Error: parallel golangci-lint is running' >&2; exit 3"]
+        with self.assertRaisesRegex(SystemExit, "failed \\(3\\), so nothing was judged"):
+            lsa.run(refused, dict(os.environ), ".", lsa.LINTER_RAN)
+        found = ["sh", "-c", "echo 'a.go:1:6: func f is unused (unused)'; exit 1"]
+        self.assertIn("unused", lsa.run(found, dict(os.environ), ".", lsa.LINTER_RAN))
+
+    def test_every_lint_run_waits_for_another_runs_lock(self):
+        commands = []
+
+        def record(cmd, env, cwd, ran=None):
+            commands.append(cmd)
+            return "{}" if cmd[0] == "go" else ""
+
+        with mock.patch.object(lsa, "run", record), mock.patch.object(lsa, "compiled_files", lambda *a: set()):
+            lsa.collect("linux/amd64", "golangci-lint", ".")
+        self.assertIn("--allow-serial-runners", commands[-1])
+        runs = re.findall(r"(?m)^\t@golangci-lint run .*$", (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text())
+        self.assertEqual(len(runs), 2)
+        for line in runs:
+            self.assertIn("--allow-serial-runners", line)
