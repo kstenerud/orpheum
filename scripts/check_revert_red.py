@@ -34,9 +34,16 @@ about itself: a noisy gate gets disabled.**
   `docs`, `test`, `ci`, `build`, `chore` need not, because a refactor that changed
   behaviour is a mislabelled commit and that is a different gate's problem. A file
   touched by several commits requires red if *any* of them claims behaviour.
-* Only languages whose tests this can actually scope and run. Anything else is
-  reported as unchecked rather than passed — silence is what makes a green mean two
-  things at once.
+* Only kinds of file whose tests this can actually scope and run: Go, Python and web
+  TypeScript; web CSS, in the browser tier alone, since only a browser renders it; a
+  migration step, as one unit with its checksum line and schema golden, and cache.db's
+  schema, against internal/store's integration tier (revert_red_units.py). Every other
+  file a feat/fix/perf commit changed is listed as UNCHECKED, by name and why, rather than
+  passed — silence is what makes a green mean two things at once, and a `fix` that changed
+  only a stylesheet once passed a gate that never looked at it (audit-2026-09-29 §6).
+* A file whose part of a behaviour commit is a refactor can say so: a
+  `Refactor-Only: <path> — <why>` trailer on a commit that touched it. Like `Verified-By:`,
+  it is listed under "on the author's word" for review to weigh, never passed silently.
 
 **A build failure counts as red, and is reported separately.** It proves the change
 is load-bearing; it does not prove a test asserts its behaviour. Conflating the two
@@ -70,6 +77,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+
+from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 
 # A commit whose type claims a behaviour change owes a red-on-revert.
 BEHAVIOR_TYPES = frozenset({"feat", "fix", "perf"})
@@ -108,18 +117,21 @@ GO_TEST_SUPPORT = "internal/testutil/"
 # internal/store's integration tier, which is where such a file is reverted against
 # (audit-2026-09-25 section 5.3).
 GO_GENERATED_QUERIES = ("internal/store/sqlcgen/", "internal/store/cachegen/")
-# Where each generated query file's source is: sqlc writes sqlcgen/<name>.sql.go from
-# queries/<name>.sql, and cachegen/<name>.sql.go from cache/queries/<name>.sql.
-QUERY_SOURCES = {
-    "internal/store/sqlcgen/": "internal/store/queries/",
-    "internal/store/cachegen/": "internal/store/cache/queries/",
-}
+# The schemas: a migration step (reverted with its checksum line and golden) and cache.db's,
+# which only internal/store's tests read.
+STORE_SCHEMA = "internal/store/cache/schema.sql"
+STORE_INTEGRATION = ["go", "test", "-tags", "integration", "./internal/store/..."]
 # `*_test.go` is safe to match by name because in Go the compiler agrees; the same
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
 
 TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
 TS_TEST = re.compile(r"\.test\.tsx?$")
+# A stylesheet only a browser renders: vitest and the type check never read it.
+CSS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
+
+# `Refactor-Only: <path> — <why>`: this file's part of a behaviour commit changed no behaviour.
+REFACTOR_ONLY = re.compile(r"^Refactor-Only:\s*(\S+)\s+(?:—|--|-)\s*(\S.*)$", re.M | re.I)
 
 VQ_FILE = "docs/contributors/verification-queue.md"
 VQ_REF = re.compile(r"\bVQ(\d+)\b")
@@ -173,6 +185,12 @@ def claims_behavior_change(types: set[str | None]) -> bool:
     return any(t not in EXEMPT_TYPES for t in types)
 
 
+def is_probed_kind(path: str) -> bool:
+    """Whether this gate has a probe for this kind of file."""
+    return bool(GO_SOURCE.search(path) or PY_SOURCE.search(path) or TS_SOURCE.search(path)
+                or CSS_SOURCE.search(path) or MIGRATION_STEP.match(path) or path == STORE_SCHEMA)
+
+
 def changed_sources(base: str, head: str) -> list[Change]:
     out = _git("diff", "--name-status", f"{base}...{head}").stdout
     changes = []
@@ -183,7 +201,7 @@ def changed_sources(base: str, head: str) -> list[Change]:
         status, path = parts[0][:1], parts[-1]
         if is_test_file(path):
             continue  # a test file's own revert is not the question
-        if GO_SOURCE.search(path) or PY_SOURCE.search(path) or TS_SOURCE.search(path):
+        if is_probed_kind(path):
             changes.append(Change(path=path, status=status))
     return changes
 
@@ -205,14 +223,15 @@ def is_test_file(path: str) -> bool:
     return False
 
 
-def unchecked_behavioral_files(base: str, head: str) -> list[tuple[str, str]]:
-    """Files a feat/fix/perf commit changed that this gate could not check, and why.
+def unchecked_behavioral_files(base: str, head: str, probed: frozenset[str] = frozenset(),
+                               include_tests: bool = True) -> list[tuple[str, str]]:
+    """Files a feat/fix/perf commit changed that this gate did not probe, and why.
 
-    Only ever consulted when nothing was checked at all, to turn a reassuring
-    silence into a named blind spot. Deliberately reports *reasons* rather than a
+    Printed with every report, and alone when nothing was probed at all, to turn a
+    reassuring silence into a named blind spot. Deliberately reports *reasons* rather than a
     count: "no behavioral source changes" was technically true of the run that
     missed a scheduling rewrite, and a number would have been just as true and
-    just as useless.
+    just as useless. `probed` holds the files a probe undid, companions included.
     """
     out = _git("diff", "--name-status", f"{base}...{head}").stdout
     unchecked: list[tuple[str, str]] = []
@@ -221,12 +240,13 @@ def unchecked_behavioral_files(base: str, head: str) -> list[tuple[str, str]]:
         if len(parts) < 2:
             continue
         path = parts[-1]
-        if not claims_behavior_change(types_touching(base, head, path)):
+        if path in probed or not claims_behavior_change(types_touching(base, head, path)):
             continue
         if is_test_file(path):
-            unchecked.append((path, "classified as test code, so never asked to go red"))
-        elif not (GO_SOURCE.search(path) or PY_SOURCE.search(path) or TS_SOURCE.search(path)):
-            unchecked.append((path, "not a language this gate can scope or run"))
+            if include_tests:
+                unchecked.append((path, "classified as test code, so never asked to go red"))
+        elif not is_probed_kind(path):
+            unchecked.append((path, f"no probe for this kind of file ({Path(path).suffix or Path(path).name})"))
         elif scope_for(path) is None:
             unchecked.append((path, "no test scope covers it (outside PY_ROOTS)"))
     return unchecked
@@ -319,6 +339,18 @@ def verified_out_of_suite(base: str, head: str, path: str) -> str:
     return "; ".join(c for c in claims if c)
 
 
+def refactor_only(base: str, head: str, path: str) -> str:
+    """Why the commits touching `path` say its part of them changed no behaviour: their
+    `Refactor-Only: <path> — <why>` trailers naming this path, or '' when none does.
+
+    A refactor inside a `fix` commit owes a red it cannot give, and a made commit is never
+    rewritten, so without this the file stayed flagged until the base moved past it (80ee9fe's
+    playback.go, audit-2026-09-29 §6). The better practice is a separate refactor commit.
+    """
+    body = _git("log", "--no-merges", "--format=%B", f"{base}..{head}", "--", path).stdout
+    return "; ".join(why.strip() for named, why in REFACTOR_ONLY.findall(body) if named == path)
+
+
 def verification_queue_problem(claim: str, tree: str) -> str:
     """Why a Verified-By claim does not count, or '' when it names a ticked VQ item (D190)."""
     refs = VQ_REF.findall(claim)
@@ -343,8 +375,10 @@ def scope_for(path: str) -> list[str] | None:
     suite happens only for a file that survives its own package, which is the
     suspicious case and the only one worth paying for.
     """
-    if path.startswith(GO_GENERATED_QUERIES):
-        return ["go", "test", "-tags", "integration", "./internal/store/..."]
+    if path.startswith(GO_GENERATED_QUERIES) or MIGRATION_STEP.match(path) or path == STORE_SCHEMA:
+        return STORE_INTEGRATION
+    if CSS_SOURCE.search(path):
+        return browser_tier_command()
     if GO_SOURCE.search(path):
         return ["go", "test", "./" + str(Path(path).parent) + "/..."]
     if PY_SOURCE.search(path) and any(path.startswith(r + "/") for r in PY_ROOTS):
@@ -405,8 +439,11 @@ def browser_tier(path: str) -> list[Attempt]:
     the working tree's, which the worktree does not have."""
     if not TS_SOURCE.search(path):
         return []
-    command = ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}"]
-    return [Attempt(command, ", found by the browser tier")]
+    return [Attempt(browser_tier_command(), ", found by the browser tier")]
+
+
+def browser_tier_command() -> list[str]:
+    return ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}"]
 
 
 @functools.cache
@@ -477,12 +514,16 @@ def is_build_failure(output: str) -> bool:
     problem as a collection error. Matching compiler prose ("undefined:", "cannot
     use") would misread a test that legitimately asserts on such a message.
     """
-    markers = ("[build failed]", "ERROR collecting", "ImportError", "SyntaxError", "error TS")
+    markers = ("[build failed]", "ERROR collecting", "ImportError", "SyntaxError", "error TS",
+               "error during build")
     return any(m in output for m in markers)
 
 
 def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outcome:
-    """Revert one file in the worktree, run its tests, restore it."""
+    """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
+    refactor = refactor_only(base, head, change.path)
+    if refactor:
+        return Outcome(change.path, "CLAIMED", f"Refactor-Only: {refactor}")
     claim = verified_out_of_suite(base, head, change.path)
     if claim:
         problem = verification_queue_problem(claim, tree)
@@ -497,7 +538,7 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
     if change.status == "D":
         return Outcome(change.path, "UNCHECKED", "deleted; reverting would re-add it")
 
-    source = query_source(change.path)
+    unit = companions(change.path)
     try:
         if change.status == "A":
             (Path(tree) / change.path).unlink(missing_ok=True)
@@ -505,8 +546,8 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
             restored = _git("checkout", base, "--", change.path, cwd=tree)
             if restored.returncode != 0:
                 return Outcome(change.path, "UNCHECKED", "could not check out the base version")
-        if source is not None:
-            revert_to(tree, base, source)
+        for companion in unit:
+            revert_companion(tree, base, change.path, companion)
 
         attempts = [Attempt(scope, "")]
         wide = wide_scope(change.path)
@@ -533,27 +574,9 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
             return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
         return Outcome(change.path, "GREEN", "every test still passes with this change reverted")
     finally:
-        _git("checkout", head, "--", change.path, cwd=tree)
-        if source is not None:
-            _git("checkout", head, "--", source, cwd=tree)
-
-
-def query_source(path: str) -> str | None:
-    """The SQL a generated query file is written from, which a test such as the reference scale's
-    reads instead of the Go: undoing the generated file alone undoes nothing it checks, so both
-    are undone together."""
-    for generated, sources in QUERY_SOURCES.items():
-        if path.startswith(generated) and path.endswith(".sql.go"):
-            return sources + path[len(generated):-len(".go")]
-    return None
-
-
-def revert_to(tree: str, base: str, path: str) -> None:
-    """Puts path in the worktree as base had it, or removes it when base had none."""
-    if _git("cat-file", "-e", f"{base}:{path}", cwd=tree).returncode == 0:
-        _git("checkout", base, "--", path, cwd=tree)
-    else:
-        (Path(tree) / path).unlink(missing_ok=True)
+        restore(tree, head, change.path)
+        for companion in unit:
+            restore(tree, head, companion)
 
 
 def report(outcomes: list[Outcome]) -> str:
@@ -563,9 +586,11 @@ def report(outcomes: list[Outcome]) -> str:
         ("NO_RUNNER", "Not checked: the tests could not start — fix the environment, not the code"),
         ("RED_BUILD", "Load-bearing, but only at compile time"),
         ("RED_TEST", "Covered — a test fails when these are reverted"),
-        ("CLAIMED", "Verified outside the suite, on the author's word — review this"),
+        ("CLAIMED", "On the author's word (Verified-By: a ticked VQ item; Refactor-Only: no behaviour "
+                    "changed in this file) — review this"),
         ("COSMETIC", "No behaviour changed, so nothing could cover it"),
-        ("UNCHECKED", "Not checked by this gate"),
+        ("UNCHECKED", "Not checked by this gate: a feat/fix/perf commit changed these, and no probe "
+                      "reverted them"),
     ):
         rows = [o for o in outcomes if o.verdict == verdict]
         if not rows:
@@ -672,6 +697,13 @@ def main() -> int:
         return probe_all(args, owed, exempt, min(jobs, len(owed)))
 
 
+def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
+    """The UNCHECKED rows for every file a behaviour commit changed that no probe undid."""
+    probed = frozenset(p for c in owed for p in (c.path, *companions(c.path)))
+    return [Outcome(path, "UNCHECKED", why)
+            for path, why in unchecked_behavioral_files(base, head, probed, include_tests=False)]
+
+
 def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: int) -> int:
     try:
         trees = probe_trees(args.head, jobs)
@@ -692,6 +724,7 @@ def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: i
     with ThreadPoolExecutor(max_workers=len(trees)) as pool:
         outcomes = list(pool.map(probe_in_a_free_tree, owed))
 
+    outcomes += unprobed(args.base, args.head, owed)
     print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
     print(report(outcomes))
 

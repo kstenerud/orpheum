@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: PR gate (`make check-pr`): lists every way a branch made the tests weaker —
-# ABOUTME: deleted tests, new skips, fewer assertions, changed goldens — and fails unless
-# ABOUTME: a commit in the range explains it with a `Test-Weakened:` trailer. Gate files
-# ABOUTME: (scripts/gate_paths.py) changed on the branch need a `Gate-Changed:` trailer.
+# ABOUTME: deleted tests, new skips, fewer assertions, changed goldens, retired names let go —
+# ABOUTME: and fails unless a commit that touched that file explains it with a `Test-Weakened:`
+# ABOUTME: trailer. A gate file (scripts/gate_paths.py) needs a `Gate-Changed:` trailer the same way.
 """Refuse silent test weakening.
 
 The cheapest way to make a failing check pass is to make the check ask less. Agents do this
@@ -14,9 +14,14 @@ narrowing a test"*.
 Revert-and-require-red (`check_revert_red.py`) proves a test is wired to a change. It cannot
 see a test that got weaker in the same branch. This gate lists the weakening itself:
 
-* a Go `func Test…` or a TS `it(`/`test(` that existed at the base and no longer does;
-* a new `t.Skip`/`t.SkipNow`/`.skip(`/`.todo(`/`.only(` line;
-* a test file whose assertion count went down (`t.Error*`, `t.Fatal*`, `expect(`), where each
+* a Go `func Test…`, a TS `it(`/`test(` or a Python `def test_…` that existed at the base and
+  no longer does, unless a test with the same body (its name aside) is in the branch's test
+  files: that test was renamed or moved, not removed. A moved test's checks leave its old file
+  with it, so they are not counted as that file's loss;
+* a new `t.Skip`/`t.SkipNow`/`.skip(`/`.todo(`/`.only(` line, or in Python `self.skipTest(`,
+  `@unittest.skip…` or `@unittest.expectedFailure`;
+* a test file whose assertion count went down (`t.Error*`, `t.Fatal*`, `expect(`, Python's
+  `self.assert…(`, `self.fail(` and `assert`), where each
   row of a Go test table a `for … range` ranges over inline (`range []struct{…}{…}`,
   `range map[…]…{…}`) counts as one: a row is a check, so turning one assertion per case into a
   table of cases is not weakening, and dropping a row is. A table bound to a name first is not
@@ -25,26 +30,36 @@ see a test that got weaker in the same branch. This gate lists the weakening its
   (D110: owner-edited only). Adding a new golden weakens nothing and is not listed; as a gate
   path it still needs `Gate-Changed:`.
   Until migrations are live (D228), library.db's schema goldens are rewritten by each fold of
-  the last step into the baseline, and are not listed either; they too need `Gate-Changed:`.
+  the last step into the baseline, and are not listed either; they too need `Gate-Changed:`;
+* a name that left the list of retired names (docs/contributors/retired-names.md): the list is
+  what a test searches the tree for, so dropping a name stops that search.
 
-Each item fails the gate unless some commit in the range carries a
-`Test-Weakened: <why>` trailer. The trailer is a claim on the record that review can weigh,
-not a bypass: the reviewer is shown this same list.
+Each item fails the gate unless a commit in the range that touched that file carries a
+`Test-Weakened: <why>` trailer, and each changed gate file unless a commit that touched it
+carries `Gate-Changed: <why>`. A trailer anywhere in the range once excused everything in it, so
+one explained edit let every other through unexplained (audit-2026-09-29 §6). The trailer is a
+claim on the record that review can weigh, not a bypass: the reviewer is shown this same list.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import check_claims
+
 GO_TEST_FUNC = re.compile(r"^func (Test\w+|Fuzz\w+|Benchmark\w+)\(", re.M)
 TS_TEST_CASE = re.compile(r"""\b(?:it|test)\(\s*(["'`])(.+?)\1""")
+PY_TEST_FUNC = re.compile(r"^\s*def (test_\w+)\(", re.M)
 NEW_SKIP = re.compile(r"\bt\.Skip(?:Now|f)?\(|\.(?:skip|todo|only)\(")
+PY_SKIP = re.compile(r"\bself\.skipTest\(|@(?:unittest\.)?(?:skip\w*|expectedFailure)\b")
 ASSERTION = re.compile(r"\bt\.(?:Error|Errorf|Fatal|Fatalf|Fail|FailNow)\(|\bexpect\(")
+PY_ASSERTION = re.compile(r"\bself\.(?:assert\w*|fail)\(|^\s*assert\b", re.M)
 # A `for … range` over a literal slice or map: a Go test table written inline.
 INLINE_TABLE = re.compile(r"\brange\s+(?=\[\]|map\[)")
 TEST_FILE = re.compile(r"(_test\.go|\.test\.tsx?|/tests/test_\w+\.py)$")
@@ -65,9 +80,45 @@ def git(*args: str) -> str:
 
 
 def test_names(path: str, text: str) -> set[str]:
+    return set(test_bodies(path, text))
+
+
+def test_bodies(path: str, text: str) -> dict[str, str]:
+    """Each test in a test file, by name, with its source: a Go test function, a TS `it`/`test`
+    call, a Python `test_` method (named `Class.test_x`, so two classes' same names differ)."""
     if path.endswith(".go"):
-        return set(GO_TEST_FUNC.findall(text))
-    return {m.group(2) for m in TS_TEST_CASE.finditer(text)}
+        found = {}
+        for m in GO_TEST_FUNC.finditer(text):
+            brace = text.find("{", m.end())
+            found[m.group(1)] = text[m.start():_block_end(text, brace) if brace >= 0 else len(text)]
+        return found
+    if path.endswith(".py"):
+        return _python_tests(text)
+    found = {}
+    for m in TS_TEST_CASE.finditer(text):
+        found[m.group(2)] = text[m.start():_bracket_end(text, text.index("(", m.start()), "(", ")")]
+    return found
+
+
+def _python_tests(text: str) -> dict[str, str]:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return {name: name for name in PY_TEST_FUNC.findall(text)}
+    found = {}
+    for node in tree.body:
+        functions = [(node.name + ".", f) for f in node.body] if isinstance(node, ast.ClassDef) else [("", node)]
+        for prefix, function in functions:
+            if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) and function.name.startswith("test_"):
+                found[prefix + function.name] = ast.get_source_segment(text, function) or function.name
+    return found
+
+
+def same_body_key(name: str, body: str) -> str:
+    """A test's body with its own name taken out and its spacing made uniform: two tests with
+    the same key are one test under two names, or in two places."""
+    short = name.rsplit(".", 1)[-1]
+    return re.sub(r"\s+", " ", body.replace(short, "\x00")).strip()
 
 
 def _skip_quoted(text: str, i: int) -> int:
@@ -118,15 +169,20 @@ def _literal_start(text: str, i: int) -> int | None:
 
 def _block_end(text: str, i: int) -> int:
     """The index after the brace block opening at text[i]."""
+    return _bracket_end(text, i, "{", "}")
+
+
+def _bracket_end(text: str, i: int, opening: str, closing: str) -> int:
+    """The index after the bracketed span opening at text[i]."""
     depth = 0
     while i < len(text):
         skipped = _skip_quoted(text, i)
         if skipped != i:
             i = skipped
             continue
-        if text[i] == "{":
+        if text[i] == opening:
             depth += 1
-        elif text[i] == "}":
+        elif text[i] == closing:
             depth -= 1
             if depth == 0:
                 return i + 1
@@ -172,23 +228,47 @@ def table_rows(path: str, text: str) -> int:
 
 def checks(path: str, text: str) -> int:
     """A test file's checks: its assertion calls, and the rows of its inline Go test tables."""
-    return len(ASSERTION.findall(text)) + table_rows(path, text)
+    pattern = PY_ASSERTION if path.endswith(".py") else ASSERTION
+    return len(pattern.findall(text)) + table_rows(path, text)
 
 
-def compare(path: str, before: str, after: str) -> list[Weakening]:
-    """Weakenings between two versions of one test file; `after` is '' if deleted."""
+def skips(path: str, text: str) -> int:
+    return len((PY_SKIP if path.endswith(".py") else NEW_SKIP).findall(text))
+
+
+def compare(path: str, before: str, after: str,
+            elsewhere: dict[str, str] | None = None) -> list[Weakening]:
+    """Weakenings between two versions of one test file; `after` is '' if deleted. `elsewhere`
+    holds the branch's other tests, by `same_body_key`, naming where each is: a test gone from
+    this file whose body is there, or in this file under another name, was moved."""
+    return compare_with_moves(path, before, after, elsewhere)[0]
+
+
+def compare_with_moves(path: str, before: str, after: str,
+                       elsewhere: dict[str, str] | None = None) -> tuple[list[Weakening], list[str]]:
+    """compare's weakenings, and the moves it did not count as removals, as sentences."""
     found: list[Weakening] = []
-    for gone in sorted(test_names(path, before) - test_names(path, after)):
-        found.append(Weakening(path, f"test {gone!r} was removed"))
-    before_skips = len(NEW_SKIP.findall(before))
-    after_skips = len(NEW_SKIP.findall(after))
+    moves: list[str] = []
+    before_tests, after_tests = test_bodies(path, before), test_bodies(path, after)
+    here = {same_body_key(name, body): f"{path}: {name!r}" for name, body in after_tests.items()}
+    moved_out = 0
+    for gone in sorted(set(before_tests) - set(after_tests)):
+        key = same_body_key(gone, before_tests[gone])
+        destination = here.get(key) or (elsewhere or {}).get(key)
+        if destination is None:
+            found.append(Weakening(path, f"test {gone!r} was removed"))
+            continue
+        moves.append(f"{path}: test {gone!r} is now {destination}, with the same body")
+        if key not in here:
+            moved_out += checks(path, before_tests[gone])
+    before_skips, after_skips = skips(path, before), skips(path, after)
     if after_skips > before_skips:
         found.append(Weakening(path, f"{after_skips - before_skips} new skip/only/todo"))
-    before_asserts = checks(path, before)
+    before_asserts = checks(path, before) - moved_out
     after_asserts = checks(path, after)
     if after and after_asserts < before_asserts:
         found.append(Weakening(path, f"assertions went from {before_asserts} to {after_asserts}"))
-    return found
+    return found, moves
 
 
 def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -> Weakening | None:
@@ -206,57 +286,101 @@ def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -
     return Weakening(path, "a golden or baseline changed (D110: owner-edited only)")
 
 
-def weakenings(base: str, head: str) -> list[Weakening]:
+def retired_names_weakening(before: str, after: str) -> list[Weakening]:
+    """Names that left the list of retired names, which a test searches the tree for."""
+    gone = set(check_claims.retired_names(before)) - set(check_claims.retired_names(after))
+    return [Weakening(check_claims.RETIRED_NAMES, f"retired name {name!r} left the list, so the tree "
+                                                  "is no longer searched for it")
+            for name in sorted(gone)]
+
+
+def changed(base: str, head: str) -> list[tuple[str, str]]:
+    """(status, path) for each file the branch changed; a renamed file is its new path."""
+    rows = []
+    for line in git("diff", "--name-status", f"{base}...{head}").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            rows.append((parts[0][:1], parts[-1]))
+    return rows
+
+
+def weakenings(base: str, head: str, moves: list[str] | None = None) -> list[Weakening]:
+    """Every weakening in the range; the renamed or moved tests go to `moves`, when given."""
     import gate_paths
 
     found: list[Weakening] = []
     are_live = gate_paths.migrations_are_live(Path.cwd(), head)
-    for line in git("diff", "--name-status", f"{base}...{head}").splitlines():
-        parts = line.split("\t")
-        if len(parts) < 2:
-            continue
-        status, path = parts[0][:1], parts[1]
+    rows = changed(base, head)
+    elsewhere: dict[str, str] = {}
+    for status, path in rows:
+        if TEST_FILE.search(path) and status != "D":
+            for name, body in test_bodies(path, git("show", f"{head}:{path}")).items():
+                elsewhere.setdefault(same_body_key(name, body), f"{path}: {name!r}")
+    for status, path in rows:
         if GOLDEN.search(path):
             weakened = golden_weakening(status, path, are_live)
             if weakened is not None:
                 found.append(weakened)
             continue
+        if path == check_claims.RETIRED_NAMES and status != "A":
+            after = "" if status == "D" else git("show", f"{head}:{path}")
+            found += retired_names_weakening(git("show", f"{base}:{path}"), after)
+            continue
         if not TEST_FILE.search(path) or status == "A":
             continue
         before = git("show", f"{base}:{path}")
         after = "" if status == "D" else git("show", f"{head}:{path}")
-        found += compare(path, before, after)
+        weakened, moved = compare_with_moves(path, before, after, elsewhere)
+        found += weakened
+        if moves is not None:
+            moves += moved
     return found
 
 
-def trailers(base: str, head: str, pattern: re.Pattern[str] = TRAILER) -> list[str]:
-    return pattern.findall(git("log", "--format=%B", f"{base}..{head}"))
+def trailers(base: str, head: str, pattern: re.Pattern[str] = TRAILER, path: str | None = None) -> list[str]:
+    """The trailers matching `pattern` on the range's commits: all of them, or, given a path,
+    only those on the commits that touched it."""
+    return pattern.findall(git("log", "--format=%B", f"{base}..{head}", *(["--", path] if path else [])))
+
+
+def explain(base: str, head: str, paths: list[str],
+            pattern: re.Pattern[str]) -> tuple[dict[str, list[str]], list[str]]:
+    """({path: the reasons on the commits that touched it}, [paths none of them explains])."""
+    explained: dict[str, list[str]] = {}
+    unexplained: list[str] = []
+    for path in paths:
+        reasons = trailers(base, head, pattern, path)
+        if reasons:
+            explained[path] = reasons
+        else:
+            unexplained.append(path)
+    return explained, unexplained
 
 
 def gate_changes(base: str, head: str) -> list[str]:
     """Gate files the branch changed (scripts/gate_paths.py), which need the owner's trailer."""
     import gate_paths
 
-    changed = git("diff", "--name-only", f"{base}...{head}").splitlines()
-    return [p for p in changed if gate_paths.is_gate(p)]
+    return [p for p in git("diff", "--name-only", f"{base}...{head}").splitlines() if gate_paths.is_gate(p)]
 
 
 def check_gates(base: str, head: str) -> int:
-    changed = gate_changes(base, head)
-    if not changed:
+    changed_gates = gate_changes(base, head)
+    if not changed_gates:
         return 0
-    reasons = trailers(base, head, GATE_TRAILER)
+    explained, unexplained = explain(base, head, changed_gates, GATE_TRAILER)
     print(f"Gate files changed in {base}..{head}:")
-    for path in changed:
-        print(f"  {path}")
-    if reasons:
-        print("Explained by Gate-Changed: trailer(s) — the owner's to accept:")
-        for r in reasons:
-            print(f"  - {r}")
+    for path, reasons in explained.items():
+        print(f"  {path} — Gate-Changed: {'; '.join(dict.fromkeys(reasons))}")
+    for path in unexplained:
+        print(f"  {path} — no commit that touched it says why")
+    if not unexplained:
+        print("Each is explained by a Gate-Changed: trailer on a commit that touched it — the owner's to accept.")
         return 0
     print(
-        "\nNo commit explains this. Gates decide what passing means, so a change to one needs\n"
-        "the owner's `Gate-Changed: <why>` trailer (AGENTS.md rule 2)."
+        "\nGates decide what passing means, so a change to one needs the owner's\n"
+        "`Gate-Changed: <why>` trailer on a commit that touched it (AGENTS.md rule 2). A trailer\n"
+        "on another commit explains that commit's gate files, not these."
     )
     return 1
 
@@ -267,23 +391,33 @@ def main() -> int:
     ap.add_argument("--head", default="HEAD")
     args = ap.parse_args()
     gate_status = check_gates(args.base, args.head)
-    found = weakenings(args.base, args.head)
+    moves: list[str] = []
+    found = weakenings(args.base, args.head, moves)
+    if moves:
+        print(f"Tests renamed or moved in {args.base}..{args.head}, not counted as removed:")
+        for move in moves:
+            print(f"  {move}")
     if not found:
         print(f"check_test_weakening: nothing weakened in {args.base}..{args.head}")
         return gate_status
-    reasons = trailers(args.base, args.head)
+    paths = list(dict.fromkeys(w.path for w in found))
+    explained, unexplained = explain(args.base, args.head, paths, TRAILER)
     print(f"Tests weakened in {args.base}..{args.head}:")
     for w in found:
         print(f"  {w.path}: {w.what}")
-    if reasons:
-        print("\nExplained by Test-Weakened: trailer(s) — review weighs these:")
-        for r in reasons:
-            print(f"  - {r}")
+    if explained:
+        print("\nExplained by a Test-Weakened: trailer on a commit that touched the file — review weighs these:")
+        for path, reasons in explained.items():
+            print(f"  {path}: {'; '.join(dict.fromkeys(reasons))}")
+    if not unexplained:
         return gate_status
+    print("\nNo commit that touched these explains them:")
+    for path in unexplained:
+        print(f"  {path}")
     print(
-        "\nNo commit explains this. If the weakening is right — a test that tested the wrong\n"
-        "thing, a golden re-recorded by the owner — add a `Test-Weakened: <why>` trailer to the\n"
-        "commit. If it is not, restore the test and fix the code instead."
+        "\nIf the weakening is right — a test that tested the wrong thing, a golden re-recorded\n"
+        "by the owner — add a `Test-Weakened: <why>` trailer to a commit that touches the file.\n"
+        "If it is not, restore the test and fix the code instead."
     )
     return 1
 

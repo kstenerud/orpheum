@@ -491,8 +491,12 @@ class GateChangedTrailer(unittest.TestCase):
             __import__("os").chdir(root)
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(tw.check_gates(base, "HEAD"), 1)
+                # A trailer explains the gate files its own commit touched, and no others.
                 (root / "main.go").write_text("package main\n\n")
                 commit("chore: tidy\n\nGate-Changed: owner asked to drop the flaky target")
+                self.assertEqual(tw.check_gates(base, "HEAD"), 1)
+                (root / "Makefile").write_text("check:\n\ttrue\n\n")
+                commit("build: say why\n\nGate-Changed: owner asked to drop the flaky target")
                 self.assertEqual(tw.check_gates(base, "HEAD"), 0)
         finally:
             __import__("os").chdir(cwd)

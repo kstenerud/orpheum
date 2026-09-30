@@ -27,10 +27,17 @@ headline fix has one" — the second change in a commit is the one that escapes.
 - **The exception is a trailer, not a silence.** A change that cannot go red in the suite —
   a fix only a television shows — carries `Verified-By: VQ<n>` in the commit message, naming an
   item in [verification-queue.md](../verification-queue.md) that exists and is ticked.
+- **A refactor goes in a commit of its own.** When a file's part of a `fix` or `feat` commit
+  already made is only a refactor, a later commit that touches that file says so:
+  `Refactor-Only: <path> — <why>`. Like `Verified-By:`, it is listed for review on the author's
+  word, not passed silently.
 
-**Enforced by:** `scripts/check_revert_red.py`, run by `make check-pr` against a base revision.
-For each source file a behaviour commit changes, it restores the old file in a throwaway worktree
-and requires a test to fail, and it accepts a `Verified-By:` trailer only for a ticked item.
+**Enforced by:** `scripts/check_revert_red.py`, run by `make check-pr` against a base revision
+(the commit the owner last took, marked with `make mark-applied`). For each source file a
+behaviour commit changes (Go, Python, web TypeScript and CSS, a migration step with its checksum
+line and golden), it restores the old file in a throwaway worktree and requires a test to fail,
+and it accepts a `Verified-By:` trailer only for a ticked item. Every other file a behaviour
+commit changed is listed as UNCHECKED.
 
 ## 2. Every check is first seen to fail
 
