@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -158,6 +158,7 @@ func (service *Service) IssueDeviceCode(
 		}
 		deviceID, deviceName = &known.ID, known.Name
 	}
+	deviceName = textindex.Line(deviceName)
 	raw, err := randbytes.Read(service.random, codeBytes)
 	if err != nil {
 		return IssuedSecret{}, fmt.Errorf("make a device code: %w", err)
@@ -342,7 +343,7 @@ func randomSecret(random io.Reader) (string, error) {
 // RenameUser renames a person. A name is what they are shown as and sign in with; nothing is
 // keyed by it, and it stays unique so a sign-in finds one person (the owner, 2026-09-27).
 func (service *Service) RenameUser(ctx context.Context, userID int64, name string) error {
-	name = strings.TrimSpace(name)
+	name = textindex.Line(name)
 	if name == "" {
 		return errors.New("a person needs a name")
 	}

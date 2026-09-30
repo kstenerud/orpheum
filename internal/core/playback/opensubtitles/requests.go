@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -80,7 +81,8 @@ func (client *Client) Search(ctx context.Context, query Query) ([]Candidate, err
 		}
 		uploaded, _ := time.Parse(time.RFC3339, attributes.UploadDate) //nolint:errcheck // zero when unsaid
 		candidates = append(candidates, Candidate{
-			ProviderFileID: attributes.Files[0].FileID, ReleaseName: attributes.Release, Language: attributes.Language,
+			ProviderFileID: attributes.Files[0].FileID, ReleaseName: textindex.Line(attributes.Release),
+			Language:                 textindex.Line(attributes.Language),
 			IsOpensubtitlesHashMatch: attributes.MovieHashMatch, IsHearingImpaired: attributes.HearingImpaired,
 			IsMachineTranslated: attributes.MachineTranslated || attributes.AITranslated,
 			DownloadCount:       attributes.DownloadCount, UploadedAt: uploaded,
@@ -137,7 +139,8 @@ func (client *Client) Download(ctx context.Context, providerFileID int64) (Downl
 		return Downloaded{}, err
 	}
 	return Downloaded{
-		Body: text, FileName: answer.FileName, RemainingDownloads: answer.Remaining, DownloadsResetAt: answer.resetAt(),
+		Body: text, FileName: textindex.Line(answer.FileName), RemainingDownloads: answer.Remaining,
+		DownloadsResetAt: answer.resetAt(),
 	}, nil
 }
 

@@ -161,3 +161,56 @@ func TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed(t *testin
 			devices[0].LastUsedAt, want)
 	}
 }
+
+func TestNames_APersonsNameIsCleanedWhereItEntersAndSignsInAsTyped(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	// A right-to-left override, a zero-width space and a control: what the sanitiser removes
+	// (D211 §2). Signing in by the name as typed still finds the person.
+	const hostile = "  part\u202ener\u200b\u0007 "
+	id := fixture.createUser(t, hostile, "pw", RoleUser)
+	if _, err := fixture.service.SignIn(ctx, hostile, "pw", "192.0.2.1", NewDevice{Name: "Phone"}); err != nil {
+		t.Fatalf("signing in by the name as typed: %v", err)
+	}
+	accounts, err := fixture.service.Accounts(ctx)
+	if err != nil || len(accounts) != 1 || accounts[0].Name != "partner" {
+		t.Errorf("accounts = %+v, %v; want the name cleaned to %q", accounts, err, "partner")
+	}
+	if err = fixture.service.RenameUser(ctx, id, "\u202epartner 2 "); err != nil {
+		t.Fatal(err)
+	}
+	accounts, err = fixture.service.Accounts(ctx)
+	if err != nil || len(accounts) != 1 || accounts[0].Name != "partner 2" {
+		t.Errorf("renamed = %+v, %v; want the name cleaned to %q", accounts, err, "partner 2")
+	}
+}
+
+func TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	_, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1",
+		NewDevice{Name: "Pho\u202ene\u2066", Platform: "we\u200bb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = fixture.service.IssueDeviceCode(ctx, id, "Living\u202e room\u0000", 0); err != nil {
+		t.Fatal(err)
+	}
+	waiting, err := fixture.service.WaitingCodeOf(ctx, id)
+	if err != nil || waiting == nil || waiting.DeviceName != "Living room" {
+		t.Errorf("the code's device = %+v, %v; want its name cleaned to %q", waiting, err, "Living room")
+	}
+	devices, err := fixture.service.Devices(ctx, id)
+	if err != nil || len(devices) != 1 || devices[0].Name != "Phone" || devices[0].Platform != "web" {
+		t.Fatalf("devices = %+v, %v; want the phone's name and platform cleaned", devices, err)
+	}
+	if err = fixture.service.RenameDevice(ctx, id, devices[0].ID, "\u202ePhone 2"); err != nil {
+		t.Fatal(err)
+	}
+	if devices, err = fixture.service.Devices(ctx, id); err != nil || devices[0].Name != "Phone 2" {
+		t.Errorf("the renamed device = %+v, %v; want %q", devices, err, "Phone 2")
+	}
+}

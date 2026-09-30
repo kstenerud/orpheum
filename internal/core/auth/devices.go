@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -65,7 +66,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 // RenameDevice renames one of a person's devices.
 func (service *Service) RenameDevice(ctx context.Context, userID, deviceID int64, name string) error {
 	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
-		return queries.RenameDevice(ctx, sqlcgen.RenameDeviceParams{Name: name, ID: deviceID})
+		return queries.RenameDevice(ctx, sqlcgen.RenameDeviceParams{Name: textindex.Line(name), ID: deviceID})
 	})
 }
 
