@@ -5,7 +5,6 @@ package identify
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -395,12 +394,11 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 // key unset or refused holds it until a person fixes the key; an id the provider does not have
 // fails the job; anything else retries.
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
-	var args refreshArgs
-	if err := json.Unmarshal([]byte(cmp.Or(job.ArgsJSON, "{}")), &args); err != nil {
+	args, err := decodeFetchArgs(cmp.Or(job.ArgsJSON, "{}"))
+	if err != nil {
 		return fmt.Errorf("fetch_metadata job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	var outcome Outcome
-	var err error
 	if args.IsRefresh {
 		outcome, err = matcher.refresh(ctx, job.ItemID, args.ShouldRetryImages)
 	} else {
