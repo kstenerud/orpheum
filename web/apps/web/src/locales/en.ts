@@ -386,6 +386,8 @@ export const en = {
     reason: "Why: {{reason}}",
     queuedAt: "Queued {{at}}",
     lastFailure: "Last error: {{failure}}",
+    waitingFor: "Waiting for {{name}}: {{reason}} since {{since}}, next check {{next}}",
+    waitingForSignal: "Waiting for {{name}}: {{reason}} since {{since}}",
     cancel: "Cancel",
     cancelLabel: "Cancel {{kind}} #{{target}}",
     alreadyEnded: "That job has already ended.",

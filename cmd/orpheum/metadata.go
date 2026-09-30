@@ -107,6 +107,11 @@ type hostProviders struct {
 	tmdbAPI, tmdbImages, openSubtitles *coreproviders.Service
 }
 
+// all are the services, in the order the System page lists them.
+func (hosts hostProviders) all() []*coreproviders.Service {
+	return []*coreproviders.Service{hosts.tmdbAPI, hosts.tmdbImages, hosts.openSubtitles}
+}
+
 // newHostProviders builds each outside host's provider service, its health kept in the job queue,
 // and has a person's change of a host's key or login try it again.
 func newHostProviders(queue *jobs.Queue, secretStore *secrets.Store) hostProviders {

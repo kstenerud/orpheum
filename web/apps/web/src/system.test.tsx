@@ -87,6 +87,8 @@ function report(node: SystemNode): SystemReport {
       { check: "hardware encoding on node local", verdict: "ok", detail: "encodes use h264_qsv" },
     ],
     nodes: [node],
+    destinations: [],
+    providers: [],
   };
 }
 

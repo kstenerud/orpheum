@@ -619,6 +619,42 @@
         ],
         "type": "object"
       },
+      "DestinationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "isChecking": {
+            "description": "Whether it is being looked at now",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nextCheckAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "description": "Why it is down: unreachable, not connected, missing, its key is not set",
+            "type": "string"
+          },
+          "since": {
+            "description": "Since when, Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "destination",
+          "name",
+          "reason",
+          "since",
+          "isChecking"
+        ],
+        "type": "object"
+      },
       "DeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -1625,6 +1661,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "destination": {
+            "type": "string"
+          },
           "fetchedSubtitleId": {
             "format": "int64",
             "type": "integer"
@@ -1687,6 +1726,9 @@
           "streamId": {
             "format": "int64",
             "type": "integer"
+          },
+          "waitingFor": {
+            "$ref": "#/components/schemas/DestinationBody"
           }
         },
         "required": [
@@ -2266,6 +2308,52 @@
           }
         ]
       },
+      "ProviderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "backgroundRatePerSecond": {
+            "format": "double",
+            "type": "number"
+          },
+          "credentials": {
+            "enum": [
+              "unknown",
+              "accepted",
+              "missing",
+              "refused"
+            ],
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "down": {
+            "$ref": "#/components/schemas/DestinationBody"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/QuotaBody"
+          },
+          "ratePerSecond": {
+            "format": "double",
+            "type": "number"
+          },
+          "waitUntil": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "destination",
+          "ratePerSecond",
+          "backgroundRatePerSecond",
+          "credentials"
+        ],
+        "type": "object"
+      },
       "ProviderRefusalDetailBody": {
         "additionalProperties": false,
         "properties": {
@@ -2325,6 +2413,29 @@
         },
         "required": [
           "valuesByKey"
+        ],
+        "type": "object"
+      },
+      "QuotaBody": {
+        "additionalProperties": false,
+        "properties": {
+          "remaining": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reservedForPeople": {
+            "description": "How many of those left background work never spends",
+            "format": "int64",
+            "type": "integer"
+          },
+          "resetAt": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "remaining",
+          "reservedForPeople"
         ],
         "type": "object"
       },
@@ -3328,6 +3439,15 @@
       "SystemOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/DestinationBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/FindingBody"
@@ -3346,6 +3466,15 @@
               "null"
             ]
           },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "server": {
             "$ref": "#/components/schemas/ServerBody"
           }
@@ -3353,7 +3482,9 @@
         "required": [
           "server",
           "findings",
-          "nodes"
+          "nodes",
+          "destinations",
+          "providers"
         ],
         "type": "object"
       },

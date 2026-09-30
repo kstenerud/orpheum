@@ -54,6 +54,10 @@ type SystemOutput struct {
 		Server   ServerBody       `json:"server"`
 		Findings []FindingBody    `json:"findings"`
 		Nodes    []SystemNodeBody `json:"nodes"`
+		// Destinations are what work needs that is down now, each with why and when it is looked
+		// at next (D231 §12); Providers each outside host's provider service (D231 §5).
+		Destinations []DestinationBody `json:"destinations"`
+		Providers    []ProviderBody    `json:"providers"`
 	}
 }
 
@@ -231,6 +235,15 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list nodes", err)
+	}
+	nodeName := server.nodeNamer(ctx, dependencies)
+	output.Body.Destinations = make([]DestinationBody, 0)
+	for _, state := range dependencies.Jobs.ParkedDestinations() {
+		output.Body.Destinations = append(output.Body.Destinations, destinationBody(state, nodeName))
+	}
+	output.Body.Providers = make([]ProviderBody, 0, len(dependencies.Providers))
+	for _, provider := range dependencies.Providers {
+		output.Body.Providers = append(output.Body.Providers, providerBody(provider.State(), nodeName))
 	}
 	output.Body.Nodes = make([]SystemNodeBody, 0, len(listed))
 	for _, node := range listed {
