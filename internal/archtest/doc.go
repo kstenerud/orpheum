@@ -37,6 +37,10 @@
 //   - TestArch_NoForbiddenSuppressions: no //nolint names a complexity linter or depguard.
 //   - TestArch_QueriesNameEveryColumn: no query in internal/store/queries or
 //     internal/store/cache/queries selects or returns *.
+//   - TestArch_EachTableHasOneWritingPackage: each library.db and cache.db table is written, by
+//     calls to the generated queries that insert into, update or delete from it, by one package:
+//     the one schema.md's "Who writes each table" names. Calls are found by type-checking, so a
+//     service method named like a query is not taken for one.
 //
 // # Read before changing
 //
@@ -54,6 +58,8 @@
 //   - environment_test.go: the release binary's environment rule.
 //   - json_test.go: the hand-built JSON rule.
 //   - handlers_test.go: the API's handler-name rule.
+//   - writers_test.go: the one-writer-per-table rule; writers_selftest_test.go: its parts against
+//     input that breaks them.
 //   - rules_selftest_test.go: each checker against a violating synthetic graph.
 //   - Add a claim as a pure checker, a TestArch_ test, a self-test that makes it fail, and a
 //     citation in the owning package's doc.go.
