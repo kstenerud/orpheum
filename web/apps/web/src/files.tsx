@@ -136,6 +136,8 @@ function FilePages(props: {
       const query = {
         libraryId,
         filing: filingFilter,
+        // A best guess under the API's maximum of 1000: a page that loads at once, of a list that
+        // is read a page at a time. Nothing ties it to the maximum.
         limit: 500,
         ...(cursor === "" ? {} : { cursor }),
       } satisfies FilesQuery;

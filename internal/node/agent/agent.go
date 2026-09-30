@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -136,6 +137,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	stream := newRecordStream(reply.LastIngestedReportSeq)
+	// The long-poll hands over a batch of commands at a time; a buffer of a batch or so lets it go
+	// back for the next while the session starts the last. Only its size is chosen: a full buffer
+	// holds the poll, never drops a command.
 	commandQueue := make(chan nodeproto.Command, 16)
 	var sessionTasks sync.WaitGroup
 	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
@@ -373,7 +377,7 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only, and decoded below
 	if response.StatusCode != http.StatusOK {
-		text, _ := io.ReadAll(io.LimitReader(response.Body, 4096)) //nolint:errcheck // best effort
+		text, _ := io.ReadAll(io.LimitReader(response.Body, outbound.BodyExcerptBytes)) //nolint:errcheck // best effort
 		return fmt.Errorf("%s %s: %s: %s", method, path, response.Status, bytes.TrimSpace(text))
 	}
 	if err := json.NewDecoder(response.Body).Decode(into); err != nil {

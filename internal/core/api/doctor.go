@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
 // The verdicts a finding gives.
@@ -81,11 +82,11 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 // preparedFinding is what a node's prepared directory holds against its budget and its disk's
 // limit (D217 §5): a warning when either is past, which eviction could not bring back.
 func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody {
-	const gib = 1 << 30
 	finding := FindingBody{
 		Check: "prepared copies on node " + nodeName, Verdict: verdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%",
-			float64(usage.UsedBytes)/gib, usage.BudgetBytes/gib, usage.DiskUsedPercent, usage.DiskUsedLimitPercent),
+			float64(usage.UsedBytes)/diskspace.BytesPerGiB, usage.BudgetBytes/diskspace.BytesPerGiB,
+			usage.DiskUsedPercent, usage.DiskUsedLimitPercent),
 	}
 	if usage.DiskUsedPercent > usage.DiskUsedLimitPercent || usage.UsedBytes > usage.BudgetBytes {
 		finding.Verdict = verdictWarn
@@ -128,18 +129,18 @@ func ConfinementFinding(where string, confinement []nodeproto.Confinement) Findi
 // the libraries need and the ceiling to set (D212 §7).
 func artworkFinding(dependencies *Dependencies) FindingBody {
 	pressure := dependencies.Artwork.Pressure()
-	const gib = 1 << 30
 	finding := FindingBody{
 		Check: "artwork cache", Verdict: verdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB ceiling",
-			float64(pressure.TotalBytes)/gib, pressure.CeilingBytes/gib),
+			float64(pressure.TotalBytes)/diskspace.BytesPerGiB, pressure.CeilingBytes/diskspace.BytesPerGiB),
 	}
 	if pressure.IsHighWater {
 		finding.Verdict = verdictWarn
 		finding.Detail = fmt.Sprintf("the libraries need %.1f GiB of artwork to be shown at once, more than the "+
 			"%d GiB ceiling; artwork beyond it is fetched again when it is opened, which is slower",
-			float64(pressure.RequiredBytes)/gib, pressure.CeilingBytes/gib)
-		finding.Action = fmt.Sprintf("set artwork_cache_ceiling_gib to at least %d", pressure.RecommendedBytes/gib)
+			float64(pressure.RequiredBytes)/diskspace.BytesPerGiB, pressure.CeilingBytes/diskspace.BytesPerGiB)
+		finding.Action = fmt.Sprintf("set artwork_cache_ceiling_gib to at least %d",
+			pressure.RecommendedBytes/diskspace.BytesPerGiB)
 	}
 	return finding
 }

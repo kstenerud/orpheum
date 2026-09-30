@@ -88,6 +88,8 @@ func (service *Service) serveReport(writer http.ResponseWriter, request *http.Re
 	}
 	ctx := request.Context()
 	reader := &reportReader{service: service, nodeID: nodeID}
+	// A record is a line of JSON, most of them a file's, well under 64 KiB: the buffer reads many at
+	// a time, and readLine takes a longer one, up to maxRecordBytes, across reads.
 	body := bufio.NewReaderSize(request.Body, 64<<10)
 	for {
 		line, readErr := readLine(body, maxRecordBytes)

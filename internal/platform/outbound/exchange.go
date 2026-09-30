@@ -23,8 +23,9 @@ type Answer struct {
 	Body       []byte
 }
 
-// bodyExcerptBytes is how much of an answer's body an error quotes.
-const bodyExcerptBytes = 200
+// BodyExcerptBytes is how much of an answer's body an error quotes: enough for a refusal's own
+// words, which are a line, and little of a page a proxy or a crash put there instead.
+const BodyExcerptBytes = 200
 
 // Exchange sends request through client and reads its answer's body, at most maxBytes of it: a
 // longer one is bounded.ErrTooLarge, never read cut short. Every provider's request goes through
@@ -73,7 +74,7 @@ func StatusError(provider string, answer Answer) error {
 	}
 	said := fmt.Sprintf("status %d", answer.StatusCode)
 	if len(answer.Body) > 0 {
-		said += ": " + string(answer.Body[:min(len(answer.Body), bodyExcerptBytes)])
+		said += ": " + string(answer.Body[:min(len(answer.Body), BodyExcerptBytes)])
 	}
 	switch answer.StatusCode {
 	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:

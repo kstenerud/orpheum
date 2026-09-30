@@ -26,6 +26,10 @@ export type BrowseKind = "movie" | "series";
 /** The order a list comes in. */
 export type BrowseSort = "name" | "added";
 
+/**
+ * How many posters a page loads, a best guess: a few screens of the grid, few enough to answer at
+ * once; sixty divides into rows of 2, 3, 4, 5, 6 and 10, so a full page ends on a full row.
+ */
 const entriesPerPage = 60;
 
 /** A grid of films or series, each a poster with its name and year under it. */

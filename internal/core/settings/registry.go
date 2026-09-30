@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"math"
 	"regexp"
+	"strconv"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 )
 
@@ -258,7 +260,9 @@ func artworkAndPlaybackDefinitions() []Definition {
 		sourced(durationSetting(MediaTokenIdleExpiryHours, time.Hour, "4", 1, 168,
 			"hours a playback's media address lasts after its last use (D217 §2)"),
 			"D217 §2: 4 hours"),
-		sourced(durationSetting(HLSSegmentLengthSeconds, time.Second, "2", 1, 10,
+		sourced(durationSetting(HLSSegmentLengthSeconds, time.Second,
+			strconv.Itoa(nodeproto.StartingSegmentLengthSeconds), nodeproto.MinSegmentLengthSeconds,
+			nodeproto.MaxSegmentLengthSeconds,
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),

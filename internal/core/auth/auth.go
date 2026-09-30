@@ -50,8 +50,11 @@ const capabilityEditMetadata = "edit_metadata"
 const (
 	grantKindSession = "session"
 	grantScopeRole   = "role" // a session carries the user's role, entire (D154 §3)
-	tokenBytes       = 32
 )
+
+// tokenBytes is a session token's length: 256 random bits, which no one guesses. A format, not an
+// opinion, so not a setting (D200 §1).
+const tokenBytes = 32
 
 var (
 	// ErrBadCredentials is a sign-in whose name is unknown or whose password is wrong, without

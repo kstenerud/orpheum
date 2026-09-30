@@ -29,6 +29,8 @@ func NewAnswerRouter[Answer any](logger *slog.Logger, answerName string) *Answer
 func (all *AnswerRouter[Answer]) Await(jobID int64) <-chan Answer {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
+	// A job's answers are few (a prepare's progress, then its end), and each is taken as it comes;
+	// a buffer of a few lets the node's post return without waiting on the job's loop.
 	answers := make(chan Answer, 8)
 	all.answersByJob[jobID] = answers
 	return answers

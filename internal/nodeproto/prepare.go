@@ -12,6 +12,16 @@ const PathPrepare = "/node/v1/prepare"
 // PathBytesPrepared + "<file_id>/<profile>/<run_id>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
 
+// The segment lengths a prepare may ask for, and the one the node makes when a command asks for
+// none within them (D217 §3): the bounds and starting value of the core's setting
+// hls_segment_length_seconds, defined once here for the core's registry and the node. Past ten
+// seconds, switching to the dialogue boost's mix, which waits for the next segment, takes too long.
+const (
+	MinSegmentLengthSeconds      = 1
+	MaxSegmentLengthSeconds      = 10
+	StartingSegmentLengthSeconds = 2
+)
+
 // PrepareProfile is a rendition's recipe (cut-a §6).
 type PrepareProfile string
 

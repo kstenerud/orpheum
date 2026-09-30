@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -42,7 +43,7 @@ func (bench *bench) hold(sourceSha256Hex string, sizesGiB map[string]float64) {
 }
 
 // gibToBytes is a fraction of a GiB in bytes, as hold counts it.
-func gibToBytes(fraction float64) int64 { return int64(fraction * float64(gib)) }
+func gibToBytes(fraction float64) int64 { return int64(fraction * float64(diskspace.BytesPerGiB)) }
 
 func (bench *bench) isHeld(sourceSha256Hex, name string) bool {
 	_, found := bench.service.holdings.sizeBytesByNameBySourceSha256[sourceSha256Hex][name]
@@ -132,7 +133,8 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pressure.IsHighWater || pressure.RecommendedBytes != 3*gib || !bench.isHeld(wall, "portrait-m.webp") {
+	isThreeGiB := pressure.RecommendedBytes == 3*diskspace.BytesPerGiB
+	if !pressure.IsHighWater || !isThreeGiB || !bench.isHeld(wall, "portrait-m.webp") {
 		t.Errorf("pressure %+v; want high water, 3 GiB recommended (2.5 + 15%%), and the wall size kept", pressure)
 	}
 	if got := bench.service.Pressure(); !got.IsHighWater {

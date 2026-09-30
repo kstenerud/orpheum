@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // answerRetry paces the tries of an answer the core did not take: the first wait, the longest one
@@ -16,11 +18,11 @@ type answerRetry struct {
 	firstWait, longestWait, patience time.Duration
 }
 
-// defaultAnswerRetry gives an answer at most two minutes of waits: as long as the core waits for an
-// artwork answer, and within the five it waits to hear of a prepare, after which the core tries the
-// job again and a later answer has nothing to go to.
+// defaultAnswerRetry gives an answer at most nodeproto.ArtworkAnswerWait of waits: as long as the
+// core waits for an artwork answer, and within the five minutes it waits to hear of a prepare,
+// after which the core tries the job again and a later answer has nothing to go to.
 func defaultAnswerRetry() answerRetry {
-	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, patience: 2 * time.Minute}
+	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, patience: nodeproto.ArtworkAnswerWait}
 }
 
 // postAnswer posts a job's answer to the core at path. A post that fails, the core busy or the

@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // Encoder is the H.264 encoder an encode uses: Quick Sync, else NVENC, else x264 (cut-a §6).
@@ -105,7 +106,7 @@ func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error 
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.encodeArguments(defaultSegmentLengthSeconds)...)
+	}, encoder.encodeArguments(nodeproto.StartingSegmentLengthSeconds)...)
 	arguments = append(arguments, "-f", "null", "-")
 	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {

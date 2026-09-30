@@ -12,14 +12,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 )
 
-// The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for, two
-// seconds unless the owner changed hls_segment_length_seconds (D217 §3), and an EVENT playlist that grows
-// while the job runs, so playback starts before it ends.
+// The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for,
+// hls_segment_length_seconds (D217 §3), and an EVENT playlist that grows while the job runs, so
+// playback starts before it ends.
 const (
-	defaultSegmentLengthSeconds = 2
-	maxSegmentLengthSeconds     = 10
-	audioBitRate                = "192k"
-	masterPlaylist              = "master.m3u8"
+	audioBitRate   = "192k"
+	masterPlaylist = "master.m3u8"
 )
 
 // The two stereo mixes of a track with a centre, from 5.1 (a 7.1 source is first folded to it).
@@ -104,10 +102,11 @@ func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
 	return encoder.encodeArguments(segmentLengthSeconds(command.SegmentLengthSeconds))
 }
 
-// segmentLengthSeconds is the segment length asked for, or the default when it is out of bounds.
+// segmentLengthSeconds is the segment length asked for, or the setting's starting value when it is
+// out of bounds.
 func segmentLengthSeconds(asked int) int {
-	if asked < 1 || asked > maxSegmentLengthSeconds {
-		return defaultSegmentLengthSeconds
+	if asked < nodeproto.MinSegmentLengthSeconds || asked > nodeproto.MaxSegmentLengthSeconds {
+		return nodeproto.StartingSegmentLengthSeconds
 	}
 	return asked
 }

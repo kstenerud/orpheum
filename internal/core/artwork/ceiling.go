@@ -13,12 +13,12 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // The ceiling's workings (D212 §6, §7).
 const (
-	gib = int64(1) << 30
 	// A sweep evicts down to 90% of the ceiling, so it does not run again at the next write.
 	lowWaterFraction = 0.9
 	// The recommended ceiling is what is never evicted, plus 15%.
@@ -156,7 +156,7 @@ func (service *Service) ceilingBytes(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read artwork_cache_ceiling_gib: %w", err)
 	}
-	return gibs * gib, nil
+	return gibs * diskspace.BytesPerGiB, nil
 }
 
 // class is how soon a file is evicted: the lower, the sooner (D212 §6).
@@ -220,7 +220,8 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 		TotalBytes: total, RequiredBytes: required, CeilingBytes: ceiling, IsHighWater: required > ceiling,
 	}
 	if pressure.IsHighWater {
-		pressure.RecommendedBytes = (int64(float64(required)*headroomFactor) + gib - 1) / gib * gib
+		pressure.RecommendedBytes = (int64(float64(required)*headroomFactor) + diskspace.BytesPerGiB - 1) /
+			diskspace.BytesPerGiB * diskspace.BytesPerGiB
 	}
 	service.recordPressure(ctx, pressure)
 	return pressure, nil
@@ -334,7 +335,7 @@ func (service *Service) recordPressure(ctx context.Context, pressure Pressure) {
 	case pressure.IsHighWater && !wasHighWater:
 		service.parts.Logger.WarnContext(ctx, "the artwork cache ceiling is smaller than what the libraries need "+
 			"to show; artwork is fetched again as it is needed", "requiredBytes", pressure.RequiredBytes,
-			"ceilingBytes", pressure.CeilingBytes, "recommendedGiB", pressure.RecommendedBytes/gib)
+			"ceilingBytes", pressure.CeilingBytes, "recommendedGiB", pressure.RecommendedBytes/diskspace.BytesPerGiB)
 	case !pressure.IsHighWater && wasHighWater:
 		service.parts.Logger.InfoContext(ctx, "the artwork cache fits under its ceiling again")
 	}
