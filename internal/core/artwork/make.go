@@ -48,7 +48,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 		command.AbsolutePath = named
 		return service.cutFrom(ctx, nodeID, command, args, true)
 	}
-	download, err := service.fetch(ctx, fetcher, want.source, want.ref.SourceRef)
+	download, err := service.fetch(ctx, fetcher, want.ref.SourceRef)
 	if errors.Is(err, ErrNoImage) || (err == nil && download.sourceSha256Hex() != args.SourceSha256) {
 		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its sizes are not made",
 			"sourceSha256", args.SourceSha256, "source", want.source, "sourceRef", want.ref.SourceRef)

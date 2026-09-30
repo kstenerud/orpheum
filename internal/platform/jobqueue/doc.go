@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package jobqueue is a job queue that knows no program's kinds, targets or destinations (D231
-// §2): a kind is a name, a target a comparable value it only compares, and its storage an
-// interface, which internal/store implements on cache.db so that only store touches SQLite. It
-// claims by priority, merges a repeat request into the job already open for its kind and target,
-// retries with jittered back-off, snoozes without spending an attempt, cancels, returns what a
-// stop left running, refuses a job past its attempt limit, and recovers from a panic in a
-// handler. internal/core/jobs is Orpheum's use of it: the kinds, their targets and handlers.
+// §2): a kind is a name, a target a comparable value it only compares, a destination a name kept
+// beside it, and its storage an interface, which internal/store implements on cache.db so that
+// only store touches SQLite. It claims by priority, merges a repeat request into the job already
+// open for its kind and target, retries with jittered back-off, snoozes without spending an
+// attempt, parks the work of a destination that is down and probes it (D231 §5, §6), cancels,
+// returns what a stop left running, refuses a job past its attempt limit, and recovers from a
+// panic in a handler. internal/core/jobs is Orpheum's use of it: the kinds, their targets and
+// handlers, and its destinations.
 //
 // # Invariants
 //
@@ -28,9 +30,26 @@
 //     TestRunDue_RetriesAFailureWithJitteredDoublingBackoffThenFails.
 //   - No wait, jittered or scheduled, passes a day. TestRunDue_NoJitterTakesAWaitPastADay.
 //   - A snooze costs no attempt, a repeat request does not shorten it, and the runner goes on
-//     with other jobs. TestRunDue_ASnoozeCostsNoAttemptAndTheRunnerGoesOn. A RetryAtError and
-//     Blocked also hold the runner: TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
-//     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts (internal/core/jobs, on cache.db).
+//     with other jobs. TestRunDue_ASnoozeCostsNoAttemptAndTheRunnerGoesOn.
+//   - A job answered Park costs no attempt and is kept with the destination it parked; no job
+//     kept with a parked destination is claimed, and other work runs on (D231 §6).
+//     TestRunDue_AParkedDestinationHoldsItsJobsAtNoCostAndOtherWorkRunsOn,
+//     TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasParked (store).
+//   - A parked destination is probed by one job at a time, on a back-off jittered as a retry's,
+//     from 30 s doubling to an hour, or at the time it named; a failed probe costs nothing, and a
+//     probe that succeeds unparks it and its work resumes in priority order.
+//     TestRunDue_OneProbeOnABackoffFrom30sToAnHourAFailedOneCostingNothingThenAllResumeByPriority,
+//     TestRunDue_AProbeGoesAtTheTimeTheDestinationNamed.
+//   - A person's request for a job whose destination is parked probes it at once; a destination
+//     only a signal brings back is never probed, and resumes when unparked.
+//     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce,
+//     TestRunDue_ADestinationThatAwaitsASignalIsNeverProbedAndResumesWhenUnparked.
+//   - The program's own storage is a destination: a claim, a record or an answer it refuses for
+//     want of room parks it, no runner claims until one claim finds room, and an outcome it could
+//     not write is written then, so no job is left running (S77).
+//     TestRunDue_AFullStorageStopsEveryClaimUntilAProbeFindsRoomAndNothingIsLeftRunning.
+//   - Parked state is held in memory: after a restart the first job for a destination probes it
+//     again (D231 §6). Enforced by review: nothing here writes it.
 //   - A tool's failure costs no attempt and the next attempt is told of it.
 //     TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled (internal/core/jobs).
 //   - A panic in a handler is recovered and is the tool's failure: free the first time, the
@@ -53,15 +72,17 @@
 // # Read before changing
 //
 //   - D231 §2, §8, §10: our own queue, generic; one job per target, merged; jittered back-off.
+//   - D231 §5, §6: destinations, what counts as down, parking and probing.
 //   - D233 §6: a panic is the tool's failure, and a claim checks the attempt count.
 //   - D170: provider rate limits and back-off.
-//   - docs/contributors/design/plans/jobs-rebuild.md: the phases, and what Phase 2 adds here.
+//   - docs/contributors/design/plans/jobs-rebuild.md: the phases.
 //
 // # Where to change
 //
 //   - job.go: the kinds, states, requests, jobs and rows. storage.go: what a storage keeps and
-//     the extension point for Phase 2's parked destinations (Claim). answers.go: what a handler
-//     can answer. queue.go: enqueue and its merge, cancel, progress, the listing. runner.go:
-//     claiming, running and recording each outcome. backoff.go: the back-off and its jitter.
+//     what a claim passes over. answers.go: what a handler can answer. queue.go: enqueue and its
+//     merge, cancel, progress, the listing. runner.go: claiming, probing, running and recording
+//     each outcome. destination.go: parked destinations, their probes and their state.
+//     backoff.go: the back-off and its jitter.
 //   - internal/store/jobs.go: the storage on cache.db. jobqueuetest: the storage in memory.
 package jobqueue

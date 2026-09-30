@@ -31,7 +31,7 @@
 //   - A download says what is left and when the count resets, as OpenSubtitles says; a spent
 //     quota says so with that time (D224 §4).
 //     TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets.
-//   - Every request, the download link's too, is sent and read by outbound.Exchange: a 5xx or a
+//   - Every request, the download link's too, is sent and read by outbound.Exchange: a 502, 503, 504 or a
 //     failed connection is outbound.ErrUnavailable, a 429 outbound.RateLimitedError, and an
 //     error never repeats the URL.
 //     TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFails,

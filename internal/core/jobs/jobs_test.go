@@ -55,6 +55,13 @@ func (fixed fixture) enqueue(t *testing.T, itemID, priority int64) {
 	}
 }
 
+func (fixed fixture) runDue(t *testing.T, runner *Runner) {
+	t.Helper()
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (fixed fixture) job(t *testing.T, itemID int64) cachegen.Job {
 	t.Helper()
 	jobs, err := fixed.cache.Read().ListJobs(t.Context(), 100)
@@ -154,38 +161,6 @@ func TestRunDue_RetriesAFailureWithDoublingBackoffThenFails(t *testing.T) {
 	}
 }
 
-func TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind(t *testing.T) {
-	t.Parallel()
-	jobs := newFixture(t)
-	jobs.enqueue(t, 1, 10)
-	jobs.enqueue(t, 2, 0)
-	until := jobs.clock.Now().Add(time.Minute)
-	var ran []int64
-	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
-		ran = append(ran, job.ItemID)
-		if jobs.clock.Now().Before(until) {
-			return &RetryAtError{At: until, Err: errors.New("429")}
-		}
-		return nil
-	})
-	if err := runner.RunDue(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if job := jobs.job(t, 1); job.AttemptCount != 0 || job.State != "queued" || job.RunnableAt != until.UnixMilli() {
-		t.Errorf("rate-limited job = %+v; want queued until the provider's time with no attempt spent", job)
-	}
-	if !slices.Equal(ran, []int64{1}) {
-		t.Errorf("ran %v while the provider asked to wait; want only the first", ran)
-	}
-	jobs.clock.Set(until)
-	if err := runner.RunDue(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(ran, []int64{1, 1, 2}) {
-		t.Errorf("ran %v after the wait, want [1 1 2]", ran)
-	}
-}
-
 func TestRunDue_APermanentFailureIsNotRetried(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
@@ -220,36 +195,53 @@ func TestRequeueRunning_ReturnsWhatACrashLeftRunning(t *testing.T) {
 	}
 }
 
-func TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts(t *testing.T) {
+func TestRunDue_AJobParkedOnItsDestinationWaitsOnCacheDBAtNoCostAndTheViewSaysWhy(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
-	jobs.enqueue(t, 1, 0)
-	jobs.enqueue(t, 2, 0)
-	blocked := true
-	runs := 0
-	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
-		runs++
-		if blocked {
-			return MarkBlocked(errors.New("no key"))
+	jobs.enqueue(t, 1, 10) // finds its destination down when it runs
+	named := Request{
+		Kind: KindFetchMetadata, Target: Target{ItemID: 2}, Reason: "test", Destination: DestinationTMDBAPI,
+	}
+	if _, err := jobs.queue.Enqueue(t.Context(), named); err != nil {
+		t.Fatal(err)
+	}
+	isKeySet := false
+	var ran []int64
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
+		ran = append(ran, job.ItemID)
+		if !isKeySet {
+			return Park(Parking{Destination: DestinationTMDBAPI, Reason: "the key is not set", AwaitsSignal: true},
+				errors.New("no key"))
 		}
 		return nil
 	})
-	for range 5 {
-		if err := runner.RunDue(t.Context()); err != nil {
-			t.Fatal(err)
-		}
-		jobs.clock.Advance(10 * time.Second)
+	parkedAt := jobs.clock.Now()
+	for range 3 {
+		jobs.runDue(t, runner)
+		jobs.clock.Advance(time.Hour)
 	}
-	if job := jobs.job(t, 1); job.State != "queued" || job.AttemptCount != 0 || runs != 5 {
-		t.Errorf("after five blocked tries: job %+v, %d runs; want queued, no attempt spent, one run per wait",
-			job, runs)
+	if job := jobs.job(t, 1); job.State != "queued" || job.AttemptCount != 0 || !slices.Equal(ran, []int64{1}) {
+		t.Errorf("while the key is not set: job %+v, ran %v; want the first run once, queued, no attempt spent,"+
+			" and the one queued on TMDB never", job, ran)
 	}
-	blocked = false
-	if err := runner.RunDue(t.Context()); err != nil {
+	views, err := jobs.queue.List(t.Context(), 10)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if jobs.job(t, 1).State != stateDone || jobs.job(t, 2).State != stateDone {
-		t.Error("once unblocked, the queue did not run both jobs")
+	want := DestinationState{
+		Destination: DestinationTMDBAPI, Reason: "the key is not set", Since: parkedAt, AwaitsSignal: true,
+	}
+	for _, view := range views {
+		if view.Destination != DestinationTMDBAPI || view.WaitingFor == nil || *view.WaitingFor != want {
+			t.Errorf("job %d's view: on %q, waiting for %+v; want %+v", view.ItemID, view.Destination,
+				view.WaitingFor, want)
+		}
+	}
+	isKeySet = true
+	jobs.queue.Unpark(t.Context(), DestinationTMDBAPI)
+	jobs.runDue(t, runner)
+	if jobs.job(t, 1).State != stateDone || jobs.job(t, 2).State != stateDone || !slices.Equal(ran, []int64{1, 1, 2}) {
+		t.Errorf("once the key changed: ran %v; want both jobs done, the higher first", ran)
 	}
 }
 

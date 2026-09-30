@@ -53,8 +53,6 @@ func TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre(t *tes
 			writer.WriteHeader(http.StatusTooManyRequests)
 		case "/unsaid.jpg":
 			writer.WriteHeader(http.StatusTooManyRequests)
-		case "/broken.jpg":
-			writer.WriteHeader(http.StatusInternalServerError)
 		default:
 			http.NotFound(writer, request)
 		}
@@ -72,9 +70,30 @@ func TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre(t *tes
 			t.Errorf("a 429 for %s: %v, want TMDB's RateLimitedError after %s", ref, err, want)
 		}
 	}
-	if _, err := images.Fetch(t.Context(), "/broken.jpg"); !errors.Is(err, outbound.ErrUnavailable) ||
-		!strings.Contains(err.Error(), "500") || errors.Is(err, artwork.ErrNoImage) {
-		t.Errorf("a 500: %v, want the image server unavailable, naming the status", err)
+}
+
+func TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/down.jpg" {
+			writer.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		writer.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	images := NewImageFetcher(httpClient, server.URL)
+	// Neither says the image is gone (D231 §5). Each names its status.
+	for ref, status := range map[string]string{"/broken.jpg": "500", "/down.jpg": "503"} {
+		_, err := images.Fetch(t.Context(), ref)
+		if err == nil || errors.Is(err, outbound.ErrUnavailable) != (status == "503") ||
+			!strings.Contains(err.Error(), status) || errors.Is(err, artwork.ErrNoImage) {
+			t.Errorf("a %s: %v, want the host unavailable for a 503 only, naming the status", status, err)
+		}
 	}
 }
 

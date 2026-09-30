@@ -172,3 +172,57 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 		t.Errorf("EverQueued(prepare, item 7) = %t, %v; want false: a target is its column and its id", ever, err)
 	}
 }
+
+func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasParked(t *testing.T) {
+	t.Parallel()
+	fixed := newJobStorageFixture(t)
+	ctx := t.Context()
+	insert := func(itemID, priority int64, destination jobqueue.Destination) {
+		t.Helper()
+		err := fixed.jobs.Enqueue(ctx, "fetch_metadata", JobTarget{ItemID: itemID},
+			func(jobqueue.Open[JobTarget]) (jobqueue.Change, error) {
+				return jobqueue.Change{
+					Action: jobqueue.ActionInsert, ArgsJSON: "{}", Priority: priority, RunnableAt: jobStart,
+					Destination: destination, CreatedAt: jobStart,
+				}, nil
+			})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	insert(1, 10, "tmdb-api")
+	insert(2, 5, "")
+	insert(3, 1, "node:2")
+	claim := func(unclaimable ...jobqueue.Destination) (jobqueue.Row[JobTarget], bool) {
+		t.Helper()
+		row, found, err := fixed.jobs.Claim(ctx, jobqueue.Claim{
+			Kind: "fetch_metadata", Now: jobStart, Unclaimable: unclaimable,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row, found
+	}
+	first, found := claim("tmdb-api", "node:9")
+	if !found || first.Target.ItemID != 2 {
+		t.Fatalf("with tmdb-api parked, the claim took %+v (found %v); want item 2's job, which names none",
+			first, found)
+	}
+	err := fixed.jobs.Record(ctx, jobqueue.Outcome{
+		ID: first.ID, State: jobqueue.StateQueued, At: jobStart, AttemptCount: 0, Destination: "node:9",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, found := claim("tmdb-api", "node:9")
+	if !found || second.Target.ItemID != 3 || second.Destination != "node:2" {
+		t.Fatalf("the next claim took %+v (found %v); want item 3's, on node:2, since item 2's now waits on node:9",
+			second, found)
+	}
+	if _, found := claim("tmdb-api", "node:9"); found {
+		t.Error("a claim took a job whose destination is parked")
+	}
+	if third, found := claim(); !found || third.Target.ItemID != 1 || third.Destination != "tmdb-api" {
+		t.Errorf("with nothing parked, the claim took %+v (found %v); want item 1's, the highest", third, found)
+	}
+}

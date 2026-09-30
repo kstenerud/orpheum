@@ -31,8 +31,8 @@ func (q *Queries) CancelJob(ctx context.Context, arg CancelJobParams) (int64, er
 const deferJob = `-- name: DeferJob :exec
 UPDATE job SET state = 'queued', runnable_at = ?1, last_failure = ?2,
                attempt_count = ?3, is_snoozed = ?4,
-               last_attempt_tool_failed = ?5
-WHERE id = ?6 AND state <> 'cancelled'
+               last_attempt_tool_failed = ?5, destination = ?6
+WHERE id = ?7 AND state <> 'cancelled'
 `
 
 type DeferJobParams struct {
@@ -41,11 +41,12 @@ type DeferJobParams struct {
 	AttemptCount          int64
 	IsSnoozed             int64
 	LastAttemptToolFailed int64
+	Destination           *string
 	ID                    int64
 }
 
-// Back to the queue until runnable_at: a snooze, a hold, a retry's back-off (D170). A wait that
-// is not the job's fault gives back the attempt StartJob counted.
+// Back to the queue until runnable_at: a snooze, a park, a retry's back-off (D170, D231). A wait
+// that is not the job's fault gives back the attempt StartJob counted.
 func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
 	_, err := q.db.ExecContext(ctx, deferJob,
 		arg.RunnableAt,
@@ -53,6 +54,7 @@ func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
 		arg.AttemptCount,
 		arg.IsSnoozed,
 		arg.LastAttemptToolFailed,
+		arg.Destination,
 		arg.ID,
 	)
 	return err
@@ -90,10 +92,10 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 const insertJob = `-- name: InsertJob :one
 
 INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, reason,
-  created_at)
+  destination, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?7, ?8, ?9, ?10,
-        ?11)
+        ?11, ?12)
 RETURNING id
 `
 
@@ -108,6 +110,7 @@ type InsertJobParams struct {
 	Priority          int64
 	RunnableAt        int64
 	Reason            *string
+	Destination       *string
 	CreatedAt         int64
 }
 
@@ -126,6 +129,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 		arg.Priority,
 		arg.RunnableAt,
 		arg.Reason,
+		arg.Destination,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -134,7 +138,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 ORDER BY id DESC
@@ -162,7 +166,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
-			&i.NodeID,
+			&i.Destination,
 			&i.RunnableAt,
 			&i.IsSnoozed,
 			&i.AttemptCount,
@@ -187,7 +191,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 }
 
 const listOpenJobs = `-- name: ListOpenJobs :many
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
@@ -233,7 +237,7 @@ func (q *Queries) ListOpenJobs(ctx context.Context, arg ListOpenJobsParams) ([]J
 			&i.ArgsJSON,
 			&i.Priority,
 			&i.State,
-			&i.NodeID,
+			&i.Destination,
 			&i.RunnableAt,
 			&i.IsSnoozed,
 			&i.AttemptCount,
@@ -259,16 +263,17 @@ func (q *Queries) ListOpenJobs(ctx context.Context, arg ListOpenJobsParams) ([]J
 
 const mergeQueuedJob = `-- name: MergeQueuedJob :execrows
 UPDATE job SET args_json = ?1, priority = ?2, reason = ?3,
-               runnable_at = ?4
-WHERE id = ?5 AND state = 'queued'
+               runnable_at = ?4, destination = ?5
+WHERE id = ?6 AND state = 'queued'
 `
 
 type MergeQueuedJobParams struct {
-	ArgsJSON   string
-	Priority   int64
-	Reason     *string
-	RunnableAt int64
-	ID         int64
+	ArgsJSON    string
+	Priority    int64
+	Reason      *string
+	RunnableAt  int64
+	Destination *string
+	ID          int64
 }
 
 // A repeat request folded into the queued job for its target (D231 section 8).
@@ -278,6 +283,7 @@ func (q *Queries) MergeQueuedJob(ctx context.Context, arg MergeQueuedJobParams) 
 		arg.Priority,
 		arg.Reason,
 		arg.RunnableAt,
+		arg.Destination,
 		arg.ID,
 	)
 	if err != nil {
@@ -290,19 +296,23 @@ const nextQueuedJob = `-- name: NextQueuedJob :one
 SELECT id
 FROM job
 WHERE state = 'queued' AND kind = ?1 AND runnable_at <= ?2
+  AND (destination IS NULL
+       OR destination NOT IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY priority DESC, runnable_at, id
 LIMIT 1
 `
 
 type NextQueuedJobParams struct {
-	Kind string
-	Now  int64
+	Kind            string
+	Now             int64
+	UnclaimableJSON string
 }
 
-// The highest-priority queued job of a kind whose time has come; the earliest, then the oldest,
-// among equals.
+// The highest-priority queued job of a kind whose time has come and whose destination is not
+// parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names); the
+// earliest, then the oldest, among equals.
 func (q *Queries) NextQueuedJob(ctx context.Context, arg NextQueuedJobParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, nextQueuedJob, arg.Kind, arg.Now)
+	row := q.db.QueryRowContext(ctx, nextQueuedJob, arg.Kind, arg.Now, arg.UnclaimableJSON)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -342,7 +352,7 @@ func (q *Queries) SetJobProgress(ctx context.Context, arg SetJobProgressParams) 
 const startJob = `-- name: StartJob :one
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = ?1 AND state = 'queued'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id,
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at
 `
@@ -362,7 +372,7 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 		&i.ArgsJSON,
 		&i.Priority,
 		&i.State,
-		&i.NodeID,
+		&i.Destination,
 		&i.RunnableAt,
 		&i.IsSnoozed,
 		&i.AttemptCount,

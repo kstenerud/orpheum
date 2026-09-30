@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 )
 
 // ErrNoImage is a source that has no image at a reference: gone from the provider, or a
@@ -52,4 +54,7 @@ type Fetcher interface {
 	// RecheckAfter is how long the source's CDN answers a missing image from its cache: a
 	// recheck sooner would see the same 404 (D213 §1).
 	RecheckAfter() time.Duration
+	// Destination is the source's image server as the job queue names it: its jobs park on it
+	// while it is down (D231 §5).
+	Destination() jobs.Destination
 }

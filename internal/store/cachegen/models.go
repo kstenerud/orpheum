@@ -20,7 +20,7 @@ type Job struct {
 	ArgsJSON              string
 	Priority              int64
 	State                 string
-	NodeID                *int64
+	Destination           *string
 	RunnableAt            int64
 	IsSnoozed             int64
 	AttemptCount          int64

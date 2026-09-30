@@ -89,7 +89,7 @@ type Client struct {
 	// again spends no second download (guarded by mutex).
 	linkByProviderFileID map[int64]heldLink
 	// linkRetryDelays are the waits before a link that failed as unavailable is fetched again
-	// within one Download: a 5xx is retried after a second, as OpenSubtitles asks
+	// within one Download: a 502, 503 or 504 is retried after a second, as OpenSubtitles asks
 	// (opensubtitles-api.md §3), and once more, after two.
 	linkRetryDelays []time.Duration
 }

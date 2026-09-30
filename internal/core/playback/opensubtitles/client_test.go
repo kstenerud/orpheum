@@ -350,8 +350,8 @@ func TestCurrentSession_ATokenAnsweredInvalidWithA500IsMadeAgainOnce(t *testing.
 	fake.searchStatus = http.StatusInternalServerError
 	fake.mutex.Unlock()
 	_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
-	if !errors.Is(err, outbound.ErrUnavailable) || fake.loginCount != 2 {
-		t.Errorf("a 500 that is not about the token: %v, %d logins; want unavailable, no new login",
+	if err == nil || errors.Is(err, outbound.ErrUnavailable) || fake.loginCount != 2 {
+		t.Errorf("a 500 that is not about the token: %v, %d logins; want the search's own failure, no new login",
 			err, fake.loginCount)
 	}
 }

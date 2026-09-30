@@ -4,10 +4,10 @@
 
 -- name: InsertJob :one
 INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, reason,
-  created_at)
+  destination, created_at)
 VALUES (sqlc.arg(kind), sqlc.arg(item_id), sqlc.arg(rendition_id), sqlc.arg(stream_id), sqlc.arg(fetched_subtitle_id),
         sqlc.arg(file_id), sqlc.arg(args_json), sqlc.arg(priority), sqlc.arg(runnable_at), sqlc.arg(reason),
-        sqlc.arg(created_at))
+        sqlc.arg(destination), sqlc.arg(created_at))
 RETURNING id;
 
 -- name: WasJobEverQueued :one
@@ -20,7 +20,7 @@ SELECT EXISTS (
 
 -- name: ListOpenJobs :many
 -- The queued and running jobs of this kind for this target: at most one of each (D231 section 8).
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 WHERE kind = sqlc.arg(kind) AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
@@ -31,15 +31,18 @@ ORDER BY id;
 -- name: MergeQueuedJob :execrows
 -- A repeat request folded into the queued job for its target (D231 section 8).
 UPDATE job SET args_json = sqlc.arg(args_json), priority = sqlc.arg(priority), reason = sqlc.arg(reason),
-               runnable_at = sqlc.arg(runnable_at)
+               runnable_at = sqlc.arg(runnable_at), destination = sqlc.arg(destination)
 WHERE id = sqlc.arg(id) AND state = 'queued';
 
 -- name: NextQueuedJob :one
--- The highest-priority queued job of a kind whose time has come; the earliest, then the oldest,
--- among equals.
+-- The highest-priority queued job of a kind whose time has come and whose destination is not
+-- parked (D231 section 6; unclaimable_json is a JSON array of the parked destinations' names); the
+-- earliest, then the oldest, among equals.
 SELECT id
 FROM job
 WHERE state = 'queued' AND kind = sqlc.arg(kind) AND runnable_at <= sqlc.arg(now)
+  AND (destination IS NULL
+       OR destination NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(unclaimable_json) AS TEXT))))
 ORDER BY priority DESC, runnable_at, id
 LIMIT 1;
 
@@ -47,7 +50,7 @@ LIMIT 1;
 -- A claim: the job runs, and its attempt is counted.
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = sqlc.arg(id) AND state = 'queued'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id,
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at;
 
@@ -59,11 +62,11 @@ UPDATE job SET state = sqlc.arg(state), progress_fraction = sqlc.arg(progress_fr
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: DeferJob :exec
--- Back to the queue until runnable_at: a snooze, a hold, a retry's back-off (D170). A wait that
--- is not the job's fault gives back the attempt StartJob counted.
+-- Back to the queue until runnable_at: a snooze, a park, a retry's back-off (D170, D231). A wait
+-- that is not the job's fault gives back the attempt StartJob counted.
 UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failure = sqlc.arg(last_failure),
                attempt_count = sqlc.arg(attempt_count), is_snoozed = sqlc.arg(is_snoozed),
-               last_attempt_tool_failed = sqlc.arg(last_attempt_tool_failed)
+               last_attempt_tool_failed = sqlc.arg(last_attempt_tool_failed), destination = sqlc.arg(destination)
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: CancelJob :execrows
@@ -84,7 +87,7 @@ WHERE state = 'running';
 
 -- name: ListJobs :many
 -- The job view, newest first.
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 ORDER BY id DESC

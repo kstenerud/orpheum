@@ -54,12 +54,17 @@ const (
 
 func newFixture(t *testing.T, random io.Reader, merges map[jobqueue.Kind]jobqueue.ArgsMerge) fixture {
 	t.Helper()
+	return newFixtureWith(t, jobqueue.Config{Random: random, ArgsMerges: merges})
+}
+
+// newFixtureWith is a fixture whose queue has config, with the fixture's policy and a logger.
+func newFixtureWith(t *testing.T, config jobqueue.Config) fixture {
+	t.Helper()
 	storage := &jobqueuetest.Memory[target]{}
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
-	queue := jobqueue.New(storage, fakeClock, jobqueue.Config{
-		Policy: fixedPolicy{attemptLimit: attemptLimit, firstRetryDelay: firstRetryDelay}, Random: random,
-		Logger: slog.New(slog.NewTextHandler(t.Output(), nil)), ArgsMerges: merges,
-	})
+	config.Policy = fixedPolicy{attemptLimit: attemptLimit, firstRetryDelay: firstRetryDelay}
+	config.Logger = slog.New(slog.NewTextHandler(t.Output(), nil))
+	queue := jobqueue.New(storage, fakeClock, config)
 	return fixture{queue: queue, storage: storage, clock: fakeClock}
 }
 

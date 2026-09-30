@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -76,6 +77,8 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 type fakeFetcher map[string][]byte
 
 func (fakeFetcher) RecheckAfter() time.Duration { return 12 * time.Hour }
+
+func (fakeFetcher) Destination() jobs.Destination { return jobs.DestinationTMDBImages }
 
 func (images fakeFetcher) Fetch(_ context.Context, ref string) (Unsanitised, error) {
 	image, found := images[ref]
@@ -292,8 +295,9 @@ func TestService_WaitsForANode(t *testing.T) {
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
 	bench.node.isConnected = false
 	err := bench.service.Handle(t.Context(), bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"}))
-	if retry, isRetry := errors.AsType[*jobs.RetryAtError](err); !isRetry || retry.At.IsZero() {
-		t.Errorf("with no node: %v, want a wait that costs no attempt", err)
+	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.DestinationAnyNode ||
+		!parking.AwaitsSignal {
+		t.Errorf("with no node: %v, want it parked until any node says hello", err)
 	}
 }
 

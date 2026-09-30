@@ -142,3 +142,36 @@ func ExecRaw(tb testing.TB, path string, statements ...string) {
 		}
 	}
 }
+
+// DiskFullError is the error SQLite answers a write with when its disk has no room: a real one,
+// from a scratch database held to the pages it has, for a test of what a full disk does to a
+// package that writes (D231 §5).
+func DiskFullError(tb testing.TB) error {
+	tb.Helper()
+	pool, err := sql.Open("sqlite", filepath.Join(tb.TempDir(), "full.db"))
+	if err != nil {
+		tb.Fatalf("open a scratch database: %v", err)
+	}
+	defer func() {
+		if closeErr := pool.Close(); closeErr != nil {
+			tb.Errorf("close the scratch database: %v", closeErr)
+		}
+	}()
+	pool.SetMaxOpenConns(1) // max_page_count holds for the one connection that set it
+	for _, statement := range []string{"CREATE TABLE filler (bytes BLOB)", "PRAGMA max_page_count = 2"} {
+		if _, prepareErr := pool.ExecContext(tb.Context(), statement); prepareErr != nil {
+			tb.Fatalf("prepare the scratch database: %v", prepareErr)
+		}
+	}
+	for range 100 {
+		_, fillErr := pool.ExecContext(tb.Context(), "INSERT INTO filler (bytes) VALUES (zeroblob(4096))")
+		if fillErr != nil {
+			if !store.IsStorageFailure(fillErr) {
+				tb.Fatalf("filling the scratch database failed otherwise than full: %v", fillErr)
+			}
+			return fmt.Errorf("write to a full database: %w", fillErr)
+		}
+	}
+	tb.Fatal("the scratch database never filled")
+	return nil
+}
