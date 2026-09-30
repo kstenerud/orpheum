@@ -22,7 +22,8 @@ Four checks. Each is for a way a true sentence silently becomes false:
    read gates a test that no job will ever run.
 4. **Retired names stay retired.** When a decision renames something, the old name goes in
    `docs/contributors/retired-names.md`, and no tracked file outside history (and the
-   agent-failures record, which quotes them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
+   agent-failures record, which quotes them, and library.db's schema steps, their test and goldens,
+   which move rows from them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
    by an audit and never by a gate (agent-failures A12). Taking a name off the list is a
    weakening `check_test_weakening.py` asks a trailer for.
 """
@@ -40,8 +41,13 @@ DECISIONS = "docs/contributors/decisions/"
 LIVE_LOG = DECISIONS + "working-notes.md"
 ARCHIVE_LOG = DECISIONS + "working-notes-archive.md"
 HISTORY_PREFIXES = (DECISIONS, "docs/contributors/design/research/")
-# The record of what agents got wrong quotes the old names it got wrong with.
-QUOTES_RETIRED_NAMES = HISTORY_PREFIXES + ("docs/contributors/agent-failures.md",)
+# The record of what agents got wrong quotes the old names it got wrong with; a schema step
+# names the old names it moves stored rows from, and so do its test and the goldens of the schema
+# before it.
+QUOTES_RETIRED_NAMES = HISTORY_PREFIXES + (
+    "docs/contributors/agent-failures.md", "internal/store/migrations/", "internal/store/testdata/golden/",
+    "internal/store/steps_test.go",
+)
 RETIRED_NAMES = "docs/contributors/retired-names.md"
 # A row of the list: | `old` | `new` | D<n> |. The old name is the first cell's code span.
 RETIRED_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)

@@ -99,3 +99,18 @@ trailer on the commit that removes it.
 | `shutdown_grace_s` | `shutdown_grace_seconds` | D227 §6; owner 2026-09-30 |
 | `probe_timeout_s` | `probe_timeout_seconds` | D227 §6; owner 2026-09-30 |
 | `status_interval_s` | `status_interval_seconds` | D227 §6; owner 2026-09-30 |
+| `signin_failure_window_s` | `signin_failure_window_seconds` | D227 §6; owner 2026-09-30 |
+| `session_idle_expiry_h` | `session_idle_expiry_hours` | D227 §6; owner 2026-09-30 |
+| `session_last_used_write_interval_s` | `session_last_used_write_interval_seconds` | D227 §6; owner 2026-09-30 |
+| `backup_age_warning_h` | `backup_age_warning_hours` | D227 §6; owner 2026-09-30 |
+| `node_silent_after_s` | `node_silent_after_seconds` | D227 §6; owner 2026-09-30 |
+| `node_restart_after_silent_s` | `node_restart_after_silent_seconds` | D227 §6; owner 2026-09-30 |
+| `node_restart_after_exit_s` | `node_restart_after_exit_seconds` | D227 §6; owner 2026-09-30 |
+| `job_first_retry_delay_s` | `job_first_retry_delay_seconds` | D227 §6; owner 2026-09-30 |
+| `provider_timeout_s` | `provider_timeout_seconds` | D227 §6; owner 2026-09-30 |
+| `tmdb_refresh_after_d` | `tmdb_refresh_after_days` | D227 §6; owner 2026-09-30 |
+| `metadata_refresh_check_every_h` | `metadata_refresh_check_every_hours` | D227 §6; owner 2026-09-30 |
+| `removed_item_artwork_kept_d` | `removed_item_artwork_kept_days` | D227 §6; owner 2026-09-30 |
+| `media_token_idle_expiry_h` | `media_token_idle_expiry_hours` | D227 §6; owner 2026-09-30 |
+| `hls_segment_length_s` | `hls_segment_length_seconds` | D227 §6; owner 2026-09-30 |
+| `subtitle_choice` | `subtitle_used` (a file's) and `subtitle_language` (a work's) | D230 |
