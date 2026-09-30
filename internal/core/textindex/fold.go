@@ -58,3 +58,21 @@ func Fold(text string) string {
 	}
 	return builder.String()
 }
+
+// SameWork is the one identity fold (D232): what makes two names name the same work, and every
+// comparison of a work's, a series' or an extra's name goes through it. It is Fold — compatibility
+// forms, case, combining marks and atomic letters folded as search folds them (D48) — keeping
+// only letters, numbers and the spacing marks some scripts write vowels with, so punctuation and
+// spacing, which files and providers write each their own way, say nothing: "Lantern's Agents"
+// and "Lanterns Agents", "Moth-Lantern" and "Moth Lantern", "Fièvre" and "FIEVRE" are one work.
+func SameWork(name string) string {
+	folded := Fold(name)
+	var builder strings.Builder
+	builder.Grow(len(folded))
+	for _, character := range folded {
+		if unicode.IsLetter(character) || unicode.IsNumber(character) || unicode.Is(unicode.Mc, character) {
+			builder.WriteRune(character)
+		}
+	}
+	return builder.String()
+}

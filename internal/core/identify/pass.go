@@ -143,7 +143,7 @@ type libraryFiler struct {
 	nfosByFolder      map[string][]namedNFO
 	showNFOs          map[string]NFO   // a tvshow.nfo, by its folder
 	titleIDByKey      map[string]int64 // by key
-	seriesIDByName    map[string]int64 // by name, lower case
+	seriesIDByName    map[string]int64 // by name, as textindex.SameWork folds it
 	titleIDByFolder   map[string]int64 // a film's folder, for its extras
 	evidence          map[int64][]titleSpec
 	titleIDByFile     map[int64]int64
@@ -229,7 +229,7 @@ func (filer *libraryFiler) knowSeriesByFolder(ctx context.Context) error {
 		if parsed.Kind != library.TitleKindEpisode {
 			continue
 		}
-		key := strings.ToLower(parsed.Name)
+		key := textindex.SameWork(parsed.Name)
 		if _, known := filer.seriesIDByName[key]; known {
 			continue
 		}

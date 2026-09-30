@@ -72,6 +72,20 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 	}
 }
 
+// D232: the candidate is compared by the one identity fold, so a file named without the
+// accents its work's name has matches it.
+func TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Variety", 1994)] = []identify.Candidate{
+		lib.provider.Add(leon), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
+	}
+	lib.scan(videoRecord("Variety (1994).mkv"))
+	if outcome := lib.matchFileTitle("Variety (1994).mkv"); outcome != identify.OutcomeMatched {
+		t.Errorf("outcome %s, want matched: Leon Morin is Léon Morin's original name without its accent", outcome)
+	}
+}
+
 func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")

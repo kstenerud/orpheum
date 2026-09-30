@@ -29,6 +29,34 @@ func TestFold_OneNormaliserForEveryScript(t *testing.T) {
 	}
 }
 
+func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreOne(t *testing.T) {
+	t.Parallel()
+	for _, same := range [][]string{
+		{"Lantern's Agents of L.A.N.T.E.R.N.", "Lanterns Agents of SHIELD", "MARVEL’S AGENTS OF LANTERN"},
+		{"Moth-Lantern: Homecoming", "Moth Lantern Homecoming", "moth.lantern.homecoming"},
+		{"Fièvre", "FIEVRE", "Ame\u0301lie"},
+		{"Sølvi", "Solvi"},
+		{"Ｆｕｌｌ ｗｉｄｔｈ", "Full Width"},
+		{"十字路", "千と千尋の 神隠し"},
+		{"नमस्ते", "नमस्ते!"},
+	} {
+		for _, name := range same[1:] {
+			if SameWork(name) != SameWork(same[0]) {
+				t.Errorf("SameWork(%q) = %q, SameWork(%q) = %q; want one work", name, SameWork(name), same[0],
+					SameWork(same[0]))
+			}
+		}
+		if SameWork(same[0]) == "" {
+			t.Errorf("SameWork(%q) is empty; every script's letters are kept", same[0])
+		}
+	}
+	for _, different := range [][2]string{{"Metropolis", "Metropolis 2"}, {"Wing", "Wings"}, {"十字", "千と千"}} {
+		if SameWork(different[0]) == SameWork(different[1]) {
+			t.Errorf("%q and %q fold alike; want two works", different[0], different[1])
+		}
+	}
+}
+
 func TestSorter_FollowsTheLocaleAndNumbers(t *testing.T) {
 	t.Parallel()
 	ordered := func(locale string, names ...string) []string {

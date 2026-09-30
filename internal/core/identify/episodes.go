@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"maps"
 	"path"
-	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -171,7 +171,7 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 
 // findOrAddSeries finds the series collection by name in this library, or makes it.
 func (filer *libraryFiler) findOrAddSeries(ctx context.Context, name string) (int64, error) {
-	if id, found := filer.seriesIDByName[strings.ToLower(name)]; found {
+	if id, found := filer.seriesIDByName[textindex.SameWork(name)]; found {
 		return id, nil
 	}
 	libraryID := filer.library.ID
@@ -189,7 +189,7 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, name string) (in
 	if err := filer.writeText(ctx, id, itemText{sortListing: KindSeries, name: name}); err != nil {
 		return 0, err
 	}
-	filer.seriesIDByName[strings.ToLower(name)] = id
+	filer.seriesIDByName[textindex.SameWork(name)] = id
 	return id, nil
 }
 

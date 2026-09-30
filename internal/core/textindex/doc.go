@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package textindex is how names are shown, found and ordered: the one display sanitiser, the
-// one normaliser that folds text for search, the CLDR sort keys a library lists in, and the
-// routing of a search to the index that can answer it. The identification pass writes with it;
-// browse and search read with it.
+// Package textindex is how names are shown, found, ordered and told apart: the one display
+// sanitiser, the one normaliser that folds text for search and the identity fold derived from
+// it, the CLDR sort keys a library lists in, and the routing of a search to the index that can
+// answer it. The identification pass writes with it; browse and search read with it.
 //
 // # Invariants
 //
@@ -12,6 +12,9 @@
 //     TestArch_CoreNeverExecs.
 //   - It is the one normaliser (D48): every script's letters survive it, marks go, and the atomic
 //     letters no Unicode option decomposes are spelled out. TestFold_OneNormaliserForEveryScript.
+//   - It is the one identity fold (D232): SameWork is Fold keeping only letters, numbers and
+//     spacing marks, so names that differ in punctuation, spacing, case, accents or width are one
+//     work. TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreOne.
 //   - It is the one display sanitiser (D211 §2): nothing it passes can reorder a display (bidi
 //     embeddings, overrides, isolates), hide in it (invisible characters, controls) or spill
 //     over it (combining marks past four on one letter, unbounded length); real scripts' marks,
@@ -28,10 +31,11 @@
 //   - D48: two FTS5 tokenisers, routed by script and length, and exactly one normaliser.
 //   - D49: Unicode discipline at the boundaries.
 //   - D211: text hygiene.
+//   - D232: the identity fold.
 //   - docs/contributors/design/research/internationalisation.md.
 //
 // # Where to change
 //
-//   - clean.go: the display sanitiser. fold.go: the search normaliser. sortkey.go: the sort keys.
+//   - clean.go: the display sanitiser. fold.go: the search normaliser and the identity fold. sortkey.go: the sort keys.
 //     query.go: the search routing.
 package textindex
