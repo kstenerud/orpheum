@@ -17134,6 +17134,12 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
    (`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`). Sweeps run at start, on their timers,
    after each pass and when a destination unparks. D170's "ever queued" lookup goes: a first match
    is owed until the item has an answer.
+   *Since 2026-09-30 (the owner, "go with your recommendations" on the architecture map's F1):*
+   expensive derived data does not live in cache.db. Small results (loudness, extracted subtitle
+   text) are kept in library.db; large artefacts (prepared renditions, artwork sizes) are kept on
+   the disk where they were made, which is their record, and the core's index of renditions is
+   rebuilt from the node's inventory at hello (D233 §4). Only then does deleting cache.db lose
+   nothing but timing.
 4. **Facts, not job rows.** A failure that is the item's own (not its destination's) is a fact in
    library.db with its reason and time: the sweep skips it, the page shows it, and "try again"
    clears it. A person's request whose action cannot simply be redone is a fact too: in Cut A,
@@ -17210,5 +17216,55 @@ rule that identity uses one normalised form.
    same. SQLite's `NOCASE` compares people's names at sign-in, not works, and is not this fold.
 4. **Nothing is stored.** The fold keys only what a pass holds in memory, so a change to it
    takes effect at the next pass, and no stored key goes stale.
+
+**Status:** Decided 2026-09-30.
+
+## D233 — Work handed to a node survives restarts and lost messages: an outbox, reconciliation at hello, results known by what they are, and a watchdog on both sides
+
+**Decided** (2026-09-30), by the project owner. Built with D231, which it extends from the queue
+to the link between core and node. The research behind it is
+[queueing-2026-09-30](../design/research/queueing-2026-09-30.md) and the domain pass on
+coordinator and worker job systems recorded beside it; agent-failures A14 records why the first
+pass missed it.
+
+1. **Why.** The owner: *"What happens if the node that's supposed to do the job gets stuck? Does
+   the core timeout on it? What happens then? What if the node actually did finish the job but we
+   didn't get the result back? What about a restart? Does the node keep track of jobs it completed
+   so that the core can get resolution?"* The code's answers were that a hung FFmpeg held its slot
+   for ever, a result that failed to send was dropped and the work redone, and a core restart
+   cancelled every encode.
+2. **The node's lifetime is its own** (O1). The node on the core's machine runs as its own service
+   (`orpheum-node`), always restarted; the core watches only that it is alive (D43's thin
+   supervisor). A core restart does not touch node work.
+3. **Results are delivered at least once and handled once.** A finished job's result waits in an
+   outbox on the node's disk until the core acknowledges it, numbered as the report stream is (one
+   mechanism). A result is identified by what it is (kind, target, source hash, run) and every
+   command and answer carries an attempt token; the hello reply carries an id for this run of the
+   core (O2). The core ignores a duplicate and accepts a still-valid result even for a job it gave
+   up on.
+4. **Reconciliation at hello.** A node job's state after a core restart is "awaiting hello" (O3):
+   never re-sent blind. At hello the node lists what it is running and what finished unacknowledged,
+   and its prepared renditions on disk; the core adopts, re-queues or parks each, rebuilds its
+   rendition index from that inventory (D231 §3's note), and says what to stop. Commands of jobs
+   that have ended are never sent.
+5. **Stuck work is caught on both sides.** Stage 1 is built: every FFmpeg run on the node is
+   watched for its position advancing, with a start grace, a stall window and a deadline per kind,
+   and a stalled run is stopped (quit, then its process group killed) and answered as "stalled".
+   Stage 2: the node classifies a stall from `/proc` (deadlocked, spinning, or waiting on a disk,
+   which parks on that root as D231 §5 says) and watches output growth; loudness and extraction
+   report progress; the core's lease on a running job is renewed only by movement, with waiting
+   for a slot bounded on its own.
+6. **Failure has three sources** (O4): the item's (a fact, D231 §4), the destination's (parking,
+   D231 §5), and the tool's (a stall or a crash): free the first time, the item's failure the
+   second. The core recovers from a panic in a job, and a claim checks the attempt count.
+7. **Capacity and expiry.** Claiming respects each node's own slots, so one node's backlog never
+   blocks another's plays, and a play-now prepare pauses background reads on its node (O6).
+   Play-driven work carries a "wanted until"; past it, it falls to background priority or is
+   dropped, since the next play asks again (O5).
+8. **What is shown and kept** (O7). The System page shows, per kind, the number queued, the oldest
+   queued age and the failures of the last 24 hours; per node, its slots in use and the time since
+   its last progress. Finished job rows are pruned after 30 days.
+9. **Compatibility** (O8, from M4). The hello carries a protocol number; a node whose number the
+   core cannot serve is parked with that reason, and an unknown command is refused explicitly.
 
 **Status:** Decided 2026-09-30.
