@@ -92,6 +92,92 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   OpenSubtitles.
 - Closes G3, G6, G12 (storage as a destination), S25, S29, S70, S73, S76, S77.
 
+**Built** (2026-09-30):
+
+- `internal/platform/jobqueue` keeps a destination beside each job's target (cache.db's
+  `destination` column, which replaces the unused `node_id`; cache schema version 21). A handler
+  answers `Park` when its destination is down: the job returns at no cost of an attempt, kept with
+  it, and a claim passes over every parked destination whose probe is not due. One job at a time
+  probes it, on a jittered back-off from 30 s doubling to an hour (the settings
+  `destination_first_probe_delay_seconds` and `destination_longest_probe_delay_seconds`, read
+  through the queue's `ProbePolicy`), or at the time a 429 named; a
+  failed probe costs nothing, a failure that is not the probe's changes nothing, and a probe that
+  succeeds unparks it and wakes every runner. A destination only a signal brings back
+  (`AwaitsSignal`: a node, a root, a key, a full prepared directory) is never probed. A request at or
+  above `jobs.PriorityPersonsRequest` probes its job's parked destination at once. The core's storage
+  is a destination: a claim, a record or an answer that SQLite refuses for want of room or with an
+  I/O error (`store.IsStorageFailure`) parks it, no runner claims until one claim finds room, and an
+  outcome that could not be written is kept and written then. Parked state is in memory.
+  `RetryAtError` and `Blocked`, the runner-level holds, are gone.
+- `internal/core/jobs` names the destinations (`tmdb-api`, `tmdb-images`, `opensubtitles`,
+  `node:<id>`, `root:<node>:<path>`, `prepared:<node>`, `any-node`, `core-storage`), describes them as
+  a person reads them, and its view carries each job's destination and, while it waits, the
+  destination's state. `outbound` reads only 502, 503 and 504 as a host down; a plain 500 is the
+  item's (D231 §5).
+- **Provider services** (`internal/core/providers`): each outside host is a `providers.Service`
+  owning its health (its destination's state in the queue), the rate we keep to (a token bucket on
+  our clock), its quota and reset (from OpenSubtitles' replies), and its credentials' state. Its
+  limits are settings, read at each request, each with where its starting value came from
+  (`settings.Definition.StartSource`, new): `tmdb_requests_per_second` 40 (the upper range TMDB's
+  developer documentation names; the image server keeps to it apart, and documents only 20
+  connections at once), `tmdb_background_rate_share_percent` 80 (the owner's choice),
+  `opensubtitles_downloads_reserved_for_people_percent` 25 (the owner's choice of a percentage of
+  the day's allowance, rounded up to whole downloads: 5 of a free account's 20, 250 of a VIP's 1000;
+  the allowance comes from OpenSubtitles' login and account replies), and
+  `opensubtitles_requests_per_second` 5 (its best practices). A caller's importance comes from its
+  context: a job's priority (`providers.JobImportance`), and outside a job, someone waiting. Within
+  a job, the service answers a host down, asking
+  to wait or refusing its credentials as the job's parking, which the queue records; outside one, a
+  person's call always tries a parked host and counts as its probe. A change of a host's key or login
+  (the secret store's new `OnChange`) unparks it. TMDB's client moved to `providers/tmdb` and
+  OpenSubtitles' to `providers/opensubtitles`; `clock.Clock` gained `Sleep`, so a wait for our own
+  rate is testable.
+- The node table (`internal/core/nodes`) says connected (a long-poll open, or heard within
+  node_silent_after_seconds), silent, or awaiting its hello. Work is sent with `Send`, which parks the
+  job on a node that is not connected; a wait for an answer that runs out parks it when the node
+  went away (`Unanswered`). A hello unparks the node and `any-node`; a status with room unparks its
+  prepared directory, on which the node's new `no_room` refusal code parks prepares. A job reading a
+  file under a root or disk the last scan found missing parks on it (`library.UnavailableUnder`), a
+  complete scan that finds them unparks them (`Ingester.SetOnPathsFound`), and the loudness sweep
+  passes such files over.
+- The API: `GET /jobs` carries each job's `destination` and `waitingFor` (name, reason, since, next
+  check); `GET /system` lists the `destinations` that are down and each provider's state, and each
+  node's `connection`. The web job view says "Waiting for TMDB: unreachable since …, next check …";
+  the System page says a node is silent or awaiting its hello.
+- Scenario tests: `TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`,
+  `TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`,
+  `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges` (cmd/orpheum, on the server's own wiring);
+  `TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`,
+  `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork` (internal/core/api);
+  `TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`
+  (internal/core/jobs).
+
+**Deviations and what Phase 3 must know:**
+
+- "Gone" in the node table waits for Phase 3's retire action, the only way a node becomes gone. A
+  retired node's, root's or library's parked work waits on a signal that never comes: the retire
+  actions must cancel it (D231 §7), and nothing unparks a retired destination.
+- A person's synchronous call to a host that asked us to wait (a 429's Retry-After) waits too,
+  answered as rate limited; D231 §6's "always tries" is read as for a host that is down, not one
+  that named a time. The owner may want to confirm.
+- Jobs queued without a destination (extraction, conversion, loudness, artwork from a local image)
+  learn theirs when first claimed: one claim, no attempt. Fetches, prepares and TMDB artwork name it
+  when queued, so a person's request can probe it at once.
+- When the storage's probe finds nothing to claim, the storage is taken to be back; the next write
+  that fails parks it again. A person's own API request whose write fails is answered as the server
+  failing and parks nothing until a job meets the full disk. A paid OpenSubtitles download is not
+  lost: its link is kept three hours (unchanged).
+- Artwork keeps D213 §5's retry schedule for an image's own failures; only its breaker went.
+- A job that parks because its node went silent sends no cancel, and a node that returns may still
+  be sent commands of jobs that ended (G4, Phase 4). A node's "changed since the scan" refusal is
+  still retried, not answered with a rescan (S74).
+- The player's words for a parked prepare (S29's Q11) and the System page's rendering of the
+  destinations and providers are Phase 6's; the API carries them.
+- Phase 3's sweeps run "when a destination unparks" (D231 §3): `jobqueue.Queue.Unpark` wakes the
+  runners but has no hook yet for a sweep. A failure a provider service reads as the host's never
+  reaches the item: Phase 3's item facts record only what `jobqueue.ParkingOf` does not claim. The
+  loudness sweep's missing-root filter (`ListFilesToMeasure`) is the pattern for the other sweeps.
+
 ## Phase 3 — derived work and facts
 
 D231 §3, §4, §7, §9; F1.

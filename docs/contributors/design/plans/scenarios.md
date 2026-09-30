@@ -291,7 +291,12 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   2. A retire action at each level cancels the jobs of what it removes (D173).
   3. Offline never ends without the admin (D41); the System page shows "offline since", with a
      reminder after a week.
-- **Status:** **gap G6**, **G7**, **G9**.
+- **Status:** **gap G7**, **G9** (the node's refusal of an image on a root the scan has not yet
+  found missing is still kept). G6 **closed** 2026-09-30 (the jobs rebuild's Phase 2): work reading a
+  file under a missing root or disk parks on it, a local image included, and the loudness sweep
+  passes such files over
+  (`TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot`,
+  `TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo`).
 
 ### S23 — The node machine is retired for good
 
@@ -309,7 +314,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - There is no retire action.
 - **Design:** D231: node jobs wait while the node is configured, and removing the node cancels
   them. Answer 2 covers the retire action.
-- **Status:** **gap G3** (the node's state is not truthful), **G7**.
+- **Status:** **gap G7**. G3 **closed** 2026-09-30: the node table says connected, silent or
+  awaiting its hello truthfully, and its jobs park on it at no cost
+  (`TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise`).
 
 ### S24 — The admin deletes a library on purpose
 
@@ -337,7 +344,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   from 30 s up to about 1 h. Nothing spends an attempt, and the queue resumes in priority order.
   - Under Q5, even a lost job is derived again, from `identification_state = unidentified` with
     no answer recorded.
-- **Status:** **gap G3**, **G10**; **question Q5**.
+- **Status:** the outage **holds** (`TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`,
+  the jobs rebuild's Phase 2: one failure, then a dozen probes overnight, and every film
+  matched at its first attempt). A first match lost some other way is still **gap G10** (Phase 3).
 
 ### S26 — A node restarts mid-prepare
 
@@ -386,7 +395,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - The System page shows the disk (D225), but nothing links it to the waiting job.
 - **Design:** silent. D231's "down" covers an unreachable node, not a node that answers "no
   room".
-- **Status:** **question Q8**; **gap G8**.
+- **Status:** **gap G8**. Q8's "no room" is built (2026-09-30): the node names the refusal, and the
+  node's prepares park on its prepared directory until its status shows room
+  (`TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRoom`,
+  `TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory`).
 
 ### S29 — A person presses play while the file's node is parked
 
@@ -402,7 +414,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231: a person's request wakes its job and tries to unpark its destination. For a
   node there is no probe to send, since the hello is the signal. The design does not say what
   the waiting player is shown.
-- **Status:** direct play **holds**; prepare **gap G3**, **G8**; **question Q11**.
+- **Status:** direct play **holds**; the prepare **holds** in the queue
+  (`TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`, 2026-09-30: it waits for the node at
+  no cost, the job view says "waiting for node local: not connected since …", and the hello brings
+  it back). What the player says (Q11) is Phase 6's; **gap G8** stays.
 
 ### S70 — A person asks "look again" while TMDB is parked
 
@@ -419,7 +434,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231: the request triggers an immediate probe and merges with the job already
   open. The design does not say whether the chooser's synchronous search should honour the
   parked state or count as the probe.
-- **Status:** **gap G3**, **G11**; **question Q15**.
+- **Status:** **holds** (`TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`,
+  2026-09-30): the refresh probes TMDB at once, waits shown as waiting for TMDB, and runs first when
+  it returns; a person's synchronous call to TMDB always tries and is its probe (Q15). G11 closed
+  in Phase 1.
 
 ### S71 — The same job is requested again: while queued, while waiting to retry, while parked, while running
 
@@ -460,7 +478,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     Hellos then scan and run the pass again.
 - **Design:** D231 §7: destination state lives in memory, and the first due job after a restart
   probes.
-- **Status:** **holds** today for running and retrying jobs. Parked state **holds on paper**.
+- **Status:** **holds** for running and retrying jobs; parked state is held in memory, and the first
+  job for a destination after a restart probes it (2026-09-30, the jobs rebuild's Phase 2).
 
 ### S73 — The TMDB key is removed or refused while fetches are queued
 
@@ -474,7 +493,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - Artwork continues, because TMDB's image host needs no key.
 - **Design:** D231 keeps `RetryAtError`, but does not say whether "blocked" becomes a
   destination state that is parked until the key changes and shown on the System page.
-- **Status:** **question Q10**.
+- **Status:** **holds** (`TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`, 2026-09-30): a missing
+  or refused key parks `tmdb-api` until the secret changes; TMDB is asked once, the System page says
+  the key was refused, and the fetches resume at no cost when it is changed.
 
 ### S74 — A file is replaced (new payload hash) while its prepare, loudness or subtitle job is queued
 
@@ -512,7 +533,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     blocks the queue: a play-now subtitle on the live node waits up to 5 minutes behind one,
     and artwork waits 2 minutes per attempt.
 - **Design:** D231: jobs are parked per node and never claimed, so nothing blocks the queue.
-- **Status:** artwork re-encoding **holds**; the rest is **gap G3**.
+- **Status:** **holds** (`TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`, 2026-09-30): the down
+  node's work parks on it and is passed over; the live node's runs.
 
 ### S77 — The core's own disk is full (cache.db and library.db writes fail)
 
@@ -527,7 +549,14 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     download that was paid for** (D224 §6 keeps a subtitle because it cost a download).
   - A node's report is sent again from its last ingested sequence. This holds.
 - **Design:** silent.
-- **Status:** **gap G12**; **question Q16**.
+- **Status:** **holds** (`TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`,
+  2026-09-30): the core's storage is a destination (Q16); a claim, a record or a job's write that
+  SQLite refuses for want of room parks it, the log says so once, no job is left running, and work
+  resumes on its own. A paid OpenSubtitles download is not lost: its link is kept three hours, and
+  fetching the file again within them spends nothing
+  (`TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload`). A person's own
+  request whose write fails is answered as the server failing; it parks nothing until a job meets
+  the full disk.
 
 ### S78 — cache.db is deleted under a running library
 
@@ -663,20 +692,24 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 `clocktest`, with no filesystem.
 
 - `TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`: two attempts per job at
-  most, one probe per step, all 200 matched.
+  most, one probe per step, all 200 matched. **Built 2026-09-30** (cmd/orpheum): one attempt each.
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`: the property test above, the owner's
   principle.
 - `TestScenario_S22_AnOfflineRootParksItsJobsAndSweepsQueueNothing`, and its retire follow-up.
 - `TestScenario_S26_ANodesHelloReturnsItsRunningJobsWithoutCost`.
 - `TestScenario_S27_AReconnectedNodeIsSentOnlyLiveCommands`.
 - `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges`: queued, back-off, parked and running.
-- `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`.
+- `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`. **Built 2026-09-30** (cmd/orpheum).
+- `TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`.
+  **Built 2026-09-30** (cmd/orpheum).
 - `TestScenario_S74_AChangedFileEndsItsJobsAndIsRescanned`.
-- `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`.
+- `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`. **Built 2026-09-30** (internal/core/api).
 - `TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`, and G8's
-  `…_APrepareThatFailsForGoodSaysSo`.
-- S77 needs a store fault injector. Unless `internal/store` gains a seam for failing writes,
-  it is an integration-tier test.
+  `…_APrepareThatFailsForGoodSaysSo`. The first **built 2026-09-30** (internal/core/api), for the
+  queue's side; the player's words are Phase 6's.
+- `TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`. **Built
+  2026-09-30** (internal/core/jobs), with a real SQLite "disk full" error (`storetest.DiskFullError`,
+  from a scratch database held to its pages) behind cache.db's job storage.
 - S75 already holds and needs only a regression test: a conversion runs with quota at zero.
 
 ### Scenarios S79–S91: work handed to a node (walk before D233; decided by D233)
@@ -731,16 +764,16 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 | **Q2** | Answered by D208 §2: a Title with no live files follows its files to the new library | S6, S19 |
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
 | **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
-| **G3** | D231 is not built: down-class failures spend attempts; node jobs never check the node; `IsConnected` means "said hello since the core started"; blocked and `RetryAt` are per runner and held in memory; the breaker is kept only for artwork | S23, S25, S29, S70, S76 |
+| **G3** | **Closed 2026-09-30** (the jobs rebuild's Phase 2): a down destination parks its work at no cost and is probed; the node table is truthful; the per-runner holds and the artwork breaker are gone. Was: down-class failures spent attempts; node jobs never checked the node; `IsConnected` meant "said hello since the core started"; blocked and `RetryAt` were per runner | S23, S25, S29, S70, S76 |
 | **G4** | A reconnected node is sent the commands of jobs that have ended; a job that gives up on silence sends no cancel; a retry can run a second FFmpeg in the same rendition directory | S26, S27 |
 | **G5** | A node's hello does not return the jobs that were running on it to the queue; they wait out `maxSilence` and spend an attempt | S26 |
-| **G6** | An offline root is not an unavailable destination (answer 1): its files' jobs run and refuse, and the loudness sweep queues them again every hour | S22 |
+| **G6** | **Closed 2026-09-30:** a root or disk a scan found missing is a destination; its files' jobs park on it and the loudness sweep passes them over. Was: its files' jobs ran and refused, and the sweep queued them again every hour | S22 |
 | **G7** | No retire action for a root, node or library (answer 2); no "offline since" or weekly reminder (answer 3) | S22, S23, S24 |
 | **G8** | A prepare that fails for good on silence or refusals leaves its rendition `running`; the player shows "preparing" until it is reloaded | S26, S28, S29, S74 |
 | **G9** | A node's refusal to read a local image (its disk offline) is recorded as the image's permanent refusal | S22, S76 |
 | **G10** | A lost first match is never queued again (`EverQueued`); a failed match looks the same as one not yet tried | S25, S78 |
 | **G11** | A repeat request is dropped: its priority is not raised, a job in back-off is not woken, and args are not merged (D231 agreed merge) | S70, S71 |
-| **G12** | Core disk full: a failed `writeFinish` leaves a job `running` and blocks it from being queued again; runners log every second; a paid OpenSubtitles download is lost when library.db cannot be written | S77 |
+| **G12** | **Closed 2026-09-30:** the core's storage is a destination that parks the queue, logged once, with an unwritten outcome written when there is room; a paid download's link is kept. Was: a failed `writeFinish` left a job `running`; runners logged every second | S77 |
 | **G13** | A rendition restarted while its job runs is marked complete under the new run id, with nothing in that directory | S71 |
 | **G14** | The D213 §1 recheck exists only as a future-dated job: lost on a discard, dropped next to an open fetch, and never derived | S71, S78 |
 | **G15** | A person's refresh exists only as a job row: lost on a discard, merged away by an open rolling refresh, and the person is never told | S70, S78 |
