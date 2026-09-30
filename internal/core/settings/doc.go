@@ -18,6 +18,9 @@
 //     settings response with every secret set.
 //   - Every starting value is a valid value of its setting, or null for a question. Enforced by
 //     TestRegistry_EveryStartingValueIsAValidValueOrAQuestion.
+//   - Every starting value says where it came from: a decision, a best guess and its basis, a
+//     measurement, or a provider's documentation, so the owner can weigh a tuned value against it.
+//     Enforced by TestRegistry_EveryStartingValueSaysWhereItCameFrom.
 //   - Seeding writes every missing row and never overwrites one a person set. Enforced by
 //     TestSeed_WritesEveryStartingValueAndNeverOverwrites.
 //   - A manual set marks a setting modified, even at its starting value; set-to-default clears the
