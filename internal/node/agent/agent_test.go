@@ -20,6 +20,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
+	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -36,8 +37,9 @@ type fakeCore struct {
 	prepareReports chan nodeproto.PrepareReport
 	subtitles      chan nodeproto.SubtitleText
 	loudness       chan nodeproto.LoudnessResult
-	reportsToDrop  int           // the first reports it ends at once, as a core that went away would
-	stopped        chan struct{} // closed at teardown: a handler stops handing on what it heard
+	reportsToDrop  int            // the first reports it ends at once, as a core that went away would
+	postsToRefuse  map[string]int // by path, the first answers it refuses, as a busy core would
+	stopped        chan struct{}  // closed at teardown: a handler stops handing on what it heard
 }
 
 // isMalformed says the node posted something that is not the JSON it should be; a body cut short
@@ -94,10 +96,10 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 	})
 	mux.HandleFunc("POST "+nodeproto.PathReport, core.receiveReport(t))
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core, core.artwork))
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core, core.prepareReports))
-	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core, core.subtitles))
-	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core, core.loudness))
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core, nodeproto.PathArtwork, core.artwork))
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core, nodeproto.PathPrepare, core.prepareReports))
+	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core, nodeproto.PathSubtitle, core.subtitles))
+	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core, nodeproto.PathLoudness, core.loudness))
 	socket := core.serve(t, mux)
 	return core, socket
 }
@@ -166,11 +168,16 @@ func (core *fakeCore) serve(t *testing.T, handler http.Handler) string {
 	return socket
 }
 
-// forwardPosted hands the test each answer of type T the node posts.
-func forwardPosted[T any](t *testing.T, core *fakeCore, into chan<- T) http.HandlerFunc {
+// forwardPosted hands the test each answer the node posts to path, past the first postsToRefuse
+// of them.
+func forwardPosted[Answer any](t *testing.T, core *fakeCore, path string, into chan<- Answer) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var answer T
+		if core.refusesNextPost(path) {
+			http.Error(writer, "the core is busy", http.StatusServiceUnavailable)
+			return
+		}
+		var answer Answer
 		err := json.NewDecoder(request.Body).Decode(&answer)
 		if isMalformed(err) {
 			t.Error(err)
@@ -180,6 +187,27 @@ func forwardPosted[T any](t *testing.T, core *fakeCore, into chan<- T) http.Hand
 		}
 		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
+}
+
+// refuseFirstPosts has the core refuse the next count answers posted to path.
+func (core *fakeCore) refuseFirstPosts(path string, count int) {
+	core.mutex.Lock()
+	defer core.mutex.Unlock()
+	if core.postsToRefuse == nil {
+		core.postsToRefuse = map[string]int{}
+	}
+	core.postsToRefuse[path] = count
+}
+
+// refusesNextPost says whether the core refuses this answer posted to path, and counts it.
+func (core *fakeCore) refusesNextPost(path string) bool {
+	core.mutex.Lock()
+	defer core.mutex.Unlock()
+	if core.postsToRefuse[path] <= 0 {
+		return false
+	}
+	core.postsToRefuse[path]--
+	return true
 }
 
 func (core *fakeCore) helloCount() int {
@@ -226,14 +254,23 @@ func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time
 // startAgentWithShelf is startAgent with a prepared shelf, which may be nil.
 func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
-	root := nodetest.OpenMediaRoot(t, t.TempDir())
-	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	workers := Workers{
+	return startAgentWithWorkers(t, socket, Workers{
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
 		LoudnessMeasurer: fakeMeasurer{}, PreparedShelf: shelf,
-	}
+	})
+}
+
+// startAgentWithWorkers starts an agent with workers, which tries an answer the core did not take
+// again within milliseconds.
+func startAgentWithWorkers(t *testing.T, socket string, workers Workers) (*confine.MediaRoot, chan time.Time) {
+	t.Helper()
+	root := nodetest.OpenMediaRoot(t, t.TempDir())
+	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
+	node.answerRetry = answerRetry{
+		firstWait: time.Millisecond, longestWait: 4 * time.Millisecond, patience: time.Second,
+	}
 	tick := make(chan time.Time)
 	ctx, cancel := context.WithCancel(t.Context())
 	finished := make(chan error, 1)
@@ -345,6 +382,55 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 		}
 	case <-t.Context().Done():
 		t.Fatal("no artwork answer reached the core")
+	}
+}
+
+// stopWatchingPreparer runs every prepare until it is stopped, and closes stopped when it is.
+type stopWatchingPreparer struct{ stopped chan struct{} }
+
+func (preparer stopWatchingPreparer) Prepare(
+	ctx context.Context, _ string, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
+) (prepare.Made, error) {
+	progress(500)
+	<-ctx.Done()
+	close(preparer.stopped)
+	return prepare.Made{}, ctx.Err()
+}
+
+// One answer the core did not take is tried again, and costs nothing else: the session goes on
+// and a prepare running beside it is not stopped.
+func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	preparer := stopWatchingPreparer{stopped: make(chan struct{})}
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer,
+	})
+	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
+	if running := nextPrepareReport(t, core); running.State != nodeproto.PrepareRunning {
+		t.Fatalf("the prepare's first report = %+v, want running", running)
+	}
+	core.refuseFirstPosts(nodeproto.PathArtwork, 1)
+	artwork := &nodeproto.Artwork{
+		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
+	select {
+	case result := <-core.artwork:
+		if result.JobID != 12 || len(result.Images) != 1 {
+			t.Errorf("the core heard %+v, want job 12's image", result)
+		}
+	case <-time.After(answerTimeout):
+		t.Fatal("the artwork answer the core refused once never reached it")
+	}
+	select {
+	case <-preparer.stopped:
+		t.Error("the running prepare was stopped by one answer the core did not take")
+	default:
+	}
+	if count := core.helloCount(); count != 1 {
+		t.Errorf("%d hellos, want 1: one answer the core did not take ends no session", count)
 	}
 }
 

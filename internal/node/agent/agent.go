@@ -71,7 +71,7 @@ type PreparedShelf interface {
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
 // commands and runs them one at a time, prepares, extractions and measurements beside them, and
 // streams its report — scan records and a status record every tick — as one JSONL request. When
-// anything breaks it waits for the next tick and says hello again.
+// the report or the poll breaks it waits for the next tick and says hello again.
 type Agent struct {
 	client  *http.Client
 	hello   nodeproto.Hello
@@ -80,8 +80,9 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	slots slots
-	jobs  jobTracker
+	slots       slots
+	jobs        jobTracker
+	answerRetry answerRetry
 
 	mutex    sync.Mutex
 	activity string
@@ -103,6 +104,7 @@ func New(
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
 		clock:   clockSource, logger: logger, activity: "idle", slots: newSlots(),
+		answerRetry: defaultAnswerRetry(),
 	}
 }
 
@@ -208,9 +210,7 @@ func (agent *Agent) runCommandsInOrder(
 		case <-ctx.Done():
 			return fmt.Errorf("worker stopped: %w", ctx.Err())
 		case command := <-commandQueue:
-			if err := agent.runCommand(ctx, nodeID, command, stream); err != nil {
-				return err
-			}
+			agent.runCommand(ctx, nodeID, command, stream)
 		}
 	}
 }
@@ -219,28 +219,29 @@ func (agent *Agent) runCommandsInOrder(
 // refused, whatever the core asks (D107).
 func (agent *Agent) runCommand(
 	ctx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
-) error {
+) {
 	if command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil {
-		return agent.deriveAndPostArtwork(ctx, nodeID, *command.EncodeArtwork)
+		agent.deriveAndPostArtwork(ctx, nodeID, *command.EncodeArtwork)
+		return
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
 		agent.startPrepare(ctx, nodeID, *command.Prepare)
-		return nil
+		return
 	}
 	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
 		agent.extractSubtitle(ctx, nodeID, *command.ExtractSubtitle)
-		return nil
+		return
 	}
 	if command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil {
 		agent.measureLoudness(ctx, nodeID, *command.MeasureLoudness)
-		return nil
+		return
 	}
 	if command.Type == nodeproto.CommandScan {
 		root, known := agent.roots[command.Scan.RootPath]
 		if !known {
 			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath",
 				command.Scan.RootPath)
-			return nil
+			return
 		}
 		agent.setActivity("scanning " + root.Path())
 		defer agent.setActivity("idle")
@@ -256,15 +257,15 @@ func (agent *Agent) runCommand(
 		if err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
 		}
-		return nil
+		return
 	}
 	agent.logger.WarnContext(ctx, "ignored a command this node does not know", "commandType", command.Type)
-	return nil
 }
 
 // deriveAndPostArtwork re-encodes an image and posts the answer — the sizes, or why there are
-// none — to the core, whose artwork store takes images from nowhere else (D212 §8).
-func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
+// none — to the core, whose artwork store takes images from nowhere else (D212 §8). The answer is
+// posted beside the node's other work, so a core slow to take it holds up no other command.
+func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) {
 	agent.setActivity("re-encoding artwork")
 	defer agent.setActivity("idle")
 	jobCtx, finishJob := agent.jobs.startJob(ctx, command.JobID)
@@ -287,13 +288,7 @@ func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, comm
 	if result.Refusal != "" {
 		agent.logger.WarnContext(ctx, "refused an image", "jobId", command.JobID, "refusal", result.Refusal)
 	}
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("encode artwork %d: %w", command.JobID, err)
-	}
-	var accepted struct{}
-	body := bytes.NewReader(encoded)
-	return agent.exchange(ctx, http.MethodPost, nodeproto.PathArtwork, nodeID, body, &accepted)
+	go agent.postAnswer(ctx, nodeID, nodeproto.PathArtwork, "an artwork re-encode", command.JobID, result)
 }
 
 // maxImageBytes bounds an image beside the media the node reads: posters are megabytes.

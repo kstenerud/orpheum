@@ -78,9 +78,7 @@ func (agent *Agent) startPrepare(ctx context.Context, nodeID int64, command node
 				"jobId", command.JobID, "renditionDir", command.RenditionDir, "refusal", outcome.Refusal)
 		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
 		}
-		if err := agent.sendPrepareReport(ctx, nodeID, outcome); err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "jobId", command.JobID, "err", err)
-		}
+		agent.postAnswer(ctx, nodeID, nodeproto.PathPrepare, "a prepare", command.JobID, outcome)
 		agent.evict(ctx)
 	}()
 }

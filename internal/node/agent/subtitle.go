@@ -3,12 +3,9 @@
 package agent
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -66,19 +63,7 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job ba
 			agent.logger.WarnContext(ctx, "a job was refused or failed", "jobKind", job.jobKind, "jobId", job.jobID,
 				"refusalOrFailure", refusalOrFailure)
 		}
-		encoded, err := json.Marshal(answer)
-		if err != nil {
-			agent.logger.ErrorContext(ctx, "could not encode a job's answer", "jobKind", job.jobKind, "jobId",
-				job.jobID,
-				"err", err)
-			return
-		}
-		var accepted struct{}
-		err = agent.exchange(ctx, http.MethodPost, job.answerPath, nodeID, bytes.NewReader(encoded), &accepted)
-		if err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "could not send a job's answer to the core", "jobKind", job.jobKind,
-				"jobId", job.jobID, "err", err)
-		}
+		agent.postAnswer(ctx, nodeID, job.answerPath, job.jobKind, job.jobID, answer)
 	}()
 }
 

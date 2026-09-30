@@ -167,3 +167,14 @@ func TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile(t *testing.T
 		t.Errorf("a fetched text beside a video: %+v, want refused", both)
 	}
 }
+
+// A subtitle's answer the core did not take is posted again, not dropped.
+func TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry(t *testing.T) {
+	t.Parallel()
+	_, sidecar, core := startExtractionAgent(t)
+	core.refuseFirstPosts(nodeproto.PathSubtitle, 1)
+	core.queueExtraction(1, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
+	if answer := receiveSubtitle(t, core); answer.JobID != 1 || string(answer.ASS) != "the sidecar" {
+		t.Errorf("the answer after one refusal = %+v, want job 1's text", answer)
+	}
+}
