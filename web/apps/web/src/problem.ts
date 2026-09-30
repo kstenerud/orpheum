@@ -43,8 +43,8 @@ export function problemText(
  * other failure, or a provider_error without a reason, is problemText's.
  */
 export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
-  if (cause instanceof ApiProblem && cause.code === "provider_error") {
-    const reason = cause.detail["reason"];
+  if (cause instanceof ApiProblem) {
+    const reason = cause.withCode("provider_error")?.detail?.reason;
     if (reason !== undefined) {
       return t(`${reasons}.${camelKey(reason)}`, { defaultValue: t(`${reasons}.unknown`) });
     }
@@ -57,7 +57,7 @@ export function providerProblemText(t: TFunction, cause: unknown, reasons: strin
  * that gives none says only that there is no session ("no_session").
  */
 export function sessionEndReason(problem: ApiProblem): string {
-  return problem.detail["reason"] ?? "no_session";
+  return problem.withCode("auth_required")?.detail?.reason ?? "no_session";
 }
 
 /**

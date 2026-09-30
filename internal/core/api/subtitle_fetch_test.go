@@ -187,9 +187,9 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 		opensubtitles.ErrNoLogin:      `"reason":"no_login"`,
 		opensubtitles.ErrLoginRefused: `"reason":"login_refused"`,
 		fmt.Errorf("opensubtitles: %w: status 503", outbound.ErrUnavailable): `"reason":"unavailable"`,
-		&opensubtitles.QuotaSpentError{DownloadsResetAt: resetAt}:            `"downloadsResetAt":"1790661600000"`,
+		&opensubtitles.QuotaSpentError{DownloadsResetAt: resetAt}:            `"downloadsResetAt":1790661600000`,
 		&outbound.RateLimitedError{Provider: "OpenSubtitles", RetryAfter: 2 * time.Second}: `"message":` +
-			`"OpenSubtitles asks us to wait","detail":{"retryAfterMs":"2000"}`,
+			`"OpenSubtitles asks us to wait","detail":{"retryAfterMs":2000}`,
 	} {
 		harness.subtitler.mutex.Lock()
 		harness.subtitler.failure = failure

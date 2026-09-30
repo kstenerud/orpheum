@@ -179,20 +179,30 @@ func wantError(t *testing.T, got response, status int, code Code) {
 	if err := json.Unmarshal([]byte(got.body), &shape); err != nil || len(shape) != 1 || shape["error"] == nil {
 		t.Fatalf("the error body is not {\"error\": {...}}: %s", got.body)
 	}
-	var detail ErrorDetail
-	if err := json.Unmarshal(shape["error"], &detail); err != nil {
+	var problem decodedProblem
+	if err := json.Unmarshal(shape["error"], &problem); err != nil {
 		t.Fatal(err)
 	}
-	if detail.Code != code || detail.Message == "" {
-		t.Errorf("error = %+v, want code %s with a message", detail, code)
+	if problem.Code != code || problem.Message == "" {
+		t.Errorf("error = %+v, want code %s with a message", problem, code)
 	}
+}
+
+// decodedProblem is a ProblemBody as a client reads it, its detail left as JSON.
+type decodedProblem struct {
+	Code      Code            `json:"code"`
+	Message   string          `json:"message"`
+	Detail    json.RawMessage `json:"detail"`
+	FailedHop Hop             `json:"failedHop"`
 }
 
 // wantErrorSaying is wantError, and the message the error says.
 func wantErrorSaying(t *testing.T, got response, status int, code Code, message string) {
 	t.Helper()
 	wantError(t, got, status, code)
-	var body ErrorBody
+	var body struct {
+		Error decodedProblem `json:"error"`
+	}
 	if err := json.Unmarshal([]byte(got.body), &body); err != nil || body.Error.Message != message {
 		t.Errorf("message = %q, want %q; body %s", body.Error.Message, message, got.body)
 	}

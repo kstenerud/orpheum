@@ -270,7 +270,7 @@ recorded.
 One shape everywhere, one enumeration shared by the Go server and the SDK:
 
 ```json
-{"error": {"code": "prepare_failed", "message": "…", "detail": {"…": "…"}, "failedHop": "node"}}
+{"error": {"code": "quota_exhausted", "message": "…", "detail": {"downloadsResetAt": 1790661600000}, "failedHop": "provider"}}
 ```
 
 `code` is one of:
@@ -283,6 +283,12 @@ One shape everywhere, one enumeration shared by the Go server and the SDK:
 
 `failedHop`, where present, names the failing leg for reachability errors: `client`, `core`, `node`,
 `provider` or `tunnel` ([remote-access.md](remote-access.md)).
+
+`detail` is typed by the code, and the API document gives each code its form (`ProblemBody`), so a
+number is a number: `auth_required` carries `reason`; `invalid_request` carries `problems`, each a
+`location` and a `message`; `rate_limited` carries `retryAfterMs`; `quota_exhausted` carries
+`downloadsResetAt`, in Unix milliseconds; `provider_error` carries `reason`, in the provider's
+terms. The other codes carry none (M3's closing audit, under D227).
 
 **The transcode reason** travels in the playback decision, not as an error. It is one of:
 - `container` (MKV in a browser)
