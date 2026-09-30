@@ -81,7 +81,8 @@ setting key goes to the owner first.
 ## The next milestone
 
 16. **What it needs decided before its first line**, framed as concepts before options, after
-    searching the decisions for anything already settled.
+    searching the decisions for anything already settled. When research informs one, it first lists the field's
+    standard concerns and marks each covered, a gap or not relevant (agent-failures A14).
 17. **Platforms** (D205): the module still builds for linux/arm64; recheck riscv64's blockers.
 18. **New dependencies** since the last audit, and whether any is architecture-specific.
 
