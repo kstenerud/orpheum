@@ -116,7 +116,8 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
 		http.StatusConflict, CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
-	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":""}]`) {
+	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":"",`+
+		`"missingMountPaths":[]}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
 	scanned := harness.do(t, http.MethodPost, "/libraries/1/scan", admin, nil)
@@ -211,6 +212,34 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
+}
+
+func TestLibraries_ARootListsItsMissingMountsAndEachIsWhatADiskGoneTakes(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/m")
+	librarytest.LibraryOn(t, harness.database, 1,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
+		 VALUES (1, '/m', '/m/disk1', 21, 0), (1, '/m', '/m/disk2', 22, 1)`)
+	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"rootPath":"/m","lastScanOutcome":"","missingMountPaths":["/m/disk1"]`) {
+		t.Fatalf("GET /libraries = %d %s; want the root to list /m/disk1 alone as missing", listed.status, listed.body)
+	}
+	// The page sends a missing mount's path, not the root's: the root's is refused.
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+		map[string]string{"nodeName": "local", "path": "/m"}), http.StatusConflict, CodeConflict)
+	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+		map[string]string{"nodeName": "local", "path": "/m/disk1"})
+	if gone.status != http.StatusAccepted {
+		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
+	}
+	if after := harness.do(t, http.MethodGet, "/libraries", admin, nil); !strings.Contains(after.body,
+		`"missingMountPaths":[]`) {
+		t.Errorf("GET /libraries after the disk is gone = %s; want no missing mount", after.body)
+	}
 }
 
 func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {

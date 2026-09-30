@@ -37,6 +37,7 @@ const library: components["schemas"]["LibraryBody"] = {
       rootPath: "/media/films",
       lastScanOutcome: "withheld",
       withheldReason: "gone",
+      missingMountPaths: [],
     },
   ],
 };

@@ -2,12 +2,15 @@
 
 import "./i18n.ts";
 
+import type { components } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { blankLibrary, CreateLibraryForm, withRootChosen } from "./create-library.tsx";
-import { LibraryCard } from "./libraries.tsx";
+import { LibraryCard, rootAnswerRequest } from "./libraries.tsx";
 import { withServices } from "./test-services.tsx";
+
+type Root = components["schemas"]["RootBody"];
 
 const ignore = (): void => undefined;
 
@@ -18,8 +21,7 @@ describe("libraries", () => {
         <LibraryCard
           note="Asked 1 roots to scan."
           onScan={ignore}
-          onApproveRemovals={ignore}
-          onMarkGone={ignore}
+          onAnswer={ignore}
           library={{
             id: 3,
             name: "Films",
@@ -35,6 +37,7 @@ describe("libraries", () => {
                 rootPath: "/media/films",
                 lastScanOutcome: "withheld",
                 withheldReason: "a third of the files went",
+                missingMountPaths: ["/media/films/disk1"],
               },
             ],
           }}
@@ -44,10 +47,49 @@ describe("libraries", () => {
     expect(markup).toContain("local: /media/films");
     expect(markup).toContain("removals wait for you");
     expect(markup).toContain("Remove what the last scan did not find");
+    expect(markup).toContain("A disk is missing from <code>/media/films/disk1</code> <button");
     expect(markup).toContain("This disk is gone for good");
     expect(markup).toContain("Listed: 40 · Could not be read: 2");
     expect(markup).toContain('href="/libraries/3/files"');
     expect(markup).toContain("<output>Asked 1 roots to scan.</output>");
+  });
+
+  it("says a disk is gone by its mount point's path, and approves removals by the root's (D208)", () => {
+    const root: Root = {
+      nodeName: "local",
+      rootPath: "/media/films",
+      lastScanOutcome: "complete",
+      missingMountPaths: ["/media/films/disk1", "/media/films/disk2"],
+    };
+    expect(rootAnswerRequest(root, { kind: "diskGone", mountPath: "/media/films/disk2" })).toEqual({
+      endpoint: "/libraries/{id}/mounts/gone",
+      body: { nodeName: "local", path: "/media/films/disk2" },
+    });
+    expect(rootAnswerRequest(root, { kind: "approveRemovals" })).toEqual({
+      endpoint: "/libraries/{id}/removals",
+      body: { nodeName: "local", path: "/media/films" },
+    });
+    const markup = renderToStaticMarkup(
+      withServices(
+        <LibraryCard
+          note=""
+          onScan={ignore}
+          onAnswer={ignore}
+          library={{
+            id: 3,
+            name: "Films",
+            kind: "movies",
+            metadataSource: "nfo",
+            changeDetection: "manual",
+            isWritable: false,
+            createdAt: 1,
+            roots: [root],
+          }}
+        />,
+      ),
+    );
+    expect(markup.match(/This disk is gone for good/gu)).toHaveLength(2);
+    expect(markup).not.toContain("Remove what the last scan did not find");
   });
 
   it("asks the three questions with every answer explained, read-only by default (D184)", () => {

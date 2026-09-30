@@ -2433,6 +2433,7 @@
             "type": "string"
           },
           "path": {
+            "description": "For removals, the root's path; for a disk gone, the mount point's, one of its root's missingMountPaths",
             "minLength": 1,
             "type": "string"
           }
@@ -2459,6 +2460,16 @@
             ],
             "type": "string"
           },
+          "missingMountPaths": {
+            "description": "Mount points inside the root whose disk a scan found missing; each is what POST /libraries/{id}/mounts/gone takes (D208)",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "nodeName": {
             "type": "string"
           },
@@ -2473,7 +2484,8 @@
         "required": [
           "nodeName",
           "rootPath",
-          "lastScanOutcome"
+          "lastScanOutcome",
+          "missingMountPaths"
         ],
         "type": "object"
       },
