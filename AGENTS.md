@@ -28,6 +28,13 @@ A branch also passes `make check-pr` (the integration tier, revert-red, test wea
 lint) before it merges.
 `make help` lists everything.
 
+**Fixing a failure, re-run only what failed; then run the whole gate once.** Loop on the narrowest
+run that shows the failure: `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`,
+`make check-revert-red BASE=<base> ONLY="<path>..."`, or `make check-pr-failed`, which re-runs
+only the check-pr steps that failed last time (revert-red on only its failed files). A targeted
+green is not the gate's: when it passes, run the full `make check-pr` once before the branch is
+done. *Standards: makefile.md §4.*
+
 ## Rules
 
 1. **Cut A's design is frozen** (D193 §8). If the plan is silent, ambiguous or wrong, stop and
