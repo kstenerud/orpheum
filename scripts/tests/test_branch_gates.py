@@ -53,12 +53,25 @@ class BranchBase(unittest.TestCase):
                 bb.resolve("no-such-ref")
 
 
+def expand_variables(makefile: str, text: str) -> str:
+    """`text` with the Makefile's simple variables expanded, `$(NAME)` and `$(NAME:%=prefix%)`."""
+    values = dict(re.findall(r"(?m)^([A-Z_]+) := (.*)$", makefile))
+
+    def expand(match: re.Match[str]) -> str:
+        words = values.get(match.group(1))
+        if words is None:
+            return match.group(0)
+        prefix = match.group(2) or ""
+        return " ".join(prefix + word for word in words.split())
+    return re.sub(r"\$\(([A-Z_]+)(?::%=([^%)]*)%)?\)", expand, text)
+
+
 def revert_red_waits_for_the_tiers(makefile: str) -> bool:
     """Whether check-pr runs check-revert-red in a make of its own after the parallel one."""
     recipe = re.search(r"^check-pr:.*\n((?:\t.*\n)+)", makefile, re.M)
     if recipe is None:
         return False
-    body = recipe.group(1).replace("\\\n", " ")
+    body = expand_variables(makefile, recipe.group(1).replace("\\\n", " "))
     parallel = body.find("-j")
     tiers = body.find("test-integration")
     revert = body.find("check-revert-red")
@@ -74,8 +87,8 @@ class CheckPrWiring(unittest.TestCase):
         self.assertFalse(revert_red_waits_for_the_tiers(beside))
 
     def test_every_branch_gate_resolves_its_base_the_one_way(self):
-        for target in ("check-pr", "check-revert-red", "check-test-weakening", "check-decision-status",
-                       "lint-commits"):
+        for target in ("check-pr", "check-pr-failed", "check-revert-red", "check-revert-red-failed",
+                       "check-test-weakening", "check-decision-status", "lint-commits"):
             recipe = re.search(rf"^{target}:.*\n\t(.*)", self.MAKEFILE, re.M)
             self.assertIsNotNone(recipe, target)
             self.assertIn("$(RESOLVE_BASE)", recipe.group(1), target)

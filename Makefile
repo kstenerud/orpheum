@@ -151,14 +151,29 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 
 RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 
+# check-pr's steps. Each runs through pr-step-<step>, which records whether it passed and on what
+# commit (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
+PR_STEPS := test-integration test-browser check-test-weakening check-decision-status lint-commits web-lint-full
 # Revert-red runs after the tiers, never beside them: a timing test failing under the load of a
 # probe would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6).
+PR_LAST_STEP := check-revert-red
+
 .PHONY: check-pr
 check-pr: ## Branch gates against BASE (default: the owner's mark), the integration and browser tiers in parallel, then revert-red
 	@base="$$($(RESOLVE_BASE))"; \
-	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target BASE="$$base" \
-	    test-integration test-browser check-test-weakening check-decision-status lint-commits web-lint-full; \
-	  $(MAKE) --no-print-directory BASE="$$base" check-revert-red
+	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
+	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
+	    $(PR_STEPS:%=pr-step-%); \
+	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%)
+
+# The loop's re-run: never a pass of check-pr, which is still required before a branch is done.
+.PHONY: check-pr-failed
+check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert-red: only its failed files); then run the full check-pr
+	@base="$$($(RESOLVE_BASE))"; \
+	  $(PYTHON) scripts/check_pr_steps.py rerun --base "$$base" --jobs $(CHECK_JOBS) --last $(PR_LAST_STEP) $(PR_STEPS)
+
+pr-step-%:
+	@$(PYTHON) scripts/check_pr_steps.py record $* -- $(MAKE) --no-print-directory BASE='$(BASE)' $*
 
 .PHONY: mark-applied
 mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner took, the branch gates' base
@@ -169,8 +184,12 @@ web-lint-full: web-deps ## eslint without its cache: make check's cached lint ca
 	@npm --prefix web run --silent lint:full
 
 .PHONY: check-revert-red
-check-revert-red: ## Every behaviour change can turn a test red when reverted (D190)
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base"
+check-revert-red: ## Every behaviour change can turn a test red when reverted (D190); ONLY="a b" probes only those paths
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" $(if $(ONLY),--only $(ONLY))
+
+.PHONY: check-revert-red-failed
+check-revert-red-failed: ## Revert-red on only the files its last run against BASE failed on; then run the full check
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
 
 .PHONY: check-test-weakening
 check-test-weakening: ## No test got weaker, and no gate changed, without a trailer on a commit that touched it
