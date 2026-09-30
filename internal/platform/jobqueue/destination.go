@@ -87,8 +87,9 @@ func IsInJob(ctx context.Context) bool {
 }
 
 // Park marks a destination down, or, if it is down, notes the failure. A failed probe backs the
-// next one off a step; any other failure of a parked destination leaves its probe where it is,
-// unless it names a later time to look. It wakes nothing: parked work waits.
+// next one off a step and says why it is down now; any other failure of a parked destination (a
+// job that ran before it was parked, or one that names none) changes nothing of how it comes
+// back, unless it names a later time to look. It wakes nothing: parked work waits.
 func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 	if parking.Destination == "" {
 		return
@@ -97,6 +98,12 @@ func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 	queue.destinations.mutex.Lock()
 	defer queue.destinations.mutex.Unlock()
 	parked, isParked := queue.destinations.parkedBy[parking.Destination]
+	if isParked && !parking.IsProbe {
+		if !parked.state.AwaitsSignal && parking.ProbeAt.After(parked.state.NextProbeAt) {
+			parked.state.NextProbeAt = parking.ProbeAt
+		}
+		return
+	}
 	if !isParked {
 		parked = &parkedDestination{state: DestinationState{
 			Destination: parking.Destination, Since: parking.Since,
@@ -107,18 +114,17 @@ func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 		queue.destinations.parkedBy[parking.Destination] = parked
 		queue.logger.WarnContext(ctx, "a destination is down; its work waits", "destination", parking.Destination,
 			"reason", parking.Reason)
-	} else if parking.IsProbe {
-		parked.probeStep++
+	} else {
+		parked.probeStep++ // a failed probe
 		parked.state.IsProbing = false
 	}
 	parked.state.Reason, parked.state.AwaitsSignal = parking.Reason, parking.AwaitsSignal
-	isScheduled := isParked && !parking.IsProbe && !parked.state.NextProbeAt.IsZero()
 	switch {
 	case parking.AwaitsSignal:
 		parked.state.NextProbeAt, parked.state.IsProbing = time.Time{}, false
-	case !parking.ProbeAt.IsZero() && (!isScheduled || parking.ProbeAt.After(parked.state.NextProbeAt)):
+	case !parking.ProbeAt.IsZero():
 		parked.state.NextProbeAt = parking.ProbeAt
-	case !isScheduled:
+	default:
 		parked.state.NextProbeAt = now.Add(queue.jittered(ctx, probeDelay(parked.probeStep)))
 	}
 }

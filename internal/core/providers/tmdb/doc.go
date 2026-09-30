@@ -3,7 +3,8 @@
 // Package tmdb is TMDB behind identify's provider interface: search, find by an IMDb id or a
 // series' TVDB id, fetch a film's details with its credits or a series' record and its season
 // listings, and parse a stored response; and TMDB's image downloader, an artwork.Fetcher. It is the
-// one place the TMDB key is revealed, to TMDB (D194 §5).
+// one place the TMDB key is revealed, to TMDB (D194 §5). TMDB's API and its image server are each
+// a provider service (APIService, ImagesService), which every call asks first.
 //
 // # Invariants
 //
@@ -28,6 +29,10 @@
 //     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre,
 //     TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure and
 //     TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing.
+//   - Every call asks its host's provider service first, which keeps to TMDB's documented 40
+//     requests a second with background work below 80% of it, and sends nothing to a parked host
+//     but a person's call, which is its probe (D231 §5, §6).
+//     TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground.
 //   - Tests call a fake TMDB on loopback, never the network (standards/testing.md). Enforced by
 //     review; every test here builds its server with httptest.
 //
@@ -36,11 +41,12 @@
 //   - D170: a title follows one source, fetched once; the response is stored.
 //   - D172: an ambiguous match is never guessed (the matcher's rule, in identify).
 //   - D194 §5: only the provider client reveals a secret.
+//   - D231 §5: TMDB's hosts as provider services, and what counts as a host down.
 //   - docs/contributors/design/plans/identification.md, Where metadata comes from.
 //
 // # Where to change
 //
-//   - client.go: authorisation (a v3 key as api_key, a v4 token as a bearer token) and TMDB's
-//     refusals. works.go: the endpoints for films, series and seasons, and the reading of each
-//     response. images.go: the image downloader.
+//   - client.go: authorisation (a v3 key as api_key, a v4 token as a bearer token), TMDB's
+//     refusals, and its provider services with their limits. works.go: the endpoints for films,
+//     series and seasons, and the reading of each response. images.go: the image downloader.
 package tmdb

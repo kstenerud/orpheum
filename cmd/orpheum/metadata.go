@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
@@ -41,6 +42,9 @@ type jobServices struct {
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
 	// image server, and OpenSubtitles, sharing one transport and its connections.
 	outboundClient *http.Client
+	// providerServices are each outside host's provider service, which every call to it asks
+	// first (D231 §5): TMDB's API, TMDB's image server and OpenSubtitles, in that order.
+	providerServices hostProviders
 	// measureDue is signalled after each identification pass, which follows every scan: new files
 	// may want measuring (D226 §2).
 	measureDue chan struct{}
@@ -59,15 +63,17 @@ func newJobServices(
 	if err != nil {
 		return jobServices{}, err
 	}
-	providers := identify.Providers{"tmdb": tmdb.New(httpClient, outside.tmdbBaseURL, opened.secrets)}
-	subtitler, err := opensubtitles.New(httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{})
-	if err != nil {
-		return jobServices{}, err
-	}
 	queue := jobs.NewQueue(jobs.QueueParts{
 		Cache: opened.cache, Clock: clock.System{}, Settings: opened.settings, Random: rand.Reader, Logger: logger,
 		ArgsMerges: jobArgsMerges(),
 	})
+	hosts := newHostProviders(queue, opened.secrets)
+	providers := identify.Providers{"tmdb": tmdb.New(httpClient, outside.tmdbBaseURL, opened.secrets, hosts.tmdbAPI)}
+	subtitler, err := opensubtitles.New(
+		httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{}, hosts.openSubtitles)
+	if err != nil {
+		return jobServices{}, err
+	}
 	requeued, err := queue.RequeueRunning(ctx)
 	if err != nil {
 		return jobServices{}, err
@@ -90,10 +96,35 @@ func newJobServices(
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
-		outboundClient: httpClient, measureDue: measureDue,
+		outboundClient: httpClient, providerServices: hosts, measureDue: measureDue,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
+}
+
+// hostProviders are the outside hosts' provider services (D231 §5).
+type hostProviders struct {
+	tmdbAPI, tmdbImages, openSubtitles *coreproviders.Service
+}
+
+// newHostProviders builds each outside host's provider service, its health kept in the job queue,
+// and has a person's change of a host's key or login try it again.
+func newHostProviders(queue *jobs.Queue, secretStore *secrets.Store) hostProviders {
+	hosts := hostProviders{
+		tmdbAPI:       tmdb.APIService(queue, clock.System{}),
+		tmdbImages:    tmdb.ImagesService(queue, clock.System{}),
+		openSubtitles: opensubtitles.Service(queue, clock.System{}),
+	}
+	secretStore.OnChange(func(ctx context.Context, name secrets.Name) {
+		switch name {
+		case secrets.TMDBAPIKey:
+			hosts.tmdbAPI.CredentialsChanged(ctx)
+		case secrets.OpenSubtitlesUsername, secrets.OpenSubtitlesPassword:
+			hosts.openSubtitles.CredentialsChanged(ctx)
+		case secrets.TURNSecret, secrets.DNSProviderToken: // no outside host we call uses them yet
+		}
+	})
+	return hosts
 }
 
 // jobArgsMerges are the kinds whose repeat requests merge their arguments their own way (D231 §8):
@@ -237,7 +268,8 @@ func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Re
 		if err == nil && !wasEverQueued {
 			_, err = queue.Enqueue(ctx, jobs.Request{
 				Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID},
-				Reason: "the first match for a newly identified title or series",
+				Destination: identify.FetchDestination,
+				Reason:      "the first match for a newly identified title or series",
 			})
 			queued++
 		}
@@ -248,7 +280,7 @@ func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Re
 	}
 	for _, seriesID := range report.AwaitingListings {
 		wasQueued, err := queue.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID},
+			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID}, Destination: identify.FetchDestination,
 			Reason: "a season listing a new episode needs",
 		})
 		if err != nil {

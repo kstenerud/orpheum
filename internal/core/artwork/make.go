@@ -174,8 +174,8 @@ func (service *Service) queueMake(ctx context.Context, sourceSha256Hex string, w
 	}
 	_, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
 		Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: origin.ItemID}, ArgsJSON: string(args),
-		Priority: makePriority,
-		Reason:   fmt.Sprintf("sizes someone asked for: %v", sizes),
+		Priority: makePriority, Destination: service.destinationOf(origin.Source),
+		Reason: fmt.Sprintf("sizes someone asked for: %v", sizes),
 	})
 	if err != nil {
 		return fmt.Errorf("queue %v of art %s: %w", sizes, sourceSha256Hex, err)

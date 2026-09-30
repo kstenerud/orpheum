@@ -14,8 +14,12 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/core/providers/providerstest"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -52,11 +56,30 @@ func fakeTMDB(t *testing.T, answers map[string]string) (*httptest.Server, *[]*ht
 
 func newClient(t *testing.T, base string, key fixedKey) *Client {
 	t.Helper()
+	return newClientOn(t, base, key, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+}
+
+// newClientOn is newClient with its provider service on fakeClock.
+func newClientOn(t *testing.T, base string, key fixedKey, fakeClock *clocktest.Fake) *Client {
+	t.Helper()
 	httpClient, err := outbound.NewClient(5*time.Second, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(httpClient, base, key)
+	return New(httpClient, base, key, APIService(providerstest.NewHealth(t, fakeClock), fakeClock))
+}
+
+// newImageFetcher is TMDB's image downloader calling base, with its provider service on a fake
+// clock.
+func newImageFetcher(t *testing.T, httpClient *http.Client, base string) *ImageFetcher {
+	t.Helper()
+	return newImageFetcherOn(t, httpClient, base, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+}
+
+// newImageFetcherOn is newImageFetcher with its provider service on fakeClock.
+func newImageFetcherOn(t *testing.T, httpClient *http.Client, base string, fakeClock *clocktest.Fake) *ImageFetcher {
+	t.Helper()
+	return NewImageFetcher(httpClient, base, ImagesService(providerstest.NewHealth(t, fakeClock), fakeClock))
 }
 
 func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
@@ -165,12 +188,14 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	client := newClient(t, server.URL, "k")
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	client := newClientOn(t, server.URL, "k", fakeClock)
 	_, err := client.Fetch(t.Context(), "movie", "1")
 	var limited *outbound.RateLimitedError
 	if !errors.As(err, &limited) || limited.RetryAfter != 7*time.Second {
 		t.Errorf("429 = %v, want RateLimitedError after 7s", err)
 	}
+	fakeClock.Advance(7 * time.Second) // the provider keeps every caller waiting until then
 	if _, err := client.Fetch(t.Context(), "movie", "2"); !errors.Is(err, identify.ErrKeyRefused) {
 		t.Errorf("401 = %v, want ErrKeyRefused", err)
 	}
@@ -282,5 +307,30 @@ func TestGet_A429WithoutRetryAfterIsARateLimitStill(t *testing.T) {
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	if !isLimited || limited.RetryAfter != time.Second || limited.Provider != "TMDB" {
 		t.Errorf("429 without Retry-After = %v, want TMDB's RateLimitedError after a second", err)
+	}
+}
+
+func TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground(t *testing.T) {
+	t.Parallel()
+	server, seen := fakeTMDB(t, map[string]string{"/search/movie": `{"results":[]}`})
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	health := providerstest.NewHealth(t, fakeClock)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := New(httpClient, server.URL, fixedKey("k"), APIService(health, fakeClock))
+	health.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
+	query := identify.Query{Kind: "movie", Name: "Metropolis"}
+	background := providers.WithImportance(t.Context(), providers.Background)
+	if _, err := client.Search(background, query); !errors.Is(err, outbound.ErrUnavailable) || len(*seen) != 0 {
+		t.Errorf("background asking a parked TMDB: %v, %d requests; want it refused as unavailable, nothing sent",
+			err, len(*seen))
+	}
+	if _, err := client.Search(t.Context(), query); err != nil || len(*seen) != 1 {
+		t.Errorf("a person asking: %v, %d requests; want it sent, the host's probe (D231 §6)", err, len(*seen))
+	}
+	if _, isParked := health.DestinationState(jobs.DestinationTMDBAPI); isParked {
+		t.Error("TMDB is still parked after a person's call reached it")
 	}
 }

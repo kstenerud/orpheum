@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
+	"sync"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -104,6 +106,27 @@ type Store struct {
 	clock    clock.Clock
 	random   io.Reader
 	settings Settings
+
+	mutex     sync.Mutex
+	onChanges []func(ctx context.Context, name Name) // guarded by mutex
+}
+
+// OnChange adds what runs after a secret is set or cleared, with its name: a provider whose key
+// changed tries it again (D231 §5).
+func (secrets *Store) OnChange(onChange func(ctx context.Context, name Name)) {
+	secrets.mutex.Lock()
+	defer secrets.mutex.Unlock()
+	secrets.onChanges = append(secrets.onChanges, onChange)
+}
+
+// changed tells every OnChange that a secret changed.
+func (secrets *Store) changed(ctx context.Context, name Name) {
+	secrets.mutex.Lock()
+	onChanges := slices.Clone(secrets.onChanges)
+	secrets.mutex.Unlock()
+	for _, onChange := range onChanges {
+		onChange(ctx, name)
+	}
 }
 
 // NewStore returns a Store that seals new secrets with key.
@@ -137,7 +160,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUser
 		}
 		lastChars = lastCharsOf(value.Reveal(), lastCharsShown)
 	}
-	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err = secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
 			Scope:       serverScope,
 			Name:        string(name),
@@ -149,6 +172,11 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUser
 			SetAt:       secrets.clock.Now().UnixMilli(),
 		})
 	})
+	if err != nil {
+		return err
+	}
+	secrets.changed(ctx, name)
+	return nil
 }
 
 // Open returns a secret's value for the client that must present it. A secret sealed under
@@ -186,9 +214,14 @@ func (secrets *Store) Clear(ctx context.Context, name Name) error {
 	if _, err := knownDefinition(name); err != nil {
 		return err
 	}
-	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.DeleteSealedSecret(ctx, sqlcgen.DeleteSealedSecretParams{Scope: serverScope, Name: string(name)})
 	})
+	if err != nil {
+		return err
+	}
+	secrets.changed(ctx, name)
+	return nil
 }
 
 // Statuses reports every secret, set or not.

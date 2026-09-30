@@ -40,9 +40,14 @@ func RefreshJob(
 	}
 	return jobs.Request{
 		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID}, ArgsJSON: string(args), Reason: reason,
-		RunnableAt: runnableAt, Priority: priority,
+		RunnableAt: runnableAt, Priority: priority, Destination: FetchDestination,
 	}, nil
 }
+
+// FetchDestination is what a fetch_metadata job needs that can be down: TMDB's API, the one
+// provider a fetch calls in Cut A. Named when the job is queued, so no job is claimed while it
+// is parked, and a person's refresh looks at it at once (D231 §6).
+const FetchDestination = jobs.DestinationTMDBAPI
 
 // FetchArgsMerge is how a fetch_metadata request folds into the job open for its item (D231 §8).
 // A refresh behind a queued refresh asks for the images again if either does. A match and a

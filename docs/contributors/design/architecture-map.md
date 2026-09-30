@@ -43,12 +43,13 @@ is the evidence. The first column names each package by its path; the check read
 | --- | --- | --- |
 | `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: queueDueRefreshes metadata.go:146, queueMeasurements :174 (hard-coded `measureSweepEvery = time.Hour` :170), keepSortAndSearchKeysCurrent :199, maintainArtworkCache artwork.go:45. ⚑ OPS: a whole offline doctor, doctor.go:34-290 |
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
-| `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches with its own breaker (retry.go:43). ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
+| `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |
 | `internal/core/backup` | OPS | — |
 | `internal/core/datadir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
 | `internal/core/decide` | R7 | — (pure: imports errors, fmt, slices, nodeproto; depguard `decide-sees-capabilities`) |
 | `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
+| `internal/core/providers` | R1 (each outside host as a provider service: health, rate, quota, credentials) | — (since 2026-09-30, the jobs rebuild's Phase 2; a host's health is its destination in the job queue) |
 | `internal/core/providers/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility; moved from `identify/tmdb` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
@@ -83,7 +84,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/randbytes`, `internal/platform/readonly` | PRIM | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
-| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest` | TEST | — |
+| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
 
 ### Web
 
@@ -106,7 +107,7 @@ is the evidence. The first column names each package by its path; the check read
 | Work | Owners | Evidence |
 | --- | --- | --- |
 | Send a node command, wait for its answer by job id, time out, cancel | artwork, playback ×3 | artwork/service.go:281-300; playback/loudness.go:236-265; playback/subtitles.go:311-337; playback/prepare.go:~180-210. Four copies of one `select`. `nodes.AnswerRouter` (nodes/answers.go:29) is shared, but the loop around it is not |
-| Retry and back-off after a provider failure | jobs runner, artwork, identify | jobs/runner.go:138-148 doubles the wait; artwork/retry.go:21 has its own schedule and a per-host breaker (:43-78); the 429 → `RetryAtError` translation is copied (artwork/retry.go:55, identify/match.go:430) |
+| Retry and back-off after a provider failure | jobs runner, artwork, identify | **Fixed 2026-09-30 (the jobs rebuild's Phase 2):** a host down or asking us to wait parks its destination, which the queue probes (internal/platform/jobqueue), and each host's provider service (internal/core/providers) is the one place a failure is read as the host's. Was: jobs/runner.go:138-148 doubled the wait; artwork/retry.go:21 had its own schedule and a per-host breaker (:43-78); the 429 → `RetryAtError` translation was copied (artwork/retry.go:55, identify/match.go:430). artwork keeps its retry schedule for an image's own failures |
 | Periodic sweeps and timers | cmd/orpheum ×4, jobs runner, nodes supervisor | Hand-written loops at metadata.go:146/174/199 and artwork.go:45. Each picks its own period: a setting, a constant, or a literal 24 h and 1 h |
 | Doctor findings | cmd/orpheum, api | cmd/orpheum/doctor.go:25-38 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:17-28 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` (doctor.go:108) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
@@ -171,8 +172,9 @@ settings), so any package could write any table, and two tables had two writers 
 **Fetching (R1).** Clean. All outbound HTTP goes through `outbound.NewClient` and `Exchange`
 (forbidigo `[outbound]`). The callers are tmdb/client.go:67, tmdb/images.go:65,
 opensubtitles/client.go:249 and opensubtitles/requests.go:177, and cmd/orpheum/metadata.go:57
-builds the one client. What is not unified is the failure policy (breaker and schedules, §1).
-D231 §5-6 already decides to replace it with destination parking.
+builds the one client. The failure policy is unified since 2026-09-30: each host is a provider
+service (internal/core/providers) owning its health, rate, quota and credentials, and a host that
+is down parks its destination's work in the queue (D231 §5, §6).
 
 **Transforming (R3).** FFmpeg work happens only on nodes (execx and confine). The core does three
 cheap derivations: textindex folding and CLDR keys; artwork cutting JPEG from its own WebP (the

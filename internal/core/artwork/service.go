@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -123,7 +124,7 @@ func (service *Service) queueOwed(ctx context.Context, items []ItemImages) {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
 				Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: item.ItemID}, ArgsJSON: string(args),
-				Reason: "the images " + item.Source + " names for it",
+				Reason: "the images " + item.Source + " names for it", Destination: service.destinationOf(item.Source),
 			})
 			if added {
 				queued++
@@ -139,9 +140,19 @@ func (service *Service) queueOwed(ctx context.Context, items []ItemImages) {
 	}
 }
 
+// destinationOf is what a job for a source's images needs that can be down: its image server; ""
+// for images beside the media, whose node is found when the job runs.
+func (service *Service) destinationOf(source string) jobs.Destination {
+	if fetcher, isKnown := service.parts.Fetchers[source]; isKnown {
+		return fetcher.Destination()
+	}
+	return ""
+}
+
 // Handle runs one make_artwork_sizes job: each image it names is fetched, re-encoded by the node, and
 // stored.
 func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
+	ctx = providers.WithImportance(ctx, providers.JobImportance(job.Priority))
 	var args artworkJobArgs
 	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
 		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(err))

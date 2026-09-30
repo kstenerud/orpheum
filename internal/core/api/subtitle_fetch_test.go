@@ -19,6 +19,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
@@ -193,7 +194,7 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 		opensubtitles.ErrNoLogin:      `"reason":"no_login"`,
 		opensubtitles.ErrLoginRefused: `"reason":"login_refused"`,
 		fmt.Errorf("opensubtitles: %w: status 503", outbound.ErrUnavailable): `"reason":"unavailable"`,
-		&opensubtitles.QuotaSpentError{DownloadsResetAt: resetAt}:            `"downloadsResetAt":1790661600000`,
+		&providers.QuotaSpentError{ResetAt: resetAt}:                         `"downloadsResetAt":1790661600000`,
 		&outbound.RateLimitedError{Provider: "OpenSubtitles", RetryAfter: 2 * time.Second}: `"message":` +
 			`"OpenSubtitles asks us to wait","detail":{"retryAfterMs":2000}`,
 	} {

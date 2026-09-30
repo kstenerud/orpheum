@@ -22,7 +22,8 @@
 //
 // # Where to change
 //
-//   - clock.go: the Clock interface and the System implementation.
+//   - clock.go: the Clock interface, what time it is and waiting for time to pass, and the
+//     System implementation.
 //   - clocktest/: the Fake that tests use. Add a method to Clock only with a production caller
 //     and the matching Fake behaviour in the same change.
 package clock
