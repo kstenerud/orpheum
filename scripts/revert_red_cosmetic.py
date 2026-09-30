@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# ABOUTME: Whether a file's change cannot affect behaviour (comments, formatting), so revert-red
-# ABOUTME: reports it COSMETIC rather than probing it (check_revert_red.py).
+# ABOUTME: Whether a file's change cannot affect behaviour (comments, formatting, a struct tag's
+# ABOUTME: doc text), so revert-red reports it COSMETIC rather than probing it (check_revert_red.py).
 """Changes no test could notice, which revert-red reports rather than probes."""
 
 from __future__ import annotations
@@ -11,6 +11,14 @@ import subprocess
 
 GO_SOURCE = re.compile(r"\.go$")
 PY_SOURCE = re.compile(r"\.py$")
+
+# A Go struct field with a tag: its name(s) and type (or an embedded type), the tag, and at most
+# a line comment after it. `return` is excluded: `return `...`` is the one statement of that shape.
+GO_TAGGED_FIELD = re.compile(r"^\s*(?!return\b)([\w.*]+(?:\s*,\s*\w+)*(?:\s+[^`=:]*?)?)\s*`([^`]*)`\s*(?://.*)?$")
+# A whole struct tag, in the form reflect.StructTag reads: key:"quoted value" pairs.
+GO_TAG = re.compile(r'^(?:[A-Za-z_][\w-]*:"(?:[^"\\]|\\.)*"(?: +|$))+$')
+# huma's `doc:"..."`: the field's description in the API document, which no code reads.
+GO_DOC_VALUE = re.compile(r'(^| )doc:"(?:[^"\\]|\\.)*"')
 
 
 def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -52,7 +60,9 @@ def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
     * **Go**: every changed line is a `//` comment or blank, and neither version of
       the file contains `/*` anywhere. Without that second condition a changed line
       inside a block comment is indistinguishable from code by inspection, and a
-      guard that reads `*p = 0` as a comment would suppress a real finding.
+      guard that reads `*p = 0` as a comment would suppress a real finding. Or, under
+      the same guard, the two versions differ only in comments and in the text of struct
+      tags' `doc:"..."` values (`same_but_doc_text`).
     * **Python**: the two versions parse to the same AST. That covers `#` comments
       and formatting together. A docstring edit is *not* covered — docstrings are
       AST nodes — so it still reports as it does today.
@@ -63,9 +73,9 @@ def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
         if "/*" in before or "/*" in after:
             return False  # cannot tell a block-comment line from code
         changed = changed_lines(base, head, path, cwd=tree)
-        return bool(changed) and all(
+        return bool(changed) and (all(
             not line.strip() or line.strip().startswith("//") for line in changed
-        )
+        ) or same_but_doc_text(before, after))
 
     if PY_SOURCE.search(path):
         try:
@@ -76,3 +86,29 @@ def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
         return before == after
 
     return False
+
+
+def same_but_doc_text(before: str, after: str) -> bool:
+    """Whether two versions of a Go file differ only in comment lines, in the line comment after a
+    struct tag, and in the text of a struct tag's `doc:"..."` value.
+
+    huma reads `doc` for the field's description in the API document and nothing else, so
+    rewording it changes api/openapi.json's prose and no behaviour. Everything else in the tag
+    (the json name, pattern, enum, required, a second doc key's position) must match, and a line
+    this cannot read as a whole tag is compared as it stands, so the answer declines to "no".
+    """
+    return _without_doc_text(before) == _without_doc_text(after)
+
+
+def _without_doc_text(text: str) -> list[str]:
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            continue
+        field = GO_TAGGED_FIELD.match(line)
+        if field and GO_TAG.match(field.group(2)):
+            lines.append(" ".join(field.group(1).split()) + " `" + GO_DOC_VALUE.sub(r'\1doc:""', field.group(2)) + "`")
+        else:
+            lines.append(" ".join(stripped.split()))
+    return lines
