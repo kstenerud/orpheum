@@ -37,12 +37,12 @@ type Config struct {
 
 // ServerConfig is where the server listens and keeps its state, and its HTTP timeouts.
 type ServerConfig struct {
-	Listen             string `toml:"listen"`
-	DataDir            string `toml:"data_dir"`
-	CacheDir           string `toml:"cache_dir"`
-	ReadHeaderTimeoutS int64  `toml:"read_header_timeout_s"`
-	ShutdownGraceS     int64  `toml:"shutdown_grace_s"`
-	SocketDir          string `toml:"socket_dir"`
+	Listen                   string `toml:"listen"`
+	DataDir                  string `toml:"data_dir"`
+	CacheDir                 string `toml:"cache_dir"`
+	ReadHeaderTimeoutSeconds int64  `toml:"read_header_timeout_seconds"`
+	ShutdownGraceSeconds     int64  `toml:"shutdown_grace_seconds"`
+	SocketDir                string `toml:"socket_dir"`
 }
 
 // DatabaseConfig is what the store needs before the database opens.
@@ -53,16 +53,16 @@ type DatabaseConfig struct {
 
 // NodeConfig is the media node's.
 type NodeConfig struct {
-	Name               string   `toml:"name"`
-	RootPaths          []string `toml:"root_paths"`
-	FFmpegDir          string   `toml:"ffmpeg_dir"`
-	ConfinementPolicy  string   `toml:"confinement_policy"`
-	VideoExtensions    []string `toml:"video_extensions"`
-	SubtitleExtensions []string `toml:"subtitle_extensions"`
-	MaxErrorsPerRoot   int      `toml:"max_errors_per_root"`
-	ProbeTimeoutS      int64    `toml:"probe_timeout_s"`
-	StatusIntervalS    int64    `toml:"status_interval_s"`
-	PreparedDir        string   `toml:"prepared_dir"`
+	Name                  string   `toml:"name"`
+	RootPaths             []string `toml:"root_paths"`
+	FFmpegDir             string   `toml:"ffmpeg_dir"`
+	ConfinementPolicy     string   `toml:"confinement_policy"`
+	VideoExtensions       []string `toml:"video_extensions"`
+	SubtitleExtensions    []string `toml:"subtitle_extensions"`
+	MaxErrorsPerRoot      int      `toml:"max_errors_per_root"`
+	ProbeTimeoutSeconds   int64    `toml:"probe_timeout_seconds"`
+	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
+	PreparedDir           string   `toml:"prepared_dir"`
 	// PreparedBudgetGiB, PreparedKeptAfterPlayHours and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
@@ -103,8 +103,8 @@ func configKeys() []configKey {
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "data_dir", "", "where library.db, secret.key and backups live on this machine"},
 		{tableServer, "cache_dir", "", "where cache.db and the artwork cache live on this machine"},
-		{tableServer, "read_header_timeout_s", "10", "seconds a client has to send its request headers"},
-		{tableServer, "shutdown_grace_s", "10", "seconds in-flight requests get to finish when the server stops"},
+		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
+		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
 			tableServer, "socket_dir", `"/run/orpheum"`,
 			"where the core's and the node's sockets live; systemd's RuntimeDirectory makes /run/orpheum",
@@ -136,9 +136,9 @@ func configKeys() []configKey {
 			tableNode, "max_errors_per_root", "1000",
 			"errors one root may produce in a scan before the node stops enumerating it (D40)",
 		},
-		{tableNode, "probe_timeout_s", "60", "seconds ffprobe gets for one file before it is stopped"},
+		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
 		{
-			tableNode, "status_interval_s", "10",
+			tableNode, "status_interval_seconds", "10",
 			"seconds between the node's status records; keep it well under the core's node_silent_after_s",
 		},
 		{
@@ -276,13 +276,13 @@ func (config *Config) check() error {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", config.Server.Listen))
 	}
 	for key, value := range map[string]int64{
-		"server.read_header_timeout_s":            config.Server.ReadHeaderTimeoutS,
-		"server.shutdown_grace_s":                 config.Server.ShutdownGraceS,
+		"server.read_header_timeout_seconds":      config.Server.ReadHeaderTimeoutSeconds,
+		"server.shutdown_grace_seconds":           config.Server.ShutdownGraceSeconds,
 		"database.read_connections_minimum":       int64(config.Database.ReadConnectionsMinimum),
 		"database.migrate_free_space_db_multiple": int64(config.Database.MigrateFreeSpaceDBMultiple),
 		"node.max_errors_per_root":                int64(config.Node.MaxErrorsPerRoot),
-		"node.probe_timeout_s":                    config.Node.ProbeTimeoutS,
-		"node.status_interval_s":                  config.Node.StatusIntervalS,
+		"node.probe_timeout_seconds":              config.Node.ProbeTimeoutSeconds,
+		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
 	} {
@@ -323,11 +323,11 @@ func (config *Config) migrateOptions(snapshotDirectory string, beforeStep func(s
 }
 
 func (config *Config) readHeaderTimeout() time.Duration {
-	return time.Duration(config.Server.ReadHeaderTimeoutS) * time.Second
+	return time.Duration(config.Server.ReadHeaderTimeoutSeconds) * time.Second
 }
 
 func (config *Config) shutdownGrace() time.Duration {
-	return time.Duration(config.Server.ShutdownGraceS) * time.Second
+	return time.Duration(config.Server.ShutdownGraceSeconds) * time.Second
 }
 
 func parseLevel(name string) (slog.Level, error) {

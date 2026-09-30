@@ -17,8 +17,8 @@
 listen = "127.0.0.1:8432"
 data_dir = "{root}/.dev/state"
 cache_dir = "{root}/.dev/cache"
-read_header_timeout_s = 10
-shutdown_grace_s = 10
+read_header_timeout_seconds = 10
+shutdown_grace_seconds = 10
 socket_dir = "{root}/.dev/run"   # /run/orpheum in production, made by systemd
 
 [database]
@@ -33,8 +33,8 @@ confinement_policy = "report"   # "require" refuses to start unconfined; "report
 video_extensions = ["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob", "flv", "ogv", "3gp"]
 subtitle_extensions = ["srt", "ass", "ssa", "vtt"]
 max_errors_per_root = 1000
-probe_timeout_s = 60
-status_interval_s = 10
+probe_timeout_seconds = 60
+status_interval_seconds = 10
 prepared_dir = "{root}/.dev/cache/prepared"
 prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
 prepared_kept_after_play_hours = 72

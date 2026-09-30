@@ -162,11 +162,11 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		return err
 	}
 	defer stopBytes()
-	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalS) * time.Second)
+	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
 	// bounded as a file's probe is.
-	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
+	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
 	var activeScanner agent.Scanner = scanner
 	if seams.wrapScanner != nil {
 		activeScanner = seams.wrapScanner(scanner)
@@ -276,7 +276,7 @@ type nodeCapabilities struct {
 // newScanner scans the roots, probing each file with runner; an error it reports names the user
 // and group the hello gives, so it can be read against them.
 func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello) *scan.Scanner {
-	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
+	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
 	return scan.NewScanner(roots, prober, scan.Options{
 		VideoExtensions:    config.Node.VideoExtensions,
 		SubtitleExtensions: config.Node.SubtitleExtensions,

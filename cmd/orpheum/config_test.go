@@ -115,8 +115,8 @@ const validConfigText = `[server]
 listen = "127.0.0.1:8432"
 data_dir = "/a"
 cache_dir = "/b"
-read_header_timeout_s = 10
-shutdown_grace_s = 10
+read_header_timeout_seconds = 10
+shutdown_grace_seconds = 10
 socket_dir = "/run/orpheum"
 
 [database]
@@ -131,8 +131,8 @@ confinement_policy = "require"
 video_extensions = ["mkv", "mp4"]
 subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
-probe_timeout_s = 60
-status_interval_s = 10
+probe_timeout_seconds = 60
+status_interval_seconds = 10
 prepared_dir = "/var/cache/orpheum/prepared"
 prepared_budget_gib = 1
 prepared_kept_after_play_hours = 72

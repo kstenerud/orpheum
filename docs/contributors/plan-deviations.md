@@ -95,7 +95,8 @@ counted:
     and `tools/gates/` do not exist (the gates are `scripts/`).
   - **§2a config keys.** "Exactly the keys in `dev/orpheum.dev.toml`" is true of the file, but the
     list beside it leaves out `server.socket_dir`, `node.name`, `video_extensions`,
-    `subtitle_extensions`, `max_errors_per_root`, `probe_timeout_s` and `status_interval_s`.
+    `subtitle_extensions`, `max_errors_per_root`, `probe_timeout_seconds` and
+    `status_interval_seconds`.
   - **§4 node protocol.** No message carries a version; the version is the path's (`/node/v1`,
     `/bytes/v1`). The Node → core table lists hello, report and commands; each job also answers
     on its own path (`/node/v1/artwork`, `/prepare`, `/subtitle`, `/loudness`). The hello also
