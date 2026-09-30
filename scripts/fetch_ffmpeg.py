@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import platform
 import shutil
 import sys
@@ -36,12 +37,25 @@ PINS = {
     "darwin/arm64": ("macarm64", "b2ac80bb184e9a2f3f7c236876b2f56a5639596a95b42f41ced34fab66ad720d"),
 }
 
+# The environment variable naming a directory that holds fetched tools in place of .tools/.
+TOOLS_DIR_ENV = "ORPHEUM_TOOLS_DIR"
+
 
 def this_platform() -> str:
     system = platform.system().lower()
     machine = platform.machine().lower()
     arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(machine, machine)
     return f"{system}/{arch}"
+
+
+def tools_dir(root: Path) -> Path:
+    """Where fetched tools are kept: ORPHEUM_TOOLS_DIR when it is set, else root/.tools.
+
+    The development image sets it to the tools it was built with (deploy/dev.Containerfile,
+    D235), so a gate run inside it finds them there instead of fetching into the repository.
+    """
+    override = os.environ.get(TOOLS_DIR_ENV)
+    return Path(override) if override else root / ".tools"
 
 
 def asset_name(target: str) -> str:
@@ -67,7 +81,7 @@ def verify(path: Path, expected: str) -> None:
 
 
 def install(target: str, root: Path) -> Path:
-    dest = root / ".tools" / "ffmpeg" / f"{VERSION}-{target.replace('/', '-')}"
+    dest = tools_dir(root) / "ffmpeg" / f"{VERSION}-{target.replace('/', '-')}"
     if (dest / "ffmpeg").exists() and (dest / "ffprobe").exists():
         return dest
     if target not in PINS:
