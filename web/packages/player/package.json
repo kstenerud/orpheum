@@ -12,6 +12,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@orpheum/sdk": "0.0.0",
     "hls.js": "1.7.3",
     "jassub": "2.5.16"
   }

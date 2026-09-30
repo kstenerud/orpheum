@@ -8,6 +8,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 ## Invariants
 
 - **Never imports an app.** `package-not-to-app` (`web/.dependency-cruiser.cjs`).
+- **Its play report is the API's own shape**: `PlayReport`, `PlayEvent` and `PlaySpan` are
+  derived from the SDK's generated types (`src/report.ts`), so a field the API renames fails
+  `tsc -b` here instead of drifting from a hand copy.
 - **Does not talk to the server itself**; it is handed URLs the SDK produced.
   `no-restricted-globals` bans `fetch` and `WebSocket` outside `packages/sdk`. (hls.js's
   own requests for media segments are the library's, not ours.)

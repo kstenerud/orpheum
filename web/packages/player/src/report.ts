@@ -1,32 +1,29 @@
 // SPDX-License-Identifier: MPL-2.0
 
-/** A change of play state (D165): what happened, never a heartbeat. */
-export type PlayEventKind = "started" | "paused" | "seeked" | "completed" | "abandoned";
+import type { components } from "@orpheum/sdk";
+
+// The report's shapes are the API's, generated into the SDK, so a field the server renames is
+// renamed here by the compiler rather than copied by hand. Only the types are taken: the player
+// never calls the server itself.
+type Schemas = components["schemas"];
 
 /** One change, at a position in the file and a moment on the device's monotonic clock. */
-export interface PlayEvent {
-  readonly kind: PlayEventKind;
-  readonly positionMs: number;
-  readonly happenedMonoMs: number;
-}
+export type PlayEvent = Readonly<Schemas["EventBody"]>;
+
+/** A change of play state (D165): what happened, never a heartbeat. */
+export type PlayEventKind = PlayEvent["kind"];
 
 /** A run of watching that a change closed. */
-export interface PlaySpan {
-  readonly fromPositionMs: number;
-  readonly toPositionMs: number;
-  readonly startedMonoMs: number;
-  readonly endedMonoMs: number;
-}
+export type PlaySpan = Readonly<Schemas["SpanBody"]>;
 
-/** What the player tells the server (cut-a §5): the body of POST /playback/{token}/report. */
-export interface PlayReport {
-  readonly reportSeq: number;
-  readonly sentMonoMs: number;
-  readonly positionMs: number;
-  readonly positionReadMonoMs: number;
+/**
+ * What the player tells the server (cut-a §5): the body of POST /playback/{token}/report. The
+ * player always sends its changes and spans, if only none, where the API also takes null.
+ */
+export type PlayReport = Readonly<Omit<Schemas["ReportInputBody"], "events" | "spans">> & {
   readonly events: readonly PlayEvent[];
   readonly spans: readonly PlaySpan[];
-}
+};
 
 /** How often a playing player reports where it is (play-state.md: about every ten seconds). */
 export const reportEveryMs = 10_000;
