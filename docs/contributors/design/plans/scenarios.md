@@ -267,6 +267,418 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **S61** — A typo in the config file: doctor names it, and the server runs on the starting
   value.
 
+## Jobs and destinations (walked 2026-09-30; decided by D230, D231)
+
+### S22 — A disk holding a root dies for good
+
+- **Story:** the disk under *Films* fails and is never coming back.
+- **Expected:** nothing is removed until the admin says so, and the films show as unavailable.
+  No job hammers the dead disk. The admin sees "offline since", is reminded after a week, and
+  retires the root; its files become tombstones, and their history stays on the Title.
+- **Today:**
+  - The scan withholds removals (S7/S9), and `root_state` records why. The files stay live, so
+    every job for them runs.
+  - The node refuses each command (the file is missing). Each refusal is an ordinary error and
+    spends an attempt, so the job fails after about 7.5 minutes.
+  - `QueueMeasurements` queues them all again every hour, forever.
+  - A local image beside the media gets the node's refusal recorded as the image's own
+    (`recordRefusal`). It is then "held", so it is never owed again, even if the disk returns
+    (G9).
+  - There is no retire action and no reminder.
+- **Design:** the owner's three answers:
+  1. A root or mount that a scan found missing is an unavailable destination. Its jobs park, and
+     sweeps queue nothing for it.
+  2. A retire action at each level cancels the jobs of what it removes (D173).
+  3. Offline never ends without the admin (D41); the System page shows "offline since", with a
+     reminder after a week.
+- **Status:** **gap G6**, **G7**, **G9**.
+
+### S23 — The node machine is retired for good
+
+- **Story:** the owner decommissions the second machine and its node never says hello again.
+- **Expected:** the admin retires the node. Its roots are retired, which means their files are
+  tombstoned and their jobs cancelled; history stays on the Titles. Until then, its jobs wait
+  without spending anything.
+- **Today:**
+  - The core cannot tell. `connectedNodes` never forgets a node, so `IsConnected` stays true
+    until the core restarts. Commands pile up in memory.
+  - Each prepare, subtitle or loudness job waits `maxSilence` (5 minutes; loudness waits longer,
+    in proportion to file size) and spends an attempt. The artwork job waits 2 minutes and runs
+    through D213 §5's 9-day schedule.
+  - After a core restart, `Enqueue` silently drops the commands.
+  - There is no retire action.
+- **Design:** D231: node jobs wait while the node is configured, and removing the node cancels
+  them. Answer 2 covers the retire action.
+- **Status:** **gap G3** (the node's state is not truthful), **G7**.
+
+### S24 — The admin deletes a library on purpose
+
+- **Story:** the owner removes *Kids*.
+- **Expected:** its jobs are cancelled and nothing refetches for it. Watch history survives on
+  the Title (D173).
+- **Today:** there is no delete-library action. Its jobs would run until they failed.
+- **Design:** answer 2 (a library is deleted and its jobs cancelled). **Still open: what a
+  deleted library's Titles become.**
+- **Status:** **gap G7**; **question Q14** (the open part, carried).
+
+### S25 — TMDB is down overnight while 200 films are added
+
+- **Story:** a big copy lands at 23:00, and TMDB's API is unreachable from 22:00 to 07:00.
+- **Expected:** the films appear at once on local data (D170 §2). By morning they are matched,
+  and TMDB was asked a handful of times, not a thousand.
+- **Today:**
+  - `outbound` failures are plain errors. Each job tries, waits up to `provider_timeout_s`
+    (20 s) and spends an attempt, and fails after 5 attempts (about 7.5 minutes).
+  - All 200 fail. `queueOwedFetches` checks `EverQueued` against job history, so **none is ever
+    queued again**.
+  - In the morning 200 films are "unidentified". On the identify page they look exactly like
+    films awaiting their first match. The only fix is the Refresh button, 200 times.
+- **Design:** D231. The first down-class failure parks `tmdb-api`, and one jittered probe runs
+  from 30 s up to about 1 h. Nothing spends an attempt, and the queue resumes in priority order.
+  - Under Q5, even a lost job is derived again, from `identification_state = unidentified` with
+    no answer recorded.
+- **Status:** **gap G3**, **G10**; **question Q5**.
+
+### S26 — A node restarts mid-prepare
+
+- **Story:** the node process is restarted (by the supervisor or the owner) while it is making
+  a rendition someone is waiting on.
+- **Expected:** the prepare starts again as soon as the node says hello, at no cost to the job.
+  The person sees it waiting, then preparing.
+- **Today:**
+  - The node's FFmpeg dies with it. The core's job waits out `maxSilence` (5 minutes), then
+    spends an attempt and backs off before the command is re-sent. Nothing ties the node's
+    hello to its running jobs.
+  - A person's play waits more than 5 minutes.
+  - If the job reaches its limit through silence or refusals, the rendition stays `running`,
+    because only FFmpeg's own failure calls `SetRenditionFailed`. The player then shows
+    "preparing" until it is reloaded.
+- **Design:** D231: the node's hello is its recovery signal and wakes its destination. The
+  design does not yet say that a hello also ends the jobs that were **running** on the node.
+  Those should go back to the queue at no cost.
+- **Status:** **gap G5**, **G8**.
+
+### S27 — A node restarts with commands queued for jobs that already gave up
+
+- **Story:** the node is wedged for 20 minutes, and several jobs time out and fail. Then it
+  restarts.
+- **Expected:** it gets only the work that is still wanted.
+- **Today:**
+  - A new session polls from `after_command_seq=0` and receives every unacknowledged command,
+    including those of failed jobs. It runs them, and their answers are logged as "for no
+    waiting job".
+  - A job that gives up on silence sends no `CancelCommand`.
+  - Its retry re-sends the same job id and the same `RenditionDir` (the run id is unchanged
+    unless `want` restarts the row). An orphaned run and its retry can therefore write one
+    directory at once, and the node's `startJob` overwrites the first cancel func.
+- **Design:** the research (§3.5), within D231: drop commands whose jobs have ended.
+- **Status:** **gap G4**.
+
+### S28 — A full disk on a node
+
+- **Story:** the node's prepared directory fills up, and eviction cannot free space because
+  everything is in use or within its grace.
+- **Expected:** prepares on that node wait and say why. The admin sees it, and other work
+  continues: subtitles and loudness write nothing to that disk.
+- **Today:**
+  - `MakeRoom` refuses with `ErrNoRoom`. The core treats the refusal as an ordinary error, so it
+    spends attempts, fails after about 7.5 minutes, and the rendition stays `running` (G8).
+  - The System page shows the disk (D225), but nothing links it to the waiting job.
+- **Design:** silent. D231's "down" covers an unreachable node, not a node that answers "no
+  room".
+- **Status:** **question Q8**; **gap G8**.
+
+### S29 — A person presses play while the file's node is parked
+
+- **Story:** the partner starts a film whose node is down.
+- **Expected:**
+  - Direct play is refused at once: "the node that holds this file is not answering".
+  - A prepare is queued at the highest priority, and the node is looked at immediately. The
+    player says "waiting for node X (unreachable since …)", not "preparing".
+- **Today:**
+  - Direct play: the relay returns `node_silent` (503). This **holds**.
+  - Prepare: the job is sent to a node that `IsConnected` still claims. The player shows
+    "preparing" for 5 minutes per attempt, and then indefinitely (G8).
+- **Design:** D231: a person's request wakes its job and tries to unpark its destination. For a
+  node there is no probe to send, since the hello is the signal. The design does not say what
+  the waiting player is shown.
+- **Status:** direct play **holds**; prepare **gap G3**, **G8**; **question Q11**.
+
+### S70 — A person asks "look again" while TMDB is parked
+
+- **Story:** the owner presses Refresh on a film during the outage in S25.
+- **Expected:** TMDB is tried at once. If it answers, everything waiting resumes. If not, the
+  request waits, shown as waiting for TMDB, and runs first when TMDB returns.
+- **Today:**
+  - The refresh is queued at priority 20 and sent right away. It fails and spends attempts like
+    any other job (G3).
+  - If a rolling refresh is already open for that item, `Enqueue` drops the request. The person
+    is told "already waiting", and their `shouldRetryImages` and priority are lost (G11).
+  - The chooser's search runs synchronously. It answers `provider_error/unavailable` at once,
+    which is right.
+- **Design:** D231: the request triggers an immediate probe and merges with the job already
+  open. The design does not say whether the chooser's synchronous search should honour the
+  parked state or count as the probe.
+- **Status:** **gap G3**, **G11**; **question Q15**.
+
+### S71 — The same job is requested again: while queued, while waiting to retry, while parked, while running
+
+- **Story:** the same target is asked for twice, in each of four states.
+- **Expected:** one job, which runs as soon as the most urgent request needs, and does
+  everything that any of the requests asked for.
+- **Today:** `Enqueue` finds an open job for (kind, target) and drops the new request.
+  - **While queued:** priority is not raised, and args are not merged. Examples:
+    - A person's refresh behind a rolling refresh loses its retry-images flag and waits at
+      priority −10.
+    - An artwork size requested on demand behind an owed-artwork job (the same item target) is
+      dropped.
+    - A D213 §1 recheck behind an open fetch is dropped for good (see G14).
+  - **While waiting to retry:** the request waits out the back-off, which is up to 4 minutes,
+    or up to a day on the artwork schedule.
+  - **While parked:** the state does not exist yet.
+  - **While running:** dropped. For a prepare, `want()` can `RestartRendition` the row (a new
+    run id) while its job still runs with the old command. The job then marks the row
+    `complete` under the new run id, whose directory is empty. Playback gets a 404, and
+    `PrepareAgain` fixes it with a wasted prepare.
+- **Design:** D231 merges a request while queued, waiting or parked: the higher priority wins,
+  a job in back-off is woken, and args are merged where the kind allows. The design is silent
+  on a request that arrives while the job is running.
+- **Status:** **gap G11**, **G13**; **question Q9**.
+
+### S72 — The core restarts with jobs parked, running and waiting to retry
+
+- **Expected:** every job survives. Running jobs start again, waiting jobs keep their time, and
+  parked destinations are probed once.
+- **Today:**
+  - `RequeueRunning` sets running jobs back to queued. The attempt `StartJob` counted is not
+    given back, so a restart costs one attempt (which also guards against a job that crashes
+    the core).
+  - The wait times of retrying jobs are stored in cache.db and survive.
+  - Everything held in memory is forgotten: `pausedUntil` (a `Retry-After` of up to an hour),
+    the artwork breaker (five more failures, each spending an attempt) and the node command
+    queues. The nodes' sessions end, and their FFmpeg runs are killed with the session context.
+    Hellos then scan and run the pass again.
+- **Design:** D231 §7: destination state lives in memory, and the first due job after a restart
+  probes.
+- **Status:** **holds** today for running and retrying jobs. Parked state **holds on paper**.
+
+### S73 — The TMDB key is removed or refused while fetches are queued
+
+- **Expected:** fetches wait at no cost, the admin is told, and they resume the moment the key
+  is fixed.
+- **Today:**
+  - `MarkBlocked` holds the one fetch runner for 30 s, at no cost to the job.
+  - A missing key is found locally. A refused key sends one request every 30 s, about 2,900 a
+    day, with a key TMDB already refused.
+  - The block is not visible anywhere except in each job's `last_failure`.
+  - Artwork continues, because TMDB's image host needs no key.
+- **Design:** D231 keeps `RetryAtError`, but does not say whether "blocked" becomes a
+  destination state that is parked until the key changes and shown on the System page.
+- **Status:** **question Q10**.
+
+### S74 — A file is replaced (new payload hash) while its prepare, loudness or subtitle job is queued
+
+- **Expected:** the old file's jobs end quietly, and the new file gets its own.
+- **Today:**
+  - **Before a scan notices the change:** the node refuses with `ErrChanged`. The core treats it
+    as an ordinary error, spends 5 attempts and fails; the prepare's rendition stays `running`
+    (G8). Nothing asks for a scan. Scans run only on a node's hello or an admin request, so the
+    file stays unplayable until then.
+  - **After a scan notices:** the old file row is tombstoned (D173).
+    - Its prepare fails permanently with `ErrNoFile`, and the rendition is recorded as failed.
+    - Its loudness job fails permanently.
+    - Its subtitle job ends permanently.
+    - The new file row gets measured by the next sweep, and prepared and extracted on its next
+      play.
+- **Status:** once scanned, **holds on paper**. Before a scan: **gap G8** and **question Q8**
+  (a changed-file refusal should ask for a rescan of that path).
+
+### S75 — OpenSubtitles' daily quota is spent while conversions are queued
+
+- **Expected:** conversions finish, and only new downloads are refused, with the reset time.
+- **Today:** a conversion is node work on a body already stored in library.db, and never calls
+  OpenSubtitles. Search and download are synchronous, and running out of quota returns
+  `quota_exhausted`.
+- **Status:** **holds**. OpenSubtitles stays a reserved destination (D231).
+
+### S76 — Two nodes, one down
+
+- **Expected:** work for the live node's files, and downloaded artwork that needs any node to
+  re-encode it, is unaffected. Work for the down node's files parks.
+- **Today:**
+  - `LastHeardNodeID` picks the live node to re-encode downloads. This **holds**.
+  - Work for the down node's files is sent to a node `IsConnected` still claims.
+  - Extraction, conversion, loudness and artwork each run one job at a time. So a doomed attempt
+    blocks the queue: a play-now subtitle on the live node waits up to 5 minutes behind one,
+    and artwork waits 2 minutes per attempt.
+- **Design:** D231: jobs are parked per node and never claimed, so nothing blocks the queue.
+- **Status:** artwork re-encoding **holds**; the rest is **gap G3**.
+
+### S77 — The core's own disk is full (cache.db and library.db writes fail)
+
+- **Expected:** nothing is lost that cost something. The server says why, and work resumes on
+  its own once there is space.
+- **Today:**
+  - Every runner's `claim` fails and is logged every second, which is about ten runners' worth
+    of log lines per second on the same full disk.
+  - A handler that finished, but whose `writeFinish` failed, leaves its job `running` until the
+    next restart. `FindOpenJob` then blocks the target from being queued again.
+  - **`FetchSubtitle` downloads first and then writes to library.db, so a failed write loses a
+    download that was paid for** (D224 §6 keeps a subtitle because it cost a download).
+  - A node's report is sent again from its last ingested sequence. This holds.
+- **Design:** silent.
+- **Status:** **gap G12**; **question Q16**.
+
+### S78 — cache.db is deleted under a running library
+
+- **Story:** a build with a new cache schema version discards cache.db at start (versioned by
+  discard). The library has jobs queued, jobs in back-off, jobs running, jobs failed for good,
+  a person's refresh waiting, and a D213 §1 recheck due tomorrow.
+- **Expected (the owner's principle):** nothing is lost but timing. Every piece of work that the
+  library implies is derived again, and every request a person made is still honoured.
+- **Today:**
+  - These are derived again:
+    - owed artwork, at the next pass, since the hellos trigger a scan;
+    - season listings;
+    - rolling refreshes;
+    - loudness, whose facts live in library.db;
+    - prepares and subtitles, on the next play (S35);
+    - match candidates, by searching again (D172).
+  - First matches are queued again **for every title never answered**, because `EverQueued` now
+    finds no history. So a discard happens to fix S25's failures. The behaviour depends on
+    whether cache.db survived, which is the symptom of the problem.
+  - **Lost:** the person's refresh (and its retry-images flag), and the D213 §1 recheck. The
+    missing image is already recorded as refused, so it is held and never owed again.
+- **Status:** **gap G10**, **G14**, **G15**; **questions Q5**, **Q6**, **Q7**.
+
+---
+
+### Cross-cutting: is every job derived again, and can a person always ask?
+
+Asked by the owner: *"jobs that only get triggered once for a particular file, never to be
+brought up again in a sweep. If that job gets killed somehow, we'll never get what it was
+supposed to fetch, and there will be no way to ask."*
+
+The owner then added a test for each kind: *"If we can remove state from the queue, then that
+means the queue is 100% regeneratable … no contention for the main db … doesn't contribute to
+the backup's size."* In practice: **could cache.db be deleted now at the cost of timing only?**
+
+"Lost" in the table below covers all of these:
+- killed (cancelled);
+- cache.db discarded;
+- failed for good;
+- a crash mid-run, which `RequeueRunning` recovers everywhere, so it is not repeated per row;
+- merged away by `Enqueue`'s deduplication.
+
+| Kind / use | Queued by | If lost | Queued again? | Can a person ask? | State only in the queue today | Where it must live | Flag |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `fetch_metadata`: **first match** (D170) | The pass after a scan: derived from `ListTitlesAwaitingMatch`/`ListSeriesAwaitingMatch`, **then gated by `EverQueued`** (an event read from job history) | Failed for good (an outage longer than 7.5 min, or the item's own 5xx), cancelled, or the title died before its job ran and was then revived (S10) | **Never**, except by an accidental cache.db discard | Yes, by Refresh on the identify page, but a failed match looks the same as one not tried yet | **`EverQueued`: "was a match ever attempted"**, a fact about the item held in job history | library.db already says "never answered" (`unidentified`, `followed_source` NULL). An item-caused failure becomes a fact there, with its reason (Q6) | **YES** |
+| `fetch_metadata`: season listing (D209 §3) | The pass, from `AwaitingListings` | Derived again | At the next pass | Yes, refresh the series | Nothing | Already in library.db | Sweep runs only after a scan (Q13) |
+| `fetch_metadata`: rolling refresh (D213 §3) | `Refresher.Sweep`: at start, then every `metadata_refresh_check_every_h`, from response ages | Derived again | Yes | Yes | Nothing | Already in library.db | — |
+| `fetch_metadata`: **a person's refresh** (+ retry images) | The API, `Refresher.Request` | Lost on a discard or a failure for good; merged into an open rolling job, losing priority 20 and `shouldRetryImages` | No | Yes, by asking again, but they are never told the request died | **The request itself and its args** | library.db: `refresh_requested_at` (+ retry-images) on the item, cleared by a refresh that succeeds after it; a sweep derives the job (Q7) | **YES** (partly) |
+| `fetch_metadata`: **D213 §1 recheck** of a missing image | The artwork handler, on the first 404, `RunnableAt` = now + `RecheckAfter` | Lost on a discard; **dropped by `Enqueue` if a fetch job is already open for the item**; failed for good | **Never.** The image is recorded as refused, so it is "held" and not owed | Only by a person's refresh with images, and nobody knows to ask | **The recheck's due time** (the miss itself is in library.db: `CountEarlierMisses`) | Derived from the artwork refusal row: miss count 1 and refused-at + `RecheckAfter` ≤ now | **YES** |
+| `make_artwork_sizes`: owed images (D212) | The pass → `QueueOwed` | Derived again (not held means owed) | At the next pass, and a pass runs only after a scan (node hello or admin) | Yes, refresh with images | A snapshot of the args (the refs) | Derived; the args are a cache | Q13. **The node's refusal of an unreadable local image is recorded as permanent** (G9) |
+| `make_artwork_sizes`: sizes made on request (D212 §3) | Serving a size that was not made | Dropped next to an open owed job, or lost | By the next request | Yes, by viewing | A snapshot of the args | Forgettable | — |
+| `prepare` | Play (`want`), and `PrepareAgain` when the node answers 404 | Failed for good on ordinary errors, **leaving the rendition `running`** | By the next play (`want` queues whenever it is not complete) | Yes, by playing | Nothing beyond `prepared_rendition`, which is a cache | cache.db (a note of the node's cache, D217 §5) | G8, G13 |
+| `extract_subtitle` | Play (`wantText`) | — | By the next play | Yes | Nothing | Text by payload hash in cache.db | — |
+| `convert_fetched_subtitle` | Play (`wantText`) | — | By the next play; the body is in library.db | Yes | Nothing | — | — |
+| `measure_loudness` (D226 §2) | `QueueMeasurements`: at start, after each pass, and hourly | Derived again; a failure is kept in library.db | Yes | No button, and none needed | Nothing | Already in library.db | Queues offline roots every hour (G6) |
+| `scan` (M4; today a node command held in memory) | A node's hello (a setting), or an admin request | An admin's scan of a node that has not said hello since the core started is **dropped silently**; lost on a restart | At the next hello | Yes, by asking again | The request | When it becomes a job, derived from root state (never scanned, withheld, offline, the admin's request) | Mild |
+| `backup` (M4) | Not built | — | — | — | — | Derived from the last backup time against its schedule | Design at M4 |
+
+**What is genuinely forgettable, and belongs only in cache.db:**
+- attempt counts and back-off;
+- destination state (D231 §7);
+- `pausedUntil`;
+- job history shown in the job view;
+- `art_served` recency;
+- match candidates (D172 searches again);
+- renditions and subtitle text, which are caches of node output.
+
+### The principle that fixes the class (Q5)
+
+**Every job is the image of a predicate over durable state; the queue is a cache of the work
+that state implies.** Each kind registers three things with the generic queue:
+- its handler;
+- a **sweep** that derives the kind's open work from library.db and configuration;
+- the destination it needs.
+
+A sweep runs:
+- at start;
+- on a timer (per kind, hourly by default);
+- after each pass;
+- when a destination unparks.
+
+`Enqueue` becomes a *hint* to run a job sooner, for a person waiting or a new file. It is never
+the only record that the work is wanted.
+
+It follows that:
+- A person's request is either redone by the person's own action (a play), or recorded as a fact
+  that the sweep reads (a refresh request).
+- A failure caused by the item is recorded as a fact with its reason, so the sweep stops asking
+  and the person sees why and can clear it ("try again"). This is the dead-letter state, kept
+  where it survives a discard.
+- A cancel stops a run; if the state still implies the work, the sweep queues it again (Q12).
+- No handler or hook ever reads job history as a fact. `EverQueued` is deleted.
+
+**What it takes, kind by kind:**
+- **First match:**
+  - delete `EverQueued`;
+  - derive the job from the awaiting-match queries alone;
+  - add a library.db fact for an item-caused failure (`match_failed_at`, `match_failure`),
+    which the query excludes and a person's refresh clears;
+  - with D231's parking, an outage no longer produces failures.
+  - This keeps D170's intent (one fetch per *answer*, never a flood) and drops a mechanism that
+    turned a lost attempt into never.
+- **A person's refresh:** add `refresh_requested_at` (+ a retry-images flag) on the item; the
+  refresh sweep queues items whose request is newer than their last ask.
+- **D213 §1 recheck:** the refresh sweep also queues items with one recorded miss whose recheck
+  time has passed.
+- **Owed artwork and season listings:** already derived; run their sweep on a timer and on
+  unpark, not only after a scan.
+- **Loudness:** already derived; have the sweep skip unavailable roots (answer 1).
+- **Prepare, subtitles, conversion:** already driven by play. Record a rendition failed when its
+  job fails for good (G8).
+- **Scan (M4):** derive it from root state.
+
+**The test that proves it:**
+- `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`:
+  - Script a library through scripted node reports, the fake TMDB, a fake node and `clocktest`.
+  - Leave jobs in every state: queued, in back-off, running, failed for good, cancelled, a
+    person's refresh waiting, and a recheck scheduled.
+  - Run the script twice to quiescence, once with cache.db discarded at that point and once
+    without.
+  - Assert that library.db's facts are the same in both runs: identification, artwork rows,
+    loudness, requested refreshes done, and item failures.
+- A structural guard, an architecture test, still to write, that nothing reads job history as a fact: only the queue package and the
+  job view read the job table.
+- The queue's registration takes a sweep that is not nil, so a kind without one does not compile.
+
+---
+
+
+### Scenario-tier tests for S22–S78
+
+Each of these can be driven by scripted node reports, the fake TMDB, a fake node channel and
+`clocktest`, with no filesystem.
+
+- `TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`: two attempts per job at
+  most, one probe per step, all 200 matched.
+- `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`: the property test above, the owner's
+  principle.
+- `TestScenario_S22_AnOfflineRootParksItsJobsAndSweepsQueueNothing`, and its retire follow-up.
+- `TestScenario_S26_ANodesHelloReturnsItsRunningJobsWithoutCost`.
+- `TestScenario_S27_AReconnectedNodeIsSentOnlyLiveCommands`.
+- `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges`: queued, back-off, parked and running.
+- `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`.
+- `TestScenario_S74_AChangedFileEndsItsJobsAndIsRescanned`.
+- `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`.
+- `TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`, and G8's
+  `…_APrepareThatFailsForGoodSaysSo`.
+- S77 needs a store fault injector. Unless `internal/store` gains a seam for failing writes,
+  it is an integration-tier test.
+- S75 already holds and needs only a regression test: a conversion runs with quota at zero.
+
 ## Gaps and questions
 
 | | What | Scenarios |
@@ -277,3 +689,28 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 | **Q2** | Answered by D208 §2: a Title with no live files follows its files to the new library | S6, S19 |
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
 | **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
+| **G3** | D231 is not built: down-class failures spend attempts; node jobs never check the node; `IsConnected` means "said hello since the core started"; blocked and `RetryAt` are per runner and held in memory; the breaker is kept only for artwork | S23, S25, S29, S70, S76 |
+| **G4** | A reconnected node is sent the commands of jobs that have ended; a job that gives up on silence sends no cancel; a retry can run a second FFmpeg in the same rendition directory | S26, S27 |
+| **G5** | A node's hello does not return the jobs that were running on it to the queue; they wait out `maxSilence` and spend an attempt | S26 |
+| **G6** | An offline root is not an unavailable destination (answer 1): its files' jobs run and refuse, and the loudness sweep queues them again every hour | S22 |
+| **G7** | No retire action for a root, node or library (answer 2); no "offline since" or weekly reminder (answer 3) | S22, S23, S24 |
+| **G8** | A prepare that fails for good on silence or refusals leaves its rendition `running`; the player shows "preparing" until it is reloaded | S26, S28, S29, S74 |
+| **G9** | A node's refusal to read a local image (its disk offline) is recorded as the image's permanent refusal | S22, S76 |
+| **G10** | A lost first match is never queued again (`EverQueued`); a failed match looks the same as one not yet tried | S25, S78 |
+| **G11** | A repeat request is dropped: its priority is not raised, a job in back-off is not woken, and args are not merged (D231 agreed merge) | S70, S71 |
+| **G12** | Core disk full: a failed `writeFinish` leaves a job `running` and blocks it from being queued again; runners log every second; a paid OpenSubtitles download is lost when library.db cannot be written | S77 |
+| **G13** | A rendition restarted while its job runs is marked complete under the new run id, with nothing in that directory | S71 |
+| **G14** | The D213 §1 recheck exists only as a future-dated job: lost on a discard, dropped next to an open fetch, and never derived | S71, S78 |
+| **G15** | A person's refresh exists only as a job row: lost on a discard, merged away by an open rolling refresh, and the person is never told | S70, S78 |
+| **Q5** | Answered by D231 (2026-09-30): A principle is missing: is work edge-triggered or level-triggered? | S22–S29, S70–S78 |
+| **Q6** | Answered by D231 (2026-09-30): A fact is missing: where does "this item failed, for its own reasons" live? | S22–S29, S70–S78 |
+| **Q7** | Answered by D231 (2026-09-30): A person's intent has no durable home: is a request a fact or forgettable? | S22–S29, S70–S78 |
+| **Q8** | Answered by D231 (2026-09-30): A class of failure the design does not name: a node that answers but refuses | S22–S29, S70–S78 |
+| **Q9** | Answered by D231 (2026-09-30): A behaviour D231 leaves open: a repeat request while the job is running | S22–S29, S70–S78 |
+| **Q10** | Answered by D231 (2026-09-30): Scope of "destination": is a missing or refused key a parked state? | S22–S29, S70–S78 |
+| **Q11** | Answered by D231 (2026-09-30): What the waiting person sees | S22–S29, S70–S78 |
+| **Q12** | Answered by D231 (2026-09-30): What cancel means once work is derived | S22–S29, S70–S78 |
+| **Q13** | Answered by D231 (2026-09-30): A sweep's trigger: owed work is derived only after a scan | S22–S29, S70–S78 |
+| **Q14** | Answered by D231 §7 (2026-09-30): what a deleted library's Titles become | S22–S29, S70–S78 |
+| **Q15** | Answered by D231 (2026-09-30): A synchronous call to a parked destination | S22–S29, S70–S78 |
+| **Q16** | Answered by D231 (2026-09-30): Is the core's own storage a destination? | S22–S29, S70–S78 |
