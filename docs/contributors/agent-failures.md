@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A16 — A hack around a gate offered beside the redesign it called for (2026-09-30)
+
+- **What happened:** revert-red failed the jobs rebuild's Phase 3 on two deletions of code
+  nothing used. Reverting dead code turns nothing red, so the gate was wrong about a valid edit.
+  I offered the owner a one-line loosening of the trailer rule and, as an alternative, a trivial
+  edit to `localart.go` whose only purpose was to carry a `Refactor-Only:` trailer: making the
+  code fit the gate instead of asking why the gate fired. The owner: "If machinery we've set up
+  isn't handling our development use cases properly, then it's time to redesign the machinery",
+  and going forward, "never offer to hack around it."
+- **Caught by:** the owner.
+- **Gate:** the redesign itself (revert-red reports removed dead code UNREACHABLE, and a
+  `Refactor-Only:` claim counts on any commit of the branch). The practice: when a gate blocks
+  a valid edit, audit which development case its design missed and redesign it for the case, not
+  the instance; a pointless edit, a relabelled commit or a trailer used as a key is never offered.
+
 ### A15 — A gate's failure explained from its report's loudest lines, not from what fails it (2026-09-30)
 
 - **What happened:** the jobs rebuild's Phase 2 ended with `make check-pr` failing at revert-red.
