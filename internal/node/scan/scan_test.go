@@ -388,7 +388,7 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	observed := records[1].Observed
-	if observed == nil || string(observed.Path.Bytes) != name || observed.Path.Text != "Am�lie.mkv" {
+	if observed == nil || string(observed.Path.Raw) != name || observed.Path.Text != "Am�lie.mkv" {
 		t.Errorf("observed = %+v, want the raw bytes beside a readable text form (D49)", observed)
 	}
 }

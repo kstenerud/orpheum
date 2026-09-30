@@ -123,11 +123,12 @@ type ScanBegin struct {
 
 // Path is a path as the filesystem gave it (D49): relative to its media root everywhere but
 // Artwork.AbsolutePath, which says in its name that it is not. Text holds it exactly when it is
-// valid UTF-8; otherwise Text is a readable approximation and Bytes holds the bytes. The core
-// normalises Text to NFC for identity and display, and opens by the bytes.
+// valid UTF-8; otherwise Text is a readable approximation and Raw holds the path's bytes as the
+// filesystem gave them. The core normalises Text to NFC for identity and display, and opens by
+// the raw bytes.
 type Path struct {
-	Text  string `json:"text"`
-	Bytes []byte `json:"bytes,omitempty"`
+	Text string `json:"text"`
+	Raw  []byte `json:"raw,omitempty"`
 }
 
 // Observed is a file the node enumerated, probed and hashed.

@@ -197,8 +197,8 @@ type reportedPath struct {
 // resolveReportedPath turns a reported path into a reportedPath under the scan's root.
 func resolveReportedPath(root string, reported nodeproto.Path) reportedPath {
 	raw := reported.Text
-	if reported.Bytes != nil {
-		raw = string(reported.Bytes)
+	if reported.Raw != nil {
+		raw = string(reported.Raw)
 	}
 	absolute := root
 	if reported.Text != "." {

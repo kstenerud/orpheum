@@ -303,8 +303,8 @@ const maxImageBytes = 64 << 20
 // names can reach outside the node's roots (D107).
 func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	absolute := named.Text
-	if named.Bytes != nil {
-		absolute = string(named.Bytes)
+	if named.Raw != nil {
+		absolute = string(named.Raw)
 	}
 	var holder *confine.MediaRoot
 	holderRelativePath := ""
