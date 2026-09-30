@@ -71,8 +71,9 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkServerFacts(t, system.Server)
-	if len(system.Nodes) != 2 || system.Nodes[0].Name != "attic" || system.Nodes[0].IsConnected {
-		t.Fatalf("the nodes are %+v; want attic, not connected, then local", system.Nodes)
+	if len(system.Nodes) != 2 || system.Nodes[0].Name != "attic" || system.Nodes[0].IsConnected ||
+		system.Nodes[0].Connection != "awaiting_hello" || system.Nodes[0].LastHeardAt != nil {
+		t.Fatalf("the nodes are %+v; want attic, awaiting its hello, then local", system.Nodes)
 	}
 	checkLocalFacts(t, system.Nodes[1])
 	if !strings.Contains(got.body, `"check":"build on node local","verdict":"ok"`) ||
@@ -101,7 +102,8 @@ func checkServerFacts(t *testing.T, server ServerBody) {
 func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 	t.Helper()
 	checkBuildAndHost(t, local)
-	if !local.IsConnected || local.FFmpegVersion != "ffmpeg version 7.1" ||
+	if !local.IsConnected || local.Connection != "connected" || local.LastHeardAt == nil ||
+		local.FFmpegVersion != "ffmpeg version 7.1" ||
 		len(local.Confinement) != 1 || !local.Confinement[0].IsInForce || local.PreparedUsage == nil ||
 		len(local.Disks) != 1 || local.Disks[0].AvailableBytes != 1000 {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)

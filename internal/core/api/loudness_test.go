@@ -240,3 +240,60 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 5000)`)
+	if ids := harness.filesToMeasure(t); len(ids) != 0 {
+		t.Errorf("with its root unreadable, a sweep finds %v to measure; want none (G6)", ids)
+	}
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	measurement := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2}, Reason: "test"}
+	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
+		t.Fatal(err)
+	}
+	playback := harness.server.dependencies.Load().Playback
+	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(harness.nodes.commanded) != 0 {
+		t.Error("the node was asked to measure a file its missing root holds")
+	}
+	views, err := harness.queue.List(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job := views[0]; job.State != "queued" || job.AttemptCount != 0 ||
+		job.Destination != jobs.RootDestination(1, "/media") || job.WaitingFor == nil {
+		t.Errorf("the measurement = %+v; want queued on the missing root with no attempt spent", job)
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE root_state SET last_scan_outcome = 'complete'`,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
+		 VALUES (1, '/media', '/media', 9, 0)`)
+	if ids := harness.filesToMeasure(t); len(ids) != 0 {
+		t.Errorf("with the disk under its root missing, a sweep finds %v to measure; want none (G6)", ids)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`)
+	harness.queue.Unpark(t.Context(), jobs.RootDestination(1, "/media"))
+	go func() {
+		command := <-harness.nodes.commanded
+		playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{
+			JobID: command.MeasureLoudness.JobID, Failure: "Invalid data found when processing input",
+		})
+	}()
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness); job.State != "failed" ||
+		job.AttemptCount != 1 {
+		t.Errorf("once the root came back, the measurement = %+v; want it run once, to FFmpeg's answer", job)
+	}
+}

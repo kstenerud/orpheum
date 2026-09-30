@@ -209,7 +209,7 @@ func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput
 // says about itself is the System page's (D225).
 type NodeBody struct {
 	Name        string   `json:"name"`
-	IsConnected bool     `doc:"Whether it has said hello since the server started" json:"isConnected"`
+	IsConnected bool     `doc:"Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds" json:"isConnected"` //nolint:lll // one struct tag
 	RootPaths   []string `doc:"Its configured roots; empty while it is not connected" json:"rootPaths"`
 }
 

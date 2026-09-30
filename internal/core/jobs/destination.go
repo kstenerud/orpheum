@@ -154,6 +154,14 @@ func HostDown(destination Destination, err error, now time.Time) (Parking, bool)
 	return parking, true
 }
 
+// ParkOnMissingRoot answers that a job reads a file under a root, or a disk mounted inside one,
+// that the last scan found missing (since then): it waits for a scan that finds it (D231 §5).
+func ParkOnMissingRoot(nodeID int64, path string, since time.Time, err error) error {
+	return Park(Parking{
+		Destination: RootDestination(nodeID, path), Reason: "missing", Since: since, AwaitsSignal: true,
+	}, fmt.Errorf("%s on node %d is missing: %w", path, nodeID, err))
+}
+
 // Park marks a destination down, for a caller outside a job that found it so.
 func (queue *Queue) Park(ctx context.Context, parking Parking) { queue.queue.Park(ctx, parking) }
 

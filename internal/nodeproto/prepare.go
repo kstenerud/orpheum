@@ -87,6 +87,13 @@ const (
 	PrepareStalled PrepareState = "stalled"
 )
 
+// RefusalCode names a refusal the core acts on, rather than only shows.
+type RefusalCode string
+
+// RefusedNoRoom is a prepare refused because the prepared directory's disk is past its limit and
+// nothing can be evicted: the core waits for the node's status to show room (D231 §5).
+const RefusedNoRoom RefusalCode = "no_room"
+
 // PrepareReport is the node's word on a prepare: how far it is, or how it ended.
 type PrepareReport struct {
 	JobID int64        `json:"jobId"`
@@ -102,6 +109,8 @@ type PrepareReport struct {
 	// or whose payload hash changed since the scan, a disk with no room. It says nothing of the
 	// bytes, so the prepare may be asked for again.
 	Refusal string `json:"refusal,omitempty"`
+	// RefusalCode names a refusal the core acts on: RefusedNoRoom. Empty for any other.
+	RefusalCode RefusalCode `json:"refusalCode,omitempty"`
 	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
 	// the source's bytes the first time.
 	Stall *Stall `json:"stall,omitempty"`

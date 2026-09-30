@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -61,15 +62,23 @@ type LoudnessSink interface {
 	TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult)
 }
 
+// Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back
+// the work parked on it, and its status showing room the prepares parked on its prepared
+// directory (D231 §5, §11).
+type Destinations interface {
+	Unpark(ctx context.Context, destination jobs.Destination)
+}
+
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
-// commands, receives their reports and knows when each last spoke.
+// commands, receives their reports and knows when each last spoke and whether it is connected.
 type Service struct {
-	database   *store.Database
-	clock      clock.Clock
-	settings   Settings
-	recordSink Sink
-	logger     *slog.Logger
-	pollHold   time.Duration
+	database     *store.Database
+	clock        clock.Clock
+	settings     Settings
+	recordSink   Sink
+	destinations Destinations
+	logger       *slog.Logger
+	pollHold     time.Duration
 
 	artworkSink  ArtworkSink
 	prepareSink  PrepareSink
@@ -116,17 +125,31 @@ type connectedNode struct {
 	nextCommandSeq int64
 	wake           chan struct{}
 	lastHeard      time.Time
+	// openPollCount is how many long-polls for its commands are open: while one is, it is
+	// connected however long ago it last spoke.
+	openPollCount int
 }
 
-// NewService returns the service. The pollHold argument is how long a command long-poll waits
-// before it answers with nothing.
-func NewService(
-	database *store.Database, clockSource clock.Clock, settingsService Settings, sink Sink, logger *slog.Logger,
-	pollHold time.Duration,
-) *Service {
+// ServiceParts are what the service is built from.
+type ServiceParts struct {
+	Database *store.Database
+	Clock    clock.Clock
+	Settings Settings
+	// Sink receives each node's report records: the ingest.
+	Sink Sink
+	// Destinations are the job queue's parked destinations, which a hello and a status bring back.
+	Destinations Destinations
+	Logger       *slog.Logger
+	// PollHold is how long a command long-poll waits before it answers with nothing.
+	PollHold time.Duration
+}
+
+// NewService returns the service.
+func NewService(parts ServiceParts) *Service {
 	return &Service{
-		database: database, clock: clockSource, settings: settingsService, recordSink: sink, logger: logger,
-		pollHold: pollHold, connectedNodes: map[int64]*connectedNode{},
+		database: parts.Database, clock: parts.Clock, settings: parts.Settings, recordSink: parts.Sink,
+		destinations: parts.Destinations, logger: parts.Logger, pollHold: parts.PollHold,
+		connectedNodes: map[int64]*connectedNode{},
 	}
 }
 
@@ -170,6 +193,9 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
 		"confinement", hello.Confinement)
+	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
+	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
+	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
 	if scanOnHello {
 		for _, root := range hello.RootPaths {
 			service.Enqueue(node.ID, nodeproto.Command{
@@ -251,31 +277,131 @@ func (service *Service) Facts(name string) (Facts, bool) {
 	return Facts{}, false
 }
 
-// keepStatus keeps what a node's status says about it.
-func (service *Service) keepStatus(nodeID int64, status *nodeproto.Status) {
+// keepStatus keeps what a node's status says about it. A prepared directory whose disk is within
+// its limit again brings back the prepares parked on it for want of room (D231 §5).
+func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
-	defer service.mutex.Unlock()
 	if existing, found := service.connectedNodes[nodeID]; found {
 		kept := *status
 		existing.status = &kept
 	}
+	service.mutex.Unlock()
+	if usage := status.PreparedUsage; usage != nil && usage.DiskUsedPercent <= usage.DiskUsedLimitPercent {
+		service.destinations.Unpark(ctx, jobs.PreparedDirectoryDestination(nodeID))
+	}
 }
 
-// ConnectedNodeRoots are the media roots the named node configured, as its last hello since the core started
-// said, with its id; false when it has not said hello since (D107: roots are configured on the
-// node, never remotely).
-func (service *Service) ConnectedNodeRoots(name string) (int64, []string, bool) {
+// ConnectedNodeRoots are the media roots the named node configured, as its last hello said, with
+// its id, while it is connected; false when it is not (D107: roots are configured on the node,
+// never remotely).
+func (service *Service) ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool) {
+	silentAfter := service.silentAfter(ctx)
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	for id, node := range service.connectedNodes {
-		if node.name == name {
+		if node.name == name && service.isConnectedLocked(node, silentAfter) {
 			return id, slices.Clone(node.hello.RootPaths), true
 		}
 	}
 	return 0, nil, false
 }
 
-// Enqueue queues a command for a node, numbering it, and wakes a waiting long-poll.
+// Connection is whether a node is connected, as the core sees it (D231 §11).
+type Connection string
+
+// A node's connections.
+const (
+	// Connected is a node with a long-poll for its commands open, or heard within
+	// node_silent_after_seconds.
+	Connected Connection = "connected"
+	// Silent is a node that said hello since the core started and has not been heard since
+	// node_silent_after_seconds ago.
+	Silent Connection = "silent"
+	// AwaitingHello is a node enrolled that has not said hello since the core started.
+	AwaitingHello Connection = "awaiting_hello"
+)
+
+// NodeConnection is whether a node is connected and when it was last heard; zero when it has
+// not said hello since the core started.
+func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Connection, time.Time) {
+	silentAfter := service.silentAfter(ctx)
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.connectedNodes[nodeID]
+	switch {
+	case !found:
+		return AwaitingHello, time.Time{}
+	case service.isConnectedLocked(node, silentAfter):
+		return Connected, node.lastHeard
+	}
+	return Silent, node.lastHeard
+}
+
+// IsConnected is whether a node is connected now: a long-poll for its commands open, or heard
+// within node_silent_after_seconds. Work on its files can be sent to it.
+func (service *Service) IsConnected(ctx context.Context, nodeID int64) bool {
+	connection, _ := service.NodeConnection(ctx, nodeID)
+	return connection == Connected
+}
+
+// ConnectedNodeID is the connected node heard from most recently, where work that any node can
+// do is sent; false when none is connected.
+func (service *Service) ConnectedNodeID(ctx context.Context) (int64, bool) {
+	silentAfter := service.silentAfter(ctx)
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	var latest time.Time
+	latestNodeID := int64(0)
+	for id, node := range service.connectedNodes {
+		if service.isConnectedLocked(node, silentAfter) && (latestNodeID == 0 || node.lastHeard.After(latest)) {
+			latestNodeID, latest = id, node.lastHeard
+		}
+	}
+	return latestNodeID, latestNodeID != 0
+}
+
+// isConnectedLocked is whether node is connected; the caller holds the mutex.
+func (service *Service) isConnectedLocked(node *connectedNode, silentAfter time.Duration) bool {
+	return node.openPollCount > 0 || service.clock.Now().Sub(node.lastHeard) < silentAfter
+}
+
+// silentAfter is node_silent_after_seconds, or its starting value when it cannot be read.
+func (service *Service) silentAfter(ctx context.Context) time.Duration {
+	silentAfter, err := service.settings.Duration(ctx, settings.NodeSilentAfterSeconds)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not read node_silent_after_seconds; taking 30 s", "err", err)
+		return defaultSilentAfter
+	}
+	return silentAfter
+}
+
+// defaultSilentAfter is node_silent_after_seconds' starting value, for when it cannot be read.
+const defaultSilentAfter = 30 * time.Second
+
+// Send queues a command for a node that is connected, numbering it, and wakes a waiting
+// long-poll. To a node that is not, it queues nothing and answers that the job is parked on the
+// node until its hello (D231 §11).
+func (service *Service) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
+	connection, lastHeard := service.NodeConnection(ctx, nodeID)
+	if connection != Connected {
+		return jobs.ParkOnNode(nodeID, lastHeard, ErrNodeSilent)
+	}
+	service.Enqueue(nodeID, command)
+	return nil
+}
+
+// Unanswered is a job's wait for a node's answer that ran out: the node going away, which parks
+// the job on it, when it is no longer connected; otherwise err, the job's own failure.
+func (service *Service) Unanswered(ctx context.Context, nodeID int64, err error) error {
+	if connection, lastHeard := service.NodeConnection(ctx, nodeID); connection != Connected {
+		return jobs.ParkOnNode(nodeID, lastHeard, err)
+	}
+	return err
+}
+
+// Enqueue queues a command for a node that has said hello, numbering it, and wakes a waiting
+// long-poll; one for a node that has not is dropped. Work goes through Send, which parks it on a
+// node that is not connected; a cancel goes straight here.
 func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
@@ -288,30 +414,6 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	node.commands = append(node.commands, command)
 	close(node.wake)
 	node.wake = make(chan struct{})
-}
-
-// LastHeardNodeID is the node heard from most recently, and whether any has said hello since the core
-// started: where work that any node can do is sent.
-func (service *Service) LastHeardNodeID() (int64, bool) {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	var latest time.Time
-	latestNodeID := int64(0)
-	for id, node := range service.connectedNodes {
-		if latestNodeID == 0 || node.lastHeard.After(latest) {
-			latestNodeID, latest = id, node.lastHeard
-		}
-	}
-	return latestNodeID, latestNodeID != 0
-}
-
-// IsConnected is whether a node has said hello since the core started: where work on its own
-// files can be sent.
-func (service *Service) IsConnected(nodeID int64) bool {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	_, found := service.connectedNodes[nodeID]
-	return found
 }
 
 // LastHeard is when the named node last said anything, and whether it ever has.
@@ -331,6 +433,17 @@ func (service *Service) noteHeard(nodeID int64) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	if node, found := service.connectedNodes[nodeID]; found {
+		node.lastHeard = service.clock.Now()
+	}
+}
+
+// notePoll notes a long-poll for a node's commands opening (+1) or ending (-1): a node that holds
+// one open is connected.
+func (service *Service) notePoll(nodeID int64, change int) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, found := service.connectedNodes[nodeID]; found {
+		node.openPollCount += change
 		node.lastHeard = service.clock.Now()
 	}
 }

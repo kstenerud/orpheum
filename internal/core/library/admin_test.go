@@ -3,6 +3,7 @@
 package library
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -17,7 +18,7 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 }
 
-func (nodes *fakeNodes) ConnectedNodeRoots(name string) (int64, []string, bool) {
+func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
 	if name != "local" {
 		return 0, nil, false
 	}

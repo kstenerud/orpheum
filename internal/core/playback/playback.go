@@ -40,10 +40,14 @@ type Settings interface {
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
-// Nodes is how playback reaches the nodes: nodes.Service.
+// Nodes is how playback reaches the nodes: nodes.Service. Send parks a job on a node that is not
+// connected, and Unanswered a job whose node went away while it waited (D231 §11); a cancel is
+// queued as it is.
 type Nodes interface {
+	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
 	Enqueue(nodeID int64, command nodeproto.Command)
-	IsConnected(nodeID int64) bool
+	IsConnected(ctx context.Context, nodeID int64) bool
+	Unanswered(ctx context.Context, nodeID int64, err error) error
 }
 
 // Queue is the job queue: jobs.Queue.
@@ -352,6 +356,17 @@ func locatedOf(file sqlcgen.GetPlayableFileRow) located {
 		subject: fmt.Sprintf("file %d", file.ID), libraryID: file.LibraryID, nodeID: file.NodeID,
 		reportedPathRaw: file.ReportedPathRaw, payloadHash: file.PayloadHash,
 	}
+}
+
+// parkIfUnavailable answers that a job reading file waits, at no cost of an attempt, while the
+// root or the mounted disk that holds it is missing, until a scan finds it (D231 §5); nil when
+// it is there.
+func (service *Service) parkIfUnavailable(ctx context.Context, file located) error {
+	missing, isMissing, err := library.UnavailableUnder(ctx, service.database.Read(), file.nodeID, file.reportedPathRaw)
+	if err != nil || !isMissing {
+		return err
+	}
+	return jobs.ParkOnMissingRoot(file.nodeID, missing.Path, missing.Since, fmt.Errorf("%s is under it", file.subject))
 }
 
 // bytesFileOf names a file on its node's byte socket: the library root it is under, its path

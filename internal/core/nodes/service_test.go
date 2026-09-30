@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -55,13 +56,32 @@ func (sink *recordingSink) all() []nodeproto.Record {
 	return records
 }
 
+// recordingDestinations are the job queue's parked destinations, keeping each one unparked.
+type recordingDestinations struct {
+	mutex    sync.Mutex
+	unparked []jobs.Destination
+}
+
+func (destinations *recordingDestinations) Unpark(_ context.Context, destination jobs.Destination) {
+	destinations.mutex.Lock()
+	defer destinations.mutex.Unlock()
+	destinations.unparked = append(destinations.unparked, destination)
+}
+
+func (destinations *recordingDestinations) all() []jobs.Destination {
+	destinations.mutex.Lock()
+	defer destinations.mutex.Unlock()
+	return slices.Clone(destinations.unparked)
+}
+
 type fixture struct {
-	database *store.Database
-	settings *settings.Service
-	service  *Service
-	sink     *recordingSink
-	server   *httptest.Server
-	clock    *clocktest.Fake
+	database     *store.Database
+	settings     *settings.Service
+	service      *Service
+	sink         *recordingSink
+	destinations *recordingDestinations
+	server       *httptest.Server
+	clock        *clocktest.Fake
 }
 
 func newFixture(t *testing.T, pollHold time.Duration) *fixture {
@@ -70,11 +90,16 @@ func newFixture(t *testing.T, pollHold time.Duration) *fixture {
 	settingsService := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	sink := &recordingSink{arrived: make(chan struct{}, 1)}
-	service := NewService(database, fakeClock, settingsService, sink, slog.New(slog.DiscardHandler), pollHold)
+	destinations := &recordingDestinations{}
+	service := NewService(ServiceParts{
+		Database: database, Clock: fakeClock, Settings: settingsService, Sink: sink, Destinations: destinations,
+		Logger: slog.New(slog.DiscardHandler), PollHold: pollHold,
+	})
 	server := httptest.NewServer(service.Handler())
 	t.Cleanup(server.Close)
 	return &fixture{
-		database: database, settings: settingsService, service: service, sink: sink, server: server, clock: fakeClock,
+		database: database, settings: settingsService, service: service, sink: sink, destinations: destinations,
+		server: server, clock: fakeClock,
 	}
 }
 
@@ -344,12 +369,12 @@ func TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing
 func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	if _, _, connected := harness.service.ConnectedNodeRoots("local"); connected {
+	if _, _, connected := harness.service.ConnectedNodeRoots(t.Context(), "local"); connected {
 		t.Error("a node that never said hello has roots")
 	}
 	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
-	nodeID, roots, connected := harness.service.ConnectedNodeRoots("local")
+	nodeID, roots, connected := harness.service.ConnectedNodeRoots(t.Context(), "local")
 	if !connected || nodeID != reply.NodeID || !slices.Equal(roots, []string{"/media/films"}) {
 		t.Errorf("Roots = %d, %v, %v; want the last hello's", nodeID, roots, connected)
 	}
@@ -395,11 +420,8 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 		sink.answers[0].JobID != 4 || string(sink.answers[0].Images[0].WebP) != "RIFF" {
 		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.answers)
 	}
-	if connected, found := harness.service.LastHeardNodeID(); !found || connected != reply.NodeID {
+	if connected, found := harness.service.ConnectedNodeID(t.Context()); !found || connected != reply.NodeID {
 		t.Errorf("Connected = %d, %v; want the node", connected, found)
-	}
-	if !harness.service.IsConnected(reply.NodeID) || harness.service.IsConnected(reply.NodeID+1) {
-		t.Error("IsConnected does not tell the node that said hello from one that did not")
 	}
 }
 

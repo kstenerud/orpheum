@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -84,8 +85,8 @@ func runNodeChannel(
 }
 
 // newNodeService builds the core's side of the node channel: the ingest, which hands each scanned
-// library to identification. It serves nothing until
-// runNodeChannel listens.
+// library to identification and brings back the work parked on each root or disk a scan finds.
+// It serves nothing until runNodeChannel listens.
 func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
 	pass := opened.jobServices.pass
@@ -100,8 +101,17 @@ func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 			"listed", report.ListedCount, "extras", report.ExtraCount,
 			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})
+	queue := opened.jobServices.queue
+	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {
+		for _, path := range paths {
+			queue.Unpark(ctx, jobs.RootDestination(nodeID, path)) // a root back is a root's probe (D231 §6)
+		}
+	})
 	sink := reportSink{ingester: ingester, logger: logger}
-	return nodes.NewService(opened.database, clock.System{}, opened.settings, sink, logger, commandPollHold)
+	return nodes.NewService(nodes.ServiceParts{
+		Database: opened.database, Clock: clock.System{}, Settings: opened.settings, Sink: sink, Destinations: queue,
+		Logger: logger, PollHold: commandPollHold,
+	})
 }
 
 // reportSink stores what a node reports in library.db, then logs the scan's milestones.

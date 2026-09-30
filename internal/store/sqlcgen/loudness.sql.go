@@ -31,6 +31,14 @@ WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
   AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
   AND (SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
   AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM root_state rs
+    WHERE rs.node_id = f.node_id AND rs.last_scan_outcome <> 'complete'
+      AND substr(f.path, 1, length(rs.root_path) + 1) = rs.root_path || '/')
+  AND NOT EXISTS (
+    SELECT 1 FROM root_mount rm
+    WHERE rm.node_id = f.node_id AND rm.is_present = 0
+      AND substr(f.path, 1, length(rm.mount_path) + 1) = rm.mount_path || '/')
 ORDER BY f.id
 `
 
@@ -41,7 +49,8 @@ type ListFilesToMeasureParams struct {
 
 // The live videos with sound whose bytes have no loudness yet, among the ids after after_id and up to
 // through_id: a sweep reads the files a range of ids at a time, by the primary key, so no one query
-// reads them all.
+// reads them all. A file under a root, or a disk mounted inside one, that the last scan found
+// missing is not there to measure (D231 section 5).
 func (q *Queries) ListFilesToMeasure(ctx context.Context, arg ListFilesToMeasureParams) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToMeasure, arg.AfterID, arg.ThroughID)
 	if err != nil {

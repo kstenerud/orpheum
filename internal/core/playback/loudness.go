@@ -220,6 +220,9 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if len(command.Tracks) == 0 {
 		return nil
 	}
+	if parked := service.parkIfUnavailable(ctx, locatedOf(file)); parked != nil {
+		return parked
+	}
 	if command.Video, err = service.bytesFileOf(ctx, locatedOf(file)); err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -235,9 +238,12 @@ func (service *Service) measure(
 ) error {
 	answers := service.loudnessAnswers.Await(job.ID)
 	defer service.loudnessAnswers.Forget(job.ID)
-	service.nodes.Enqueue(file.NodeID, nodeproto.Command{
+	err := service.nodes.Send(ctx, file.NodeID, nodeproto.Command{
 		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
 	})
+	if err != nil {
+		return fmt.Errorf("measure file %d: %w", file.ID, err)
+	}
 	timer := time.NewTimer(patience)
 	defer timer.Stop()
 	select {
@@ -261,7 +267,8 @@ func (service *Service) measure(
 		}
 		return keepErr
 	case <-timer.C:
-		return fmt.Errorf("node %d said nothing about measuring file %d for %s", file.NodeID, file.ID, patience)
+		return service.nodes.Unanswered(ctx, file.NodeID,
+			fmt.Errorf("node %d said nothing about measuring file %d for %s", file.NodeID, file.ID, patience))
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			service.nodes.Enqueue(file.NodeID, nodes.CancelCommand(job.ID))

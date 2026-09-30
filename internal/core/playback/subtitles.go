@@ -277,10 +277,14 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	if stream.PayloadHash == nil {
 		return jobs.MarkPermanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
 	}
-	bytesFile, err := service.bytesFileOf(ctx, located{
+	file := located{
 		subject: fmt.Sprintf("stream %d", job.StreamID), libraryID: stream.LibraryID, nodeID: stream.NodeID,
 		reportedPathRaw: stream.ReportedPathRaw, payloadHash: stream.PayloadHash,
-	})
+	}
+	if parked := service.parkIfUnavailable(ctx, file); parked != nil {
+		return parked
+	}
+	bytesFile, err := service.bytesFileOf(ctx, file)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -300,9 +304,12 @@ func (service *Service) makeSubtitleText(
 ) error {
 	answers := service.subtitleTextAnswers.Await(job.ID)
 	defer service.subtitleTextAnswers.Forget(job.ID)
-	service.nodes.Enqueue(nodeID, nodeproto.Command{
+	err := service.nodes.Send(ctx, nodeID, nodeproto.Command{
 		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
 	})
+	if err != nil {
+		return fmt.Errorf("%s job %d: %w", job.Kind, job.ID, err)
+	}
 	timer := time.NewTimer(service.maxSilence)
 	defer timer.Stop()
 	select {
@@ -322,7 +329,8 @@ func (service *Service) makeSubtitleText(
 		}
 		return service.finishSubtitle(ctx, key, answer)
 	case <-timer.C:
-		return fmt.Errorf("node %d said nothing about %s job %d for %s", nodeID, job.Kind, job.ID, service.maxSilence)
+		return service.nodes.Unanswered(ctx, nodeID,
+			fmt.Errorf("node %d said nothing about %s job %d for %s", nodeID, job.Kind, job.ID, service.maxSilence))
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			// The node stops its FFmpeg; the text stays unmade, so a later play asks again.

@@ -245,7 +245,11 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
           <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>
       ) : (
-        <p>{t("system.notConnected")}</p>
+        <p>
+          {node.connection === "silent" && node.lastHeardAt !== undefined
+            ? t("system.silentSince", { at: dateTimeText(node.lastHeardAt, i18n.language) })
+            : t("system.awaitingHello")}
+        </p>
       )}
     </section>
   );

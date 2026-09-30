@@ -56,3 +56,20 @@ WHERE node_id = sqlc.arg(node_id) AND mount_path = sqlc.arg(mount_path) AND is_p
 SELECT root_path, is_present
 FROM root_mount
 WHERE node_id = sqlc.arg(node_id) AND mount_path = sqlc.arg(mount_path);
+
+-- name: ListUnavailableRootsOfNode :many
+-- A node's roots whose last scan could not read them, or withheld its removals as a lost disk:
+-- their files are not there to read (D208, D231 section 5).
+SELECT root_path, last_scan_at
+FROM root_state
+WHERE node_id = sqlc.arg(node_id) AND last_scan_outcome <> 'complete'
+ORDER BY root_path;
+
+-- name: ListMissingMountsOfNode :many
+-- The disks mounted inside a node's roots that the last complete scan did not find, with when
+-- their root was last scanned (D208, D231 section 5).
+SELECT root_mount.mount_path, root_state.last_scan_at
+FROM root_mount
+LEFT JOIN root_state ON root_state.node_id = root_mount.node_id AND root_state.root_path = root_mount.root_path
+WHERE root_mount.node_id = sqlc.arg(node_id) AND root_mount.is_present = 0
+ORDER BY root_mount.mount_path;

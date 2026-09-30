@@ -40,7 +40,8 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 			http.StatusBadRequest)
 		return
 	}
-	service.noteHeard(nodeID)
+	service.notePoll(nodeID, 1)
+	defer service.notePoll(nodeID, -1)
 	timer := time.NewTimer(service.pollHold)
 	defer timer.Stop()
 	for {
@@ -236,7 +237,7 @@ func (reader *reportReader) takeLine(ctx context.Context, line []byte) error {
 	reader.service.noteHeard(reader.nodeID)
 	if record.Type == nodeproto.RecordStatus && record.Status != nil {
 		reader.status = record.Status
-		reader.service.keepStatus(reader.nodeID, record.Status)
+		reader.service.keepStatus(ctx, reader.nodeID, record.Status)
 	}
 	now := reader.service.clock.Now()
 	if len(reader.batch) == 0 {

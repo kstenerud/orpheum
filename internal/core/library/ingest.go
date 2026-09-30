@@ -34,6 +34,14 @@ type Ingester struct {
 	mutex        sync.Mutex
 	scanByNodeID map[int64]*scanState // by node: a node scans one root at a time
 	onScanEnded  func(ctx context.Context, libraryID int64)
+	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
+}
+
+// SetOnPathsFound sets what runs once a complete scan is committed, with the node and the paths
+// it found there: its root and each disk mounted inside it. Work parked on one that was missing
+// resumes (D231 §6).
+func (ingester *Ingester) SetOnPathsFound(onPathsFound func(ctx context.Context, nodeID int64, paths []string)) {
+	ingester.onPathsFound = onPathsFound
 }
 
 // SetOnScanEnded sets what runs once a scan's end is committed, with the scanned library's id:
@@ -89,6 +97,7 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 	defer ingester.mutex.Unlock()
 	nowMs := ingester.clock.Now().UnixMilli()
 	var endedLibraryIDs []int64
+	var foundPaths []string
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &ingestBatch{ingester: ingester, queries: queries, nodeID: nodeID, nowMs: nowMs}
 		for _, record := range records {
@@ -96,11 +105,14 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 				return fmt.Errorf("record %d (%s): %w", record.ReportSeq, record.Type, err)
 			}
 		}
-		endedLibraryIDs = batch.endedLibraryIDs
+		endedLibraryIDs, foundPaths = batch.endedLibraryIDs, batch.foundPaths
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	if ingester.onPathsFound != nil && len(foundPaths) > 0 {
+		ingester.onPathsFound(ctx, nodeID, foundPaths)
 	}
 	if ingester.onScanEnded != nil {
 		for _, libraryID := range endedLibraryIDs {
@@ -117,6 +129,9 @@ type ingestBatch struct {
 	nodeID          int64
 	nowMs           int64
 	endedLibraryIDs []int64 // libraries whose scan ended in this batch
+	// foundPaths are the roots, and the disks mounted inside them, that a complete scan in this
+	// batch found.
+	foundPaths []string
 }
 
 func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Record) error {
