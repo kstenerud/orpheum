@@ -107,6 +107,23 @@ func TestArguments_SegmentLengthIsTheOneAskedForWithinBounds(t *testing.T) {
 	}
 }
 
+// An HLS segment is cut only at a keyframe, so an encode puts one at every segment length: a
+// 3-second length gets 3-second segments, not the 4 that keyframes every 2 seconds would make.
+func TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength(t *testing.T) {
+	t.Parallel()
+	for asked, want := range map[int]string{
+		1: "expr:gte(t,n_forced*1)", 3: "expr:gte(t,n_forced*3)", 10: "expr:gte(t,n_forced*10)",
+		0: "expr:gte(t,n_forced*2)", // out of bounds: the segments' own fallback length
+	} {
+		command := nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, SegmentLengthSeconds: asked}
+		arguments := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
+		if got := after(arguments, "-force_key_frames"); got != want {
+			t.Errorf("%d-second segments: -force_key_frames %s, want %s (-hls_time %s)", asked, got, want,
+				after(arguments, "-hls_time"))
+		}
+	}
+}
+
 // A prepare names no -progress of its own: the watched run puts FFmpeg's on descriptor 3, and a
 // later one would win and leave the watchdog nothing to see.
 func TestArguments_LeaveTheProgressToTheWatchedRun(t *testing.T) {

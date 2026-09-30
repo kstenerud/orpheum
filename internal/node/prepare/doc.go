@@ -16,8 +16,10 @@
 //   - A rendition is fMP4 HLS with an EVENT playlist, every source audio track carried, and a
 //     boosted mix beside the standard one for a track with a centre (D217 §3). Enforced by
 //     TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre.
-//   - Copied HEVC is tagged hvc1; h264-8m is 8-bit H.264 with a keyframe every two seconds.
-//     Enforced by TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264.
+//   - Copied HEVC is tagged hvc1; h264-8m is 8-bit H.264 with a keyframe at every segment
+//     length, since a segment is cut only at one. Enforced by
+//     TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264 and
+//     TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength.
 //   - The node encodes with Quick Sync, else NVENC, else x264: the first that encodes a test
 //     picture here, confined as a prepare is, with the GPU granted (cut-a §6).
 //     Enforced by TestChooseEncoder_TakesTheFirstHardwareEncoderThatWorksConfinedOrX264 and
