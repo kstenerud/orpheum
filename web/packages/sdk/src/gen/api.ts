@@ -1263,15 +1263,7 @@ export interface components {
             seriesName: string;
         };
         Error: {
-            error: components["schemas"]["ErrorDetail"];
-        };
-        ErrorDetail: {
-            code: string;
-            detail?: {
-                [key: string]: string;
-            };
-            failedHop?: string;
-            message: string;
+            error: components["schemas"]["ProblemBody"];
         };
         ErrorDetailBody: {
             /** Format: int64 */
@@ -1452,6 +1444,9 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
+        InvalidRequestDetailBody: {
+            problems: components["schemas"]["RequestProblemBody"][] | null;
+        };
         InvitationBody: {
             /**
              * Format: int64
@@ -1621,6 +1616,77 @@ export interface components {
             /** Format: int64 */
             usedBytes: number;
         };
+        /** @description An error: a person is shown words chosen by its code, never its message (cut-a §5.2) */
+        ProblemBody: {
+            /** @enum {string} */
+            code: "auth_required";
+            detail?: components["schemas"]["SignedOutDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "invalid_request";
+            detail?: components["schemas"]["InvalidRequestDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "rate_limited";
+            detail?: components["schemas"]["RateLimitedDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "quota_exhausted";
+            detail?: components["schemas"]["QuotaExhaustedDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "provider_error";
+            detail?: components["schemas"]["ProviderRefusalDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "migrating" | "internal";
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        };
+        ProviderRefusalDetailBody: {
+            /** @description Such as no_key, key_refused, no_login, login_refused, not_configured, unavailable */
+            reason: string;
+        };
         PutOverrideInputBody: {
             /** @description The value; year and runtime_ms are whole numbers */
             value: string;
@@ -1633,6 +1699,20 @@ export interface components {
             valuesByKey: {
                 [key: string]: unknown;
             };
+        };
+        QuotaExhaustedDetailBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            downloadsResetAt: number;
+        };
+        RateLimitedDetailBody: {
+            /**
+             * Format: int64
+             * @description How long the provider asks us to wait
+             */
+            retryAfterMs: number;
         };
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
@@ -1657,6 +1737,11 @@ export interface components {
             /** Format: int64 */
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
+        };
+        RequestProblemBody: {
+            /** @description Where it is, such as body.name; absent when the request as a whole is wrong */
+            location?: string;
+            message: string;
         };
         RescanOutputBody: {
             isScanning: boolean;
@@ -1754,6 +1839,10 @@ export interface components {
             password: string;
             /** @description The one-time code the server logged at start */
             setupCode: string;
+        };
+        SignedOutDetailBody: {
+            /** @enum {string} */
+            reason: "session_ended" | "session_expired" | "no_session";
         };
         SignInInputBody: {
             device: components["schemas"]["NewDeviceBody"];

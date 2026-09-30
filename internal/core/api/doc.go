@@ -25,6 +25,11 @@
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
+//   - An error's detail is typed by its code, and the document gives every code its form, so a
+//     client that narrows by code reads typed detail (cut-a §5.2). An error takes its code from its
+//     detail's type (newDetailedError). Enforced by
+//     TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail and
+//     TestInvalidRequest_NamesEachProblemByWhereItIsInTheDetail.
 //   - A credential is read from the Authorization header only, never the URL; the byte paths
 //     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and

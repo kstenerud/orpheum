@@ -208,18 +208,14 @@ const (
 
 // notSignedInError is auth_required with why.
 func notSignedInError(err error) *Error {
-	failure := newError(http.StatusUnauthorized, CodeAuthRequired, "sign in first")
-	reason := ReasonNoSession
+	reason, message := ReasonNoSession, "sign in first"
 	switch {
 	case errors.Is(err, auth.ErrSessionEnded):
-		reason = ReasonSessionEnded
-		failure.ErrorBody.Error.Message = "this device was signed out: removed, or signed out from another device"
+		reason, message = ReasonSessionEnded, "this device was signed out: removed, or signed out from another device"
 	case errors.Is(err, auth.ErrSessionExpired):
-		reason = ReasonSessionExpired
-		failure.ErrorBody.Error.Message = "this device's session lapsed after going unused"
+		reason, message = ReasonSessionExpired, "this device's session lapsed after going unused"
 	}
-	failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
-	return failure
+	return newDetailedError(http.StatusUnauthorized, message, SignedOutDetailBody{Reason: reason})
 }
 
 // authError maps the auth package's refusals to API errors. Every handler that calls auth answers

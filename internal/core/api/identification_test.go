@@ -156,7 +156,7 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"})
 	wantErrorSaying(t, answer, http.StatusServiceUnavailable, CodeRateLimited, "TMDB asks us to wait")
-	if !strings.Contains(answer.body, `"retryAfterMs":"3000"`) ||
+	if !strings.Contains(answer.body, `"retryAfterMs":3000`) ||
 		!strings.Contains(answer.body, `"failedHop":"provider"`) {
 		t.Errorf("a rate limited choice: %s, want the wait and the provider as the failing leg (cut-a §5.2)",
 			answer.body)

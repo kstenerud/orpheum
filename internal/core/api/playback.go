@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -299,11 +298,9 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	case errors.Is(err, outbound.ErrUnavailable):
 		return providerRefusal("unavailable", "OpenSubtitles is not answering; try again later")
 	case isSpent:
-		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
-			"the OpenSubtitles account's downloads for today are spent")
-		failure.ErrorBody.Error.Detail = map[string]string{
-			"downloadsResetAt": strconv.FormatInt(spent.DownloadsResetAt.UnixMilli(), 10),
-		}
+		failure := newDetailedError(http.StatusTooManyRequests,
+			"the OpenSubtitles account's downloads for today are spent",
+			QuotaExhaustedDetailBody{DownloadsResetAt: spent.DownloadsResetAt.UnixMilli()})
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	case isLimited:

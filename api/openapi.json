@@ -841,36 +841,11 @@
         "additionalProperties": false,
         "properties": {
           "error": {
-            "$ref": "#/components/schemas/ErrorDetail"
+            "$ref": "#/components/schemas/ProblemBody"
           }
         },
         "required": [
           "error"
-        ],
-        "type": "object"
-      },
-      "ErrorDetail": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "string"
-          },
-          "detail": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
-          "failedHop": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "message"
         ],
         "type": "object"
       },
@@ -1423,6 +1398,24 @@
           "fileId",
           "positionMs",
           "durationMs"
+        ],
+        "type": "object"
+      },
+      "InvalidRequestDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/RequestProblemBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "problems"
         ],
         "type": "object"
       },
@@ -2022,6 +2015,217 @@
         ],
         "type": "object"
       },
+      "ProblemBody": {
+        "description": "An error: a person is shown words chosen by its code, never its message (cut-a §5.2)",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "auth_required"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/SignedOutDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_request"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/InvalidRequestDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "rate_limited"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/RateLimitedDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "quota_exhausted"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/QuotaExhaustedDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "provider_error"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/ProviderRefusalDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "setup_required",
+                  "forbidden",
+                  "not_found",
+                  "conflict",
+                  "stale",
+                  "node_silent",
+                  "file_unavailable",
+                  "preparing",
+                  "prepare_failed",
+                  "migrating",
+                  "internal"
+                ],
+                "type": "string"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ProviderRefusalDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "description": "Such as no_key, key_refused, no_login, login_refused, not_configured, unavailable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "PutOverrideInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2060,6 +2264,34 @@
         },
         "required": [
           "valuesByKey"
+        ],
+        "type": "object"
+      },
+      "QuotaExhaustedDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "downloadsResetAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "downloadsResetAt"
+        ],
+        "type": "object"
+      },
+      "RateLimitedDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "retryAfterMs": {
+            "description": "How long the provider asks us to wait",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "retryAfterMs"
         ],
         "type": "object"
       },
@@ -2161,6 +2393,22 @@
           "positionReadMonoMs",
           "events",
           "spans"
+        ],
+        "type": "object"
+      },
+      "RequestProblemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "description": "Where it is, such as body.name; absent when the request as a whole is wrong",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
         ],
         "type": "object"
       },
@@ -2527,6 +2775,23 @@
           "name",
           "password",
           "device"
+        ],
+        "type": "object"
+      },
+      "SignedOutDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "enum": [
+              "session_ended",
+              "session_expired",
+              "no_session"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
         ],
         "type": "object"
       },
