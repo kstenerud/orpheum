@@ -10,8 +10,8 @@ import (
 )
 
 // HideTitlesOfDeletedLibrary tombstones a library's films, series and episodes as an admin
-// deletes it (D231 §7): hidden with their history, and with no merged_into, so a film of it that
-// reappears in another library brings its title back (D208 §2). It returns their ids, whose work
+// deletes it (D231 §7): hidden with their history, and with no merged_into, so a film or series of
+// it that reappears in another library comes back (D208 §2). It returns their ids, whose work
 // the delete cancels.
 func (pass *Pass) HideTitlesOfDeletedLibrary(ctx context.Context, libraryID int64) ([]int64, error) {
 	var hidden []int64

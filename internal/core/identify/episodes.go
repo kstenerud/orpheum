@@ -90,7 +90,7 @@ func (filer *libraryFiler) seriesOf(
 	}
 	seriesID, err := filer.currentSeries(ctx, file)
 	if err == nil && seriesID == 0 {
-		seriesID, err = filer.findOrAddSeries(ctx, evidence.name)
+		seriesID, err = filer.findOrAddSeries(ctx, evidence)
 	}
 	if err != nil {
 		return 0, err
@@ -169,10 +169,20 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 	}
 }
 
-// findOrAddSeries finds the series collection by name in this library, or makes it.
-func (filer *libraryFiler) findOrAddSeries(ctx context.Context, name string) (int64, error) {
+// findOrAddSeries finds the series collection by name in this library, or by a provider id the
+// files give, when it follows them here (D208 section 2), or makes it.
+func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesSpec) (int64, error) {
+	name := evidence.name
 	if id, found := filer.seriesIDByName[textindex.SameWork(name)]; found {
 		return id, nil
+	}
+	claimed, err := filer.claimSeriesByProviderID(ctx, evidence.ids)
+	if err != nil {
+		return 0, err
+	}
+	if claimed != 0 {
+		filer.seriesIDByName[textindex.SameWork(name)] = claimed
+		return claimed, nil
 	}
 	libraryID := filer.library.ID
 	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
@@ -202,15 +212,9 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
 	}
-	aired := sqlcgen.GetOrderingParams{CollectionID: seriesID, Name: airedOrdering}
-	ordering, err := filer.queries.GetOrdering(ctx, aired)
+	ordering, err := airedOrderingOf(ctx, filer.queries, seriesID)
 	if err != nil {
-		ordering, err = filer.queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
-			CollectionID: seriesID, Name: airedOrdering,
-		})
-		if err != nil {
-			return fmt.Errorf("add series %d's aired order: %w", seriesID, err)
-		}
+		return err
 	}
 	groupNumber, numberInGroup := int64(season), int64(number)
 	err = filer.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
@@ -221,4 +225,19 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 		return fmt.Errorf("place title %d at season %d, episode %d: %w", titleID, season, number, err)
 	}
 	return nil
+}
+
+// airedOrderingOf is a series' aired order, made when it has none yet.
+func airedOrderingOf(ctx context.Context, queries *sqlcgen.Queries, seriesID int64) (int64, error) {
+	aired := sqlcgen.GetOrderingParams{CollectionID: seriesID, Name: airedOrdering}
+	ordering, err := queries.GetOrdering(ctx, aired)
+	if err != nil {
+		ordering, err = queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
+			CollectionID: seriesID, Name: airedOrdering,
+		})
+		if err != nil {
+			return 0, fmt.Errorf("add series %d's aired order: %w", seriesID, err)
+		}
+	}
+	return ordering, nil
 }

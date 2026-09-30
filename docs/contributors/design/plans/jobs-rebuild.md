@@ -255,9 +255,15 @@ D231 §3, §4, §7, §9; F1.
 - A prepare already queued or running for a retired file on a live node is not cancelled: its
   target is a rendition in cache.db, which the retire does not read. It is play-driven and ends on
   its own; one waiting on a missing root is cancelled with the root's destination.
-- A deleted library's series is hidden with its episodes but not brought back when its films
+- ~~A deleted library's series is hidden with its episodes but not brought back when its films
   reappear elsewhere: D231 §7 names a film, and a series has no provider-id lookup across
-  libraries yet.
+  libraries yet.~~ Reversed by the owner (2026-09-30): a deleted library's series comes back as a
+  film does (D208 §2). Found by the provider id its tvshow.nfo gives, it comes back when its
+  episodes are filed elsewhere, each episode with it as its file reappears; found by a match, the
+  new series joins it, an episode at a place it had giving that episode its files and one it did
+  not have moving into it, and the new series is left a tombstone pointing there.
+  `TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack`,
+  `TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack` (internal/core/identify).
 - The retire's steps owned by other packages (hiding titles, removing the node) are separate
   transactions from the library's: a failure between them is finished by retrying the action.
 

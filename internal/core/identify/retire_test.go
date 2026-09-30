@@ -22,8 +22,8 @@ type noWork struct{}
 func (noWork) CancelRetired(context.Context, jobs.RetiredWork) (int, error) { return 0, nil }
 
 // deleteAndStartAnother deletes the library as an admin does (D231 §7), and makes another, Kids,
-// over another root of the node, which the test library is from then on.
-func (lib *testLibrary) deleteAndStartAnother(source string) {
+// of kind and source over another root of the node, which the test library is from then on.
+func (lib *testLibrary) deleteAndStartAnother(kind, source string) {
 	lib.t.Helper()
 	admin := library.NewAdmin(lib.database, lib.clock, nil, library.Retirement{Work: noWork{}, Titles: lib.pass})
 	if _, err := admin.Delete(lib.t.Context(), lib.libraryID); err != nil {
@@ -32,7 +32,7 @@ func (lib *testLibrary) deleteAndStartAnother(source string) {
 	const kids = "/media/kids"
 	err := lib.database.Write(lib.t.Context(), func(queries *sqlcgen.Queries) error {
 		kidsID, err := queries.InsertLibrary(lib.t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Kids", Kind: "movies", MetadataSource: source, ChangeDetection: "manual", CreatedAt: 1,
+			Name: "Kids", Kind: kind, MetadataSource: source, ChangeDetection: "manual", CreatedAt: 1,
 		})
 		if err != nil {
 			return fmt.Errorf("library: %w", err)
@@ -66,7 +66,7 @@ func TestPass_ADeletedLibrarysFilmThatReappearsElsewhereBringsItsTitleBack(t *te
 	const film, nfo = "The Kid (2014)/The Kid (2014).mkv", "The Kid (2014)/The Kid (2014).nfo"
 	lib.scan(videoRecord(film), nfoRecord(nfo, body))
 	the kid := lib.titlesByPath()[film].TitleID
-	lib.deleteAndStartAnother("nfo")
+	lib.deleteAndStartAnother("movies", "nfo")
 	if lib.isLive(the kid) {
 		t.Fatal("the deleted library's title is live; it should be a tombstone")
 	}
@@ -86,7 +86,7 @@ func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *te
 	lib.scan(videoRecord(film))
 	lib.matchFileTitle(film)
 	metropolisTitle := lib.titlesByPath()[film].TitleID
-	lib.deleteAndStartAnother("tmdb")
+	lib.deleteAndStartAnother("movies", "tmdb")
 	lib.scan(videoRecord(film))
 	if newTitle := lib.titlesByPath()[film].TitleID; newTitle == metropolisTitle {
 		t.Fatal("the film was filed under its old title before any match; the test proves nothing")
@@ -95,5 +95,80 @@ func TestMatch_ADeletedLibrarysFilmMatchedAgainElsewhereBringsItsTitleBack(t *te
 	if got := lib.titlesByPath()[film].TitleID; got != metropolisTitle || !lib.isLive(metropolisTitle) {
 		t.Errorf("Metropolis in Kids is title %d (live %v), want %d brought back by the match",
 			got, lib.isLive(got), metropolisTitle)
+	}
+}
+
+// seriesOfFile is the series a file's episode is placed in.
+func (lib *testLibrary) seriesOfFile(rel string) int64 {
+	lib.t.Helper()
+	place, err := lib.database.Read().GetEpisodePlace(lib.t.Context(), lib.titlesByPath()[rel].TitleID)
+	if err != nil {
+		lib.t.Fatalf("%s's place: %v", rel, err)
+	}
+	return place.CollectionID
+}
+
+// S24, D231 §7, D208 §2: a deleted library's series whose episodes reappear in another library,
+// named by the provider id its tvshow.nfo gives, comes back with its history; so does each
+// episode whose file reappears, and an episode whose file does not stays hidden.
+func TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	const show = `<tvshow><title>Puddlejump</title><year>2018</year><uniqueid type="tmdb">82728</uniqueid></tvshow>`
+	const first, second = "Puddlejump/Season 01/Puddlejump - S01E01.mkv", "Puddlejump/Season 01/Puddlejump - S01E02.mkv"
+	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first), videoRecord(second))
+	puddlejump := lib.onlySeries().ID
+	magicXylophone, hospital := lib.titlesByPath()[first].TitleID, lib.titlesByPath()[second].TitleID
+	lib.deleteAndStartAnother("shows", "nfo")
+	lib.scan(nfoRecord("Puddlejump/tvshow.nfo", show), videoRecord(first))
+	if got := lib.onlySeries().ID; got != puddlejump {
+		t.Errorf("Puddlejump in Kids is series %d, want %d brought back", got, puddlejump)
+	}
+	if got := lib.titlesByPath()[first].TitleID; got != magicXylophone || !lib.isLive(magicXylophone) {
+		t.Errorf("S01E01 in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), magicXylophone)
+	}
+	if lib.isLive(hospital) {
+		t.Error("S01E02, whose file did not reappear, came back")
+	}
+}
+
+// S24, D231 §7, D208 §2: a deleted library's series whose episodes reappear in another library and
+// is matched there to the same show comes back with its history: an episode it had takes its file
+// back, an episode it did not have joins it, and one whose file reappears later comes back then.
+func TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack(t *testing.T) {
+	t.Parallel()
+	lib := orbitoramaLibrary(t)
+	lib.scanAll(orbitoramaFiles...)
+	outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID)
+	if err != nil || outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, err)
+	}
+	orbitoramaSeries := lib.onlySeries().ID
+	clone, later := lib.titlesByPath()[orbitoramaFiles[0]].TitleID, lib.titlesByPath()[orbitoramaFiles[1]].TitleID
+	lib.deleteAndStartAnother("shows", "tmdb")
+	const added = "Orbitorama/Season 02/Orbitorama - S02E12.mkv"
+	lib.scanAll(orbitoramaFiles[0], added)
+	newSeries := lib.onlySeries().ID
+	if newSeries == orbitoramaSeries {
+		t.Fatal("the episodes were filed under the old series before any match; the test proves nothing")
+	}
+	if outcome, err = lib.matcher.Match(t.Context(), newSeries); err != nil || outcome != identify.OutcomeMatched {
+		t.Fatalf("Match(series) = %s, %v", outcome, err)
+	}
+	if got := lib.onlySeries().ID; got != orbitoramaSeries {
+		t.Errorf("Orbitorama in Kids is series %d, want %d brought back by the match", got, orbitoramaSeries)
+	}
+	if got := lib.titlesByPath()[orbitoramaFiles[0]].TitleID; got != clone || !lib.isLive(clone) {
+		t.Errorf("S02E10 in Kids is title %d (live %v), want %d brought back", got, lib.isLive(got), clone)
+	}
+	if got := lib.seriesOfFile(added); got != orbitoramaSeries {
+		t.Errorf("S02E12, new in Kids, is in series %d, want %d", got, orbitoramaSeries)
+	}
+	if lib.isLive(later) {
+		t.Error("S02E11, whose file has not reappeared, came back")
+	}
+	lib.scanAll(orbitoramaFiles[0], orbitoramaFiles[1], added)
+	if got := lib.titlesByPath()[orbitoramaFiles[1]].TitleID; got != later || !lib.isLive(later) {
+		t.Errorf("S02E11, reappearing later, is title %d (live %v), want %d brought back", got, lib.isLive(got), later)
 	}
 }

@@ -45,6 +45,36 @@ FROM file
 JOIN version ON version.id = file.version_id
 WHERE version.title_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL;
 
+-- name: ListSeriesByProviderID :many
+-- The series a provider's id names: the live ones, and those of a deleted library, tombstoned
+-- with no merged_into, which a series whose episodes reappear brings back (D208 section 2,
+-- D231 section 7).
+SELECT collection.id, item.library_id, item.removed_at
+FROM item_provider_id
+JOIN collection ON collection.id = item_provider_id.item_id AND collection.kind = 'series'
+JOIN item ON item.id = collection.id
+WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ?
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
+ORDER BY item.removed_at IS NOT NULL, collection.id;
+
+-- name: CountLiveFilesOfSeries :one
+-- A series' live files: live files of the live versions of its episodes.
+SELECT count(*)
+FROM file
+JOIN version ON version.id = file.version_id
+JOIN collection_member ON collection_member.member_title = version.title_id
+WHERE collection_member.collection_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL;
+
+-- name: MoveEpisodeToSeries :exec
+-- An episode joins another series at the same place: its membership, and its place in the
+-- aired order, which moves to the other series' own.
+UPDATE collection_member SET collection_id = sqlc.arg(to_series)
+WHERE collection_id = sqlc.arg(from_series) AND member_title = sqlc.arg(title_id);
+
+-- name: MovePositionToOrdering :exec
+UPDATE position SET ordering_id = sqlc.arg(to_ordering)
+WHERE ordering_id = sqlc.arg(from_ordering) AND title_id = sqlc.arg(title_id);
+
 -- name: GetVersionTitle :one
 SELECT version.title_id, title.identification_state
 FROM version
@@ -143,10 +173,14 @@ ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_
   sort_order = excluded.sort_order;
 
 -- name: ListSeriesEpisodePlaces :many
-SELECT position.title_id, position.group_number, position.number_in_group
+-- A series' episodes in its aired order: the live ones, and those hidden with a deleted library,
+-- which come back with their files (D231 section 7).
+SELECT position.title_id, position.group_number, position.number_in_group, item.removed_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
+JOIN item ON item.id = position.title_id
 WHERE ordering.collection_id = ? AND ordering.name = 'aired'
+  AND (item.removed_at IS NULL OR item.merged_into IS NULL)
 ORDER BY position.sort_order;
 
 -- name: UpsertScannerExtraRelation :exec

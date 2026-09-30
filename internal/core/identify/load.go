@@ -83,13 +83,25 @@ func (filer *libraryFiler) loadTitles(ctx context.Context, libraryID int64) erro
 			continue
 		}
 		filer.seriesIDByName[textindex.SameWork(*show.Name)] = show.ID
-		episodes, listErr := filer.queries.ListSeriesEpisodePlaces(ctx, show.ID)
-		if listErr != nil {
-			return fmt.Errorf("list the episodes of %s: %w", *show.Name, listErr)
+		if err := filer.knowEpisodesOf(ctx, show.ID); err != nil {
+			return err
 		}
-		for _, episode := range episodes {
-			filer.titleIDByKey[episodeKey(show.ID, int(ptr.ValueOrZero(episode.GroupNumber)),
-				int(ptr.ValueOrZero(episode.NumberInGroup)))] = episode.TitleID
+	}
+	return nil
+}
+
+// knowEpisodesOf lets a series' episodes be found at their places. One hidden with a deleted
+// library comes back when a file of it is filed (D231 section 7).
+func (filer *libraryFiler) knowEpisodesOf(ctx context.Context, seriesID int64) error {
+	episodes, err := filer.queries.ListSeriesEpisodePlaces(ctx, seriesID)
+	if err != nil {
+		return fmt.Errorf("list the episodes of series %d: %w", seriesID, err)
+	}
+	for _, episode := range episodes {
+		filer.titleIDByKey[episodeKey(seriesID, int(ptr.ValueOrZero(episode.GroupNumber)),
+			int(ptr.ValueOrZero(episode.NumberInGroup)))] = episode.TitleID
+		if episode.RemovedAt != nil {
+			filer.returningEpisodes[episode.TitleID] = true
 		}
 	}
 	return nil

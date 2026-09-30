@@ -136,7 +136,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 			evidence: map[int64][]titleSpec{}, titleIDByFile: map[int64]int64{}, extraReasonByFile: map[int64]string{},
 			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
 			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
-			listings: map[string][]Episode{},
+			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{},
 		}
 		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
 			return loadErr
@@ -183,6 +183,9 @@ type libraryFiler struct {
 	seriesSpecByID    map[int64]seriesSpec   // what this pass's files say about each series
 	seriesMatchByID   map[int64]sqlcgen.GetSeriesForMatchRow
 	listings          map[string][]Episode // parsed season listings, by "series/season"
+	// returningEpisodes are the episodes of a series brought back into this library, each brought
+	// back with it when a file of it is filed (D208 section 2).
+	returningEpisodes map[int64]bool
 }
 
 // listAwaitingMatch lists what the fetch queue owes the library: films and series never answered for.
