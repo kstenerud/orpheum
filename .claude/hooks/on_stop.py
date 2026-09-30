@@ -30,7 +30,8 @@ def main() -> None:
         code.unlink(missing_ok=True)
         docs.unlink(missing_ok=True)
         return
-    output = (done.stdout + done.stderr)[-12000:]
+    # make check prints only failures and the log's path (scripts/quiet_gate.py); cap it anyway.
+    output = (done.stdout + done.stderr)[-6000:]
     json.dump(
         {
             "decision": "block",

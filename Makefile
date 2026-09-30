@@ -44,7 +44,11 @@ help: ## List the targets
 CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 
 .PHONY: check
-check: check-tools check-generated ## The gate: everything that runs on every change, in parallel where independent
+check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
+	@$(PYTHON) scripts/quiet_gate.py "make check" check-verbose
+
+.PHONY: check-verbose
+check-verbose: check-tools check-generated ## The gate with every step's output
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
 	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
@@ -159,7 +163,11 @@ PR_STEPS := test-integration test-browser check-test-weakening check-decision-st
 PR_LAST_STEP := check-revert-red
 
 .PHONY: check-pr
-check-pr: ## Branch gates against BASE (default: the owner's mark), the integration and browser tiers in parallel, then revert-red
+check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
+	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
+
+.PHONY: check-pr-verbose
+check-pr-verbose: ## Branch gates against BASE (default: the owner's mark), the integration and browser tiers in parallel, then revert-red
 	@base="$$($(RESOLVE_BASE))"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
 	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
