@@ -17,6 +17,7 @@ import {
   servedBy,
   submit,
   unreachable,
+  type Answer,
   type Mounted,
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -188,5 +189,43 @@ describe("a request that never reaches the server says so, rather than nothing",
     mounted = await mount(withServices(<Settings />, services));
     await click(buttonWithText(mounted.container, "Reset to the starting value"));
     expectSays(cannotReach);
+  });
+});
+
+describe("a match TMDB refuses says why and who can fix it", () => {
+  /** TMDB's refusal as the server gives it: provider_error, why in detail.reason. */
+  function providerRefusal(reason: string): Answer {
+    return [
+      503,
+      { error: { code: "provider_error", message: "a note for developers", detail: { reason } } },
+    ];
+  }
+
+  it("looking up the candidates with no key set", async () => {
+    const services = servedBy({
+      "GET /items": [200, { items: [waitingItem] }],
+      "GET /items/7/candidates": providerRefusal("no_key"),
+    });
+    mounted = await mount(withServices(<Identify />, services));
+    await click(buttonWithText(mounted.container, "Choose its match"));
+    expectSays("No TMDB key is set up. An admin can set it in Settings.");
+  });
+
+  it("choosing a match with a refused key, and looking again while TMDB is not answering", async () => {
+    const services = servedBy({
+      "GET /items": [200, { items: [waitingItem] }],
+      "GET /items/7/candidates": [
+        200,
+        { provider: "tmdb", candidates: [{ providerId: "101", name: "Variety" }] },
+      ],
+      "POST /items/7/match": providerRefusal("key_refused"),
+      "POST /items/7/refresh": providerRefusal("unavailable"),
+    });
+    mounted = await mount(withServices(<Identify />, services));
+    await click(buttonWithText(mounted.container, "Choose its match"));
+    await click(buttonWithText(mounted.container, "This one"));
+    expectSays("TMDB refused its key. An admin can change it in Settings.");
+    await click(buttonWithText(mounted.container, "Look again"));
+    expectSays("TMDB is not answering right now. Try again later.");
   });
 });
