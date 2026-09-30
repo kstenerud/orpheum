@@ -51,7 +51,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
-  the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
+  the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `offline-reminder.tsx` (the reminder, above an admin's every page, of the folders and disks offline, P39), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player), `sound.tsx` (how the device makes sound, the boost),
   `audio-tracks.tsx` (the audio track menu, D230), `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
   subtitle a file lacks, from OpenSubtitles, D224).

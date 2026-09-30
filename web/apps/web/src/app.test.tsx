@@ -15,6 +15,7 @@ import {
   servedBy,
   unreachable,
   type Answers,
+  type Heard,
 } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
@@ -73,6 +74,34 @@ describe("App", () => {
     const system = renderToStaticMarkup(withServices(<App />, testServices("token", "/system")));
     expect(system).toContain("Loading…");
     expect(system).not.toContain("There is nothing at this address.");
+  });
+
+  it("reminds an admin of what is offline on every page, and asks nothing of it for anyone else", async () => {
+    const pageFor = async (isAdmin: boolean): Promise<{ text: string; asked: string[] }> => {
+      const heard: Heard[] = [];
+      const services = servedBy(
+        {
+          "GET /me": [200, { id: 1, name: "owner", role: isAdmin ? "admin" : "user", isAdmin }],
+          "GET /home": [200, { continueWatching: [] }],
+          "GET /titles": [200, { titles: [], nextCursor: "" }],
+          "GET /offline-reminder": [
+            200,
+            { isShown: true, rootCount: 1, diskCount: 0, since: Date.UTC(2026, 8, 12) },
+          ],
+        },
+        heard,
+        "token",
+      );
+      const mounted = await mount(withServices(<App />, services));
+      const text = mounted.container.textContent;
+      mounted.unmount();
+      return { text, asked: heard.map((request) => request.methodAndPath) };
+    };
+    const admin = await pageFor(true);
+    expect(admin.text).toContain("1 library folder offline since");
+    const person = await pageFor(false);
+    expect(person.text).not.toContain("offline since");
+    expect(person.asked).not.toContain("GET /offline-reminder");
   });
 
   it("says when an address names nothing", () => {

@@ -194,7 +194,7 @@ D231 §3, §4, §7, §9; F1.
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`, and an architecture test that nothing reads
   job history as a fact. Closes G7, G9, G10, G14, G15, S22–S24, S71, S78.
 
-**Built** (2026-09-30), but for the weekly reminder:
+**Built** (2026-09-30); the weekly reminder followed the same day (P39):
 
 - Step 0029 (D228: 0028 folded into the baseline) adds `fetch_failure`, `refresh_request`, an
   image's `refused_at`, `refusal` and `is_missing_at_source`, `library_root.retired_at`,
@@ -229,6 +229,14 @@ D231 §3, §4, §7, §9; F1.
   `unavailable_since` from the first such scan in a row; a disk a scan did not find keeps
   `missing_since`; a scan that finds them clears it. `GET /system` lists them (`offline`), and the
   System page shows each with since when.
+- The weekly reminder (P39, the owner's choice 2026-09-30): an admin sees, above every page, how
+  many library folders and disks are offline since when, leading to the System page
+  (`GET /offline-reminder`). Dismissing it (`POST /offline-reminder/dismissal`) keeps the moment as
+  the admin's preference `offline_reminder_dismissed_at` and hides it from them for
+  `offline_reminder_interval_days` (7); it comes back after that while anything is still offline.
+  Tests: `TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInterval`
+  (internal/core/api), `TestOfflineReminder_ADismissalHidesItForTheIntervalFromThatAdminAlone`
+  (internal/core/preferences), `src/offline-reminder.test.tsx` and `src/app.test.tsx` (web).
 - Tests: `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`,
   `TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled`,
   `TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`
@@ -238,10 +246,10 @@ D231 §3, §4, §7, §9; F1.
 
 **Deviations and what Phase 4 must know:**
 
-- **The weekly reminder is not built** (P39): the code has no way to tell the admin anything
-  outside a page they open (no notification, no message, no reminder), and inventing one is a
-  design decision for the owner. The System page shows "offline since"; the reminder, and the
-  setting for its interval, wait for the owner's choice of how an admin is told.
+- **The weekly reminder is a banner, not a message** (P39): the code has no way to tell the admin
+  anything outside a page they open, so the owner chose (2026-09-30) a banner above every page an
+  admin opens, which they dismiss for `offline_reminder_interval_days`. An admin who opens no page
+  is not reminded.
 - A retired node leaves the node table rather than showing "gone": the table lists live nodes, and
   a retired one's name may enrol again as a new node.
 - A prepare already queued or running for a retired file on a live node is not cancelled: its

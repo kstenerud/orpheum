@@ -122,6 +122,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerArt()
 	server.registerDoctor()
 	server.registerSystem()
+	server.registerOfflineReminder()
 	server.registerPlayback()
 	server.registerPreferences()
 	server.registerReport()

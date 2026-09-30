@@ -727,6 +727,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/offline-reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether to remind the admin that folders or disks are offline, and how many since when (admin; D231 §7) */
+        get: operations["getOfflineReminder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/offline-reminder/dismissal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide the offline reminder from this admin for offline_reminder_interval_days (admin; D231 §7) */
+        post: operations["dismissOfflineReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/playback": {
         parameters: {
             query?: never;
@@ -1688,6 +1722,18 @@ export interface components {
              * @description When the first scan that found it missing ran, in Unix milliseconds
              */
             since: number;
+        };
+        OfflineReminderOutputBody: {
+            /** Format: int64 */
+            diskCount: number;
+            isShown: boolean;
+            /** Format: int64 */
+            rootCount: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when nothing is offline
+             */
+            since?: number;
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
@@ -3884,6 +3930,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RetiredOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOfflineReminder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfflineReminderOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dismissOfflineReminder: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

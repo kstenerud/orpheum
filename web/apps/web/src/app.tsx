@@ -12,6 +12,7 @@ import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
+import { OfflineReminder } from "./offline-reminder.tsx";
 import { People } from "./people.tsx";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
@@ -52,9 +53,10 @@ function SignedIn(): JSX.Element {
   const signOut = (): void => {
     signOutHere(api, session);
   };
+  const isAdmin = me.state === "loaded" && me.value.isAdmin;
   return (
     <AppShell
-      isAdmin={me.state === "loaded" && me.value.isAdmin}
+      isAdmin={isAdmin}
       signedInAs={
         me.state === "loaded"
           ? { name: me.value.name, deviceName: me.value.device?.name }
@@ -63,6 +65,7 @@ function SignedIn(): JSX.Element {
       currentScreen={route.screen}
       onSignOut={signOut}
     >
+      {isAdmin ? <OfflineReminder /> : null}
       <Screen route={route} />
     </AppShell>
   );

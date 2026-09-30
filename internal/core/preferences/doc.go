@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package preferences keeps a person's choices, the one place they live (the architecture map's
-// F2 and F6): the subtitle and audio language last chosen in each work, what was last used in
-// each started file, a file's subtitle offset, and the switches that hold in every file, the
-// dialogue boost and levelling. A choice is worked out against a file's tracks when it plays,
-// never copied between files (D230). Playback lists a file's tracks and calls it in the
-// transaction that reads them; the API keeps a person's switches through it. A device's sound is
-// a fact about the device, kept on its row by internal/core/auth, and no setting is a person's.
+// Package preferences keeps a person's choices, the one place they live (the architecture map's F2
+// and F6): the subtitle and audio language last chosen in each work, what was last used in each
+// started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
+// boost and levelling, and when an admin last dismissed the offline reminder. A choice is worked
+// out against a file's tracks when it plays, never copied between files (D230). Playback lists a
+// file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
+// through it. A device's sound is a fact about the device, kept on its row by internal/core/auth,
+// and no setting is a person's.
 //
 // # Invariants
 //
@@ -37,6 +38,9 @@
 //     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks (internal/core/api).
 //   - What a playback used is kept only where the file keeps nothing yet: a choice made in the file
 //     stands. Enforced by TestKeepUsed_LeavesAChoiceMadeInTheFile.
+//   - An admin's dismissal hides the offline reminder from them alone for the interval they are
+//     given, offline_reminder_interval_days, and it is due again once that has passed (D231 §7).
+//     Enforced by TestOfflineReminder_ADismissalHidesItForTheIntervalFromThatAdminAlone.
 //   - The dialogue boost is off until the person turns it on, and levelling on until they turn it
 //     off, in every file (D83, D222, D226 §5). Enforced by
 //     TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile and
@@ -53,4 +57,5 @@
 //
 //   - preferences.go: what is kept and how a file's starting tracks are worked out from it.
 //     keep.go: the writes: a choice, what a started file used, an offset and the switches.
+//     reminder.go: an admin's dismissal of the offline reminder.
 package preferences
