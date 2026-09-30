@@ -17118,8 +17118,11 @@ architecture map's F2 (its preferences part) and F6. A person's last choice is k
 (preference scope `work`: the series, or the film's title) as `subtitle_language` and
 `audio_language`, and what a started file last used as its `subtitle_used` and `audio_used`; a
 file's tracks are matched when it plays (§2–§4). A file counts as started at its first play
-report, which keeps what the playback started with; a choice made in it replaces that. A language
-is matched by its normalised BCP 47 tag as it is, with no fallback from `en-GB` to `en`. Audio is
+report, which keeps what the playback started with; a choice made in it replaces that. A work's
+language is matched by its normalised BCP 47 tag exactly first and, failing that, by its primary
+language subtag: an `en-GB` choice finds an `en` track and an `en` choice an `en-GB` one (the
+owner, 2026-09-30, deciding what the build left open); what a started file used is found again
+by its tag exactly. Audio is
 chosen from the play screen's Sound menu, and a chosen track other than the one the original
 plays first is prepared, with the reason `audio_track`, since a browser plays the original's first
 (§5). Step 0028 gave each work the most recent choice made in one of its files, and kept a
