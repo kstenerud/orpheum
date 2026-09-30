@@ -150,7 +150,7 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 	}
 	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
 	want := `{"check":"FFmpeg confinement on node local","verdict":"warn",` +
-		`"detail":"FFmpeg runs on this node without all its confinement: landlock: the kernel has Landlock, ` +
+		`"detail":"FFmpeg runs without all its confinement: landlock: the kernel has Landlock, ` +
 		`but it is not enabled at boot","action":"landlock: add landlock to the lsm= list"}`
 	if found.status != http.StatusOK || !strings.Contains(found.body, want) {
 		t.Errorf("doctor = %d %s, want the missing mechanism and its remedy (D112)", found.status, found.body)

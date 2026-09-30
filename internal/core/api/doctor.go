@@ -69,7 +69,7 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 			continue
 		}
 		findings = append(findings, nodeBuildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
-			confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
+			ConfinementFinding("node "+node.Name, facts.Hello.Confinement),
 			hardwareFinding(node.Name, facts.Hello.Hardware))
 		if facts.Status != nil && facts.Status.PreparedUsage != nil {
 			findings = append(findings, preparedFinding(node.Name, *facts.Status.PreparedUsage))
@@ -95,12 +95,15 @@ func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody
 	return finding
 }
 
-// confinementFinding is a node's FFmpeg confinement: a warning for each mechanism not in force,
-// with what would put it there, because a user whose safety depends on it deserves to know
-// (D112).
-func confinementFinding(nodeName string, confinement []ConfinementBody) FindingBody {
+// ConfinementFinding is FFmpeg's confinement where it runs, judged from the mechanisms a node
+// reports, or would report, in its hello: a warning naming each mechanism not in force, with what
+// would put it there, because a user whose safety depends on it deserves to know (D112). A report
+// with no mechanism in it is a warning too. It is the one judgement of confinement: /doctor and
+// the System page use it for each node, and the doctor command for this machine. The place,
+// where, reads "node devnas" or "this machine".
+func ConfinementFinding(where string, confinement []nodeproto.Confinement) FindingBody {
 	finding := FindingBody{
-		Check: "FFmpeg confinement on node " + nodeName, Verdict: verdictOK,
+		Check: "FFmpeg confinement on " + where, Verdict: verdictOK,
 		Detail: "every FFmpeg run is confined by Landlock and seccomp",
 	}
 	var missing, remedies []string
@@ -111,11 +114,11 @@ func confinementFinding(nodeName string, confinement []ConfinementBody) FindingB
 		}
 	}
 	if len(confinement) == 0 {
-		missing = []string{"the node reported no confinement"}
+		missing = []string{"no confinement was reported"}
 	}
 	if len(missing) > 0 {
 		finding.Verdict = verdictWarn
-		finding.Detail = "FFmpeg runs on this node without all its confinement: " + strings.Join(missing, "; ")
+		finding.Detail = "FFmpeg runs without all its confinement: " + strings.Join(missing, "; ")
 		finding.Action = strings.Join(remedies, "; ")
 	}
 	return finding

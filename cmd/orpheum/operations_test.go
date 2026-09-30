@@ -178,13 +178,25 @@ func TestLoadConfig_RefusesOnlyWhatHasNoStartingValue(t *testing.T) {
 
 func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t *testing.T) {
 	t.Parallel()
-	got := confinementFindings([]confine.State{
+	// The one judgement the server's /doctor makes of each node's report (api.ConfinementFinding).
+	got := confinementOfThisMachine([]confine.State{
 		{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
 		{Mechanism: confine.MechanismSeccomp, IsInForce: true},
 	})
-	if len(got) != 2 || got[0].verdict != verdictWarning ||
-		!strings.Contains(got[0].description, "not enabled at boot") ||
-		got[0].remedy != "add landlock to lsm=" || got[1].verdict != verdictOK {
-		t.Errorf("findings = %+v; want Landlock warned with its remedy, seccomp ok (D112)", got)
+	if got.verdict != verdictWarning ||
+		!strings.Contains(got.description, confine.MechanismLandlock+": not enabled at boot") ||
+		strings.Contains(got.description, confine.MechanismSeccomp) ||
+		got.remedy != confine.MechanismLandlock+": add landlock to lsm=" {
+		t.Errorf("finding = %+v; want Landlock warned with its remedy, seccomp not named (D112)", got)
+	}
+	confined := confinementOfThisMachine([]confine.State{
+		{Mechanism: confine.MechanismLandlock, IsInForce: true}, {Mechanism: confine.MechanismSeccomp, IsInForce: true},
+	})
+	if confined.verdict != verdictOK || !strings.Contains(confined.description, "this machine") {
+		t.Errorf("both in force: %+v, want ok for this machine", confined)
+	}
+	// A machine that reports no mechanism at all is not confined; the command once said nothing.
+	if none := confinementOfThisMachine(nil); none.verdict != verdictWarning {
+		t.Errorf("no mechanism reported: %+v, want a warning", none)
 	}
 }

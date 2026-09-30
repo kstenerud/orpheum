@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
@@ -97,23 +98,19 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 	databaseFindings, oldBackupAge := checkDatabase(ctx, directories, key, config.openOptions(), logger)
 	findings = append(findings, databaseFindings...)
 	findings = append(findings, checkBackups(directories, now, oldBackupAge))
-	return append(findings, confinementFindings(confine.MechanismStates())...)
+	return append(findings, confinementOfThisMachine(confine.MechanismStates()))
 }
 
-// confinementFindings are what this machine can confine FFmpeg with, as a node here would report it
-// (D112): each mechanism in force, or not, with what would put it there.
-func confinementFindings(states []confine.State) []finding {
-	findings := make([]finding, 0, len(states))
-	for _, state := range states {
-		if state.IsInForce {
-			what := "FFmpeg confinement: " + state.Mechanism + " is in force"
-			findings = append(findings, finding{verdictOK, what, ""})
-			continue
-		}
-		what := "FFmpeg confinement: " + state.Mechanism + " is not in force: " + state.Reason
-		findings = append(findings, finding{verdictWarning, what, state.Remedy})
+// confinementOfThisMachine is what this machine can confine FFmpeg with, as a node here would
+// report it in its hello, judged by the one check the server's /doctor makes of each node
+// (api.ConfinementFinding, D112).
+func confinementOfThisMachine(states []confine.State) finding {
+	judged := api.ConfinementFinding("this machine", confinementReport(states))
+	checked := finding{verdictOK, judged.Check + ": " + judged.Detail, judged.Action}
+	if judged.Verdict != string(verdictOK) {
+		checked.verdict = verdictWarning
 	}
-	return findings
+	return checked
 }
 
 func checkWritable(directories *datadir.Directories, path string) finding {
