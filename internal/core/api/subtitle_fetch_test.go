@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -307,5 +309,18 @@ func checkKeptGzipped(t *testing.T, harness testHarness, fetchedID int64) {
 	text, err := io.ReadAll(reader)
 	if err != nil || string(text) != fetchedText {
 		t.Errorf("the kept text is %q, %v; want what was fetched", text, err)
+	}
+}
+
+// The search's language pattern is a struct tag, a literal the OpenAPI document is built from,
+// so it cannot name langtag's; this holds it to langtag's, the one check of a tag's shape.
+func TestSubtitleCandidates_TheLanguagePatternIsLangtags(t *testing.T) {
+	t.Parallel()
+	field, found := reflect.TypeFor[SubtitleCandidatesInput]().FieldByName("Language")
+	if !found {
+		t.Fatal("SubtitleCandidatesInput has no Language")
+	}
+	if pattern := field.Tag.Get("pattern"); pattern != langtag.WellFormedPattern {
+		t.Errorf("the search's language pattern is %s, want langtag's %s", pattern, langtag.WellFormedPattern)
 	}
 }

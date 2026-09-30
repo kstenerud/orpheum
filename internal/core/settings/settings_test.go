@@ -417,3 +417,17 @@ func TestOnChange_ReactsToASetAndAResetOfItsKeyOnly(t *testing.T) {
 		t.Errorf("a malformed locale: %v, reactions %v; want it refused, and no reaction", err, seen)
 	}
 }
+
+func TestSet_TheSortLocaleTakesAnyWellFormedBCP47Tag(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	for value, isAccepted := range map[string]bool{
+		`"en-x-foo"`: true, `"zh-Hant-TW"`: true, `"de-1996"`: true, `"not a tag!"`: false, `"e"`: false,
+	} {
+		err := service.Set(t.Context(), nil, map[string]json.RawMessage{string(SortLocale): json.RawMessage(value)},
+			nil, false)
+		if (isAccepted && err != nil) || (!isAccepted && !errors.Is(err, ErrInvalidValue)) {
+			t.Errorf("sort_locale %s: %v; want accepted %t", value, err, isAccepted)
+		}
+	}
+}

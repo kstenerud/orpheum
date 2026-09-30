@@ -16,7 +16,7 @@ import (
 type SubtitleCandidatesInput struct {
 	AuthorizationHeader
 	FileID   int64  `minimum:"1" path:"id"`
-	Language string `doc:"BCP 47: en, pt-BR" maxLength:"35" minLength:"2" pattern:"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$" query:"language" required:"true"` //nolint:lll // one struct tag
+	Language string `doc:"BCP 47: en, pt-BR" maxLength:"35" minLength:"2" pattern:"^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$" query:"language" required:"true"` //nolint:lll // one struct tag
 }
 
 // SubtitleCandidatesOutput is what a person sees before choosing: every candidate unverified,

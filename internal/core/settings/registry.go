@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"math"
 	"regexp"
+
+	"github.com/kstenerud/orpheum/internal/platform/langtag"
 )
 
 // Key names a setting. The set is closed: every key is declared in Registry.
@@ -152,7 +154,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
 		{
 			Key: SortLocale, Scope: ScopeServer, Kind: KindString, StartJSON: json.RawMessage(`"en"`),
-			Pattern:     regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`),
+			Pattern:     regexp.MustCompile(langtag.WellFormedPattern),
 			IsExposed:   true,
 			Description: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...)",
 		},
