@@ -131,6 +131,7 @@ type Request struct {
 // Settings are the values the queue reads when a job fails.
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
 // Queue is the one work queue in cache.db (schema.md, cache.db).

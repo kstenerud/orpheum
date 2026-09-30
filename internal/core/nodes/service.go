@@ -30,6 +30,7 @@ const maxHelloBytes = 1 << 20
 // Settings is what the service reads from the settings.
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 	Bool(ctx context.Context, key settings.Key) (bool, error)
 }
 

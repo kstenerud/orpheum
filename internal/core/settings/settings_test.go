@@ -162,6 +162,52 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 	}
 }
 
+func TestRegistry_ALengthOfTimeHasTheUnitItsKeySpells(t *testing.T) {
+	t.Parallel()
+	unitBySuffix := map[string]time.Duration{"_s": time.Second, "_h": time.Hour, "_d": 24 * time.Hour}
+	lengths := 0
+	for _, definition := range Registry() {
+		key := string(definition.Key)
+		want := unitBySuffix[key[max(0, len(key)-2):]]
+		if definition.Unit != want {
+			t.Errorf("%s: its unit is %v; its key spells %v", key, definition.Unit, want)
+		}
+		if want != 0 {
+			lengths++
+			if definition.Kind != KindInteger {
+				t.Errorf("%s is a length of time but not an integer", key)
+			}
+		}
+	}
+	if lengths == 0 {
+		t.Fatal("no setting is a length of time; the check would pass vacuously")
+	}
+}
+
+func TestDuration_ReadsASettingInItsUnitAndRefusesOneWithNone(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	ctx := t.Context()
+	for _, read := range []struct {
+		key  Key
+		want time.Duration
+	}{
+		{JobFirstRetryDelayS, 30 * time.Second},
+		{SessionIdleExpiryH, 2160 * time.Hour},
+		{TMDBRefreshAfterD, 180 * 24 * time.Hour},
+	} {
+		if got, err := service.Duration(ctx, read.key); err != nil || got != read.want {
+			t.Errorf("%s: %v, %v; want %v", read.key, got, err, read.want)
+		}
+	}
+	if _, err := service.Duration(ctx, ArtworkWebPQuality); !errors.Is(err, ErrInvalidValue) {
+		t.Errorf("a setting that is no length of time: %v, want ErrInvalidValue", err)
+	}
+	if _, err := service.Duration(ctx, "no_such_setting_s"); !errors.Is(err, ErrUnknownSetting) {
+		t.Errorf("an unknown key: %v, want ErrUnknownSetting", err)
+	}
+}
+
 func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 	t.Parallel()
 	service, _ := newSeededService(t)

@@ -174,11 +174,11 @@ func (runner *Runner) retryPolicy(ctx context.Context) (attemptLimit int64, firs
 	if err != nil {
 		return 0, 0, fmt.Errorf("read job_attempt_limit: %w", err)
 	}
-	seconds, err := runner.queue.settings.Int(ctx, settings.JobFirstRetryDelayS)
+	firstRetryDelay, err = runner.queue.settings.Duration(ctx, settings.JobFirstRetryDelayS)
 	if err != nil {
 		return 0, 0, fmt.Errorf("read job_first_retry_delay_s: %w", err)
 	}
-	return attemptLimit, time.Duration(seconds) * time.Second, nil
+	return attemptLimit, firstRetryDelay, nil
 }
 
 func (runner *Runner) deferUntil(ctx context.Context, job Job, until time.Time, why error, attempts int64) error {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -178,6 +179,21 @@ func (service *Service) Int(ctx context.Context, key Key) (int64, error) {
 	var value int64
 	err := service.read(ctx, key, KindInteger, &value)
 	return value, err
+}
+
+// Duration reads an integer server setting that is a length of time, in the unit its definition
+// names: the one place a setting's count of seconds, hours or days becomes a time.Duration. A
+// setting with no unit is refused as ErrInvalidValue.
+func (service *Service) Duration(ctx context.Context, key Key) (time.Duration, error) {
+	definition, known := Lookup(key)
+	if known && definition.Unit == 0 {
+		return 0, fmt.Errorf("%s is not a length of time: %w", key, ErrInvalidValue)
+	}
+	count, err := service.Int(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	return definition.LengthOf(count), nil
 }
 
 // String reads a string server setting.

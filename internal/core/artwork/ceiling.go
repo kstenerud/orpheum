@@ -188,7 +188,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, err
 	}
-	graceDays, err := service.parts.Settings.Int(ctx, settings.RemovedItemArtworkKeptD)
+	grace, err := service.parts.Settings.Duration(ctx, settings.RemovedItemArtworkKeptD)
 	if err != nil {
 		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_d: %w", err)
 	}
@@ -204,7 +204,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	}
 	sorted := service.classify(isLiveBySourceSha256, goneAtBySourceSha256)
 	candidates, required, total := sorted.candidates, sorted.requiredBytes, sorted.totalBytes
-	graceEndsAt := service.parts.Clock.Now().Add(-time.Duration(graceDays) * day).UnixMilli()
+	graceEndsAt := service.parts.Clock.Now().Add(-grace).UnixMilli()
 	isOverCeiling, lowWaterBytes := total > ceiling, int64(float64(ceiling)*lowWaterFraction)
 	for _, file := range candidates {
 		isPastGrace := file.class == classRemoved && file.goneAt < graceEndsAt

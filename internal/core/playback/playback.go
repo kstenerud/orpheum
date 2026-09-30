@@ -35,6 +35,7 @@ var (
 // Settings are the settings playback reads.
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
 // Nodes is how playback reaches the nodes: nodes.Service.
@@ -306,11 +307,11 @@ func (service *Service) playableFile(
 }
 
 func (service *Service) tokenIdleExpiry(ctx context.Context) (time.Duration, error) {
-	hours, err := service.settings.Int(ctx, settings.MediaTokenIdleExpiryH)
+	idleExpiry, err := service.settings.Duration(ctx, settings.MediaTokenIdleExpiryH)
 	if err != nil {
 		return 0, fmt.Errorf("read the media token's idle time: %w", err)
 	}
-	return time.Duration(hours) * time.Hour, nil
+	return idleExpiry, nil
 }
 
 // decodeProbe is a file's stored probe; a file never probed is ErrNoFile.
