@@ -8,6 +8,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -111,5 +112,57 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 				t.Errorf("the down node's measurement = %+v; want it waiting for node attic, no attempt spent", job)
 			}
 		}
+	}
+}
+
+// missingMedia records the last scan of node 1's root /media as unable to read it.
+func (harness testHarness) missingMedia(t *testing.T) {
+	t.Helper()
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 5000)`)
+}
+
+func TestPrepare_APrepareOfAFileUnderAMissingRootParksOnItAndSendsNothing(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	harness.play(t, user, chrome(2))
+	harness.missingMedia(t)
+	playback := harness.server.dependencies.Load().Playback
+	prepare := jobs.Job{ID: 81, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
+	err := playback.HandlePrepare(t.Context(), prepare)
+	if parking, isParked := jobqueue.ParkingOf(err); !isParked ||
+		parking.Destination != jobs.RootDestination(1, "/media") || len(harness.nodes.commanded) != 0 {
+		t.Errorf("a prepare under a missing root: %v; want it parked on the root and nothing sent (D231 §5)", err)
+	}
+}
+
+func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	job := jobs.Job{ID: 93, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
+	harness.nodes.isAway.Store(true)
+	err := playback.HandleExtractSubtitle(t.Context(), job)
+	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.NodeDestination(1) {
+		t.Errorf("an extraction for a node that is away: %v; want it parked on the node (D231 §11)", err)
+	}
+	harness.nodes.isAway.Store(false)
+	harness.missingMedia(t)
+	err = playback.HandleExtractSubtitle(t.Context(), job)
+	parking, isParked := jobqueue.ParkingOf(err)
+	if !isParked || parking.Destination != jobs.RootDestination(1, "/media") {
+		t.Errorf("an extraction under a missing root: %v; want it parked on the root (D231 §5)", err)
+	}
+	if len(harness.nodes.commanded) != 0 {
+		t.Error("a command was sent for an extraction that waits")
 	}
 }

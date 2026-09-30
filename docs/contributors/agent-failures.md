@@ -49,6 +49,23 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A15 — A gate's failure explained from its report's loudest lines, not from what fails it (2026-09-30)
+
+- **What happened:** the jobs rebuild's Phase 2 ended with `make check-pr` failing at revert-red.
+  I reported that the failure was the gate's own limits: files moved on the branch that it could
+  not check out at the base, and `.json` and `.md` files it has no probe for, all of which need the
+  owner's gate change. Those rows are UNCHECKED, which the gate lists and does not fail on; it
+  fails only on GREEN and NO_RUNNER rows. The real failure was five files my commits changed that
+  stayed GREEN when reverted: behaviour with no test that noticed (the System page's providers
+  wiring, a job's priority reaching its handler, a prepare and an extraction parking on a missing
+  root or an away node) and one tag's documentation. The belief came from the report's closing
+  advice, printed after the UNCHECKED list, which I took for an explanation of the failure; I did
+  not read the gate's own verdict or its code.
+- **Caught by:** the coordinator, running revert-red over the branch.
+- **Gate:** revert-red itself was right. The practice: when a gate fails, find the row or line
+  that decides failure in its code or its summary before explaining it, and never report a gate
+  "wrong" without naming the line of the gate that says so.
+
 ### A14 — Research framed from one symptom, so the field's standard concerns went unasked (2026-09-30)
 
 - **What happened:** asked how queues handle work for a destination that is down, I briefed the
