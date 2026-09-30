@@ -62,6 +62,8 @@ class RetiredNames(unittest.TestCase):
             "internal/core/b.go": "// should_serve_debug_pprof is the switch\n",
             "docs/contributors/agent-failures.md": "sent `afterSeq`\n",
             "docs/contributors/design/research/old.md": "afterSeq\n",
+            "internal/store/migrations/0030_rename.sql": "UPDATE setting SET key = 'x' WHERE key = 'serve_debug_pprof';\n",
+            "internal/store/steps_test.go": "('serve_debug_pprof', 'false')\n",
             cc.RETIRED_NAMES: self.LIST,
         }
         problems = cc.check_retired(files, cc.retired_names(self.LIST))
