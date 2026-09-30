@@ -17174,3 +17174,36 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
     refresh answers can say "waiting for <destination> (since …)" beside "preparing".
 
 **Status:** Decided 2026-09-30.
+
+## D232 — What makes two names the same work is one identity fold, derived from the search fold
+
+**Decided** (2026-09-30), by the project owner, answering M3's closing audit
+([audit-2026-09-29](../design/research/audit-2026-09-29.md) §9 C1): *"agreed"*. **Extends**
+[D48](#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser)'s one
+normaliser from search to identity, and [D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)'s
+rule that identity uses one normalised form.
+
+1. **Why.** Nothing defined what makes two names name the same work, and four comparisons had
+   grown: the matcher's own fold (NFC, lower case, punctuation dropped), the search fold (D48),
+   `strings.ToLower` for the keys that file a film and a series, and SQLite's `NOCASE`. They
+   disagreed: "Marvel's X" and "Marvels X" matched one TMDB work, yet were filed as two series,
+   and a file named "Variety (1994)" did not match "Variety".
+2. **One fold.** `textindex.SameWork` is the identity fold, and every comparison of a work's
+   name goes through it: a provider's candidate against the file's name, a film's name with its
+   year, a series' folder against the series already filed, and an extra's name against its
+   folder's. It is D48's search fold (compatibility forms, lower case, combining marks removed,
+   the atomic letters Ø Æ Œ ß Ð Ł Þ spelled out) keeping only letters, numbers and the spacing
+   marks some scripts write vowels with. Punctuation, spacing, case, accents and width are what
+   files, folders and providers each write their own way, and they say nothing about which work
+   a name is: "Marvel's Agents of S.H.I.E.L.D." and "Marvels Agents of SHIELD", "Spider-Man" and
+   "Spider Man", "Amélie" and "AMELIE" are one work.
+3. **Where it does not fit.** Removing every combining mark is right for search, where finding
+   too much is cheap, and costs identity little, because a name is never the whole of it: a film
+   is its name and its year, a series its name in one library, and a provider id settles either
+   first. Two works whose names differ only in their marks (in Devanagari, some vowels are marks)
+   in the same year and library would be taken for one; the matcher's fold before this did the
+   same. SQLite's `NOCASE` compares people's names at sign-in, not works, and is not this fold.
+4. **Nothing is stored.** The fold keys only what a pass holds in memory, so a change to it
+   takes effect at the next pass, and no stored key goes stale.
+
+**Status:** Decided 2026-09-30.
