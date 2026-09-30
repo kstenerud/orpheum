@@ -2,22 +2,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Claims gate run by `make check`: every cited TestArch_ test exists and every one
 # ABOUTME: is cited; every decision ID in code resolves to a live decision; every
-# ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190).
+# ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190); no retired name is left.
 """Keep the prose and the code telling the same story.
 
-Three checks. Each is for a way a true sentence silently becomes false:
+Four checks. Each is for a way a true sentence silently becomes false:
 
 1. **Architecture claims are tests** (D190). Prose that asserts a checkable fact about the
    code cites a test named `TestArch_<Claim>`. A cited name that no test defines is a
-   claim nothing checks. A `TestArch_` test that nothing cites is an invariant nobody was
-   told about, so both directions fail. History (the decision logs and research) may cite
-   anything, because it records what was true.
+   claim nothing checks, wherever it is written: a comment in `.golangci.yml` or a gate
+   script once kept naming a test that no longer existed (audit-2026-09-29 §6), so every
+   tracked file is read. A `TestArch_` test that nothing cites in a doc (a `.md` file or a
+   `doc.go`) is an invariant nobody was told about, so both directions fail. History (the
+   decision logs and research) may cite anything, because it records what was true.
 2. **Decision IDs in code resolve.** A `D<n>` in a Go, TypeScript, Python or shell comment
    must name a decision that exists and is not archived. An agent inventing a plausible
    citation is the failure. The docs gate already covers Markdown.
 3. **Test variables are set by something** (D190). Every `ORPHEUM_TEST_<NAME>` read by code
    must appear in a Makefile, a CI workflow or a script that sets it. A variable only ever
    read gates a test that no job will ever run.
+4. **Retired names stay retired.** When a decision renames something, the old name goes in
+   `docs/contributors/retired-names.md`, and no tracked file outside history (and the
+   agent-failures record, which quotes them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
+   by an audit and never by a gate (agent-failures A12). Taking a name off the list is a
+   weakening `check_test_weakening.py` asks a trailer for.
 """
 
 from __future__ import annotations
@@ -33,6 +40,13 @@ DECISIONS = "docs/contributors/decisions/"
 LIVE_LOG = DECISIONS + "working-notes.md"
 ARCHIVE_LOG = DECISIONS + "working-notes-archive.md"
 HISTORY_PREFIXES = (DECISIONS, "docs/contributors/design/research/")
+# The record of what agents got wrong quotes the old names it got wrong with.
+QUOTES_RETIRED_NAMES = HISTORY_PREFIXES + ("docs/contributors/agent-failures.md",)
+RETIRED_NAMES = "docs/contributors/retired-names.md"
+# A row of the list: | `old` | `new` | D<n> |. The old name is the first cell's code span.
+RETIRED_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)
+# The gates' own tests build failing cases out of synthetic names on purpose.
+SYNTHETIC = ("scripts/tests/",)
 
 ARCH_NAME = re.compile(r"\bTestArch_[A-Za-z0-9_]+")
 GO_ARCH_DEF = re.compile(r"^func (TestArch_[A-Za-z0-9_]+)\(t \*testing\.T\)", re.M)
@@ -74,16 +88,16 @@ def arch_definitions(files: dict[str, str]) -> dict[str, str]:
     return defined
 
 
-def arch_citations(files: dict[str, str]) -> dict[str, list[str]]:
-    """TestArch_ names cited outside the tests themselves and outside history."""
+def arch_citations(files: dict[str, str], docs_only: bool = True) -> dict[str, list[str]]:
+    """TestArch_ names cited outside history: in the docs (`.md` files and `doc.go`), or, with
+    docs_only False, in any file, the tests themselves included."""
     cited: dict[str, list[str]] = {}
     for path, text in files.items():
-        if path.startswith(HISTORY_PREFIXES):
+        if path.startswith(HISTORY_PREFIXES + SYNTHETIC):
             continue
-        if path.endswith("_test.go") or re.search(r"\.test\.tsx?$", path):
-            continue
-        is_prose = path.endswith(".md") or path.endswith("doc.go")
-        if not is_prose:
+        is_test = path.endswith("_test.go") or re.search(r"\.test\.tsx?$", path)
+        is_doc = path.endswith(".md") or path.endswith("doc.go")
+        if docs_only and (is_test or not is_doc):
             continue
         for name in set(ARCH_NAME.findall(text)):
             cited.setdefault(name, []).append(path)
@@ -92,18 +106,40 @@ def arch_citations(files: dict[str, str]) -> dict[str, list[str]]:
 
 def check_arch(files: dict[str, str]) -> list[Problem]:
     defined = arch_definitions(files)
-    cited = arch_citations(files)
+    cited_in_docs = arch_citations(files)
     problems = [
         Problem(paths[0], f"cites `{name}`, which no test defines — a claim nothing checks")
-        for name, paths in sorted(cited.items())
+        for name, paths in sorted(arch_citations(files, docs_only=False).items())
         if name not in defined
     ]
     problems += [
         Problem(path, f"defines `{name}`, which no doc cites — an invariant nobody was told "
                       "about; cite it in the owning package's doc.go or README")
         for name, path in sorted(defined.items())
-        if name not in cited
+        if name not in cited_in_docs
     ]
+    return problems
+
+
+def retired_names(text: str) -> list[str]:
+    """The old names the list of retired names holds, in its order."""
+    return [m.group(1) for m in RETIRED_ROW.finditer(text) if m.group(1) not in ("Retired",)]
+
+
+def check_retired(files: dict[str, str], retired: list[str]) -> list[Problem]:
+    """Uses of a retired name, as a whole word, in any tracked file outside history."""
+    if not retired:
+        return []
+    word = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(map(re.escape, sorted(retired, key=len, reverse=True)))
+                      + r")(?![A-Za-z0-9_])")
+    problems: list[Problem] = []
+    for path, text in sorted(files.items()):
+        if path == RETIRED_NAMES or path.startswith(QUOTES_RETIRED_NAMES + SYNTHETIC):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for m in word.finditer(line):
+                problems.append(Problem(f"{path}:{lineno}", f"uses `{m.group(1)}`, a name a decision "
+                                        f"retired; {RETIRED_NAMES} gives the name now"))
     return problems
 
 
@@ -152,15 +188,21 @@ def check_test_vars(files: dict[str, str]) -> list[Problem]:
     ]
 
 
+def read_text_files(root: Path, paths: list[str]) -> dict[str, str]:
+    """Every file that is text, by path: one with a NUL byte in its first 8 KiB is not."""
+    files: dict[str, str] = {}
+    for p in paths:
+        data = (root / p).read_bytes()
+        if b"\0" not in data[:8192]:
+            files[p] = data.decode("utf-8", errors="replace")
+    return files
+
+
 def check(root: Path) -> list[Problem]:
-    paths = tracked(root)
-    files = {
-        p: (root / p).read_text(errors="replace")
-        for p in paths
-        if p.endswith((".md", *CODE_SUFFIXES)) or p == "Makefile" or p.startswith(".github/")
-    }
+    files = read_text_files(root, tracked(root))
     live, archived = decision_status(files.get(LIVE_LOG, ""), files.get(ARCHIVE_LOG, ""))
-    return check_arch(files) + check_code_decisions(files, live, archived) + check_test_vars(files)
+    return (check_arch(files) + check_code_decisions(files, live, archived) + check_test_vars(files)
+            + check_retired(files, retired_names(files.get(RETIRED_NAMES, ""))))
 
 
 def main() -> int:
@@ -173,7 +215,8 @@ def main() -> int:
     if problems:
         print(f"check_claims: {len(problems)} problem(s)")
         return 1
-    print("check_claims: architecture citations, code decision IDs and test variables all resolve")
+    print("check_claims: architecture citations, code decision IDs and test variables all resolve; "
+          "no retired name is used")
     return 0
 
 

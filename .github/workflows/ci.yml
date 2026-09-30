@@ -49,6 +49,16 @@ jobs:
           key: mkvtoolnix-${{ runner.os }}-${{ hashFiles('scripts/fetch_mkvtoolnix.py') }}
       - name: Integration tier
         run: make test-integration
+      # The browser tier's browsers, fetched by the pinned Playwright for its own version (make
+      # browsers checks the version), with the system libraries they need; cached by the lockfile.
+      - uses: actions/cache@v4
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+      - name: Playwright's browsers
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        run: make browsers PLAYWRIGHT_INSTALL_FLAGS=--with-deps
       # Every branch that is not main runs the branch gates on every push, not only once a pull
       # request exists: yoloAI once had a release branch reach 63 commits with no CI (DF226).
       - name: Branch gates (pull request)

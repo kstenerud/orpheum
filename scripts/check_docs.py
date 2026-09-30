@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Documentation integrity gate: links and anchors resolve, every decision is defined
-# ABOUTME: once, a decision link lands on its decision, and live docs never cite an archived one.
+# ABOUTME: once, a decision link lands on its decision, and live docs never cite an archived one;
+# ABOUTME: a decision is never recorded with a Status that says it is already built.
 """Check the Markdown tree's links and decision citations. Exit 1 on any failure.
 
 Run from anywhere: ``python3 scripts/check_docs.py``; ``--write-index`` first regenerates
 ``decisions/index.md``, which the check otherwise fails on when it is stale. Tests: ``python3 -m unittest
 discover scripts/tests``.
 
-Five checks, each for a failure that has already happened here or in yoloAI, whose
+Six checks, each for a failure that has already happened here or in yoloAI, whose
 repo-hygiene gates this follows:
 
 1. **Links resolve.** Every relative link names a file that exists.
@@ -25,6 +26,14 @@ repo-hygiene gates this follows:
    decision, linked or bare, fails. An archived decision no longer describes the design, so a
    plan citing one is probably asserting something that is no longer true. The failure message
    names the successor from the entry's archive note.
+6. **A decision is not built when it is recorded.** A decision added to the live log may not
+   have a Status saying it is built ("Decided; built in M3"): no code can have been checked
+   against it yet. D226, D227 and D228 each said "built" in the commit that recorded them, and
+   D227's clauses added later were never built by that word (audit-2026-09-29 §6, P31). The
+   Status is changed to built by a later commit, once its clauses are read back against the
+   code. `make check` compares the working tree's log with HEAD's; with ``--base <ref>``
+   (`make check-decision-status`, part of `make check-pr`) each commit on the branch is
+   compared with its parent, and nothing else is checked.
 
 Deliberately not checked: external URLs (the network is not a gate), and bare ``Dn``
 mentions *resolving* (they are checked only against the archive list and the maximum).
@@ -55,6 +64,10 @@ DECISION_ANCHOR_RE = re.compile(r"^d(\d+)--")
 BARE_DECISION_RE = re.compile(r"(?<![\w/#-])D(\d{1,4})(?![\w-])")
 EXPLICIT_ANCHOR_RE = re.compile(r"""<a\s+[^>]*(?:name|id)=["']([^"']+)["']""")
 ARCHIVE_NOTE_RE = re.compile(r"^> \*\*Archived [^*]*\*\*(.*)$", re.M)
+STATUS_RE = re.compile(r"(?ms)^\*\*Status:?\*\*(.*?)(?=\n\n|\Z)")
+BUILT_RE = re.compile(r"\bbuilt\b", re.I)
+# Words before "built" that say it is not built yet: "not built", "to be built", "being built".
+NOT_YET_BUILT = {"not", "be", "being", "nothing", "never", "unbuilt", "yet"}
 
 
 def strip_code(body: str, keep_spans: bool = False) -> list[tuple[int, str]]:
@@ -314,7 +327,57 @@ def check(files: list[str], texts: dict[str, str]) -> list[str]:
     return errors
 
 
+def claims_built(status: str) -> bool:
+    """Whether a Status paragraph says the decision is built, in whole or in part."""
+    for m in BUILT_RE.finditer(status):
+        before = re.findall(r"[a-z']+", status[:m.start()].lower())[-2:]
+        if not NOT_YET_BUILT & set(before):
+            return True
+    return False
+
+
+def built_on_arrival(before_log: str, after_log: str) -> list[int]:
+    """Decisions the after log adds whose Status already says they are built."""
+    before, after = entries(before_log), entries(after_log)
+    found = []
+    for n in sorted(set(after) - set(before)):
+        m = STATUS_RE.search(after[n])
+        if m and claims_built(m.group(1)):
+            found.append(n)
+    return found
+
+
+def built_on_arrival_message(n: int, where: str) -> str:
+    return (f"{where}: D{n} is recorded with a Status saying it is built. Record it as decided; "
+            "a later commit says built, once its clauses are read back against the code (P31)")
+
+
+def _git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=False)
+
+
+def check_branch(base: str) -> int:
+    """Check 6 over every commit in base..HEAD that changed the live log."""
+    listed = _git("rev-list", "--reverse", f"{base}..HEAD", "--", LIVE_LOG)
+    if listed.returncode != 0:
+        print(f"check_docs: {base}..HEAD is not a range git can list: {listed.stderr.strip()}")
+        return 1
+    errors = []
+    for commit in listed.stdout.split():
+        after = _git("show", f"{commit}:{LIVE_LOG}").stdout
+        parent = _git("show", f"{commit}^:{LIVE_LOG}")
+        before = parent.stdout if parent.returncode == 0 else ""
+        errors += [built_on_arrival_message(n, f"{commit[:12]} {LIVE_LOG}") for n in built_on_arrival(before, after)]
+    for e in errors:
+        print(e)
+    print(f"check_docs: no decision recorded as built in {base}..HEAD" if not errors
+          else f"check_docs: {len(errors)} decision(s) recorded as built", file=sys.stderr)
+    return 1 if errors else 0
+
+
 def main() -> int:
+    if "--base" in sys.argv[1:]:
+        return check_branch(sys.argv[sys.argv.index("--base") + 1])
     if "--write-index" in sys.argv[1:]:
         live = (ROOT / LIVE_LOG).read_text(encoding="utf-8")
         arch = (ROOT / ARCHIVE_LOG).read_text(encoding="utf-8") if (ROOT / ARCHIVE_LOG).exists() else ""
@@ -325,6 +388,9 @@ def main() -> int:
         return 1
     texts = {rel: (ROOT / rel).read_text(encoding="utf-8") for rel in files}
     errors = check(files, texts)
+    committed = _git("show", f"HEAD:{LIVE_LOG}")
+    if committed.returncode == 0 and LIVE_LOG in texts:
+        errors += [built_on_arrival_message(n, LIVE_LOG) for n in built_on_arrival(committed.stdout, texts[LIVE_LOG])]
     nlinks = sum(len(links(t)) for t in texts.values())
     for e in errors:
         print(e)
