@@ -10,6 +10,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // The filesystem rights Landlock knows, by the ABI that added them. A ruleset handles every right
@@ -205,7 +207,7 @@ func addLandlockRule(ruleset int, path string, rights uint64) error {
 	if err != nil {
 		return fmt.Errorf("name %s to Landlock: %w", path, err)
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // opened to name the path
+	defer readonly.Close(file)
 	info, err := file.Stat()
 	if err != nil {
 		return fmt.Errorf("name %s to Landlock: %w", path, err)

@@ -33,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/host"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // coreSocketName is the core's socket's name in server.socket_dir (cut-a §2).
@@ -141,14 +142,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
-	scanner := scan.NewScanner(roots, prober, scan.Options{
-		VideoExtensions:    config.Node.VideoExtensions,
-		SubtitleExtensions: config.Node.SubtitleExtensions,
-		MaxErrors:          config.Node.MaxErrorsPerRoot,
-		UID:                hello.UID,
-		GID:                hello.GID,
-	})
+	scanner := newScanner(config, roots, runner, hello)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	var preparer agent.Preparer
@@ -158,7 +152,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
 		preparer, preparedShelf = directory.preparer, directory.shelf
-		defer func() { _ = directory.root.Close() }() //nolint:errcheck // read-only
+		defer readonly.Close(directory.root)
 		if _, evictErr := directory.shelf.Evict(); evictErr != nil {
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
 		}
@@ -279,6 +273,19 @@ type nodeCapabilities struct {
 	gpus          []nodeproto.GPU
 }
 
+// newScanner scans the roots, probing each file with runner; an error it reports names the user
+// and group the hello gives, so it can be read against them.
+func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello) *scan.Scanner {
+	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
+	return scan.NewScanner(roots, prober, scan.Options{
+		VideoExtensions:    config.Node.VideoExtensions,
+		SubtitleExtensions: config.Node.SubtitleExtensions,
+		MaxErrors:          config.Node.MaxErrorsPerRoot,
+		UID:                hello.UID,
+		GID:                hello.GID,
+	})
+}
+
 // describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
 // confinement it has.
 func describeNode(
@@ -339,7 +346,7 @@ func fileSha256(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hash %s: %w", path, err)
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
+	defer readonly.Close(file)
 	digest := sha256.New()
 	if _, err := io.Copy(digest, file); err != nil {
 		return "", fmt.Errorf("hash %s: %w", path, err)

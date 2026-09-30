@@ -11,6 +11,7 @@ import (
 	"regexp"
 
 	"github.com/kstenerud/orpheum/internal/platform/errs"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // artDirectoryName holds the artwork under the cache directory (D212): one directory per image,
@@ -117,7 +118,7 @@ func (directories *Directories) ListArt() (files []ArtFile, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("open the cache directory: %w", err)
 	}
-	defer func() { _ = cache.Close() }() //nolint:errcheck // read-only
+	defer readonly.Close(cache)
 	images, err := fs.ReadDir(cache.FS(), artDirectoryName)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -154,7 +155,7 @@ func (directories *Directories) openImageDirectory(sourceSha256Hex string, shoul
 	if err != nil {
 		return nil, fmt.Errorf("open the cache directory: %w", err)
 	}
-	defer func() { _ = cache.Close() }() //nolint:errcheck // the image's own root is what is used
+	defer readonly.Close(cache)
 	relative := filepath.Join(artDirectoryName, sourceSha256Hex)
 	if shouldCreate {
 		if err = cache.MkdirAll(relative, directoryMode); err != nil {
