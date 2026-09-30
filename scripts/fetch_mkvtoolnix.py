@@ -27,7 +27,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from fetch_ffmpeg import this_platform, verify
+from fetch_ffmpeg import this_platform, tools_dir, verify
 
 VERSION = "102.0"
 ASSET = f"MKVToolNix_GUI-{VERSION}-x86_64.AppImage"
@@ -43,7 +43,7 @@ def install(target: str, root: Path) -> Path | None:
     if target not in PINS:
         print(f"no pinned MKVToolNix for {target}; pinned: {', '.join(sorted(PINS))}", file=sys.stderr)
         return None
-    dest = root / ".tools" / "mkvtoolnix" / f"{VERSION}-{target.replace('/', '-')}"
+    dest = tools_dir(root) / "mkvtoolnix" / f"{VERSION}-{target.replace('/', '-')}"
     if all((dest / "usr" / "bin" / tool).exists() for tool in TOOLS):
         return dest
     with tempfile.TemporaryDirectory(prefix="mkvtoolnix-") as tmp:
