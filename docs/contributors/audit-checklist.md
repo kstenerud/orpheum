@@ -59,7 +59,9 @@ setting key goes to the owner first.
    FTS, resolved columns, caches), what are its inputs, and does every input's change refresh
    it? (agent-failures A4)
 10. **One way to do each job** (AGENTS.md rule 11): helpers written more than once, such as
-    pointer defaults and path joining.
+    pointer defaults and path joining. Only the same concept counts: before reporting, read D229
+    §2's settled look-alikes and [the watch list](look-alike-watch-list.md); a doubtful pair goes
+    on the watch list, not into a merge.
 11. **Failure classes of calls to other hosts:** each new call names its policy for a 404, a
     429, a 5xx, a timeout and a host that keeps failing (standards/go.md §21; agent-failures A5).
 

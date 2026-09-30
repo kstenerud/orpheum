@@ -234,6 +234,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D226](working-notes.md#d226--loudness-is-levelled-in-cut-a-the-node-measures-each-sound-and-its-stereo-mix-the-core-sets-a-gain-towards--23-lufs-that-no-peak-exceeds-and-the-player-applies-it-after-its-volume) Loudness is levelled in Cut A: the node measures each sound and its stereo mix, the core sets a gain towards -23 LUFS that no peak exceeds, and the player applies it after its volume
 - [D227](working-notes.md#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) Every name in a contract that a reader must look up is renamed now, minor ones too; a job names its target by kind, and a sidecar's kind has its own column
 - [D228](working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) Until migrations are live, library.db's schema is a baseline and one step, and a schema change folds the last step into the baseline
+- [D229](working-notes.md#d229--code-that-looks-alike-is-merged-only-when-it-is-the-same-thing-settled-look-alikes-are-listed-here-and-doubtful-ones-are-watched) Code that looks alike is merged only when it is the same thing; settled look-alikes are listed here, and doubtful ones are watched
 
 ## Archived
 
