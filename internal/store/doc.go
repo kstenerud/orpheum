@@ -58,6 +58,13 @@
 //     discarded. Enforced by TestOpenCache_RefusesLibraryDB.
 //   - Cache queries are generated into cachegen, apart from sqlcgen, so a library query cannot
 //     name a cache table (M2-1). Enforced by sqlc.yaml's two entries.
+//   - JobStorage keeps internal/platform/jobqueue's storage promises on cache.db's job table: the
+//     claim order, the counted attempt, a merge only into a queued job, a cancelled job that
+//     stays cancelled, and a target held by its own column (D227 §2, D231 §2).
+//     TestJobStorage_ClaimsInOrderAndCountsTheAttempt,
+//     TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne,
+//     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
+//     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
 //   - Every data-transforming step has a test on its rows, until a fold takes it into the
 //     baseline (D228): step 0027 in
 //     TestMigrate_Step0027RenamesByWhatIsHeldAndKeepsAResponsesBodyAgeApartFromItsLastAsking.
@@ -94,7 +101,8 @@
 //     append-only. The goldens are regenerated with go test ./internal/store -run Golden -update.
 //   - queries/: one .sql file per concern; run make generate.
 //   - cache/schema.sql and cache/queries/: cache.db. Raise the version line on any schema change.
-//   - cache.go: OpenCache, and cache.db's Read and Write.
+//   - cache.go: OpenCache, and cache.db's Read and Write. jobs.go: the job queue's storage on
+//     cache.db (JobStorage), which internal/platform/jobqueue drives.
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
 //   - open.go: Open, the pragmas and their read-back, Read, Write and OrNotFound.

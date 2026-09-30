@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 19
+-- cache schema version 20
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +24,13 @@ CREATE TABLE job (                                         -- the one work queue
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
   node_id     INTEGER,                   -- where it runs, for node work
   runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
+  -- Whether a queued job waits for a time it was given (a rate limit, a hold), which a repeat
+  -- request never brings forward; 0 when it waits on its start or its back-off (D231 section 8).
+  is_snoozed  INTEGER NOT NULL DEFAULT 0 CHECK (is_snoozed IN (0, 1)),
   attempt_count INTEGER NOT NULL DEFAULT 0,
+  -- Whether its last attempt ended with the tool failing (a stall, a panic): a second in a row is
+  -- the job's own failure (D233 section 6).
+  last_attempt_tool_failed INTEGER NOT NULL DEFAULT 0 CHECK (last_attempt_tool_failed IN (0, 1)),
   progress_fraction REAL,                -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
   last_failure TEXT,                     -- FFmpeg's exit and stderr tail, the provider's reply

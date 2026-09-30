@@ -54,7 +54,7 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 	stall := &nodeproto.Stall{Cause: nodeproto.StallStoodStill, LastPositionMs: 4000, WithoutAdvanceMs: 180_000}
 	prepareAfter := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
-			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptStalled: previousAttemptStalled,
+			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		ended := make(chan error, 1)
 		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()

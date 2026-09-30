@@ -50,7 +50,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/decide` | R7 | — (pure: imports errors, fmt, slices, nodeproto; depguard `decide-sees-capabilities`) |
 | `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
 | `internal/core/identify/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility) |
-| `internal/core/jobs` | R8 | — |
+| `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
 | `internal/core/nodes` | R8 | — |
 | `internal/core/playback` | R6b (play state) | ⚑ R8: handles three node job kinds (prepare.go, subtitles.go:278, loudness.go:195). ⚑ R1: subtitle search and fetch (fetch.go:58). ⚑ R7: levelling gains (loudness.go:80-155). Four jobs in one package; the preferences store moved out on 2026-09-30 (F2) |
@@ -78,11 +78,12 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/nodeproto` | R8 | — |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
+| `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |
 | `internal/platform/langtag` | R2 (normalise on entry) | — |
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/randbytes`, `internal/platform/readonly` | PRIM | — |
-| `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — |
-| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest` | TEST | — |
+| `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
+| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest` | TEST | — |
 
 ### Web
 

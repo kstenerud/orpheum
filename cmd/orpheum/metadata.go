@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -63,7 +64,10 @@ func newJobServices(
 	if err != nil {
 		return jobServices{}, err
 	}
-	queue := jobs.NewQueue(opened.cache, clock.System{}, opened.settings, logger)
+	queue := jobs.NewQueue(jobs.QueueParts{
+		Cache: opened.cache, Clock: clock.System{}, Settings: opened.settings, Random: rand.Reader, Logger: logger,
+		ArgsMerges: jobArgsMerges(),
+	})
 	requeued, err := queue.RequeueRunning(ctx)
 	if err != nil {
 		return jobServices{}, err
@@ -90,6 +94,12 @@ func newJobServices(
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
+}
+
+// jobArgsMerges are the kinds whose repeat requests merge their arguments their own way (D231 §8):
+// a fetch's, which identify's arguments are. The others keep the queued job's.
+func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
+	return map[jobs.Kind]jobs.ArgsMerge{jobs.KindFetchMetadata: identify.FetchArgsMerge()}
 }
 
 // jobRunners are the job queue's runners: each kind, its handler, its retry schedule when it has

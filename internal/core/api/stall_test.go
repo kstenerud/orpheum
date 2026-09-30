@@ -41,7 +41,7 @@ func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T)
 	measure := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 95, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2},
-			PreviousAttemptStalled: previousAttemptStalled,
+			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		return answerAfterStall(t, harness, job, playback.HandleMeasureLoudness, func() {
 			playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{JobID: 95, Stall: testStall})
@@ -73,7 +73,7 @@ func TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure(t *testing.
 	extract := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID},
-			PreviousAttemptStalled: previousAttemptStalled,
+			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		return answerAfterStall(t, harness, job, playback.HandleExtractSubtitle, func() {
 			playback.TakeSubtitleText(t.Context(), 1, nodeproto.SubtitleText{JobID: 96, Stall: testStall})

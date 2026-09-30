@@ -1,5 +1,6 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
--- The one work queue (cut-a section 5.3; schema.md, cache.db).
+-- The one work queue's storage (cut-a section 5.3; schema.md, cache.db): internal/store's
+-- JobStorage, which internal/platform/jobqueue drives (D231 section 2).
 
 -- name: InsertJob :one
 INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, reason,
@@ -17,41 +18,52 @@ SELECT EXISTS (
   AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
 ) AS found;
 
--- name: FindOpenJob :one
--- A queued or running job of this kind for this target, so a target is queued once.
-SELECT id, state
+-- name: ListOpenJobs :many
+-- The queued and running jobs of this kind for this target: at most one of each (D231 section 8).
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 WHERE kind = sqlc.arg(kind) AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
   AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
   AND state IN ('queued', 'running')
-ORDER BY id
-LIMIT 1;
+ORDER BY id;
+
+-- name: MergeQueuedJob :execrows
+-- A repeat request folded into the queued job for its target (D231 section 8).
+UPDATE job SET args_json = sqlc.arg(args_json), priority = sqlc.arg(priority), reason = sqlc.arg(reason),
+               runnable_at = sqlc.arg(runnable_at)
+WHERE id = sqlc.arg(id) AND state = 'queued';
 
 -- name: NextQueuedJob :one
--- The highest-priority queued job of a kind whose time has come; the oldest first among equals.
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, attempt_count,
-  last_failure,
-  reason
+-- The highest-priority queued job of a kind whose time has come; the earliest, then the oldest,
+-- among equals.
+SELECT id
 FROM job
 WHERE state = 'queued' AND kind = sqlc.arg(kind) AND runnable_at <= sqlc.arg(now)
 ORDER BY priority DESC, runnable_at, id
 LIMIT 1;
 
--- name: StartJob :execrows
+-- name: StartJob :one
+-- A claim: the job runs, and its attempt is counted.
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
-WHERE id = sqlc.arg(id) AND state = 'queued';
+WHERE id = sqlc.arg(id) AND state = 'queued'
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id,
+          runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
+          created_at, finished_at;
 
 -- name: FinishJob :exec
--- A cancelled job stays cancelled, whatever its handler answers after.
+-- A cancelled job stays cancelled, whatever its handler answers after. A claim that refuses a
+-- job at its attempt limit gives back the attempt it counted.
 UPDATE job SET state = sqlc.arg(state), progress_fraction = sqlc.arg(progress_fraction), last_failure = sqlc.arg(last_failure),
-               finished_at = sqlc.arg(finished_at)
+               attempt_count = sqlc.arg(attempt_count), finished_at = sqlc.arg(finished_at)
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: DeferJob :exec
--- Back to the queue until runnable_at: a rate limit, or a retry's back-off (D170). A wait that is
--- not the job's fault gives back the attempt StartJob counted.
+-- Back to the queue until runnable_at: a snooze, a hold, a retry's back-off (D170). A wait that
+-- is not the job's fault gives back the attempt StartJob counted.
 UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failure = sqlc.arg(last_failure),
-               attempt_count = sqlc.arg(attempt_count)
+               attempt_count = sqlc.arg(attempt_count), is_snoozed = sqlc.arg(is_snoozed),
+               last_attempt_tool_failed = sqlc.arg(last_attempt_tool_failed)
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: CancelJob :execrows
@@ -65,20 +77,15 @@ UPDATE job SET progress_fraction = sqlc.arg(progress_fraction)
 WHERE id = sqlc.arg(id) AND state = 'running';
 
 -- name: RequeueRunningJobs :execrows
--- After a crash, running jobs return to queued; their output is a cache, so they restart.
+-- After a stop, running jobs return to queued and restart; each keeps the attempt its claim
+-- counted, so one that stops the server every time reaches its limit (S86).
 UPDATE job SET state = 'queued'
 WHERE state = 'running';
-
--- name: GetJob :one
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
-       attempt_count, progress_fraction, reason, last_failure, created_at, finished_at
-FROM job
-WHERE id = sqlc.arg(id);
 
 -- name: ListJobs :many
 -- The job view, newest first.
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, node_id, runnable_at,
-       attempt_count, progress_fraction, reason, last_failure, created_at, finished_at
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
 FROM job
 ORDER BY id DESC
 LIMIT sqlc.arg(max_rows);

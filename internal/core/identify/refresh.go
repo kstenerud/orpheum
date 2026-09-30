@@ -44,6 +44,55 @@ func RefreshJob(
 	}, nil
 }
 
+// FetchArgsMerge is how a fetch_metadata request folds into the job open for its item (D231 §8).
+// A refresh behind a queued refresh asks for the images again if either does. A match and a
+// refresh do different things (a refresh fetches again only what is stored, and a match fetches
+// a season listing a new episode needs), so one never folds into the other: the queued job keeps
+// its own arguments, as before the merge existed, until D231 §4 makes a refresh a fact of its
+// own. A running fetch covers a request of its own mode that asks for no images it does not; any
+// other request is queued to follow it.
+func FetchArgsMerge() jobs.ArgsMerge {
+	return jobs.ArgsMerge{
+		Merge: func(queued, requested string) (string, error) {
+			queuedArgs, err := decodeFetchArgs(queued)
+			if err != nil {
+				return "", err
+			}
+			requestedArgs, err := decodeFetchArgs(requested)
+			if err != nil || !queuedArgs.IsRefresh || !requestedArgs.IsRefresh {
+				return queued, err
+			}
+			queuedArgs.ShouldRetryImages = queuedArgs.ShouldRetryImages || requestedArgs.ShouldRetryImages
+			merged, err := json.Marshal(queuedArgs)
+			if err != nil {
+				return "", fmt.Errorf("encode merged fetch arguments: %w", err)
+			}
+			return string(merged), nil
+		},
+		Covers: func(running, requested string) (bool, error) {
+			runningArgs, err := decodeFetchArgs(running)
+			if err != nil {
+				return false, err
+			}
+			requestedArgs, err := decodeFetchArgs(requested)
+			if err != nil {
+				return false, err
+			}
+			return runningArgs.IsRefresh == requestedArgs.IsRefresh &&
+				(runningArgs.ShouldRetryImages || !requestedArgs.ShouldRetryImages), nil
+		},
+	}
+}
+
+// decodeFetchArgs reads a fetch_metadata job's arguments.
+func decodeFetchArgs(argsJSON string) (refreshArgs, error) {
+	var args refreshArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return refreshArgs{}, fmt.Errorf("read fetch arguments %q: %w", argsJSON, err)
+	}
+	return args, nil
+}
+
 // OutcomeKept is a refresh that found the item gone from its provider: our copy is kept (D213 §4).
 const OutcomeKept Outcome = "kept: gone from its provider"
 

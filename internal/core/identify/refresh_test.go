@@ -228,3 +228,40 @@ func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime(t *testi
 			(*queue)[0].ArgsJSON, err)
 	}
 }
+
+func TestFetchArgsMerge_ARefreshFoldsIntoARefreshButNeverIntoAMatch(t *testing.T) {
+	t.Parallel()
+	const (
+		match       = "{}"
+		refresh     = `{"isRefresh":true}`
+		imagesAgain = `{"isRefresh":true,"shouldRetryImages":true}`
+	)
+	merge := identify.FetchArgsMerge()
+	for _, merging := range []struct{ queued, requested, want string }{
+		{refresh, imagesAgain, imagesAgain},
+		{imagesAgain, refresh, imagesAgain},
+		{match, imagesAgain, match},
+		{refresh, match, refresh},
+	} {
+		if got, err := merge.Merge(merging.queued, merging.requested); err != nil || got != merging.want {
+			t.Errorf("merging %s into queued %s = %s, %v; want %s", merging.requested, merging.queued, got, err,
+				merging.want)
+		}
+	}
+	for _, covering := range []struct {
+		running, requested string
+		want               bool
+	}{
+		{refresh, refresh, true},
+		{imagesAgain, refresh, true},
+		{refresh, imagesAgain, false},
+		{match, match, true},
+		{match, refresh, false},
+		{refresh, match, false},
+	} {
+		if got, err := merge.Covers(covering.running, covering.requested); err != nil || got != covering.want {
+			t.Errorf("does running %s cover %s: %t, %v; want %t", covering.running, covering.requested, got, err,
+				covering.want)
+		}
+	}
+}

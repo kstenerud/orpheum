@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package jobs is the one work queue: fetches, prepares, scans and backups are rows in cache.db's
-// job table. One scheduler picks the highest-priority queued job whose runnable_at has passed and
-// whose runner has a free slot. Node jobs become commands; each answers on its own path to the node service.
-// After a crash, running jobs return to queued and restart from zero.
+// Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
+// (fetches, artwork, prepares, subtitles, loudness; scans and backups come in M4), their targets,
+// the answers its handlers give, and the job view. The rows are cache.db's job table, kept by
+// internal/store's JobStorage. One scheduler per kind picks the highest-priority queued job whose
+// runnable_at has passed; node jobs become commands, each answered on its own path to the node
+// service. After a stop, running jobs return to queued and restart from zero.
 //
 // # Invariants
 //
@@ -17,7 +19,12 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
-//   - A target has at most one open job of a kind. TestEnqueue_QueuesATargetOnceWhileItIsOpen.
+//   - A job names exactly one target. TestEnqueue_QueuesATargetOnceWhileItIsOpen reads it
+//     through the queue; ErrNotOneTarget refuses the rest.
+//   - A target has at most one open job of a kind, and a repeat request merges into it
+//     (internal/platform/jobqueue says how). TestEnqueue_QueuesATargetOnceWhileItIsOpen;
+//     a fetch's arguments merge as identify.FetchArgsMerge says, wired in cmd/orpheum:
+//     TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsksForTheImagesAgain.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
 //   - Several runners of one kind run its jobs at once, each job once.
 //     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
@@ -27,13 +34,17 @@
 //     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails. The doubling stops at a day, so a
 //     job that keeps failing retries daily until the limit, and never overflows whatever the
 //     limit allows. TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit,
-//     TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows.
+//     TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows. Each wait is jittered
+//     by up to a tenth (D231 §10); these tests run unjittered.
 //   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
 //     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
-//   - A tool that stalled (MarkStalled) costs no attempt, and the next attempt is told the last one
-//     stalled. TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled.
-//   - After a crash, running jobs return to queued. TestRequeueRunning_ReturnsWhatACrashLeftRunning.
+//   - A tool that stalled (MarkStalled) costs no attempt, and the next attempt is told the last
+//     one's tool failed. TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled.
+//   - After a stop, running jobs return to queued, their attempt counted; one that stops the
+//     server every time fails at its limit, and a handler's panic fails only its own job, the
+//     second time. TestRequeueRunning_ReturnsWhatACrashLeftRunning,
+//     TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPanicFailsOnlyItsJob.
 //   - A cancelled queued job never runs; a running one's handler is told through its context,
 //     whose cause is ErrCancelled; either stays cancelled whatever its handler answers after.
 //     TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancelled.
@@ -43,6 +54,8 @@
 //
 // # Read before changing
 //
+//   - internal/platform/jobqueue/doc.go: what the queue itself promises.
+//   - D231, D233: the queue's rebuild; docs/contributors/design/plans/jobs-rebuild.md.
 //   - D193 §2: scheduling, one encode per node.
 //   - D118: the scan is incremental, prioritised and steerable.
 //   - D170: provider rate limits and back-off.
@@ -51,8 +64,8 @@
 //
 // # Where to change
 //
-//   - queue.go: queuing, and the answers a handler gives. runner.go: running one kind, one job at
-//     a time per runner (a kind may have several, as prepares do), and recording each outcome.
-//     view.go: the job view, progress and cancel. Each kind's handler and runner count are
+//   - queue.go: the kinds, targets, requests, the queue's parts and the answers a handler gives.
+//     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
+//     job view, progress and cancel. Each kind's handler, runner count and argument merge are
 //     cmd/orpheum's (metadata.go); scan and backup jobs come in M4 (D223 §6).
 package jobs
