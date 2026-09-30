@@ -377,6 +377,21 @@ linters:
             - pkg: "github.com/kstenerud/orpheum/internal/store"
               desc: "[node-boundary] the node role never touches the database (D31, D42)"
 
+        # The owner, 2026-09-30: the artwork service owns the artwork table and the image vocabulary,
+        # and identify uses it; the wiring in cmd/orpheum joins them, so neither imports the other.
+        identify-without-artwork:
+          list-mode: lax
+          files: ["**/internal/core/identify/*.go"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core/artwork"
+              desc: "[artwork-seam] identify reports the images a match names; cmd/orpheum hands them to artwork"
+        artwork-without-identify:
+          list-mode: lax
+          files: ["**/internal/core/artwork/*.go"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core/identify$"
+              desc: "[artwork-seam] artwork owns images; it asks identify for nothing but through the wiring's seams"
+
         # cut-a §3: nodeproto is wire types with no logic. Fuller form: TestArch_NodeprotoHasNoLogic.
         nodeproto-is-types:
           list-mode: lax
