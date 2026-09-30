@@ -11,8 +11,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
-// FilePreferencesBody are a person's choices for one file (cut-a §5).
-type FilePreferencesBody struct {
+// PlaybackPreferencesBody are the choices a person's playback of one file starts with: the file's
+// own subtitle offset and choice, and the person's dialogue boost and levelling (cut-a §5, D223 §10).
+type PlaybackPreferencesBody struct {
 	SubtitleOffsetMs int64 `doc:"Shows the subtitles this much later, or earlier when negative" json:"subtitleOffsetMs"`
 	// SubtitleChoice is the file's subtitle choice, absent when it has none (D219).
 	SubtitleChoice *SubtitleChoiceBody `json:"subtitleChoice,omitempty"`
@@ -57,8 +58,8 @@ func (server *Server) registerPreferences() {
 	}, server.setMyPreferences)
 }
 
-func filePreferencesBody(preferences playback.FilePreferences) FilePreferencesBody {
-	body := FilePreferencesBody{
+func playbackPreferencesBody(preferences playback.Preferences) PlaybackPreferencesBody {
+	body := PlaybackPreferencesBody{
 		SubtitleOffsetMs: preferences.SubtitleOffsetMs, IsDialogueBoostOn: preferences.IsDialogueBoostOn,
 		IsLevellingOn: preferences.IsLevellingOn,
 	}

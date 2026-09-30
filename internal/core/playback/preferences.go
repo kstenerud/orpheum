@@ -13,10 +13,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// FilePreferences are a person's choices for one file (cut-a §5): kept per file, and lasting, so the
-// next playback starts with them. A sync offset is in milliseconds of one file; a subtitle choice is
-// per file so one broken file can be chosen around (D219).
-type FilePreferences struct {
+// Preferences are the choices a person's playback of one file starts with (cut-a §5): the
+// file's own, kept per file and lasting, and the person's own for every file (D223 §10). A sync
+// offset is in milliseconds of one file; a subtitle choice is per file so one broken file can be
+// chosen around (D219).
+type Preferences struct {
 	// SubtitleOffsetMs shows the subtitles this many milliseconds later, or earlier when negative.
 	SubtitleOffsetMs int64
 	// SubtitleChoice is the file's subtitle choice, or nil when it has none.
@@ -45,8 +46,9 @@ type SubtitleChoice struct {
 // TrackDescription is what a subtitle track is, apart from its stream id: what finds the same
 // track again when the file's streams are written anew.
 type TrackDescription struct {
-	Language          string `json:"language,omitempty"`
-	Title             string `json:"title,omitempty"`
+	Language string `json:"language,omitempty"`
+	// ContainerTitle is the track's title in its container, stored under the key "title".
+	ContainerTitle    string `json:"title,omitempty"`
 	IsForced          bool   `json:"isForced,omitempty"`
 	IsHearingImpaired bool   `json:"isHearingImpaired,omitempty"`
 }
@@ -54,7 +56,7 @@ type TrackDescription struct {
 // describe is what track is, apart from its stream id.
 func describe(track SubtitleTrack) *TrackDescription {
 	return &TrackDescription{
-		Language: track.Language, Title: track.Title, IsForced: track.IsForced,
+		Language: track.Language, ContainerTitle: track.ContainerTitle, IsForced: track.IsForced,
 		IsHearingImpaired: track.IsHearingImpaired,
 	}
 }
@@ -62,12 +64,12 @@ func describe(track SubtitleTrack) *TrackDescription {
 // trackLike is a track as a description names it, for matchingTrack.
 func trackLike(description TrackDescription) SubtitleTrack {
 	return SubtitleTrack{
-		Language: description.Language, Title: description.Title, IsForced: description.IsForced,
+		Language: description.Language, ContainerTitle: description.ContainerTitle, IsForced: description.IsForced,
 		IsHearingImpaired: description.IsHearingImpaired,
 	}
 }
 
-// The preference table's names for what FilePreferences holds.
+// The preference table's names for what Preferences holds.
 const (
 	scopeFile            = "file"
 	scopeUser            = "user"
@@ -83,23 +85,24 @@ const (
 // ErrNoTrack is a subtitle choice naming a track the file does not have.
 var ErrNoTrack = errors.New("no such subtitle track in this file")
 
-// FilePreferences are the person's choices for the file, at their starting values where they made
-// none.
-func (service *Service) FilePreferences(ctx context.Context, userID, fileID int64) (FilePreferences, error) {
-	return service.filePreferences(ctx, service.database.Read(), userID, fileID)
+// Preferences are the choices the person's playback of the file starts with, at their
+// starting values where they made none.
+func (service *Service) Preferences(ctx context.Context, userID, fileID int64) (Preferences, error) {
+	return service.preferences(ctx, service.database.Read(), userID, fileID)
 }
 
-// filePreferences are FilePreferences as queries read them, the reader pool or a write transaction's own.
-func (service *Service) filePreferences(
+// preferences are Preferences as queries read them, the reader pool or a write
+// transaction's own.
+func (service *Service) preferences(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64,
-) (FilePreferences, error) {
+) (Preferences, error) {
 	stored, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeFile, ScopeID: fileID,
 	})
 	if err != nil {
-		return FilePreferences{}, fmt.Errorf("read the preferences for file %d: %w", fileID, err)
+		return Preferences{}, fmt.Errorf("read the preferences for file %d: %w", fileID, err)
 	}
-	var prefs FilePreferences
+	var prefs Preferences
 	for _, preference := range stored {
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
@@ -109,17 +112,17 @@ func (service *Service) filePreferences(
 			err = json.Unmarshal([]byte(preference.ValueJSON), prefs.SubtitleChoice)
 		}
 		if err != nil {
-			return FilePreferences{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
+			return Preferences{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
 	}
 	personal, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
 	if err != nil {
-		return FilePreferences{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
+		return Preferences{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
 	}
 	if prefs.SubtitleChoice, err = service.currentChoice(ctx, queries, fileID, prefs.SubtitleChoice); err != nil {
-		return FilePreferences{}, err
+		return Preferences{}, err
 	}
 	prefs.IsLevellingOn = true
 	for _, preference := range personal {
@@ -271,7 +274,7 @@ func (service *Service) filesOfWork(ctx context.Context, queries *sqlcgen.Querie
 func (service *Service) carryChoice(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, chosen *SubtitleTrack,
 ) error {
-	current, err := service.filePreferences(ctx, queries, userID, fileID)
+	current, err := service.preferences(ctx, queries, userID, fileID)
 	if err != nil {
 		return err
 	}
@@ -365,7 +368,7 @@ func matchingTrack(tracks []SubtitleTrack, chosen SubtitleTrack) *SubtitleTrack 
 			track.IsHearingImpaired != chosen.IsHearingImpaired {
 			continue
 		}
-		if track.Title == chosen.Title {
+		if track.ContainerTitle == chosen.ContainerTitle {
 			return track
 		}
 		if match == nil {

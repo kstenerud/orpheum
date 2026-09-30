@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   getPerson,
   issueDeviceCode,
-  issueRegistrationLink,
+  issueRegistrationInvitation,
   listPersonDevices,
   removePersonDevice,
   renamePerson,
@@ -24,7 +24,7 @@ import { useResource } from "./use-resource.ts";
 import { DeviceList } from "./your-devices.tsx";
 
 /**
- * One person, for the admin: their name, which can be changed; a new registration link or a
+ * One person, for the admin: their name, which can be changed; a new registration invitation or a
  * code for one of their devices; their devices, which can be removed or signed back in by a code;
  * and what they have watched (the owner, 2026-09-27).
  */
@@ -47,7 +47,7 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
       renamePerson(api, props.userId, name).then(reloadPerson, showProblem);
     },
     issueLink: (name: string): void => {
-      issueRegistrationLink(api, props.userId).then((invitation) => {
+      issueRegistrationInvitation(api, props.userId).then((invitation) => {
         setIssued({ kind: "link", name, invitation });
       }, showProblem);
     },

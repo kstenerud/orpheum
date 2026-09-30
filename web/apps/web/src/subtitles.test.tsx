@@ -22,7 +22,6 @@ function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
   return {
     streamId: 5,
     language: "en",
-    title: "",
     isDefault: false,
     isForced: false,
     isHearingImpaired: false,
@@ -44,12 +43,16 @@ describe("subtitles", () => {
     expect(trackLabel(track({}), "en", words)).toBe("English");
     expect(trackLabel(track({ language: "de" }), "de", words)).toBe("Deutsch");
     expect(
-      trackLabel(track({ title: "Signs", isForced: true, isHearingImpaired: true }), "en", words),
+      trackLabel(
+        track({ containerTitle: "Signs", isForced: true, isHearingImpaired: true }),
+        "en",
+        words,
+      ),
     ).toBe("English · Signs · forced · SDH");
     expect(trackLabel(track({ language: "" }), "en", words)).toBe("Unknown language");
     expect(
       trackLabel(
-        track({ streamId: 0, fetchedSubtitleId: 3, title: "Film.2002.1080p" }),
+        track({ streamId: 0, fetchedSubtitleId: 3, releaseName: "Film.2002.1080p" }),
         "en",
         words,
       ),

@@ -35,8 +35,9 @@ export function trackKey(track: {
   return undefined;
 }
 
-/** A track's name in the menu: its language, its title, whether it is forced or for the deaf, and
- * for one fetched on request, that it is unverified (D224). */
+/** A track's name in the menu: its language, its container's title or the release a fetched one
+ * was made for, whether it is forced or for the deaf, and for one fetched on request, that it is
+ * unverified (D224). */
 export function trackLabel(
   track: SubtitleTrack,
   viewerLanguage: string,
@@ -45,8 +46,9 @@ export function trackLabel(
   const parts = [
     track.language === "" ? words.unknownLanguage : languageName(track.language, viewerLanguage),
   ];
-  if (track.title !== "") {
-    parts.push(track.title);
+  const title = track.containerTitle ?? track.releaseName;
+  if (title !== undefined && title !== "") {
+    parts.push(title);
   }
   if (track.isForced) {
     parts.push(words.forced);
@@ -80,7 +82,7 @@ export async function keepOffset(
 }
 
 /** A person's choices for one file, as the server sends them. */
-export type FilePreferences = components["schemas"]["FilePreferencesBody"];
+export type FilePreferences = components["schemas"]["PlaybackPreferencesBody"];
 
 /**
  * Keeps a subtitle choice as the file's own: a track, or off when key is undefined. The server

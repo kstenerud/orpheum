@@ -105,11 +105,11 @@ func TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson(t 
 	if !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("after wrong passwords: %v, want limited", err)
 	}
-	link, err := fixture.service.IssueRegistrationLink(ctx, id)
+	invitation, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fixture.service.Register(ctx, link.Secret, "remembered", laptop); err != nil {
+	if _, err = fixture.service.Register(ctx, invitation.Secret, "remembered", laptop); err != nil {
 		t.Errorf("registering from a limited address: %v, want it to work (D221 §4)", err)
 	}
 	if _, err = fixture.service.SignIn(ctx, "partner", "remembered", "192.0.2.50", laptop); err != nil {

@@ -2,17 +2,12 @@
 
 import "./people.css";
 
+import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import {
-  createAccount,
-  listAccounts,
-  registrationUrl,
-  type Account,
-  type IssuedSecret,
-} from "./accounts.ts";
+import { createAccount, listAccounts, registrationUrl, type Account } from "./accounts.ts";
 import { FormRow } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { Link } from "./link.tsx";
@@ -24,12 +19,20 @@ import { useResource } from "./use-resource.ts";
 
 /** What the admin last issued, to pass on: a person's link or a device's code. */
 export type IssuedInvitation =
-  | { readonly kind: "link"; readonly name: string; readonly invitation: IssuedSecret }
-  | { readonly kind: "code"; readonly name: string; readonly invitation: IssuedSecret };
+  | {
+      readonly kind: "link";
+      readonly name: string;
+      readonly invitation: components["schemas"]["IssuedSecretBody"];
+    }
+  | {
+      readonly kind: "code";
+      readonly name: string;
+      readonly invitation: components["schemas"]["IssuedSecretBody"];
+    };
 
 /**
  * The household, for the admin (D218): everyone, whether they have registered, a way to add a
- * person, and for each a new registration link or a code for a device.
+ * person, and for each a new registration invitation or a code for a device.
  */
 export function People(): JSX.Element {
   const { t } = useTranslation();
@@ -77,9 +80,9 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/** Adds a person: their name and role, and their registration link to pass on. */
+/** Adds a person: their name and role, and their registration invitation to pass on. */
 function AddPerson(props: {
-  readonly onAdded: (name: string, invitation: IssuedSecret) => void;
+  readonly onAdded: (name: string, invitation: components["schemas"]["IssuedSecretBody"]) => void;
   readonly onFailed: (cause: unknown) => void;
 }): JSX.Element {
   const { t } = useTranslation();

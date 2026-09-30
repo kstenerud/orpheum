@@ -31,8 +31,8 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	admin := harness.createAdminAndSignIn(t)
 	created := harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
 	var made struct {
-		Account                AccountBody    `json:"account"`
-		RegistrationInvitation InvitationBody `json:"registrationInvitation"`
+		Account                AccountBody      `json:"account"`
+		RegistrationInvitation IssuedSecretBody `json:"registrationInvitation"`
 	}
 	if err := json.Unmarshal([]byte(created.body), &made); err != nil || created.status != http.StatusCreated ||
 		made.RegistrationInvitation.Secret == "" {
@@ -58,7 +58,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 		http.StatusForbidden, CodeForbidden)
 
 	code := harness.do(t, http.MethodPost, "/device-codes", partner, map[string]string{"deviceName": "Living room TV"})
-	var issued InvitationBody
+	var issued IssuedSecretBody
 	if err := json.Unmarshal([]byte(code.body), &issued); err != nil || len(issued.Secret) != 9 {
 		t.Fatalf("POST /device-codes = %d %s", code.status, code.body)
 	}
@@ -212,7 +212,7 @@ func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{}),
 		http.StatusBadRequest, CodeInvalidRequest)
 	forListed := harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{"deviceId": 1})
-	var code InvitationBody
+	var code IssuedSecretBody
 	if err := json.Unmarshal([]byte(forListed.body), &code); err != nil || code.Secret == "" {
 		t.Fatalf("a code for a listed device = %d %s", forListed.status, forListed.body)
 	}

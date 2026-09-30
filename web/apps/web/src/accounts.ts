@@ -9,9 +9,6 @@ import type { NewDevice } from "./device.ts";
 /** One person, as the admin's list shows them. */
 export type Account = components["schemas"]["AccountBody"];
 
-/** A registration link's secret or a device code, and when it stops working. */
-export type IssuedSecret = components["schemas"]["InvitationBody"];
-
 /** What signing in answers: the new session's token, and the device it is on. */
 interface SignInResult {
   readonly token: string;
@@ -19,14 +16,14 @@ interface SignInResult {
 }
 
 /**
- * The address a registration link is shared as: the secret after #, so the browser never sends it
+ * The address a registration invitation is shared as: the secret after #, so the browser never sends it
  * to the server's logs or anyone else (D218 §1).
  */
 export function registrationUrl(origin: string, secret: string): string {
   return `${origin}/register#${secret}`;
 }
 
-/** The secret a registration link carries after #, or undefined when there is none. */
+/** The secret a registration invitation carries after #, or undefined when there is none. */
 export function secretFromHash(hash: string): string | undefined {
   const secret = hash.startsWith("#") ? hash.slice(1) : hash;
   return secret === "" ? undefined : secret;
@@ -37,19 +34,25 @@ export async function listAccounts(api: Api): Promise<Account[]> {
   return dataOrThrow(await api.GET("/users")).accounts ?? [];
 }
 
-/** Makes a person, and their registration link. */
+/** Makes a person, and their registration invitation. */
 export async function createAccount(
   api: Api,
   name: string,
   role: "admin" | "user",
-): Promise<{ account: Account; registrationInvitation: IssuedSecret }> {
+): Promise<{
+  account: Account;
+  registrationInvitation: components["schemas"]["IssuedSecretBody"];
+}> {
   return dataOrThrow(await api.POST("/users", { body: { name, role } }));
 }
 
-/** A new registration link for a person, withdrawing the old. */
-export async function issueRegistrationLink(api: Api, userId: number): Promise<IssuedSecret> {
+/** A new registration invitation for a person, withdrawing the old. */
+export async function issueRegistrationInvitation(
+  api: Api,
+  userId: number,
+): Promise<components["schemas"]["IssuedSecretBody"]> {
   return dataOrThrow(
-    await api.POST("/users/{id}/registration-link", { params: { path: { id: userId } } }),
+    await api.POST("/users/{id}/registration-invitation", { params: { path: { id: userId } } }),
   );
 }
 
@@ -61,7 +64,7 @@ export async function signIn(
   return dataOrThrow(await api.POST("/session", { body: { ...credentials } }));
 }
 
-/** Uses a registration link: sets the password and signs this device in. */
+/** Uses a registration invitation: sets the password and signs this device in. */
 export async function register(
   api: Api,
   registration: { readonly secret: string; readonly password: string; readonly device: NewDevice },
@@ -77,7 +80,7 @@ export async function issueDeviceCode(
   api: Api,
   target: CodeTarget,
   userId?: number,
-): Promise<IssuedSecret> {
+): Promise<components["schemas"]["IssuedSecretBody"]> {
   const body = userId === undefined ? { ...target } : { ...target, userId };
   return dataOrThrow(await api.POST("/device-codes", { body }));
 }
@@ -161,13 +164,13 @@ const shownCodeKey = "orpheum.deviceCode";
 /** Keeps a device code this tab showed, with its device's name. */
 export function keepShownCode(
   storage: StringStorage,
-  code: IssuedSecret & { readonly deviceName: string },
+  code: components["schemas"]["IssuedSecretBody"] & { readonly deviceName: string },
 ): void {
   storage.setItem(shownCodeKey, JSON.stringify(code));
 }
 
 /** A device code as this tab keeps it: with the name of the device it is for. */
-export type ShownCode = IssuedSecret & { readonly deviceName: string };
+export type ShownCode = components["schemas"]["IssuedSecretBody"] & { readonly deviceName: string };
 
 /** What was kept, when it is a code this tab wrote. */
 function asShownCode(kept: unknown): ShownCode | undefined {

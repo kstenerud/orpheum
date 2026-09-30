@@ -137,7 +137,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "isModified": {
+          "hasUncommittedChanges": {
             "description": "Built from a tree with uncommitted changes",
             "type": "boolean"
           },
@@ -151,7 +151,7 @@
         "required": [
           "name",
           "version",
-          "isModified"
+          "hasUncommittedChanges"
         ],
         "type": "object"
       },
@@ -440,7 +440,7 @@
             "$ref": "#/components/schemas/AccountBody"
           },
           "registrationInvitation": {
-            "$ref": "#/components/schemas/InvitationBody"
+            "$ref": "#/components/schemas/IssuedSecretBody"
           }
         },
         "required": [
@@ -1055,31 +1055,6 @@
         ],
         "type": "object"
       },
-      "FilePreferencesBody": {
-        "additionalProperties": false,
-        "properties": {
-          "isDialogueBoostOn": {
-            "type": "boolean"
-          },
-          "isLevellingOn": {
-            "type": "boolean"
-          },
-          "subtitleChoice": {
-            "$ref": "#/components/schemas/SubtitleChoiceBody"
-          },
-          "subtitleOffsetMs": {
-            "description": "Shows the subtitles this much later, or earlier when negative",
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "subtitleOffsetMs",
-          "isDialogueBoostOn",
-          "isLevellingOn"
-        ],
-        "type": "object"
-      },
       "FilesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1419,7 +1394,7 @@
         ],
         "type": "object"
       },
-      "InvitationBody": {
+      "IssuedSecretBody": {
         "additionalProperties": false,
         "properties": {
           "expiresAt": {
@@ -1984,6 +1959,31 @@
           "audioCodecs",
           "subtitleFormats",
           "containers"
+        ],
+        "type": "object"
+      },
+      "PlaybackPreferencesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isDialogueBoostOn": {
+            "type": "boolean"
+          },
+          "isLevellingOn": {
+            "type": "boolean"
+          },
+          "subtitleChoice": {
+            "$ref": "#/components/schemas/SubtitleChoiceBody"
+          },
+          "subtitleOffsetMs": {
+            "description": "Shows the subtitles this much later, or earlier when negative",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "subtitleOffsetMs",
+          "isDialogueBoostOn",
+          "isLevellingOn"
         ],
         "type": "object"
       },
@@ -2851,10 +2851,10 @@
             "$ref": "#/components/schemas/PlayableFormatsBody"
           },
           "preferredDelivery": {
-            "description": "A person's override",
+            "description": "A person's override of the decision",
             "enum": [
               "direct",
-              "prepare"
+              "hls"
             ],
             "type": "string"
           }
@@ -2920,7 +2920,7 @@
             ]
           },
           "preferences": {
-            "$ref": "#/components/schemas/FilePreferencesBody"
+            "$ref": "#/components/schemas/PlaybackPreferencesBody"
           },
           "profile": {
             "enum": [
@@ -3099,6 +3099,10 @@
             "description": "The track as ASS, for JASSUB",
             "type": "string"
           },
+          "containerTitle": {
+            "description": "The container's title for a track in or beside the file",
+            "type": "string"
+          },
           "fetchedSubtitleId": {
             "description": "A subtitle fetched on request; unverified",
             "format": "int64",
@@ -3117,14 +3121,14 @@
             "description": "BCP 47; empty when the file names none",
             "type": "string"
           },
+          "releaseName": {
+            "description": "The release a fetched subtitle was made for, as the provider names it",
+            "type": "string"
+          },
           "streamId": {
             "description": "A track inside the file, or a subtitle file beside it",
             "format": "int64",
             "type": "integer"
-          },
-          "title": {
-            "description": "The container's track title, or a fetched subtitle's release name",
-            "type": "string"
           },
           "vttUrl": {
             "description": "The track as WebVTT",
@@ -3133,7 +3137,6 @@
         },
         "required": [
           "language",
-          "title",
           "isDefault",
           "isForced",
           "isHearingImpaired",
@@ -4172,7 +4175,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InvitationBody"
+                  "$ref": "#/components/schemas/IssuedSecretBody"
                 }
               }
             },
@@ -6053,7 +6056,7 @@
             "description": "Error"
           }
         },
-        "summary": "Use a registration link: set a password and sign this device in",
+        "summary": "Use a registration invitation: set a password and sign this device in",
         "tags": [
           "Accounts"
         ]
@@ -6963,9 +6966,9 @@
         ]
       }
     },
-    "/users/{id}/registration-link": {
+    "/users/{id}/registration-invitation": {
       "post": {
-        "operationId": "issueRegistrationLink",
+        "operationId": "issueRegistrationInvitation",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -6992,7 +6995,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InvitationBody"
+                  "$ref": "#/components/schemas/IssuedSecretBody"
                 }
               }
             },
@@ -7009,7 +7012,7 @@
             "description": "Error"
           }
         },
-        "summary": "A new registration link for a person, withdrawing the old; their password works until they use it",
+        "summary": "A new registration invitation for a person, withdrawing the old; their password works until used",
         "tags": [
           "Accounts"
         ]

@@ -22,15 +22,15 @@ type AccountBody struct {
 	HasPassword bool   `doc:"False until they register from their link" json:"hasPassword"`
 }
 
-// InvitationBody is a registration link's secret or a device code, and when it stops working.
-// A registration link's secret goes after # in the address, so no request carries it (D218 §1).
-type InvitationBody struct {
+// IssuedSecretBody is a registration invitation's secret or a device code, and when it stops working.
+// A registration invitation's secret goes after # in the address, so no request carries it (D218 §1).
+type IssuedSecretBody struct {
 	Secret    string `json:"secret"`
 	ExpiresAt int64  `doc:"Unix milliseconds" json:"expiresAt"`
 }
 
-func invitationBody(invitation auth.Invitation) InvitationBody {
-	return InvitationBody{Secret: invitation.Secret, ExpiresAt: invitation.ExpiresAt.UnixMilli()}
+func issuedSecretBody(issued auth.IssuedSecret) IssuedSecretBody {
+	return IssuedSecretBody{Secret: issued.Secret, ExpiresAt: issued.ExpiresAt.UnixMilli()}
 }
 
 // AccountsOutput is everyone.
@@ -49,26 +49,26 @@ type CreateAccountInput struct {
 	}
 }
 
-// CreateAccountOutput is the new person and their registration link.
+// CreateAccountOutput is the new person and their registration invitation.
 type CreateAccountOutput struct {
 	Body struct {
-		Account                AccountBody    `json:"account"`
-		RegistrationInvitation InvitationBody `json:"registrationInvitation"`
+		Account                AccountBody      `json:"account"`
+		RegistrationInvitation IssuedSecretBody `json:"registrationInvitation"`
 	}
 }
 
-// RegistrationLinkInput asks for a new registration link for a person.
-type RegistrationLinkInput struct {
+// RegistrationInvitationInput asks for a new registration invitation for a person.
+type RegistrationInvitationInput struct {
 	AuthorizationHeader
 	UserID int64 `minimum:"1" path:"id"`
 }
 
-// InvitationOutput is one registration link or device code.
-type InvitationOutput struct {
-	Body InvitationBody
+// IssuedSecretOutput is one registration invitation or device code.
+type IssuedSecretOutput struct {
+	Body IssuedSecretBody
 }
 
-// RegisterInput uses a registration link: its secret, the password the person chose, and the
+// RegisterInput uses a registration invitation: its secret, the password the person chose, and the
 // device they are on (D218 §2).
 type RegisterInput struct {
 	Body struct {
@@ -120,13 +120,14 @@ func (server *Server) registerAccounts() {
 		Summary: "Make a person, and a one-time link for them to set a password (D218)", Tags: tags,
 	}, server.createAccount)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "issueRegistrationLink", Method: http.MethodPost, Path: "/users/{id}/registration-link",
-		Summary: "A new registration link for a person, withdrawing the old; their password works until they use it",
+		OperationID: "issueRegistrationInvitation", Method: http.MethodPost,
+		Path:    "/users/{id}/registration-invitation",
+		Summary: "A new registration invitation for a person, withdrawing the old; their password works until used",
 		Tags:    tags,
-	}, server.issueRegistrationLink)
+	}, server.issueRegistrationInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
-		Summary: "Use a registration link: set a password and sign this device in", Tags: tags,
+		Summary: "Use a registration invitation: set a password and sign this device in", Tags: tags,
 	}, server.register)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueDeviceCode", Method: http.MethodPost, Path: "/device-codes",
@@ -174,28 +175,28 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 		return nil, err
 	}
 	role := auth.Role(input.Body.Role)
-	id, link, err := dependencies.Auth.CreateAccount(ctx, input.Body.Name, role)
+	id, invitation, err := dependencies.Auth.CreateAccount(ctx, input.Body.Name, role)
 	if err != nil {
 		return nil, server.authError(ctx, "create an account", err)
 	}
 	output := &CreateAccountOutput{}
 	output.Body.Account = AccountBody{ID: id, Name: input.Body.Name, Role: string(role)}
-	output.Body.RegistrationInvitation = invitationBody(link)
+	output.Body.RegistrationInvitation = issuedSecretBody(invitation)
 	return output, nil
 }
 
-func (server *Server) issueRegistrationLink(
-	ctx context.Context, input *RegistrationLinkInput,
-) (*InvitationOutput, error) {
+func (server *Server) issueRegistrationInvitation(
+	ctx context.Context, input *RegistrationInvitationInput,
+) (*IssuedSecretOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	link, err := dependencies.Auth.IssueRegistrationLink(ctx, input.UserID)
+	invitation, err := dependencies.Auth.IssueRegistrationInvitation(ctx, input.UserID)
 	if err != nil {
-		return nil, server.authError(ctx, "make a registration link", err)
+		return nil, server.authError(ctx, "make a registration invitation", err)
 	}
-	return &InvitationOutput{Body: invitationBody(link)}, nil
+	return &IssuedSecretOutput{Body: issuedSecretBody(invitation)}, nil
 }
 
 func (server *Server) register(ctx context.Context, input *RegisterInput) (*SessionOutput, error) {
@@ -210,7 +211,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
 
-func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInput) (*InvitationOutput, error) {
+func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInput) (*IssuedSecretOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -231,7 +232,7 @@ func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInpu
 	if err != nil {
 		return nil, server.authError(ctx, "make a device code", err)
 	}
-	return &InvitationOutput{Body: invitationBody(deviceCode)}, nil
+	return &IssuedSecretOutput{Body: issuedSecretBody(deviceCode)}, nil
 }
 
 func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput) (*SessionOutput, error) {

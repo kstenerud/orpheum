@@ -31,7 +31,7 @@
 //     written and read as a device code is (D223 §2). Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce and
 //     TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced.
-//   - An account is made with no password and a registration link: 256 bits, seven days, once,
+//   - An account is made with no password and a registration invitation: 256 bits, seven days, once,
 //     and only the newest works; the old password works until the new one is set (D218 §1, §5).
 //     Enforced by TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn and
 //     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
@@ -42,7 +42,7 @@
 //     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
 //   - A sign-in resumes the device the client remembers when it is the same person's; a code can
 //     be for a listed device, which it signs back in; one code waits per person at a time; a
-//     registration link is not held back by the failed-sign-in limit and clears the person from it
+//     registration invitation is not held back by the failed-sign-in limit and clears the person from it
 //     (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons,
 //     TestDeviceCode_OneWaitsAtATimeAndACodeForAListedDeviceSignsItBackIn and
 //     TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
@@ -82,6 +82,6 @@
 //   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
-//     admin. accounts.go: accounts, registration links, device codes and changing a password
+//     admin. accounts.go: accounts, registration invitations, device codes and changing a password
 //     (D218). devices.go: a person's devices. code.go: a device code's safe32.
 package auth

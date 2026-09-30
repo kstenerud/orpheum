@@ -70,10 +70,10 @@ type BuildBody struct {
 	// Name is the build in a word: its tag, or dev and its short commit, and -modified.
 	Name string `json:"name"`
 	// Version is the release tag its commit carries, or dev.
-	Version     string `json:"version"`
-	Commit      string `doc:"Empty when the build recorded none" json:"commit,omitempty"`
-	IsModified  bool   `doc:"Built from a tree with uncommitted changes" json:"isModified"`
-	CommittedAt int64  `doc:"Unix milliseconds; absent when unrecorded" json:"committedAt,omitempty"`
+	Version               string `json:"version"`
+	Commit                string `doc:"Empty when the build recorded none" json:"commit,omitempty"`
+	HasUncommittedChanges bool   `doc:"Built from a tree with uncommitted changes" json:"hasUncommittedChanges"`
+	CommittedAt           int64  `doc:"Unix milliseconds; absent when unrecorded" json:"committedAt,omitempty"`
 	// BinarySha256 is the binary's hash, which tells two builds of one modified tree apart.
 	BinarySha256 string `json:"binarySha256,omitempty"`
 }
@@ -90,8 +90,9 @@ type HostBody struct {
 
 func buildBody(info build.Provenance) BuildBody {
 	return BuildBody{
-		Name: info.String(), Version: info.Version, Commit: info.Commit, IsModified: info.IsModified,
-		CommittedAt: info.CommittedAt, BinarySha256: info.BinarySha256,
+		Name: info.String(), Version: info.Version, Commit: info.Commit,
+		HasUncommittedChanges: info.HasUncommittedChanges,
+		CommittedAt:           info.CommittedAt, BinarySha256: info.BinarySha256,
 	}
 }
 

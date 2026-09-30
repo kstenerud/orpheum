@@ -16,7 +16,7 @@
 //
 // # Read before changing
 //
-//   - D154: a session's secret, and a registration link's, is 256 random bits.
+//   - D154: a session's secret, and a registration invitation's, is 256 random bits.
 //
 // # Where to change
 //

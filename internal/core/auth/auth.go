@@ -125,7 +125,7 @@ type NewUser struct {
 	Password   string
 	Role       Role
 	IsOutsider bool
-	// AwaitsRegistration makes the user with no password: they set one from a registration link
+	// AwaitsRegistration makes the user with no password: they set one from a registration invitation
 	// (D218), and until then nobody can sign in as them.
 	AwaitsRegistration bool
 }

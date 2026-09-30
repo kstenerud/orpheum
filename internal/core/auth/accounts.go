@@ -19,7 +19,7 @@ import (
 // The invitations D218 makes: grants of kind invite, single use, each in its own scope.
 const (
 	grantKindInvite = "invite"
-	// A registration link, which lets its person set a password (D218 §1).
+	// A registration invitation, which lets its person set a password (D218 §1).
 	grantScopeRegister = "register"
 	// A device code, which signs a new device in as its person (D218 §3).
 	grantScopeAddDevice = "add_device"
@@ -27,20 +27,20 @@ const (
 
 // How long each invitation lasts (D218 §1, §3).
 const (
-	registrationLinkLife = 7 * 24 * time.Hour
-	deviceCodeLife       = 10 * time.Minute
+	registrationInvitationLife = 7 * 24 * time.Hour
+	deviceCodeLife             = 10 * time.Minute
 )
 
 var (
-	// ErrBadInvitation is a registration link or device code that is unknown, used, expired or
+	// ErrBadInvitation is a registration invitation or device code that is unknown, used, expired or
 	// withdrawn, without saying which.
 	ErrBadInvitation = errors.New("the link or code is not valid; ask for a new one")
 	// ErrNoUser is a person who is not there.
 	ErrNoUser = errors.New("no such person")
 )
 
-// Invitation is a registration link's secret or a device code, and when it stops working.
-type Invitation struct {
+// IssuedSecret is a registration invitation's secret or a device code, and when it stops working.
+type IssuedSecret struct {
 	Secret    string
 	ExpiresAt time.Time
 }
@@ -54,15 +54,15 @@ type Account struct {
 	HasPassword bool
 }
 
-// CreateAccount makes a person with a name and role and no password, and a registration link for
+// CreateAccount makes a person with a name and role and no password, and a registration invitation for
 // them to set one (D218 §1).
-func (service *Service) CreateAccount(ctx context.Context, name string, role Role) (int64, Invitation, error) {
+func (service *Service) CreateAccount(ctx context.Context, name string, role Role) (int64, IssuedSecret, error) {
 	id, err := service.CreateUser(ctx, NewUser{Name: name, Role: role, AwaitsRegistration: true})
 	if err != nil {
-		return 0, Invitation{}, err
+		return 0, IssuedSecret{}, err
 	}
-	link, err := service.IssueRegistrationLink(ctx, id)
-	return id, link, err
+	invitation, err := service.IssueRegistrationInvitation(ctx, id)
+	return id, invitation, err
 }
 
 // Accounts lists everyone.
@@ -81,28 +81,28 @@ func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
 	return accounts, nil
 }
 
-// IssueRegistrationLink makes a person's registration link, withdrawing any earlier one: the
+// IssueRegistrationInvitation makes a person's registration invitation, withdrawing any earlier one: the
 // first for a new account, or a new one for a forgotten password, when the old password works
 // until the new one is set (D218 §1, §5). It takes the person out of the failed-sign-in limit.
-func (service *Service) IssueRegistrationLink(ctx context.Context, userID int64) (Invitation, error) {
+func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID int64) (IssuedSecret, error) {
 	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
-		return Invitation{}, err
+		return IssuedSecret{}, err
 	}
-	// The link is the admin's answer to a person locked out: it clears them from the limit (D221 §4).
+	// The invitation is the admin's answer to a person locked out: it clears them from the limit (D221 §4).
 	service.limiter.forget(accountLimitKey(user.Name))
 	secret, err := randomSecret(service.random)
 	if err != nil {
-		return Invitation{}, err
+		return IssuedSecret{}, err
 	}
 	now := service.clock.Now()
-	expires := now.Add(registrationLinkLife)
+	expires := now.Add(registrationInvitationLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
 			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeRegister,
 		})
 		if revokeErr != nil {
-			return fmt.Errorf("withdraw the earlier link: %w", revokeErr)
+			return fmt.Errorf("withdraw the earlier invitation: %w", revokeErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeRegister,
@@ -110,13 +110,13 @@ func (service *Service) IssueRegistrationLink(ctx context.Context, userID int64)
 		})
 	})
 	if err != nil {
-		return Invitation{}, fmt.Errorf("record the registration link: %w", err)
+		return IssuedSecret{}, fmt.Errorf("record the registration invitation: %w", err)
 	}
-	return Invitation{Secret: secret, ExpiresAt: expires}, nil
+	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
-// Register uses a registration link: it sets its person's password, signs them in on the device
-// that opened it, which becomes theirs, and spends the link (D218 §2). The failed-sign-in limit
+// Register uses a registration invitation: it sets its person's password, signs them in on the device
+// that opened it, which becomes theirs, and spends the invitation (D218 §2). The failed-sign-in limit
 // does not hold it back: its 256 bits cannot be guessed (D221 §4).
 func (service *Service) Register(ctx context.Context, secret, password string, device NewDevice) (string, error) {
 	if password == "" {
@@ -146,21 +146,21 @@ func (service *Service) Register(ctx context.Context, secret, password string, d
 // person's last, whichever device it was for (D221 §3).
 func (service *Service) IssueDeviceCode(
 	ctx context.Context, userID int64, deviceName string, forDeviceID int64,
-) (Invitation, error) {
+) (IssuedSecret, error) {
 	if _, err := liveUser(ctx, service.database.Read(), userID); err != nil {
-		return Invitation{}, err
+		return IssuedSecret{}, err
 	}
 	var deviceID *int64
 	if forDeviceID != 0 {
 		known, err := liveDevice(ctx, service.database.Read(), userID, forDeviceID)
 		if err != nil {
-			return Invitation{}, err
+			return IssuedSecret{}, err
 		}
 		deviceID, deviceName = &known.ID, known.Name
 	}
 	raw, err := randbytes.Read(service.random, codeBytes)
 	if err != nil {
-		return Invitation{}, fmt.Errorf("make a device code: %w", err)
+		return IssuedSecret{}, fmt.Errorf("make a device code: %w", err)
 	}
 	code := encodeCode([codeBytes]byte(raw))
 	now := service.clock.Now()
@@ -178,9 +178,9 @@ func (service *Service) IssueDeviceCode(
 		})
 	})
 	if err != nil {
-		return Invitation{}, fmt.Errorf("record the device code: %w", err)
+		return IssuedSecret{}, fmt.Errorf("record the device code: %w", err)
 	}
-	return Invitation{Secret: code, ExpiresAt: expires}, nil
+	return IssuedSecret{Secret: code, ExpiresAt: expires}, nil
 }
 
 // WaitingCode is a device code not yet used: the name of the device it is for, and when it stops
@@ -329,7 +329,7 @@ func (service *Service) spendGuessable(
 	return grant, err
 }
 
-// randomSecret is 256 random bits, base64url: a registration link's secret, as a session's is
+// randomSecret is 256 random bits, base64url: a registration invitation's secret, as a session's is
 // (D154).
 func randomSecret(random io.Reader) (string, error) {
 	secret, err := randbytes.Base64URLSecret(random, tokenBytes)

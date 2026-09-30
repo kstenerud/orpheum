@@ -160,7 +160,7 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 
 func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
-	server := build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySha256: "h1"}
+	server := build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h1"}
 	if same := nodeBuildFinding("local", server, server); same.Verdict != verdictOK {
 		t.Errorf("a node on the server's own binary: %+v, want ok", same)
 	}
@@ -170,7 +170,7 @@ func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing
 		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
 	}
 	rebuilt := nodeBuildFinding("local",
-		build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySha256: "h2"}, server)
+		build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h2"}, server)
 	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
 	}

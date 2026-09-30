@@ -15,8 +15,8 @@ type Provenance struct {
 	Version string `json:"version"`
 	// Commit is the full commit hash, empty when the build recorded none (a test binary).
 	Commit string `json:"commit,omitempty"`
-	// IsModified is whether the tree had uncommitted changes when it was built.
-	IsModified bool `json:"isModified"`
+	// HasUncommittedChanges is whether the tree had uncommitted changes when it was built.
+	HasUncommittedChanges bool `json:"hasUncommittedChanges"`
 	// CommittedAt is the commit's time, in Unix milliseconds; zero when unrecorded.
 	CommittedAt int64 `json:"committedAt,omitempty"`
 	// BinarySha256 is the running binary's hash, which tells two builds apart when nothing else
@@ -52,7 +52,7 @@ func FromBuildInfo(recorded *debug.BuildInfo) Provenance {
 		case "vcs.revision":
 			info.Commit = setting.Value
 		case "vcs.modified":
-			info.IsModified = setting.Value == "true"
+			info.HasUncommittedChanges = setting.Value == "true"
 		case "vcs.time":
 			if committed, err := time.Parse(time.RFC3339, setting.Value); err == nil {
 				info.CommittedAt = committed.UnixMilli()
@@ -75,7 +75,7 @@ func (info Provenance) String() string {
 	if info.Version == devVersion && info.Commit != "" {
 		text += "-" + info.Commit[:min(12, len(info.Commit))]
 	}
-	if info.IsModified {
+	if info.HasUncommittedChanges {
 		text += "-modified"
 	}
 	return text
@@ -89,5 +89,5 @@ func (info Provenance) IsSame(other Provenance) bool {
 		return info.BinarySha256 == other.BinarySha256
 	}
 	return info.Commit != "" && info.Commit == other.Commit && info.Version == other.Version &&
-		!info.IsModified && !other.IsModified
+		!info.HasUncommittedChanges && !other.HasUncommittedChanges
 }
