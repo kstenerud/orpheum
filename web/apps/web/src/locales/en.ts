@@ -475,6 +475,12 @@ export const en = {
     originalName: "Originally “{{name}}”",
     refresh: "Look again",
     refreshed: "It will be looked up again shortly.",
+    providerReason: {
+      noKey: "No TMDB key is set up. An admin can set it in Settings.",
+      keyRefused: "TMDB refused its key. An admin can change it in Settings.",
+      unavailable: "TMDB is not answering right now. Try again later.",
+      unknown: "TMDB could not be reached.",
+    },
   },
   settings: {
     heading: "Settings",

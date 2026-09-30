@@ -15,8 +15,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `aria-label`/`title`/`alt`/`placeholder`. **Every key named as `t("key")` has English text**:
   `src/locales/catalogue.test.ts`.
 - **A failure is told in the viewer's words, chosen by the server's code** (cut-a §5.2): a
-  screen shows `problemText`'s sentence, never the server's message. `no-restricted-syntax` on
-  `error.error.message`; `src/screen-refusals.test.tsx`.
+  screen shows `problemText`'s sentence, never the server's message; an outside provider's
+  refusal is told by its reason (`providerProblemText`), with who can fix it.
+  `no-restricted-syntax` on `error.error.message`; `src/screen-refusals.test.tsx`.
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
   an admin's destinations show to an admin only (the server refuses them to anyone else).
   `src/app-shell.test.tsx`.

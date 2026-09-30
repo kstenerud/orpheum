@@ -172,10 +172,14 @@ function Extras(props: {
   );
 }
 
-/** Shows what a resource holds, or that it is loading, or why it failed. */
+/**
+ * Shows what a resource holds, or that it is loading, or why it failed: in problemText's words,
+ * or in describeProblem's for a screen that knows more about its failures.
+ */
 export function Loaded<T>(props: {
   readonly resource: Resource<T>;
   readonly render: (value: T) => JSX.Element;
+  readonly describeProblem?: (cause: unknown) => string;
 }): JSX.Element {
   const { t } = useTranslation();
   const { resource } = props;
@@ -183,7 +187,8 @@ export function Loaded<T>(props: {
     return <p>{t("common.loading")}</p>;
   }
   if (resource.state === "failed") {
-    return <p role="alert">{problemText(t, resource.cause)}</p>;
+    const describe = props.describeProblem ?? ((cause: unknown) => problemText(t, cause));
+    return <p role="alert">{describe(resource.cause)}</p>;
   }
   return props.render(resource.value);
 }

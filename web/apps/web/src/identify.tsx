@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
@@ -15,6 +16,14 @@ import { useResource } from "./use-resource.ts";
 export type WaitingItem = components["schemas"]["ItemBody"];
 /** One of an ambiguous item's possible matches. */
 export type Candidate = components["schemas"]["CandidateBody"];
+
+/**
+ * Why looking up or choosing a match failed, in words a person can act on: the metadata
+ * provider's reason (no key, a refused key, not answering) says who can fix it.
+ */
+function identifyProblemText(t: TFunction, cause: unknown): string {
+  return providerProblemText(t, cause, "identify.providerReason");
+}
 
 /** Which items to show: those with several matches, or those with none. */
 export type WaitingFilter = "ambiguous" | "unidentified";
@@ -91,7 +100,7 @@ function WaitingRow(props: {
           setNote(t("identify.refreshed"));
         },
         (cause: unknown) => {
-          setNote(problemText(t, cause));
+          setNote(identifyProblemText(t, cause));
         },
       );
   };
@@ -143,13 +152,14 @@ function CandidateChooser(props: {
       })
       .then(throwIfRefused)
       .then(props.onChosen, (cause: unknown) => {
-        setProblem(problemText(t, cause));
+        setProblem(identifyProblemText(t, cause));
       });
   };
   return (
     <section aria-label={t("identify.candidates")}>
       <Loaded
         resource={candidates}
+        describeProblem={(cause) => identifyProblemText(t, cause)}
         render={(value) => (
           <CandidateList
             candidates={value.candidates ?? []}
