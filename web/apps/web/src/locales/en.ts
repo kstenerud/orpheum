@@ -324,6 +324,16 @@ export const en = {
     action: "What to do: {{action}}",
     node: "Machine: {{node}}",
     awaitingHello: "Not heard from since the server started.",
+    retireNode: "This machine is gone for good…",
+    retireNodeConsequence:
+      "Its folders leave every library and its waiting work is cancelled; what was watched is kept. If it comes back, it joins as a new machine.",
+    retireNodeConfirm: "Retire the machine",
+    offline: "Offline",
+    offlineRoot: "{{node}}: {{path}}, in {{library}}: offline since {{since}}",
+    offlineDisk: "The disk at {{node}}: {{path}}, in {{library}}: missing since {{since}}",
+    offlineHelp:
+      "Nothing of theirs is removed until they come back or you say they are gone for good.",
+    offlineWhere: "Libraries",
     silentSince: "Not answering. Last heard from at {{at}}.",
     ffmpeg: "FFmpeg",
     runsAs: "Runs as",
@@ -454,6 +464,14 @@ export const en = {
     approveRemovals: "Remove what the last scan did not find",
     diskMissing: "A disk is missing from",
     diskGone: "This disk is gone for good",
+    retireRoot: "This folder is gone for good…",
+    retireRootConsequence:
+      "Its films leave the library and it is never scanned again; what was watched is kept.",
+    retireRootConfirm: "Retire the folder",
+    delete: "Delete the library…",
+    deleteConsequence:
+      "Its films and series are hidden and its folders never scanned again; what was watched is kept, and a film that turns up in another library brings its history back.",
+    deleteConfirm: "Delete it",
     createHeading: "Create a library",
     name: "Name",
     kind: "What it holds",
@@ -539,6 +557,7 @@ export const en = {
     show: "Show",
     showMore: "Show more",
     noPoster: "No poster",
+    keepIt: "Keep it",
   },
 } as const;
 

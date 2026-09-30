@@ -10,6 +10,7 @@ import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { CreateLibrary } from "./create-library.tsx";
 
 /** A library, as an admin sees it. */
@@ -23,37 +24,51 @@ const outcomeKeys = {
 } as const;
 
 /**
- * An admin's answer about a root (D208): its withheld removals are real, or the disk missing from
- * one of the mount points inside it is gone for good.
+ * An admin's answer about a root (D208): its withheld removals are real, the disk missing from
+ * one of the mount points inside it is gone for good, or the root itself is, and is retired
+ * (D231 §7).
  */
 export type RootAnswer =
-  { readonly kind: "approveRemovals" } | { readonly kind: "diskGone"; readonly mountPath: string };
+  | { readonly kind: "approveRemovals" }
+  | { readonly kind: "diskGone"; readonly mountPath: string }
+  | { readonly kind: "retire" };
 
 /**
- * Where an answer goes and what it sends: removals name the root's own path; a disk gone names
- * the missing mount point's, one of those the root lists, which is what the server looks up.
+ * Where an answer goes and what it sends: removals and a retire name the root's own path; a disk
+ * gone names the missing mount point's, one of those the root lists, which is what the server
+ * looks up.
  */
 export function rootAnswerRequest(
   root: Root,
   answer: RootAnswer,
 ): {
-  readonly endpoint: "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone";
+  readonly endpoint:
+    "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone" | "/libraries/{id}/roots/retire";
   readonly body: { readonly nodeName: string; readonly path: string };
 } {
-  return answer.kind === "approveRemovals"
-    ? {
+  switch (answer.kind) {
+    case "approveRemovals":
+      return {
         endpoint: "/libraries/{id}/removals",
         body: { nodeName: root.nodeName, path: root.rootPath },
-      }
-    : {
+      };
+    case "diskGone":
+      return {
         endpoint: "/libraries/{id}/mounts/gone",
         body: { nodeName: root.nodeName, path: answer.mountPath },
       };
+    case "retire":
+      return {
+        endpoint: "/libraries/{id}/roots/retire",
+        body: { nodeName: root.nodeName, path: root.rootPath },
+      };
+  }
 }
 
 /**
- * One root: where it is, how its last scan went, the admin's answer when its removals wait, and
- * for each mount point inside it whose disk is missing, the answer that it is gone (D208).
+ * One root: where it is, how its last scan went, the admin's answer when its removals wait, for
+ * each mount point inside it whose disk is missing, the answer that it is gone (D208), and
+ * retiring it for good, confirmed first (D231 §7).
  */
 export function RootLine(props: {
   readonly root: Root;
@@ -89,16 +104,28 @@ export function RootLine(props: {
           </button>
         </p>
       ))}
+      <ConfirmButton
+        label={t("libraries.retireRoot")}
+        consequence={t("libraries.retireRootConsequence")}
+        confirmLabel={t("libraries.retireRootConfirm")}
+        onConfirm={() => {
+          props.onAnswer(root, { kind: "retire" });
+        }}
+      />
     </li>
   );
 }
 
-/** One library: its name, its roots, its files by filing, and asking it to scan. */
+/**
+ * One library: its name, its roots, its files by filing, asking it to scan, and deleting it,
+ * confirmed first (D231 §7).
+ */
 export function LibraryCard(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
+  readonly onDelete: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -131,7 +158,13 @@ export function LibraryCard(props: {
         <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
         <button type="button" onClick={props.onScan}>
           {t("libraries.scan")}
-        </button>
+        </button>{" "}
+        <ConfirmButton
+          label={t("libraries.delete")}
+          consequence={t("libraries.deleteConsequence")}
+          confirmLabel={t("libraries.deleteConfirm")}
+          onConfirm={props.onDelete}
+        />
       </p>
       {props.note === "" ? null : <output>{props.note}</output>}
     </article>
@@ -143,6 +176,7 @@ function useLibraryActions(reload: () => void): {
   readonly notesByLibraryId: ReadonlyMap<number, string>;
   readonly scan: (libraryId: number) => void;
   readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
+  readonly deleteLibrary: (libraryId: number) => void;
 } {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -179,6 +213,14 @@ function useLibraryActions(reload: () => void): {
           setNote(libraryId, problemText(t, cause));
         });
     },
+    deleteLibrary: (libraryId) => {
+      api
+        .DELETE("/libraries/{id}", { params: { path: { id: libraryId } } })
+        .then(throwIfRefused)
+        .then(reload, (cause: unknown) => {
+          setNote(libraryId, problemText(t, cause));
+        });
+    },
   };
 }
 
@@ -201,6 +243,9 @@ export function Libraries(): JSX.Element {
       }}
       onAnswer={(root, answer) => {
         actions.answerAboutRoot(library.id, root, answer);
+      }}
+      onDelete={() => {
+        actions.deleteLibrary(library.id);
       }}
     />
   );
