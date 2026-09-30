@@ -221,3 +221,28 @@ A sweep that traced each value through the layers, rather than checking the tabl
 | `check_for_updates`, `serve_debug_pprof`, `serve_debug_metrics`, `scan_on_node_hello` | settings | booleans named as commands | `should_check_for_updates`, `should_serve_debug_pprof`, `should_serve_debug_metrics`, `should_scan_on_node_hello` |
 | `prepared_grace_h` | node config | hours a rendition is kept after its last play | `prepared_kept_after_play_h` |
 | log keys `titleId`, `ffmpeg`, `node`, `mount`, `why`, `ref` | logs | an item's id; the FFmpeg version; the node's name; a mount path; a refusal, failure or reason; a source reference | `itemId`, `ffmpegVersion`, `nodeName`, `mountPath`, `refusal`/`failure`/`reason`, `sourceRef` |
+
+## Third addendum, 2026-09-30: M3's closing audit
+
+M3's closing audit ([audit-2026-09-29.md](audit-2026-09-29.md) §9 B) found names that still held
+two things or read as something else. The owner, 2026-09-30: *"Yes, one form"* (D227).
+
+| Was | Where | Holds | Now |
+| --- | --- | --- | --- |
+| `detail` (a map of strings) | API errors | what a code carries, typed by the code: `reason`; `problems`, each a `location` and a `message` (was a map keyed by location); `retryAfterMs` and `downloadsResetAt` as numbers | one form per code, typed in the API document |
+| `ErrorDetail` | API schema | an error's inside, beside `ErrorDetailBody`, a file's read error | `ProblemBody` |
+| `isModified` | API build, node hello's build | built from a tree with uncommitted changes, beside a setting's `isModified` (a person changed it) | `hasUncommittedChanges` |
+| `/users/{id}/registration-link`, `issueRegistrationLink`; Go `IssueRegistrationLink` | API path, operation; auth | the registration invitation, as the field `registrationInvitation` says | `/users/{id}/registration-invitation`, `issueRegistrationInvitation`; `IssueRegistrationInvitation` |
+| `InvitationBody`; web alias `IssuedSecret`; Go `auth.Invitation` | API schema; web; auth | a registration invitation's secret or a device code | `IssuedSecretBody`; the schema's own name; `auth.IssuedSecret` |
+| `fetch`; `artwork` | job kind | a metadata lookup; making one image's sizes, fetching its source when no stored size can be cut down (not the node's `encode_artwork`, which only encodes) | `fetch_metadata`; `make_artwork_sizes` |
+| `?q=` | the web app's search address | the search's query, as the API's `?query=` | `?query=` |
+| `preferredDelivery`: `direct`, `prepare` | API playback request | a person's override, beside the answer's `delivery`: `direct`, `hls` | one enum, `direct`, `hls` |
+| `grant.last_seen_at`; `UpdateGrantLastSeen`; `session_last_seen_write_interval_s` | library.db; query; setting | a session's last use, as the API's `lastUsedAt` | `last_used_at`; `UpdateGrantLastUsed`; `session_last_used_write_interval_s` |
+| `file.reported_path_bytes`; `Path.bytes` | library.db; node protocol | the path's bytes as the filesystem gave them, which `_bytes` read as a count (the first addendum's `raw` → `bytes`, undone) | `reported_path_raw`; `Path.raw` |
+| `subtitle_text.bytes_payload_hash` | cache.db | the hash of what the text was made from: a bytes file's payload hash, or a fetched subtitle's body SHA-256 | `source_hash` (one key for both; a second column would lose the primary key) |
+| `provider_response.fetched_at` | library.db | the body's age, and also stamped when a refresh asked and got no body | `fetched_at`, the body's age only, and `last_asked_at`, when the provider was last asked |
+| `title` | API subtitle track | the container's title, or a fetched subtitle's release name | `containerTitle`, `releaseName` |
+| `FilePreferencesBody`; Go `playback.FilePreferences` | API schema; playback | the file's choices and the person's own for every file | `PlaybackPreferencesBody`; `playback.Preferences` |
+| `prepared_kept_after_play_h` | node config | hours a rendition is kept after its last play | `prepared_kept_after_play_hours` |
+| `"orpheum.device"` | web storage key | the device's id | `"orpheum.deviceId"` |
+| `ArgsJson`, `NfoBody`, `TruePeakDbtp`, `CarriedGainsDbJson`… | generated Go (sqlc) | JSON, NFO, VTT, ASS, dB, dBTP, LUFS and LU, as hand-written Go spells them | `ArgsJSON`, `NFOBody`, `TruePeakDBTP`, `CarriedGainsDBJSON` (sqlc's `initialisms`); SHA-256 stays `Sha256` in both |

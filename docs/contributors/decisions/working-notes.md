@@ -16940,6 +16940,21 @@ ones.
 
 **Status:** Decided; built before M3's closing audit.
 
+**Addendum, 2026-09-30: M3's closing audit** (the owner, approving its §9 B: *"Yes, one form"*).
+The audit found names that still held two things or read as something else, and values in two
+forms. An error's `detail` is typed by its code, and the API document gives each code its form
+(`ProblemBody`, which was `ErrorDetail`), so `retryAfterMs` and `downloadsResetAt` are numbers
+there as everywhere; the registration invitation has one noun from its path to Go; the job kinds
+`fetch` and `artwork` say what they do (`fetch_metadata`, `make_artwork_sizes`); a delivery is
+`direct` or `hls` in the request and the answer; a session's last use is `last_used_at`; a
+column or field holding a path's bytes is `…_raw`, since `_bytes` counts bytes; a subtitle
+text's key, which also holds a fetched subtitle's body hash, is `source_hash`; a provider
+response keeps `fetched_at` for its body's age and gains `last_asked_at`, which a refresh that
+found nothing stamps; a subtitle track's `title` is `containerTitle` or `releaseName`; and
+sqlc spells initialisms as hand-written Go does (SHA-256 is `Sha256` in both). The names are in
+the research file's third addendum; step 0027 carries library.db (D228), and cache.db goes to
+version 19.
+
 ---
 
 ## D228 — Until migrations are live, library.db's schema is a baseline and one step, and a schema change folds the last step into the baseline
