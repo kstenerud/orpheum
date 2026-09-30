@@ -250,3 +250,25 @@ func TestRunDue_AFullStorageStopsEveryClaimUntilAProbeFindsRoomAndNothingIsLeftR
 			row.State, row.AttemptCount)
 	}
 }
+
+func TestPark_AFailureThatIsNotTheProbeChangesNothingOfHowAParkedDestinationComesBack(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	ctx := t.Context()
+	jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "the key was refused", AwaitsSignal: true})
+	jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable"})
+	if state, _ := jobs.queue.DestinationState(host); !state.AwaitsSignal || state.Reason != "the key was refused" {
+		t.Errorf("after a job that was not the probe failed: %+v; want it still waiting for the key", state)
+	}
+	jobs.queue.Unpark(ctx, host)
+	jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable"})
+	first, _ := jobs.queue.DestinationState(host)
+	later := jobs.clock.Now().Add(time.Hour)
+	jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "asked us to wait", ProbeAt: later})
+	earlier := first.NextProbeAt.Add(-time.Second)
+	jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable", ProbeAt: earlier})
+	if state, _ := jobs.queue.DestinationState(host); !state.NextProbeAt.Equal(later) || state.Reason != "unreachable" {
+		t.Errorf("after two failures that were not the probe: %+v; want its probe at the latest time one named, %v,"+
+			" and why it went down kept", state, later)
+	}
+}

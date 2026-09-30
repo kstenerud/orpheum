@@ -117,7 +117,7 @@ func (all *prepares) want(
 	if row.State != renditionComplete {
 		_, err = all.queue.Enqueue(ctx, jobs.Request{
 			Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: row.ID}, Priority: jobs.PriorityPlayNow,
-			Reason: "someone is waiting to watch it",
+			Reason: "someone is waiting to watch it", Destination: jobs.NodeDestination(file.NodeID),
 		})
 	}
 	return row, err

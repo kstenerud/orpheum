@@ -4,14 +4,13 @@ package identify_test
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -221,50 +220,35 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	}
 }
 
-func TestHandle_ParksTMDBWhenItIsDownAsksUsToWaitOrHasNoKey(t *testing.T) {
+func TestHandle_AsksTheProviderWithTheJobsImportanceAndPassesOnItsParking(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
-	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	job := jobs.Job{
-		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID},
-	}
-	now := lib.clock.Now()
-	for _, check := range []struct {
-		failure error
-		want    jobs.Parking
+	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nosferatu (1998).mkv"), videoRecord("Wing (1979).mkv"))
+	titles := lib.titlesByPath()
+	for path, check := range map[string]struct {
+		priority int64
+		want     providers.Importance
 	}{
-		{
-			&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute},
-			jobs.Parking{
-				Destination: jobs.DestinationTMDBAPI, Reason: "asked us to wait", ProbeAt: now.Add(time.Minute),
-			},
-		},
-		{
-			fmt.Errorf("tmdb: %w", identify.ErrNoKey),
-			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "the key is not set", AwaitsSignal: true},
-		},
-		{
-			fmt.Errorf("tmdb: %w", identify.ErrKeyRefused),
-			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "the key was refused", AwaitsSignal: true},
-		},
-		{
-			fmt.Errorf("tmdb: %w: dial tcp: connection refused", outbound.ErrUnavailable),
-			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"},
-		},
+		"Metropolis (1995).mkv":  {0, providers.Background},
+		"Nosferatu (1998).mkv": {jobs.PriorityPersonsRequest, providers.PersonsRequest},
 	} {
-		lib.provider.SetFailure(check.failure)
-		err := lib.matcher.Handle(t.Context(), job)
-		if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking != check.want {
-			t.Errorf("%v: parks %+v (%v); want %+v", check.failure, parking, isParked, check.want)
+		lib.provider.Importances = nil
+		job := jobs.Job{
+			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles[path].TitleID}, Priority: check.priority,
+		}
+		if err := lib.matcher.Handle(t.Context(), job); err != nil {
+			t.Fatal(err)
+		}
+		if len(lib.provider.Importances) == 0 || lib.provider.Importances[0] != check.want {
+			t.Errorf("a job of priority %d asked the provider as %v, want %s", check.priority,
+				lib.provider.Importances, check.want)
 		}
 	}
-	lib.provider.SetFailure(errors.New("tmdb: status 500: oops"))
-	if _, isParked := jobqueue.ParkingOf(lib.matcher.Handle(t.Context(), job)); isParked {
-		t.Error("a plain 500 parked TMDB; it is the item's failure (D231 §5)")
-	}
-	lib.provider.SetFailure(nil)
-	if err := lib.matcher.Handle(t.Context(), job); err != nil {
-		t.Errorf("a search with no result: %v, want the job done", err)
+	parking := jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"}
+	lib.provider.SetFailure(jobs.Park(parking, errors.New("connection refused")))
+	alien := jobs.Job{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titles["Wing (1979).mkv"].TitleID}}
+	if parked, isParked := jobqueue.ParkingOf(lib.matcher.Handle(t.Context(), alien)); !isParked || parked != parking {
+		t.Errorf("the provider parked the fetch as %+v (%v); want its parking passed to the queue", parked, isParked)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -21,7 +22,7 @@ func TestImageFetcher_FetchesOnlyTMDBsImagePathsFromItsImageServer(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	images := NewImageFetcher(httpClient, server.URL)
+	images := newImageFetcher(t, httpClient, server.URL)
 	image, err := images.Fetch(t.Context(), "/qJ2tW6WMUDux911r6m7haRef0WH.jpg")
 	if err != nil || image.Len() != len("not really a JPEG") {
 		t.Fatalf("Fetch = %d bytes, %v", image.Len(), err)
@@ -62,8 +63,10 @@ func TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	images := NewImageFetcher(httpClient, server.URL)
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	images := newImageFetcherOn(t, httpClient, server.URL, fakeClock)
 	for ref, want := range map[string]time.Duration{"/limited.jpg": 7 * time.Second, "/unsaid.jpg": time.Second} {
+		fakeClock.Advance(time.Minute) // past the last 429's wait, which the provider keeps for every caller
 		_, err := images.Fetch(t.Context(), ref)
 		if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited ||
 			limited.RetryAfter != want || limited.Provider != "TMDB" {
@@ -86,7 +89,7 @@ func TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	images := NewImageFetcher(httpClient, server.URL)
+	images := newImageFetcher(t, httpClient, server.URL)
 	// Neither says the image is gone (D231 §5). Each names its status.
 	for ref, status := range map[string]string{"/broken.jpg": "500", "/down.jpg": "503"} {
 		_, err := images.Fetch(t.Context(), ref)
@@ -108,7 +111,7 @@ func TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	image, err := NewImageFetcher(httpClient, server.URL).Fetch(t.Context(), "/portal.jpg")
+	image, err := newImageFetcher(t, httpClient, server.URL).Fetch(t.Context(), "/portal.jpg")
 	if !errors.Is(err, outbound.ErrUnavailable) || errors.Is(err, artwork.ErrNoImage) || image.Len() != 0 {
 		t.Errorf("a 200 that is a web page: %v, want the host failing, not the image missing (D213 §5)", err)
 	}

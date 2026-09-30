@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -33,18 +34,21 @@ var imageRefPattern = regexp.MustCompile(`^/[A-Za-z0-9_-]{1,64}\.(jpg|jpeg|png|w
 // ErrBadImageRef is a reference that is not the shape of TMDB's image paths.
 var ErrBadImageRef = errors.New("not a TMDB image path")
 
-// ImageFetcher downloads TMDB's images. It needs no key.
+// ImageFetcher downloads TMDB's images, asking the image server's provider service (ImagesService)
+// before each. It needs no key.
 type ImageFetcher struct {
-	http    *http.Client
-	baseURL string
+	http     *http.Client
+	baseURL  string
+	provider *providers.Service
 }
 
 var _ artwork.Fetcher = (*ImageFetcher)(nil)
 
 // NewImageFetcher returns TMDB's image downloader calling baseURL (ImageBaseURL, or a test's fake)
-// through httpClient, which comes from internal/platform/outbound.
-func NewImageFetcher(httpClient *http.Client, baseURL string) *ImageFetcher {
-	return &ImageFetcher{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/")}
+// through httpClient, which comes from internal/platform/outbound, asking provider (ImagesService)
+// before each download.
+func NewImageFetcher(httpClient *http.Client, baseURL string, provider *providers.Service) *ImageFetcher {
+	return &ImageFetcher{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), provider: provider}
 }
 
 // notFoundCachedFor is how long TMDB's image CDN serves a 404 from its cache: max-age=43200
@@ -55,10 +59,22 @@ const notFoundCachedFor = 12 * time.Hour
 func (*ImageFetcher) RecheckAfter() time.Duration { return notFoundCachedFor }
 
 // Destination is TMDB's image server, as the job queue names it.
-func (*ImageFetcher) Destination() jobs.Destination { return jobs.DestinationTMDBImages }
+func (images *ImageFetcher) Destination() jobs.Destination { return images.provider.Destination() }
 
-// Fetch downloads one image by its path, as an unsanitised value for the node to re-encode.
+// Fetch downloads one image by its path, as an unsanitised value for the node to re-encode, once
+// the image server's provider says the download may go.
 func (images *ImageFetcher) Fetch(ctx context.Context, ref string) (artwork.Unsanitised, error) {
+	var image artwork.Unsanitised
+	err := images.provider.Call(ctx, providers.CostRequest, func(ctx context.Context) error {
+		var fetchErr error
+		image, fetchErr = images.fetch(ctx, ref)
+		return fetchErr
+	})
+	return image, err //nolint:wrapcheck // the fetch's own error, or the provider's refusal, each naming TMDB
+}
+
+// fetch downloads one image by its path.
+func (images *ImageFetcher) fetch(ctx context.Context, ref string) (artwork.Unsanitised, error) {
 	if !imageRefPattern.MatchString(ref) {
 		return artwork.Unsanitised{}, fmt.Errorf("%q: %w: %w", ref, ErrBadImageRef, artwork.ErrNoImage)
 	}

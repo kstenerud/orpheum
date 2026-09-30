@@ -12,7 +12,10 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -31,26 +34,78 @@ type Keys interface {
 	Open(ctx context.Context, name secrets.Name) (secrets.Value, error)
 }
 
-// Client is TMDB behind the provider interface.
+// Client is TMDB behind the provider interface. Every call goes through TMDB's API provider
+// service (APIService), which keeps to its rate and owns its health and its key's state.
 type Client struct {
-	http    *http.Client
-	baseURL string
-	keys    Keys
+	http     *http.Client
+	baseURL  string
+	keys     Keys
+	provider *providers.Service
 }
 
 var _ identify.Provider = (*Client)(nil)
 
 // New returns a TMDB client calling baseURL (BaseURL, or a test's fake) through httpClient, which
-// comes from internal/platform/outbound.
-func New(httpClient *http.Client, baseURL string, keys Keys) *Client {
-	return &Client{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), keys: keys}
+// comes from internal/platform/outbound, asking provider (APIService) before each call.
+func New(httpClient *http.Client, baseURL string, keys Keys, provider *providers.Service) *Client {
+	return &Client{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), keys: keys, provider: provider}
+}
+
+// RatePerSecond is the request rate we keep to with TMDB, both its API and its image server:
+// "somewhere in the 40 requests per second range", its developer documentation's upper limit
+// (developer.themoviedb.org/docs/rate-limiting; provider-etiquette.md). The image server
+// documents no request rate, only 20 connections at once, and we fetch one image at a time.
+const RatePerSecond = 40
+
+// BackgroundShare is the part of TMDB's rate background work may use, so a person's request
+// always finds room (the owner, 2026-09-30; D231 §5).
+const BackgroundShare = 0.8
+
+// APIService is TMDB's API as a provider service: its destination tmdb-api, its rate, and its
+// key, whose absence or refusal parks it until the key changes (D231 §5).
+func APIService(health providers.Health, clockSource clock.Clock) *providers.Service {
+	return providers.New(providers.Config{
+		Name: providerName, Destination: jobs.DestinationTMDBAPI,
+		Limits:          providers.Limits{RatePerSecond: RatePerSecond, BackgroundShare: BackgroundShare},
+		CredentialsName: "key",
+		CredentialsFailure: func(err error) providers.CredentialsState {
+			switch {
+			case errors.Is(err, identify.ErrNoKey):
+				return providers.CredentialsMissing
+			case errors.Is(err, identify.ErrKeyRefused):
+				return providers.CredentialsRefused
+			}
+			return ""
+		},
+	}, health, clockSource)
+}
+
+// ImagesService is TMDB's image server as a provider service: its destination tmdb-images and its
+// rate. It needs no key.
+func ImagesService(health providers.Health, clockSource clock.Clock) *providers.Service {
+	return providers.New(providers.Config{
+		Name: "TMDB's image server", Destination: jobs.DestinationTMDBImages,
+		Limits: providers.Limits{RatePerSecond: RatePerSecond, BackgroundShare: BackgroundShare},
+	}, health, clockSource)
 }
 
 // Name is "tmdb".
 func (*Client) Name() string { return "tmdb" }
 
-// get calls one endpoint with the key and returns the body of a 200.
+// get calls one endpoint with the key and returns the body of a 200, once TMDB's provider says
+// the call may go.
 func (client *Client) get(ctx context.Context, path string, parameters url.Values) ([]byte, error) {
+	var body []byte
+	err := client.provider.Call(ctx, providers.CostRequest, func(ctx context.Context) error {
+		var callErr error
+		body, callErr = client.call(ctx, path, parameters)
+		return callErr
+	})
+	return body, err //nolint:wrapcheck // the call's own error, or the provider's refusal, each naming TMDB
+}
+
+// call calls one endpoint with the key and returns the body of a 200.
+func (client *Client) call(ctx context.Context, path string, parameters url.Values) ([]byte, error) {
 	key, err := client.keys.Open(ctx, secrets.TMDBAPIKey)
 	if errors.Is(err, secrets.ErrNotSet) || (err == nil && key.IsZero()) {
 		return nil, fmt.Errorf("tmdb: %w", identify.ErrNoKey)

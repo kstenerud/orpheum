@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -22,15 +21,11 @@ func RetrySchedule() []time.Duration {
 	return schedule
 }
 
-// fetch downloads an image from its source's image server. A server that cannot be reached, or
-// answers 502, 503 or 504, parks the job on its host until a probe finds it (D231 §5, §6), which
-// replaces D213 §5's breaker; a rate limit parks it until the time the server named; a 404 is the
-// image's own answer, not the host failing.
+// fetch downloads an image from its source's image server. A server that is down or asks us to
+// wait answers, through its provider service, that the job parks on it (D231 §5, §6, which
+// replace D213 §5's breaker); a 404 is the image's own answer, not the host failing.
 func (service *Service) fetch(ctx context.Context, fetcher Fetcher, ref string) (Unsanitised, error) {
 	image, err := fetcher.Fetch(ctx, ref)
-	if parking, isDown := jobs.HostDown(fetcher.Destination(), err, service.parts.Clock.Now()); isDown {
-		return Unsanitised{}, jobs.Park(parking, fmt.Errorf("fetch %s: %w", ref, err))
-	}
 	if err != nil {
 		return Unsanitised{}, fmt.Errorf("fetch %s: %w", ref, err)
 	}

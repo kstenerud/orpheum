@@ -39,7 +39,9 @@
 //     from 30 s doubling to an hour, or at the time it named; a failed probe costs nothing, and a
 //     probe that succeeds unparks it and its work resumes in priority order.
 //     TestRunDue_OneProbeOnABackoffFrom30sToAnHourAFailedOneCostingNothingThenAllResumeByPriority,
-//     TestRunDue_AProbeGoesAtTheTimeTheDestinationNamed.
+//     TestRunDue_AProbeGoesAtTheTimeTheDestinationNamed. A failure that is not the probe's
+//     changes nothing of how a parked destination comes back, but for a later time it names.
+//     TestPark_AFailureThatIsNotTheProbeChangesNothingOfHowAParkedDestinationComesBack.
 //   - A person's request for a job whose destination is parked probes it at once; a destination
 //     only a signal brings back is never probed, and resumes when unparked.
 //     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce,

@@ -3,6 +3,8 @@
 package clocktest
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -36,6 +38,16 @@ func (fake *Fake) Advance(step time.Duration) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.now = fake.now.Add(step)
+}
+
+// Sleep moves the Fake's time forward by wait, as though the wait had passed, and returns at once:
+// a test never waits in real time. A context already ended is its error, and the time stays.
+func (fake *Fake) Sleep(ctx context.Context, wait time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("sleep: %w", err)
+	}
+	fake.Advance(wait)
+	return nil
 }
 
 // Set makes the Fake read moment from now on.

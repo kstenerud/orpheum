@@ -3,6 +3,8 @@
 package clocktest_test
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -35,5 +37,21 @@ func TestFake_MovesOnlyWhenTold(t *testing.T) {
 	fake.Set(moment)
 	if !fake.Now().Equal(moment) {
 		t.Errorf("after Set, Now() = %v, want %v", fake.Now(), moment)
+	}
+}
+
+func TestFake_ASleepPassesItsTimeAtOnceUnlessItsContextEnded(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, time.September, 30, 12, 0, 0, 0, time.UTC)
+	fake := clocktest.NewFake(start)
+	if err := fake.Sleep(t.Context(), 200*time.Millisecond); err != nil ||
+		!fake.Now().Equal(start.Add(200*time.Millisecond)) {
+		t.Errorf("after a sleep: %v, now %v; want the wait passed", err, fake.Now())
+	}
+	ended, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := fake.Sleep(ended, time.Hour); !errors.Is(err, context.Canceled) ||
+		!fake.Now().Equal(start.Add(200*time.Millisecond)) {
+		t.Errorf("a sleep whose context ended: %v, now %v; want its error and the time kept", err, fake.Now())
 	}
 }

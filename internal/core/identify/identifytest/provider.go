@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 )
 
 // Provider is TMDB behind identify.Provider (standards/testing.md, Network). A test fills its
@@ -27,6 +28,9 @@ type Provider struct {
 	// Calls are the calls made, in order: "search <SearchKey>", "find <source> <id>",
 	// "fetch <id>" and "season <series id>/<season>".
 	Calls []string
+	// Importances are how much each call said it mattered, in the order of Calls
+	// (providers.ImportanceOf).
+	Importances []providers.Importance
 
 	mutex   sync.Mutex
 	failure error // guarded by mutex
@@ -61,15 +65,21 @@ func (fake *Provider) SetFailure(failure error) {
 	fake.failure = failure
 }
 
+// note keeps a call and how much it mattered. The caller holds the mutex.
+func (fake *Provider) note(ctx context.Context, call string) {
+	fake.Calls = append(fake.Calls, call)
+	fake.Importances = append(fake.Importances, providers.ImportanceOf(ctx))
+}
+
 // Name is "tmdb".
 func (*Provider) Name() string { return "tmdb" }
 
 // Search returns Searches' results for the query's name and year.
-func (fake *Provider) Search(_ context.Context, query identify.Query) ([]identify.Candidate, error) {
+func (fake *Provider) Search(ctx context.Context, query identify.Query) ([]identify.Candidate, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	key := SearchKey(query.Name, query.Year)
-	fake.Calls = append(fake.Calls, "search "+key)
+	fake.note(ctx, "search "+key)
 	if fake.failure != nil {
 		return nil, fake.failure
 	}
@@ -77,10 +87,10 @@ func (fake *Provider) Search(_ context.Context, query identify.Query) ([]identif
 }
 
 // Find looks id up in TMDBIDsByOtherID, whatever its source.
-func (fake *Provider) Find(_ context.Context, _, source, id string) (string, error) {
+func (fake *Provider) Find(ctx context.Context, _, source, id string) (string, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	fake.Calls = append(fake.Calls, "find "+source+" "+id)
+	fake.note(ctx, "find "+source+" "+id)
 	if fake.failure != nil {
 		return "", fake.failure
 	}
@@ -91,10 +101,10 @@ func (fake *Provider) Find(_ context.Context, _, source, id string) (string, err
 }
 
 // Fetch returns the film with id as JSON.
-func (fake *Provider) Fetch(_ context.Context, _, id string) ([]byte, error) {
+func (fake *Provider) Fetch(ctx context.Context, _, id string) ([]byte, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	fake.Calls = append(fake.Calls, "fetch "+id)
+	fake.note(ctx, "fetch "+id)
 	if fake.failure != nil {
 		return nil, fake.failure
 	}
@@ -113,11 +123,11 @@ func (*Provider) Parse(_ string, body []byte) (identify.Metadata, error) {
 }
 
 // FetchSeason returns the season's listing from Seasons as JSON.
-func (fake *Provider) FetchSeason(_ context.Context, seriesID string, season int) ([]byte, error) {
+func (fake *Provider) FetchSeason(ctx context.Context, seriesID string, season int) ([]byte, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	key := fmt.Sprintf("%s/%d", seriesID, season)
-	fake.Calls = append(fake.Calls, "season "+key)
+	fake.note(ctx, "season "+key)
 	if fake.failure != nil {
 		return nil, fake.failure
 	}

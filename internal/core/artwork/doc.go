@@ -51,11 +51,11 @@
 //     from its cached 404, and a second miss gives it up (D213 §1). The refresh is asked of the
 //     Rechecker the wiring hands in, identify's refresher.
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
-//   - An image server that cannot be reached or answers 502, 503 or 504 parks the job on it, and a
-//     rate limit parks it until the time the server named, neither costing an attempt; the queue
-//     probes the host (D231 §5, §6, which replace D213 §5's breaker). A plain 500 is the image's
-//     own failure, retried on RetrySchedule.
-//     TestService_AnImageServerThatIsDownOrAsksUsToWaitParksTheJobOnItAtNoCost. With no node
+//   - An image server its provider service finds down or asking us to wait parks the job on it,
+//     at no cost of an attempt, and holds nothing of the image; the queue probes the host
+//     (D231 §5, §6, which replace D213 §5's breaker). A plain 500 is the image's own failure,
+//     retried on RetrySchedule.
+//     TestService_AnImageServerItsProviderParksPassesTheParkingOnAndRecordsNothing. With no node
 //     connected, a download waits for any node's hello. TestService_WaitsForANode.
 //   - The node is never on the request path: a size not made is answered with the nearest one
 //     there, and only a size made on request, whose source may be large enough, is queued; one

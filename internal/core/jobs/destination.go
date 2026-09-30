@@ -4,14 +4,12 @@ package jobs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // Destination is what a job needs that can be down (D231 §5): an outside host, a node, a root or
@@ -135,23 +133,6 @@ func ParkOnNode(nodeID int64, lastHeard time.Time, err error) error {
 	return Park(Parking{
 		Destination: NodeDestination(nodeID), Reason: "not connected", Since: lastHeard, AwaitsSignal: true,
 	}, fmt.Errorf("node %d is not connected: %w", nodeID, err))
-}
-
-// HostDown is how an outside host is down, when a call's failure says so rather than anything of
-// what was asked (D231 §5): unreachable or failing (a connection, DNS, a timeout, 502, 503, 504),
-// or asking us to wait until a time its 429 named. Any other failure is not the host's.
-func HostDown(destination Destination, err error, now time.Time) (Parking, bool) {
-	parking := Parking{Destination: destination}
-	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
-	switch {
-	case isLimited:
-		parking.Reason, parking.ProbeAt = "asked us to wait", now.Add(limited.RetryAfter)
-	case errors.Is(err, outbound.ErrUnavailable):
-		parking.Reason = "unreachable"
-	default:
-		return Parking{}, false
-	}
-	return parking, true
 }
 
 // ParkOnMissingRoot answers that a job reads a file under a root, or a disk mounted inside one,

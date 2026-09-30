@@ -55,35 +55,24 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 	}
 }
 
-func TestService_AnImageServerThatIsDownOrAsksUsToWaitParksTheJobOnItAtNoCost(t *testing.T) {
+func TestService_AnImageServerItsProviderParksPassesTheParkingOnAndRecordsNothing(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
-	now := bench.service.parts.Clock.Now()
 	job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/p.jpg"})
-	for _, check := range []struct {
-		failure error
-		want    jobs.Parking
-	}{
-		{
-			fmt.Errorf("%w: status 503", outbound.ErrUnavailable),
-			jobs.Parking{Destination: jobs.DestinationTMDBImages, Reason: "unreachable"},
-		},
-		{
-			&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute},
-			jobs.Parking{
-				Destination: jobs.DestinationTMDBImages, Reason: "asked us to wait", ProbeAt: now.Add(time.Minute),
-			},
-		},
-	} {
-		bench.service.parts.Fetchers["tmdb"] = &failingFetcher{err: check.failure}
-		err := bench.service.Handle(t.Context(), job)
-		if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking != check.want {
-			t.Errorf("%v: parks %+v (%v), want %+v", check.failure, parking, isParked, check.want)
-		}
+	parking := jobs.Parking{Destination: jobs.DestinationTMDBImages, Reason: "unreachable"}
+	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{
+		err: jobs.Park(parking, fmt.Errorf("%w: status 503", outbound.ErrUnavailable)),
+	}
+	err := bench.service.Handle(t.Context(), job)
+	if parked, isParked := jobqueue.ParkingOf(err); !isParked || parked != parking {
+		t.Errorf("an image server its provider parked: %v; want the parking passed to the queue", err)
+	}
+	if rows := bench.rows(t); len(rows) != 0 {
+		t.Errorf("rows %+v; a host down says nothing of the image, which must not be held as refused", rows)
 	}
 	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{err: errors.New("status 500")}
-	err := bench.service.Handle(t.Context(), job)
-	if _, isParked := jobqueue.ParkingOf(err); err == nil || isParked {
+	err = bench.service.Handle(t.Context(), job)
+	if _, isParked := jobqueue.ParkingOf(err); err == nil || isParked || len(bench.rows(t)) != 0 {
 		t.Errorf("a plain 500: %v; want the job's own failure, which costs an attempt (D231 §5)", err)
 	}
 }

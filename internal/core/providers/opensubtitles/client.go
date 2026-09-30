@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
@@ -56,14 +58,31 @@ var (
 	ErrLoginRefused = errors.New("OpenSubtitles refused the login")
 )
 
-// QuotaSpentError is an account whose downloads for the day are spent.
-type QuotaSpentError struct {
-	// DownloadsResetAt is when OpenSubtitles says the count starts again; zero when it did not say.
-	DownloadsResetAt time.Time
-}
+// RatePerSecond is the request rate we keep to with OpenSubtitles: "5 requests per 1 second per IP
+// address", its best practices say (opensubtitles-api.md).
+const RatePerSecond = 5
 
-func (spent *QuotaSpentError) Error() string {
-	return "the OpenSubtitles account's downloads are spent until " + spent.DownloadsResetAt.Format(time.RFC3339)
+// ReservedForPeople is how many of the day's downloads background work never spends, so a person
+// can always fetch a subtitle (the owner, 2026-09-30; D231 §5).
+const ReservedForPeople = 5
+
+// Service is OpenSubtitles as a provider service: its destination, its rate, its day of downloads
+// with the last few kept for people, and its login's state.
+func Service(health providers.Health, clockSource clock.Clock) *providers.Service {
+	return providers.New(providers.Config{
+		Name: providerName, Destination: jobs.DestinationOpenSubtitles,
+		Limits:          providers.Limits{RatePerSecond: RatePerSecond, ReservedForPeople: ReservedForPeople},
+		CredentialsName: "login",
+		CredentialsFailure: func(err error) providers.CredentialsState {
+			switch {
+			case errors.Is(err, ErrNoLogin):
+				return providers.CredentialsMissing
+			case errors.Is(err, ErrLoginRefused):
+				return providers.CredentialsRefused
+			}
+			return ""
+		},
+	}, health, clockSource)
 }
 
 // LoginSecrets opens the login; secrets.Store is one.
@@ -78,6 +97,8 @@ type Client struct {
 	base         *url.URL
 	loginSecrets LoginSecrets
 	clock        clock.Clock
+	// provider is OpenSubtitles' provider service (Service), asked before every request.
+	provider *providers.Service
 
 	mutex sync.Mutex
 	// session is the current login, empty before the first (guarded by mutex).
@@ -102,14 +123,17 @@ type session struct {
 }
 
 // New returns a client calling base (BaseURL, or a test's fake) through httpClient, which comes
-// from internal/platform/outbound.
-func New(httpClient *http.Client, base string, loginSecrets LoginSecrets, clockSource clock.Clock) (*Client, error) {
+// from internal/platform/outbound, asking provider (Service) before every request.
+func New(
+	httpClient *http.Client, base string, loginSecrets LoginSecrets, clockSource clock.Clock,
+	provider *providers.Service,
+) (*Client, error) {
 	parsed, err := url.Parse(strings.TrimSuffix(base, "/"))
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: the base URL: %w", err)
 	}
 	return &Client{
-		http: httpClient, base: parsed, loginSecrets: loginSecrets, clock: clockSource,
+		http: httpClient, base: parsed, loginSecrets: loginSecrets, clock: clockSource, provider: provider,
 		linkByProviderFileID: map[int64]heldLink{}, linkRetryDelays: []time.Duration{time.Second, 2 * time.Second},
 	}, nil
 }
@@ -134,7 +158,8 @@ func (client *Client) currentSession(ctx context.Context) (session, error) {
 		return session{}, fmt.Errorf("opensubtitles: encode the login: %w", err)
 	}
 	var answer loginAnswer
-	err = client.call(ctx, http.MethodPost, client.base.String()+"/login", "", body, &answer)
+	login := apiRequest{cost: providers.CostRequest, method: http.MethodPost, body: body}
+	err = client.call(ctx, login, client.base.String()+"/login", "", &answer)
 	if errors.Is(err, errUnauthorized) {
 		client.refusedLoginFingerprint = fingerprint
 		return session{}, ErrLoginRefused
@@ -206,24 +231,36 @@ func (client *Client) forget(stale session) {
 	}
 }
 
+// apiRequest is one request to OpenSubtitles' API, as a caller asks it: what it costs of the
+// account (CostCounted for a download), its method, its path under the session's base, its query
+// and its JSON body.
+type apiRequest struct {
+	cost   providers.Cost
+	method string
+	path   string
+	query  url.Values
+	body   []byte
+}
+
 // callAuthorised makes one request with the current login, and logs in again once if OpenSubtitles
-// no longer accepts it.
-func (client *Client) callAuthorised(
-	ctx context.Context, method, path string, query url.Values, body []byte, into any,
-) error {
+// no longer accepts it; a token answered invalid again is OpenSubtitles failing.
+func (client *Client) callAuthorised(ctx context.Context, request apiRequest, into any) error {
 	for attempt := 0; ; attempt++ {
 		current, err := client.currentSession(ctx)
 		if err != nil {
 			return err
 		}
-		address := current.baseURL + path
-		if len(query) > 0 {
+		address := current.baseURL + request.path
+		if len(request.query) > 0 {
 			// Sorted and lower-case, as OpenSubtitles asks, so no redirect is needed (best-practices).
-			address += "?" + query.Encode()
+			address += "?" + request.query.Encode()
 		}
-		err = client.call(ctx, method, address, current.token, body, into)
+		err = client.call(ctx, request, address, current.token, into)
 		isStale := errors.Is(err, errUnauthorized) || errors.Is(err, errTokenInvalid)
-		if !isStale || attempt > 0 {
+		switch {
+		case isStale && attempt > 0 && errors.Is(err, errTokenInvalid):
+			return fmt.Errorf("%w: %w", outbound.ErrUnavailable, err)
+		case !isStale || attempt > 0:
 			return err
 		}
 		client.forget(current)
@@ -235,11 +272,21 @@ var errUnauthorized = errors.New("opensubtitles: unauthorized")
 
 // errTokenInvalid is a 500 whose answer says "invalid" to a request with a token: how
 // OpenSubtitles answers a token that expired or that it dropped, which a new login cures
-// (opensubtitles-api.md §3). Once a new login has not cured it, OpenSubtitles is failing.
-var errTokenInvalid = fmt.Errorf("opensubtitles: the token was answered invalid: %w", outbound.ErrUnavailable)
+// (opensubtitles-api.md §3). Once a new login has not cured it, OpenSubtitles is failing
+// (callAuthorised); the first says nothing of the host.
+var errTokenInvalid = errors.New("opensubtitles: the token was answered invalid")
 
-// call makes one request and decodes a 200's JSON answer into into.
-func (client *Client) call(ctx context.Context, method, address, token string, body []byte, into any) error {
+// call makes one request to address, with token when there is one, once OpenSubtitles' provider
+// says it may go, and decodes a 200's JSON answer into into.
+func (client *Client) call(ctx context.Context, request apiRequest, address, token string, into any) error {
+	//nolint:wrapcheck // the request's own error, or the provider's refusal, each naming OpenSubtitles
+	return client.provider.Call(ctx, request.cost, func(ctx context.Context) error {
+		return client.exchange(ctx, request.method, address, token, request.body, into)
+	})
+}
+
+// exchange makes one request and decodes a 200's JSON answer into into.
+func (client *Client) exchange(ctx context.Context, method, address, token string, body []byte, into any) error {
 	var reader io.Reader = http.NoBody
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -282,7 +329,7 @@ func statusError(answer outbound.Answer) error {
 	case http.StatusNotAcceptable:
 		var spent downloadAnswer
 		_ = json.Unmarshal(answer.Body, &spent) //nolint:errcheck // a quota without a time is still spent
-		return &QuotaSpentError{DownloadsResetAt: spent.resetAt()}
+		return &providers.QuotaSpentError{ResetAt: spent.resetAt()}
 	}
 	if err := outbound.StatusError(providerName, answer); err != nil {
 		return fmt.Errorf("opensubtitles: %w", err)

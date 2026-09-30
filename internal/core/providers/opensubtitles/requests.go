@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -71,7 +72,9 @@ func (client *Client) Search(ctx context.Context, query Query) ([]Candidate, err
 	set("moviehash", query.MovieHash)
 	set("languages", query.Language)
 	var answer searchAnswer
-	if err := client.callAuthorised(ctx, http.MethodGet, "/subtitles", parameters, nil, &answer); err != nil {
+	search := apiRequest{cost: providers.CostRequest, method: http.MethodGet, path: "/subtitles", query: parameters}
+	err := client.callAuthorised(ctx, search, &answer)
+	if err != nil {
 		return nil, err
 	}
 	candidates := make([]Candidate, 0, len(answer.Data))
@@ -148,10 +151,12 @@ func (client *Client) Download(ctx context.Context, providerFileID int64) (Downl
 			return Downloaded{}, fmt.Errorf("opensubtitles: encode the download: %w", err)
 		}
 		var answer downloadAnswer
-		downloadErr := client.callAuthorised(ctx, http.MethodPost, "/download", nil, body, &answer)
+		download := apiRequest{cost: providers.CostCounted, method: http.MethodPost, path: "/download", body: body}
+		downloadErr := client.callAuthorised(ctx, download, &answer)
 		if downloadErr != nil {
 			return Downloaded{}, downloadErr
 		}
+		client.provider.RecordQuota(answer.Remaining, answer.resetAt())
 		held = heldLink{answer: answer, usedUntil: client.clock.Now().Add(linkLife)}
 		client.holdLink(providerFileID, held)
 	}
@@ -239,9 +244,20 @@ func (answer downloadAnswer) resetAt() time.Time {
 	return at
 }
 
-// fetch reads the file a download's link names: an https address of OpenSubtitles' own, checked
-// before it is asked (go.md §21).
+// fetch reads the file a download's link names, once OpenSubtitles' provider says it may go: an
+// https address of OpenSubtitles' own, checked before it is asked (go.md §21).
 func (client *Client) fetch(ctx context.Context, link string) ([]byte, error) {
+	var text []byte
+	err := client.provider.Call(ctx, providers.CostRequest, func(ctx context.Context) error {
+		var fetchErr error
+		text, fetchErr = client.fetchLink(ctx, link)
+		return fetchErr
+	})
+	return text, err //nolint:wrapcheck // the fetch's own error, or the provider's refusal, each naming OpenSubtitles
+}
+
+// fetchLink reads the file a download's link names.
+func (client *Client) fetchLink(ctx context.Context, link string) ([]byte, error) {
 	parsed, err := url.Parse(link)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != client.base.Scheme) || parsed.Host == "" {
 		return nil, fmt.Errorf("opensubtitles: a download link that is not a web address: %q", link)
@@ -274,9 +290,11 @@ type Allowance struct {
 // (D224 §4).
 func (client *Client) Allowance(ctx context.Context) (Allowance, error) {
 	var answer allowanceAnswer
-	if err := client.callAuthorised(ctx, http.MethodGet, "/infos/user", nil, nil, &answer); err != nil {
+	allowance := apiRequest{cost: providers.CostRequest, method: http.MethodGet, path: "/infos/user"}
+	if err := client.callAuthorised(ctx, allowance, &answer); err != nil {
 		return Allowance{}, err
 	}
+	client.provider.RecordQuota(answer.Data.RemainingDownloads, time.Time{})
 	return Allowance{
 		RemainingDownloads: answer.Data.RemainingDownloads, AllowedDownloads: answer.Data.AllowedDownloads,
 		IsVIP: answer.Data.VIP,

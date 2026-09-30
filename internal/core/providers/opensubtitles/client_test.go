@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/core/providers/providerstest"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
@@ -178,7 +180,8 @@ func newProvider(t *testing.T, keys LoginSecrets) (*fakeProvider, *Client, *cloc
 		t.Fatal(err)
 	}
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC))
-	client, err := New(httpClient, fake.server.URL+"/api/v1", keys, fakeClock)
+	client, err := New(httpClient, fake.server.URL+"/api/v1", keys, fakeClock,
+		Service(providerstest.NewHealth(t, fakeClock), fakeClock))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,16 +283,17 @@ func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *t
 		t.Fatal(err)
 	}
 	_, err = client.Download(t.Context(), 9)
-	spent, isSpent := errors.AsType[*QuotaSpentError](err)
-	if !isSpent || !spent.DownloadsResetAt.Equal(reset) {
+	spent, isSpent := errors.AsType[*providers.QuotaSpentError](err)
+	if !isSpent || !spent.ResetAt.Equal(reset) {
 		t.Errorf("a download past the quota: %v, want the quota spent until %s", err, reset)
 	}
 }
 
 func TestSearch_ARateLimitIsTheOneEveryProviderReturns(t *testing.T) {
 	t.Parallel()
-	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	fake, client, fakeClock := newProvider(t, fakeKeys{"owner", "right"})
 	for limitedFor, want := range map[string]time.Duration{"5": 5 * time.Second, "none": time.Second} {
+		fakeClock.Advance(time.Minute) // past the last wait, which the provider keeps for every caller
 		fake.mutex.Lock()
 		fake.limitedFor = limitedFor
 		fake.mutex.Unlock()
@@ -304,7 +308,7 @@ func TestSearch_ARateLimitIsTheOneEveryProviderReturns(t *testing.T) {
 
 func TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFails(t *testing.T) {
 	t.Parallel()
-	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	fake, client, fakeClock := newProvider(t, fakeKeys{"owner", "right"})
 	fake.mutex.Lock()
 	fake.searchStatus = http.StatusServiceUnavailable
 	fake.mutex.Unlock()
@@ -327,6 +331,7 @@ func TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFail
 		t.Errorf("a download link answered 429: %v, want OpenSubtitles' RateLimitedError after 3s", err)
 	}
 	fake.server.Close()
+	fakeClock.Advance(time.Minute) // past the 429's wait, which the provider keeps for every caller
 	if _, err := client.Allowance(t.Context()); !errors.Is(err, outbound.ErrUnavailable) ||
 		strings.Contains(err.Error(), "infos/user") {
 		t.Errorf("OpenSubtitles gone: %v, want it unavailable, without the URL", err)
@@ -490,5 +495,29 @@ func TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload(t
 	fake.mutex.Unlock()
 	if _, err := client.Download(t.Context(), 8); err != nil || spent() != 4 {
 		t.Errorf("after a link answered 404: %v, %d spent; want it forgotten and a new download", err, spent())
+	}
+}
+
+func TestDownload_BackgroundNeverSpendsTheDownloadsKeptForPeopleAndAsksNothing(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	fake.remaining = ReservedForPeople + 1
+	if _, err := client.Download(t.Context(), 7); err != nil {
+		t.Fatal(err)
+	}
+	background := providers.WithImportance(t.Context(), providers.Background)
+	_, err := client.Download(background, 8)
+	if spent, isSpent := errors.AsType[*providers.QuotaSpentError](err); !isSpent || spent == nil {
+		t.Errorf("background with %d downloads left: %v; want them kept for people (D231 §5)", ReservedForPeople, err)
+	}
+	fake.mutex.Lock()
+	remaining := fake.remaining
+	fake.mutex.Unlock()
+	if remaining != ReservedForPeople {
+		t.Errorf("OpenSubtitles has %d left, want %d: background asked for a download it must not spend",
+			remaining, ReservedForPeople)
+	}
+	if _, err := client.Download(t.Context(), 8); err != nil {
+		t.Errorf("a person's download with the last %d left: %v, want it made", ReservedForPeople, err)
 	}
 }

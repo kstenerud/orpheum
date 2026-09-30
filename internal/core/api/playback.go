@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -308,7 +309,7 @@ func (server *Server) relayHLSFile(
 // always leaves with one code and one message. A subtitle provider's refusal says why in
 // detail.reason, in OpenSubtitles' terms, with the provider as the failing leg (D224).
 func (server *Server) playbackError(ctx context.Context, action string, err error) error {
-	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
+	spent, isSpent := errors.AsType[*providers.QuotaSpentError](err)
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
 	case errors.Is(err, decide.ErrBadPlayableFormats), errors.Is(err, playback.ErrBadReport):
@@ -340,7 +341,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	case isSpent:
 		failure := newDetailedError(http.StatusTooManyRequests,
 			"the OpenSubtitles account's downloads for today are spent",
-			QuotaExhaustedDetailBody{DownloadsResetAt: spent.DownloadsResetAt.UnixMilli()})
+			QuotaExhaustedDetailBody{DownloadsResetAt: spent.ResetAt.UnixMilli()})
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	case isLimited:

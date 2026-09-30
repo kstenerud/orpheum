@@ -4,11 +4,13 @@ package secrets
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -292,4 +294,24 @@ func findStatus(t *testing.T, statuses []Status, name Name) Status {
 	}
 	t.Fatalf("no status for %s in %+v", name, statuses)
 	return Status{}
+}
+
+func TestStore_TellsWhoListensWhenASecretIsSetOrCleared(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	var changed []Name
+	fixture.secrets.OnChange(func(_ context.Context, name Name) { changed = append(changed, name) })
+	if err := fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(canary), &fixture.userID); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.secrets.Clear(ctx, OpenSubtitlesPassword); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.secrets.Set(ctx, TMDBAPIKey, Value{}, &fixture.userID); err == nil {
+		t.Fatal("an empty secret was set")
+	}
+	if want := []Name{TMDBAPIKey, OpenSubtitlesPassword}; !slices.Equal(changed, want) {
+		t.Errorf("told of %v, want %v: each set and clear that was written, and nothing refused", changed, want)
+	}
 }

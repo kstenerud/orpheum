@@ -24,12 +24,13 @@ func newArtwork(
 	imageBaseURL string, logger *slog.Logger,
 ) (*artwork.Service, error) {
 	httpClient := opened.jobServices.outboundClient
+	images := tmdb.NewImageFetcher(httpClient, imageBaseURL, opened.jobServices.providerServices.tmdbImages)
 	service := artwork.NewService(artwork.Parts{
 		Database: opened.database, Queue: opened.jobServices.queue, Rechecker: opened.jobServices.refresher,
 		Nodes: opened.nodes, ArtFiles: directories,
 		Cache:    opened.cache,
 		Settings: opened.settings,
-		Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImageFetcher(httpClient, imageBaseURL)},
+		Fetchers: map[string]artwork.Fetcher{"tmdb": images},
 		Clock:    clock.System{}, Logger: logger,
 	})
 	if err := service.LoadHoldings(ctx); err != nil {
