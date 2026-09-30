@@ -163,9 +163,7 @@ func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
 		} else {
 			filer.report.ListedCount++
 		}
-		err := filer.queries.SetFileFiling(ctx, sqlcgen.SetFileFilingParams{
-			Filing: filing, FilingReason: ptr.NilIfZero(reason), ID: file.ID,
-		})
+		err := library.FileAs(ctx, filer.queries, file.ID, filing, reason)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
 		}

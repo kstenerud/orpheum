@@ -750,35 +750,6 @@ func (q *Queries) MoveVersionToTitle(ctx context.Context, arg MoveVersionToTitle
 	return err
 }
 
-const setFileFiling = `-- name: SetFileFiling :exec
-UPDATE file SET filing = ?1, filing_reason = ?2 WHERE id = ?3
-`
-
-type SetFileFilingParams struct {
-	Filing       string
-	FilingReason *string
-	ID           int64
-}
-
-func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) error {
-	_, err := q.db.ExecContext(ctx, setFileFiling, arg.Filing, arg.FilingReason, arg.ID)
-	return err
-}
-
-const setFileVersionAndIdentifiedPath = `-- name: SetFileVersionAndIdentifiedPath :exec
-UPDATE file SET version_id = ?1, identified_from_path = path WHERE id = ?2
-`
-
-type SetFileVersionAndIdentifiedPathParams struct {
-	VersionID *int64
-	ID        int64
-}
-
-func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
-	_, err := q.db.ExecContext(ctx, setFileVersionAndIdentifiedPath, arg.VersionID, arg.ID)
-	return err
-}
-
 const setSearchAlternates = `-- name: SetSearchAlternates :exec
 UPDATE item_text SET search_alternates = ?1
 WHERE item_id = ?2 AND is_original = 1

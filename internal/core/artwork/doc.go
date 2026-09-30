@@ -2,9 +2,10 @@
 
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under
-// content-addressed names in the cache directory, with the item's artwork rows in library.db. It
-// serves them: a stored size as it is, JPEG cut from the WebP of its size, and a size not made
-// by redirecting to the nearest one there. It is the one core package that decodes an image
+// content-addressed names in the cache directory, recording each in the item's artwork rows in
+// library.db through identify.RecordImage, since identify writes that table. It serves them: a
+// stored size as it is, JPEG cut from the WebP of its size, and a size not made by redirecting to
+// the nearest one there. It is the one core package that decodes an image
 // (D212 §5; the depguard rule core-no-image).
 //
 // # Invariants

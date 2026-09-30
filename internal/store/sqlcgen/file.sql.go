@@ -753,6 +753,37 @@ func (q *Queries) SetFileAttachedTo(ctx context.Context, arg SetFileAttachedToPa
 	return err
 }
 
+const setFileFiling = `-- name: SetFileFiling :exec
+UPDATE file SET filing = ?1, filing_reason = ?2 WHERE id = ?3
+`
+
+type SetFileFilingParams struct {
+	Filing       string
+	FilingReason *string
+	ID           int64
+}
+
+// How identification filed a file, and why (D163).
+func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) error {
+	_, err := q.db.ExecContext(ctx, setFileFiling, arg.Filing, arg.FilingReason, arg.ID)
+	return err
+}
+
+const setFileVersionAndIdentifiedPath = `-- name: SetFileVersionAndIdentifiedPath :exec
+UPDATE file SET version_id = ?1, identified_from_path = path WHERE id = ?2
+`
+
+type SetFileVersionAndIdentifiedPathParams struct {
+	VersionID *int64
+	ID        int64
+}
+
+// The version identification put a file in, and the path it was identified from (D208 section 1).
+func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
+	_, err := q.db.ExecContext(ctx, setFileVersionAndIdentifiedPath, arg.VersionID, arg.ID)
+	return err
+}
+
 const tombstoneFile = `-- name: TombstoneFile :exec
 UPDATE file SET removed_at = ?1 WHERE id = ?2
 `
