@@ -112,8 +112,11 @@ counted:
 - **Why the plan missed it:** the plan was written before the packages, keys and paths existed,
   and each milestone added what its features needed without the frozen text following; only the
   names had a decision (D227) that reached back into it.
-- **Cost:** none in code; the owner decides at the M3 audit whether cut-a is amended, left as the
-  record of intent, or these become decisions.
+- **Cost:** none in code. At M3's closing audit the owner chose (2026-09-30: "agreed",
+  [audit-2026-09-29.md](design/research/audit-2026-09-29.md) §9 D): cut-a stays the record of
+  intent, as its header now says, and this entry is where the code differs from it. A later
+  difference of the same kind is added here, not to cut-a. Only cut-a §6's eviction clause was
+  amended, to D217 §5's wording.
 - **Process lesson:** a frozen plan's enumerations (layouts, key lists, endpoint lists, counts)
   go stale fastest; either generate them from the code or mark them as illustrative when freezing,
   so that only intent is frozen.
