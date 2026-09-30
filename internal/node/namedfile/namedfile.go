@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 var (
@@ -103,7 +104,7 @@ func open(
 	}
 	defer func() {
 		if err != nil {
-			_ = file.Close() //nolint:errcheck // read-only, and already failed
+			readonly.Close(file)
 		}
 	}()
 	info, err := file.Stat()

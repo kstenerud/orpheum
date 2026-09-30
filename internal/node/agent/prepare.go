@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // Preparer makes a rendition; prepare.Preparer is the real one.
@@ -171,7 +172,7 @@ func (agent *Agent) verifiedSourcePath(source nodeproto.BytesFile) (string, erro
 	if err != nil {
 		return "", err
 	}
-	_ = file.Close() //nolint:errcheck // read-only
+	readonly.Close(file)
 	return agent.roots[source.RootPath].Path() + "/" + string(source.Path), nil
 }
 

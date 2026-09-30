@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // Subtitler makes a subtitle's ASS and WebVTT; subtitle.Extractor is the real one.
@@ -138,7 +139,7 @@ func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesF
 		return subtitle.Text{}, notTriedError{err}
 	}
 	source, err := bounded.ReadAll(file, subtitle.MaxTextBytes)
-	_ = file.Close() //nolint:errcheck // read-only
+	readonly.Close(file)
 	if err != nil {
 		return subtitle.Text{}, fmt.Errorf("read the sidecar: %w", err)
 	}

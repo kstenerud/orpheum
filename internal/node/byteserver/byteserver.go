@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // Server answers the node's byte socket.
@@ -86,7 +87,7 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, "no such file under the root", http.StatusNotFound)
 		return
 	}
-	defer func() { _ = file.Close() }()             //nolint:errcheck // read-only
+	defer readonly.Close(file)
 	payloadHash := strings.ToLower(wantPayloadHash) // as hex writes it
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	writer.Header().Set("ETag", `"`+payloadHash+`"`)
@@ -112,7 +113,7 @@ func (server *Server) serveRenditionFile(writer http.ResponseWriter, request *ht
 		http.Error(writer, "no such rendition file", http.StatusNotFound)
 		return
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
+	defer readonly.Close(file)
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
 		http.Error(writer, "no such rendition file", http.StatusNotFound)
