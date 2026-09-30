@@ -16806,7 +16806,11 @@ and a download a capability on the role.
 9. **Every secret is the server's** (the owner, 2026-09-28: *"Follow your recommendations"*).
    With the OpenSubtitles login the server's, no secret belonged to one user, so a user's secret,
    `/me/secrets` and its tests are gone rather than kept for a use nothing plans; a feature that
-   needs one brings it back. Amends D194 §1.
+   needs one brings it back. Amends D194 §1. *(2026-09-30: the `secret` table keeps its `scope`
+   and `user_id` columns until migrations are live ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §6). Each value is sealed
+   with its scope, user and name as associated data, so dropping them would change what every
+   stored value was sealed with, and each secret would have to be entered again. The owner:
+   "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 
 **Status:** Decided; built in M3. The core lists §3's hash-matching candidate first, whatever
 order OpenSubtitles returns.
@@ -16830,7 +16834,11 @@ never fun."*
    answering the owner's four questions for each node:
    - **What it sees:** each GPU device, with the driver behind it.
    - **Whether it can reach it:** whether the node's user may open each device, and whether
-     confinement grants it ([D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force)).
+     confinement grants it ([D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force)),
+     which the next line's encoder trial answers: the trial runs confined, so a device
+     confinement withholds shows as that trial's failure, in FFmpeg's words. *(Amended
+     2026-09-30: this read as a fact reported for each device on its own; the confined trial is
+     the answer, and nothing more is built. The owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
    - **What works:** each hardware encoder's trial at startup, with FFmpeg's own words when it
      failed, and the encoder chosen.
    - **What it did:** each prepare records the encoder it ran with and its speed against real
@@ -16856,8 +16864,7 @@ never fun."*
      reads, with the kernel; the node runs no program but FFmpeg's (cut-a §7).
 
 **Status:** Decided; built in M3 except §4, which is later by its own words. Of §3, whether
-confinement grants each GPU is not reported as a fact of its own: it shows only as a failed
-encoder trial, since the trial runs confined.
+confinement grants each GPU is answered by the confined encoder trial, as §3 now says.
 
 ## D226 — Loudness is levelled in Cut A: the node measures each sound and its stereo mix, the core sets a gain towards -23 LUFS that no peak exceeds, and the player applies it after its volume
 
@@ -16893,7 +16900,9 @@ measurement" from Out and [D178](#d178--the-first-release-is-for-two-people-the-
 4. **The player applies it, after the volume control** (the owner asked whether the slider would
    then run past 100): the element's volume is still 0 to 100, and 100 now means the film at the
    level. The web player and the cast receiver route the sound through Web Audio's gain; a
-   receiver's channels are kept. A prepared copy is made with its gain in its sound when the
+   receiver's channels are kept. *(2026-09-30: the web player's is built in M3; the cast
+   receiver's moves to M5, built with the receiver (cut-a §8's M5 row). The owner: "agreed"
+   ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)* A prepared copy is made with its gain in its sound when the
    measurement exists as it is made, and the copy records the gain it carries; the player
    applies only the difference. Safari's own HLS, on an iPhone, cannot route through Web Audio,
    so there the sound is levelled only through a copy made after the measurement; a copy made
@@ -16904,7 +16913,8 @@ measurement" from Out and [D178](#d178--the-first-release-is-for-two-people-the-
 6. **The player says what it did:** the gain applied to this film, or that its loudness is not
    measured yet, beside the switch. A film not yet measured plays as it is.
 
-**Status:** Decided; built in M3 except §4's cast receiver, which is built with the receiver in M5.
+**Status:** Decided; built in M3 except §4's cast receiver, which moved to M5 with the receiver
+(§4's note).
 
 ## D227 — Every name in a contract that a reader must look up is renamed now, minor ones too; a job names its target by kind, and a sidecar's kind has its own column
 
