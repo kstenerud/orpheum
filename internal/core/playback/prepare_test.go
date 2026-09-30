@@ -70,6 +70,7 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	all := &prepares{
 		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), maxSilence: silence,
+		maxSlotWait: maxSlotWait,
 		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](slog.New(slog.DiscardHandler),
 			"a prepare report"),
 	}

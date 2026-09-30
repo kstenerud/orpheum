@@ -30,6 +30,7 @@ LIMIT 1;
 -- name: NextQueuedJob :one
 -- The highest-priority queued job of a kind whose time has come; the oldest first among equals.
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, attempt_count,
+  last_failure,
   reason
 FROM job
 WHERE state = 'queued' AND kind = sqlc.arg(kind) AND runnable_at <= sqlc.arg(now)

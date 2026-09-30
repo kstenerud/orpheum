@@ -112,6 +112,9 @@ type Job struct {
 	Target
 	ArgsJSON      string
 	AttemptNumber int64
+	// PreviousAttemptStalled is whether the job's last attempt ended with a tool that stalled
+	// (MarkStalled): its handler makes a second stall in a row the target's failure.
+	PreviousAttemptStalled bool
 }
 
 // PriorityPlayNow is the highest priority: a job someone is waiting on to watch (cut-a §5.3).
@@ -294,6 +297,21 @@ type blocked struct{ err error }
 
 func (failure *blocked) Error() string { return failure.err.Error() }
 func (failure *blocked) Unwrap() error { return failure.err }
+
+// MarkStalled marks a handler's error as a tool that stalled on the job, a hang that says nothing
+// of the target: the job is tried again after job_first_retry_delay_s at no cost of an attempt,
+// and its next attempt knows the last one stalled (Job.PreviousAttemptStalled), so its handler can
+// make a second stall in a row the target's failure. The job remembers it only by the prefix of
+// its last failure; D231's item facts replace that.
+func MarkStalled(err error) error { return &stalled{err: err} }
+
+// stalledPrefix begins the last failure of a job whose attempt stalled.
+const stalledPrefix = "stalled: "
+
+type stalled struct{ err error }
+
+func (failure *stalled) Error() string { return stalledPrefix + failure.err.Error() }
+func (failure *stalled) Unwrap() error { return failure.err }
 
 // MarkPermanent marks a handler's error as one no retry can fix.
 func MarkPermanent(err error) error { return &permanent{err: err} }

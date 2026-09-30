@@ -249,6 +249,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 
 const nextQueuedJob = `-- name: NextQueuedJob :one
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, attempt_count,
+  last_failure,
   reason
 FROM job
 WHERE state = 'queued' AND kind = ?1 AND runnable_at <= ?2
@@ -273,6 +274,7 @@ type NextQueuedJobRow struct {
 	Priority          int64
 	RunnableAt        int64
 	AttemptCount      int64
+	LastFailure       *string
 	Reason            *string
 }
 
@@ -292,6 +294,7 @@ func (q *Queries) NextQueuedJob(ctx context.Context, arg NextQueuedJobParams) (N
 		&i.Priority,
 		&i.RunnableAt,
 		&i.AttemptCount,
+		&i.LastFailure,
 		&i.Reason,
 	)
 	return i, err

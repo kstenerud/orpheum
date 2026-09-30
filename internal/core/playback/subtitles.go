@@ -320,6 +320,12 @@ func (service *Service) makeSubtitleText(
 		if answer.Refusal != "" {
 			return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)
 		}
+		if answer.Stall != nil {
+			return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,
+				func(failure string) error {
+					return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: failure})
+				})
+		}
 		if answer.Failure != "" {
 			failure := errors.New(answer.Failure)
 			return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))

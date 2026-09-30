@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -48,6 +49,8 @@ type prepares struct {
 	clock      clock.Clock
 	logger     *slog.Logger
 	maxSilence time.Duration
+	// maxSlotWait is how long in all a prepare may wait for a slot on its node (maxSlotWait).
+	maxSlotWait time.Duration
 
 	reportAnswers *nodes.AnswerRouter[nodeproto.PrepareReport]
 }
@@ -56,7 +59,7 @@ func newPrepares(parts Parts) *prepares {
 	return &prepares{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
-		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
+		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence, maxSlotWait: maxSlotWait,
 		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
 	}
 }
@@ -162,8 +165,19 @@ func (all *prepares) newRunID() (string, error) {
 	return hex.EncodeToString(raw), nil
 }
 
+// maxSlotWait is how long in all a prepare may wait for a slot on its node before the job gives
+// up on it and tells the node to stop it. The node says it is waiting at each status tick, and
+// that keeps the prepare from being given up for silence; the node's watchdog now ends any
+// prepare that holds a slot without moving (execx), so a wait ends when the prepares ahead of it
+// do, and the cap is only for a wait that would otherwise never end: a node whose slot is held by
+// something its watchdog does not see. Six hours outlasts a legitimate wait behind the two
+// other prepares the core runs at once (nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount in
+// all), each a film encoded at about real time.
+const maxSlotWait = 6 * time.Hour
+
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
-// until the node says the rendition is done or failed, or says nothing for too long.
+// until the node says the rendition is done, failed or stalled, says nothing for too long, or
+// has held it waiting for a slot for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
 	answers := all.reportAnswers.Await(job.ID)
@@ -179,28 +193,15 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	all.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
 	timer := time.NewTimer(all.maxSilence)
 	defer timer.Stop()
+	var waitingSince time.Time
 	for {
 		select {
 		case report := <-answers:
-			switch report.State {
-			case nodeproto.PrepareWaiting:
-				timer.Reset(all.maxSilence) // the node holds it, waiting for a slot of its kind
-			case nodeproto.PrepareRunning:
-				if err := all.recordProgress(ctx, job, report.PreparedThroughMs, order.durationMs); err != nil {
-					return err
-				}
-				timer.Reset(all.maxSilence)
-			case nodeproto.PrepareDone:
-				return all.finish(ctx, job.RenditionID, &report, "")
-			case nodeproto.PrepareFailed:
-				// FFmpeg failing on a file fails again on it: this is not retried.
-				failure := errors.New(report.Failure)
-				return jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
-			case nodeproto.PrepareRefused:
-				// A refusal says nothing of the source's bytes (a full disk, a file changed since the
-				// scan): the job is tried again, as when the node says nothing.
-				return fmt.Errorf("node %d refused prepare %s: %s", nodeID, command.RenditionDir, report.Refusal)
+			isOver, err := all.takeReport(ctx, job, order, report, &waitingSince)
+			if isOver {
+				return err
 			}
+			timer.Reset(all.maxSilence)
 		case <-timer.C:
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
 				nodeID, command.RenditionDir, all.maxSilence)
@@ -211,6 +212,44 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 			return fmt.Errorf("wait for prepare %s: %w", command.RenditionDir, ctx.Err())
 		}
 	}
+}
+
+// takeReport takes one of the node's reports on a prepare, and says whether the job is over and how it
+// ended. The node first said it holds the prepare waiting for a slot at waitingSince.
+func (all *prepares) takeReport(
+	ctx context.Context, job jobs.Job, order prepareOrder, report nodeproto.PrepareReport, waitingSince *time.Time,
+) (isOver bool, err error) {
+	nodeID, renditionDir := order.nodeID, order.command.RenditionDir
+	switch report.State {
+	case nodeproto.PrepareWaiting:
+		// The node holds it, waiting for a slot of its kind: a word about the node, which keeps
+		// the job from being given up for silence, until it has waited too long in all.
+		if waitingSince.IsZero() {
+			*waitingSince = all.clock.Now()
+		}
+		if waited := all.clock.Now().Sub(*waitingSince); waited >= all.maxSlotWait {
+			all.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
+			return true, fmt.Errorf("node %d held prepare %s waiting for a slot for %s", nodeID, renditionDir, waited)
+		}
+		return false, nil
+	case nodeproto.PrepareRunning:
+		err = all.recordProgress(ctx, job, report.PreparedThroughMs, order.durationMs)
+		return err != nil, err
+	case nodeproto.PrepareDone:
+		return true, all.finish(ctx, job.RenditionID, &report, "")
+	case nodeproto.PrepareFailed:
+		// FFmpeg failing on a file fails again on it: this is not retried.
+		failure := errors.New(report.Failure)
+		return true, jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
+	case nodeproto.PrepareStalled:
+		return true, stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
+			func(failure string) error { return all.finish(ctx, job.RenditionID, nil, failure) })
+	case nodeproto.PrepareRefused:
+		// A refusal says nothing of the source's bytes (a full disk, a file changed since the
+		// scan): the job is tried again, as when the node says nothing.
+		return true, fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
+	}
+	return false, nil
 }
 
 // recordProgress records how far a running prepare is, on its rendition and, when the source's length
@@ -305,7 +344,8 @@ func prepareCommand(
 ) nodeproto.Prepare {
 	command := nodeproto.Prepare{
 		Video: source, Profile: profile,
-		RenditionDir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
+		RenditionDir:     strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
+		SourceDurationMs: probe.Format.DurationMs,
 	}
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec

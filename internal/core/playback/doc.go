@@ -69,6 +69,17 @@
 //     waiting. Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete,
 //     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried and
 //     TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting.
+//   - A node's word that FFmpeg stalled on a prepare, an extraction or a measurement costs its job
+//     no attempt, and two in a row are the target's failure. Enforced by
+//     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure,
+//     TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure and
+//     TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure.
+//   - A prepare the node holds waiting for a slot outlives the silence limit, but not maxSlotWait
+//     in all: then the job gives up and the node is told to stop it. Enforced by
+//     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit and
+//     TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopIt.
+//   - A prepare carries its source's length, from which the node sets its deadline. Enforced by
+//     TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline.
 //   - Every text subtitle track of a played video, its own and its subtitle files', is extracted,
 //     whatever the decision, once per payload hash of the file it is in; a track not yet extracted
 //     is 425 with Retry-After, a failed one is prepare_failed and tried again when next played, a
@@ -136,5 +147,6 @@
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
 //     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
 //     fetched on request, and the job that converts one. loudness.go: the gain that levels a
-//     sound, the sweep for files to measure and the measurement job. Next Up comes after M3.
+//     sound, the sweep for files to measure and the measurement job. stall.go: a
+//     node's word that FFmpeg stalled. Next Up comes after M3.
 package playback
