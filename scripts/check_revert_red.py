@@ -67,7 +67,6 @@ import argparse
 import contextlib
 import fcntl
 import functools
-import ast
 import os
 import re
 import queue
@@ -79,6 +78,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import revert_red_reruns as reruns
+from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
 from revert_red_trees import link_installed_packages
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 
@@ -90,7 +90,6 @@ EXEMPT_TYPES = frozenset({"docs", "test", "refactor", "build", "ci", "chore", "s
 
 SUBJECT_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<bang>!)?:")
 
-GO_SOURCE = re.compile(r"\.go$")
 GO_TEST = re.compile(r"_test\.go$")
 # `make check` also tests the dev build and vets for macOS, so a file only those compile — a
 # `//go:build dev` file, a `_darwin.go` shim — is reverted against them too, rather than
@@ -101,7 +100,6 @@ GO_OS_SUFFIX = re.compile(r"_(darwin|windows|freebsd|openbsd|netbsd)(?:_[a-z0-9]
 GO_LINUX_ARCH_SUFFIX = re.compile(r"_linux_(arm64|riscv64|arm|386|ppc64le|s390x)\.go$")
 # A build line that leaves Linux out: the file is compiled only for another system.
 GO_NOT_LINUX = re.compile(r"^//go:build .*!linux", re.MULTILINE)
-PY_SOURCE = re.compile(r"\.py$")
 
 # A Python file is a test because of WHERE it lives, not what it is called. Every
 # one of our Python tests sits in `scripts/tests/`. yoloAI identified them by
@@ -252,67 +250,6 @@ def unchecked_behavioral_files(base: str, head: str, probed: frozenset[str] = fr
         elif scope_for(path) is None:
             unchecked.append((path, "no test scope covers it (outside PY_ROOTS)"))
     return unchecked
-
-
-def changed_lines(base: str, head: str, path: str, cwd: str | None = None) -> list[str]:
-    """The added and removed content lines for one path, without their +/- marker.
-
-    `-U0` so context lines are not mistaken for changes, and `--ignore-all-space`
-    so a reindent is not either.
-    """
-    out = _git(
-        "diff", "-U0", "--ignore-all-space", f"{base}...{head}", "--", path, cwd=cwd
-    ).stdout
-    lines = []
-    for line in out.splitlines():
-        if line.startswith(("+++", "---", "@@", "diff ", "index ", "new file", "deleted file")):
-            continue
-        if line.startswith(("+", "-")):
-            lines.append(line[1:])
-    return lines
-
-
-def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
-    """Whether the change to `path` cannot affect behaviour, so no test could notice.
-
-    A `feat` commit that adjusts a doc comment alongside its real work leaves this
-    gate reporting the comment's file as an uncovered behaviour change, because
-    reverting a comment of course breaks nothing. That is a false positive, and this
-    gate's whole claim on a contributor's attention is that it does not produce them
-    — yoloAI's specimen was a two-line doc-comment edit on `applyBrokerOption`,
-    reported identically to a real missing test.
-
-    Both tests below are *exact within their guard* and decline to classify whenever
-    they cannot be sure. Declining means the file is probed as before, so the worst
-    case is the behaviour we already had.
-
-    * **Go**: every changed line is a `//` comment or blank, and neither version of
-      the file contains `/*` anywhere. Without that second condition a changed line
-      inside a block comment is indistinguishable from code by inspection, and a
-      guard that reads `*p = 0` as a comment would suppress a real finding.
-    * **Python**: the two versions parse to the same AST. That covers `#` comments
-      and formatting together. A docstring edit is *not* covered — docstrings are
-      AST nodes — so it still reports as it does today.
-    """
-    if GO_SOURCE.search(path):
-        before = _git("show", f"{base}:{path}", cwd=tree).stdout
-        after = _git("show", f"{head}:{path}", cwd=tree).stdout
-        if "/*" in before or "/*" in after:
-            return False  # cannot tell a block-comment line from code
-        changed = changed_lines(base, head, path, cwd=tree)
-        return bool(changed) and all(
-            not line.strip() or line.strip().startswith("//") for line in changed
-        )
-
-    if PY_SOURCE.search(path):
-        try:
-            before = ast.dump(ast.parse(_git("show", f"{base}:{path}", cwd=tree).stdout))
-            after = ast.dump(ast.parse(_git("show", f"{head}:{path}", cwd=tree).stdout))
-        except SyntaxError:
-            return False  # unparseable on either side; let the probe speak
-        return before == after
-
-    return False
 
 
 def types_touching(base: str, head: str, path: str) -> set[str | None]:
