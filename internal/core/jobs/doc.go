@@ -31,6 +31,8 @@
 //   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
 //     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
+//   - A tool that stalled (MarkStalled) costs no attempt, and the next attempt is told the last one
+//     stalled. TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled.
 //   - After a crash, running jobs return to queued. TestRequeueRunning_ReturnsWhatACrashLeftRunning.
 //   - A cancelled queued job never runs; a running one's handler is told through its context,
 //     whose cause is ErrCancelled; either stays cancelled whatever its handler answers after.

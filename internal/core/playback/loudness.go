@@ -248,6 +248,13 @@ func (service *Service) measure(
 			// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
 			return fmt.Errorf("node %d refused to measure file %d: %s", file.NodeID, file.ID, answer.Refusal)
 		}
+		if answer.Stall != nil {
+			return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,
+				func(failure string) error {
+					return service.keepLoudness(ctx, file.PayloadHash, command.Tracks,
+						nodeproto.LoudnessResult{JobID: job.ID, Failure: failure})
+				})
+		}
 		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
 		if answer.Failure != "" {
 			return jobs.MarkPermanent(errors.Join(errors.New(answer.Failure), keepErr))

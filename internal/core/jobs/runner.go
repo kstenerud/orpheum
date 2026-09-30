@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -13,9 +14,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// Handler runs one job. A nil error finishes it; a *RetryAtError defers it and MarkBlocked holds
-// its kind, neither costing an attempt; MarkPermanent fails it; any other error retries it with
-// back-off until job_attempt_limit.
+// Handler runs one job. A nil error finishes it; a *RetryAtError defers it, MarkBlocked holds
+// its kind and MarkStalled tries it again, none costing an attempt; MarkPermanent fails it; any
+// other error retries it with back-off until job_attempt_limit.
 type Handler func(ctx context.Context, job Job) error
 
 // Runner runs one kind of job, one at a time: one fetch per provider (cut-a §5.3).
@@ -103,6 +104,8 @@ func (runner *Runner) claim(ctx context.Context, now time.Time) (Job, bool, erro
 		}
 		job = Job{
 			ID: row.ID, Kind: runner.kind, ArgsJSON: row.ArgsJSON, AttemptNumber: row.AttemptCount + 1,
+			PreviousAttemptStalled: row.LastFailure != nil &&
+				strings.HasPrefix(*row.LastFailure, stalledPrefix),
 			Target: targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 		}
 		found = true
@@ -134,6 +137,9 @@ func (runner *Runner) finish(ctx context.Context, job Job, handlerErr error) err
 	if held, isBlocked := errors.AsType[*blocked](handlerErr); isBlocked {
 		runner.pausedUntil = now.Add(firstRetryDelay)
 		return runner.deferUntil(ctx, job, runner.pausedUntil, held, job.AttemptNumber-1)
+	}
+	if hung, isStalled := errors.AsType[*stalled](handlerErr); isStalled {
+		return runner.deferUntil(ctx, job, now.Add(firstRetryDelay), hung, job.AttemptNumber-1)
 	}
 	if runner.retrySchedule != nil {
 		attemptLimit = int64(len(runner.retrySchedule)) + 1
