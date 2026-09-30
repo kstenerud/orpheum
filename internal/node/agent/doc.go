@@ -52,6 +52,10 @@
 //     from FFmpeg failing on the bytes, so the core can try a refusal again.
 //     TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
 //     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
+//   - A prepare, subtitle or measurement whose FFmpeg the watchdog stopped is answered as a stall,
+//     with what was seen, apart from a failure and a refusal, and its slot is freed.
+//     TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot,
+//     TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed.
 //   - A prepare that ends brings the prepared directory back within its budget then, not only
 //     when the next prepare makes room (D217 §5).
 //     TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget.

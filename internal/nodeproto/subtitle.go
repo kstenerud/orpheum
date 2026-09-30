@@ -39,4 +39,7 @@ type SubtitleText struct {
 	// Refusal says why the node did not try: a node that does not convert subtitles, a source
 	// outside its roots or changed since the scan. It says nothing of the bytes.
 	Refusal string `json:"refusal,omitempty"`
+	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
+	// the bytes the first time.
+	Stall *Stall `json:"stall,omitempty"`
 }

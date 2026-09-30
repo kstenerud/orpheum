@@ -57,7 +57,7 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's
 // absolute path, the rendition's absolute directory, and, for an encode, the encoder it uses.
 func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, encoder Encoder) []string {
-	arguments := append([]string{"-v", "error", "-nostats", "-progress", "pipe:1"}, execx.FileInput(sourcePath)...)
+	arguments := append([]string{"-v", "error", "-nostats"}, execx.FileInput(sourcePath)...)
 	arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))
 	arguments = append(arguments, videoArguments(command, encoder)...)
 	streams := []string{"v:0,agroup:audio,name:video"}

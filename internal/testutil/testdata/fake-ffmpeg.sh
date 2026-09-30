@@ -9,7 +9,11 @@
 # then replies as the test asked: reply.stdout to stdout, reply.stderr to stderr, and the exit
 # status in reply.status. With reply.hold present it starts a grandchild that holds stdout open,
 # records its pid in grandchild.pid, says "ready" into the FIFO named by reply.hold, and waits,
-# so a test can cancel it and see that the whole process group died.
+# so a test can cancel it and see that the whole process group died. With reply.progress present it
+# writes it to descriptor 3, a watched run's -progress pipe, first. With reply.hang present it then
+# hangs, as a stalled FFmpeg does, with its pid in hung.pid: until SIGINT, FFmpeg's graceful quit,
+# when reply.hang says "until-quit", or until SIGKILL, ignoring SIGINT and SIGTERM, when it says
+# "until-killed".
 #
 # It names every command by absolute path: execx runs it with an empty environment.
 set -eu
@@ -25,6 +29,22 @@ for argument in "$@"; do
 done
 /usr/bin/env >"$record.environment"
 /bin/cat >"$record.stdin"
+
+if [ -e "$directory/reply.hang" ]; then
+	printf '%s\n' "$$" >"$directory/hung.pid"
+	if [ "$(/bin/cat "$directory/reply.hang")" = until-killed ]; then
+		# Before the progress, which the test waits for; an ignored signal stays ignored across exec.
+		trap '' INT TERM
+	fi
+fi
+
+if [ -e "$directory/reply.progress" ]; then
+	/bin/cat "$directory/reply.progress" >&3
+fi
+
+if [ -e "$directory/reply.hang" ]; then
+	exec /bin/sleep 600
+fi
 
 if [ -e "$directory/reply.hold" ]; then
 	/bin/sleep 600 &

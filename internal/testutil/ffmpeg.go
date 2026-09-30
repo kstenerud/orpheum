@@ -67,7 +67,24 @@ type FakeReply struct {
 	// HoldFIFOPath, when set, makes each run start a grandchild that holds stdout open and write
 	// "ready" into this FIFO before waiting forever, so a test can cancel a run mid-flight.
 	HoldFIFOPath string
+	// Progress, when set, is what each run writes to its -progress pipe (descriptor 3) first: a
+	// watched run's, which only a watched run has open.
+	Progress string
+	// Hang, when set, makes each run hang after its progress, as a stalled FFmpeg does
+	// (FakeFFmpeg.HungPID).
+	Hang FakeHang
 }
+
+// FakeHang is how a hanging fake ends.
+type FakeHang string
+
+// The ways a hanging fake ends.
+const (
+	// HangUntilQuit hangs until SIGINT, FFmpeg's graceful quit.
+	HangUntilQuit FakeHang = "until-quit"
+	// HangUntilKilled ignores SIGINT and SIGTERM, and hangs until SIGKILL.
+	HangUntilKilled FakeHang = "until-killed"
+)
 
 // EBUR128Summary is how FFmpeg's ebur128 filter named name logs what it measured when it closes:
 // a FakeReply's Stderr, for a test of reading a loudness measurement.
@@ -111,6 +128,12 @@ func InstallFakeFFmpeg(tb testing.TB, reply FakeReply) FakeFFmpeg {
 			tb.Fatal(err)
 		}
 	}
+	if reply.Progress != "" {
+		writeFile(tb, filepath.Join(directory, "reply.progress"), []byte(reply.Progress), 0o600)
+	}
+	if reply.Hang != "" {
+		writeFile(tb, filepath.Join(directory, "reply.hang"), []byte(reply.Hang), 0o600)
+	}
 	if reply.HoldFIFOPath != "" {
 		err := os.Symlink(reply.HoldFIFOPath, filepath.Join(directory, "reply.hold"))
 		if err != nil {
@@ -149,9 +172,15 @@ func (fake FakeFFmpeg) Calls(tb testing.TB) []FakeCall {
 // kills it when the test ends in case the code under test did not.
 func (fake FakeFFmpeg) GrandchildPID(tb testing.TB) int {
 	tb.Helper()
-	pid, err := strconv.Atoi(strings.TrimSpace(string(readFile(tb, filepath.Join(fake.Directory, "grandchild.pid")))))
+	return fake.recordedPID(tb, "grandchild.pid")
+}
+
+// recordedPID reads the pid the fake recorded in name, and kills that process when the test ends.
+func (fake FakeFFmpeg) recordedPID(tb testing.TB, name string) int {
+	tb.Helper()
+	pid, err := strconv.Atoi(strings.TrimSpace(string(readFile(tb, filepath.Join(fake.Directory, name)))))
 	if err != nil {
-		tb.Fatalf("no grandchild pid recorded: %v", err)
+		tb.Fatalf("no pid recorded in %s: %v", name, err)
 	}
 	tb.Cleanup(func() {
 		process, findErr := os.FindProcess(pid)
@@ -160,6 +189,13 @@ func (fake FakeFFmpeg) GrandchildPID(tb testing.TB) int {
 		}
 	})
 	return pid
+}
+
+// HungPID returns the pid of a hanging run (FakeReply.Hang), and kills it when the test ends in
+// case the code under test did not.
+func (fake FakeFFmpeg) HungPID(tb testing.TB) int {
+	tb.Helper()
+	return fake.recordedPID(tb, "hung.pid")
 }
 
 // OnlyCall returns the one recorded run, failing the test unless there was exactly one.

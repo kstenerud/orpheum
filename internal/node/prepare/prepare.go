@@ -3,16 +3,14 @@
 package prepare
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
-	"strings"
+	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -20,12 +18,26 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
-// Runner runs FFmpeg to its end, streaming its stdout: execx.Runner.
+// Runner runs a prepare's FFmpeg, watched for a stall: execx.Runner.
 type Runner interface {
-	RunStreaming(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdout io.Writer,
-	) error
+	RunWatched(ctx context.Context, run execx.WatchedRun) (execx.Ran, error)
 }
+
+// prepareStartGrace is how long a prepare's position may take to first move (execx.Watch):
+// opening the source on a network mount, probing it and starting a hardware encoder, each of
+// which can take tens of seconds.
+const prepareStartGrace = 2 * time.Minute
+
+// prepareStallWindow is how long a prepare's position may stand still. It moves with every packet
+// written, several times a second, and stands still only while FFmpeg reads nothing. Three
+// minutes outlasts an NFS client's retries (a 60-second timeout, retransmitted twice by default),
+// and a stalled prepare is still answered before the core gives up on five minutes without a word
+// (cmd/orpheum's prepareMaxSilence).
+const prepareStallWindow = 3 * time.Minute
+
+// unmeasuredRealtimeFactor is the speed a prepare's deadline assumes before this node has measured
+// one of its profile: half of real time, a slow x264 encode of a 4K picture.
+const unmeasuredRealtimeFactor = 0.5
 
 // renditionDirPattern is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
 var renditionDirPattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
@@ -47,6 +59,11 @@ type Preparer struct {
 	directory string
 	keeper    Keeper
 	encoder   Encoder
+
+	mutex sync.Mutex
+	// measuredRealtimeFactors are how fast the last prepare of each profile ran here: what the next
+	// one's deadline expects. Guarded by mutex.
+	measuredRealtimeFactors map[nodeproto.PrepareProfile]float64
 }
 
 // New returns a preparer writing under directory, which must be absolute, within the budget its
@@ -55,7 +72,10 @@ func New(runner Runner, directory string, keeper Keeper, encoder Encoder) (*Prep
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("the prepared directory must be an absolute path, not %q", directory)
 	}
-	return &Preparer{runner: runner, directory: directory, keeper: keeper, encoder: encoder}, nil
+	return &Preparer{
+		runner: runner, directory: directory, keeper: keeper, encoder: encoder,
+		measuredRealtimeFactors: map[nodeproto.PrepareProfile]float64{},
+	}, nil
 }
 
 // Directory is where renditions are written, for the byte socket to serve them from.
@@ -90,22 +110,29 @@ func (preparer *Preparer) Prepare(
 	if err := os.MkdirAll(renditionPath, 0o750); err != nil {
 		return Made{}, fmt.Errorf("make the rendition's directory: %w", err)
 	}
-	reader, writer := io.Pipe()
-	progressDrained := make(chan struct{})
-	var realtimeFactor float64
-	go func() {
-		defer close(progressDrained)
-		realtimeFactor = readProgress(reader, onProgress)
-	}()
 	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
 	isOnGPU := command.Profile == nodeproto.ProfileH264At8M && preparer.encoder.UsesGPU()
 	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, UsesGPU: isOnGPU}
+	var realtimeFactor float64
+	watch := execx.Watch{
+		StartGrace: prepareStartGrace, StallWindow: prepareStallWindow,
+		Deadline: execx.DeadlineFor(preparer.expectedLength(command)),
+		OnProgress: func(progress execx.Progress) {
+			onProgress(progress.Position.Milliseconds())
+			if progress.RealtimeFactor > 0 {
+				realtimeFactor = progress.RealtimeFactor
+			}
+		},
+	}
 	arguments := Arguments(sourcePath, renditionPath, command, preparer.encoder)
-	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, access, arguments, writer)
-	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
-	<-progressDrained
+	_, err := preparer.runner.RunWatched(ctx, execx.WatchedRun{Access: access, Arguments: arguments, Watch: watch})
 	if err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+	}
+	if realtimeFactor > 0 {
+		preparer.mutex.Lock()
+		preparer.measuredRealtimeFactors[command.Profile] = realtimeFactor
+		preparer.mutex.Unlock()
 	}
 	sizeBytes, err := diskspace.TreeBytes(renditionPath)
 	if err != nil {
@@ -118,26 +145,15 @@ func (preparer *Preparer) Prepare(
 	return Made{SizeBytes: sizeBytes, VideoEncoder: videoEncoder, RealtimeFactor: realtimeFactor}, nil
 }
 
-// readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time
-// it moves. It returns the last speed FFmpeg gave ("speed=6.2x"), or zero when it gave none.
-func readProgress(reader io.Reader, onProgress func(preparedThroughMs int64)) (realtimeFactor float64) {
-	lines := bufio.NewScanner(reader)
-	for lines.Scan() {
-		key, value, _ := strings.Cut(lines.Text(), "=")
-		switch key {
-		case "out_time_us":
-			microseconds, err := strconv.ParseInt(value, 10, 64)
-			if err == nil && microseconds >= 0 {
-				onProgress(microseconds / 1000)
-			}
-		case "speed":
-			// "N/A" until FFmpeg has timed something; a speed it cannot say leaves the last one.
-			if said, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(value), "x"), 64); err == nil {
-				realtimeFactor = said
-			}
-		}
+// expectedLength is how long a prepare is expected to run: its source's length at the speed the
+// last prepare of its profile ran here, or at unmeasuredRealtimeFactor before one has; zero when
+// the source's length is unknown.
+func (preparer *Preparer) expectedLength(command nodeproto.Prepare) time.Duration {
+	preparer.mutex.Lock()
+	realtimeFactor, isMeasured := preparer.measuredRealtimeFactors[command.Profile]
+	preparer.mutex.Unlock()
+	if !isMeasured {
+		realtimeFactor = unmeasuredRealtimeFactor
 	}
-	// A reader that ends early leaves FFmpeg's pipe unread; drain it so the run is never blocked.
-	_, _ = io.Copy(io.Discard, reader) //nolint:errcheck // draining
-	return realtimeFactor
+	return time.Duration(float64(command.SourceDurationMs)/realtimeFactor) * time.Millisecond
 }

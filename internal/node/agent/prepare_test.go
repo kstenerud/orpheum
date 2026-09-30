@@ -21,8 +21,8 @@ import (
 
 // fakePreparer reports half the source done, then a size that names the input it was given, made
 // with Quick Sync at 6.5 times real time; a rendition directory ending in /slow runs until it is
-// stopped, one ending in /full finds the disk with no room, and one ending in /broken fails as
-// FFmpeg would.
+// stopped, one ending in /full finds the disk with no room, one ending in /broken fails as
+// FFmpeg would, and one ending in /stalled is stopped by the watchdog.
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
@@ -35,6 +35,9 @@ func (fakePreparer) Prepare(
 	}
 	if strings.HasSuffix(command.RenditionDir, "/full") {
 		return prepare.Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, prepared.ErrNoRoom)
+	}
+	if strings.HasSuffix(command.RenditionDir, "/stalled") {
+		return prepare.Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, errStalled)
 	}
 	if strings.HasSuffix(command.RenditionDir, "/broken") {
 		return prepare.Made{}, errors.New("ffmpeg exited 1: Invalid data found when processing input")

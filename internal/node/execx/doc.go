@@ -4,7 +4,9 @@
 // ffprobe, and orpheum's own binary in another mode as a long-lived child (StartSelf), and nothing
 // else, with hardened arguments, an empty environment, the root directory as its
 // working directory and stdin closed, in a process group that is killed whole when the run is
-// cancelled. A failure carries the exit status and the tail of the tool's stderr. A confined
+// cancelled, and that on Linux the kernel kills when the node dies. A failure carries the exit
+// status and the tail of the tool's stderr. A long FFmpeg run is watched (RunWatched): it reports
+// -progress on a pipe of its own, and the watchdog stops it when its position does not advance. A confined
 // runner (NewConfinedRunner) starts every run as orpheum's shim, which confines itself to the
 // run's Access (internal/node/confine) and then becomes the tool (cut-a §7); the node's runner is
 // confined, and only a test's fake FFmpeg runs unconfined.
@@ -28,8 +30,21 @@
 //     TestRun_CancellingKillsTheWholeProcessGroup.
 //   - A run that writes more than its caller allows is refused, never truncated.
 //     TestRun_RefusesMoreOutputThanAllowed.
-//   - A logged run returns the end of the tool's log, where FFmpeg's filters write what they
-//     measured, and none of its output. TestRunLogged_ReturnsTheEndOfTheLogAndNotTheOutput.
+//   - A watched run can return the end of the tool's log, where FFmpeg's filters write what they
+//     measured, and none of its output. TestRunWatched_ReturnsTheEndOfTheLogAndNotTheOutput.
+//   - A watched run is stalled when its position (out_time, or the frame count) has not advanced:
+//     not within its start grace, not for its stall window once it has, or not to its end by its
+//     deadline. Progress lines that arrive with the position where it was are not movement.
+//     TestWatchdog_OnlyAPositionThatAdvancesIsProgressNotLinesThatArrive,
+//     TestWatchdog_ARunThatNeverMovesOrOutrunsItsDeadlineHasStalled.
+//   - A deadline is three times the run's expected length, at least ten minutes, and a day when
+//     the length is unknown.
+//     TestDeadlineFor_IsThreeTimesTheExpectedLengthAtLeastTenMinutesAndADayWhenUnknown.
+//   - A stalled run is stopped with SIGINT, FFmpeg's graceful quit, then SIGTERM, then SIGKILL of
+//     its whole group, and returns a StalledError, which is not a RunError: a hang is not the
+//     tool's word on its input. TestRunWatched_AStalledRunIsQuitGracefullyAndSaysWhereItStood,
+//     TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup.
+//   - On Linux no tool outlives the node that started it. TestRun_AToolDiesWithTheNode.
 //
 // # Read before changing
 //
@@ -42,6 +57,7 @@
 // # Where to change
 //
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
-//     input; the stderr tail on failure. child.go: StartSelf, orpheum's own binary as a long-lived
-//     child. The shim itself is internal/node/confine's.
+//     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
+//     process_linux.go and process_other.go: a tool's process group and parent-death signal.
+//     child.go: StartSelf, orpheum's own binary as a long-lived child. The shim itself is internal/node/confine's.
 package execx

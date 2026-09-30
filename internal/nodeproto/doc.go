@@ -28,6 +28,7 @@
 //
 //   - One file per feature, each holding both directions: hello.go, report.go (the JSONL records),
 //     commands.go (the long-poll), and artwork.go, prepare.go, subtitle.go and loudness.go, each
-//     a command and its answer. bytes.go names a file on the node's byte socket. probe.go: the
+//     a command and its answer. stall.go: what a node saw of an FFmpeg run it stopped as stalled,
+//     which those answers carry. bytes.go names a file on the node's byte socket. probe.go: the
 //     probe record a scan reports and the core keeps.
 package nodeproto

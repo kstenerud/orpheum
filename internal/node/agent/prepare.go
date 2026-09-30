@@ -76,6 +76,9 @@ func (agent *Agent) startPrepare(ctx context.Context, nodeID int64, command node
 		case nodeproto.PrepareRefused:
 			agent.logger.WarnContext(ctx, "a prepare was refused",
 				"jobId", command.JobID, "renditionDir", command.RenditionDir, "refusal", outcome.Refusal)
+		case nodeproto.PrepareStalled:
+			agent.logger.WarnContext(ctx, "a prepare stalled and was stopped",
+				"jobId", command.JobID, "renditionDir", command.RenditionDir, "stall", outcome.Stall.Detail)
 		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
 		}
 		agent.postAnswer(ctx, nodeID, nodeproto.PathPrepare, "a prepare", command.JobID, outcome)
@@ -153,6 +156,9 @@ func (agent *Agent) runPrepare(
 	made, err := agent.workers.Preparer.Prepare(ctx, sourcePath, command, onProgress)
 	if errors.Is(err, prepared.ErrNoRoom) {
 		return refused(err)
+	}
+	if stall := stallOf(err); stall != nil {
+		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareStalled, Stall: stall}
 	}
 	if err != nil {
 		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareFailed, Failure: err.Error()}
