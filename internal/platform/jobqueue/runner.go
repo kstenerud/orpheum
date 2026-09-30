@@ -3,10 +3,12 @@
 package jobqueue
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"time"
 )
 
@@ -19,9 +21,8 @@ type Runner[T comparable] struct {
 	kind          Kind
 	handler       Handler[T]
 	retrySchedule []time.Duration
-	// heldUntil is when this runner may claim again after an answer that held it
-	// (RetryAtError, Blocked).
-	heldUntil time.Time
+	// unrecorded is an outcome the storage failed to write, written before anything is claimed.
+	unrecorded *Outcome
 	// wake is this runner's own wake-up, left there when a job of its kind is queued.
 	wake chan struct{}
 }
@@ -54,61 +55,170 @@ func (runner *Runner[T]) Run(ctx context.Context, tick <-chan time.Time) error {
 	}
 }
 
-// RunDue runs every job of the runner's kind whose time has come, highest priority first, and
-// stops early when an answer holds the runner.
+// RunDue runs every job of the runner's kind whose time has come and whose destination is not
+// parked, highest priority first. While the storage is down it claims nothing until its probe.
 func (runner *Runner[T]) RunDue(ctx context.Context) error {
 	for ctx.Err() == nil {
-		now := runner.queue.clock.Now()
-		if now.Before(runner.heldUntil) {
-			return nil
+		if isWritten, err := runner.recordUnrecorded(ctx); err != nil || !isWritten {
+			return err
 		}
-		row, found, err := runner.queue.storage.Claim(ctx, Claim{Kind: runner.kind, Now: now})
-		if err != nil {
-			return fmt.Errorf("claim a %s job: %w", runner.kind, err)
+		claimed, found, err := runner.claim(ctx)
+		if err != nil || !found {
+			return err
 		}
-		if !found {
-			return nil
-		}
+		row := claimed.row
 		job := Job[T]{
-			ID: row.ID, Kind: row.Kind, Target: row.Target, ArgsJSON: row.ArgsJSON, AttemptNumber: row.AttemptCount,
-			PreviousAttemptToolFailed: row.LastAttemptToolFailed,
+			ID: row.ID, Kind: row.Kind, Target: row.Target, ArgsJSON: row.ArgsJSON, Priority: row.Priority,
+			AttemptNumber: row.AttemptCount, PreviousAttemptToolFailed: row.LastAttemptToolFailed,
 		}
-		if err := runner.runClaimed(ctx, job, row.LastFailure); err != nil {
+		if err := runner.runClaimed(ctx, job, claimed); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// claimedRow is a claimed job, with the parked destinations it is the probe of: its own, and the
+// storage when the claim was the storage's probe.
+type claimedRow[T comparable] struct {
+	row      Row[T]
+	probesOf []Destination
+}
+
+// claim takes the next due job of the runner's kind that no parked destination holds, and makes
+// it the probe of its destination when that one's probe is due. While the storage is parked,
+// only its probe claims; a claim the storage fails parks it.
+func (runner *Runner[T]) claim(ctx context.Context) (claimedRow[T], bool, error) {
+	queue := runner.queue
+	queue.claimMutex.Lock()
+	defer queue.claimMutex.Unlock()
+	now := queue.clock.Now()
+	var claimed claimedRow[T]
+	storage := queue.storageDestination
+	if storage != "" && queue.isParked(storage) {
+		if !queue.beginProbe(storage, now) {
+			return claimed, false, nil
+		}
+		claimed.probesOf = append(claimed.probesOf, storage)
+	}
+	row, found, err := queue.storage.Claim(ctx, Claim{Kind: runner.kind, Now: now, Unclaimable: queue.unclaimable(now)})
+	if err != nil && queue.isStorageFailure(err) {
+		queue.Park(ctx, Parking{Destination: storage, Reason: storageReason(err), IsProbe: len(claimed.probesOf) > 0})
+		return claimed, false, nil
+	}
+	if err != nil {
+		for _, destination := range claimed.probesOf {
+			queue.endProbeUnanswered(ctx, destination)
+		}
+		return claimed, false, fmt.Errorf("claim a %s job: %w", runner.kind, err)
+	}
+	if !found {
+		// The claim wrote nothing to be refused, and nothing waits to be written: the storage is
+		// taken to be back, and the next write that fails parks it again.
+		for _, destination := range claimed.probesOf {
+			queue.Unpark(ctx, destination)
+		}
+		return claimed, false, nil
+	}
+	claimed.row = row
+	if row.Destination != "" && queue.beginProbe(row.Destination, now) {
+		claimed.probesOf = append(claimed.probesOf, row.Destination)
+	}
+	return claimed, true, nil
+}
+
+// storageReason is why the storage failed, as a person is shown it.
+func storageReason(err error) string {
+	return "cannot write: " + err.Error()
+}
+
+// recordUnrecorded writes the outcome the storage failed to write before, when the storage's probe
+// is due, and says whether nothing is left unwritten.
+func (runner *Runner[T]) recordUnrecorded(ctx context.Context) (bool, error) {
+	if runner.unrecorded == nil {
+		return true, nil
+	}
+	queue := runner.queue
+	storage := queue.storageDestination
+	queue.claimMutex.Lock()
+	isProbe := queue.beginProbe(storage, queue.clock.Now())
+	queue.claimMutex.Unlock()
+	if !isProbe && queue.isParked(storage) {
+		return false, nil
+	}
+	err := queue.storage.Record(ctx, *runner.unrecorded)
+	if err != nil && queue.isStorageFailure(err) {
+		queue.Park(ctx, Parking{Destination: storage, Reason: storageReason(err), IsProbe: isProbe})
+		return false, nil
+	}
+	if err != nil {
+		if isProbe {
+			queue.endProbeUnanswered(ctx, storage)
+		}
+		return false, fmt.Errorf("record job %d's outcome: %w", runner.unrecorded.ID, err)
+	}
+	runner.unrecorded = nil
+	queue.Unpark(ctx, storage)
+	return true, nil
+}
+
 // runClaimed runs a claimed job and records its outcome, unless the claim has taken it past its
 // attempt limit, which a stop in the middle of every attempt can do: then it fails unrun
 // (D233 §6).
-func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], lastFailure string) error {
+func (runner *Runner[T]) runClaimed(ctx context.Context, job Job[T], claimed claimedRow[T]) error {
 	attemptLimit, err := runner.attemptLimit(ctx)
 	if err != nil {
 		return err
 	}
 	if job.AttemptNumber > attemptLimit {
 		refusal := fmt.Sprintf("not run again: it has had its %d attempts", attemptLimit)
-		if lastFailure != "" {
+		if lastFailure := claimed.row.LastFailure; lastFailure != "" {
 			refusal += "; the last ended: " + lastFailure
 		}
 		runner.queue.logger.WarnContext(ctx, "a job reached its attempt limit when claimed", "kind", job.Kind,
 			"target", job.Target, "attemptLimit", attemptLimit)
+		runner.endProbes(ctx, claimed.probesOf, nil)
 		return runner.record(ctx, Outcome{
 			ID: job.ID, State: StateFailed, At: runner.queue.clock.Now(), AttemptCount: job.AttemptNumber - 1,
 			LastFailure: refusal,
 		})
 	}
-	return runner.finish(ctx, job, runner.handle(ctx, job))
+	answer := runner.handle(ctx, job, claimed)
+	if runner.queue.isStorageFailure(answer) {
+		answer = Park(Parking{Destination: runner.queue.storageDestination, Reason: storageReason(answer)}, answer)
+	}
+	runner.endProbes(ctx, claimed.probesOf, answer)
+	return runner.finish(ctx, job, claimed, answer)
 }
 
-// handle runs one job's handler in a context a cancel ends (Queue.Cancel). A panic in the handler
-// is recovered and answered as the tool's failure (D233 §6), so one job cannot bring the program
-// down.
-func (runner *Runner[T]) handle(ctx context.Context, job Job[T]) (answer error) {
-	jobCtx, stop := context.WithCancelCause(ctx)
+// endProbes says what a probe's answer found of each destination it probed: the destination
+// failing again backs its next probe off (Park, from finish); the tool failing says nothing,
+// and it is probed again at the same step; any other answer is the destination answering, and
+// it is unparked.
+func (runner *Runner[T]) endProbes(ctx context.Context, probesOf []Destination, answer error) {
+	parking, isParked := ParkingOf(answer)
+	var toolFailure *toolError
+	isToolFailure := errors.As(answer, &toolFailure)
+	for _, destination := range probesOf {
+		switch {
+		case isParked && parking.Destination == destination:
+		case isToolFailure:
+			runner.queue.endProbeUnanswered(ctx, destination)
+		default:
+			runner.queue.Unpark(ctx, destination)
+		}
+	}
+}
+
+// handle runs one job's handler in a context a cancel ends (Queue.Cancel), which says it is a
+// job's (IsInJob) and which destination it probes (ProbeOf). A panic in the handler is recovered
+// and answered as the tool's failure (D233 §6), so one job cannot bring the program down.
+func (runner *Runner[T]) handle(ctx context.Context, job Job[T], claimed claimedRow[T]) (answer error) {
+	jobCtx, stop := context.WithCancelCause(context.WithValue(ctx, jobContextKey{}, true))
 	defer stop(nil)
+	if destination := claimed.row.Destination; slices.Contains(claimed.probesOf, destination) {
+		jobCtx = context.WithValue(jobCtx, probeContextKey{}, destination)
+	}
 	runner.queue.trackCancel(job.ID, stop)
 	defer runner.queue.untrackCancel(job.ID)
 	defer func() {
@@ -121,19 +231,25 @@ func (runner *Runner[T]) handle(ctx context.Context, job Job[T]) (answer error) 
 	return runner.handler(jobCtx, job)
 }
 
-// finish records a job's outcome from its handler's answer.
-func (runner *Runner[T]) finish(ctx context.Context, job Job[T], answer error) error {
-	now := runner.queue.clock.Now()
+// finish records a job's outcome from its handler's answer. A job parked on a destination is
+// kept with it, at no cost of an attempt; a probe that failed backs the next one off.
+func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimedRow[T], answer error) error {
+	now, destination := runner.queue.clock.Now(), claimed.row.Destination
 	if answer == nil {
 		return runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
 	}
 	given := job.AttemptNumber - 1 // the attempt's count, given back
-	if retry, isRetry := errors.AsType[*RetryAtError](answer); isRetry {
-		runner.heldUntil = retry.At
-		return runner.wait(ctx, job, Outcome{At: retry.At, AttemptCount: given, IsSnoozed: true}, answer)
+	if parking, isParked := ParkingOf(answer); isParked {
+		parking.IsProbe = slices.Contains(claimed.probesOf, parking.Destination)
+		runner.queue.Park(ctx, parking)
+		return runner.wait(ctx, job, Outcome{
+			At: now, AttemptCount: given, Destination: cmp.Or(parking.Destination, destination),
+		}, answer)
 	}
 	if snooze, isSnooze := errors.AsType[*snoozed](answer); isSnooze {
-		return runner.wait(ctx, job, Outcome{At: snooze.until, AttemptCount: given, IsSnoozed: true}, answer)
+		return runner.wait(ctx, job, Outcome{
+			At: snooze.until, AttemptCount: given, IsSnoozed: true, Destination: destination,
+		}, answer)
 	}
 	if failure, isPermanent := errors.AsType[*permanent](answer); isPermanent {
 		return runner.fail(ctx, job, failure.Error())
@@ -142,24 +258,22 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], answer error) e
 	if err != nil {
 		return fmt.Errorf("read the first retry delay: %w", err)
 	}
-	if held, isBlocked := errors.AsType[*blocked](answer); isBlocked {
-		runner.heldUntil = now.Add(runner.queue.jittered(ctx, firstRetryDelay))
-		return runner.wait(ctx, job, Outcome{At: runner.heldUntil, AttemptCount: given, IsSnoozed: true}, held)
-	}
 	if failure, isToolFailure := errors.AsType[*toolError](answer); isToolFailure {
 		if failure.isPanic && job.PreviousAttemptToolFailed {
 			return runner.fail(ctx, job, "the tool failed on two attempts in a row: "+failure.Error())
 		}
 		at := now.Add(runner.queue.jittered(ctx, firstRetryDelay))
-		return runner.wait(ctx, job, Outcome{At: at, AttemptCount: given, ToolFailed: true}, failure)
+		return runner.wait(ctx, job, Outcome{
+			At: at, AttemptCount: given, ToolFailed: true, Destination: destination,
+		}, failure)
 	}
-	return runner.retryOrFail(ctx, job, answer, firstRetryDelay)
+	return runner.retryOrFail(ctx, job, destination, answer, firstRetryDelay)
 }
 
 // retryOrFail answers a job's own failure: a retry after its back-off, or, at its attempt limit, a
 // failure.
 func (runner *Runner[T]) retryOrFail(
-	ctx context.Context, job Job[T], answer error, firstRetryDelay time.Duration,
+	ctx context.Context, job Job[T], destination Destination, answer error, firstRetryDelay time.Duration,
 ) error {
 	attemptLimit, err := runner.attemptLimit(ctx)
 	if err != nil {
@@ -175,7 +289,7 @@ func (runner *Runner[T]) retryOrFail(
 		wait = runner.retrySchedule[job.AttemptNumber-1]
 	}
 	at := runner.queue.clock.Now().Add(runner.queue.jittered(ctx, wait))
-	return runner.wait(ctx, job, Outcome{At: at, AttemptCount: job.AttemptNumber}, answer)
+	return runner.wait(ctx, job, Outcome{At: at, AttemptCount: job.AttemptNumber, Destination: destination}, answer)
 }
 
 // attemptLimit is how many attempts a job of the runner's kind may spend: its schedule's retries
@@ -205,7 +319,15 @@ func (runner *Runner[T]) fail(ctx context.Context, job Job[T], why string) error
 }
 
 func (runner *Runner[T]) record(ctx context.Context, outcome Outcome) error {
-	if err := runner.queue.storage.Record(ctx, outcome); err != nil {
+	err := runner.queue.storage.Record(ctx, outcome)
+	if err != nil && runner.queue.isStorageFailure(err) {
+		// Kept, and written first once the storage's probe finds it writable: the job is not left
+		// running for want of a write (S77).
+		runner.unrecorded = &outcome
+		runner.queue.Park(ctx, Parking{Destination: runner.queue.storageDestination, Reason: storageReason(err)})
+		return nil
+	}
+	if err != nil {
 		return fmt.Errorf("record job %d's outcome: %w", outcome.ID, err)
 	}
 	return nil

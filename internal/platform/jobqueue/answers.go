@@ -3,27 +3,38 @@
 package jobqueue
 
 import (
+	"errors"
 	"fmt"
 	"time"
 )
 
 // A handler answers with an error, or nil when the job is done. These wrap the error to say what
 // the queue does next; any other error is the job's own failure, retried with back-off until the
-// attempt limit. Only an error wrapped this way costs no attempt.
+// attempt limit. Only an error wrapped this way costs no attempt. The queue reads the first it
+// finds of Park, Snooze, Permanent and ToolFailed, in that order.
 
-// RetryAtError is an answer that the job cannot run before At, for a reason that is not its own
-// (a provider's Retry-After): it waits until then at no cost of an attempt, a repeat request
-// does not bring it forward, and the runner claims nothing more before then (D170).
-type RetryAtError struct {
-	At  time.Time
-	Err error
+// Park answers that the job's destination is down, a failure that says nothing of the job's own
+// item (D231 §5): the job returns to the queue at no cost of an attempt, kept with that
+// destination, and no job kept with it is claimed until its probe is due or it is unparked
+// (D231 §6).
+func Park(parking Parking, err error) error { return &parked{parking: parking, err: err} }
+
+type parked struct {
+	parking Parking
+	err     error
 }
 
-func (retry *RetryAtError) Error() string {
-	return fmt.Sprintf("retry after %s: %v", retry.At.UTC().Format(time.RFC3339), retry.Err)
-}
+func (failure *parked) Error() string { return failure.err.Error() }
+func (failure *parked) Unwrap() error { return failure.err }
 
-func (retry *RetryAtError) Unwrap() error { return retry.Err }
+// ParkingOf is the destination an answer parks its job on, if it does.
+func ParkingOf(answer error) (Parking, bool) {
+	failure, isParked := errors.AsType[*parked](answer)
+	if !isParked {
+		return Parking{}, false
+	}
+	return failure.parking, true
+}
 
 // Snooze answers that the job should wait until a time at no cost of an attempt, while the
 // runner goes on with other jobs. A repeat request does not bring it forward.
@@ -36,17 +47,6 @@ type snoozed struct {
 
 func (snooze *snoozed) Error() string { return snooze.err.Error() }
 func (snooze *snoozed) Unwrap() error { return snooze.err }
-
-// Blocked answers that something outside the queue holds every job of the kind (a provider's
-// key unset or refused): the job waits the first retry delay, jittered, at no cost of an attempt,
-// and the runner claims nothing more until then. Phase 2 of the jobs rebuild replaces it with a
-// parked destination (D231 §5).
-func Blocked(err error) error { return &blocked{err: err} }
-
-type blocked struct{ err error }
-
-func (failure *blocked) Error() string { return failure.err.Error() }
-func (failure *blocked) Unwrap() error { return failure.err }
 
 // ToolFailed answers that the tool the job used failed in a way that says nothing of its target
 // (a stall; a panic is answered so by the runner itself). It costs no attempt, and the job is

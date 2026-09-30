@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
@@ -26,11 +25,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// Waits the service makes: for a node to connect, and for its answer.
-const (
-	noNodeWait  = time.Minute
-	defaultWait = 2 * time.Minute
-)
+// defaultWait is how long a job waits for a node's answer.
+const defaultWait = 2 * time.Minute
 
 // webpSuffix ends the name of every WebP size the art directory holds: "portrait-m.webp".
 const webpSuffix = ".webp"
@@ -91,8 +87,6 @@ type Service struct {
 	parts Parts
 
 	answers  *nodes.AnswerRouter[nodeproto.ArtworkResult]
-	mutex    sync.Mutex
-	breakers map[string]*breaker // by source
 	holdings *holdings
 }
 
@@ -103,7 +97,7 @@ func NewService(parts Parts) *Service {
 	}
 	return &Service{
 		parts: parts, answers: nodes.NewAnswerRouter[nodeproto.ArtworkResult](parts.Logger, "an artwork answer"),
-		breakers: map[string]*breaker{}, holdings: newHoldings(),
+		holdings: newHoldings(),
 	}
 }
 
@@ -197,7 +191,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 		}
 	} else {
 		var download Unsanitised
-		download, err = service.fetch(ctx, fetcher, want.source, want.ref.SourceRef)
+		download, err = service.fetch(ctx, fetcher, want.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
 			return service.recordMissing(ctx, fetcher, want, err)
 		}
@@ -231,21 +225,19 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 		return 0, nil, fmt.Errorf("read file %d: %w", fileID, err)
 	}
 	if !service.parts.Nodes.IsConnected(file.NodeID) {
-		return 0, nil, &jobs.RetryAtError{
-			At:  service.parts.Clock.Now().Add(noNodeWait),
-			Err: fmt.Errorf("node %d, which holds it, is not connected", file.NodeID),
-		}
+		return 0, nil, jobs.ParkOnNode(file.NodeID, time.Time{}, errors.New("it holds the image"))
 	}
 	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.ReportedPathRaw}, nil
 }
 
-// anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.
+// anyNode is a connected node to re-encode a download; with none, the job parks until any node
+// says hello.
 func (service *Service) anyNode() (int64, error) {
 	nodeID, connected := service.parts.Nodes.LastHeardNodeID()
 	if !connected {
-		return 0, &jobs.RetryAtError{
-			At: service.parts.Clock.Now().Add(noNodeWait), Err: errors.New("no node is connected to re-encode it"),
-		}
+		return 0, jobs.Park(jobs.Parking{
+			Destination: jobs.DestinationAnyNode, Reason: "no node is connected", AwaitsSignal: true,
+		}, errors.New("no node is connected to re-encode it"))
 	}
 	return nodeID, nil
 }

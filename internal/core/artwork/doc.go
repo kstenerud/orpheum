@@ -51,10 +51,12 @@
 //     from its cached 404, and a second miss gives it up (D213 §1). The refresh is asked of the
 //     Rechecker the wiring hands in, identify's refresher.
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
-//   - A host that fails five times in a row is left alone, probed once per step of
-//     RetrySchedule; a rate limit waits without costing an attempt (D213 §5).
-//     TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep,
-//     TestService_ARateLimitWaitsWithoutCostingAnAttempt.
+//   - An image server that cannot be reached or answers 502, 503 or 504 parks the job on it, and a
+//     rate limit parks it until the time the server named, neither costing an attempt; the queue
+//     probes the host (D231 §5, §6, which replace D213 §5's breaker). A plain 500 is the image's
+//     own failure, retried on RetrySchedule.
+//     TestService_AnImageServerThatIsDownOrAsksUsToWaitParksTheJobOnItAtNoCost. With no node
+//     connected, a download waits for any node's hello. TestService_WaitsForANode.
 //   - The node is never on the request path: a size not made is answered with the nearest one
 //     there, and only a size made on request, whose source may be large enough, is queued; one
 //     the source cannot make, or a source that is gone or changed, is noted and never queued
@@ -76,6 +78,7 @@
 //   - images.go: the image vocabulary, what a pass found (Take), and every write to the artwork
 //     table; source.go: the unsanitised download and the fetcher interface; service.go: the queue's
 //     jobs, the node command and its answer, and the store; serve.go: answering a request;
-//     retry.go: the host's breaker, the retry schedule and the recheck of a missing image;
+//     retry.go: fetching and parking on the host, the retry schedule and the recheck of a
+//     missing image;
 //     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.
 package artwork

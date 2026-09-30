@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -52,6 +53,9 @@ const notFoundCachedFor = 12 * time.Hour
 
 // RecheckAfter is how long TMDB's CDN keeps a 404.
 func (*ImageFetcher) RecheckAfter() time.Duration { return notFoundCachedFor }
+
+// Destination is TMDB's image server, as the job queue names it.
+func (*ImageFetcher) Destination() jobs.Destination { return jobs.DestinationTMDBImages }
 
 // Fetch downloads one image by its path, as an unsanitised value for the node to re-encode.
 func (images *ImageFetcher) Fetch(ctx context.Context, ref string) (artwork.Unsanitised, error) {

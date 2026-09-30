@@ -855,7 +855,9 @@ CREATE TABLE job (                                         -- the one work queue
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
-  node_id     INTEGER,                   -- where it runs, for node work
+  -- What it needs that can be down (D231 section 5): 'tmdb-api', 'node:3', 'root:3:/media/films';
+  -- named when it is queued, or the one it was last parked on. A claim passes over the parked ones.
+  destination TEXT,
   runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
   -- Whether a queued job waits for a time it was given (a rate limit, a hold), which a repeat
   -- request never brings forward; 0 when it waits on its start or its back-off (D231 section 8).

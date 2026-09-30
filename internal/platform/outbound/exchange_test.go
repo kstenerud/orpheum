@@ -62,7 +62,7 @@ func TestExchange_ReadsTheWholeAnswerOrRefusesOneLargerThanItsBound(t *testing.T
 	}
 }
 
-func TestStatusError_NamesA429AsARateLimitAndA5xxAsUnavailable(t *testing.T) {
+func TestStatusError_NamesA429AsARateLimitA502To504AsUnavailableAndA500AsTheRequestsOwn(t *testing.T) {
 	t.Parallel()
 	if err := StatusError("TMDB", Answer{StatusCode: http.StatusOK}); err != nil {
 		t.Errorf("200: %v, want nil", err)
@@ -73,11 +73,16 @@ func TestStatusError_NamesA429AsARateLimitAndA5xxAsUnavailable(t *testing.T) {
 	if !isLimited || limited.Provider != "TMDB" || limited.RetryAfter != 7*time.Second {
 		t.Errorf("429: %v, want TMDB's RateLimitedError after 7s", limited)
 	}
-	for _, status := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable} {
+	for _, status := range []int{http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
 		err := StatusError("TMDB", Answer{StatusCode: status, Body: []byte("down for maintenance")})
 		if !errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "down for maintenance") {
 			t.Errorf("%d: %v, want ErrUnavailable quoting the body", status, err)
 		}
+	}
+	// A plain 500 is the provider failing on what was asked, not down (D231 §5).
+	err := StatusError("TMDB", Answer{StatusCode: http.StatusInternalServerError, Body: []byte("oops")})
+	if err == nil || errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "500: oops") {
+		t.Errorf("500: %v, want its status, not unavailable", err)
 	}
 	if err := StatusError("TMDB", Answer{StatusCode: http.StatusBadRequest}); err == nil ||
 		errors.Is(err, ErrUnavailable) || !strings.Contains(err.Error(), "400") {

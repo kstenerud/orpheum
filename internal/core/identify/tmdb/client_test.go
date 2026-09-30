@@ -158,6 +158,8 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 			writer.WriteHeader(http.StatusUnauthorized)
 		case "/movie/3":
 			writer.WriteHeader(http.StatusInternalServerError)
+		case "/movie/5":
+			writer.WriteHeader(http.StatusBadGateway)
 		default:
 			http.NotFound(writer, request)
 		}
@@ -172,9 +174,13 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 	if _, err := client.Fetch(t.Context(), "movie", "2"); !errors.Is(err, identify.ErrKeyRefused) {
 		t.Errorf("401 = %v, want ErrKeyRefused", err)
 	}
-	if _, err := client.Fetch(t.Context(), "movie", "3"); !errors.Is(err, outbound.ErrUnavailable) ||
-		!strings.Contains(err.Error(), "500") {
-		t.Errorf("500 = %v, want ErrUnavailable naming the status", err)
+	// A 502 is TMDB down; a plain 500 is the request's own failure (D231 §5). Each names its status.
+	for id, status := range map[string]string{"3": "500", "5": "502"} {
+		_, err := client.Fetch(t.Context(), "movie", id)
+		if err == nil || errors.Is(err, outbound.ErrUnavailable) != (status == "502") ||
+			!strings.Contains(err.Error(), status) {
+			t.Errorf("%s = %v, want ErrUnavailable for a 502 only, naming the status", status, err)
+		}
 	}
 	if _, err := client.Fetch(t.Context(), "movie", "4"); !errors.Is(err, identify.ErrNoMatch) {
 		t.Errorf("404 = %v, want ErrNoMatch", err)

@@ -36,9 +36,14 @@
 //     limit allows. TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit,
 //     TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows. Each wait is jittered
 //     by up to a tenth (D231 §10); these tests run unjittered.
-//   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
-//     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
-//     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
+//   - A job whose destination is down parks on it at no cost of an attempt; no job kept with a
+//     parked destination is claimed; it resumes when the destination is unparked; and the job
+//     view says what it waits for, why, since when and when it is looked at next (D231 §5, §6,
+//     §12). TestRunDue_AJobParkedOnItsDestinationWaitsOnCacheDBAtNoCostAndTheViewSaysWhy; the
+//     queue's own promises are internal/platform/jobqueue's.
+//   - The destinations are named here, one vocabulary: the outside hosts, each node, each root or
+//     mount a scan found missing, a node's prepared directory and the core's storage.
+//     TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt.
 //   - A tool that stalled (MarkStalled) costs no attempt, and the next attempt is told the last
 //     one's tool failed. TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled.
 //   - After a stop, running jobs return to queued, their attempt counted; one that stops the
@@ -59,12 +64,14 @@
 //   - D193 §2: scheduling, one encode per node.
 //   - D118: the scan is incremental, prioritised and steerable.
 //   - D170: provider rate limits and back-off.
+//   - D231 §5, §6, §12: destinations, parking, and what the job view says of parked work.
 //   - docs/contributors/design/plans/schema.md, cache.db: the job table, one queue.
 //   - docs/contributors/design/plans/cut-a.md §5.3.
 //
 // # Where to change
 //
 //   - queue.go: the kinds, targets, requests, the queue's parts and the answers a handler gives.
+//     destination.go: the destinations, parking on them and their state.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. Each kind's handler, runner count and argument merge are
 //     cmd/orpheum's (metadata.go); scan and backup jobs come in M4 (D223 §6).

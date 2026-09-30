@@ -34,6 +34,9 @@ type Request[T comparable] struct {
 	Reason string
 	// RunnableAt is when it may first run; now when zero.
 	RunnableAt time.Time
+	// Destination is what it needs that can be down, when known before it runs; a job that finds
+	// its destination down while it runs is parked on it then (Park).
+	Destination Destination
 }
 
 // Job is one claimed job, as its handler receives it.
@@ -42,6 +45,9 @@ type Job[T comparable] struct {
 	Kind     Kind
 	Target   T
 	ArgsJSON string
+	// Priority is how urgent it is: a handler may pass it on to a provider, which weighs a
+	// person's request above the background (D231 §5).
+	Priority int64
 	// AttemptNumber counts this attempt: 1 the first time, and not raised by an attempt that was
 	// given back (a snooze, a hold, a tool that failed).
 	AttemptNumber int64
@@ -58,6 +64,9 @@ type Row[T comparable] struct {
 	ArgsJSON string
 	Priority int64
 	State    State
+	// Destination is what it needs that can be down: named when it was queued, or the one it was
+	// last parked on.
+	Destination Destination
 	// RunnableAt is when a queued job may next be claimed.
 	RunnableAt time.Time
 	// IsSnoozed is whether a queued job waits for a time it was given (a rate limit, a hold), which

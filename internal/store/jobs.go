@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -78,7 +79,7 @@ func applyChange(
 			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ArgsJSON: change.ArgsJSON,
 			Priority: change.Priority, RunnableAt: change.RunnableAt.UnixMilli(), Reason: &change.Reason,
-			CreatedAt: change.CreatedAt.UnixMilli(),
+			Destination: destinationColumn(change.Destination), CreatedAt: change.CreatedAt.UnixMilli(),
 		})
 		if err != nil {
 			return fmt.Errorf("queue a %s job: %w", kind, err)
@@ -86,7 +87,8 @@ func applyChange(
 	case jobqueue.ActionMerge:
 		merged, err := queries.MergeQueuedJob(ctx, cachegen.MergeQueuedJobParams{
 			ArgsJSON: change.ArgsJSON, Priority: change.Priority, Reason: &change.Reason,
-			RunnableAt: change.RunnableAt.UnixMilli(), ID: change.MergeIntoID,
+			RunnableAt: change.RunnableAt.UnixMilli(), Destination: destinationColumn(change.Destination),
+			ID: change.MergeIntoID,
 		})
 		if err != nil {
 			return fmt.Errorf("merge a request into job %d: %w", change.MergeIntoID, err)
@@ -122,9 +124,13 @@ func (jobStorage *JobStorage) Cancel(ctx context.Context, id int64, at time.Time
 func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (jobqueue.Row[JobTarget], bool, error) {
 	var claimed jobqueue.Row[JobTarget]
 	found := false
-	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	unclaimable, err := json.Marshal(append([]jobqueue.Destination{}, claim.Unclaimable...))
+	if err != nil {
+		return claimed, false, fmt.Errorf("claim: encode the parked destinations: %w", err)
+	}
+	err = jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, nextErr := OrNotFound(queries.NextQueuedJob(ctx, cachegen.NextQueuedJobParams{
-			Kind: string(claim.Kind), Now: claim.Now.UnixMilli(),
+			Kind: string(claim.Kind), Now: claim.Now.UnixMilli(), UnclaimableJSON: string(unclaimable),
 		}))
 		if errors.Is(nextErr, ErrNotFound) {
 			return nil
@@ -154,7 +160,7 @@ func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outco
 			err := queries.DeferJob(ctx, cachegen.DeferJobParams{
 				RunnableAt: outcome.At.UnixMilli(), LastFailure: lastFailure, AttemptCount: outcome.AttemptCount,
 				IsSnoozed: columnFlag(outcome.IsSnoozed), LastAttemptToolFailed: columnFlag(outcome.ToolFailed),
-				ID: outcome.ID,
+				Destination: destinationColumn(outcome.Destination), ID: outcome.ID,
 			})
 			if err != nil {
 				return fmt.Errorf("return job %d to the queue: %w", outcome.ID, err)
@@ -248,7 +254,8 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 			StreamID: ptr.ValueOrZero(row.StreamID), FetchedSubtitleID: ptr.ValueOrZero(row.FetchedSubtitleID),
 			FileID: ptr.ValueOrZero(row.FileID),
 		},
-		State: jobqueue.State(row.State), RunnableAt: time.UnixMilli(row.RunnableAt), IsSnoozed: row.IsSnoozed != 0,
+		State: jobqueue.State(row.State), Destination: jobqueue.Destination(ptr.ValueOrZero(row.Destination)),
+		RunnableAt: time.UnixMilli(row.RunnableAt), IsSnoozed: row.IsSnoozed != 0,
 		AttemptCount: row.AttemptCount, LastAttemptToolFailed: row.LastAttemptToolFailed != 0,
 		ProgressFraction: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
 		LastFailure: ptr.ValueOrZero(row.LastFailure), CreatedAt: time.UnixMilli(row.CreatedAt),
@@ -257,6 +264,11 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 		converted.FinishedAt = new(time.UnixMilli(*row.FinishedAt))
 	}
 	return converted
+}
+
+// destinationColumn is a job's destination as its column holds it: NULL when it names none.
+func destinationColumn(destination jobqueue.Destination) *string {
+	return ptr.NilIfZero(string(destination))
 }
 
 // columnFlag is a boolean as a column holds it.

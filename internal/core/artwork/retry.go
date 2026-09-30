@@ -4,13 +4,10 @@ package artwork
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -25,61 +22,19 @@ func RetrySchedule() []time.Duration {
 	return schedule
 }
 
-// breakAfterFailures is how many failures in a row pause a source's host (D213 §5).
-const breakAfterFailures = 5
-
-// breaker pauses a host that keeps failing: after breakAfter failures in a row no image is asked
-// of it until a time, and then one is, a probe, each pause the next step of RetrySchedule.
-type breaker struct {
-	mutex        sync.Mutex
-	failures     int
-	scheduleStep int
-	openUntil    time.Time
-}
-
-// fetch downloads an image through its source's breaker. A rate limit and an open breaker wait
-// without costing the job an attempt; a 404 is the image's own answer, not the host failing.
-func (service *Service) fetch(ctx context.Context, fetcher Fetcher, source, ref string) (Unsanitised, error) {
-	gate := service.breakerOf(source)
-	now := service.parts.Clock.Now()
-	gate.mutex.Lock()
-	openUntil := gate.openUntil
-	gate.mutex.Unlock()
-	if now.Before(openUntil) {
-		return Unsanitised{}, &jobs.RetryAtError{
-			At: openUntil, Err: fmt.Errorf("%s's image server is failing; it is left alone until then", source),
-		}
-	}
+// fetch downloads an image from its source's image server. A server that cannot be reached, or
+// answers 502, 503 or 504, parks the job on its host until a probe finds it (D231 §5, §6), which
+// replaces D213 §5's breaker; a rate limit parks it until the time the server named; a 404 is the
+// image's own answer, not the host failing.
+func (service *Service) fetch(ctx context.Context, fetcher Fetcher, ref string) (Unsanitised, error) {
 	image, err := fetcher.Fetch(ctx, ref)
-	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); isLimited {
-		return Unsanitised{}, &jobs.RetryAtError{At: now.Add(limited.RetryAfter), Err: err}
+	if parking, isDown := jobs.HostDown(fetcher.Destination(), err, service.parts.Clock.Now()); isDown {
+		return Unsanitised{}, jobs.Park(parking, fmt.Errorf("fetch %s: %w", ref, err))
 	}
-	gate.mutex.Lock()
-	defer gate.mutex.Unlock()
-	if err == nil || errors.Is(err, ErrNoImage) {
-		gate.failures, gate.scheduleStep = 0, 0
-		return image, err
+	if err != nil {
+		return Unsanitised{}, fmt.Errorf("fetch %s: %w", ref, err)
 	}
-	gate.failures++
-	if gate.failures >= breakAfterFailures {
-		schedule := RetrySchedule()
-		gate.openUntil = now.Add(schedule[min(gate.scheduleStep, len(schedule)-1)])
-		gate.scheduleStep++
-		service.parts.Logger.WarnContext(ctx, "an image server keeps failing; pausing it", "source", source,
-			"failures", gate.failures, "until", gate.openUntil)
-	}
-	return Unsanitised{}, fmt.Errorf("fetch %s %s: %w", source, ref, err)
-}
-
-func (service *Service) breakerOf(source string) *breaker {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	gate, found := service.breakers[source]
-	if !found {
-		gate = &breaker{}
-		service.breakers[source] = gate
-	}
-	return gate
+	return image, nil
 }
 
 // recordMissing records an image its source says is not there. The first time, the record that named

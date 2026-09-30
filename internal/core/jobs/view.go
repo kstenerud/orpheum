@@ -29,6 +29,11 @@ type View struct {
 	AttemptCount     int64
 	CreatedAt        time.Time
 	FinishedAt       *time.Time
+	// Destination is what it needs that can be down, when known (D231 §5).
+	Destination Destination
+	// WaitingFor is its destination's state while it is queued on a parked one: what the job view
+	// shows as "waiting for TMDB — unreachable since 14:02, next check 14:10" (D231 §12).
+	WaitingFor *DestinationState
 }
 
 // List is the newest jobs, newest first, at most limit of them.
@@ -39,11 +44,17 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 	}
 	views := make([]View, 0, len(rows))
 	for _, row := range rows {
-		views = append(views, View{
+		view := View{
 			ID: row.ID, Kind: row.Kind, Target: row.Target, State: string(row.State),
 			ProgressFraction: row.ProgressFraction, Reason: row.Reason, LastFailure: row.LastFailure,
 			AttemptCount: row.AttemptCount, CreatedAt: row.CreatedAt, FinishedAt: row.FinishedAt,
-		})
+			Destination: row.Destination,
+		}
+		if state, isParked := queue.queue.DestinationState(row.Destination); isParked &&
+			row.State == jobqueue.StateQueued {
+			view.WaitingFor = &state
+		}
+		views = append(views, view)
 	}
 	return views, nil
 }

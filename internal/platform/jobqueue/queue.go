@@ -48,6 +48,18 @@ type Config struct {
 	Logger *slog.Logger
 	// ArgsMerges are the kinds that merge their arguments their own way.
 	ArgsMerges map[Kind]ArgsMerge
+	// PersonsRequestPriority is the lowest priority a person's request has: one at it or above
+	// for a job whose destination is parked looks at the destination at once (D231 §6). Zero or
+	// less, and no request probes.
+	PersonsRequestPriority int64
+	// StorageDestination is the program's own storage, where the queue keeps its jobs (D231 §5):
+	// a claim, a record or a handler's answer that IsStorageFailure says is it failing parks it,
+	// and no runner claims until its probe, one claim, finds it writable again. "" when the
+	// program names none.
+	StorageDestination Destination
+	// IsStorageFailure is whether an error is the storage failing for want of space or with an
+	// I/O error; nil when StorageDestination is "".
+	IsStorageFailure func(err error) bool
 }
 
 // Queue is a job queue over a Storage. T is what a job works on.
@@ -59,6 +71,15 @@ type Queue[T comparable] struct {
 	logger     *slog.Logger
 	argsMerges map[Kind]ArgsMerge
 
+	personsRequestPriority int64
+	storageDestination     Destination
+	isStorageFailure       func(err error) bool
+
+	destinations destinations
+	// claimMutex makes each claim and the probe it may begin one step, so a destination has one
+	// probe at a time however many runners claim.
+	claimMutex sync.Mutex
+
 	mutex                sync.Mutex
 	cancelByRunningJobID map[int64]context.CancelCauseFunc // guarded by mutex: each running job's cancel
 	// wakeupsByKind are each kind's runners' wake-ups: one each, so a job of one kind never wakes a
@@ -68,10 +89,16 @@ type Queue[T comparable] struct {
 
 // New returns a queue over storage.
 func New[T comparable](storage Storage[T], clockSource clock.Clock, config Config) *Queue[T] {
+	isStorageFailure := config.IsStorageFailure
+	if isStorageFailure == nil {
+		isStorageFailure = func(error) bool { return false }
+	}
 	return &Queue[T]{
 		storage: storage, clock: clockSource, policy: config.Policy, random: config.Random, logger: config.Logger,
-		argsMerges: config.ArgsMerges, cancelByRunningJobID: map[int64]context.CancelCauseFunc{},
-		wakeupsByKind: map[Kind][]chan struct{}{},
+		argsMerges: config.ArgsMerges, personsRequestPriority: config.PersonsRequestPriority,
+		storageDestination: config.StorageDestination, isStorageFailure: isStorageFailure,
+		destinations:         destinations{parkedBy: map[Destination]*parkedDestination{}},
+		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
 	}
 }
 
@@ -80,26 +107,30 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 // a queued job merges into it: the higher priority wins, with its reason; a job waiting on its
 // start or its back-off runs no later than the request asks, and a snoozed one keeps its time;
 // the arguments merge as the kind says. A request for a target whose job is running is dropped
-// when that job covers it, and otherwise queued to follow it. It says which it did.
+// when that job covers it, and otherwise queued to follow it. A person's request for a job whose
+// destination is parked looks at the destination at once (D231 §6). It says which it did.
 func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action, error) {
 	now := queue.clock.Now()
 	request.ArgsJSON = cmp.Or(request.ArgsJSON, "{}")
 	if request.RunnableAt.IsZero() {
 		request.RunnableAt = now
 	}
-	var action Action
+	var change Change
 	err := queue.storage.Enqueue(ctx, request.Kind, request.Target, func(open Open[T]) (Change, error) {
-		change, planErr := queue.plan(request, open, now)
-		action = change.Action
+		var planErr error
+		change, planErr = queue.plan(request, open, now)
 		return change, planErr
 	})
 	if err != nil {
 		return "", fmt.Errorf("enqueue a %s job: %w", request.Kind, err)
 	}
-	if action != ActionDrop {
+	if change.Action != ActionDrop {
 		queue.wakeKind(request.Kind)
 	}
-	return action, nil
+	if queue.personsRequestPriority > 0 && request.Priority >= queue.personsRequestPriority {
+		queue.ProbeNow(change.Destination)
+	}
+	return change.Action, nil
 }
 
 // plan is what a request does to its target's open jobs.
@@ -113,6 +144,7 @@ func (queue *Queue[T]) plan(request Request[T], open Open[T], now time.Time) (Ch
 		change := Change{
 			Action: ActionMerge, MergeIntoID: queued.ID, ArgsJSON: args, Priority: queued.Priority,
 			Reason: queued.Reason, RunnableAt: queued.RunnableAt,
+			Destination: cmp.Or(queued.Destination, request.Destination),
 		}
 		if request.Priority > queued.Priority {
 			change.Priority, change.Reason = request.Priority, request.Reason
@@ -128,12 +160,12 @@ func (queue *Queue[T]) plan(request Request[T], open Open[T], now time.Time) (Ch
 			return Change{}, fmt.Errorf("compare a request with running job %d: %w", running.ID, err)
 		}
 		if covered {
-			return Change{Action: ActionDrop}, nil
+			return Change{Action: ActionDrop, Destination: cmp.Or(running.Destination, request.Destination)}, nil
 		}
 	}
 	return Change{
 		Action: ActionInsert, ArgsJSON: request.ArgsJSON, Priority: request.Priority, Reason: request.Reason,
-		RunnableAt: request.RunnableAt, CreatedAt: now,
+		RunnableAt: request.RunnableAt, Destination: request.Destination, CreatedAt: now,
 	}, nil
 }
 

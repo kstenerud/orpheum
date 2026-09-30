@@ -79,7 +79,10 @@ type Job struct {
 	ID   int64
 	Kind Kind
 	Target
-	ArgsJSON      string
+	ArgsJSON string
+	// Priority is how urgent it is: a handler tells a provider how much its request matters by it
+	// (ImportanceOf).
+	Priority      int64
 	AttemptNumber int64
 	// PreviousAttemptToolFailed is whether the job's last attempt ended with its tool failing: a
 	// stall (MarkStalled) or a panic in its handler. Its handler may make a second stall in a row
@@ -87,8 +90,13 @@ type Job struct {
 	PreviousAttemptToolFailed bool
 }
 
-// PriorityPlayNow is the highest priority: a job someone is waiting on to watch (cut-a §5.3).
-const PriorityPlayNow int64 = 1000
+// The priorities that say who is waiting: a job someone is waiting on to watch is the highest
+// (cut-a §5.3); one a person asked for, such as a refresh, comes before the queue's own work, and
+// looks at its destination at once if it is parked (D231 §6).
+const (
+	PriorityPlayNow        int64 = 1000
+	PriorityPersonsRequest int64 = 20
+)
 
 // Request is a job to queue.
 type Request struct {
@@ -99,6 +107,9 @@ type Request struct {
 	Reason   string // why it exists, shown to the user
 	// RunnableAt is when it may first run; now when zero.
 	RunnableAt time.Time
+	// Destination is what it needs that can be down, when the one queuing it knows (D231 §5); a
+	// job that finds out while it runs parks on it then.
+	Destination Destination
 }
 
 // ArgsMerge is how a kind folds a repeat request's arguments into its open job (D231 §8).
@@ -129,11 +140,19 @@ type Queue struct {
 	queue *jobqueue.Queue[Target]
 }
 
-// NewQueue returns the queue.
+// NewQueue returns the queue. A person's request probes its parked destination at once, and
+// cache.db and library.db failing for want of room or with an I/O error park the core's storage
+// (D231 §5, §6).
 func NewQueue(parts QueueParts) *Queue {
-	return &Queue{queue: jobqueue.New(parts.Cache.Jobs(), parts.Clock, jobqueue.Config{
+	return newQueue(parts.Cache.Jobs(), parts)
+}
+
+// newQueue is the queue over storage: cache.db's job table, or a test's.
+func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
+	return &Queue{queue: jobqueue.New(storage, parts.Clock, jobqueue.Config{
 		Policy: retryPolicy{settings: parts.Settings}, Random: parts.Random, Logger: parts.Logger,
-		ArgsMerges: parts.ArgsMerges,
+		ArgsMerges: parts.ArgsMerges, PersonsRequestPriority: PriorityPersonsRequest,
+		StorageDestination: DestinationCoreStorage, IsStorageFailure: store.IsStorageFailure,
 	})}
 }
 
@@ -145,7 +164,7 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	}
 	action, err := queue.queue.Enqueue(ctx, jobqueue.Request[Target]{
 		Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority, Reason: job.Reason,
-		RunnableAt: job.RunnableAt,
+		RunnableAt: job.RunnableAt, Destination: job.Destination,
 	})
 	if err != nil {
 		return false, fmt.Errorf("enqueue: %w", err)
@@ -192,15 +211,6 @@ func (policy retryPolicy) FirstRetryDelay(ctx context.Context) (time.Duration, e
 	}
 	return firstRetryDelay, nil
 }
-
-// RetryAtError is a handler's answer that the job cannot run before a time that is not its
-// fault — a provider's Retry-After — so the wait costs it no attempt and holds its runner (D170).
-type RetryAtError = jobqueue.RetryAtError
-
-// MarkBlocked marks a handler's error as one that holds every job of its kind until something
-// outside the queue changes — a provider's key unset or refused — so the kind waits
-// job_first_retry_delay_seconds, and the wait costs the job no attempt.
-func MarkBlocked(err error) error { return jobqueue.Blocked(err) }
 
 // MarkStalled marks a handler's error as a tool that stalled on the job, a hang that says nothing
 // of the target: the job is tried again after job_first_retry_delay_seconds at no cost of an

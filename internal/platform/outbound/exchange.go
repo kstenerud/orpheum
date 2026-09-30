@@ -11,8 +11,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
-// ErrUnavailable is a provider that could not be reached or answered that it failed: a refused
-// connection, a timeout, a 5xx. It says nothing of what was asked, so asking later may succeed.
+// ErrUnavailable is a provider that could not be reached or answered that it is down: a refused
+// connection, DNS, a timeout, 502, 503 or 504. It says nothing of what was asked, so asking later
+// may succeed (D231 §5). A plain 500 is not it: that is the provider failing on what was asked.
 var ErrUnavailable = errors.New("unavailable")
 
 // Answer is a provider's answer, its body read whole.
@@ -59,9 +60,10 @@ func unanswered(request *http.Request, err error) error {
 }
 
 // StatusError is what an answer that is not 200 means once its provider has read the statuses it
-// gives a meaning of its own: 429 is a RateLimitedError, a 5xx is ErrUnavailable, and anything else
-// is its status; an error quotes the start of the body when there is one. The provider is named
-// as a person knows it: "TMDB", "OpenSubtitles".
+// gives a meaning of its own: 429 is a RateLimitedError, 502, 503 and 504 are ErrUnavailable (a
+// gateway or the service down), and anything else, a plain 500 included, is its status: a failure
+// of what was asked (D231 §5). An error quotes the start of the body when there is one. The
+// provider is named as a person knows it: "TMDB", "OpenSubtitles".
 func StatusError(provider string, answer Answer) error {
 	switch answer.StatusCode {
 	case http.StatusOK:
@@ -73,7 +75,8 @@ func StatusError(provider string, answer Answer) error {
 	if len(answer.Body) > 0 {
 		said += ": " + string(answer.Body[:min(len(answer.Body), bodyExcerptBytes)])
 	}
-	if answer.StatusCode >= http.StatusInternalServerError {
+	switch answer.StatusCode {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		return fmt.Errorf("%w: %s", ErrUnavailable, said)
 	}
 	return errors.New(said)

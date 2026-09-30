@@ -19,6 +19,16 @@ type Memory[T comparable] struct {
 	mutex  sync.Mutex
 	rows   []jobqueue.Row[T] // guarded by mutex; by id, oldest first
 	nextID int64             // guarded by mutex
+	// writeFailure is what every write answers while it is set: a full disk (guarded by mutex).
+	writeFailure error
+}
+
+// FailWrites makes every write answer failure until it is called with nil, as a storage out of
+// space does: a claim, a record, an enqueue.
+func (memory *Memory[T]) FailWrites(failure error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	memory.writeFailure = failure
 }
 
 // Compile-time proof that *Memory satisfies jobqueue.Storage.
@@ -47,6 +57,9 @@ func (memory *Memory[T]) Enqueue(
 ) error {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return memory.writeFailure
+	}
 	var open jobqueue.Open[T]
 	for index := range memory.rows {
 		row := memory.rows[index]
@@ -70,8 +83,8 @@ func (memory *Memory[T]) Enqueue(
 		memory.nextID++
 		memory.rows = append(memory.rows, jobqueue.Row[T]{
 			ID: memory.nextID, Kind: kind, Target: target, ArgsJSON: change.ArgsJSON, Priority: change.Priority,
-			State: jobqueue.StateQueued, RunnableAt: change.RunnableAt, Reason: change.Reason,
-			CreatedAt: change.CreatedAt,
+			State: jobqueue.StateQueued, Destination: change.Destination, RunnableAt: change.RunnableAt,
+			Reason: change.Reason, CreatedAt: change.CreatedAt,
 		})
 	case jobqueue.ActionMerge:
 		row := memory.find(change.MergeIntoID)
@@ -80,6 +93,7 @@ func (memory *Memory[T]) Enqueue(
 		}
 		row.ArgsJSON, row.Priority, row.Reason, row.RunnableAt = change.ArgsJSON, change.Priority, change.Reason,
 			change.RunnableAt
+		row.Destination = change.Destination
 	case jobqueue.ActionDrop:
 	}
 	return nil
@@ -97,14 +111,19 @@ func (memory *Memory[T]) Cancel(_ context.Context, id int64, cancelledAt time.Ti
 	return true, nil
 }
 
-// Claim marks the next due job of the claim's kind running and counts its attempt.
+// Claim marks the next due job of the claim's kind that no parked destination holds running and
+// counts its attempt.
 func (memory *Memory[T]) Claim(_ context.Context, claim jobqueue.Claim) (jobqueue.Row[T], bool, error) {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return jobqueue.Row[T]{}, false, memory.writeFailure
+	}
 	var next *jobqueue.Row[T]
 	for index := range memory.rows {
 		row := &memory.rows[index]
-		if row.Kind != claim.Kind || row.State != jobqueue.StateQueued || row.RunnableAt.After(claim.Now) {
+		if row.Kind != claim.Kind || row.State != jobqueue.StateQueued || row.RunnableAt.After(claim.Now) ||
+			slices.Contains(claim.Unclaimable, row.Destination) {
 			continue
 		}
 		if next == nil || claimsFirst(*row, *next) {
@@ -131,6 +150,9 @@ func claimsFirst[T comparable](a, b jobqueue.Row[T]) bool {
 func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) error {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return memory.writeFailure
+	}
 	row := memory.find(outcome.ID)
 	if row == nil || row.State == jobqueue.StateCancelled {
 		return nil
@@ -138,7 +160,7 @@ func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) err
 	row.State, row.LastFailure, row.AttemptCount = outcome.State, outcome.LastFailure, outcome.AttemptCount
 	switch outcome.State {
 	case jobqueue.StateQueued:
-		row.RunnableAt = outcome.At
+		row.RunnableAt, row.Destination = outcome.At, outcome.Destination
 		row.IsSnoozed, row.LastAttemptToolFailed = outcome.IsSnoozed, outcome.ToolFailed
 	case jobqueue.StateDone:
 		row.ProgressFraction, row.FinishedAt = new(1.0), &outcome.At

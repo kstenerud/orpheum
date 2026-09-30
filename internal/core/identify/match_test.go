@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -220,22 +221,46 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	}
 }
 
-func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
+func TestHandle_ParksTMDBWhenItIsDownAsksUsToWaitOrHasNoKey(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	job := jobs.Job{
 		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID},
 	}
-	lib.provider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute})
-	err := lib.matcher.Handle(t.Context(), job)
-	retry, isRetry := errors.AsType[*jobs.RetryAtError](err)
-	if !isRetry || !retry.At.Equal(lib.clock.Now().Add(time.Minute)) {
-		t.Errorf("rate limited: %v, want RetryAtError a minute from now", err)
+	now := lib.clock.Now()
+	for _, check := range []struct {
+		failure error
+		want    jobs.Parking
+	}{
+		{
+			&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute},
+			jobs.Parking{
+				Destination: jobs.DestinationTMDBAPI, Reason: "asked us to wait", ProbeAt: now.Add(time.Minute),
+			},
+		},
+		{
+			fmt.Errorf("tmdb: %w", identify.ErrNoKey),
+			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "the key is not set", AwaitsSignal: true},
+		},
+		{
+			fmt.Errorf("tmdb: %w", identify.ErrKeyRefused),
+			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "the key was refused", AwaitsSignal: true},
+		},
+		{
+			fmt.Errorf("tmdb: %w: dial tcp: connection refused", outbound.ErrUnavailable),
+			jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"},
+		},
+	} {
+		lib.provider.SetFailure(check.failure)
+		err := lib.matcher.Handle(t.Context(), job)
+		if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking != check.want {
+			t.Errorf("%v: parks %+v (%v); want %+v", check.failure, parking, isParked, check.want)
+		}
 	}
-	lib.provider.SetFailure(fmt.Errorf("tmdb: %w", identify.ErrNoKey))
-	if err := lib.matcher.Handle(t.Context(), job); err == nil || !errors.Is(err, identify.ErrNoKey) {
-		t.Errorf("no key: %v, want it blocked", err)
+	lib.provider.SetFailure(errors.New("tmdb: status 500: oops"))
+	if _, isParked := jobqueue.ParkingOf(lib.matcher.Handle(t.Context(), job)); isParked {
+		t.Error("a plain 500 parked TMDB; it is the item's failure (D231 §5)")
 	}
 	lib.provider.SetFailure(nil)
 	if err := lib.matcher.Handle(t.Context(), job); err != nil {

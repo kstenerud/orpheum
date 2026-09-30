@@ -28,8 +28,9 @@ type Queueing[T comparable] interface {
 // Working is the part of Storage that runners use.
 type Working[T comparable] interface {
 	// Claim marks the next queued job the claim allows running and counts its attempt: the row
-	// it returns has the new count. The next is the highest priority whose RunnableAt has come,
-	// then the earliest RunnableAt, then the lowest id. It reports false when none is due.
+	// it returns has the new count. The next is the highest priority whose RunnableAt has come and
+	// whose destination is not one the claim passes over, then the earliest RunnableAt, then the
+	// lowest id. It reports false when none is due.
 	Claim(ctx context.Context, claim Claim) (Row[T], bool, error)
 	// Record writes a claimed job's outcome, unless the job was cancelled meanwhile.
 	Record(ctx context.Context, outcome Outcome) error
@@ -72,23 +73,25 @@ type Change struct {
 	Action Action
 	// MergeIntoID is the queued job an ActionMerge changes.
 	MergeIntoID int64
-	// ArgsJSON, Priority, Reason and RunnableAt are the inserted job's, or the merged job's
-	// after the merge.
-	ArgsJSON   string
-	Priority   int64
-	Reason     string
-	RunnableAt time.Time
+	// ArgsJSON, Priority, Reason, RunnableAt and Destination are the inserted job's, or the
+	// merged job's after the merge.
+	ArgsJSON    string
+	Priority    int64
+	Reason      string
+	RunnableAt  time.Time
+	Destination Destination
 	// CreatedAt is an inserted job's.
 	CreatedAt time.Time
 }
 
-// Claim says which queued job a runner may take. Phase 2 of the jobs rebuild adds what a claim
-// passes over here: the destinations that are parked (D231 §6), which the storage reads from a
-// destination key kept with each job.
+// Claim says which queued job a runner may take.
 type Claim struct {
 	Kind Kind
 	// Now is the time a job's RunnableAt must have come by.
 	Now time.Time
+	// Unclaimable are the parked destinations whose probe is not due (D231 §6): a job kept with
+	// one of them is passed over, and spends nothing while it waits.
+	Unclaimable []Destination
 }
 
 // Outcome is a claimed job's end, or its return to the queue.
@@ -104,6 +107,8 @@ type Outcome struct {
 	// IsSnoozed and ToolFailed are a queued job's Row.IsSnoozed and Row.LastAttemptToolFailed.
 	IsSnoozed  bool
 	ToolFailed bool
+	// Destination is a queued job's destination: the one it was parked on, or the one it had.
+	Destination Destination
 	// LastFailure is what the attempt said when it did not succeed, or "".
 	LastFailure string
 }

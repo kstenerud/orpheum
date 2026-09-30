@@ -15,11 +15,12 @@
 //     Retry-After names or a second when it names none.
 //     TestRateLimited_WaitsWhatRetryAfterSaysOrASecondWhenItSaysNothing.
 //   - Every provider's request is sent and read by Exchange, and its statuses read last by
-//     StatusError: a refused connection, a timeout or a 5xx is ErrUnavailable, whichever provider,
+//     StatusError: a refused connection, DNS, a timeout, 502, 503 or 504 is ErrUnavailable,
+//     whichever provider, a plain 500 the request's own failure (D231 §5),
 //     and an error never repeats the URL, which may carry a key; an answer past its bound is
 //     refused, never read cut short. TestExchange_AnUnansweredRequestIsUnavailableAndDoesNotRepeatItsURL,
 //     TestExchange_ReadsTheWholeAnswerOrRefusesOneLargerThanItsBound,
-//     TestStatusError_NamesA429AsARateLimitAndA5xxAsUnavailable.
+//     TestStatusError_NamesA429AsARateLimitA502To504AsUnavailableAndA500AsTheRequestsOwn.
 //   - This package imports nothing from the module but internal/platform/bounded. Enforced by the
 //     depguard rule platform-is-a-leaf.
 //

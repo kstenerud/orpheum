@@ -18,13 +18,15 @@
 //     TestGet_AFailedConnectionDoesNotPrintTheKey.
 //   - TMDB's refusals become the errors the matcher acts on: 429 is outbound.RateLimitedError,
 //     waiting a second when Retry-After names no time, 401 is ErrKeyRefused, 404 is ErrNoMatch,
-//     a 5xx or a failed connection is outbound.ErrUnavailable, and no key is ErrNoKey. Enforced by
+//     a 502, 503, 504 or a failed connection is outbound.ErrUnavailable (a plain 500 is the
+//     request's own failure, D231 §5), and no key is ErrNoKey. Enforced by
 //     TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn
 //     and TestGet_A429WithoutRetryAfterIsARateLimitStill.
 //     Its image server's are the same, with 404 as artwork.ErrNoImage, and a 200 that is not an
 //     image, such as a captive portal's page, is the host failing (outbound.ErrUnavailable),
 //     not the image missing. Enforced by
-//     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre and
+//     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre,
+//     TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure and
 //     TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing.
 //   - Tests call a fake TMDB on loopback, never the network (standards/testing.md). Enforced by
 //     review; every test here builds its server with httptest.

@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -390,9 +390,10 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 	return nil
 }
 
-// Handle is the fetch_metadata job's handler. A provider's rate limit defers the queue until its time; a
-// key unset or refused holds it until a person fixes the key; an id the provider does not have
-// fails the job; anything else retries.
+// Handle is the fetch_metadata job's handler. A provider that cannot be reached parks its fetches
+// until a probe finds it; its rate limit parks them until the time it named; a key unset or refused
+// parks them until a person changes the key (D231 §5); an id the provider does not have fails the
+// job; anything else retries.
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	args, err := decodeFetchArgs(cmp.Or(job.ArgsJSON, "{}"))
 	if err != nil {
@@ -404,12 +405,10 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	} else {
 		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
-	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); isLimited {
-		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.RetryAfter), Err: err}
+	if parking, isDown := providerDown(err, matcher.clock.Now()); isDown {
+		return fmt.Errorf("fetch item %d: %w", job.ItemID, jobs.Park(parking, err))
 	}
 	switch {
-	case errors.Is(err, ErrNoKey), errors.Is(err, ErrKeyRefused):
-		return fmt.Errorf("fetch item %d: %w", job.ItemID, jobs.MarkBlocked(err))
 	case errors.Is(err, ErrNoMatch):
 		return fmt.Errorf("fetch item %d: %w", job.ItemID, jobs.MarkPermanent(err))
 	case err != nil:
@@ -417,4 +416,20 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	}
 	matcher.logger.InfoContext(ctx, "matched an item", "itemId", job.ItemID, "outcome", string(outcome))
 	return nil
+}
+
+// providerDown is how TMDB's API is down, when a fetch's failure says so rather than anything of
+// the item (D231 §5): unreachable or asking us to wait (jobs.HostDown), or its key unset or
+// refused, which only a change of the key brings back.
+func providerDown(err error, now time.Time) (jobs.Parking, bool) {
+	parking := jobs.Parking{Destination: jobs.DestinationTMDBAPI, AwaitsSignal: true}
+	switch {
+	case errors.Is(err, ErrNoKey):
+		parking.Reason = "the key is not set"
+	case errors.Is(err, ErrKeyRefused):
+		parking.Reason = "the key was refused"
+	default:
+		return jobs.HostDown(jobs.DestinationTMDBAPI, err, now)
+	}
+	return parking, true
 }
