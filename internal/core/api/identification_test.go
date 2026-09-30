@@ -147,6 +147,29 @@ func TestIdentification_APersonMayRefreshATitleWheneverTheyLike(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/refresh", admin, nil), http.StatusNotFound, CodeNotFound)
 }
 
+func TestIdentification_AnItemsOwnFailureIsShownOnItsPagesAndARefreshTriesAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO fetch_failure (item_id, failure, failed_at) VALUES (10, 'TMDB answered 500 five times', 1234)`)
+	const failure = `"fetchFailure":{"failure":"TMDB answered 500 five times","failedAt":1234}`
+	for _, path := range []string{"/items?identificationState=ambiguous", "/items/10"} {
+		if shown := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(shown.body, failure) {
+			t.Errorf("GET %s = %d %s; want its failure and when (D231 section 4)", path, shown.status, shown.body)
+		}
+	}
+	harness.clock.Set(time.UnixMilli(5678))
+	if tried := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil); tried.status != http.StatusAccepted {
+		t.Fatalf("try again = %d %s", tried.status, tried.body)
+	}
+	shown := harness.do(t, http.MethodGet, "/items/10", admin, nil)
+	if strings.Contains(shown.body, "fetchFailure") || !strings.Contains(shown.body, `"refreshRequestedAt":5678`) {
+		t.Errorf("after try again: %s; want the failure cleared and the request shown as waiting", shown.body)
+	}
+}
+
 func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

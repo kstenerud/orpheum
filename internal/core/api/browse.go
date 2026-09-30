@@ -111,6 +111,8 @@ type ItemDetailOutput struct {
 		Extras              []ExtraBody       `json:"extras"`
 		Episode             *EpisodePlaceBody `json:"episode,omitempty"`
 		Art                 ArtBody           `json:"art"`
+		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
+		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -130,15 +132,17 @@ type EpisodeBody struct {
 // CollectionOutput is a series with its episodes in aired order.
 type CollectionOutput struct {
 	Body struct {
-		ID                  int64         `json:"id"`
-		Kind                string        `enum:"series" json:"kind"`
-		Name                string        `json:"name"`
-		Overview            string        `json:"overview,omitempty"`
-		Year                int64         `json:"year,omitempty"`
-		IdentificationState string        `json:"identificationState,omitempty"`
-		LibraryID           int64         `json:"libraryId"`
-		Episodes            []EpisodeBody `json:"episodes"`
-		Art                 ArtBody       `json:"art"`
+		ID                  int64             `json:"id"`
+		Kind                string            `enum:"series" json:"kind"`
+		Name                string            `json:"name"`
+		Overview            string            `json:"overview,omitempty"`
+		Year                int64             `json:"year,omitempty"`
+		IdentificationState string            `json:"identificationState,omitempty"`
+		LibraryID           int64             `json:"libraryId"`
+		Episodes            []EpisodeBody     `json:"episodes"`
+		Art                 ArtBody           `json:"art"`
+		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
+		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -227,6 +231,8 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	body.Year = ptr.ValueOrZero(detail.Year)
 	body.RuntimeMs = ptr.ValueOrZero(detail.RuntimeMs)
 	body.LibraryID = ptr.ValueOrZero(detail.LibraryID)
+	body.FetchFailure = fetchFailureBody(detail.FetchFailure, detail.FetchFailedAt)
+	body.RefreshRequestedAt = ptr.ValueOrZero(detail.RefreshRequestedAt)
 	body.Versions = make([]VersionBody, 0, len(detail.Versions))
 	for _, version := range detail.Versions {
 		versionBody := VersionBody{ID: version.ID, EditionID: version.EditionID, Files: []FileDetailBody{}}
@@ -283,6 +289,8 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
 	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
 	body.IdentificationState = ptr.ValueOrZero(series.IdentificationState)
+	body.FetchFailure = fetchFailureBody(series.FetchFailure, series.FetchFailedAt)
+	body.RefreshRequestedAt = ptr.ValueOrZero(series.RefreshRequestedAt)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
 	for _, episode := range series.Episodes {
 		body.Episodes = append(body.Episodes, EpisodeBody{

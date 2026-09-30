@@ -37,6 +37,9 @@ type Request[T comparable] struct {
 	// Destination is what it needs that can be down, when known before it runs; a job that finds
 	// its destination down while it runs is parked on it then (Park).
 	Destination Destination
+	// IsDerived is a request a sweep made, deriving again work that state implies (Sweep): it looks
+	// at no parked destination, whatever its priority, since no one is waiting on it now.
+	IsDerived bool
 }
 
 // Job is one claimed job, as its handler receives it.

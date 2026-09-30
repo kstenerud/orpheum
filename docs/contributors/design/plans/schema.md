@@ -1034,7 +1034,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `extra_relation` | library.db | `internal/core/identify` | |
 | `favourite` | library.db | none yet | |
 | `fetched_subtitle` | library.db | `internal/core/playback` | |
-| `fetch_failure` | library.db | none yet | |
+| `fetch_failure` | library.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | library.db | `internal/core/identify` | |
 | `file` | library.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
 | `grant` | library.db | `internal/core/auth` | |
@@ -1056,7 +1056,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `preference` | library.db | `internal/core/preferences` | |
 | `progress_hide` | library.db | `internal/core/playback` | |
 | `provider_response` | library.db | `internal/core/identify` | |
-| `refresh_request` | library.db | none yet | |
+| `refresh_request` | library.db | `internal/core/identify` | |
 | `role` | library.db | none yet | the baseline seeds the built-in roles |
 | `root_mount` | library.db | `internal/core/library` | |
 | `root_scan` | library.db | `internal/core/library` | |

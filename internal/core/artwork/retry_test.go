@@ -36,22 +36,33 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 	bench := newBench(t, fakeFetcher{})
 	gone := Ref{Kind: library.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)
-	want := []recheck{{itemID: bench.itemID, at: bench.service.parts.Clock.Now().Add(12 * time.Hour)}}
-	if !slices.EqualFunc(bench.rechecks.asked, want, func(a, b recheck) bool {
-		return a.itemID == b.itemID && a.at.Equal(b.at)
-	}) {
-		t.Fatalf("rechecks %+v; want the item's record refreshed once, twelve hours on", bench.rechecks.asked)
+	dueRechecks := func() []int64 {
+		t.Helper()
+		due, err := bench.service.DueRechecks(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return due
+	}
+	if due := dueRechecks(); len(due) != 0 {
+		t.Errorf("due rechecks %v at once; want none while the CDN still answers from its cached 404", due)
+	}
+	bench.clock.Advance(12 * time.Hour)
+	if due := dueRechecks(); !slices.Equal(due, []int64{bench.itemID}) {
+		t.Fatalf("due rechecks %v twelve hours on; want the item's record refreshed once (D213 section 1)", due)
 	}
 	// The recheck's refresh asks for the images again: it removes the rows it left.
 	if err := bench.service.RetryImages(t.Context(), bench.itemID); err != nil {
 		t.Fatal(err)
 	}
 	bench.handle(t, gone)
-	if len(bench.rechecks.asked) != 1 {
-		t.Errorf("rechecks %+v after the second miss; want it given up", bench.rechecks.asked)
+	bench.clock.Advance(24 * time.Hour)
+	if due := dueRechecks(); len(due) != 0 {
+		t.Errorf("due rechecks %v after the second miss; want it given up", due)
 	}
-	if rows := bench.rows(t); len(rows) != 1 || rows[0].SourceSha256 != nil {
-		t.Errorf("rows %+v; want the miss held, so no pass asks for it again", rows)
+	rows := bench.rows(t)
+	if len(rows) != 1 || rows[0].SourceSha256 != nil || rows[0].RefusedAt == nil {
+		t.Errorf("rows %+v; want the miss held with when, so no pass asks for it again", rows)
 	}
 }
 

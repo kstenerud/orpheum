@@ -187,6 +187,7 @@ FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
   AND title.followed_source IS NULL AND title.identification_state = 'unidentified'
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = title.id)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -194,7 +195,8 @@ WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
 ORDER BY title.id
 `
 
-// Films with live files that no source has answered for yet (D170): the fetch queue's work.
+// Films with live files that no source has answered for yet, and that have no failure of their
+// own: owed their first match however often an earlier fetch was lost (D170, D231 section 3).
 func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listTitlesAwaitingMatch, libraryID)
 	if err != nil {
@@ -220,10 +222,13 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 
 const listTitlesByIdentification = `-- name: ListTitlesByIdentification :many
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
-  item_text.name
+  item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
+  refresh_request.requested_at AS refresh_requested_at
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
+LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id
 `
@@ -237,9 +242,13 @@ type ListTitlesByIdentificationRow struct {
 	FollowedSourceID    *string
 	LibraryID           *int64
 	Name                *string
+	FetchFailure        *string
+	FetchFailedAt       *int64
+	RefreshRequestedAt  *int64
 }
 
-// The titles in one state of identification, for the chooser's list (cut-a section 5).
+// The titles in one state of identification, for the chooser's list (cut-a section 5), with a
+// failure of their own to be fetched and a person's refresh waiting (D231 section 4).
 func (q *Queries) ListTitlesByIdentification(ctx context.Context, identificationState string) ([]ListTitlesByIdentificationRow, error) {
 	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, identificationState)
 	if err != nil {
@@ -258,6 +267,9 @@ func (q *Queries) ListTitlesByIdentification(ctx context.Context, identification
 			&i.FollowedSourceID,
 			&i.LibraryID,
 			&i.Name,
+			&i.FetchFailure,
+			&i.FetchFailedAt,
+			&i.RefreshRequestedAt,
 		); err != nil {
 			return nil, err
 		}

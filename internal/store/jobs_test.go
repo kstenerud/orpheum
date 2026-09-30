@@ -165,11 +165,15 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 	if requeued := storage.byID()[prepare.ID]; requeued.State != jobqueue.StateQueued || requeued.AttemptCount != 1 {
 		t.Errorf("requeued job = %+v, want queued with its attempt counted", requeued)
 	}
-	if ever, err := storage.jobs.EverQueued(t.Context(), "prepare", rendition); err != nil || !ever {
-		t.Errorf("EverQueued(prepare, rendition 7) = %t, %v; want true", ever, err)
+	storage.insert("measure_loudness", JobTarget{FileID: 8}, 0, jobStart)
+	measure, _ := storage.claim("measure_loudness", jobStart)
+	done := jobqueue.Outcome{ID: measure.ID, State: jobqueue.StateDone, At: jobStart, AttemptCount: 1}
+	if err := storage.jobs.Record(t.Context(), done); err != nil {
+		t.Fatal(err)
 	}
-	if ever, err := storage.jobs.EverQueued(t.Context(), "prepare", JobTarget{ItemID: 7}); err != nil || ever {
-		t.Errorf("EverQueued(prepare, item 7) = %t, %v; want false: a target is its column and its id", ever, err)
+	open, err := storage.jobs.ListOpen(t.Context())
+	if err != nil || len(open) != 1 || open[0].ID != prepare.ID || open[0].Target != rendition {
+		t.Errorf("ListOpen = %+v, %v; want the prepare alone, its target rendition 7 by its column", open, err)
 	}
 }
 

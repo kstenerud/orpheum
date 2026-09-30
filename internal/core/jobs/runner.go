@@ -23,17 +23,35 @@ type Runner struct {
 // NewRunner returns the runner for one kind of job.
 func (queue *Queue) NewRunner(kind Kind, handler Handler) *Runner {
 	return &Runner{runner: queue.queue.NewRunner(kind, func(ctx context.Context, job jobqueue.Job[Target]) error {
-		return handler(ctx, Job{
-			ID: job.ID, Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority,
-			AttemptNumber: job.AttemptNumber, PreviousAttemptToolFailed: job.PreviousAttemptToolFailed,
-		})
+		return handler(ctx, jobOf(job))
 	})}
+}
+
+// jobOf is a claimed job as a handler receives it.
+func jobOf(job jobqueue.Job[Target]) Job {
+	return Job{
+		ID: job.ID, Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority,
+		AttemptNumber: job.AttemptNumber, PreviousAttemptToolFailed: job.PreviousAttemptToolFailed,
+	}
 }
 
 // WithRetrySchedule gives the runner's kind its own retry schedule in place of the settings'
 // doubling back-off: the wait before each retry, after which the job fails (D213 §5).
 func (runner *Runner) WithRetrySchedule(retrySchedule []time.Duration) *Runner {
 	runner.runner.WithRetrySchedule(retrySchedule)
+	return runner
+}
+
+// FailureRecorder records a failed job as its item's own failure, a fact in library.db that the
+// kind's sweep passes over and a person may clear (D231 §4, §10), with what its last attempt said.
+// A job whose destination was down never failed: it parked.
+type FailureRecorder func(ctx context.Context, job Job, failure string) error
+
+// WithFailureRecorder has the runner's kind record each failed job as its item's own failure.
+func (runner *Runner) WithFailureRecorder(record FailureRecorder) *Runner {
+	runner.runner.WithFailureRecorder(func(ctx context.Context, job jobqueue.Job[Target], failure string) error {
+		return record(ctx, jobOf(job), failure)
+	})
 	return runner
 }
 

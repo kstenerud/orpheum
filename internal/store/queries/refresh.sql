@@ -4,11 +4,12 @@
 
 -- name: ListResponsesAskedBefore :many
 -- Live items whose provider was last asked for a response before a time: the part asked longest
--- ago decides.
+-- ago decides. An item with a failure of its own waits for a person (D231 section 4).
 SELECT provider_response.item_id, CAST(MIN(provider_response.last_asked_at) AS INTEGER) AS oldest_asked_at
 FROM provider_response
 JOIN item ON item.id = provider_response.item_id
 WHERE provider_response.provider = sqlc.arg(provider) AND item.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = provider_response.item_id)
 GROUP BY provider_response.item_id
 HAVING MIN(provider_response.last_asked_at) < sqlc.arg(before);
 

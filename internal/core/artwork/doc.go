@@ -48,9 +48,19 @@
 //     first, then the source the library prefers (D215).
 //     TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders.
 //   - A missing image is looked into once: its record is refreshed after the CDN stops answering
-//     from its cached 404, and a second miss gives it up (D213 §1). The refresh is asked of the
-//     Rechecker the wiring hands in, identify's refresher.
+//     from its cached 404, and a second miss gives it up (D213 §1). The recheck is derived from
+//     its refusal, which DueRechecks reads for the refresh sweep, never held as a job (D231 §3).
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
+//   - An image that could not be stored keeps why and when, the item's own failure (D231 §4); a
+//     job that gave up records each image it named that its item does not hold that way (§10).
+//     TestRecordFailure_AnArtworkJobThatGaveUpHoldsItsImagesAsRefusedWithWhy.
+//   - A refused image beside the media is owed again once a scan has seen its file since: a disk
+//     that was away brings its images back (G9).
+//     TestTake_ARefusedImageBesideTheMediaIsOwedAgainOnceAScanHasSeenItsFile.
+//   - Where the library shows the images beside the media first, a provider's image of a kind
+//     beside an item's media is not owed, after a pass or a match; in a TMDB-only library it is,
+//     to replace it (D215 §1).
+//     TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed.
 //   - An image server its provider service finds down or asking us to wait parks the job on it,
 //     at no cost of an attempt, and holds nothing of the image; the queue probes the host
 //     (D231 §5, §6, which replace D213 §5's breaker). A plain 500 is the image's own failure,
@@ -78,7 +88,7 @@
 //   - images.go: the image vocabulary, what a pass found (Take), and every write to the artwork
 //     table; source.go: the unsanitised download and the fetcher interface; service.go: the queue's
 //     jobs, the node command and its answer, and the store; serve.go: answering a request;
-//     retry.go: fetching and parking on the host, the retry schedule and the recheck of a
-//     missing image;
+//     retry.go: fetching and parking on the host, the retry schedule, a missing image and its
+//     due recheck;
 //     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.
 package artwork

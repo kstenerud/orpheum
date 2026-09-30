@@ -3,14 +3,17 @@
 -- its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 
 -- name: ListLiveArtwork :many
-SELECT id, kind, source, source_ref, source_sha256, is_chosen
+SELECT id, kind, source, source_ref, source_sha256, is_chosen, refused_at
 FROM artwork
 WHERE item_id = sqlc.arg(item_id) AND removed_at IS NULL
 ORDER BY kind, is_chosen DESC, id DESC;
 
 -- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256)
-VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(source_ref), sqlc.arg(source_sha256))
+-- A stored image, with its hash; or one that could not be stored, with none, and when and why
+-- (D231 section 4), and whether its source said it was not there (D213 section 1).
+INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, refused_at, refusal, is_missing_at_source)
+VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(source_ref), sqlc.arg(source_sha256),
+  sqlc.arg(refused_at), sqlc.arg(refusal), sqlc.arg(is_missing_at_source))
 RETURNING id;
 
 -- name: RetireReplacedArtwork :exec
@@ -88,3 +91,37 @@ ORDER BY artwork.item_id;
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND source = sqlc.arg(source) AND is_chosen = 0 AND removed_at IS NULL
   AND (source_ref IS NULL OR source_ref NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(found_refs) AS TEXT))));
+
+-- name: ListItemsDueRecheck :many
+-- The live items with an image their source said was missing, not yet looked at again, and
+-- refused before refused_before, a CDN's 404 lifetime ago: each is owed one refresh that asks for
+-- its images again (D213 section 1), derived here rather than held as a job (D231 section 3). A
+-- recheck removes the row it looks at again, so a removed miss of the same image is one rechecked.
+SELECT DISTINCT artwork.item_id
+FROM artwork
+JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
+WHERE artwork.source = sqlc.arg(source) AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NULL
+  AND artwork.is_missing_at_source = 1 AND artwork.refused_at <= sqlc.arg(refused_before)
+  AND NOT EXISTS (
+    SELECT 1 FROM artwork earlier
+    WHERE earlier.item_id = artwork.item_id AND earlier.kind = artwork.kind AND earlier.source = artwork.source
+      AND earlier.source_ref = artwork.source_ref AND earlier.source_sha256 IS NULL AND earlier.removed_at IS NOT NULL
+  )
+ORDER BY artwork.item_id;
+
+-- name: RetireArtworkRow :exec
+-- An image beside the media that was refused, owed again once a scan has seen its file since
+-- (a disk that was away and came back, G9).
+UPDATE artwork SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: GetFileLastSeenAt :one
+-- When a scan last saw a file: an image beside the media refused before then is owed again.
+SELECT last_seen_at FROM file WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: GetItemLibraryMetadataSource :one
+-- Where an item's library takes its data from: one that takes NFO files first shows an image
+-- beside the media over a provider's (D215), so a provider's of the same kind is not fetched.
+SELECT library.metadata_source
+FROM item
+JOIN library ON library.id = item.library_id
+WHERE item.id = sqlc.arg(item_id);

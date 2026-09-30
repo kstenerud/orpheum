@@ -39,10 +39,14 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 
 const getSeriesDetail = `-- name: GetSeriesDetail :one
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
-  item.library_id, item_text.name, item_text.overview
+  item.library_id, item_text.name, item_text.overview,
+  fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
+  refresh_request.requested_at AS refresh_requested_at
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
+LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.id = ?1 AND collection.kind = 'series' AND item.removed_at IS NULL
 `
 
@@ -55,8 +59,12 @@ type GetSeriesDetailRow struct {
 	LibraryID           *int64
 	Name                *string
 	Overview            *string
+	FetchFailure        *string
+	FetchFailedAt       *int64
+	RefreshRequestedAt  *int64
 }
 
+// A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
 func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetailRow, error) {
 	row := q.db.QueryRowContext(ctx, getSeriesDetail, id)
 	var i GetSeriesDetailRow
@@ -69,16 +77,23 @@ func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetai
 		&i.LibraryID,
 		&i.Name,
 		&i.Overview,
+		&i.FetchFailure,
+		&i.FetchFailedAt,
+		&i.RefreshRequestedAt,
 	)
 	return i, err
 }
 
 const getTitleDetail = `-- name: GetTitleDetail :one
 SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source, title.followed_source_id,
-  item.library_id, item.added_at, item_text.name, item_text.overview, item_text.tagline
+  item.library_id, item.added_at, item_text.name, item_text.overview, item_text.tagline,
+  fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
+  refresh_request.requested_at AS refresh_requested_at
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
+LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.id = ?1 AND item.removed_at IS NULL
 `
 
@@ -95,8 +110,12 @@ type GetTitleDetailRow struct {
 	Name                *string
 	Overview            *string
 	Tagline             *string
+	FetchFailure        *string
+	FetchFailedAt       *int64
+	RefreshRequestedAt  *int64
 }
 
+// A title, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
 func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailRow, error) {
 	row := q.db.QueryRowContext(ctx, getTitleDetail, id)
 	var i GetTitleDetailRow
@@ -113,6 +132,9 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 		&i.Name,
 		&i.Overview,
 		&i.Tagline,
+		&i.FetchFailure,
+		&i.FetchFailedAt,
+		&i.RefreshRequestedAt,
 	)
 	return i, err
 }

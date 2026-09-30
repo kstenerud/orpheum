@@ -231,6 +231,29 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	return service.measure(ctx, job, file, command, patience)
 }
 
+// RecordMeasurementFailure records a measure_loudness job that failed as its file's own failure
+// (D231 §4, §10): its attempts spent, or its bytes unreadable. It is kept by the file's payload
+// hash as FFmpeg's failure is, so the sweep does not ask again; the file plays unlevelled.
+func (service *Service) RecordMeasurementFailure(ctx context.Context, job jobs.Job, failure string) error {
+	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
+	if errors.Is(err, ErrNoFile) {
+		return nil // gone, or never probed: nothing to keep a failure against
+	}
+	if err != nil {
+		return err
+	}
+	probe, err := decodeProbe(file.ProbeJSON)
+	if err != nil {
+		return nil //nolint:nilerr // a probe that cannot be read names no track to keep a failure for
+	}
+	var tracks []nodeproto.LoudnessTrack
+	for _, stream := range audioStreams(probe) {
+		tracks = append(tracks, nodeproto.LoudnessTrack{StreamIndex: stream.StreamIndex})
+	}
+	return service.keepLoudness(ctx, file.PayloadHash, tracks,
+		nodeproto.LoudnessResult{JobID: job.ID, Failure: "given up: " + failure})
+}
+
 // measure has the node measure, waits for its answer, and keeps it.
 func (service *Service) measure(
 	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,

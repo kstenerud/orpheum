@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -64,6 +65,52 @@ func TestRunners_PreparesRunAsManyAtOnceAsANodeHasSlots(t *testing.T) {
 		}
 		if runner.concurrency != want {
 			t.Errorf("%s jobs run %d at once, want %d (cut-a §5.3)", runner.kind, runner.concurrency, want)
+		}
+	}
+}
+
+func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact(t *testing.T) {
+	t.Parallel()
+	services := jobServices{}
+	sweepNames := map[string]bool{}
+	for _, sweep := range services.sweeps() {
+		if sweep.Derive == nil || sweep.Every == nil || sweepNames[sweep.Name] {
+			t.Errorf("sweep %q is incomplete or named twice", sweep.Name)
+		}
+		sweepNames[sweep.Name] = true
+	}
+	run := map[jobs.Kind]bool{}
+	for _, runner := range services.runners() {
+		run[runner.kind] = true
+		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
+		if runner.recordFailure == nil && runner.kind != jobs.KindPrepare {
+			t.Errorf("%s records no failure of its item's own (D231 §4, §10)", runner.kind)
+		}
+	}
+	for _, kind := range jobs.Kinds() {
+		if !run[kind] && kind != jobs.KindScan && kind != jobs.KindBackup {
+			t.Errorf("no runner works %s", kind)
+		}
+	}
+	for _, name := range sweepsAfterAPass() {
+		if !sweepNames[name] || name == sweepPasses {
+			t.Errorf("a pass asks for %q, which is no sweep, or the pass's own", name)
+		}
+	}
+}
+
+// checkDerivation fails unless a kind's work is derived by sweeps that exist, or asked for by a play.
+func checkDerivation(t *testing.T, kind jobs.Kind, derivedBy []string, sweepNames map[string]bool) {
+	t.Helper()
+	if len(derivedBy) == 0 {
+		t.Errorf("%s's work is derived by nothing: a job lost with cache.db would be lost for good (D231 §3)", kind)
+	}
+	if slices.Equal(derivedBy, derivedByAPlay()) {
+		return
+	}
+	for _, name := range derivedBy {
+		if !sweepNames[name] {
+			t.Errorf("%s's work is derived by %q, which is no sweep", kind, name)
 		}
 	}
 }

@@ -148,6 +148,22 @@ type exportedPackage struct {
 // sqlcgen's RenameDevice from a call to a service's method of the same name.
 func loadGeneratedQueryCalls(t *testing.T, packages []listedPackage) map[string][]string {
 	t.Helper()
+	queriesByPackage := map[string][]string{}
+	for importPath, functions := range loadFunctionsUsed(t, packages) {
+		queriesByPackage[importPath] = []string{}
+		for _, function := range functions {
+			if path := function.Pkg().Path(); path == sqlcgenPath || path == cachegenPath {
+				queriesByPackage[importPath] = append(queriesByPackage[importPath], path+"."+function.Name())
+			}
+		}
+	}
+	return queriesByPackage
+}
+
+// loadFunctionsUsed type-checks every shipped package of the module except the generated and
+// test-support ones, and returns, per package, every function and method its shipped files name.
+func loadFunctionsUsed(t *testing.T, packages []listedPackage) map[string][]*types.Func {
+	t.Helper()
 	exportFiles := loadExportFiles(t)
 	fileSet := token.NewFileSet()
 	imports := importer.ForCompiler(fileSet, "gc", func(importPath string) (io.ReadCloser, error) {
@@ -158,21 +174,21 @@ func loadGeneratedQueryCalls(t *testing.T, packages []listedPackage) map[string]
 		return os.Open(exportFile)
 	})
 	skipped := append(append([]string{archtestPath}, generatedPackages...), testSupportPackages(packages)...)
-	queriesByPackage := map[string][]string{}
+	functionsByPackage := map[string][]*types.Func{}
 	for _, listed := range packages {
 		if slices.Contains(skipped, listed.ImportPath) || len(listed.GoFiles) == 0 {
 			continue
 		}
-		queriesByPackage[listed.ImportPath] = generatedQueriesUsed(t, fileSet, imports, listed)
+		functionsByPackage[listed.ImportPath] = functionsUsed(t, fileSet, imports, listed)
 	}
-	return queriesByPackage
+	return functionsByPackage
 }
 
-// generatedQueriesUsed type-checks one package's shipped files and returns the generated query
-// methods they name.
-func generatedQueriesUsed(
+// functionsUsed type-checks one package's shipped files and returns the functions and methods
+// they name, each from a package.
+func functionsUsed(
 	t *testing.T, fileSet *token.FileSet, imports types.Importer, listed listedPackage,
-) []string {
+) []*types.Func {
 	t.Helper()
 	var files []*ast.File
 	for _, name := range listed.GoFiles {
@@ -187,17 +203,13 @@ func generatedQueriesUsed(
 	if _, err := config.Check(listed.ImportPath, fileSet, files, info); err != nil {
 		t.Fatalf("type-check %s: %v", listed.ImportPath, err)
 	}
-	var queries []string
+	var functions []*types.Func
 	for _, used := range info.Uses {
-		function, isFunction := used.(*types.Func)
-		if !isFunction || function.Pkg() == nil {
-			continue
-		}
-		if path := function.Pkg().Path(); path == sqlcgenPath || path == cachegenPath {
-			queries = append(queries, path+"."+function.Name())
+		if function, isFunction := used.(*types.Func); isFunction && function.Pkg() != nil {
+			functions = append(functions, function)
 		}
 	}
-	return queries
+	return functions
 }
 
 // loadExportFiles runs `go list -export` over the module and its dependencies: each package's

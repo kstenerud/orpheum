@@ -5,6 +5,8 @@ package artwork
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -32,25 +34,33 @@ func (service *Service) fetch(ctx context.Context, fetcher Fetcher, ref string) 
 	return image, nil
 }
 
-// recordMissing records an image its source says is not there. The first time, the record that named
-// it is refreshed once, after the source's CDN stops answering from its cached 404, and the
-// image asked for again; the second time it is given up (D213 §1). An older image stays shown.
-func (service *Service) recordMissing(ctx context.Context, fetcher Fetcher, want wantedImage, missErr error) error {
-	misses, err := service.parts.Database.Read().CountEarlierMisses(ctx, sqlcgen.CountEarlierMissesParams{
-		ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
-	})
-	if err != nil {
-		return fmt.Errorf("count item %d's earlier misses: %w", want.itemID, err)
+// recordMissing records an image its source says is not there, as missing at its source. The
+// first time, the record that named it is refreshed once, after the source's CDN stops answering
+// from its cached 404, and the image asked for again; the second time it is given up (D213 §1).
+// The recheck is derived from this row by the refresh sweep (DueRechecks), not queued here. An
+// older image stays shown.
+func (service *Service) recordMissing(ctx context.Context, want wantedImage, missErr error) error {
+	service.parts.Logger.WarnContext(ctx, "an image is missing at its source", "itemId", want.itemID,
+		"source", want.source, "sourceRef", want.ref.SourceRef)
+	return service.record(ctx, want, nil, &refusal{why: missErr.Error(), isMissingAtSource: true})
+}
+
+// DueRechecks are the items with an image their source said was missing that are due their one
+// recheck: refused a CDN's 404 lifetime ago or more, and not looked at again since (D213 §1). The
+// refresh sweep queues a refresh of each that asks for its images again (identify's
+// QueueRechecks, through the server's wiring).
+func (service *Service) DueRechecks(ctx context.Context) ([]int64, error) {
+	now := service.parts.Clock.Now()
+	var due []int64
+	for _, source := range slices.Sorted(maps.Keys(service.parts.Fetchers)) {
+		refusedBefore := now.Add(-service.parts.Fetchers[source].RecheckAfter()).UnixMilli()
+		items, err := service.parts.Database.Read().ListItemsDueRecheck(ctx, sqlcgen.ListItemsDueRecheckParams{
+			Source: source, RefusedBefore: &refusedBefore,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list the items due a recheck of %s's images: %w", source, err)
+		}
+		due = append(due, items...)
 	}
-	if refusedErr := service.recordRefusal(ctx, want, missErr.Error()); refusedErr != nil {
-		return refusedErr
-	}
-	if misses > 0 {
-		return nil // rechecked once already: given up
-	}
-	at := service.parts.Clock.Now().Add(fetcher.RecheckAfter())
-	if err := service.parts.Rechecker.Recheck(ctx, want.itemID, at); err != nil {
-		return fmt.Errorf("ask for item %d's recheck: %w", want.itemID, err)
-	}
-	return nil
+	return due, nil
 }

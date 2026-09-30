@@ -41,12 +41,14 @@ type Working[T comparable] interface {
 	RequeueRunning(ctx context.Context) (int64, error)
 }
 
-// Listing is the part of Storage that reads jobs for a person.
+// Listing is the part of Storage that reads jobs for a person, and the open ones for a cancel.
 type Listing[T comparable] interface {
-	// List is the newest jobs, newest first, at most limit.
+	// List is the newest jobs, newest first, at most limit: the job view's.
 	List(ctx context.Context, limit int64) ([]Row[T], error)
-	// EverQueued is whether a job of kind was ever queued for target, whatever became of it.
-	EverQueued(ctx context.Context, kind Kind, target T) (bool, error)
+	// ListOpen is every queued and running job, for a cancel of the work of what a program
+	// retires. What became of a job that ended is never a fact a program derives work from
+	// (D231 section 3).
+	ListOpen(ctx context.Context) ([]Row[T], error)
 }
 
 // Open are a kind's open jobs for one target: at most one queued and one running.

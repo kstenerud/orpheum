@@ -164,7 +164,8 @@ func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration
 }
 
 // Unpark marks a destination up and wakes every runner, so its work resumes, highest priority
-// first. A destination not parked is left as it is.
+// first, and asks for every sweep, so work lost while it was down is derived again (D231 §3). A
+// destination not parked is left as it is.
 func (queue *Queue[T]) Unpark(ctx context.Context, destination Destination) {
 	queue.destinations.mutex.Lock()
 	_, wasParked := queue.destinations.parkedBy[destination]
@@ -173,7 +174,16 @@ func (queue *Queue[T]) Unpark(ctx context.Context, destination Destination) {
 	if wasParked {
 		queue.logger.InfoContext(ctx, "a destination is back; its work resumes", "destination", destination)
 		queue.Wake()
+		queue.RequestSweeps()
 	}
+}
+
+// Forget drops a destination the program retired (D231 §7): it is not back, and nothing waits
+// for it, since its work was cancelled.
+func (queue *Queue[T]) Forget(destination Destination) {
+	queue.destinations.mutex.Lock()
+	defer queue.destinations.mutex.Unlock()
+	delete(queue.destinations.parkedBy, destination)
 }
 
 // ProbeNow looks at a parked destination at once, for a person waiting on its work (D231 §6): its

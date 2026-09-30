@@ -110,6 +110,9 @@ type Request struct {
 	// Destination is what it needs that can be down, when the one queuing it knows (D231 §5); a
 	// job that finds out while it runs parks on it then.
 	Destination Destination
+	// IsDerived is a request a sweep made (Sweep): it looks at no parked destination, whatever
+	// its priority, since no one is waiting on it now.
+	IsDerived bool
 }
 
 // ArgsMerge is how a kind folds a repeat request's arguments into its open job (D231 §8).
@@ -165,20 +168,12 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	}
 	action, err := queue.queue.Enqueue(ctx, jobqueue.Request[Target]{
 		Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON, Priority: job.Priority, Reason: job.Reason,
-		RunnableAt: job.RunnableAt, Destination: job.Destination,
+		RunnableAt: job.RunnableAt, Destination: job.Destination, IsDerived: job.IsDerived,
 	})
 	if err != nil {
 		return false, fmt.Errorf("enqueue: %w", err)
 	}
 	return action == jobqueue.ActionInsert, nil
-}
-
-// EverQueued reports whether a job of this kind was ever queued for the target.
-func (queue *Queue) EverQueued(ctx context.Context, kind Kind, target Target) (bool, error) {
-	if err := requireOneTarget(target); err != nil {
-		return false, err
-	}
-	return queue.queue.EverQueued(ctx, kind, target)
 }
 
 // RequeueRunning returns the jobs a stop left running to the queue: their output is a cache, so

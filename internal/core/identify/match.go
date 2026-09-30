@@ -393,17 +393,24 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 // Handle is the fetch_metadata job's handler. It asks the provider with the job's importance: a
 // person's refresh above the background (providers.JobImportance). A provider that cannot be
 // reached, asks us to wait or has its key unset or refused answers that the job parks on it (its
-// provider service's doing, D231 §5); an id the provider does not have fails the job; anything
-// else retries.
+// provider service's doing, D231 §5); an id the provider does not have fails the job, as the
+// item's own failure (RecordFailure); anything else retries. A person's refresh waiting for the
+// item (refresh_request) makes whichever fetch runs a refresh that asks for what they asked, and
+// a fetch that succeeds answers it and clears a failure of the item's own (D231 §4).
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	ctx = providers.WithImportance(ctx, providers.JobImportance(job.Priority))
 	args, err := decodeFetchArgs(cmp.Or(job.ArgsJSON, "{}"))
 	if err != nil {
 		return fmt.Errorf("fetch_metadata job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
+	request, err := store.OrNotFound(matcher.database.Read().GetRefreshRequest(ctx, job.ItemID))
+	hasRequest := err == nil
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("read item %d's refresh request: %w", job.ItemID, err)
+	}
 	var outcome Outcome
-	if args.IsRefresh {
-		outcome, err = matcher.refresh(ctx, job.ItemID, args.ShouldRetryImages)
+	if args.IsRefresh || hasRequest {
+		outcome, err = matcher.refresh(ctx, job.ItemID, args.ShouldRetryImages || request.ShouldFetchImages != 0)
 	} else {
 		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
@@ -413,6 +420,61 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	case err != nil:
 		return err
 	}
+	if err := matcher.settle(ctx, job.ItemID, request.RequestedAt); err != nil {
+		return err
+	}
 	matcher.logger.InfoContext(ctx, "matched an item", "itemId", job.ItemID, "outcome", string(outcome))
+	return nil
+}
+
+// settle records that a fetch of an item succeeded: a failure of its own is cleared, and a
+// person's refresh the fetch read (requested at or before readAt) is answered; one made since
+// stays for the next.
+func (matcher *Matcher) settle(ctx context.Context, itemID, readAt int64) error {
+	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if err := queries.ClearFetchFailure(ctx, itemID); err != nil {
+			return fmt.Errorf("clear its failure: %w", err)
+		}
+		err := queries.SettleRefreshRequest(ctx, sqlcgen.SettleRefreshRequestParams{ItemID: itemID, ReadAt: readAt})
+		if err != nil {
+			return fmt.Errorf("answer its refresh: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("record item %d's fetch: %w", itemID, err)
+	}
+	return nil
+}
+
+// RecordFailure records a fetch_metadata job that failed as its item's own failure (D231 §4,
+// §10): an id its provider does not have, or its attempts spent on a failure that was not its
+// host's being down, which parks instead. The sweeps pass the item over, its page shows why, and
+// a person's refresh, "try again", clears it; the refresh it answers is settled.
+func (matcher *Matcher) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
+	now := matcher.clock.Now().UnixMilli()
+	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if _, err := store.OrNotFound(queries.GetItemKind(ctx, job.ItemID)); errors.Is(err, store.ErrNotFound) {
+			return nil // gone since it was queued
+		} else if err != nil {
+			return fmt.Errorf("read it: %w", err)
+		}
+		err := queries.RecordFetchFailure(ctx, sqlcgen.RecordFetchFailureParams{
+			ItemID: job.ItemID, Failure: failure, FailedAt: now,
+		})
+		if err != nil {
+			return fmt.Errorf("keep why: %w", err)
+		}
+		err = queries.SettleRefreshRequest(ctx, sqlcgen.SettleRefreshRequestParams{ItemID: job.ItemID, ReadAt: now})
+		if err != nil {
+			return fmt.Errorf("answer its refresh: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("record item %d's failure: %w", job.ItemID, err)
+	}
+	matcher.logger.WarnContext(ctx, "an item could not be fetched; it waits for a person", "itemId", job.ItemID,
+		"failure", failure)
 	return nil
 }

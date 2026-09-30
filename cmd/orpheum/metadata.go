@@ -45,9 +45,6 @@ type jobServices struct {
 	// providerServices are each outside host's provider service, which every call to it asks
 	// first (D231 §5): TMDB's API, TMDB's image server and OpenSubtitles, in that order.
 	providerServices hostProviders
-	// measureDue is signalled after each identification pass, which follows every scan: new files
-	// may want measuring (D226 §2).
-	measureDue chan struct{}
 }
 
 // newJobServices builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -85,18 +82,16 @@ func newJobServices(
 	if err := keepSortAndSearchKeysCurrent(ctx, pass, opened.settings, logger); err != nil {
 		return jobServices{}, err
 	}
-	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueOwedFetches(ctx, queue, report, logger) })
-	measureDue := make(chan struct{}, 1)
-	pass.AfterPass(func(context.Context, identify.Report) {
-		select {
-		case measureDue <- struct{}{}:
-		default: // a sweep is already due
-		}
+	pass.AfterPass(func(ctx context.Context, report identify.Report) {
+		queueOwedFetches(ctx, queue, report, logger)
+		// A pass follows every scan: new files may want measuring (D226 §2), and new items their
+		// matches. Every sweep but the pass's own runs after it (D231 §3).
+		queue.RequestSweeps(sweepsAfterAPass()...)
 	})
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
-		outboundClient: httpClient, providerServices: hosts, measureDue: measureDue,
+		outboundClient: httpClient, providerServices: hosts,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
@@ -140,31 +135,131 @@ func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
 	return map[jobs.Kind]jobs.ArgsMerge{jobs.KindFetchMetadata: identify.FetchArgsMerge()}
 }
 
-// jobRunners are the job queue's runners: each kind, its handler, its retry schedule when it has
-// its own, and how many of its jobs run at once.
+// jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
+// its item's own failure (D231 §4, §10), its retry schedule when it has its own, how many of its
+// jobs run at once, and the sweeps that derive its work from library.db (D231 §3).
 type jobRunners []struct {
 	kind          jobs.Kind
 	handler       jobs.Handler
+	recordFailure jobs.FailureRecorder
 	retrySchedule []time.Duration
 	concurrency   int
+	// derivedBy names the sweeps that queue the kind's work again from library.db, or is
+	// derivedByAPlay for work a play asks for, which the next play asks for again.
+	derivedBy []string
 }
 
+// derivedByAPlay names what derives the work a play asks for: a prepare, a subtitle's text. It
+// needs no sweep, since the next play asks again (D231 §4).
+func derivedByAPlay() []string { return []string{"the next play"} }
+
 // runners are the kinds of job the server works. Prepares run as many at once as a node has
-// slots (cut-a §5.3), so a second person's copy is not held behind the first's.
+// slots (cut-a §5.3), so a second person's copy is not held behind the first's. A prepare records
+// no failure of its own: the next play asks again (its rendition's state is Phase 4's, G8).
 func (services jobServices) runners() jobRunners {
 	return jobRunners{
-		{jobs.KindFetchMetadata, services.matcher.Handle, nil, 1},
-		{jobs.KindMakeArtworkSizes, services.artwork.Handle, artwork.RetrySchedule(), 1},
-		{jobs.KindPrepare, services.playback.HandlePrepare, nil, nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount},
-		{jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, nil, 1},
-		{jobs.KindConvertFetchedSubtitle, services.playback.HandleConvertFetchedSubtitle, nil, 1},
-		{jobs.KindMeasureLoudness, services.playback.HandleMeasureLoudness, nil, 1},
+		{
+			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
+			[]string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses},
+		},
+		{
+			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
+			artwork.RetrySchedule(), 1,
+			[]string{sweepPasses},
+		},
+		{
+			jobs.KindPrepare, services.playback.HandlePrepare, nil, nil,
+			nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount, derivedByAPlay(),
+		},
+		{
+			jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, services.playback.RecordSubtitleFailure,
+			nil, 1, derivedByAPlay(),
+		},
+		{
+			jobs.KindConvertFetchedSubtitle, services.playback.HandleConvertFetchedSubtitle,
+			services.playback.RecordSubtitleFailure, nil, 1, derivedByAPlay(),
+		},
+		{
+			jobs.KindMeasureLoudness, services.playback.HandleMeasureLoudness,
+			services.playback.RecordMeasurementFailure, nil, 1,
+			[]string{sweepLoudness},
+		},
 	}
 }
 
-// startBackgroundLoops starts a runner for every kind of job, the look for data due a refresh
-// (when it starts and every metadata_refresh_check_every_hours, D213 §3), the look for files to
-// measure, and the artwork cache's upkeep. They run until the returned stop is called.
+// The sweeps, by what they derive (D231 §3): the first match of each film and series with no
+// answer yet; the refreshes people asked for that no fetch has answered; the one recheck of each
+// image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
+// §3); every library identified again from library.db, each item's season listings and images
+// owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
+// file whose sound has none (D226 §2).
+const (
+	sweepFirstMatches    = "first matches"
+	sweepRefreshRequests = "refreshes people asked for"
+	sweepRechecks        = "rechecks of missing images"
+	sweepRollingRefresh  = "rolling refresh"
+	sweepPasses          = "identification passes"
+	sweepLoudness        = "loudness measurements"
+)
+
+// sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
+func sweepsAfterAPass() []string {
+	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepLoudness}
+}
+
+// derivedWorkSweepEvery is how often the sweeps that derive first matches, the refreshes people
+// asked for, rechecks and the identification passes run on their own, besides at start, after
+// each pass and when a destination comes back: D231 §3's "hourly by default". A named constant
+// until the settings work gives each sweep's interval a setting (the owner, 2026-09-30).
+const derivedWorkSweepEvery = time.Hour
+
+// measureSweepEvery is how often the server looks for files to measure when no scan has said so.
+// A named constant until the settings work makes it a setting (the owner, 2026-09-30).
+const measureSweepEvery = time.Hour
+
+// sweepCheckEvery is how often the sweeping loop looks for a sweep whose interval has passed: a
+// bound on how late one runs, not a choice about how often work is derived.
+const sweepCheckEvery = time.Minute
+
+// sweeps are every sweep that derives the server's work from library.db (D231 §3), each queuing
+// what the library's state implies of one kind's work, as its name says.
+func (services jobServices) sweeps() []jobs.Sweep {
+	derivedWorkEvery := func(context.Context) time.Duration { return derivedWorkSweepEvery }
+	return []jobs.Sweep{
+		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
+		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
+		{
+			Name: sweepRechecks, Every: derivedWorkEvery,
+			Derive: func(ctx context.Context) (int, error) {
+				due, err := services.artwork.DueRechecks(ctx)
+				if err != nil {
+					return 0, err
+				}
+				return services.refresher.QueueRechecks(ctx, due)
+			},
+		},
+		{Name: sweepRollingRefresh, Derive: services.refresher.Sweep, Every: services.rollingRefreshCheckEvery},
+		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
+		{
+			Name: sweepLoudness, Derive: services.playback.QueueMeasurements,
+			Every: func(context.Context) time.Duration { return measureSweepEvery },
+		},
+	}
+}
+
+// rollingRefreshCheckEvery is metadata_refresh_check_every_hours, read at each look, so a change
+// takes effect at the next (D213 §3); a day when it cannot be read, its starting value.
+func (services jobServices) rollingRefreshCheckEvery(ctx context.Context) time.Duration {
+	checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryHours)
+	if err != nil {
+		return 24 * time.Hour
+	}
+	return checkEvery
+}
+
+// startBackgroundLoops starts a runner for every kind of job, the sweeps that derive their work
+// (at start, on their timers, after each pass and when a destination comes back, D231 §3), and
+// the artwork cache's upkeep. They run until the returned stop is called.
 func (services jobServices) startBackgroundLoops(ctx context.Context, logger *slog.Logger) (stop func()) {
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
@@ -173,6 +268,9 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			kind, runner := runnerSpec.kind, services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
 			if runnerSpec.retrySchedule != nil {
 				runner.WithRetrySchedule(runnerSpec.retrySchedule)
+			}
+			if runnerSpec.recordFailure != nil {
+				runner.WithFailureRecorder(runnerSpec.recordFailure)
 			}
 			loops.Go(func() {
 				ticker := time.NewTicker(time.Second)
@@ -183,61 +281,16 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			})
 		}
 	}
-	loops.Go(func() { services.queueDueRefreshes(loopsContext, logger) })
-	loops.Go(func() { services.queueMeasurements(loopsContext, logger) })
+	for _, sweep := range services.sweeps() {
+		services.queue.AddSweep(sweep)
+	}
+	loops.Go(func() {
+		ticker := time.NewTicker(sweepCheckEvery)
+		defer ticker.Stop()
+		services.queue.Sweeping(loopsContext, ticker.C)
+	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, logger) })
 	return func() { cancel(); loops.Wait() }
-}
-
-// queueDueRefreshes queues the rolling refresh: now, then every metadata_refresh_check_every_hours,
-// read afresh each time so a change takes effect at the next look.
-func (services jobServices) queueDueRefreshes(ctx context.Context, logger *slog.Logger) {
-	for {
-		queued, err := services.refresher.Sweep(ctx)
-		if err != nil && ctx.Err() == nil {
-			logger.ErrorContext(ctx, "could not look for data due a refresh", "err", err)
-		}
-		if queued > 0 {
-			logger.InfoContext(ctx, "queued refreshes of data that is due", "queuedCount", queued)
-		}
-		checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryHours)
-		if err != nil {
-			checkEvery = 24 * time.Hour
-		}
-		wait := time.NewTimer(checkEvery)
-		select {
-		case <-ctx.Done():
-			wait.Stop()
-			return
-		case <-wait.C:
-		}
-	}
-}
-
-// measureSweepEvery is how often the server looks for files to measure when no scan has said so.
-const measureSweepEvery = time.Hour
-
-// queueMeasurements queues a loudness measurement for each file with none (D226 §2): now, after
-// each identification pass, and every measureSweepEvery.
-func (services jobServices) queueMeasurements(ctx context.Context, logger *slog.Logger) {
-	for {
-		queued, err := services.playback.QueueMeasurements(ctx)
-		if err != nil && ctx.Err() == nil {
-			logger.ErrorContext(ctx, "could not look for files to measure", "err", err)
-		}
-		if queued > 0 {
-			logger.InfoContext(ctx, "queued loudness measurements", "queuedCount", queued)
-		}
-		wait := time.NewTimer(measureSweepEvery)
-		select {
-		case <-ctx.Done():
-			wait.Stop()
-			return
-		case <-services.measureDue:
-			wait.Stop()
-		case <-wait.C:
-		}
-	}
 }
 
 // keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's
@@ -265,24 +318,19 @@ func keepSortAndSearchKeysCurrent(
 	return nil
 }
 
-// queueOwedFetches queues what a pass left owing: the first match of each film and series, once
-// per item (D170); and a matched series' season listings, whenever a new episode needs one
-// (D209 §3). A later match is a person's request.
+// queueOwedFetches queues what a pass left owing: the first match of each film and series with
+// no answer yet (D170; owed until it has one, D231 §3); and a matched series' season listings,
+// whenever a new episode needs one (D209 §3). A later match is a person's request.
 func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
 	queued := 0
 	for _, itemID := range report.AwaitingMatch {
-		wasEverQueued, err := queue.EverQueued(ctx, jobs.KindFetchMetadata, jobs.Target{ItemID: itemID})
-		if err == nil && !wasEverQueued {
-			_, err = queue.Enqueue(ctx, jobs.Request{
-				Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID},
-				Destination: identify.FetchDestination,
-				Reason:      "the first match for a newly identified title or series",
-			})
-			queued++
-		}
+		wasQueued, err := queue.Enqueue(ctx, identify.FirstMatchJob(itemID))
 		if err != nil {
 			logger.ErrorContext(ctx, "could not queue a match", "itemId", itemID, "err", err)
 			return
+		}
+		if wasQueued {
+			queued++
 		}
 	}
 	for _, seriesID := range report.AwaitingListings {

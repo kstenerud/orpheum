@@ -292,3 +292,26 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		t.Errorf("the subtitle file's track: %d %q", served.status, served.body)
 	}
 }
+
+func TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	decided := harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	job := jobs.Job{ID: 94, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
+	if err := playback.RecordSubtitleFailure(t.Context(), job, "node 1 said nothing five times"); err != nil {
+		t.Fatal(err)
+	}
+	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
+	if failed.status != http.StatusBadGateway || !strings.Contains(failed.body, "said nothing five times") {
+		t.Errorf("a track whose extraction gave up: %d %s, want prepare_failed with why (D231 section 10)",
+			failed.status, failed.body)
+	}
+	again := harness.play(t, user, chrome(2))
+	if early := harness.getBytePath(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
+		t.Errorf("played again: %d, want 425 while it is made again", early.status)
+	}
+}

@@ -2,10 +2,12 @@
 
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
 // (fetches, artwork, prepares, subtitles, loudness; scans and backups come in M4), their targets,
-// the answers its handlers give, and the job view. The rows are cache.db's job table, kept by
-// internal/store's JobStorage. One scheduler per kind picks the highest-priority queued job whose
-// runnable_at has passed; node jobs become commands, each answered on its own path to the node
-// service. After a stop, running jobs return to queued and restart from zero.
+// the answers its handlers give, the sweeps that derive their work, and the job view. The rows are
+// cache.db's job table, kept by internal/store's JobStorage, a cache of the work library.db
+// implies (D231 §3): each kind's work is derived again by its sweeps, or asked for again by the
+// next play. One scheduler per kind picks the highest-priority queued job whose runnable_at has
+// passed; node jobs become commands, each answered on its own path to the node service. After a
+// stop, running jobs return to queued and restart from zero.
 //
 // # Invariants
 //
@@ -56,6 +58,12 @@
 //   - A kind may retry on its own schedule instead (D213 §5), and a job may wait until a time
 //     before it first runs. TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails,
 //     TestEnqueue_AJobWaitsUntilItsRunnableAt.
+//   - Every kind's work is derived by a sweep from library.db, or asked for by a play, and each
+//     kind whose item can fail records the failure as a fact there (D231 §3, §4, §10); the server
+//     registers them (cmd/orpheum).
+//     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact.
+//   - Nothing reads job history as a fact: only the queue, its storage and the job view read the
+//     job rows. TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory.
 //
 // # Read before changing
 //
@@ -71,7 +79,8 @@
 // # Where to change
 //
 //   - queue.go: the kinds, targets, requests, the queue's parts and the answers a handler gives.
-//     destination.go: the destinations, parking on them and their state.
+//     destination.go: the destinations, parking on them and their state. sweep.go: the sweeps,
+//     and cancelling what is retired.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. Each kind's handler, runner count and argument merge are
 //     cmd/orpheum's (metadata.go); scan and backup jobs come in M4 (D223 §6).

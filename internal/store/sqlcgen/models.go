@@ -4,6 +4,12 @@
 
 package sqlcgen
 
+type FetchFailure struct {
+	ItemID   int64
+	Failure  string
+	FailedAt int64
+}
+
 type Loudness struct {
 	PayloadHash    []byte
 	StreamIndex    int64
@@ -13,6 +19,12 @@ type Loudness struct {
 	TruePeakDBTP   *float64
 	Failure        *string
 	MeasuredAt     int64
+}
+
+type RefreshRequest struct {
+	ItemID            int64
+	RequestedAt       int64
+	ShouldFetchImages int64
 }
 
 type Secret struct {

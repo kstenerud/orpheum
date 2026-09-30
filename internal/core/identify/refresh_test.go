@@ -175,6 +175,21 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 	}
 }
 
+func TestRefresher_TheRollingRefreshPassesOverAnItemWithAFailureOfItsOwn(t *testing.T) {
+	t.Parallel()
+	lib, titleID := matchedMetropolis(t)
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: titleID}}
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
+		t.Fatal(err)
+	}
+	lib.clock.Advance(365 * 24 * time.Hour)
+	if count, err := refresher.Sweep(t.Context()); err != nil || count != 0 {
+		t.Errorf("a year on: queued %d (%v); want Metropolis left for a person to try again (D231 section 4)", count, err)
+	}
+}
+
 // fakeImageRetrier records the items whose images a refresh asked for again.
 type fakeImageRetrier struct{ itemIDs []int64 }
 
@@ -205,18 +220,17 @@ func TestRefresh_ARefreshThatLooksAgainAsksForTheItemsImagesAgain(t *testing.T) 
 	}
 }
 
-func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime(t *testing.T) {
+func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainDerivedBySweep(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
 	queue := &jobstest.Queue{}
 	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
-	at := lib.clock.Now().Add(12 * time.Hour)
-	if err := refresher.Recheck(t.Context(), titleID, at); err != nil {
-		t.Fatal(err)
+	if queued, err := refresher.QueueRechecks(t.Context(), []int64{titleID}); err != nil || queued != 1 {
+		t.Fatalf("QueueRechecks = %d, %v; want Metropolis's refresh queued", queued, err)
 	}
 	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetchMetadata || (*queue)[0].ItemID != titleID ||
-		!(*queue)[0].RunnableAt.Equal(at) {
-		t.Fatalf("queued %+v; want Metropolis's refresh, twelve hours on", *queue)
+		!(*queue)[0].RunnableAt.IsZero() || !(*queue)[0].IsDerived {
+		t.Fatalf("queued %+v; want Metropolis's refresh now, derived by the sweep rather than held as a job", *queue)
 	}
 	var args struct {
 		IsRefresh         bool `json:"isRefresh"`
@@ -226,6 +240,118 @@ func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime(t *testi
 		!args.ShouldRetryImages {
 		t.Errorf("the recheck's args %s (%v); want a refresh that asks for the images again (D213 §1)",
 			(*queue)[0].ArgsJSON, err)
+	}
+}
+
+func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsLost(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
+	lib.provider.Searches[identifytest.SearchKey("Nothing", 2001)] = []identify.Candidate{}
+	lib.scan(videoRecord("Metropolis (1995).mkv"), videoRecord("Nothing (2001).mkv"))
+	metropolisID, nothingID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID, lib.titlesByPath()["Nothing (2001).mkv"].TitleID
+	owed := func(when string, want ...int64) {
+		t.Helper()
+		queue := &jobstest.Queue{}
+		refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+		if _, err := refresher.QueueFirstMatches(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		var got []int64
+		for _, job := range *queue {
+			got = append(got, job.ItemID)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: first matches owed %v, want %v (D231 section 3)", when, got, want)
+		}
+	}
+	// Queued twice: each sweep derives the work again, whatever became of the first job.
+	owed("before any match", metropolisID, nothingID)
+	owed("with the first jobs lost", metropolisID, nothingID)
+	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
+		t.Fatalf("outcome %s", outcome)
+	}
+	if outcome := lib.matchFileTitle("Nothing (2001).mkv"); outcome != identify.OutcomeNoMatch {
+		t.Fatalf("outcome %s", outcome)
+	}
+	owed("once one is matched and the other answered as not found")
+}
+
+// onlyUnidentified is the one unidentified item the chooser lists.
+func (lib *testLibrary) onlyUnidentified() identify.ItemSummary {
+	lib.t.Helper()
+	items, err := lib.chooser.Items(lib.t.Context(), identify.IdentificationUnidentified)
+	if err != nil || len(items) != 1 {
+		lib.t.Fatalf("unidentified items %+v (%v), want one", items, err)
+	}
+	return items[0]
+}
+
+func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.scan(videoRecord("Metropolis (1995).mkv"))
+	metropolisID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	job := jobs.Job{ID: 7, Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: metropolisID}}
+	if err := lib.matcher.RecordFailure(t.Context(), job, "TMDB answered 500 five times"); err != nil {
+		t.Fatal(err)
+	}
+	listed := lib.onlyUnidentified()
+	if failure := listed.FetchFailure; failure == nil || failure.Failure != "TMDB answered 500 five times" ||
+		!failure.FailedAt.Equal(lib.clock.Now()) {
+		t.Fatalf("listed %+v; want Metropolis with its failure and when, for its page to show", listed)
+	}
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	if queued, sweepErr := refresher.QueueFirstMatches(t.Context()); sweepErr != nil || queued != 0 {
+		t.Errorf("the sweep queued %d (%v) for an item with a failure of its own, want none", queued, sweepErr)
+	}
+	lib.clock.Advance(time.Minute)
+	if _, err := refresher.Request(t.Context(), metropolisID); err != nil {
+		t.Fatal(err)
+	}
+	listed = lib.onlyUnidentified()
+	if listed.FetchFailure != nil || !listed.RefreshRequestedAt.Equal(lib.clock.Now()) {
+		t.Errorf("after try again: %+v; want the failure cleared and the request shown", listed)
+	}
+	if len(*queue) != 1 || (*queue)[0].ItemID != metropolisID || (*queue)[0].Priority != jobs.PriorityPersonsRequest {
+		t.Errorf("try again queued %+v; want Metropolis's fetch at a person's priority", *queue)
+	}
+}
+
+func TestHandle_APersonsRefreshIsAFactWhicheverFetchRunsDoesAndAnswers(t *testing.T) {
+	t.Parallel()
+	lib, titleID := matchedMetropolis(t)
+	retrier := &fakeImageRetrier{}
+	lib.matcher.SetImageRetrier(retrier)
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	if _, err := refresher.Request(t.Context(), titleID); err != nil {
+		t.Fatal(err)
+	}
+	// cache.db is lost: the job is gone, and the sweep derives it again from the request.
+	*queue = nil
+	if queued, err := refresher.QueueRequested(t.Context()); err != nil || queued != 1 || !(*queue)[0].IsDerived {
+		t.Fatalf("the sweep queued %d (%v): %+v; want the person's refresh again", queued, err, *queue)
+	}
+	// Whichever fetch runs, a rolling refresh that asks for no images or the derived one, does
+	// what the person asked, and answers it.
+	rolling, err := identify.RefreshJob(titleID, "due", time.Time{}, false, -10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = lib.matcher.Handle(t.Context(), jobs.Job{
+		ID: 3, Kind: rolling.Kind, Target: rolling.Target, ArgsJSON: rolling.ArgsJSON,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(retrier.itemIDs, []int64{titleID}) {
+		t.Errorf("the fetch asked again for the images of %v; want Metropolis's, as the person asked", retrier.itemIDs)
+	}
+	*queue = nil
+	if queued, err := refresher.QueueRequested(t.Context()); err != nil || queued != 0 {
+		t.Errorf("after the fetch the sweep queued %d (%v); want the request answered", queued, err)
 	}
 }
 

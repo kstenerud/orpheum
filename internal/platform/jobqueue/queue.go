@@ -80,6 +80,7 @@ type Queue[T comparable] struct {
 	isStorageFailure       func(err error) bool
 
 	destinations destinations
+	sweeps       sweeps
 	// claimMutex makes each claim and the probe it may begin one step, so a destination has one
 	// probe at a time however many runners claim.
 	claimMutex sync.Mutex
@@ -102,6 +103,7 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 		argsMerges: config.ArgsMerges, probes: config.Probes, personsRequestPriority: config.PersonsRequestPriority,
 		storageDestination: config.StorageDestination, isStorageFailure: isStorageFailure,
 		destinations:         destinations{parkedBy: map[Destination]*parkedDestination{}},
+		sweeps:               sweeps{wake: make(chan struct{}, 1)},
 		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
 	}
 }
@@ -112,7 +114,8 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 // start or its back-off runs no later than the request asks, and a snoozed one keeps its time;
 // the arguments merge as the kind says. A request for a target whose job is running is dropped
 // when that job covers it, and otherwise queued to follow it. A person's request for a job whose
-// destination is parked looks at the destination at once (D231 §6). It says which it did.
+// destination is parked looks at the destination at once (D231 §6), unless a sweep derived it
+// again (IsDerived). It says which it did.
 func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action, error) {
 	now := queue.clock.Now()
 	request.ArgsJSON = cmp.Or(request.ArgsJSON, "{}")
@@ -131,7 +134,7 @@ func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action,
 	if change.Action != ActionDrop {
 		queue.wakeKind(request.Kind)
 	}
-	if queue.personsRequestPriority > 0 && request.Priority >= queue.personsRequestPriority {
+	if queue.personsRequestPriority > 0 && request.Priority >= queue.personsRequestPriority && !request.IsDerived {
 		queue.ProbeNow(change.Destination)
 	}
 	return change.Action, nil
@@ -183,15 +186,6 @@ func (queue *Queue[T]) argsMerge(kind Kind) ArgsMerge {
 		argsMerge.Covers = func(running, requested string) (bool, error) { return running == requested, nil }
 	}
 	return argsMerge
-}
-
-// EverQueued reports whether a job of kind was ever queued for target.
-func (queue *Queue[T]) EverQueued(ctx context.Context, kind Kind, target T) (bool, error) {
-	found, err := queue.storage.EverQueued(ctx, kind, target)
-	if err != nil {
-		return false, fmt.Errorf("look for a %s job for %v: %w", kind, target, err)
-	}
-	return found, nil
 }
 
 // RequeueRunning returns the jobs a stop left running to the queue, to start again from zero.

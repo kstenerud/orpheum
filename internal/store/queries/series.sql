@@ -49,17 +49,22 @@ FROM provider_response
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = sqlc.arg(part);
 
 -- name: ListSeriesByIdentification :many
--- The series in one state of identification, for the chooser's list.
+-- The series in one state of identification, for the chooser's list, with a failure of their own
+-- to be fetched and a person's refresh waiting (D231 section 4).
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
-  item.library_id, item_text.name
+  item.library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
+  refresh_request.requested_at AS refresh_requested_at
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
+LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
+LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
 ORDER BY item_text.name, collection.id;
 
 -- name: ListSeriesAwaitingMatch :many
--- Series in a provider's library that are not matched and have an episode no NFO speaks for.
+-- Series in a provider's library that are not matched, have an episode no NFO speaks for, and
+-- have no failure of their own (D231 section 3).
 SELECT collection.id
 FROM collection
 JOIN item ON item.id = collection.id
@@ -67,6 +72,7 @@ JOIN library ON library.id = item.library_id
 WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND collection.kind = 'series'
   AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
   AND collection.followed_source IS NOT 'none'
+  AND NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = collection.id)
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id

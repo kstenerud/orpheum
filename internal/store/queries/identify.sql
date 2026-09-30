@@ -4,6 +4,10 @@
 -- name: ListLibraryRoots :many
 SELECT node_id, root_path FROM library_root WHERE library_id = ? ORDER BY root_path;
 
+-- name: ListLiveLibraryIDs :many
+-- Every live library, which the identification sweep passes over (D231 section 3).
+SELECT id FROM library WHERE removed_at IS NULL ORDER BY id;
+
 -- name: GetLibraryForIdentify :one
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL;
 
