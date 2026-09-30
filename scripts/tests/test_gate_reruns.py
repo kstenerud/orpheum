@@ -53,6 +53,8 @@ class RevertRedTargeted(unittest.TestCase):
         status, out = self.gate("--only", COVERED, EXEMPT)
         self.assertEqual(status, 0, out)
         self.assertIn(f"{COVERED}  — a test fails", out)
+        self.assertIn("Reverted 1 of the 2 file(s) named.", out)
+        self.assertNotIn("exempt by commit type", out, "the branch's count, not the named files'")
         self.assertNotIn(UNCOVERED, out)
         self.assertIn(f"Not probed: {EXEMPT}  — exempt: only refactor commits touched it", out)
         self.assertIn("still required before the branch is done", out)
@@ -131,12 +133,15 @@ class CheckPrFailed(unittest.TestCase):
         (self.repo.root / "ran.log").unlink()
 
     def rerun(self) -> tuple[int, str, list[str]]:
-        with self.repo.cwd() as out:
-            status = steps.rerun(self.base, ["fast", "slow"], "check-revert-red", jobs=2)
+        # In a process of its own, so the makes it runs print into what the test reads, not the
+        # suite's output, where their expected failures would read as the suite's.
+        done = subprocess.run([sys.executable, str(SCRIPTS / "check_pr_steps.py"), "rerun", "--base", self.base,
+                               "--last", "check-revert-red", "--jobs", "2", "fast", "slow"],
+                              cwd=self.repo.root, capture_output=True, text=True, check=False)
         log = self.repo.root / "ran.log"
         ran = log.read_text().split() if log.exists() else []
         log.unlink(missing_ok=True)
-        return status, out.getvalue(), ran
+        return done.returncode, done.stdout + done.stderr, ran
 
     def test_only_what_failed_runs_again_and_the_rest_is_named_as_passed_on_an_older_commit(self):
         (self.repo.root / "fail-slow").write_text("")

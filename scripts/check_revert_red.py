@@ -746,7 +746,10 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         outcomes += unprobed(base, head, owed)
     reruns.finish(base, head, wanted or [c.path for c in owed], [o.path for o in outcomes if o.is_failure],
                   targeted=wanted is not None)
-    print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
+    if wanted is None:
+        print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
+    else:
+        print(f"Reverted {len(owed)} of the {len(wanted)} file(s) named.")
     print(report(outcomes))
 
     failures = [o for o in outcomes if o.is_failure]
