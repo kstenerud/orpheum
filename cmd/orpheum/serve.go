@@ -174,7 +174,7 @@ func openAndWire(
 	opened.nodes.SetLoudnessSink(dependencies.Playback)
 	dependencies.NodeBytes = nodes.NewByteSocketClient(
 		opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocketName))
-	dependencies.Jobs = opened.jobServices.queue
+	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), DataDirectory: config.Server.DataDir,

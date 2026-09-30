@@ -24,6 +24,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -117,6 +120,9 @@ func newHarness(t *testing.T) testHarness {
 		Preferences: preferencesService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
+		Providers: []*coreproviders.Service{
+			tmdb.APIService(queue, now), tmdb.ImagesService(queue, now), opensubtitles.Service(queue, now),
+		},
 		NodeReports: nodes,
 		System: System{
 			Build: harnessServerBuild, StartedAt: now.Now(),

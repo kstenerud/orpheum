@@ -1160,6 +1160,21 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
         };
+        DestinationBody: {
+            destination: string;
+            /** @description Whether it is being looked at now */
+            isChecking: boolean;
+            name: string;
+            /** Format: int64 */
+            nextCheckAt?: number;
+            /** @description Why it is down: unreachable, not connected, missing, its key is not set */
+            reason: string;
+            /**
+             * Format: int64
+             * @description Since when, Unix milliseconds
+             */
+            since: number;
+        };
         DeviceBody: {
             /**
              * Format: int64
@@ -1494,6 +1509,7 @@ export interface components {
              * @description Unix milliseconds
              */
             createdAt: number;
+            destination?: string;
             /** Format: int64 */
             fetchedSubtitleId?: number;
             /** Format: int64 */
@@ -1520,6 +1536,7 @@ export interface components {
             state: "queued" | "running" | "done" | "failed" | "cancelled";
             /** Format: int64 */
             streamId?: number;
+            waitingFor?: components["schemas"]["DestinationBody"];
         };
         JobsOutputBody: {
             jobs: components["schemas"]["JobBody"][] | null;
@@ -1684,6 +1701,20 @@ export interface components {
             /** @description For developers, in English */
             message: string;
         };
+        ProviderBody: {
+            /** Format: double */
+            backgroundRatePerSecond: number;
+            /** @enum {string} */
+            credentials: "unknown" | "accepted" | "missing" | "refused";
+            destination: string;
+            down?: components["schemas"]["DestinationBody"];
+            name: string;
+            quota?: components["schemas"]["QuotaBody"];
+            /** Format: double */
+            ratePerSecond: number;
+            /** Format: int64 */
+            waitUntil?: number;
+        };
         ProviderRefusalDetailBody: {
             /** @enum {string} */
             reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
@@ -1700,6 +1731,17 @@ export interface components {
             valuesByKey: {
                 [key: string]: unknown;
             };
+        };
+        QuotaBody: {
+            /** Format: int64 */
+            remaining: number;
+            /**
+             * Format: int64
+             * @description How many of those left background work never spends
+             */
+            reservedForPeople: number;
+            /** Format: int64 */
+            resetAt?: number;
         };
         QuotaExhaustedDetailBody: {
             /**
@@ -2010,8 +2052,10 @@ export interface components {
             uid: number;
         };
         SystemOutputBody: {
+            destinations: components["schemas"]["DestinationBody"][] | null;
             findings: components["schemas"]["FindingBody"][] | null;
             nodes: components["schemas"]["SystemNodeBody"][] | null;
+            providers: components["schemas"]["ProviderBody"][] | null;
             server: components["schemas"]["ServerBody"];
         };
         TitlesOutputBody: {

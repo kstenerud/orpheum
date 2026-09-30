@@ -42,6 +42,13 @@
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //     Doctor warns when a node runs another build than the server's (D225 §5).
 //     TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
+//   - The System page lists what is down, each with why, since when and its next check, and each
+//     outside host's provider: its rate, its background share, its quota and its credentials
+//     (D231 §5, §12). Each node says whether it is connected, silent or awaiting its hello
+//     (D231 §11). TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider.
+//   - A job waiting on a destination that is down says which, as a person reads it, why, since
+//     when, and when it is looked at next, if a check brings it back (D231 §12).
+//     TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck.
 //   - Why a subtitle could not be listed or fetched is said in OpenSubtitles' terms: no login, a
 //     refused login, or a spent quota with its reset time (D224).
 //     TestSubtitleCandidates_SayWhyInTheProvidersTerms.

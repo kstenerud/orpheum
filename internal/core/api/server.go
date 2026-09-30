@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -66,8 +67,11 @@ type Dependencies struct {
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.
 	NodeBytes NodeBytes
-	// Jobs is the one work queue, the one whose runners run the jobs, for the job view and cancel.
+	// Jobs is the one work queue, the one whose runners run the jobs, for the job view, cancel and
+	// the destinations that are down.
 	Jobs *jobs.Queue
+	// Providers are each outside host's provider service, for the System page (D231 §5).
+	Providers []*providers.Service
 	// NodeReports is what each connected node said about itself, for the admin to see.
 	NodeReports NodeReports
 	// System is what the System page shows of the server itself (D225).

@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
@@ -175,5 +177,39 @@ func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing
 		build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h2"}, server)
 	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
+	}
+}
+
+func TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
+	harness.queue.Park(t.Context(), jobs.Parking{
+		Destination: jobs.RootDestination(1, "/media"), Reason: "missing", AwaitsSignal: true,
+	})
+	got := harness.do(t, http.MethodGet, "/system", admin, nil)
+	var system SystemOutput
+	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
+		t.Fatalf("GET /system = %d %s", got.status, got.body)
+	}
+	names := make([]string, 0, len(system.Body.Destinations))
+	for _, down := range system.Body.Destinations {
+		names = append(names, down.Name)
+	}
+	if want := []string{"/media on node 1", "TMDB"}; !slices.Equal(names, want) {
+		t.Errorf("the destinations down are %q, want %q (D231 §12)", names, want)
+	}
+	providersByName := map[string]ProviderBody{}
+	for _, provider := range system.Body.Providers {
+		providersByName[provider.Name] = provider
+	}
+	api, subtitles := providersByName["TMDB"], providersByName["OpenSubtitles"]
+	if len(system.Body.Providers) != 3 || api.RatePerSecond != 40 || api.BackgroundRatePerSecond != 32 ||
+		api.Down == nil || api.Down.Reason != "unreachable" || api.Credentials != "unknown" {
+		t.Errorf("the providers are %+v; want three, TMDB at 40 a second, 32 for the background, down", providersByName)
+	}
+	if subtitles.RatePerSecond != 5 || subtitles.Down != nil || subtitles.Quota != nil {
+		t.Errorf("OpenSubtitles is %+v; want 5 a second, up, its quota not said yet", subtitles)
 	}
 }

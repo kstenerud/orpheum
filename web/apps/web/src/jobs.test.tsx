@@ -98,6 +98,49 @@ describe("the job view", () => {
     expect(mounted.container.querySelectorAll("button")).toHaveLength(0);
   });
 
+  it("says what a waiting job waits for, why, since when, and when it is looked at next (D231 §12)", async () => {
+    const waitingOnTMDB: Job = {
+      id: 6,
+      kind: "fetch_metadata",
+      itemId: 9,
+      state: "queued",
+      reason: "a new title",
+      attemptCount: 0,
+      createdAt: 1,
+      destination: "tmdb-api",
+      waitingFor: {
+        destination: "tmdb-api",
+        name: "TMDB",
+        reason: "unreachable",
+        since: 1_790_000_000_000,
+        nextCheckAt: 1_790_000_480_000,
+        isChecking: false,
+      },
+    };
+    const waitingOnNode: Job = {
+      ...preparing,
+      id: 7,
+      state: "queued",
+      destination: "node:1",
+      waitingFor: {
+        destination: "node:1",
+        name: "node local",
+        reason: "not connected",
+        since: 1_790_000_000_000,
+        isChecking: false,
+      },
+    };
+    const services = servedBy({ "GET /jobs": [200, { jobs: [waitingOnTMDB, waitingOnNode] }] });
+    mounted = await mount(withServices(<Jobs />, services));
+    const waiting = [...mounted.container.querySelectorAll(".jobs__waiting")].map(
+      (line) => line.textContent,
+    );
+    expect(waiting).toHaveLength(2);
+    expect(waiting[0]).toMatch(/^Waiting for TMDB: unreachable since .+, next check .+$/);
+    expect(waiting[1]).toMatch(/^Waiting for node local: not connected since .+$/);
+    expect(waiting[1]).not.toContain("next check"); // its hello brings it back, not a check
+  });
+
   it("says so when the job had already ended", async () => {
     const services = servedBy({
       "GET /jobs": [200, { jobs: [preparing] }],

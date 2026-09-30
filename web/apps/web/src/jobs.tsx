@@ -2,6 +2,7 @@
 
 import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
@@ -30,6 +31,24 @@ const refreshEveryMs = 3000;
 /** The id of what a job works on: the one field its kind sets (D227). */
 export function targetId(job: Job): number | undefined {
   return job.itemId ?? job.renditionId ?? job.streamId ?? job.fetchedSubtitleId ?? job.fileId;
+}
+
+/** A destination that is down, which a job waits for (D231 §12). */
+export type WaitingFor = NonNullable<Job["waitingFor"]>;
+
+/**
+ * What a job waits for, as the job view says it: "Waiting for TMDB: unreachable since 14:02, next
+ * check 14:10", without a next check for one that only a signal brings back, such as a node's hello.
+ */
+export function waitingText(t: TFunction, waiting: WaitingFor, language: string): string {
+  const words = {
+    name: waiting.name,
+    reason: waiting.reason,
+    since: dateTimeText(waiting.since, language),
+  };
+  return waiting.nextCheckAt === undefined
+    ? t("jobs.waitingForSignal", words)
+    : t("jobs.waitingFor", { ...words, next: dateTimeText(waiting.nextCheckAt, language) });
 }
 
 /** Whether a job can still be cancelled: it has not ended. */
@@ -93,6 +112,9 @@ export function JobList(props: {
             )}
             <span>{t("jobs.reason", { reason: job.reason })}</span>
             <span>{t("jobs.queuedAt", { at: dateTimeText(job.createdAt, i18n.language) })}</span>
+            {job.waitingFor === undefined ? null : (
+              <span className="jobs__waiting">{waitingText(t, job.waitingFor, i18n.language)}</span>
+            )}
             {job.lastFailure === undefined ? null : (
               <span className="jobs__failure">
                 {t("jobs.lastFailure", { failure: job.lastFailure })}

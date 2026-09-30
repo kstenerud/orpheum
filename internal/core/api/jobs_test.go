@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -157,5 +158,44 @@ func TestJobs_TheDocumentNamesEveryKindOfJob(t *testing.T) {
 		if !slices.Contains(documented, string(kind)) {
 			t.Errorf("the job view's kinds %v lack %q, which the queue has", documented, kind)
 		}
+	}
+}
+
+func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.roots = []string{"/media"} // shelveFilms enrolled node 1, "local"
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	harness.play(t, admin, chrome(2))
+	harness.nodes.isAway.Store(true)
+	playback := harness.server.dependencies.Load().Playback
+	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	prepare := newestPrepareJob(t, harness.listedJobs(t, admin))
+	wantNode := DestinationBody{
+		Destination: "node:1", Name: "node local", Reason: "not connected", Since: fakeNodeLastHeard.UnixMilli(),
+	}
+	if prepare.State != "queued" || prepare.Destination != "node:1" || prepare.WaitingFor == nil ||
+		*prepare.WaitingFor != wantNode {
+		t.Errorf("a prepare for a node that is away: %+v, waiting for %+v; want it waiting for node local, not "+
+			"connected since it was last heard, with no next check: its hello brings it back (D231 §12)",
+			prepare, prepare.WaitingFor)
+	}
+	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
+	fetch := jobs.Request{
+		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 7}, Reason: "test",
+		Destination: jobs.DestinationTMDBAPI,
+	}
+	if _, err := harness.queue.Enqueue(t.Context(), fetch); err != nil {
+		t.Fatal(err)
+	}
+	waiting := newestOf(t, harness.listedJobs(t, admin), jobs.KindFetchMetadata).WaitingFor
+	next := harness.clock.Now().Add(30 * time.Second).UnixMilli()
+	if waiting == nil || waiting.Name != "TMDB" || waiting.Reason != "unreachable" ||
+		waiting.NextCheckAt == nil || *waiting.NextCheckAt != next {
+		t.Errorf("a fetch while TMDB is down waits for %+v; want TMDB, unreachable, next checked in 30 s", waiting)
 	}
 }

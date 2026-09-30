@@ -51,6 +51,11 @@ type JobBody struct {
 	AttemptCount     int64    `json:"attemptCount"`
 	CreatedAt        int64    `doc:"Unix milliseconds" json:"createdAt"`
 	FinishedAt       *int64   `doc:"Unix milliseconds" json:"finishedAt,omitempty"`
+	// Destination is what it needs that can be down, when known: "tmdb-api", "node:3" (D231 §5).
+	Destination string `json:"destination,omitempty"`
+	// WaitingFor is that destination while the job waits on it, down: the job view says "waiting
+	// for TMDB — unreachable since 14:02, next check 14:10" (D231 §12).
+	WaitingFor *DestinationBody `json:"waitingFor,omitempty"`
 }
 
 // JobsOutput is the job view: the newest jobs first.
@@ -90,16 +95,21 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 	}
 	output := &JobsOutput{}
 	output.Body.Jobs = make([]JobBody, 0, len(views))
+	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, view := range views {
 		body := JobBody{
 			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			State: view.State, ProgressFraction: view.ProgressFraction,
 			Reason: view.Reason, LastFailure: view.LastFailure, AttemptCount: view.AttemptCount,
-			CreatedAt: view.CreatedAt.UnixMilli(),
+			CreatedAt: view.CreatedAt.UnixMilli(), Destination: string(view.Destination),
 		}
 		if view.FinishedAt != nil {
 			body.FinishedAt = new(view.FinishedAt.UnixMilli())
+		}
+		if view.WaitingFor != nil {
+			waiting := destinationBody(*view.WaitingFor, nodeName)
+			body.WaitingFor = &waiting
 		}
 		output.Body.Jobs = append(output.Body.Jobs, body)
 	}
