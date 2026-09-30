@@ -268,11 +268,12 @@ class RevertRedClaims(unittest.TestCase):
         repo, base = self.repo()
         repo.commit("fix(tool): answer two\n\nIt answered one.", {self.CODE: "def f():\n    return 2\n"})
         self.assertEqual(self.probe(repo, base).verdict, "GREEN")
-        repo.commit(f"docs: note\n\nRefactor-Only: {self.CODE} — the rename moved no behaviour",
+        repo.commit("docs: note\n\nRefactor-Only: scripts/other.py — the rename moved no behaviour",
                     {"notes.md": "x\n"})
-        self.assertEqual(self.probe(repo, base).verdict, "GREEN", "the trailer's commit did not touch the file")
-        repo.commit(f"refactor(tool): name\n\nRefactor-Only: {self.CODE} — the rename moved no behaviour",
-                    {self.CODE: "def f():\n    return 2\n\n"})
+        self.assertEqual(self.probe(repo, base).verdict, "GREEN", "the trailer names another file")
+        # A made commit is never rewritten, so the claim may ride on any commit of the branch.
+        repo.commit(f"docs: note\n\nRefactor-Only: {self.CODE} — the rename moved no behaviour",
+                    {"notes.md": "y\n"})
         outcome = self.probe(repo, base)
         self.assertEqual((outcome.verdict, outcome.detail),
                          ("CLAIMED", "Refactor-Only: the rename moved no behaviour"))

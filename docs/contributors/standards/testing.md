@@ -27,8 +27,11 @@ headline fix has one" — the second change in a commit is the one that escapes.
 - **The exception is a trailer, not a silence.** A change that cannot go red in the suite —
   a fix only a television shows — carries `Verified-By: VQ<n>` in the commit message, naming an
   item in [verification-queue.md](../verification-queue.md) that exists and is ticked.
+- **Removing dead code needs nothing.** A Go file whose change only dropped declarations
+  nothing reaches (funcs, types, consts, unexported methods its package never names) is reported
+  UNREACHABLE: reverting it restores code no test could run.
 - **A refactor goes in a commit of its own.** When a file's part of a `fix` or `feat` commit
-  already made is only a refactor, a later commit that touches that file says so:
+  already made is only a refactor, any later commit on the branch says so:
   `Refactor-Only: <path> — <why>`. Like `Verified-By:`, it is listed for review on the author's
   word, not passed silently.
 

@@ -41,8 +41,10 @@ about itself: a noisy gate gets disabled.**
   file a feat/fix/perf commit changed is listed as UNCHECKED, by name and why, rather than
   passed — silence is what makes a green mean two things at once, and a `fix` that changed
   only a stylesheet once passed a gate that never looked at it (audit-2026-09-29 §6).
+* A Go file whose change only removed declarations nothing uses is reported UNREACHABLE, not
+  probed: reverting it restores dead code (revert_red_unreachable.py).
 * A file whose part of a behaviour commit is a refactor can say so: a
-  `Refactor-Only: <path> — <why>` trailer on a commit that touched it. Like `Verified-By:`,
+  `Refactor-Only: <path> — <why>` trailer on any commit of the branch. Like `Verified-By:`,
   it is listed under "on the author's word" for review to weigh, never passed silently.
 
 **A build failure counts as red, and is reported separately.** It proves the change
@@ -81,6 +83,7 @@ import revert_red_reruns as reruns
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
 from revert_red_trees import link_installed_packages
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
+from revert_red_unreachable import is_unreachable_removal
 
 # A commit whose type claims a behaviour change owes a red-on-revert.
 BEHAVIOR_TYPES = frozenset({"feat", "fix", "perf"})
@@ -151,7 +154,7 @@ class Change:
 @dataclass(frozen=True)
 class Outcome:
     path: str
-    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | CLAIMED | COSMETIC | UNCHECKED
+    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | CLAIMED | COSMETIC | UNREACHABLE | UNCHECKED
     detail: str = ""
 
     @property
@@ -279,14 +282,17 @@ def verified_out_of_suite(base: str, head: str, path: str) -> str:
 
 
 def refactor_only(base: str, head: str, path: str) -> str:
-    """Why the commits touching `path` say its part of them changed no behaviour: their
+    """Why the branch's commits say `path`'s part of them changed no behaviour: their
     `Refactor-Only: <path> — <why>` trailers naming this path, or '' when none does.
 
     A refactor inside a `fix` commit owes a red it cannot give, and a made commit is never
     rewritten, so without this the file stayed flagged until the base moved past it (80ee9fe's
     playback.go, audit-2026-09-29 §6). The better practice is a separate refactor commit.
+    The trailer names its path, so any commit on the branch may carry it: requiring one that
+    touched the file left a claim about a file nobody had reason to touch again only a pointless
+    edit to ride on (2026-09-30).
     """
-    body = _git("log", "--no-merges", "--format=%B", f"{base}..{head}", "--", path).stdout
+    body = _git("log", "--no-merges", "--format=%B", f"{base}..{head}").stdout
     return "; ".join(why.strip() for named, why in REFACTOR_ONLY.findall(body) if named == path)
 
 
@@ -434,6 +440,11 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
         return Outcome(change.path, "CLAIMED", f"Verified-By: {claim}")
     if change.status == "M" and is_cosmetic(tree, base, head, change.path):
         return Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour to cover")
+    if change.status in ("M", "D"):
+        dropped = is_unreachable_removal(tree, base, head, change.path)
+        if dropped:
+            return Outcome(change.path, "UNREACHABLE", "only removed " + ", ".join(dropped)
+                           + ", which nothing uses")
     scope = scope_for(change.path)
     if scope is None:
         return Outcome(change.path, "UNCHECKED", "no test scope covers this path")
@@ -493,6 +504,7 @@ def report(outcomes: list[Outcome]) -> str:
         ("CLAIMED", "On the author's word (Verified-By: a ticked VQ item; Refactor-Only: no behaviour "
                     "changed in this file) — review this"),
         ("COSMETIC", "No behaviour changed, so nothing could cover it"),
+        ("UNREACHABLE", "Only removed code nothing reached, so reverting restores dead code"),
         ("UNCHECKED", "Not checked by this gate: a feat/fix/perf commit changed these, and no probe "
                       "reverted them"),
     ):
