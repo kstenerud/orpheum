@@ -50,11 +50,11 @@ type jobServices struct {
 func newJobServices(
 	ctx context.Context, opened openedServices, outside wiring, logger *slog.Logger,
 ) (jobServices, error) {
-	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
+	providerTimeout, err := opened.settings.Duration(ctx, settings.ProviderTimeoutS)
 	if err != nil {
 		return jobServices{}, err
 	}
-	httpClient, err := outbound.NewClient(time.Duration(providerTimeoutSeconds)*time.Second, version)
+	httpClient, err := outbound.NewClient(providerTimeout, version)
 	if err != nil {
 		return jobServices{}, err
 	}
@@ -152,11 +152,11 @@ func (services jobServices) queueDueRefreshes(ctx context.Context, logger *slog.
 		if queued > 0 {
 			logger.InfoContext(ctx, "queued refreshes of data that is due", "queuedCount", queued)
 		}
-		hours, err := services.settings.Int(ctx, settings.MetadataRefreshCheckEveryH)
+		checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryH)
 		if err != nil {
-			hours = 24
+			checkEvery = 24 * time.Hour
 		}
-		wait := time.NewTimer(time.Duration(hours) * time.Hour)
+		wait := time.NewTimer(checkEvery)
 		select {
 		case <-ctx.Done():
 			wait.Stop()

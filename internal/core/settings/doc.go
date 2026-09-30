@@ -39,6 +39,10 @@
 //   - What is derived from a server setting follows a set or reset of it at once, through
 //     OnChange, not at some later event (agent-failures A4); a string setting with a pattern
 //     refuses what does not match it. TestOnChange_ReactsToASetAndAResetOfItsKeyOnly.
+//   - A setting that is a length of time names its unit in its definition, the one its key's
+//     suffix spells, and Duration is the one place its count becomes a time.Duration.
+//     TestRegistry_ALengthOfTimeHasTheUnitItsKeySpells,
+//     TestDuration_ReadsASettingInItsUnitAndRefusesOneWithNone.
 //
 // # Read before changing
 //
@@ -54,7 +58,7 @@
 //
 //   - registry.go: every key, its type, bounds, starting value and whether the settings page shows
 //     it. A new opinion is a key here; it is seeded on the next start.
-//   - settings.go: List, Int, String and Bool (which heal a missing row), Set and Reset. seed.go: the sweep
+//   - settings.go: List, Int, Duration, String and Bool (which heal a missing row), Set and Reset. seed.go: the sweep
 //     at every start. unused.go: unused rows, retired keys and deleting. The endpoints (/settings and /config)
 //     are in internal/core/api. settingstest seeds for other packages' tests.
 package settings

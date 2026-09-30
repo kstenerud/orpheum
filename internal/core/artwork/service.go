@@ -60,6 +60,7 @@ type ArtFiles interface {
 // Settings are what the service reads from the settings.
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
 // Parts are what the service is built from.

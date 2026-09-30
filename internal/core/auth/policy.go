@@ -16,6 +16,7 @@ import (
 // the database (D200, D202).
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
 // saltBytes and keyBytes are argon2id's output format, not costs: they stay constants.
@@ -53,24 +54,24 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 	if err != nil {
 		return 0, 0, err
 	}
-	windowSeconds, err := service.settings.Int(ctx, settings.SignInFailureWindowS)
+	window, err := service.settings.Duration(ctx, settings.SignInFailureWindowS)
 	if err != nil {
 		return 0, 0, err
 	}
-	return maxFailures, time.Duration(windowSeconds) * time.Second, nil
+	return maxFailures, window, nil
 }
 
 // sessionPolicy reads how long a session may go unused, and how often its use is written.
 func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, useWriteInterval time.Duration, err error) {
-	idleHours, err := service.settings.Int(ctx, settings.SessionIdleExpiryH)
+	idleExpiry, err = service.settings.Duration(ctx, settings.SessionIdleExpiryH)
 	if err != nil {
 		return 0, 0, err
 	}
-	resolutionSeconds, err := service.settings.Int(ctx, settings.SessionLastUsedWriteIntervalS)
+	useWriteInterval, err = service.settings.Duration(ctx, settings.SessionLastUsedWriteIntervalS)
 	if err != nil {
 		return 0, 0, err
 	}
-	return time.Duration(idleHours) * time.Hour, time.Duration(resolutionSeconds) * time.Second, nil
+	return idleExpiry, useWriteInterval, nil
 }
 
 // boundedSetting reads an integer setting and refuses one outside [0, maximum], so the conversion to a

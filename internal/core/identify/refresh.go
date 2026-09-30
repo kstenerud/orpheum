@@ -278,7 +278,7 @@ type Refresher struct {
 
 // RefreshSettings are what the refresher reads: each provider's period.
 type RefreshSettings interface {
-	Int(ctx context.Context, key settings.Key) (int64, error)
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
 // NewRefresher returns the refresher.
@@ -316,14 +316,13 @@ func (refresher *Refresher) Sweep(ctx context.Context) (int, error) {
 	queued := 0
 	now := refresher.clock.Now()
 	for provider, key := range refreshPeriods() {
-		days, err := refresher.settings.Int(ctx, key)
+		period, err := refresher.settings.Duration(ctx, key)
 		if err != nil {
 			return queued, fmt.Errorf("read %s: %w", key, err)
 		}
-		if days == 0 {
+		if period == 0 {
 			continue // never, as a person chose
 		}
-		period := time.Duration(days) * 24 * time.Hour
 		due, err := refresher.database.Read().ListResponsesAskedBefore(ctx, sqlcgen.ListResponsesAskedBeforeParams{
 			Provider: provider, Before: now.Add(-period * 3 / 4).UnixMilli(),
 		})

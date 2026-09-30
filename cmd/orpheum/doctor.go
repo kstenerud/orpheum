@@ -182,7 +182,7 @@ func checkDatabase(
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
 	}
 	findings = append(findings, unusedFindings(ctx, settingsService)...)
-	hours, err := settingsService.Int(ctx, settings.BackupAgeWarningH)
+	backupAgeWarning, err := settingsService.Duration(ctx, settings.BackupAgeWarningH)
 	if err != nil {
 		findings = append(findings, finding{
 			verdictWarning, "the settings cannot be read: " + err.Error(),
@@ -190,7 +190,7 @@ func checkDatabase(
 		})
 		return findings, nil
 	}
-	return findings, new(time.Duration(hours) * time.Hour)
+	return findings, &backupAgeWarning
 }
 
 func checkSchema(ctx context.Context, database *store.Database) finding {

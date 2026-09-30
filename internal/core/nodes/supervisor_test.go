@@ -59,6 +59,12 @@ func (fakeSettings) Int(_ context.Context, key settings.Key) (int64, error) {
 	return startingValue[int64](key)
 }
 
+func (fakeSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	count, err := startingValue[int64](key)
+	definition, _ := settings.Lookup(key)
+	return definition.LengthOf(count), err
+}
+
 func (fakeSettings) Bool(_ context.Context, key settings.Key) (bool, error) {
 	return startingValue[bool](key)
 }

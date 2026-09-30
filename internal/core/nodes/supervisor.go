@@ -143,22 +143,24 @@ type livenessLimits struct {
 }
 
 func (supervisor *Supervisor) readLivenessLimits(ctx context.Context) (livenessLimits, error) {
-	var seconds [3]int64
+	var limits livenessLimits
 	var errs []error
-	keys := []settings.Key{settings.NodeSilentAfterS, settings.NodeRestartAfterSilentS, settings.NodeRestartAfterExitS}
-	for index, key := range keys {
-		value, err := supervisor.settings.Int(ctx, key)
-		seconds[index] = value
+	for _, read := range []struct {
+		key   settings.Key
+		limit *time.Duration
+	}{
+		{settings.NodeSilentAfterS, &limits.silentAfter},
+		{settings.NodeRestartAfterSilentS, &limits.restartAfterSilence},
+		{settings.NodeRestartAfterExitS, &limits.restartAfterExit},
+	} {
+		value, err := supervisor.settings.Duration(ctx, read.key)
+		*read.limit = value
 		errs = append(errs, err)
 	}
 	if err := errors.Join(errs...); err != nil {
 		return livenessLimits{}, fmt.Errorf("read the node's liveness settings: %w", err)
 	}
-	return livenessLimits{
-		silentAfter:         time.Duration(seconds[0]) * time.Second,
-		restartAfterSilence: time.Duration(seconds[1]) * time.Second,
-		restartAfterExit:    time.Duration(seconds[2]) * time.Second,
-	}, nil
+	return limits, nil
 }
 
 // doneOf is the child's done channel, or nil — which never fires — when there is no child.
