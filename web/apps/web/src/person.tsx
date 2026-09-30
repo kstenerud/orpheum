@@ -13,6 +13,7 @@ import {
   type Device,
   type Person,
 } from "./accounts.ts";
+import { dateText } from "./date-time-text.ts";
 import { NewDeviceCodeForm } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
@@ -100,9 +101,7 @@ function PersonHead(props: {
   const lastWatched =
     watchStats.lastWatchedAt === undefined
       ? t("person.neverWatched")
-      : new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(
-          new Date(watchStats.lastWatchedAt),
-        );
+      : dateText(watchStats.lastWatchedAt, i18n.language);
   return (
     <>
       <h1>{account.name}</h1>

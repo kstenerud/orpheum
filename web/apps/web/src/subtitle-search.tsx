@@ -4,6 +4,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { timeText } from "./date-time-text.ts";
 import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
@@ -89,11 +90,7 @@ export function subtitleProblemText(
     if (quotaExhausted !== undefined) {
       const downloadsResetAt = quotaExhausted.detail?.downloadsResetAt;
       const resetTime =
-        downloadsResetAt === undefined
-          ? ""
-          : new Intl.DateTimeFormat(viewerLanguage, { timeStyle: "short" }).format(
-              new Date(downloadsResetAt),
-            );
+        downloadsResetAt === undefined ? "" : timeText(downloadsResetAt, viewerLanguage);
       return t("play.findSubtitles.quotaSpent", { when: resetTime });
     }
     if (cause.code === "conflict") {
