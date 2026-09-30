@@ -93,3 +93,34 @@ setting key goes to the owner first.
     (agent-failures A9: D218 was reported built while §4's listing and revoking of devices was
     not). A decision's **Status** line says "built" only after this read-back (plan-deviations
     P31: D217's said built while §5's eviction was not).
+
+## The architecture map
+
+20. **The architecture map stays true.** Re-derive
+    [`design/architecture-map.md`](design/architecture-map.md) from the code, not from the last
+    map (the M3 closing audit's map, whose gates and fixes the owner approved on 2026-09-30).
+    `make check` does the mechanical part of steps 1, 3 and 4
+    (`scripts/check_architecture_map.py`, `TestArch_EachTableHasOneWritingPackage`); the rest is
+    this item's.
+    1. **Packages.** `go list ./internal/... ./cmd/...` and `web/packages/*`, `web/apps/*`: every
+       package appears once, with one responsibility from the map's list, taken from its doc.go or
+       README. A new package without a row, or a row whose package is gone, is a finding. A package
+       whose doc.go now describes a second responsibility gets a ⚑ with file:line, or is split.
+    2. **Two owners.** For each responsibility, list the packages doing it. Two packages doing the
+       same kind of work (a wait loop, a retry schedule, a finding type, a header policy, a sweep
+       loop) is a rule 11 finding: name both sites, and fix it or record why both stay.
+    3. **Tables and files.** Every table in `internal/store/migrations/` and
+       `internal/store/cache/schema.sql`, every file kind under the state, cache and prepared
+       directories, and what `orpheum backup` writes, each has a tier, a home and a backup answer.
+       Irreplaceable or expensive-to-re-acquire data outside library.db, expensive derived data in
+       a store discarded by a version bump, and cheap derived data added to library.db are findings
+       unless the map cites the decision that accepts them.
+    4. **Writers.** For each library.db and cache.db table, list the packages that call its
+       INSERT, UPDATE or DELETE queries. More than one writer package is a finding unless the map
+       names the split per column.
+    5. **Seams.** Every crossing the map lists (a core package imported by the node role,
+       `sqlcgen` row types in api, a decision that reads the store, policy in SQL) is still listed
+       or gone. A new crossing is added with evidence. A seam that an existing depguard rule or
+       `TestArch_` test could hold is proposed to the owner as a gate.
+    6. Record the date, what changed since the last map, and the findings in the milestone's audit
+       note (plan-deviations.md).
