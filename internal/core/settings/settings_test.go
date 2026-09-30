@@ -83,6 +83,18 @@ func TestRegistry_EveryStartingValueIsAValidValueOrAQuestion(t *testing.T) {
 	}
 }
 
+// The owner tunes values in use, and a good one becomes the starting value; to weigh one against
+// another, each says where it came from.
+func TestRegistry_EveryStartingValueSaysWhereItCameFrom(t *testing.T) {
+	t.Parallel()
+	for _, definition := range Registry() {
+		if definition.StartSource == "" {
+			t.Errorf("%s says nothing of where its starting value came from: a decision, a best guess and "+
+				"its basis, or a measurement", definition.Key)
+		}
+	}
+}
+
 func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 	t.Parallel()
 	service, owner := newService(t)
