@@ -121,7 +121,8 @@ func newHarness(t *testing.T) testHarness {
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
 		Providers: []*coreproviders.Service{
-			tmdb.APIService(queue, now), tmdb.ImagesService(queue, now), opensubtitles.Service(queue, now),
+			tmdb.APIService(queue, now, seeded), tmdb.ImagesService(queue, now, seeded),
+			opensubtitles.Service(queue, now, seeded),
 		},
 		NodeReports: nodes,
 		System: System{

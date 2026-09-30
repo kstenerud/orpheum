@@ -78,8 +78,12 @@ type ProviderBody struct {
 type QuotaBody struct {
 	Remaining int `json:"remaining"`
 	// ResetAt is when the count starts again, in Unix milliseconds; absent when the host did not say.
-	ResetAt           *int64 `json:"resetAt,omitempty"`
-	ReservedForPeople int    `doc:"How many of those left background work never spends" json:"reservedForPeople"`
+	ResetAt *int64 `json:"resetAt,omitempty"`
+	Allowed int    `doc:"How many the host allows a day; 0 before it said" json:"allowed"`
+	// ReservedForPeoplePercent is the percent of Allowed held back for people, and
+	// ReservedForPeople how many downloads that is, rounded up: background work never spends them.
+	ReservedForPeoplePercent int `json:"reservedForPeoplePercent"`
+	ReservedForPeople        int `json:"reservedForPeople"`
 }
 
 // providerBody is a provider service's state as the API shows it.
@@ -92,7 +96,10 @@ func providerBody(state providers.State, nodeName func(nodeID int64) string) Pro
 		body.WaitUntil = new(state.WaitUntil.UnixMilli())
 	}
 	if quota := state.Quota; quota != nil {
-		body.Quota = &QuotaBody{Remaining: quota.Remaining, ReservedForPeople: quota.ReservedForPeople}
+		body.Quota = &QuotaBody{
+			Remaining: quota.Remaining, Allowed: quota.Allowed,
+			ReservedForPeoplePercent: quota.ReservedForPeoplePercent, ReservedForPeople: quota.ReservedForPeople,
+		}
 		if !quota.ResetAt.IsZero() {
 			body.Quota.ResetAt = new(quota.ResetAt.UnixMilli())
 		}

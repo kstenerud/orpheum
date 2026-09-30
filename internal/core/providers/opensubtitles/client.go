@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -58,20 +59,16 @@ var (
 	ErrLoginRefused = errors.New("OpenSubtitles refused the login")
 )
 
-// RatePerSecond is the request rate we keep to with OpenSubtitles: "5 requests per 1 second per IP
-// address", its best practices say (opensubtitles-api.md).
-const RatePerSecond = 5
-
-// ReservedForPeople is how many of the day's downloads background work never spends, so a person
-// can always fetch a subtitle (the owner, 2026-09-30; D231 §5).
-const ReservedForPeople = 5
-
-// Service is OpenSubtitles as a provider service: its destination, its rate, its day of downloads
-// with the last few kept for people, and its login's state.
-func Service(health providers.Health, clockSource clock.Clock) *providers.Service {
+// Service is OpenSubtitles as a provider service: its destination, the rate we keep to with it
+// (opensubtitles_requests_per_second), its day of downloads with a percent of them held back for
+// people (opensubtitles_downloads_reserved_for_people_percent), and its login's state.
+func Service(
+	health providers.Health, clockSource clock.Clock, settingsReader providers.Settings,
+) *providers.Service {
 	return providers.New(providers.Config{
 		Name: providerName, Destination: jobs.DestinationOpenSubtitles,
-		Limits:          providers.Limits{RatePerSecond: RatePerSecond, ReservedForPeople: ReservedForPeople},
+		Limits: providers.SettingsLimits(settingsReader, settings.OpenSubtitlesRequestsPerSecond, "",
+			settings.OpenSubtitlesDownloadsReservedForPeoplePercent),
 		CredentialsName: "login",
 		CredentialsFailure: func(err error) providers.CredentialsState {
 			switch {
@@ -177,6 +174,9 @@ func (client *Client) currentSession(ctx context.Context) (session, error) {
 		sessionBaseURL = client.base.Scheme + "://" + host + client.base.Path
 	}
 	client.session = session{token: answer.Token, baseURL: sessionBaseURL, usedUntil: client.clock.Now().Add(tokenLife)}
+	if answer.User.AllowedDownloads > 0 {
+		client.provider.RecordAllowance(answer.User.AllowedDownloads)
+	}
 	return client.session, nil
 }
 
@@ -205,6 +205,9 @@ func (client *Client) isOwnHost(host string) bool {
 type loginAnswer struct {
 	Token   string `json:"token"`
 	BaseURL string `json:"base_url"`
+	User    struct {
+		AllowedDownloads int `json:"allowed_downloads"`
+	} `json:"user"`
 }
 
 // credentials are the server's OpenSubtitles login (D224 §1).

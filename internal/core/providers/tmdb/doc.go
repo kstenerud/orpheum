@@ -29,9 +29,10 @@
 //     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre,
 //     TestImageFetcher_A503IsTheHostDownAndA500TheImagesOwnFailure and
 //     TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing.
-//   - Every call asks its host's provider service first, which keeps to TMDB's documented 40
-//     requests a second with background work below 80% of it, and sends nothing to a parked host
-//     but a person's call, which is its probe (D231 §5, §6).
+//   - Every call asks its host's provider service first, which keeps to tmdb_requests_per_second
+//     (starting at TMDB's documented 40) with background work below
+//     tmdb_background_rate_share_percent of it, and sends nothing to a parked host but a person's
+//     call, which is its probe (D231 §5, §6).
 //     TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground.
 //   - Tests call a fake TMDB on loopback, never the network (standards/testing.md). Enforced by
 //     review; every test here builds its server with httptest.

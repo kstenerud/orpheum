@@ -375,7 +375,9 @@ func (service *Service) silentAfter(ctx context.Context) time.Duration {
 	return silentAfter
 }
 
-// defaultSilentAfter is node_silent_after_seconds' starting value, for when it cannot be read.
+// defaultSilentAfter is node_silent_after_seconds' starting value, for when it cannot be read. It
+// is fixed, not a setting of its own: a fallback that keeps a node's connection judged when the
+// settings cannot be read.
 const defaultSilentAfter = 30 * time.Second
 
 // Send queues a command for a node that is connected, numbering it, and wakes a waiting

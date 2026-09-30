@@ -272,3 +272,29 @@ func TestPark_AFailureThatIsNotTheProbeChangesNothingOfHowAParkedDestinationCome
 			" and why it went down kept", state, later)
 	}
 }
+
+// probeBackoff is a probe policy that does not change.
+type probeBackoff struct{ first, longest time.Duration }
+
+func (backoff probeBackoff) FirstProbeDelay(context.Context) (time.Duration, error) {
+	return backoff.first, nil
+}
+
+func (backoff probeBackoff) LongestProbeDelay(context.Context) (time.Duration, error) {
+	return backoff.longest, nil
+}
+
+func TestPark_TheProbeBackoffIsThePolicys(t *testing.T) {
+	t.Parallel()
+	jobs := newFixtureWith(t, jobqueue.Config{
+		Random: jobqueuetest.Unjittered(), Probes: probeBackoff{first: 10 * time.Second, longest: 25 * time.Second},
+	})
+	ctx := t.Context()
+	for index, want := range []time.Duration{10 * time.Second, 20 * time.Second, 25 * time.Second, 25 * time.Second} {
+		jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable", IsProbe: index > 0})
+		if state, _ := jobs.queue.DestinationState(host); state.NextProbeAt.Sub(jobs.clock.Now()) != want {
+			t.Errorf("probe %d is due in %v, want %v: the policy's first wait, doubling to its longest", index+1,
+				state.NextProbeAt.Sub(jobs.clock.Now()), want)
+		}
+	}
+}

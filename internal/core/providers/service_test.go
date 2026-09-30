@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/providerstest"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
@@ -30,7 +31,7 @@ var (
 
 func testConfig(limits providers.Limits) providers.Config {
 	return providers.Config{
-		Name: "TMDB", Destination: host, Limits: limits, CredentialsName: "key",
+		Name: "TMDB", Destination: host, Limits: providers.FixedLimits(limits), CredentialsName: "key",
 		CredentialsFailure: func(err error) providers.CredentialsState {
 			switch {
 			case errors.Is(err, errNoKey):
@@ -95,12 +96,21 @@ func TestAsk_BackgroundKeepsBelowItsShareOfTheRateAndAPersonFindsRoom(t *testing
 	}
 }
 
-func TestAsk_BackgroundNeverSpendsTheLastDownloadsKeptForPeople(t *testing.T) {
+func TestAsk_BackgroundNeverSpendsTheLastDownloadsHeldBackForPeople(t *testing.T) {
 	t.Parallel()
-	fixed := newFixture(t, providers.Limits{RatePerSecond: 100, ReservedForPeople: 5})
+	fixed := newFixture(t, providers.Limits{RatePerSecond: 100, ReservedForPeoplePercent: 25})
 	if answer := fixed.ask(providers.Background, providers.CostCounted); answer.Verdict != providers.VerdictNow {
 		t.Errorf("before the host said its quota: %+v, want now", answer)
 	}
+	fixed.service.RecordAllowance(10)
+	if state := fixed.service.State(t.Context()); state.Quota != nil {
+		t.Errorf("an allowance alone shows a quota %+v; the count left is what a reply says", state.Quota)
+	}
+	fixed.service.RecordQuota(10, time.Time{})
+	if held := fixed.service.State(t.Context()).Quota.ReservedForPeople; held != 3 {
+		t.Errorf("25%% of 10 a day holds back %d, want 3: rounded up to whole downloads", held)
+	}
+	fixed.service.RecordAllowance(20) // 25% of a free account's 20: 5
 	resetAt := fixed.clock.Now().Add(6 * time.Hour)
 	fixed.service.RecordQuota(6, resetAt)
 	if answer := fixed.ask(providers.Background, providers.CostCounted); answer.Verdict != providers.VerdictNow {
@@ -127,7 +137,7 @@ func TestAsk_BackgroundNeverSpendsTheLastDownloadsKeptForPeople(t *testing.T) {
 	if answer := fixed.ask(providers.Background, providers.CostCounted); answer.Verdict != providers.VerdictNow {
 		t.Errorf("after the reset: %+v, want now: the count started again", answer)
 	}
-	if state := fixed.service.State(); state.Quota != nil {
+	if state := fixed.service.State(t.Context()); state.Quota != nil {
 		t.Errorf("after the reset the state still shows a quota %+v; the next reply says where it stands", state.Quota)
 	}
 }
@@ -273,15 +283,16 @@ func TestCredentialsChanged_BringsBackAHostParkedForItsKeyAndNoOtherPark(t *test
 		t.Fatalf("a refused key: %v", err)
 	}
 	state, isParked := fixed.health.DestinationState(host)
-	if !isParked || !state.AwaitsSignal || fixed.service.State().Credentials != providers.CredentialsRefused {
+	credentials := fixed.service.State(t.Context()).Credentials
+	if !isParked || !state.AwaitsSignal || credentials != providers.CredentialsRefused {
 		t.Fatalf("a refused key: %+v (%v), credentials %s; want the host parked until the key changes", state,
-			isParked, fixed.service.State().Credentials)
+			isParked, fixed.service.State(t.Context()).Credentials)
 	}
 	fixed.service.CredentialsChanged(ctx)
 	if _, isParked := fixed.health.DestinationState(host); isParked ||
-		fixed.service.State().Credentials != providers.CredentialsUnknown {
+		fixed.service.State(t.Context()).Credentials != providers.CredentialsUnknown {
 		t.Errorf("after the key changed: still parked %v, credentials %s; want it back, the key's state unknown",
-			isParked, fixed.service.State().Credentials)
+			isParked, fixed.service.State(t.Context()).Credentials)
 	}
 	if err := fixed.call(ctx, fmt.Errorf("%w: timeout", outbound.ErrUnavailable)); err == nil {
 		t.Fatal("a timeout was not a failure")
@@ -304,5 +315,35 @@ func TestJobImportance_IsSomeoneWaitingToWatchAPersonsRequestOrTheBackground(t *
 	}
 	if got := providers.ImportanceOf(t.Context()); got != providers.SomeoneWaiting {
 		t.Errorf("a call outside a job is %s, want someone waiting: a person's call is answered while they wait", got)
+	}
+}
+
+func TestAsk_KeepsToTheLimitsTheSettingsSayAtEachRequest(t *testing.T) {
+	t.Parallel()
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	config := testConfig(providers.Limits{})
+	liveSettings := providerstest.Settings{}
+	liveSettings[settings.TMDBRequestsPerSecond] = 2
+	liveSettings[settings.TMDBBackgroundRateSharePercent] = 50
+	config.Limits = providers.SettingsLimits(liveSettings, settings.TMDBRequestsPerSecond,
+		settings.TMDBBackgroundRateSharePercent, "")
+	service := providers.New(config, providerstest.NewHealth(t, fakeClock), fakeClock)
+	person := providers.WithImportance(t.Context(), providers.SomeoneWaiting)
+	for range 2 {
+		if answer := service.Ask(person, providers.CostRequest); answer.Verdict != providers.VerdictNow {
+			t.Fatalf("within 2 a second: %+v, want now", answer)
+		}
+	}
+	if state := service.State(t.Context()); state.RatePerSecond != 2 || state.BackgroundRatePerSecond != 1 {
+		t.Errorf("the state %+v; want 2 a second, 1 of them for the background", state)
+	}
+	liveSettings[settings.TMDBRequestsPerSecond] = 10
+	if state := service.State(t.Context()); state.RatePerSecond != 10 || state.BackgroundRatePerSecond != 5 {
+		t.Errorf("after the admin raised the rate the state is %+v; want 10 a second, 5 of them for the background",
+			state)
+	}
+	fakeClock.Advance(100 * time.Millisecond)
+	if answer := service.Ask(person, providers.CostRequest); answer.Verdict != providers.VerdictNow {
+		t.Errorf("100 ms after the rate became 10 a second: %+v, want now, a turn at the new rate", answer)
 	}
 }

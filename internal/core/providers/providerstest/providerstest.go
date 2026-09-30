@@ -3,9 +3,13 @@
 package providerstest
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
@@ -22,4 +26,24 @@ func NewHealth(tb testing.TB, clockSource clock.Clock) *Health {
 	return jobqueue.New(&jobqueuetest.Memory[int64]{}, clockSource, jobqueue.Config{
 		Random: jobqueuetest.Unjittered(), Logger: slog.New(slog.DiscardHandler),
 	})
+}
+
+// Settings are the settings a provider service reads its limits from: each at its starting value,
+// unless a test sets it here.
+type Settings map[settings.Key]int64
+
+// Int is the setting's value: the test's, or its starting value.
+func (fixed Settings) Int(_ context.Context, key settings.Key) (int64, error) {
+	if value, isSet := fixed[key]; isSet {
+		return value, nil
+	}
+	definition, known := settings.Lookup(key)
+	if !known {
+		return 0, fmt.Errorf("%q: %w", key, settings.ErrUnknownSetting)
+	}
+	var start int64
+	if err := json.Unmarshal(definition.StartJSON, &start); err != nil {
+		return 0, fmt.Errorf("%s's starting value: %w", key, err)
+	}
+	return start, nil
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -51,22 +52,16 @@ func New(httpClient *http.Client, baseURL string, keys Keys, provider *providers
 	return &Client{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), keys: keys, provider: provider}
 }
 
-// RatePerSecond is the request rate we keep to with TMDB, both its API and its image server:
-// "somewhere in the 40 requests per second range", its developer documentation's upper limit
-// (developer.themoviedb.org/docs/rate-limiting; provider-etiquette.md). The image server
-// documents no request rate, only 20 connections at once, and we fetch one image at a time.
-const RatePerSecond = 40
-
-// BackgroundShare is the part of TMDB's rate background work may use, so a person's request
-// always finds room (the owner, 2026-09-30; D231 §5).
-const BackgroundShare = 0.8
-
-// APIService is TMDB's API as a provider service: its destination tmdb-api, its rate, and its
-// key, whose absence or refusal parks it until the key changes (D231 §5).
-func APIService(health providers.Health, clockSource clock.Clock) *providers.Service {
+// APIService is TMDB's API as a provider service: its destination tmdb-api, the rate we keep to
+// with it and background work's share of it (tmdb_requests_per_second,
+// tmdb_background_rate_share_percent), and its key, whose absence or refusal parks it until the
+// key changes (D231 §5).
+func APIService(
+	health providers.Health, clockSource clock.Clock, settingsReader providers.Settings,
+) *providers.Service {
 	return providers.New(providers.Config{
 		Name: providerName, Destination: jobs.DestinationTMDBAPI,
-		Limits:          providers.Limits{RatePerSecond: RatePerSecond, BackgroundShare: BackgroundShare},
+		Limits:          tmdbLimits(settingsReader),
 		CredentialsName: "key",
 		CredentialsFailure: func(err error) providers.CredentialsState {
 			switch {
@@ -80,13 +75,21 @@ func APIService(health providers.Health, clockSource clock.Clock) *providers.Ser
 	}, health, clockSource)
 }
 
-// ImagesService is TMDB's image server as a provider service: its destination tmdb-images and its
-// rate. It needs no key.
-func ImagesService(health providers.Health, clockSource clock.Clock) *providers.Service {
+// ImagesService is TMDB's image server as a provider service: its destination tmdb-images, and the
+// rate we keep to with it, the same settings as its API's, each host keeping to them apart (it
+// documents only 20 connections at once, and we fetch one image at a time). It needs no key.
+func ImagesService(
+	health providers.Health, clockSource clock.Clock, settingsReader providers.Settings,
+) *providers.Service {
 	return providers.New(providers.Config{
-		Name: "TMDB's image server", Destination: jobs.DestinationTMDBImages,
-		Limits: providers.Limits{RatePerSecond: RatePerSecond, BackgroundShare: BackgroundShare},
+		Name: "TMDB's image server", Destination: jobs.DestinationTMDBImages, Limits: tmdbLimits(settingsReader),
 	}, health, clockSource)
+}
+
+// tmdbLimits are a TMDB host's limits, as the settings say them.
+func tmdbLimits(settingsReader providers.Settings) providers.LimitsOf {
+	return providers.SettingsLimits(settingsReader, settings.TMDBRequestsPerSecond,
+		settings.TMDBBackgroundRateSharePercent, "")
 }
 
 // Name is "tmdb".

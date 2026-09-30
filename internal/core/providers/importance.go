@@ -11,7 +11,7 @@ import (
 
 // Importance is how much a request to an outside host matters: who waits on its answer (D231
 // §5). A provider weighs it: background work keeps below its share of the host's rate and never
-// spends what is kept for people, and someone waiting always gets a try.
+// spends what is held back for people, and someone waiting always gets a try.
 type Importance int
 
 // The importances, least first.

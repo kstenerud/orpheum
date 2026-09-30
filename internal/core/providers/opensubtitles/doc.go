@@ -40,17 +40,19 @@
 //     language, passes through the one display sanitiser as it is read (D211 §2).
 //     TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters.
 //   - Only this package reveals the login (D194). Enforced by the forbidigo rule tagged [reveal].
-//   - Every request asks OpenSubtitles' provider service (Service) first, which keeps to its 5
-//     requests a second and to the day's downloads it last said were left, and never lets
-//     background work spend the last 5 (D231 §5); a spent quota is refused before it is asked.
-//     TestDownload_BackgroundNeverSpendsTheDownloadsKeptForPeopleAndAsksNothing.
+//   - Every request asks OpenSubtitles' provider service (Service) first, which keeps to
+//     opensubtitles_requests_per_second and to the day's downloads it last said were left, and never
+//     lets background work spend the last opensubtitles_downloads_reserved_for_people_percent of the
+//     day's allowance its login said (D231 §5); a
+//     spent quota is refused before it is asked.
+//     TestDownload_BackgroundNeverSpendsTheDownloadsHeldBackForPeopleAndAsksNothing.
 //
 // # Read before changing
 //
 //   - D224: fetching a subtitle on request.
 //   - docs/contributors/design/research/opensubtitles-api.md: what the API allows and requires.
 //   - D194: secrets.
-//   - D231 §5: OpenSubtitles as a provider service, with the downloads kept for people.
+//   - D231 §5: OpenSubtitles as a provider service, with downloads held back for people.
 //
 // # Where to change
 //

@@ -37,5 +37,16 @@ func (tokens *bucket) readyAt(now time.Time) time.Time {
 	return now.Add(time.Duration(missing / tokens.ratePerSecond * float64(time.Second)))
 }
 
+// setRate has ratePerSecond and a second's worth of capacity flow from now on, keeping the
+// tokens the bucket holds within its new capacity.
+func (tokens *bucket) setRate(ratePerSecond float64, now time.Time) {
+	if ratePerSecond == tokens.ratePerSecond {
+		return
+	}
+	tokens.refill(now)
+	tokens.ratePerSecond, tokens.capacity = ratePerSecond, max(ratePerSecond, 1)
+	tokens.tokens = min(tokens.tokens, tokens.capacity)
+}
+
 // take takes a token the caller found ready.
 func (tokens *bucket) take() { tokens.tokens-- }
