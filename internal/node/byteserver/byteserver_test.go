@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -40,11 +41,7 @@ func newFilm(t *testing.T, name string) film {
 	if err := os.WriteFile(full, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	root, err := confine.OpenMediaRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // read-only
+	root := nodetest.OpenMediaRoot(t, directory)
 	file, err := root.Open(name)
 	if err != nil {
 		t.Fatal(err)
@@ -215,11 +212,7 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 			t.Fatal(err)
 		}
 	}
-	prepared, err := confine.OpenMediaRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = prepared.Close() }) //nolint:errcheck // read-only
+	prepared := nodetest.OpenMediaRoot(t, directory)
 	return prepared
 }
 

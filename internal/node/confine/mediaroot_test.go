@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
@@ -20,11 +20,7 @@ func TestMediaRoot_ReadFileRefusesAFilePastItsBound(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "film.nfo"), []byte("12345"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	media, err := confine.OpenMediaRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = media.Close() }) //nolint:errcheck // a test's root
+	media := nodetest.OpenMediaRoot(t, directory)
 	contents, err := media.ReadFile("film.nfo", 5)
 	if err != nil || string(contents) != "12345" {
 		t.Errorf("a file at its bound: %q, %v", contents, err)
@@ -43,11 +39,7 @@ func TestMediaRoot_OpenNeverWaitsForAPipesWriter(t *testing.T) {
 	if err := syscall.Mkfifo(filepath.Join(directory, "film.mkv"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	media, err := confine.OpenMediaRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = media.Close() }) //nolint:errcheck // a test's root
+	media := nodetest.OpenMediaRoot(t, directory)
 	opened := make(chan error, 1)
 	go func() {
 		file, err := media.Open("film.mkv")

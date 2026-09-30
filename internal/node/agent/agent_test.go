@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -225,11 +226,7 @@ func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time
 // startAgentWithShelf is startAgent with a prepared shelf, which may be nil.
 func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
-	root, err := confine.OpenMediaRoot(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
+	root := nodetest.OpenMediaRoot(t, t.TempDir())
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	workers := Workers{
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
@@ -423,11 +420,7 @@ func TestReadImage_ReadsAnImageUnderARootOfSlash(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(directory, "poster.jpg"), []byte("xyz"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	slash, err := confine.OpenMediaRoot("/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = slash.Close() }) //nolint:errcheck // read-only
+	slash := nodetest.OpenMediaRoot(t, "/")
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{slash}, Workers{},
 		clocktest.NewFake(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	image, err := node.readImage(nodeproto.Path{Text: filepath.Join(directory, "poster.jpg")})
@@ -456,11 +449,7 @@ func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 
 func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
 	t.Parallel()
-	root, err := confine.OpenMediaRoot(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
+	root := nodetest.OpenMediaRoot(t, t.TempDir())
 	gone := filepath.Join(t.TempDir(), "gone")
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root},
 		Workers{PreparedDirectory: gone},
