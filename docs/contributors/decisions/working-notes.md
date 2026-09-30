@@ -16640,7 +16640,9 @@ what a choice is still hold.
 4. **An episode added after the choice has none**, and plays with subtitles off until one is
    chosen, since nothing carries a choice to a file that did not exist when it was made.
 
-**Status:** Decided; built in M3.
+**Status:** Decided; built in M3. *(Since 2026-09-30, §2 to §4 are replaced by
+[D230](#d230--the-last-subtitle-and-audio-language-chosen-in-a-series-follows-its-unwatched-episodes-worked-out-at-play-time),
+built the same day: nothing is carried, and a work's last language is matched when a file plays.)*
 
 ## D220 — Before a public release, every dependency, direct and transitive, is pinned to an audited commit, and a bump is an audit of the changes
 
@@ -16760,7 +16762,11 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
 **Status:** Decided; built in M3 except three parts. §6 (scans and backups as jobs) is M4's, and
 §11's questions come before M4. §8 is built for a file that has a stored choice, which is found
 again when a rescan rewrites its tracks; it is **not built** for a file with no stored choice whose
-rescan adds a track matching the work's choice, which still gets no choice.
+rescan adds a track matching the work's choice, which still gets no choice. *(Since 2026-09-30,
+§8 is replaced by
+[D230](#d230--the-last-subtitle-and-audio-language-chosen-in-a-series-follows-its-unwatched-episodes-worked-out-at-play-time),
+built the same day: a file whose tracks change is matched against the work's language when it
+plays, so the case §8 left unbuilt follows too.)*
 
 ## D224 — A fetched subtitle uses the server's OpenSubtitles login, finds the file by its identity and its provider hash, shows the provider's own count, and is converted by the node
 
@@ -17107,7 +17113,18 @@ person and per file) and D24's three rules about what a choice is still hold.
 5. **Audio is new.** The audio language chosen was not remembered before; it now is, by the same
    rule.
 
-**Status:** Decided 2026-09-30.
+**Status:** Decided 2026-09-30; built 2026-09-30 in `internal/core/preferences`, with the
+architecture map's F2 (its preferences part) and F6. A person's last choice is kept per work
+(preference scope `work`: the series, or the film's title) as `subtitle_language` and
+`audio_language`, and what a started file last used as its `subtitle_used` and `audio_used`; a
+file's tracks are matched when it plays (§2–§4). A file counts as started at its first play
+report, which keeps what the playback started with; a choice made in it replaces that. A language
+is matched by its normalised BCP 47 tag as it is, with no fallback from `en-GB` to `en`. Audio is
+chosen from the play screen's Sound menu, and a chosen track other than the one the original
+plays first is prepared, with the reason `audio_track`, since a browser plays the original's first
+(§5). Step 0028 gave each work the most recent choice made in one of its files, and kept a
+choice carried to a file only where the file was started; a started file with no stored choice
+follows the work until its next play.
 
 ## D231 — Work is derived from state, the job queue is a regenerable cache, and a destination that is down parks its work
 
