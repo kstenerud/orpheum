@@ -13,7 +13,7 @@ describe("createNavigation", () => {
     navigation.subscribe(() => heard.push(navigation.route().screen));
     expect(navigation.route()).toEqual({ screen: "title", itemId: 4 });
     navigation.go({ screen: "search", query: "heat" });
-    expect(place.location.search).toBe("?q=heat");
+    expect(place.location.search).toBe("?query=heat");
     place.back("/series");
     expect(heard).toEqual(["search", "series"]);
   });

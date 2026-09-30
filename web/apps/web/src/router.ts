@@ -46,7 +46,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId) => ({ screen: "play", fileId }) },
   {
     pattern: /^\/search\/?$/u,
-    toRoute: (_, search) => ({ screen: "search", query: search.get("q") ?? "" }),
+    toRoute: (_, search) => ({ screen: "search", query: search.get("query") ?? "" }),
   },
   { pattern: /^\/identify\/?$/u, toRoute: () => ({ screen: "identify" }) },
   { pattern: /^\/libraries\/?$/u, toRoute: () => ({ screen: "libraries" }) },
@@ -95,7 +95,7 @@ export function routeHref(route: Route): string {
   if (route.screen === "search") {
     return route.query === ""
       ? "/search"
-      : `/search?${new URLSearchParams({ q: route.query }).toString()}`;
+      : `/search?${new URLSearchParams({ query: route.query }).toString()}`;
   }
   return route.screen === "not-found" ? "/" : `/${route.screen}`;
 }
