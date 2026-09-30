@@ -81,8 +81,15 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
   and a scan finding a root are theirs. Work resumes in priority order.
 - The node table says connected, last heard and gone truthfully; a command to a node that is not
   connected parks its job.
-- Where the TMDB client lives (it serves both identify and artwork): with the outside hosts, not
-  under identify.
+- **Provider services** (the owner, 2026-09-30): each outside host (`tmdb-api`, `tmdb-images`,
+  `opensubtitles`) is one service owning its health (the destination state above), a request rate
+  we keep ourselves to, its quota remaining and when it resets (OpenSubtitles, from its replies),
+  and its credentials' state. A caller says how much its request matters (someone waiting, a
+  person's request, background) and asks; the provider answers now, at a time, parked (why), or
+  quota spent until a time. Reservations: background work uses at most 80% of TMDB's rate and
+  never spends the last 5 OpenSubtitles downloads of the day. Not built: cost models, accounting,
+  planners across providers. The TMDB client moves out of identify into this layer beside
+  OpenSubtitles.
 - Closes G3, G6, G12 (storage as a destination), S25, S29, S70, S73, S76, S77.
 
 ## Phase 3 — derived work and facts

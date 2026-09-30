@@ -17178,6 +17178,13 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
    changes. A node that answers "no room" parks prepares on its prepared directory until its status
    shows room. "Changed since the scan" is the item's failure: no attempt spent, the job ends, and
    the node is asked to rescan that path. A 429 keeps waiting for the time the server gave.
+   *Since 2026-09-30 (the owner: "have data sources such as TMDB as a service, with assigned
+   costs, limits, and quotas remaining etc, such that the caller can then make a more informed
+   decision"; then "yes, fold it into phase 2 with those reservations"):* each outside host is a
+   provider service owning its health, a request rate we keep to, its quota and reset, and its
+   credentials' state. A caller states how much its request matters and asks; the provider decides.
+   Background work uses at most 80% of TMDB's rate and never spends the last 5 OpenSubtitles
+   downloads of the day.
 6. **Parking.** Work for a down destination is not claimed and spends no attempt; parked time
    counts against nothing. One probe checks an outside host, on a back-off from 30 s towards an
    hour; a failed probe costs nothing. A node's hello is its probe; a root returns when a scan
