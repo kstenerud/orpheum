@@ -16990,3 +16990,36 @@ snapshot, the newer-database refusal) stands.
    longer holds the steps to two.
 
 **Status:** Decided; built 2026-09-29.
+
+## D229 — Code that looks alike is merged only when it is the same thing; settled look-alikes are listed here, and doubtful ones are watched
+
+**Decided** (2026-09-30), by the project owner, after M3's closing audit
+([audit-2026-09-29](../design/research/audit-2026-09-29.md)) found CSS rules with identical
+declarations in unrelated screens' stylesheets.
+
+1. **The rule.** AGENTS.md rule 11 (one way to do each job) is about one *job* done twice, not
+   about text that happens to match. The owner: *"If the CSS happens to match but the item is
+   conceptually different, then it's a different component and shouldn't be consolidated."* Two
+   pieces of code, style or markup are merged only when they are the same concept; matching
+   declarations, shapes or lines are not evidence of that on their own. This holds in Go and
+   TypeScript as in CSS.
+2. **Settled look-alikes.** What an audit found alike and the owner or this decision judged *not*
+   the same thing is listed here with why, so that later sweeps do not raise it again. A new
+   settled pair is added here with its date; an audit (checklist item 10) reads this list first.
+
+   | Look-alikes | Why they are different things |
+   | --- | --- |
+   | CSS `.series__episodes` and `.your-devices__list` | a series' episodes and a person's devices: two lists that share a spacing today, not one component |
+   | CSS `.subtitles` and `.form-row` | the player's subtitle controls and a form's row of fields |
+   | CSS `.subtitles__offset` and `.sound__switch` | the subtitle offset stepper and the sound question's switch |
+   | Episode stills on the series list and on the title page | the series list keeps a blank box where there is no still so its rows line up; the title page shows nothing (2026-09-29) |
+   | A title's year printed in four places | printing a number is not a job to share; a formatted year would gain a thousands separator |
+   | The node's own segment-length default and the `hls_segment_length_s` setting | the node cannot read settings: its default is its guard against an out-of-range command, not a second copy of the setting |
+
+3. **Doubtful look-alikes are watched, not merged.** The owner: *"If there's some ambiguity as to
+   whether two components are actually the same thing, make a watch list so that we can revisit
+   the question later."* They are in [the look-alike watch list](../look-alike-watch-list.md),
+   each with the question that would settle it. When one is settled, it moves either into a merge
+   or into §2's table.
+
+**Status:** Decided 2026-09-30; §2's table and the watch list are kept by every audit.
