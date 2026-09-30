@@ -23,6 +23,9 @@ type RootBody struct {
 	LastScanOutcome string `enum:"complete,unreadable,withheld," json:"lastScanOutcome"`
 	LastScanAt      int64  `json:"lastScanAt,omitempty"`
 	WithheldReason  string `doc:"Why the last scan's removals wait for an admin" json:"withheldReason,omitempty"`
+	// MissingMountPaths are the mount points inside the root whose disk a scan found missing
+	// (D208): each is the path POST /libraries/{id}/mounts/gone takes.
+	MissingMountPaths []string `doc:"Mount points inside the root whose disk a scan found missing; each is what POST /libraries/{id}/mounts/gone takes (D208)" json:"missingMountPaths"` //nolint:lll // one struct tag
 }
 
 // LibraryBody is a library: its three answers (D184), and for an admin its roots and its files
@@ -92,7 +95,7 @@ type RootActionInput struct {
 	ID   int64 `path:"id"`
 	Body struct {
 		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
-		Path     string `json:"path" minLength:"1"`
+		Path     string `doc:"For removals, the root's path; for a disk gone, the mount point's, one of its root's missingMountPaths" json:"path" minLength:"1"` //nolint:lll // one struct tag
 	}
 }
 
@@ -261,7 +264,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 					NodeName: root.NodeName, RootPath: root.RootPath,
 					LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
 					LastScanAt:      ptr.ValueOrZero(root.LastScanAt),
-					WithheldReason:  ptr.ValueOrZero(root.WithheldReason),
+					WithheldReason:  ptr.ValueOrZero(root.WithheldReason), MissingMountPaths: root.MissingMountPaths,
 				})
 			}
 		}

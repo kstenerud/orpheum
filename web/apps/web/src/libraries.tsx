@@ -22,11 +22,42 @@ const outcomeKeys = {
   withheld: "libraries.outcomeWithheld",
 } as const;
 
-/** One root: where it is, how its last scan went, and the admin's two answers when it waits (D208). */
+/**
+ * An admin's answer about a root (D208): its withheld removals are real, or the disk missing from
+ * one of the mount points inside it is gone for good.
+ */
+export type RootAnswer =
+  { readonly kind: "approveRemovals" } | { readonly kind: "diskGone"; readonly mountPath: string };
+
+/**
+ * Where an answer goes and what it sends: removals name the root's own path; a disk gone names
+ * the missing mount point's, one of those the root lists, which is what the server looks up.
+ */
+export function rootAnswerRequest(
+  root: Root,
+  answer: RootAnswer,
+): {
+  readonly endpoint: "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone";
+  readonly body: { readonly nodeName: string; readonly path: string };
+} {
+  return answer.kind === "approveRemovals"
+    ? {
+        endpoint: "/libraries/{id}/removals",
+        body: { nodeName: root.nodeName, path: root.rootPath },
+      }
+    : {
+        endpoint: "/libraries/{id}/mounts/gone",
+        body: { nodeName: root.nodeName, path: answer.mountPath },
+      };
+}
+
+/**
+ * One root: where it is, how its last scan went, the admin's answer when its removals wait, and
+ * for each mount point inside it whose disk is missing, the answer that it is gone (D208).
+ */
 export function RootLine(props: {
   readonly root: Root;
-  readonly onApproveRemovals: (root: Root) => void;
-  readonly onMarkGone: (root: Root) => void;
+  readonly onAnswer: (root: Root, answer: RootAnswer) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { root } = props;
@@ -36,25 +67,28 @@ export function RootLine(props: {
       {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
       {root.lastScanOutcome === "withheld" ? (
-        <>
+        <button
+          type="button"
+          onClick={() => {
+            props.onAnswer(root, { kind: "approveRemovals" });
+          }}
+        >
+          {t("libraries.approveRemovals")}
+        </button>
+      ) : null}
+      {(root.missingMountPaths ?? []).map((mountPath) => (
+        <p key={mountPath}>
+          {t("libraries.diskMissing")} <code>{mountPath}</code>{" "}
           <button
             type="button"
             onClick={() => {
-              props.onApproveRemovals(root);
-            }}
-          >
-            {t("libraries.approveRemovals")}
-          </button>{" "}
-          <button
-            type="button"
-            onClick={() => {
-              props.onMarkGone(root);
+              props.onAnswer(root, { kind: "diskGone", mountPath });
             }}
           >
             {t("libraries.diskGone")}
           </button>
-        </>
-      ) : null}
+        </p>
+      ))}
     </li>
   );
 }
@@ -64,8 +98,7 @@ export function LibraryCard(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
-  readonly onApproveRemovals: (root: Root) => void;
-  readonly onMarkGone: (root: Root) => void;
+  readonly onAnswer: (root: Root, answer: RootAnswer) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -78,8 +111,7 @@ export function LibraryCard(props: {
           <RootLine
             key={`${root.nodeName}:${root.rootPath}`}
             root={root}
-            onApproveRemovals={props.onApproveRemovals}
-            onMarkGone={props.onMarkGone}
+            onAnswer={props.onAnswer}
           />
         ))}
       </ul>
@@ -110,11 +142,7 @@ export function LibraryCard(props: {
 function useLibraryActions(reload: () => void): {
   readonly notesByLibraryId: ReadonlyMap<number, string>;
   readonly scan: (libraryId: number) => void;
-  readonly answerWithheldRoot: (
-    libraryId: number,
-    root: Root,
-    endpoint: "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone",
-  ) => void;
+  readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
 } {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -139,11 +167,12 @@ function useLibraryActions(reload: () => void): {
           },
         );
     },
-    answerWithheldRoot: (libraryId, root, endpoint) => {
+    answerAboutRoot: (libraryId, root, answer) => {
+      const request = rootAnswerRequest(root, answer);
       api
-        .POST(endpoint, {
+        .POST(request.endpoint, {
           params: { path: { id: libraryId } },
-          body: { nodeName: root.nodeName, path: root.rootPath },
+          body: request.body,
         })
         .then(throwIfRefused)
         .then(reload, (cause: unknown) => {
@@ -170,11 +199,8 @@ export function Libraries(): JSX.Element {
       onScan={() => {
         actions.scan(library.id);
       }}
-      onApproveRemovals={(root) => {
-        actions.answerWithheldRoot(library.id, root, "/libraries/{id}/removals");
-      }}
-      onMarkGone={(root) => {
-        actions.answerWithheldRoot(library.id, root, "/libraries/{id}/mounts/gone");
+      onAnswer={(root, answer) => {
+        actions.answerAboutRoot(library.id, root, answer);
       }}
     />
   );

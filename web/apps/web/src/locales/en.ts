@@ -422,6 +422,7 @@ export const en = {
     outcomeUnreadable: "could not be read",
     outcomeWithheld: "removals wait for you",
     approveRemovals: "Remove what the last scan did not find",
+    diskMissing: "A disk is missing from",
     diskGone: "This disk is gone for good",
     createHeading: "Create a library",
     name: "Name",

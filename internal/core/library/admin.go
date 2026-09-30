@@ -112,8 +112,15 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 // Summary is a library with its roots' states and its files counted by filing.
 type Summary struct {
 	sqlcgen.ListLibrariesRow
-	Roots             []sqlcgen.ListLibraryRootStatesRow
+	Roots             []RootSummary
 	FileCountByFiling map[string]int64
+}
+
+// RootSummary is a root's last scan, and the mount points inside it whose disk a scan found
+// missing: each is what ForgetMount takes, when the admin says that disk is gone (D208).
+type RootSummary struct {
+	sqlcgen.ListLibraryRootStatesRow
+	MissingMountPaths []string
 }
 
 // List is every live library, by name.
@@ -125,9 +132,9 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 	}
 	summaries := make([]Summary, 0, len(libraries))
 	for _, library := range libraries {
-		roots, err := queries.ListLibraryRootStates(ctx, library.ID)
+		roots, err := rootSummaries(ctx, queries, library.ID)
 		if err != nil {
-			return nil, fmt.Errorf("list library %d's roots: %w", library.ID, err)
+			return nil, err
 		}
 		counts, err := queries.CountLibraryFilings(ctx, library.ID)
 		if err != nil {
@@ -138,6 +145,31 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 			filings[count.Filing] = count.Files
 		}
 		summaries = append(summaries, Summary{ListLibrariesRow: library, Roots: roots, FileCountByFiling: filings})
+	}
+	return summaries, nil
+}
+
+// rootSummaries are a library's roots, each with its missing mounts.
+func rootSummaries(ctx context.Context, queries *sqlcgen.Queries, libraryID int64) ([]RootSummary, error) {
+	roots, err := queries.ListLibraryRootStates(ctx, libraryID)
+	if err != nil {
+		return nil, fmt.Errorf("list library %d's roots: %w", libraryID, err)
+	}
+	summaries := make([]RootSummary, 0, len(roots))
+	for _, root := range roots {
+		mounts, err := queries.ListRootMounts(ctx, sqlcgen.ListRootMountsParams{
+			NodeID: root.NodeID, RootPath: root.RootPath,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list the mounts under %s: %w", root.RootPath, err)
+		}
+		missing := []string{}
+		for _, mount := range mounts {
+			if mount.IsPresent == 0 {
+				missing = append(missing, mount.MountPath)
+			}
+		}
+		summaries = append(summaries, RootSummary{ListLibraryRootStatesRow: root, MissingMountPaths: missing})
 	}
 	return summaries, nil
 }

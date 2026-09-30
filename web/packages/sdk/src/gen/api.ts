@@ -1749,6 +1749,7 @@ export interface components {
         RootActionInputBody: {
             /** @description The node's configured name */
             nodeName: string;
+            /** @description For removals, the root's path; for a disk gone, the mount point's, one of its root's missingMountPaths */
             path: string;
         };
         RootBody: {
@@ -1756,6 +1757,8 @@ export interface components {
             lastScanAt?: number;
             /** @enum {string} */
             lastScanOutcome: "complete" | "unreadable" | "withheld" | "";
+            /** @description Mount points inside the root whose disk a scan found missing; each is what POST /libraries/{id}/mounts/gone takes (D208) */
+            missingMountPaths: string[] | null;
             nodeName: string;
             rootPath: string;
             /** @description Why the last scan's removals wait for an admin */
