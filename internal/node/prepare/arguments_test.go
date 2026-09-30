@@ -106,3 +106,15 @@ func TestArguments_SegmentLengthIsTheOneAskedForWithinBounds(t *testing.T) {
 		}
 	}
 }
+
+// A prepare names no -progress of its own: the watched run puts FFmpeg's on descriptor 3, and a
+// later one would win and leave the watchdog nothing to see.
+func TestArguments_LeaveTheProgressToTheWatchedRun(t *testing.T) {
+	t.Parallel()
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
+	arguments := prepare.Arguments("/media/film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
+	if slices.Contains(arguments, "-progress") {
+		t.Errorf("a prepare's arguments %q name a -progress, which would take FFmpeg's from the watchdog",
+			arguments)
+	}
+}
