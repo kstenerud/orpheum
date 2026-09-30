@@ -29,9 +29,9 @@ type Preparer interface {
 // progressEvery is how often a running prepare tells the core how far it is.
 const progressEvery = 2 * time.Second
 
-// slots are how many jobs of each kind run at once on this node (cut-a §5.3): one encode, and two
-// remuxes, which are bound by the disk rather than the processor; one subtitle extraction and one
-// loudness measurement, each of which reads a whole video.
+// slots are how many jobs of each kind run at once on this node (cut-a §5.3): the encodes and
+// remuxes its config says (nodeproto.Capacity), and one subtitle extraction and one loudness
+// measurement, each of which reads a whole video.
 type slots struct {
 	encode  chan struct{}
 	remux   chan struct{}
@@ -39,9 +39,9 @@ type slots struct {
 	measure chan struct{}
 }
 
-func newSlots() slots {
+func newSlots(capacity nodeproto.Capacity) slots {
 	return slots{
-		encode: make(chan struct{}, nodeproto.EncodeSlotCount), remux: make(chan struct{}, nodeproto.RemuxSlotCount),
+		encode: make(chan struct{}, capacity.EncodeSlotCount), remux: make(chan struct{}, capacity.RemuxSlotCount),
 		extract: make(chan struct{}, 1), measure: make(chan struct{}, 1),
 	}
 }

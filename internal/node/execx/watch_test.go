@@ -3,6 +3,8 @@
 package execx
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -104,6 +106,38 @@ func TestReadProgress_ReadsEachBlocksPositionFramesAndSpeed(t *testing.T) {
 	}
 	if dog.furthest.Position != 4*time.Second || !dog.hasMoved {
 		t.Errorf("the watchdog saw %+v, want it at 4 s", dog.furthest)
+	}
+}
+
+// sparseFile is a file of sizeBytes that takes no disk: a byte written at its end.
+func sparseFile(t *testing.T, sizeBytes int64) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "film.mkv")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteAt([]byte{0}, sizeBytes-1)
+	if closeErr := file.Close(); err != nil || closeErr != nil {
+		t.Fatal(err, closeErr)
+	}
+	return path
+}
+
+func TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor(t *testing.T) {
+	t.Parallel()
+	film := sparseFile(t, 60<<30)
+	for _, check := range []struct {
+		bytesPerSecond int64
+		want           time.Duration
+	}{
+		{20 << 20, DeadlineFor(3073 * time.Second)},
+		{40 << 20, DeadlineFor(1537 * time.Second)},
+		{0, DeadlineFor(0)}, // a rate not known is an unknown length
+	} {
+		if got := ReadingDeadline(film, check.bytesPerSecond); got != check.want {
+			t.Errorf("60 GiB at %d bytes a second: %s, want %s", check.bytesPerSecond, got, check.want)
+		}
 	}
 }
 

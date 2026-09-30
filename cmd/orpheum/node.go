@@ -172,8 +172,10 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		activeScanner = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
-		Scanner: activeScanner, Artworker: deriver, Preparer: preparer, Subtitler: subtitle.NewExtractor(runner),
-		LoudnessMeasurer: loudness.NewMeasurer(runner), PreparedShelf: preparedShelf,
+		Scanner: activeScanner, Artworker: deriver, Preparer: preparer,
+		Subtitler:        subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		PreparedShelf:    preparedShelf,
 	}
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
@@ -311,7 +313,16 @@ func describeNode(
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
 		Hardware:      hardwareReport(detected),
+		Capacity:      capacityOf(config),
 	}, nil
+}
+
+// capacityOf is what the node's config says its machine can do (nodeproto.Capacity).
+func capacityOf(config Config) nodeproto.Capacity {
+	return nodeproto.Capacity{
+		EncodeSlotCount: int(config.Node.EncodeSlotCount), RemuxSlotCount: int(config.Node.RemuxSlotCount),
+		SlowestReadBytesPerSecond: config.Node.SlowestReadMiBPerSecond << 20,
+	}
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the

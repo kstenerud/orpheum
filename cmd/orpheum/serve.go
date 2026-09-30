@@ -177,7 +177,7 @@ func openAndWire(
 		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
 		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
 	})
-	opened.jobServices.playback = dependencies.Playback
+	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
 	opened.nodes.SetPrepareSink(dependencies.Playback)
 	opened.nodes.SetSubtitleSink(dependencies.Playback)
 	opened.nodes.SetLoudnessSink(dependencies.Playback)

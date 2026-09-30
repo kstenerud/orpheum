@@ -171,8 +171,11 @@ func (all *prepares) newRunID() (string, error) {
 // prepare that holds a slot without moving (execx), so a wait ends when the prepares ahead of it
 // do, and the cap is only for a wait that would otherwise never end: a node whose slot is held by
 // something its watchdog does not see. Six hours outlasts a legitimate wait behind the two
-// other prepares the core runs at once (nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount in
-// all), each a film encoded at about real time.
+// other prepares the core runs at once for a node on its starting slots (one encode and two
+// remuxes, nodeproto.Capacity), each a film encoded at about real time. The core runs as many
+// prepares as all the nodes' slots, so a node given more slots, or others beside it, can queue more
+// ahead of one; per-node claiming (the jobs rebuild's Phase 4) and a bound on the wait of its own
+// (Phase 5) replace this cap.
 const maxSlotWait = 6 * time.Hour
 
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,

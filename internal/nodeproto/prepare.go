@@ -12,14 +12,6 @@ const PathPrepare = "/node/v1/prepare"
 // PathBytesPrepared + "<file_id>/<profile>/<run_id>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
 
-// A node's prepare slots (cut-a §5.3): one encode, which the processor bounds, and two remuxes,
-// which the disk does. The core runs as many prepares at once as these add up to, and the node
-// holds any beyond its slots, saying so (PrepareWaiting).
-const (
-	EncodeSlotCount = 1
-	RemuxSlotCount  = 2
-)
-
 // PrepareProfile is a rendition's recipe (cut-a §6).
 type PrepareProfile string
 

@@ -48,6 +48,9 @@ type Nodes interface {
 	Enqueue(nodeID int64, command nodeproto.Command)
 	IsConnected(ctx context.Context, nodeID int64) bool
 	Unanswered(ctx context.Context, nodeID int64, err error) error
+	// SlowestReadBytesPerSecond is the slowest a node reads a whole file, as its hello said;
+	// zero when not known.
+	SlowestReadBytesPerSecond(nodeID int64) int64
 }
 
 // Queue is the job queue: jobs.Queue.

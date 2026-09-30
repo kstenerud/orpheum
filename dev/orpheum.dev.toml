@@ -39,6 +39,9 @@ prepared_dir = "{root}/.dev/cache/prepared"
 prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
 prepared_kept_after_play_hours = 72
 prepared_disk_used_limit_percent = 95
+encode_slot_count = 1
+remux_slot_count = 2
+slowest_read_mib_per_second = 20
 
 [log]
 level = "debug"

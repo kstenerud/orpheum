@@ -21,7 +21,7 @@ func (runner watchingRunner) RunWatched(_ context.Context, run execx.WatchedRun)
 func TestExtract_EveryRunIsWatchedATracksLongEnoughForItsQuietStretches(t *testing.T) {
 	t.Parallel()
 	var watches []execx.Watch
-	extractor := NewExtractor(watchingRunner{&watches})
+	extractor := NewExtractor(watchingRunner{&watches}, 20<<20)
 	if _, err := extractor.ExtractTrack(t.Context(), "/media/film.mkv", 3); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestExtract_EveryRunIsWatchedATracksLongEnoughForItsQuietStretches(t *testi
 		t.Fatalf("%d runs watched, want a track and its WebVTT, a sidecar and its WebVTT", len(watches))
 	}
 	if watches[0].StallWindow != 10*time.Minute || watches[0].StartGrace != 10*time.Minute ||
-		watches[0].Deadline != execx.ReadingDeadline("/media/film.mkv") {
+		watches[0].Deadline != execx.ReadingDeadline("/media/film.mkv", 20<<20) {
 		t.Errorf("a track's run was watched %+v; want ten minutes for a stretch without a subtitle", watches[0])
 	}
 	for _, conversion := range watches[1:] {

@@ -70,6 +70,8 @@ func (fakeNodes) IsConnected(context.Context, int64) bool { return true }
 
 func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (fakeNodes) SlowestReadBytesPerSecond(int64) int64 { return 20 << 20 }
+
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
 	t.Parallel()
 	const silence = 200 * time.Millisecond

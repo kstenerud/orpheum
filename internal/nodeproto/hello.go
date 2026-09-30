@@ -40,6 +40,24 @@ type Hello struct {
 	GID         int           `json:"gid"`
 	// Hardware is what the node found for hardware encoding (D225 §3).
 	Hardware Hardware `json:"hardware"`
+	// Capacity is how much work the node takes on at once, and how fast it reads, from its config.
+	Capacity Capacity `json:"capacity"`
+}
+
+// Capacity is what a node's machine can do, as its config says: facts about the deployment, not
+// the admin's opinions, so they are the node's config keys, not the core's settings (cut-a §5.3 as
+// plan-deviations P36 records).
+type Capacity struct {
+	// EncodeSlotCount is how many encodes the node runs at once, which its processor or GPU bounds;
+	// RemuxSlotCount is how many remuxes, which its disk bounds. The node holds a prepare beyond
+	// its slots and says so (PrepareWaiting), and the core runs as many prepares at once as the
+	// nodes' slots add up to.
+	EncodeSlotCount int `json:"encodeSlotCount"`
+	RemuxSlotCount  int `json:"remuxSlotCount"`
+	// SlowestReadBytesPerSecond is the slowest the node expects to read a whole file: a busy
+	// spinning disk, or a network mount. Its watchdog allows a run that reads one that long, and the
+	// core waits that long for a loudness measurement.
+	SlowestReadBytesPerSecond int64 `json:"slowestReadBytesPerSecond"`
 }
 
 // Hardware is what a node found for hardware encoding: the GPU devices it sees, whether it may

@@ -52,7 +52,7 @@ func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	extractor := subtitle.NewExtractor(runner)
+	extractor := subtitle.NewExtractor(runner, 20<<20)
 	track, err := extractor.ExtractTrack(t.Context(), film, 1)
 	if err != nil {
 		t.Fatal(err)

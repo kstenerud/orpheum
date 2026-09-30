@@ -39,10 +39,6 @@ const deadlineFactor = 3
 // is a few seconds is not stopped by a disk that pauses for a minute.
 const shortestDeadline = 10 * time.Minute
 
-// slowestReadBytesPerSecond is the slowest a node is expected to read a file it reads whole: a
-// busy spinning disk, or a network mount.
-const slowestReadBytesPerSecond = 20 << 20
-
 // unknownLengthDeadline bounds a run whose expected length nothing tells: a day, far beyond any
 // film, so it only ends a run that would otherwise never end.
 const unknownLengthDeadline = 24 * time.Hour
@@ -57,11 +53,12 @@ func DeadlineFor(expected time.Duration) time.Duration {
 }
 
 // ReadingDeadline is the deadline of a run that reads the whole file at path, an absolute path:
-// DeadlineFor the time reading it takes at the slowest a node is expected to read, or for an
-// unknown length when its size cannot be read.
-func ReadingDeadline(path string) time.Duration {
+// DeadlineFor the time reading it takes at slowestReadBytesPerSecond, the slowest the node's
+// config says it reads (nodeproto.Capacity), or for an unknown length when its size or the rate
+// is not known.
+func ReadingDeadline(path string, slowestReadBytesPerSecond int64) time.Duration {
 	info, err := os.Stat(path)
-	if err != nil || info.Size() <= 0 {
+	if err != nil || info.Size() <= 0 || slowestReadBytesPerSecond <= 0 {
 		return DeadlineFor(0)
 	}
 	return DeadlineFor(time.Duration(info.Size()/slowestReadBytesPerSecond+1) * time.Second)

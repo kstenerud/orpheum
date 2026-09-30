@@ -203,15 +203,12 @@ func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
 	return queued, nil
 }
 
-// slowestReadBytesPerSecond is the slowest a node is expected to read a file it measures: a busy
-// disk. A measurement says nothing until it ends, so its node is waited on for the silence the
-// other jobs allow and the time to read the file at this rate.
-const slowestReadBytesPerSecond = 20 << 20
-
 // HandleMeasureLoudness runs one measurement job (jobs.KindMeasureLoudness): the node that holds the file
 // measures its audio tracks, and this waits for its answer and keeps it by the file's payload
-// hash. A file whose bytes are already measured, as a second copy's are, is not measured again;
-// FFmpeg's failure is kept and not retried, and a node's refusal is not kept and is retried.
+// hash. A measurement says nothing until it ends, so its node is waited on for the silence the
+// other jobs allow and the time to read the file at the slowest the node's hello says it reads. A
+// file whose bytes are already measured, as a second copy's are, is not measured again; FFmpeg's
+// failure is kept and not retried, and a node's refusal is not kept and is retried.
 func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job) error {
 	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
 	if errors.Is(err, ErrNoFile) {
@@ -246,7 +243,12 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if command.Video, err = service.bytesFileOf(ctx, locatedOf(file)); err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	reading := time.Duration(ptr.ValueOrZero(file.SizeBytes)/slowestReadBytesPerSecond) * time.Second
+	slowestRead := service.nodes.SlowestReadBytesPerSecond(file.NodeID)
+	if slowestRead <= 0 {
+		return fmt.Errorf("node %d has not said how fast it reads, so a measurement of file %d cannot be "+
+			"waited for", file.NodeID, file.ID)
+	}
+	reading := time.Duration(ptr.ValueOrZero(file.SizeBytes)/slowestRead) * time.Second
 	patience := service.maxSilence + reading
 	return service.measure(ctx, job, file, command, patience)
 }

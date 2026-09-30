@@ -15,7 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
@@ -87,17 +86,40 @@ func TestLengthOrStarting_IsTheSettingOrElseItsStartingValue(t *testing.T) {
 	}
 }
 
-func TestRunners_PreparesRunAsManyAtOnceAsANodeHasSlots(t *testing.T) {
+func TestRunners_EveryKindButPreparesRunsOneAtATime(t *testing.T) {
 	t.Parallel()
 	for _, runner := range (jobServices{}).runners(nil) {
-		want := 1
-		if runner.kind == jobs.KindPrepare {
-			// A second person's copy is not held behind the first's.
-			want = nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount
+		if runner.kind == jobs.KindPrepare || runner.concurrency != 1 {
+			t.Errorf("%s jobs run %d at once, want 1, and prepares in the pool the nodes' slots size (cut-a §5.3)",
+				runner.kind, runner.concurrency)
 		}
-		if runner.concurrency != want {
-			t.Errorf("%s jobs run %d at once, want %d (cut-a §5.3)", runner.kind, runner.concurrency, want)
+	}
+}
+
+// Prepares run as many at once as the nodes that said hello have slots, so a second person's copy
+// is not held behind the first's: the pool grows with each hello that reports more, and starts
+// nothing once the loops are stopping.
+func TestRunnerPool_PreparesRunAsManyAtOnceAsTheNodesHaveSlots(t *testing.T) {
+	t.Parallel()
+	started := 0
+	pool := &runnerPool{start: func() { started++ }}
+	for _, step := range []struct {
+		slotCount, wantRunning int
+	}{
+		{3, 3}, // local: one encode, two remuxes
+		{9, 9}, // attic says hello with six more
+		{4, 9}, // a count below what runs stops none
+	} {
+		pool.growTo(step.slotCount)
+		if started != step.wantRunning {
+			t.Errorf("after the nodes reported %d slots: %d prepare runners, want %d", step.slotCount, started,
+				step.wantRunning)
 		}
+	}
+	pool.stop()
+	pool.growTo(12)
+	if started != 9 {
+		t.Errorf("a hello after the loops stopped started runners: %d, want still 9", started)
 	}
 }
 
@@ -112,7 +134,7 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		sweepNames[sweep.Name] = true
 	}
 	run := map[jobs.Kind]bool{}
-	for _, runner := range services.runners(nil) {
+	for _, runner := range append(services.runners(nil), services.prepareRunners()...) {
 		run[runner.kind] = true
 		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
 		if runner.recordFailure == nil && runner.kind != jobs.KindPrepare {

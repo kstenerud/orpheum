@@ -35,7 +35,7 @@ func TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot(t *testi
 	root, _ := startAgent(t, socket)
 	source := preparableFilm(t, root)
 	// More stalls than a remux has slots: each frees its slot, or the last prepare never runs.
-	for job := range int64(nodeproto.RemuxSlotCount + 1) {
+	for job := range int64(testCapacity.RemuxSlotCount + 1) {
 		core.sendPrepare(job+1, source, "3/remux/stalled")
 		stalled := finalPrepareReport(t, core)
 		if stalled.State != nodeproto.PrepareStalled || stalled.Failure != "" || stalled.Refusal != "" {

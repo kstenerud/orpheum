@@ -276,6 +276,25 @@ func TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay(t *testing.T) 
 	}
 }
 
+// A measurement is waited for as long as reading its file takes at the slowest its node says it
+// reads; a node that did not say is not sent one it could not be waited for.
+func TestLoudness_AMeasurementOnANodeThatDidNotSayHowFastItReadsIsNotSent(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.nodes.isReadRateUnknown = true
+	service := harness.server.dependencies.Load().Playback
+	job := jobs.Job{ID: 5, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
+	err := service.HandleMeasureLoudness(t.Context(), job)
+	if err == nil || !strings.Contains(err.Error(), "has not said how fast it reads") {
+		t.Errorf("measuring on a node that did not say how fast it reads: %v, want it not waited for", err)
+	}
+	if len(harness.nodes.queued) != 0 {
+		t.Errorf("the node was sent %+v, want nothing", harness.nodes.queued)
+	}
+}
+
 func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

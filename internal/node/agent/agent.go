@@ -103,7 +103,7 @@ func New(
 	return &Agent{
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
-		clock:   clockSource, logger: logger, activity: "idle", slots: newSlots(),
+		clock:   clockSource, logger: logger, activity: "idle", slots: newSlots(hello.Capacity),
 		answerRetry: defaultAnswerRetry(),
 	}
 }
