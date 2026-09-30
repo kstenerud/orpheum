@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
@@ -35,6 +36,10 @@ const providerOpenSubtitles = "opensubtitles"
 
 // ErrNoSubtitler is a server that fetches no subtitles: it was started without a provider.
 var ErrNoSubtitler = errors.New("this server fetches no subtitles")
+
+// ErrUnreadableSubtitle is a fetched subtitle its node could not convert: it is not kept, and not
+// the person's choice (D224 §5).
+var ErrUnreadableSubtitle = errors.New("the fetched subtitle could not be read")
 
 // ErrNothingToSearchBy is a file that is neither identified nor hashed for OpenSubtitles, so
 // nothing names it to the provider.
@@ -159,25 +164,41 @@ type Fetched struct {
 	DownloadsResetAt   time.Time
 }
 
-// FetchSubtitle downloads the subtitle a person chose, which spends one of the account's downloads;
-// keeps it in library.db, gzipped, since it cost that download (D224 §6); and makes it the file's
-// subtitle choice for that person. The node converts it the next time the file plays.
+// FetchSubtitle downloads the subtitle a person chose, which spends one of the account's
+// downloads, and has the node that holds the file convert it while the person waits, since
+// hostile text is parsed on a node (D224 §5). Only a subtitle the node converted is kept, in
+// library.db, gzipped, since it cost that download (D224 §6), with its converted text, and made
+// the file's subtitle choice for that person: nothing unparsed becomes a choice. A node that is
+// away is found before a download is spent; a subtitle it cannot convert is ErrUnreadableSubtitle,
+// kept nowhere. A download whose conversion never came back is not spent again by the next try
+// while its link works (opensubtitles.Client.Download).
 func (service *Service) FetchSubtitle(
 	ctx context.Context, userID, fileID int64, request FetchRequest,
 ) (Fetched, error) {
 	if service.subtitler == nil {
 		return Fetched{}, ErrNoSubtitler
 	}
-	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
+	file, err := service.playableFile(ctx, service.database.Read(), fileID)
+	if err != nil {
 		return Fetched{}, err
 	}
+	if !service.nodes.IsConnected(file.NodeID) {
+		return Fetched{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", file.NodeID, nodes.ErrNodeSilent)
+	}
 	downloaded, err := service.subtitler.Download(ctx, request.ProviderFileID)
+	if err != nil {
+		return Fetched{}, err
+	}
+	converted, err := service.convertFetched(ctx, file.NodeID, downloaded.Body)
 	if err != nil {
 		return Fetched{}, err
 	}
 	body, err := bounded.Gzip(downloaded.Body)
 	if err != nil {
 		return Fetched{}, err
+	}
+	if keepErr := service.keepConvertedText(ctx, fetchedKey(body), converted); keepErr != nil {
+		return Fetched{}, keepErr
 	}
 	var id int64
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -201,6 +222,54 @@ func (service *Service) FetchSubtitle(
 	return Fetched{
 		Track: track, RemainingDownloads: downloaded.RemainingDownloads, DownloadsResetAt: downloaded.DownloadsResetAt,
 	}, nil
+}
+
+// convertFetched has the node convert a fetched subtitle's text while a person waits, and returns
+// what it made: ErrUnreadableSubtitle when the node could not convert it, and nodes.ErrNodeSilent
+// when it refused or said nothing.
+func (service *Service) convertFetched(
+	ctx context.Context, nodeID int64, text []byte,
+) (nodeproto.SubtitleText, error) {
+	conversionID := -service.fetchConversions.Add(1)
+	answers := service.subtitleTextAnswers.Await(conversionID)
+	defer service.subtitleTextAnswers.Forget(conversionID)
+	service.nodes.Enqueue(nodeID, nodeproto.Command{
+		Type:            nodeproto.CommandExtractSubtitle,
+		ExtractSubtitle: &nodeproto.ExtractSubtitle{JobID: conversionID, FetchedSubRip: text},
+	})
+	timer := time.NewTimer(service.maxSilence)
+	defer timer.Stop()
+	select {
+	case answer := <-answers:
+		switch {
+		case answer.Refusal != "":
+			return answer, fmt.Errorf("node %d refused to convert a fetched subtitle: %s: %w",
+				nodeID, answer.Refusal, nodes.ErrNodeSilent)
+		case answer.Failure != "":
+			return answer, fmt.Errorf("%w: %s", ErrUnreadableSubtitle, answer.Failure)
+		}
+		return answer, nil
+	case <-timer.C:
+		return nodeproto.SubtitleText{}, fmt.Errorf("node %d said nothing about a fetched subtitle for %s: %w",
+			nodeID, service.maxSilence, nodes.ErrNodeSilent)
+	case <-ctx.Done():
+		return nodeproto.SubtitleText{}, fmt.Errorf("wait for a fetched subtitle's conversion: %w", ctx.Err())
+	}
+}
+
+// keepConvertedText keeps a fetched subtitle's converted text where a playback finds it.
+func (service *Service) keepConvertedText(
+	ctx context.Context, key cachegen.GetSubtitleTextParams, converted nodeproto.SubtitleText,
+) error {
+	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		return queries.RequestSubtitleText(ctx, cachegen.RequestSubtitleTextParams{
+			SourceHash: key.SourceHash, StreamIndex: key.StreamIndex, CreatedAt: service.clock.Now().UnixMilli(),
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("keep a fetched subtitle's text: %w", err)
+	}
+	return service.finishSubtitle(ctx, key, converted)
 }
 
 // fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as library.db

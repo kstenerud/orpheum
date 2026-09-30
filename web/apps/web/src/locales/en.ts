@@ -71,6 +71,7 @@ export const en = {
         "The outside service refused the account's login. An admin can change it in Settings.",
       notConfigured: "This server does not use that outside service.",
       unavailable: "The outside service is not answering right now. Try again later.",
+      unreadable: "The outside service sent something that could not be read. Choose another.",
     },
   },
   codeSignIn: {
@@ -250,6 +251,7 @@ export const en = {
           "OpenSubtitles refused the account's login. An admin can change it in Settings.",
         notConfigured: "This server does not download subtitles.",
         unavailable: "OpenSubtitles is not answering right now. Try again later.",
+        unreadable: "That subtitle could not be read, so it was not kept. Choose another.",
         unknown: "OpenSubtitles could not be reached.",
       },
     },

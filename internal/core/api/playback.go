@@ -320,7 +320,26 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	case isLimited:
 		return providerRateLimited(limited)
 	}
+	if refusal := fetchRefusal(err); refusal != nil {
+		return refusal
+	}
 	return server.logInternalError(ctx, action, err)
+}
+
+// fetchRefusal is a subtitle fetch's own refusal, from the conversion its node makes before the
+// subtitle is kept (D224 §5), or nil for any other error.
+func fetchRefusal(err error) error {
+	switch {
+	case errors.Is(err, playback.ErrUnreadableSubtitle):
+		return providerRefusal(ReasonUnreadable,
+			"the subtitle OpenSubtitles sent could not be read, so it was not kept; choose another")
+	case errors.Is(err, nodes.ErrNodeSilent):
+		failure := newError(http.StatusServiceUnavailable, CodeNodeSilent,
+			"the node that holds this file is not answering, so nothing was downloaded or kept")
+		failure.ErrorBody.Error.FailedHop = HopNode
+		return failure
+	}
+	return nil
 }
 
 // tooEarly is 425 Too Early, with the Retry-After a player waits for.

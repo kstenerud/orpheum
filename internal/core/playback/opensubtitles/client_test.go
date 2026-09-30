@@ -47,8 +47,11 @@ type fakeProvider struct {
 	remaining     int
 	// limitedFor, when set, is a search's answer: 429, with it as the Retry-After unless "none".
 	limitedFor string
-	// searchStatus and linkStatus, when set, are what a search and the download link answer.
-	searchStatus, linkStatus int
+	// searchStatus and linkStatus, when set, are what a search and the download link answer;
+	// linkFailures, when set, is how many times the link answers linkStatus before it works.
+	searchStatus, linkStatus, linkFailures int
+	// linkCount counts the link's fetches.
+	linkCount int
 	// isDroppedTokenA500 answers a token it does not know as OpenSubtitles answers an expired one:
 	// 500 "invalid", not 401.
 	isDroppedTokenA500 bool
@@ -151,7 +154,8 @@ func (fake *fakeProvider) serveDownload(writer http.ResponseWriter) {
 
 // serveLink answers the download link: the subtitle, or linkStatus when it is set.
 func (fake *fakeProvider) serveLink(writer http.ResponseWriter) {
-	if fake.linkStatus != 0 {
+	fake.linkCount++
+	if fake.linkStatus != 0 && (fake.linkFailures == 0 || fake.linkCount <= fake.linkFailures) {
 		writer.Header().Set("Retry-After", "3")
 		writer.WriteHeader(fake.linkStatus)
 		return
@@ -178,6 +182,7 @@ func newProvider(t *testing.T, keys LoginSecrets) (*fakeProvider, *Client, *cloc
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.linkRetryDelays = []time.Duration{0, 0} // the back-off's count, not its wall time
 	return fake, client, fakeClock
 }
 
@@ -271,10 +276,10 @@ func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *t
 		!downloaded.DownloadsResetAt.Equal(reset) || downloaded.FileName != "Film.2020.srt" {
 		t.Errorf("downloaded %+v; want the subtitle, one left, and the provider's reset time (D224 §4)", downloaded)
 	}
-	if _, err = client.Download(t.Context(), 7); err != nil {
+	if _, err = client.Download(t.Context(), 8); err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Download(t.Context(), 7)
+	_, err = client.Download(t.Context(), 9)
 	spent, isSpent := errors.AsType[*QuotaSpentError](err)
 	if !isSpent || !spent.DownloadsResetAt.Equal(reset) {
 		t.Errorf("a download past the quota: %v, want the quota spent until %s", err, reset)
@@ -432,5 +437,58 @@ func TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters(t *testing.T) {
 	}
 	if downloaded.FileName != "Film.2020trs.exe" {
 		t.Errorf("the file name: %q, want it cleaned to %q", downloaded.FileName, "Film.2020trs.exe")
+	}
+}
+
+// A download is spent when /download answers, and its link lasts three hours
+// (opensubtitles-api.md §2): a link that fails is retried, with back-off, and fetching the file
+// again while the link works spends nothing.
+func TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload(t *testing.T) {
+	t.Parallel()
+	fake, client, fakeClock := newProvider(t, fakeKeys{"owner", "right"})
+	fake.remaining = 10
+	spent := func() int {
+		fake.mutex.Lock()
+		defer fake.mutex.Unlock()
+		return 10 - fake.remaining
+	}
+	fake.mutex.Lock()
+	fake.linkStatus, fake.linkFailures = http.StatusServiceUnavailable, 2
+	fake.mutex.Unlock()
+	downloaded, err := client.Download(t.Context(), 7)
+	if err != nil || !strings.Contains(string(downloaded.Body), "Hello") {
+		t.Fatalf("a link that answered 503 twice: %v, want the third try to fetch it", err)
+	}
+	fake.mutex.Lock()
+	fake.linkCount, fake.linkFailures = 0, 5 // more than one Download retries
+	fake.mutex.Unlock()
+	if _, err := client.Download(t.Context(), 8); !errors.Is(err, outbound.ErrUnavailable) {
+		t.Fatalf("a link that keeps answering 503: %v, want it unavailable", err)
+	}
+	fakeClock.Advance(2 * time.Hour)
+	if _, err := client.Download(t.Context(), 8); err != nil {
+		t.Fatalf("the same file within the link's three hours: %v, want its link fetched", err)
+	}
+	if got := spent(); got != 2 {
+		t.Errorf("%d downloads spent, want one per file: a failed link is fetched again, not bought again", got)
+	}
+	if _, err := client.Download(t.Context(), 7); err != nil || spent() != 2 {
+		t.Errorf("file 7 again within its link's time: %v, %d spent; want no second download", err, spent())
+	}
+	fakeClock.Advance(time.Hour + time.Second)
+	if _, err := client.Download(t.Context(), 8); err != nil || spent() != 3 {
+		t.Errorf("file 8 after its link's three hours: %v, %d spent; want a new download", err, spent())
+	}
+	fake.mutex.Lock()
+	fake.linkStatus, fake.linkFailures = http.StatusNotFound, 0
+	fake.mutex.Unlock()
+	if _, err := client.Download(t.Context(), 8); err == nil {
+		t.Fatal("a link answering 404: nothing, want a refusal")
+	}
+	fake.mutex.Lock()
+	fake.linkStatus = 0
+	fake.mutex.Unlock()
+	if _, err := client.Download(t.Context(), 8); err != nil || spent() != 4 {
+		t.Errorf("after a link answered 404: %v, %d spent; want it forgotten and a new download", err, spent())
 	}
 }

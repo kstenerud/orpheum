@@ -142,12 +142,16 @@ const (
 	ReasonLoginRefused  ProviderReason = "login_refused"
 	ReasonNotConfigured ProviderReason = "not_configured"
 	ReasonUnavailable   ProviderReason = "unavailable"
+	// ReasonUnreadable is what the provider sent, which could not be read: a fetched subtitle its
+	// node could not convert (D224 §5).
+	ReasonUnreadable ProviderReason = "unreadable"
 )
 
 // providerReasons is every ProviderReason: the one list, which the document enumerates.
 func providerReasons() []ProviderReason {
 	return []ProviderReason{
 		ReasonNoKey, ReasonKeyRefused, ReasonNoLogin, ReasonLoginRefused, ReasonNotConfigured, ReasonUnavailable,
+		ReasonUnreadable,
 	}
 }
 

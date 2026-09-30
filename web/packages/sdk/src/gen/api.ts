@@ -1685,7 +1685,7 @@ export interface components {
         };
         ProviderRefusalDetailBody: {
             /** @enum {string} */
-            reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable";
+            reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime_ms are whole numbers */

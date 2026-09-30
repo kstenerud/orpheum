@@ -85,6 +85,13 @@ type Client struct {
 	// refusedLoginFingerprint is the fingerprint of a login OpenSubtitles refused, which is not
 	// tried again (guarded by mutex).
 	refusedLoginFingerprint [sha256.Size]byte
+	// linkByProviderFileID holds each download's link while it works, so fetching the same file
+	// again spends no second download (guarded by mutex).
+	linkByProviderFileID map[int64]heldLink
+	// linkRetryDelays are the waits before a link that failed as unavailable is fetched again
+	// within one Download: a 5xx is retried after a second, as OpenSubtitles asks
+	// (opensubtitles-api.md §3), and once more, after two.
+	linkRetryDelays []time.Duration
 }
 
 // session is one login: its token, where its requests go and until when it is used.
@@ -101,7 +108,10 @@ func New(httpClient *http.Client, base string, loginSecrets LoginSecrets, clockS
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: the base URL: %w", err)
 	}
-	return &Client{http: httpClient, base: parsed, loginSecrets: loginSecrets, clock: clockSource}, nil
+	return &Client{
+		http: httpClient, base: parsed, loginSecrets: loginSecrets, clock: clockSource,
+		linkByProviderFileID: map[int64]heldLink{}, linkRetryDelays: []time.Duration{time.Second, 2 * time.Second},
+	}, nil
 }
 
 // currentSession is the session to send a request with: the one in use, or a new login.
