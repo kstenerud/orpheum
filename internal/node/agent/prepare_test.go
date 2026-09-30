@@ -251,3 +251,17 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}
 }
+
+// A prepare's end the core did not take is posted again, not dropped: without it the core would
+// wait, then prepare the same rendition again from nothing.
+func TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	// The first post is the prepare's progress, which is not tried again; the second is its end.
+	core.refuseFirstPosts(nodeproto.PathPrepare, 2)
+	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
+	if done := finalPrepareReport(t, core); done.JobID != 1 || done.State != nodeproto.PrepareDone {
+		t.Errorf("the prepare's end after a refusal = %+v, want done", done)
+	}
+}
