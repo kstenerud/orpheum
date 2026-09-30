@@ -465,3 +465,19 @@ func TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPan
 		t.Errorf("ran %v, want the panicking job twice and the other never", ran)
 	}
 }
+
+func TestNewRunner_AHandlerIsToldItsJobsPriority(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, PriorityPersonsRequest)
+	var told int64
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
+		told = job.Priority
+		return nil
+	})
+	jobs.runDue(t, runner)
+	if told != PriorityPersonsRequest {
+		t.Errorf("the handler was told priority %d, want %d: it asks a provider by it (providers.JobImportance)",
+			told, PriorityPersonsRequest)
+	}
+}

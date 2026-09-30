@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -480,10 +481,18 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 	token := signedInOwner(t, server, path)
 	system := requestAPI(t, http.MethodGet, server.baseURL+"/system", token, nil)
 	var page struct {
-		Server api.ServerBody `json:"server"`
+		Server    api.ServerBody     `json:"server"`
+		Providers []api.ProviderBody `json:"providers"`
 	}
 	if err := json.Unmarshal([]byte(system.body), &page); err != nil {
 		t.Fatalf("/system: %d %s", system.status, system.body)
+	}
+	names := make([]string, 0, len(page.Providers))
+	for _, provider := range page.Providers {
+		names = append(names, provider.Name)
+	}
+	if want := []string{"TMDB", "TMDB's image server", "OpenSubtitles"}; !slices.Equal(names, want) {
+		t.Errorf("the System page's providers are %q, want each outside host's: %q (D231 §5)", names, want)
 	}
 	facts := page.Server
 	if facts.Build.Name != version || facts.Host.Platform == "" || len(facts.Disks) != 2 ||
