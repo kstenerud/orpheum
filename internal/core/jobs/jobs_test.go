@@ -389,3 +389,33 @@ func TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows(t *testi
 		jobs.clock.Set(time.UnixMilli(job.RunnableAt))
 	}
 }
+
+func TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	const attemptLimit = 20
+	settingstest.Set(t, jobs.config, settings.JobAttemptLimit, "20")
+	jobs.enqueue(t, 1, 0)
+	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+		return errors.New("the provider answered 500")
+	})
+	want := 10 * time.Second
+	for attempt := 1; attempt < attemptLimit; attempt++ {
+		if err := runner.RunDue(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		job := jobs.job(t, 1)
+		wait := time.UnixMilli(job.RunnableAt).Sub(jobs.clock.Now())
+		if job.State != "queued" || wait != want {
+			t.Fatalf("after attempt %d: state %s, waits %v; want queued, waiting %v", attempt, job.State, wait, want)
+		}
+		want = min(2*want, 24*time.Hour)
+		jobs.clock.Set(time.UnixMilli(job.RunnableAt))
+	}
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if job := jobs.job(t, 1); job.State != stateFailed {
+		t.Errorf("after attempt %d: state %s; want failed at the attempt limit", attemptLimit, job.State)
+	}
+}

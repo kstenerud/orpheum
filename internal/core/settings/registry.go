@@ -147,7 +147,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 		integerSetting(JobAttemptLimit, "5", 1, 100,
 			"how many times a background job that failed is tried before it is marked failed"),
 		integerSetting(JobFirstRetryDelayS, "30", 1, 86400,
-			"seconds before a failed job's first retry; each later retry waits twice as long"),
+			"seconds before a failed job's first retry; each later retry waits twice as long, up to a day"),
 		integerSetting(ProviderTimeoutS, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
 		{
