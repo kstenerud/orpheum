@@ -22,7 +22,7 @@ func TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled(t *t
 	var toldStalled []bool
 	var attempts []int64
 	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
-		toldStalled = append(toldStalled, job.PreviousAttemptStalled)
+		toldStalled = append(toldStalled, job.PreviousAttemptToolFailed)
 		attempts = append(attempts, job.AttemptNumber)
 		answer := answers[0]
 		answers = answers[1:]

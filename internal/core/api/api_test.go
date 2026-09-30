@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -89,7 +90,10 @@ func newHarness(t *testing.T) testHarness {
 		t.Fatal(err)
 	}
 	// One queue, as the server has: a cancel reaches the job the runner is running.
-	queue := jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler))
+	queue := jobs.NewQueue(jobs.QueueParts{
+		Cache: cache, Clock: now, Settings: seeded, Random: jobqueuetest.Unjittered(),
+		Logger: slog.New(slog.DiscardHandler),
+	})
 	preferencesService := preferences.NewService(database, now)
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Cache: cache, Queue: queue,

@@ -13,9 +13,17 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+)
+
+// The states the tests read from the job table.
+const (
+	stateDone   = string(jobqueue.StateDone)
+	stateFailed = string(jobqueue.StateFailed)
 )
 
 type fixture struct {
@@ -33,7 +41,10 @@ func newFixture(t *testing.T) fixture {
 	cache := storetest.OpenCache(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.NewTextHandler(t.Output(), nil))
-	return fixture{queue: NewQueue(cache, fakeClock, config, logger), cache: cache, clock: fakeClock, config: config}
+	queue := NewQueue(QueueParts{
+		Cache: cache, Clock: fakeClock, Settings: config, Random: jobqueuetest.Unjittered(), Logger: logger,
+	})
+	return fixture{queue: queue, cache: cache, clock: fakeClock, config: config}
 }
 
 func (fixed fixture) enqueue(t *testing.T, itemID, priority int64) {
@@ -417,5 +428,48 @@ func TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit(t *testing.T)
 	}
 	if job := jobs.job(t, 1); job.State != stateFailed {
 		t.Errorf("after attempt %d: state %s; want failed at the attempt limit", attemptLimit, job.State)
+	}
+}
+
+func TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPanicFailsOnlyItsJob(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, 0)
+	jobs.enqueue(t, 2, 0)
+	// Item 1's job stops the server in the middle of every attempt: claimed, never finished, and
+	// returned to the queue at the next start. The fixture's attempt limit is 3.
+	for range 3 {
+		err := jobs.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+			_, startErr := queries.StartJob(t.Context(), jobs.job(t, 1).ID)
+			return startErr
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := jobs.queue.RequeueRunning(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var ran []int64
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
+		ran = append(ran, job.ItemID)
+		panic("a parser met bytes it did not expect") // item 2's job panics every time
+	})
+	for range 2 {
+		if err := runner.RunDue(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		jobs.clock.Advance(10 * time.Second)
+	}
+	if job := jobs.job(t, 1); job.State != stateFailed || job.AttemptCount != 3 {
+		t.Errorf("the job that stops the server: %s after %d attempts, want failed unrun at its limit of 3",
+			job.State, job.AttemptCount)
+	}
+	if job := jobs.job(t, 2); job.State != stateFailed || job.AttemptCount != 1 {
+		t.Errorf("the job that panics: %s after %d attempts, want failed the second time, the first free",
+			job.State, job.AttemptCount)
+	}
+	if !slices.Equal(ran, []int64{2, 2}) {
+		t.Errorf("ran %v, want the panicking job twice and the other never", ran)
 	}
 }

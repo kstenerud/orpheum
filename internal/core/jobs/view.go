@@ -4,20 +4,17 @@ package jobs
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 )
 
 // ErrCancelled is the cause a running job's context ends with when a person cancels it: its
 // handler stops what it started, a node's work included.
-var ErrCancelled = errors.New("the job was cancelled")
+var ErrCancelled = jobqueue.ErrCancelled
 
 // ErrNotOpen is a cancel of a job that is no longer queued or running, or was never there.
-var ErrNotOpen = errors.New("no such job queued or running")
+var ErrNotOpen = jobqueue.ErrNotOpen
 
 // View is one job as the job view shows it (cut-a §5.3).
 type View struct {
@@ -36,23 +33,17 @@ type View struct {
 
 // List is the newest jobs, newest first, at most limit of them.
 func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
-	rows, err := queue.cache.Read().ListJobs(ctx, limit)
+	rows, err := queue.queue.List(ctx, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list jobs: %w", err)
+		return nil, err
 	}
 	views := make([]View, 0, len(rows))
 	for _, row := range rows {
-		view := View{
-			ID: row.ID, Kind: Kind(row.Kind), State: row.State,
-			Target:           targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
-			ProgressFraction: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
-			LastFailure:  ptr.ValueOrZero(row.LastFailure),
-			AttemptCount: row.AttemptCount, CreatedAt: time.UnixMilli(row.CreatedAt),
-		}
-		if row.FinishedAt != nil {
-			view.FinishedAt = new(time.UnixMilli(*row.FinishedAt))
-		}
-		views = append(views, view)
+		views = append(views, View{
+			ID: row.ID, Kind: row.Kind, Target: row.Target, State: string(row.State),
+			ProgressFraction: row.ProgressFraction, Reason: row.Reason, LastFailure: row.LastFailure,
+			AttemptCount: row.AttemptCount, CreatedAt: row.CreatedAt, FinishedAt: row.FinishedAt,
+		})
 	}
 	return views, nil
 }
@@ -61,49 +52,10 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 // is told through its context, whose cause is ErrCancelled, so it can stop the work it started.
 // Whatever the handler answers after, the job stays cancelled.
 func (queue *Queue) Cancel(ctx context.Context, id int64) error {
-	var cancelledCount int64
-	err := queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		var cancelErr error
-		cancelledCount, cancelErr = queries.CancelJob(ctx, cachegen.CancelJobParams{
-			FinishedAt: new(queue.clock.Now().UnixMilli()), ID: id,
-		})
-		return cancelErr
-	})
-	if err != nil {
-		return fmt.Errorf("cancel job %d: %w", id, err)
-	}
-	if cancelledCount == 0 {
-		return ErrNotOpen
-	}
-	queue.mutex.Lock()
-	stop, isRunning := queue.cancelByRunningJobID[id]
-	queue.mutex.Unlock()
-	if isRunning {
-		stop(ErrCancelled)
-	}
-	return nil
+	return queue.queue.Cancel(ctx, id)
 }
 
 // SetProgress records how far a running job is, from 0 to 1.
 func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64) error {
-	err := queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetJobProgress(ctx, cachegen.SetJobProgressParams{ProgressFraction: &fraction, ID: id})
-	})
-	if err != nil {
-		return fmt.Errorf("record job %d's progress: %w", id, err)
-	}
-	return nil
-}
-
-// trackCancel keeps a running job's cancel until its handler returns.
-func (queue *Queue) trackCancel(id int64, stop context.CancelCauseFunc) {
-	queue.mutex.Lock()
-	defer queue.mutex.Unlock()
-	queue.cancelByRunningJobID[id] = stop
-}
-
-func (queue *Queue) untrackCancel(id int64) {
-	queue.mutex.Lock()
-	defer queue.mutex.Unlock()
-	delete(queue.cancelByRunningJobID, id)
+	return queue.queue.SetProgress(ctx, id, fraction)
 }

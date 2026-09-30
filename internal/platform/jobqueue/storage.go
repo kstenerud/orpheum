@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package jobqueue
+
+import (
+	"context"
+	"time"
+)
+
+// Storage keeps the jobs. The queue decides; the storage only reads and writes rows, each call
+// one transaction, so that a program's database stays in the one package allowed to touch it.
+type Storage[T comparable] interface {
+	Queueing[T]
+	Working[T]
+	Listing[T]
+}
+
+// Queueing is the part of Storage that takes requests and cancels.
+type Queueing[T comparable] interface {
+	// Enqueue reads kind's open jobs for target, asks plan what to do with them, and applies its
+	// Change, all in one write, so two requests for one target never both insert.
+	Enqueue(ctx context.Context, kind Kind, target T, plan func(open Open[T]) (Change, error)) error
+	// Cancel ends a queued or running job as cancelled at the given time, and says whether one was
+	// open. A cancelled job stays cancelled whatever its handler records after.
+	Cancel(ctx context.Context, id int64, at time.Time) (bool, error)
+}
+
+// Working is the part of Storage that runners use.
+type Working[T comparable] interface {
+	// Claim marks the next queued job the claim allows running and counts its attempt: the row
+	// it returns has the new count. The next is the highest priority whose RunnableAt has come,
+	// then the earliest RunnableAt, then the lowest id. It reports false when none is due.
+	Claim(ctx context.Context, claim Claim) (Row[T], bool, error)
+	// Record writes a claimed job's outcome, unless the job was cancelled meanwhile.
+	Record(ctx context.Context, outcome Outcome) error
+	// SetProgress records how far a running job is.
+	SetProgress(ctx context.Context, id int64, fraction float64) error
+	// RequeueRunning returns every running job to queued, keeping the attempt its claim counted,
+	// and says how many there were: what a stop left running.
+	RequeueRunning(ctx context.Context) (int64, error)
+}
+
+// Listing is the part of Storage that reads jobs for a person.
+type Listing[T comparable] interface {
+	// List is the newest jobs, newest first, at most limit.
+	List(ctx context.Context, limit int64) ([]Row[T], error)
+	// EverQueued is whether a job of kind was ever queued for target, whatever became of it.
+	EverQueued(ctx context.Context, kind Kind, target T) (bool, error)
+}
+
+// Open are a kind's open jobs for one target: at most one queued and one running.
+type Open[T comparable] struct {
+	Queued  *Row[T]
+	Running *Row[T]
+}
+
+// Action is what a request does to the jobs open for its target.
+type Action string
+
+// The actions a request may take.
+const (
+	// ActionInsert queues a new job: none was queued, and none running already covers it.
+	ActionInsert Action = "insert"
+	// ActionMerge folds the request into the one queued job.
+	ActionMerge Action = "merge"
+	// ActionDrop drops the request: the running job already does what it asks.
+	ActionDrop Action = "drop"
+)
+
+// Change is what Storage.Enqueue writes.
+type Change struct {
+	Action Action
+	// MergeIntoID is the queued job an ActionMerge changes.
+	MergeIntoID int64
+	// ArgsJSON, Priority, Reason and RunnableAt are the inserted job's, or the merged job's
+	// after the merge.
+	ArgsJSON   string
+	Priority   int64
+	Reason     string
+	RunnableAt time.Time
+	// CreatedAt is an inserted job's.
+	CreatedAt time.Time
+}
+
+// Claim says which queued job a runner may take. Phase 2 of the jobs rebuild adds what a claim
+// passes over here: the destinations that are parked (D231 §6), which the storage reads from a
+// destination key kept with each job.
+type Claim struct {
+	Kind Kind
+	// Now is the time a job's RunnableAt must have come by.
+	Now time.Time
+}
+
+// Outcome is a claimed job's end, or its return to the queue.
+type Outcome struct {
+	ID int64
+	// State is StateDone, StateFailed, or StateQueued for a job that waits to run again.
+	State State
+	// At is when a done or failed job finished, or when a queued one may run again.
+	At time.Time
+	// AttemptCount is the count the job ends or waits with: the claim's, or one less when the
+	// attempt is given back.
+	AttemptCount int64
+	// IsSnoozed and ToolFailed are a queued job's Row.IsSnoozed and Row.LastAttemptToolFailed.
+	IsSnoozed  bool
+	ToolFailed bool
+	// LastFailure is what the attempt said when it did not succeed, or "".
+	LastFailure string
+}

@@ -12,7 +12,7 @@ import (
 type Queue []jobs.Request
 
 // Enqueue lists job and says it was queued, unless a job of its kind for its target is listed
-// already, as the real queue refuses a second open job.
+// already, as the real queue merges a repeat request into the open job and adds none.
 func (queue *Queue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	for _, open := range *queue {
 		if open.Kind == job.Kind && open.Target == job.Target {

@@ -832,7 +832,10 @@ reference scale, and removes a failure mode.
 > (D179), has its rendition made again; version 18 corrected the comment naming what a job's
 > `args_json` holds; version 19 named the job kinds `fetch_metadata` and `make_artwork_sizes` for
 > what they do, and `subtitle_text`'s key `source_hash`, since it holds a fetched subtitle's body
-> hash as well as a bytes file's payload hash (M3's closing audit, D227).
+> hash as well as a bytes file's payload hash (M3's closing audit, D227); version 20 gave a job
+> `is_snoozed`, so a repeat request wakes a job in back-off but not one waiting for a time it was
+> given, and `last_attempt_tool_failed`, the tool's failure kept apart from the job's own
+> (D231 §8, D233 §6: the jobs rebuild's Phase 1).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -854,7 +857,13 @@ CREATE TABLE job (                                         -- the one work queue
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
   node_id     INTEGER,                   -- where it runs, for node work
   runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
+  -- Whether a queued job waits for a time it was given (a rate limit, a hold), which a repeat
+  -- request never brings forward; 0 when it waits on its start or its back-off (D231 section 8).
+  is_snoozed  INTEGER NOT NULL DEFAULT 0 CHECK (is_snoozed IN (0, 1)),
   attempt_count    INTEGER NOT NULL DEFAULT 0,
+  -- Whether its last attempt ended with the tool failing (a stall, a panic): a second in a row is
+  -- the job's own failure (D233 section 6).
+  last_attempt_tool_failed INTEGER NOT NULL DEFAULT 0 CHECK (last_attempt_tool_failed IN (0, 1)),
   progress_fraction REAL,                -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
   last_failure  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
@@ -1000,7 +1009,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `version` | library.db | `internal/core/identify` | |
 | `watchlist` | library.db | none yet | |
 | `art_served` | cache.db | `internal/core/artwork` | |
-| `job` | cache.db | `internal/core/jobs` | |
+| `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
 | `prepared_rendition` | cache.db | `internal/core/playback` | |
 | `subtitle_text` | cache.db | `internal/core/playback` | |

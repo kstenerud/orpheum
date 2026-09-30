@@ -10,24 +10,26 @@ type ArtServed struct {
 }
 
 type Job struct {
-	ID                int64
-	Kind              string
-	ItemID            *int64
-	RenditionID       *int64
-	StreamID          *int64
-	FetchedSubtitleID *int64
-	FileID            *int64
-	ArgsJSON          string
-	Priority          int64
-	State             string
-	NodeID            *int64
-	RunnableAt        int64
-	AttemptCount      int64
-	ProgressFraction  *float64
-	Reason            *string
-	LastFailure       *string
-	CreatedAt         int64
-	FinishedAt        *int64
+	ID                    int64
+	Kind                  string
+	ItemID                *int64
+	RenditionID           *int64
+	StreamID              *int64
+	FetchedSubtitleID     *int64
+	FileID                *int64
+	ArgsJSON              string
+	Priority              int64
+	State                 string
+	NodeID                *int64
+	RunnableAt            int64
+	IsSnoozed             int64
+	AttemptCount          int64
+	LastAttemptToolFailed int64
+	ProgressFraction      *float64
+	Reason                *string
+	LastFailure           *string
+	CreatedAt             int64
+	FinishedAt            *int64
 }
 
 type MatchCandidate struct {
