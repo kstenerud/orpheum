@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -22,6 +23,9 @@ const unmeasurable = 99
 func (fakeMeasurer) Measure(
 	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack,
 ) ([]nodeproto.TrackLoudness, error) {
+	if tracks[0].StreamIndex == stallingStreamIndex {
+		return nil, fmt.Errorf("measure the loudness: %w", errStalled)
+	}
 	if tracks[0].StreamIndex == unmeasurable {
 		return nil, errors.New("ffmpeg: Invalid data found when processing input")
 	}

@@ -38,6 +38,9 @@ type LoudnessResult struct {
 	// Refusal says why the node did not try: a source that changed since the scan, a node that
 	// does not measure. It says nothing of the bytes.
 	Refusal string `json:"refusal,omitempty"`
+	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
+	// the bytes the first time.
+	Stall *Stall `json:"stall,omitempty"`
 }
 
 // TrackLoudness is one track's measurements.

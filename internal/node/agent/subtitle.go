@@ -26,7 +26,7 @@ func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command n
 		jobID: command.JobID, slot: agent.slots.extract, answerPath: nodeproto.PathSubtitle, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (any, string) {
 			answer := agent.runExtraction(jobCtx, command)
-			return answer, answer.Refusal + answer.Failure
+			return answer, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})
 }
@@ -98,6 +98,9 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 	}
 	if errors.As(err, new(notTriedError)) {
 		return nodeproto.SubtitleText{JobID: command.JobID, Refusal: err.Error()}
+	}
+	if stall := stallOf(err); stall != nil {
+		return nodeproto.SubtitleText{JobID: command.JobID, Stall: stall}
 	}
 	if err != nil {
 		return nodeproto.SubtitleText{JobID: command.JobID, Failure: err.Error()}

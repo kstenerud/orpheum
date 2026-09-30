@@ -22,7 +22,7 @@ func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command n
 		jobKind: "a loudness measurement",
 		makeAnswer: func(jobCtx context.Context) (any, string) {
 			answer := agent.runMeasurement(jobCtx, command)
-			return answer, answer.Refusal + answer.Failure
+			return answer, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})
 }
@@ -41,6 +41,9 @@ func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.Measur
 		return refuse(err)
 	}
 	tracks, err := agent.workers.LoudnessMeasurer.Measure(ctx, videoPath, command.Tracks)
+	if stall := stallOf(err); stall != nil {
+		return nodeproto.LoudnessResult{JobID: command.JobID, Stall: stall}
+	}
 	if err != nil {
 		return nodeproto.LoudnessResult{JobID: command.JobID, Failure: err.Error()}
 	}

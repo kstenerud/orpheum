@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -97,17 +98,21 @@ func TestRun_RefusesMoreOutputThanAllowed(t *testing.T) {
 	}
 }
 
-func TestRunLogged_ReturnsTheEndOfTheLogAndNotTheOutput(t *testing.T) {
+func TestRunWatched_ReturnsTheEndOfTheLogAndNotTheOutput(t *testing.T) {
 	t.Parallel()
 	noise := strings.Repeat("[aac @ 0x1] a warning early in the run\n", 400)
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
 		Stdout: "output nobody reads", Stderr: noise + "[ebur128@stereo1 @ 0x2] Summary:\n    I: -23.0 LUFS\n",
 	})
 	arguments := []string{"-f", "null", "-"}
-	logged, err := newRunner(t, fake).RunLogged(t.Context(), FFmpeg, confine.Access{}, arguments, 1024)
+	ran, err := newRunner(t, fake).RunWatched(t.Context(), WatchedRun{
+		Arguments: arguments, LogLimitBytes: 1024,
+		Watch: Watch{StartGrace: time.Hour, StallWindow: time.Hour, Deadline: time.Hour},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	logged := ran.Log
 	if !strings.HasSuffix(logged, "Summary:\n    I: -23.0 LUFS\n") || len(logged) != 1024 ||
 		strings.Contains(logged, "output nobody reads") {
 		t.Errorf("logged %d bytes ending %q; want the last 1024 bytes of stderr, the summary last",

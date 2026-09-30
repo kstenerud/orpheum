@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,6 +25,9 @@ func (fakeSubtitler) ExtractTrack(ctx context.Context, videoPath string, streamI
 	if streamIndex == slowStreamIndex {
 		<-ctx.Done()
 		return subtitle.Text{}, ctx.Err()
+	}
+	if streamIndex == stallingStreamIndex {
+		return subtitle.Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, errStalled)
 	}
 	if streamIndex == unconvertibleStreamIndex {
 		return subtitle.Text{}, errors.New("ffmpeg exited 1: Subtitle codec 94213 is not supported")

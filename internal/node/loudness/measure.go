@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -21,12 +22,19 @@ import (
 // writes a summary of about 400 bytes as it closes; enough for a file with dozens of tracks.
 const maxLogBytes = 64 << 10
 
-// Runner runs FFmpeg and returns the end of its log: execx.Runner.
+// Runner runs FFmpeg, watched for a stall, and returns the end of its log: execx.Runner.
 type Runner interface {
-	RunLogged(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, logLimitBytes int,
-	) (string, error)
+	RunWatched(ctx context.Context, run execx.WatchedRun) (execx.Ran, error)
 }
+
+// measureStartGrace is how long a measurement's position may take to first move (execx.Watch):
+// opening the video on a network mount and probing it.
+const measureStartGrace = 2 * time.Minute
+
+// measureStallWindow is how long a measurement's position may stand still. Every audio frame
+// decoded moves it, so it stands still only while FFmpeg reads nothing; three minutes outlasts an
+// NFS client's retries (a 60-second timeout, retransmitted twice by default).
+const measureStallWindow = 3 * time.Minute
 
 // Measurer measures loudness with the bundled FFmpeg.
 type Measurer struct {
@@ -53,12 +61,18 @@ func (measurer *Measurer) Measure(
 	if len(tracks) == 0 {
 		return nil, errors.New("no audio tracks to measure")
 	}
-	logged, err := measurer.runner.RunLogged(ctx, execx.FFmpeg, confine.Access{Read: []string{videoPath}},
-		arguments(videoPath, tracks), maxLogBytes)
+	ran, err := measurer.runner.RunWatched(ctx, execx.WatchedRun{
+		Access: confine.Access{Read: []string{videoPath}}, Arguments: arguments(videoPath, tracks),
+		LogLimitBytes: maxLogBytes,
+		Watch: execx.Watch{
+			StartGrace: measureStartGrace, StallWindow: measureStallWindow,
+			Deadline: execx.ReadingDeadline(videoPath),
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("measure the loudness: %w", err)
 	}
-	summaries := parseSummaries(logged)
+	summaries := parseSummaries(ran.Log)
 	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
 	for _, track := range tracks {
 		stereo, found := summaries[filterInstanceName(mixStereo, track.StreamIndex)]

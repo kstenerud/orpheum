@@ -73,9 +73,16 @@ func (choice Choice) Usable() []Encoder {
 	return append(usable, EncoderX264)
 }
 
+// TrialRunner runs an encoder's trial to its end, streaming its stdout: execx.Runner.
+type TrialRunner interface {
+	RunStreaming(
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdout io.Writer,
+	) error
+}
+
 // ChooseEncoder tries each hardware encoder, encoding a second of test picture on this machine,
 // confined as a prepare is, and chooses the first that works, or x264 when none does.
-func ChooseEncoder(ctx context.Context, runner Runner) Choice {
+func ChooseEncoder(ctx context.Context, runner TrialRunner) Choice {
 	choice := Choice{Chosen: EncoderX264}
 	for _, encoder := range hardwareEncoders() {
 		trial := Trial{Encoder: encoder}
@@ -90,7 +97,7 @@ func ChooseEncoder(ctx context.Context, runner Runner) Choice {
 }
 
 // tryEncoder encodes a second of generated test picture with encoder, to nothing.
-func tryEncoder(ctx context.Context, runner Runner, encoder Encoder) error {
+func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error {
 	ctx, cancel := context.WithTimeout(ctx, trialTimeout)
 	defer cancel()
 	arguments := append([]string{

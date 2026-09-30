@@ -5,12 +5,12 @@ package prepare_test
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -25,11 +25,23 @@ type fakeFFmpeg struct {
 	granted *[]confine.Access
 	// linkTo, when set, is a file the rendition is also given a symbolic link to.
 	linkTo string
+	// watches, when set, records how each run was watched.
+	watches *[]execx.Watch
 }
 
-func (fake fakeFFmpeg) RunStreaming(
-	_ context.Context, _ execx.Tool, access confine.Access, arguments []string, stdout io.Writer,
-) error {
+func (fake fakeFFmpeg) RunWatched(_ context.Context, run execx.WatchedRun) (execx.Ran, error) {
+	err := fake.run(run.Access, run.Arguments)
+	if fake.watches != nil {
+		*fake.watches = append(*fake.watches, run.Watch)
+	}
+	run.Watch.OnProgress(execx.Progress{Position: 1500 * time.Millisecond, FrameCount: 10, RealtimeFactor: 4.25})
+	if err != nil {
+		return execx.Ran{}, err
+	}
+	return execx.Ran{}, fake.fail
+}
+
+func (fake fakeFFmpeg) run(access confine.Access, arguments []string) error {
 	if fake.granted != nil {
 		*fake.granted = append(*fake.granted, access)
 	}
@@ -45,11 +57,7 @@ func (fake fakeFFmpeg) RunStreaming(
 			return err
 		}
 	}
-	const progress = "frame=10\nspeed=N/A\nout_time_us=1500000\nspeed=4.25x\nprogress=continue\n"
-	if _, err := io.WriteString(stdout, progress); err != nil {
-		return err
-	}
-	return fake.fail
+	return nil
 }
 
 // roomyKeeper is a prepared directory with room for every prepare.
@@ -200,5 +208,41 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	}
 	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomyKeeper{}, prepare.EncoderX264); err == nil {
 		t.Error("a relative prepared directory was taken")
+	}
+}
+
+func TestPreparer_WatchesARunWithADeadlineFromTheSourcesLengthAndTheSpeedLastMeasuredHere(t *testing.T) {
+	t.Parallel()
+	var watches []execx.Watch
+	preparer, err := prepare.New(fakeFFmpeg{watches: &watches}, t.TempDir(), roomyKeeper{}, prepare.EncoderX264)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareFilm := func(profile nodeproto.PrepareProfile, sourceDurationMs int64) {
+		command := nodeproto.Prepare{
+			Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef",
+			SourceDurationMs: sourceDurationMs,
+		}
+		if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const twoHoursMs = 2 * 60 * 60 * 1000
+	prepareFilm(nodeproto.ProfileH264At8M, twoHoursMs)
+	prepareFilm(nodeproto.ProfileH264At8M, twoHoursMs)
+	prepareFilm(nodeproto.ProfileRemux, twoHoursMs)
+	prepareFilm(nodeproto.ProfileH264At8M, 0)
+	// Three times the expected length: two hours at half of real time before a speed is measured,
+	// then at the 4.25 times the fake's FFmpeg said; per profile; a day when the length is unknown.
+	speed, lengthMs := 4.25, float64(twoHoursMs)
+	measured := time.Duration(lengthMs/speed) * time.Millisecond
+	wantDeadlines := []time.Duration{12 * time.Hour, 3 * measured, 12 * time.Hour, 24 * time.Hour}
+	for index, want := range wantDeadlines {
+		if got := watches[index].Deadline; got != want {
+			t.Errorf("prepare %d's deadline is %s, want %s", index, got, want)
+		}
+	}
+	if watches[0].StallWindow != 3*time.Minute || watches[0].StartGrace != 2*time.Minute {
+		t.Errorf("a prepare is watched %+v; want three minutes standing still after two to start", watches[0])
 	}
 }

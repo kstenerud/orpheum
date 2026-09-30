@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package execx
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
+)
+
+// hangingProgress is what a hanging fake reports before it hangs: 4 s written.
+const hangingProgress = "frame=100\nout_time_us=4000000\nspeed=2.0x\nprogress=continue\n"
+
+// watchedRunner is a runner of fake whose watchdog reads clockSource and judges at each tick the
+// test sends.
+func watchedRunner(t *testing.T, fake testutil.FakeFFmpeg, clockSource *clocktest.Fake) (*Runner, chan time.Time) {
+	t.Helper()
+	runner := newRunner(t, fake)
+	ticks := make(chan time.Time)
+	runner.clock = clockSource
+	runner.watchTicks = func() (<-chan time.Time, func()) { return ticks, func() {} }
+	return runner, ticks
+}
+
+// runUntilStalled runs a hanging fake watched by testWatch, and once it has reported its progress,
+// moves the clock past the stall window and ticks; it returns how the run ended.
+func runUntilStalled(t *testing.T, runner *Runner, ticks chan time.Time, clockSource *clocktest.Fake) error {
+	t.Helper()
+	reported := make(chan struct{}, 1)
+	watch := testWatch
+	watch.OnProgress = func(Progress) {
+		select {
+		case reported <- struct{}{}:
+		default:
+		}
+	}
+	ended := make(chan error, 1)
+	go func() {
+		_, err := runner.RunWatched(t.Context(), WatchedRun{Arguments: []string{"-i", "x"}, Watch: watch})
+		ended <- err
+	}()
+	<-reported
+	clockSource.Advance(testWatch.StallWindow)
+	ticks <- clockSource.Now()
+	select {
+	case err := <-ended:
+		return err
+	case <-time.After(waitDelay):
+		t.Fatal("the stalled run was not stopped")
+		return nil
+	}
+}
+
+func TestRunWatched_AStalledRunIsQuitGracefullyAndSaysWhereItStood(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Progress: hangingProgress, Hang: testutil.HangUntilQuit})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	runner, ticks := watchedRunner(t, fake, clockSource)
+	// Graces far longer than the test: it ends only because the graceful quit, SIGINT, worked.
+	runner.quitGrace, runner.termGrace = time.Hour, time.Hour
+
+	err := runUntilStalled(t, runner, ticks, clockSource)
+	stalled, isStalled := errors.AsType[*StalledError](err)
+	if !isStalled || stalled.Cause != StallStoodStill || stalled.LastPosition != 4*time.Second ||
+		stalled.WithoutAdvance != testWatch.StallWindow || stalled.Tool != FFmpeg {
+		t.Fatalf("a run that stood at 4 s for its window ended %v; want stalled, stood still at 4 s", err)
+	}
+	if runError, isRunError := errors.AsType[*RunError](err); isRunError {
+		t.Errorf("a stall is also a RunError, FFmpeg's word on the bytes: %v", runError)
+	}
+	if arguments := fake.OnlyCall(t).Arguments; !strings.Contains(strings.Join(arguments, " "), "-progress pipe:3") {
+		t.Errorf("a watched run ran with %q; want its progress on descriptor 3", arguments)
+	}
+	assertGone(t, fake.HungPID(t))
+}
+
+func TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Progress: hangingProgress, Hang: testutil.HangUntilKilled})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	runner, ticks := watchedRunner(t, fake, clockSource)
+	runner.quitGrace, runner.termGrace = 10*time.Millisecond, 10*time.Millisecond
+
+	err := runUntilStalled(t, runner, ticks, clockSource)
+	if stalled, isStalled := errors.AsType[*StalledError](err); !isStalled || stalled.Cause != StallStoodStill {
+		t.Fatalf("a run that ignored SIGINT and SIGTERM ended %v; want stalled", err)
+	}
+	assertGone(t, fake.HungPID(t))
+}
+
+// The words after -- that make this binary the node in TestRun_AToolDiesWithTheNode.
+const actAsNode = "act-as-node"
+
+// TestToolDeathHelper is the helper: as the node it starts a hanging fake from the directory it is
+// given, and exits once the fake is hanging, without stopping it. Run as a plain test it does nothing.
+func TestToolDeathHelper(t *testing.T) {
+	words := flag.Args()
+	if len(words) != 2 || words[0] != actAsNode {
+		return
+	}
+	runner, err := NewRunner(words[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _, _ = runner.Run(t.Context(), FFmpeg, confine.Access{}, nil, 1) }() //nolint:errcheck // it never ends
+	for {
+		if _, err := os.Stat(filepath.Join(words[1], "hung.pid")); err == nil {
+			os.Exit(0) //nolint:forbidigo,revive // the node dying at once, with its tool running, is the test
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestRun_AToolDiesWithTheNode(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Hang: testutil.HangUntilKilled})
+	output, err := testutil.RunSelf(t, "-test.run=^TestToolDeathHelper$", "--", actAsNode, fake.Directory)
+	if err != nil {
+		t.Fatalf("the node: %v\n%s", err, output)
+	}
+	pid := fake.HungPID(t)
+	// The kernel kills it as the node dies; give it a moment to be reaped by init.
+	for range 1000 {
+		if _, err := os.Stat("/proc/" + strconv.Itoa(pid)); err != nil {
+			return
+		}
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if err == nil && processState(string(stat)) == "Z" {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Errorf("the tool %d outlived the node that started it", pid)
+}

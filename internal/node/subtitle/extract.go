@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -15,16 +16,23 @@ import (
 // megabyte; a heavily typeset ASS track can reach a few.
 const MaxTextBytes = 16 << 20
 
-// Runner runs FFmpeg and returns its stdout: execx.Runner.
+// Runner runs FFmpeg, watched for a stall, and returns its stdout: execx.Runner.
 type Runner interface {
-	Run(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdoutLimitBytes int,
-	) ([]byte, error)
-	RunInput(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, input []byte,
-		stdoutLimitBytes int,
-	) ([]byte, error)
+	RunWatched(ctx context.Context, run execx.WatchedRun) (execx.Ran, error)
 }
+
+// How an extraction is watched (execx.Watch). A text track's position moves only when a subtitle
+// is written, and a film can go many minutes without one (a forced track, for most of its
+// length), so a track's run is given long enough to read through a large file's longest quiet
+// stretch on a slow disk. A conversion reads a few megabytes of text from memory, in well under a
+// second.
+const (
+	trackStartGrace     = 10 * time.Minute
+	trackStallWindow    = 10 * time.Minute
+	convertStartGrace   = time.Minute
+	convertStallWindow  = time.Minute
+	convertTextDeadline = 5 * time.Minute
+)
 
 // Extractor makes ASS and WebVTT with the bundled FFmpeg.
 type Extractor struct {
@@ -45,19 +53,24 @@ type Text struct {
 // ExtractTrack extracts the text track at streamIndex of the video at videoPath, an absolute
 // path the caller has checked.
 func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (Text, error) {
-	ass, err := extractor.runner.Run(ctx, execx.FFmpeg, confine.Access{Read: []string{videoPath}},
-		arguments(execx.FileInput(videoPath), "0:"+strconv.Itoa(streamIndex), codecASS), MaxTextBytes)
+	ran, err := extractor.runner.RunWatched(ctx, execx.WatchedRun{
+		Access:           confine.Access{Read: []string{videoPath}},
+		Arguments:        arguments(execx.FileInput(videoPath), "0:"+strconv.Itoa(streamIndex), codecASS),
+		StdoutLimitBytes: MaxTextBytes,
+		Watch: execx.Watch{
+			StartGrace: trackStartGrace, StallWindow: trackStallWindow, Deadline: execx.ReadingDeadline(videoPath),
+		},
+	})
 	if err != nil {
 		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
 	}
-	return extractor.withVTT(ctx, ass)
+	return extractor.withVTT(ctx, ran.Stdout)
 }
 
 // ConvertText converts a subtitle's text — a sidecar's bytes or a fetched subtitle's — in any
 // text format FFmpeg recognises.
 func (extractor *Extractor) ConvertText(ctx context.Context, source []byte) (Text, error) {
-	ass, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
-		arguments(execx.PipeInput(), "0:s:0", codecASS), source, MaxTextBytes)
+	ass, err := extractor.convert(ctx, arguments(execx.PipeInput(), "0:s:0", codecASS), source)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the file to ASS: %w", err)
 	}
@@ -66,12 +79,25 @@ func (extractor *Extractor) ConvertText(ctx context.Context, source []byte) (Tex
 
 // withVTT converts the ASS to WebVTT, so the video is read only once.
 func (extractor *Extractor) withVTT(ctx context.Context, ass []byte) (Text, error) {
-	vtt, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
-		arguments(execx.PipeInput(), "0:s:0", codecWebVTT, "-f", codecASS), ass, MaxTextBytes)
+	vtt, err := extractor.convert(ctx, arguments(execx.PipeInput(), "0:s:0", codecWebVTT, "-f", codecASS), ass)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the ASS to WebVTT: %w", err)
 	}
 	return Text{ASS: ass, VTT: vtt}, nil
+}
+
+// convert runs one conversion of text fed on a pipe, and returns what it wrote.
+func (extractor *Extractor) convert(ctx context.Context, arguments []string, text []byte) ([]byte, error) {
+	ran, err := extractor.runner.RunWatched(ctx, execx.WatchedRun{
+		Arguments: arguments, Input: text, StdoutLimitBytes: MaxTextBytes,
+		Watch: execx.Watch{
+			StartGrace: convertStartGrace, StallWindow: convertStallWindow, Deadline: convertTextDeadline,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ran.Stdout, nil
 }
 
 // The codecs written, each in the format of the same name.

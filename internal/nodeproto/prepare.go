@@ -45,6 +45,9 @@ type Prepare struct {
 	// VideoCodec is the source picture's codec as the probe named it: a copied HEVC picture is
 	// tagged hvc1, which Safari requires.
 	VideoCodec string `json:"videoCodec"`
+	// SourceDurationMs is the source's length as the probe gave it, from which the node sets the
+	// prepare's deadline; zero when unknown.
+	SourceDurationMs int64 `json:"sourceDurationMs,omitempty"`
 	// SegmentLengthSeconds is each HLS segment's target length (D217 §3).
 	SegmentLengthSeconds int `json:"segmentLengthSeconds"`
 	// AudioTracks lists the source's audio tracks, in order: every one is carried, so switching
@@ -79,6 +82,9 @@ const (
 	PrepareFailed PrepareState = "failed"
 	// PrepareRefused is a prepare the node did not try: Refusal says why.
 	PrepareRefused PrepareState = "refused"
+	// PrepareStalled is a prepare whose FFmpeg the node stopped because it stalled: Stall says
+	// what was seen.
+	PrepareStalled PrepareState = "stalled"
 )
 
 // PrepareReport is the node's word on a prepare: how far it is, or how it ended.
@@ -96,6 +102,9 @@ type PrepareReport struct {
 	// or whose payload hash changed since the scan, a disk with no room. It says nothing of the
 	// bytes, so the prepare may be asked for again.
 	Refusal string `json:"refusal,omitempty"`
+	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
+	// the source's bytes the first time.
+	Stall *Stall `json:"stall,omitempty"`
 	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, x264, or copy for a
 	// remux (D225 §3).
 	VideoEncoder string `json:"videoEncoder,omitempty"`

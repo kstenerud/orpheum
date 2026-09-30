@@ -11,13 +11,19 @@
 //
 //   - Imports nothing from internal/core and never touches the database. Enforced by the depguard
 //     rule node-boundary and, transitively, TestArch_NodeNeverImportsCore.
+//
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx and TestArch_OnlyExecxImportsOsExec.
+//
 //   - The video is read only as a local file, with every other protocol refused, and each sound
 //     is measured through its own named filter, the stereo mix being prepare's own. Enforced by
 //     TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName.
+//
 //   - A measurement matches what FFmpeg measures of a sound of known level, as it is and as the
 //     stereo mix. Enforced by TestMeasure_AToneOfKnownLevelMeasuresAsItIs (integration tier).
+//
+//   - A measurement is watched for a stall, with the deadline of reading the whole file. Enforced
+//     by TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled.
 //
 // # Read before changing
 //
