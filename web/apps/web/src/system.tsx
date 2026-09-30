@@ -128,7 +128,7 @@ function BuildFacts(props: { readonly build: Build }): JSX.Element {
               : ` ${t("system.committedAt", { when: dateTimeText(build.committedAt, i18n.language) })}`}
           </>
         )}
-        {build.isModified ? ` ${t("system.uncommittedChanges")}` : null}
+        {build.hasUncommittedChanges ? ` ${t("system.uncommittedChanges")}` : null}
       </dd>
     </>
   );

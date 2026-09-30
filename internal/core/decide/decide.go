@@ -8,7 +8,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// Delivery is how a file plays: its own bytes, or a prepared HLS rendition.
+// Delivery is how a file plays: its own bytes, or a prepared HLS rendition. It is the decision's
+// answer, and the person's override of it.
 type Delivery string
 
 // The deliveries.
@@ -16,6 +17,12 @@ const (
 	Direct Delivery = "direct"
 	HLS    Delivery = "hls"
 )
+
+// Deliveries are every Delivery: the one list the API documents both the decision and the
+// override with.
+func Deliveries() []Delivery {
+	return []Delivery{Direct, HLS}
+}
 
 // Profile is a prepared rendition's recipe (cut-a §6).
 type Profile string
@@ -40,17 +47,6 @@ const (
 	ReasonUserChoice    Reason = "user_choice"
 )
 
-// PreferredDelivery is a person's override of the decision (web-client.md: playback is never a
-// black box).
-type PreferredDelivery string
-
-// The overrides: none, the original whatever it holds, or a prepared rendition.
-const (
-	PreferAuto    PreferredDelivery = ""
-	PreferDirect  PreferredDelivery = "direct"
-	PreferPrepare PreferredDelivery = "prepare"
-)
-
 // Network is where the client is: on the house's network, or outside it.
 type Network string
 
@@ -63,10 +59,13 @@ const (
 // Input is everything the decision reads. It holds declared capabilities and the file's own
 // facts, never who is asking (D2, D103).
 type Input struct {
-	Probe             nodeproto.Probe
-	PlayableFormats   PlayableFormats
-	Network           Network
-	PreferredDelivery PreferredDelivery
+	Probe           nodeproto.Probe
+	PlayableFormats PlayableFormats
+	Network         Network
+	// PreferredDelivery is a person's override of the decision (web-client.md: playback is never a
+	// black box): Direct plays the original whatever it holds, HLS prepares a rendition, and empty
+	// leaves the decision its own.
+	PreferredDelivery Delivery
 	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a client on a remote network.
 	RemoteCeilingKbps int64
 	// IsStereoOutput is whether the device plays two channels that the server folds down for it: TV
@@ -87,7 +86,7 @@ type Decision struct {
 // Decide resolves cut-a §6's first question, whether the original plays as it is, and when it
 // does not, which profile prepares it. Whether a rendition already exists is the caller's.
 func Decide(input Input) Decision {
-	if input.PreferredDelivery == PreferDirect {
+	if input.PreferredDelivery == Direct {
 		return Decision{Delivery: Direct}
 	}
 	reasons, videoFits := axisReasons(input)
@@ -100,7 +99,7 @@ func Decide(input Input) Decision {
 	if audio, hasAudio := MainAudio(input.Probe); input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
 	}
-	if input.PreferredDelivery == PreferPrepare {
+	if input.PreferredDelivery == HLS {
 		reasons = append(reasons, ReasonUserChoice)
 	}
 	if len(reasons) == 0 {

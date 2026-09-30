@@ -737,7 +737,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Use a registration link: set a password and sign this device in */
+        /** Use a registration invitation: set a password and sign this device in */
         post: operations["register"];
         delete?: never;
         options?: never;
@@ -971,7 +971,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/users/{id}/registration-link": {
+    "/users/{id}/registration-invitation": {
         parameters: {
             query?: never;
             header?: never;
@@ -980,8 +980,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A new registration link for a person, withdrawing the old; their password works until they use it */
-        post: operations["issueRegistrationLink"];
+        /** A new registration invitation for a person, withdrawing the old; their password works until used */
+        post: operations["issueRegistrationInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1040,7 +1040,7 @@ export interface components {
              */
             committedAt?: number;
             /** @description Built from a tree with uncommitted changes */
-            isModified: boolean;
+            hasUncommittedChanges: boolean;
             name: string;
             version: string;
         };
@@ -1123,7 +1123,7 @@ export interface components {
         };
         CreateAccountOutputBody: {
             account: components["schemas"]["AccountBody"];
-            registrationInvitation: components["schemas"]["InvitationBody"];
+            registrationInvitation: components["schemas"]["IssuedSecretBody"];
         };
         CreatedOutputBody: {
             /** Format: int64 */
@@ -1337,16 +1337,6 @@ export interface components {
             sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
-        FilePreferencesBody: {
-            isDialogueBoostOn: boolean;
-            isLevellingOn: boolean;
-            subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
-            /**
-             * Format: int64
-             * @description Shows the subtitles this much later, or earlier when negative
-             */
-            subtitleOffsetMs: number;
-        };
         FilesOutputBody: {
             files: components["schemas"]["FileBody"][] | null;
             /** @description Empty on the last page */
@@ -1447,7 +1437,7 @@ export interface components {
         InvalidRequestDetailBody: {
             problems: components["schemas"]["RequestProblemBody"][] | null;
         };
-        InvitationBody: {
+        IssuedSecretBody: {
             /**
              * Format: int64
              * @description Unix milliseconds
@@ -1605,6 +1595,16 @@ export interface components {
             subtitleFormats: ("ass" | "webvtt")[] | null;
             /** @description Must list h264-sdr */
             videoCodecs: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
+        };
+        PlaybackPreferencesBody: {
+            isDialogueBoostOn: boolean;
+            isLevellingOn: boolean;
+            subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
+            /**
+             * Format: int64
+             * @description Shows the subtitles this much later, or earlier when negative
+             */
+            subtitleOffsetMs: number;
         };
         PreparedBody: {
             /** Format: int64 */
@@ -1871,10 +1871,10 @@ export interface components {
             network: "local" | "remote";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
             /**
-             * @description A person's override
+             * @description A person's override of the decision
              * @enum {string}
              */
-            preferredDelivery?: "direct" | "prepare";
+            preferredDelivery?: "direct" | "hls";
         };
         StartPlaybackOutputBody: {
             /** @enum {string} */
@@ -1886,7 +1886,7 @@ export interface components {
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
-            preferences: components["schemas"]["FilePreferencesBody"];
+            preferences: components["schemas"]["PlaybackPreferencesBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             /** Format: int64 */
@@ -1954,6 +1954,8 @@ export interface components {
         SubtitleTrackBody: {
             /** @description The track as ASS, for JASSUB */
             assUrl: string;
+            /** @description The container's title for a track in or beside the file */
+            containerTitle?: string;
             /**
              * Format: int64
              * @description A subtitle fetched on request; unverified
@@ -1964,13 +1966,13 @@ export interface components {
             isHearingImpaired: boolean;
             /** @description BCP 47; empty when the file names none */
             language: string;
+            /** @description The release a fetched subtitle was made for, as the provider names it */
+            releaseName?: string;
             /**
              * Format: int64
              * @description A track inside the file, or a subtitle file beside it
              */
             streamId?: number;
-            /** @description The container's track title, or a fetched subtitle's release name */
-            title: string;
             /** @description The track as WebVTT */
             vttUrl: string;
         };
@@ -2537,7 +2539,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InvitationBody"];
+                    "application/json": components["schemas"]["IssuedSecretBody"];
                 };
             };
             /** @description Error */
@@ -4421,7 +4423,7 @@ export interface operations {
             };
         };
     };
-    issueRegistrationLink: {
+    issueRegistrationInvitation: {
         parameters: {
             query?: never;
             header?: {
@@ -4441,7 +4443,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InvitationBody"];
+                    "application/json": components["schemas"]["IssuedSecretBody"];
                 };
             };
             /** @description Error */

@@ -219,12 +219,12 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 func TestDecide_APersonsChoiceWins(t *testing.T) {
 	t.Parallel()
 	mkv := probeOf("matroska", videoStream("h264", "High", "yuv420p", ""), audioStream("truehd", "", 8))
-	forced := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, PreferredDelivery: decide.PreferDirect})
+	forced := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, PreferredDelivery: decide.Direct})
 	if got := forced; got.Delivery != decide.Direct {
 		t.Errorf("prefer direct: %+v, want direct", got)
 	}
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
-	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, PreferredDelivery: decide.PreferPrepare})
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, PreferredDelivery: decide.HLS})
 	if got.Delivery != decide.HLS || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonUserChoice}) {
 		t.Errorf("prefer prepare: %+v, want hls for user_choice", got)
 	}

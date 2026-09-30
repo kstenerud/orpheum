@@ -2,20 +2,20 @@
 
 import "./share.css";
 
+import type { components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { IssuedSecret } from "./accounts.ts";
 import { dateTimeText } from "./date-time-text.ts";
 
 /**
- * A registration link or a device code to pass on: shown large enough to read from across a room,
+ * A registration invitation or a device code to pass on: shown large enough to read from across a room,
  * selectable to copy, with when it stops working.
  */
 export function Share(props: {
   readonly kind: "link" | "code";
   readonly text: string;
-  readonly invitation: IssuedSecret;
+  readonly invitation: components["schemas"]["IssuedSecretBody"];
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (

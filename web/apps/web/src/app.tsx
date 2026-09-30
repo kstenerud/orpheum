@@ -30,7 +30,7 @@ import { useResource } from "./use-resource.ts";
 
 /**
  * The client: sign-in until there is a session, then the shell and the route's screen. A
- * registration link is its own page, signed in or not (D218 §2).
+ * registration invitation is its own page, signed in or not (D218 §2).
  */
 export function App(): JSX.Element {
   const route = useRoute();

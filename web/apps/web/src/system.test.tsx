@@ -19,7 +19,12 @@ afterEach(() => {
 const connected: SystemNode = {
   name: "local",
   isConnected: true,
-  build: { name: "v0.3.0", version: "v0.3.0", commit: "0f6c5cc1a2b3c4d5", isModified: false },
+  build: {
+    name: "v0.3.0",
+    version: "v0.3.0",
+    commit: "0f6c5cc1a2b3c4d5",
+    hasUncommittedChanges: false,
+  },
   isServersBuild: true,
   host: {
     distribution: "Debian GNU/Linux",
@@ -60,7 +65,12 @@ const connected: SystemNode = {
 function report(node: SystemNode): SystemReport {
   return {
     server: {
-      build: { name: "v0.3.0", version: "v0.3.0", commit: "0f6c5cc1a2b3c4d5", isModified: false },
+      build: {
+        name: "v0.3.0",
+        version: "v0.3.0",
+        commit: "0f6c5cc1a2b3c4d5",
+        hasUncommittedChanges: false,
+      },
       host: { platform: "linux/amd64", kernel: "6.12.107" },
       goVersion: "go1.26.1",
       startedAt: 1_790_000_000_000,
@@ -137,7 +147,7 @@ it("the System page shows each machine's build and system, and warns when it is 
       name: "dev-0f6c5cc1a2b3-modified",
       version: "dev",
       commit: "0f6c5cc1a2b3",
-      isModified: true,
+      hasUncommittedChanges: true,
     },
     isServersBuild: false,
   });

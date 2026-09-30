@@ -47,7 +47,7 @@ func TestIsSame_TrustsTheBinarysHashElseAnUnmodifiedCommit(t *testing.T) {
 	if !release.IsSame(release) || release.IsSame(Provenance{Version: "v1.1.0", Commit: "def"}) {
 		t.Error("an unmodified build is not told apart from another by its version and commit")
 	}
-	modified := Provenance{Version: devVersion, Commit: "abc", IsModified: true}
+	modified := Provenance{Version: devVersion, Commit: "abc", HasUncommittedChanges: true}
 	if modified.IsSame(modified) {
 		t.Error("two modified builds of one commit are called the same, though they may differ")
 	}

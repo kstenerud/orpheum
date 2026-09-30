@@ -34,6 +34,20 @@ type PlayableFormatsBody struct {
 	Containers      []string `doc:"Containers played as they are" enum:"mp4,mkv,mpegts" json:"containers"`
 }
 
+// DeliveryKind is how a file plays, documented as one of decide.Deliveries: the decision's
+// answer and a person's override name one set, from one list.
+type DeliveryKind string
+
+// Schema is a delivery's schema: a string, one of decide.Deliveries.
+func (DeliveryKind) Schema(huma.Registry) *huma.Schema {
+	deliveries := decide.Deliveries()
+	names := make([]any, 0, len(deliveries))
+	for _, delivery := range deliveries {
+		names = append(names, string(delivery))
+	}
+	return &huma.Schema{Type: huma.TypeString, Enum: names}
+}
+
 // StartPlaybackInput asks to play a file.
 type StartPlaybackInput struct {
 	AuthorizationHeader
@@ -41,16 +55,16 @@ type StartPlaybackInput struct {
 		FileID            int64               `json:"fileId" minimum:"1"`
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
 		Network           string              `doc:"Where the client is" enum:"local,remote" json:"network"`
-		PreferredDelivery string              `doc:"A person's override" enum:"direct,prepare" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
+		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
 // StartPlaybackOutput is the decision (cut-a §6).
 type StartPlaybackOutput struct {
 	Body struct {
-		Delivery string `enum:"direct,hls" json:"delivery"`
-		URL      string `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
-		Profile  string `enum:"remux,h264-8m" json:"profile,omitempty"`
+		Delivery DeliveryKind `json:"delivery"`
+		URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
+		Profile  string       `enum:"remux,h264-8m" json:"profile,omitempty"`
 		// NotDirectReasons say why it is not played directly, to show on screen (D188).
 		NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
 		// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
@@ -62,7 +76,7 @@ type StartPlaybackOutput struct {
 		// URLs answer 425 until it is (D217 §6).
 		Subtitles []SubtitleTrackBody `json:"subtitles"`
 		// Preferences are the person's choices for this file, which the player starts with.
-		Preferences FilePreferencesBody `json:"preferences"`
+		Preferences PlaybackPreferencesBody `json:"preferences"`
 		// ResumePositionMs is where the player starts, without asking (D188): where the person
 		// left the file, or 0.
 		ResumePositionMs int64 `json:"resumePositionMs"`
@@ -155,14 +169,14 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
 		Network:           decide.Network(input.Body.Network),
-		PreferredDelivery: decide.PreferredDelivery(input.Body.PreferredDelivery),
+		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
 	if err != nil {
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
 	output := &StartPlaybackOutput{}
-	output.Body.Delivery = string(started.Decision.Delivery)
+	output.Body.Delivery = DeliveryKind(started.Decision.Delivery)
 	output.Body.Profile = string(started.Decision.Profile)
 	output.Body.NotDirectReasons = make([]string, 0, len(started.Decision.NotDirectReasons))
 	for _, reason := range started.Decision.NotDirectReasons {
@@ -180,7 +194,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		})
 	}
 	output.Body.Subtitles = subtitleTracks(started)
-	output.Body.Preferences = filePreferencesBody(started.Preferences)
+	output.Body.Preferences = playbackPreferencesBody(started.Preferences)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)

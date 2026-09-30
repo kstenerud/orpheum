@@ -178,7 +178,7 @@ type RevokeLiveGrantsOfUserParams struct {
 	Scope     string
 }
 
-// A person's live grants of one kind and scope: an older registration link, when a new one is
+// A person's live grants of one kind and scope: an older registration invitation, when a new one is
 // made (D218).
 func (q *Queries) RevokeLiveGrantsOfUser(ctx context.Context, arg RevokeLiveGrantsOfUserParams) error {
 	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOfUser,

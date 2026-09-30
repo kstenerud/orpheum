@@ -103,7 +103,7 @@ type Request struct {
 	DeviceID          int64
 	PlayableFormats   decide.PlayableFormats
 	Network           decide.Network
-	PreferredDelivery decide.PreferredDelivery
+	PreferredDelivery decide.Delivery
 }
 
 // Started is a playback: its media token and the decision.
@@ -117,7 +117,7 @@ type Started struct {
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
 	Subtitles []SubtitleTrack
 	// Preferences are the person's choices for the file, which the player starts with.
-	Preferences FilePreferences
+	Preferences Preferences
 	// ResumePositionMs is where the player starts: where the person left the file, or 0.
 	ResumePositionMs int64
 	// AudioOutput is how the device asking makes sound, or empty until it is asked (D222).
@@ -163,7 +163,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if started.Subtitles, err = service.wantSubtitles(ctx, file.ID); err != nil {
 		return Started{}, err
 	}
-	if started.Preferences, err = service.FilePreferences(ctx, userID, file.ID); err != nil {
+	if started.Preferences, err = service.Preferences(ctx, userID, file.ID); err != nil {
 		return Started{}, err
 	}
 	started.ResumePositionMs, err = service.resumePositionMs(ctx, userID, file.ID, probe.Format.DurationMs)

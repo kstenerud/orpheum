@@ -19,7 +19,8 @@ type SubtitleTrackBody struct {
 	// FetchedSubtitleID is a subtitle fetched on request for the file; it is unverified (D224).
 	FetchedSubtitleID int64  `doc:"A subtitle fetched on request; unverified" json:"fetchedSubtitleId,omitempty"`
 	Language          string `doc:"BCP 47; empty when the file names none" json:"language"`
-	Title             string `doc:"The container's track title, or a fetched subtitle's release name" json:"title"`
+	ContainerTitle    string `doc:"The container's title for a track in or beside the file" json:"containerTitle,omitempty"`            //nolint:lll // one struct tag
+	ReleaseName       string `doc:"The release a fetched subtitle was made for, as the provider names it" json:"releaseName,omitempty"` //nolint:lll // one struct tag
 	IsDefault         bool   `json:"isDefault"`
 	IsForced          bool   `json:"isForced"`
 	IsHearingImpaired bool   `json:"isHearingImpaired"`
@@ -90,7 +91,7 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 		base := Prefix + "/bytes/media/sub/" + started.Token + "/" + name
 		tracks = append(tracks, SubtitleTrackBody{
 			StreamID: track.StreamID, FetchedSubtitleID: track.FetchedSubtitleID, Language: track.Language,
-			Title:     track.Title,
+			ContainerTitle: track.ContainerTitle, ReleaseName: track.ReleaseName,
 			IsDefault: track.IsDefault, IsForced: track.IsForced, IsHearingImpaired: track.IsHearingImpaired,
 			ASSURL: base + ".ass", VTTURL: base + ".vtt",
 		})

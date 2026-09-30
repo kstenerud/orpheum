@@ -32,8 +32,13 @@ const (
 type SubtitleTrack struct {
 	TrackRef
 	// Language is BCP 47, or empty when nothing named one.
-	Language          string
-	Title             string
+	Language string
+	// ContainerTitle is the title the container gives a track in or beside the file; empty for
+	// a fetched subtitle, or when the container gives none.
+	ContainerTitle string
+	// ReleaseName is the release a fetched subtitle was made for, as the provider names it;
+	// empty for a track in or beside the file.
+	ReleaseName       string
 	IsDefault         bool
 	IsForced          bool
 	IsHearingImpaired bool
@@ -129,7 +134,7 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTr
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
 			TrackRef: TrackRef{FetchedSubtitleID: row.ID}, Language: row.Language,
-			Title: ptr.ValueOrZero(row.ReleaseName),
+			ReleaseName: ptr.ValueOrZero(row.ReleaseName),
 		})
 	}
 	return tracks
@@ -157,7 +162,7 @@ func streamTracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
 			TrackRef: TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Language),
-			Title:             ptr.ValueOrZero(row.ContainerTitle),
+			ContainerTitle:    ptr.ValueOrZero(row.ContainerTitle),
 			IsDefault:         row.DispositionFlags&library.DispositionBit("default") != 0,
 			IsForced:          row.DispositionFlags&library.DispositionBit("forced") != 0,
 			IsHearingImpaired: row.DispositionFlags&library.DispositionBit("hearing_impaired") != 0,

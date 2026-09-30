@@ -13,18 +13,18 @@ func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	id, link, err := fixture.service.CreateAccount(ctx, "partner", RoleUser)
+	id, invitation, err := fixture.service.CreateAccount(ctx, "partner", RoleUser)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if link.ExpiresAt.Sub(fixture.clock.Now()) != 7*24*time.Hour || len(link.Secret) < 40 {
-		t.Errorf("the link = %+v, want 256 bits lasting seven days (D218 §1)", link)
+	if invitation.ExpiresAt.Sub(fixture.clock.Now()) != 7*24*time.Hour || len(invitation.Secret) < 40 {
+		t.Errorf("the invitation = %+v, want 256 bits lasting seven days (D218 §1)", invitation)
 	}
 	_, err = fixture.service.SignIn(ctx, "partner", "", "192.0.2.1", laptop)
 	if err == nil {
 		t.Error("a person who has not registered signed in")
 	}
-	token, err := fixture.service.Register(ctx, link.Secret, "partner-password", laptop)
+	token, err := fixture.service.Register(ctx, invitation.Secret, "partner-password", laptop)
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -32,13 +32,13 @@ func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
 		t.Errorf("after registering: %+v, %v; want the person, signed in on a device", principal, err)
 	}
-	_, err = fixture.service.Register(ctx, link.Secret, "other", laptop)
+	_, err = fixture.service.Register(ctx, invitation.Secret, "other", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("a link used twice: %v, want ErrBadInvitation", err)
+		t.Errorf("an invitation used twice: %v, want ErrBadInvitation", err)
 	}
 	_, err = fixture.service.SignIn(ctx, "partner", "partner-password", "192.0.2.1", laptop)
 	if err != nil {
-		t.Errorf("the password set by the link does not sign in: %v", err)
+		t.Errorf("the password set by the invitation does not sign in: %v", err)
 	}
 }
 
@@ -47,17 +47,17 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "forgotten", RoleUser)
-	old, err := fixture.service.IssueRegistrationLink(ctx, id)
+	old, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := fixture.service.IssueRegistrationLink(ctx, id)
+	current, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = fixture.service.Register(ctx, old.Secret, "x", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("an older link: %v, want withdrawn", err)
+		t.Errorf("an older invitation: %v, want withdrawn", err)
 	}
 	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
 	if err != nil {
@@ -72,14 +72,14 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 		t.Error("the old password still works after the new one is set")
 	}
 	fixture.clock.Advance(time.Second)
-	expiring, err := fixture.service.IssueRegistrationLink(ctx, id)
+	expiring, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fixture.clock.Advance(7*24*time.Hour + time.Second)
 	_, err = fixture.service.Register(ctx, expiring.Secret, "late", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("a link past seven days: %v, want expired", err)
+		t.Errorf("an invitation past seven days: %v, want expired", err)
 	}
 }
 
