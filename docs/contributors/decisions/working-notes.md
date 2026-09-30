@@ -15795,11 +15795,13 @@ to reason about."*
   says how to fix it: set that one through `/config`, or write every missing one with
   `orpheum seed-settings` or `POST /config/seed`, which only fill gaps.
 - **A question** — `update_check` (D184) — starts as JSON null and reads as unanswered.
+  *(Since 2026-09-29, the key is `should_check_for_updates` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **The raw view is `/config`** (admin): every setting with its value, its starting value and
   whether it differs, with `?modified=true` for only the changed ones; `PUT` changes any setting,
   and `POST /config/{key}/reset` writes the starting value back. `/settings` shows and changes only
   what the settings page exposes. The page for the full list shows each value beside its starting
-  value, and filters to the changed ones, when the web client is built.
+  value, and filters to the changed ones, when the web client is built. *(Since 2026-09-29, `?modified=true`
+  is `?onlyModified=true` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column)). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **Values needed before the database opens cannot be settings**: ~~the HTTP read-header timeout,
   the free-space margin before migrating and the reader-pool minimum stay constants for now, as
   does the shutdown grace a failed start also needs~~ they are required config keys ([D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval)). Format and safety properties — pragmas, file
@@ -15812,7 +15814,11 @@ to reason about."*
 - **What stays** is only what must be known before `library.db` opens, or must not be changeable
   by someone holding only an admin account: `server.listen`, `data_dir` and `cache_dir`;
   `node.roots` (D107), `ffmpeg_dir` and `confinement`; `log.level` and `log.format`.
-- **`[debug]` leaves the file** for the `debug_pprof` and `debug_metrics` settings.
+  *(Since 2026-09-29, `node.roots` is `node.root_paths` and `confinement` is `confinement_policy`
+  ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column)). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
+- **`[debug]` leaves the file** for the `debug_pprof` and `debug_metrics` settings. *(Since
+  2026-09-29, they are `should_serve_debug_pprof` and `should_serve_debug_metrics` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6).
+  Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 
 ### 3. What it amends
 
@@ -15845,7 +15851,7 @@ default made it unmodified, and a later release could not tell a choice from an 
 Instead:
 
 - **Any manual set marks a setting modified**, even to the value it starts with (migration 0002,
-  `setting.is_modified`).
+  `setting.is_modified`). *(Since 2026-09-29, migration 0002 is folded into the baseline, whose name and version move with each fold ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §3). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **"Set to default"** (`POST /config/{key}/reset`) writes the starting value and clears the mark.
 - **When a release changes a starting value** — to fix a bad choice — every unmodified row moves
   to the new one at the next start, and the start-up log, `seed-settings` and `POST /config/seed`
@@ -15857,6 +15863,8 @@ Instead:
 - **The values needed before the database opens are required config keys**, with starting values:
   `server.read_header_timeout_s` and `server.shutdown_grace_s` (10), and a new `[database]` table
   with `readers_minimum` (4) and `migrate_space_factor` (3). Nothing about them is left in code.
+  *(Since 2026-09-29, they are `read_connections_minimum` and `migrate_free_space_db_multiple`
+  ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column)). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 - **Every config key has a starting value, or is marked as having none** because it is specific to
   the machine (the listen address, the directories, the media roots, the FFmpeg path). A missing
   key's refusal gives its starting value, or says why it has none.
@@ -16342,7 +16350,8 @@ now refreshed on a schedule, and a dead image is looked into once.
    How often the server looks for what is due is a setting too, `refresh_check_every_h`,
    starting at a day, and it looks once when it starts — *"I don't care if a timeout goes beyond
    6 months by a few days. We could even make this configurable."* One look is one query; the
-   interval decides only how late an item may be, a day at the start.
+   interval decides only how late an item may be, a day at the start. *(Since 2026-09-29, the
+   setting is `metadata_refresh_check_every_h` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column)). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 4. **A refresh that finds an item gone keeps our copy** — *"If on a refresh an item is no
    longer available, we do NOT delete our copy."* The stored record, the item's values and its
    images stay; the attempt is noted so the item is not asked for again before its next period.
@@ -16691,7 +16700,7 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
    it in the player and in their devices. *(2026-09-29, the owner: "TV speakers" is renamed
    **built-in speakers**, `built_in_speakers` on the wire and in library.db (migration 0020), as
    it is not a name that describes the purpose well: it covers a laptop's and a phone's speakers
-   as much as a television's.)*
+   as much as a television's.)* *(Since 2026-09-29, migration 0020 is folded into the baseline, whose name and version move with each fold ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §3). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 2. **TV speakers and headphones are stereo output**: we fold a sound with more than two channels
    down ourselves, so the dialogue boost can act. On such a device a file whose main sound has
    more than two channels is always prepared (reason `dialogue_boost`), whether the boost is on or
@@ -16741,6 +16750,7 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
    D219 §4, which covered only new files).
 9. **A rematch drops the old work's artwork of kinds the new work lacks.**
 10. **The person's dialogue boost has its own endpoint, `PUT /me/prefs`**, not the file's (D222 §3).
+    *(Since 2026-09-29, the endpoint is `PUT /me/preferences` ([D227](#d227--every-name-in-a-contract-that-a-reader-must-look-up-is-renamed-now-minor-ones-too-a-job-names-its-target-by-kind-and-a-sidecars-kind-has-its-own-column) §6). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 11. **M4's nine open questions** (the audit's §8) are asked one at a time before M4's first line.
 
 **Status:** Decided; built in M3 except three parts. §6 (scans and backups as jobs) is M4's, and
@@ -16923,6 +16933,7 @@ ones.
    `_json`; and the artwork and fetch jobs' stored arguments, which no table listed, say what they
    hold. The names are in the same research file's addendum; migration 0024 carries the
    columns and a stored subtitle choice's keys, and cache.db is discarded for its version.
+   *(Since 2026-09-29, migration 0024 is folded into the baseline, whose name and version move with each fold ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §3). Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 6. **A second sweep, by data flow (2026-09-29)** (the owner: *"Do all of it. This is a housekeeping
    run so I don't mind churn. I want to start the next milestone with a very clean codebase."*).
    A sweep that traced each value from the node through the core to the database and the API
@@ -16936,7 +16947,8 @@ ones.
    addendum; migration 0025 carries library.db, cache.db goes to version 16. Two names stay two,
    on purpose: a series' `seasonNumber` and `episodeNumber` in the API are the group and the
    number in the group that `position` keeps for any ordering, not only a series'; and the
-   error body's `detail` keeps its common name.
+   error body's `detail` keeps its common name. *(Since 2026-09-29, migration 0025 is folded into the baseline, whose name and version move with each fold ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §3),
+   and later changes have taken cache.db to version 18. Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 
 **Status:** Decided; built before M3's closing audit.
 
@@ -16978,7 +16990,10 @@ snapshot, the newer-database refusal) stands.
    going to do in a dev environment anyway."* Steps 0001 to 0024 are one baseline,
    `0024_baseline.sql`, which builds a new database at version 24 with the schema and the rows
    they built (the two built-in roles); 0025 stays as the one real step. Version numbers do not
-   change: a database at 25 is current, and one at 24 migrates through 0025.
+   change: a database at 25 is current, and one at 24 migrates through 0025. *(Since 2026-09-29,
+   §3's rolling rule has folded 0025 into the baseline too: the baseline's name and version move
+   with each fold, and `internal/store/migrations/` holds the current baseline and its one step.
+   Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
 3. **The rolling rule.** A schema change folds the current last step into the baseline, which
    moves up to that step's version, and adds the change as the only step after it. A
    development database is only ever one step behind, and that step really runs on it. The

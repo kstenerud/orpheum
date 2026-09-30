@@ -34,5 +34,13 @@
   irreplaceable and D87 still reconciling deletions only through it, both un-marked after
   D166 — and plans citing D8 for a journal design D166 had replaced. For archived entries the
   checker now does the chasing; for partial supersession it is still `grep`.
+- **A name later work changed gets a dated note, not a rewrite.** When a decision names
+  something — a file, a key, an endpoint, a version — that later work renamed, folded or moved,
+  the clause keeps its words and gains a dated note in italics saying what it is now, citing
+  what changed it: *(Since 2026-09-29, the endpoint is `PUT /me/preferences` (D227 §6).)* A
+  correction of what was decided is noted the same way, as D224 §2's "Corrected 2026-09-28"
+  note is. The decision stays the record of what was decided and when; the note keeps it
+  readable against the code. (The owner, 2026-09-30, answering
+  [M3's closing audit](../design/research/audit-2026-09-29.md) §9 D: *"agreed"*.)
 - A decision that has not been validated against real hardware or a real library says so, in
   its own **Status** line. Most of the early ones have not been.
