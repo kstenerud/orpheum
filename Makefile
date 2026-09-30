@@ -248,7 +248,8 @@ generate: web-deps ## Regenerate committed generated code (sqlc for library.db a
 	  command -v sqlc >/dev/null || { echo "sqlc is not installed; run: make tools-sqlc"; exit 1; }; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
-	@go run ./cmd/orpheum openapi > api/openapi.json.new && mv api/openapi.json.new api/openapi.json
+	@openapi_next=$$(mktemp api/openapi.json.XXXXXX) && \
+	  { go run ./cmd/orpheum openapi > "$$openapi_next" && mv "$$openapi_next" api/openapi.json; } || { rm -f "$$openapi_next"; exit 1; }
 	@npm --prefix web exec --workspace @orpheum/sdk -- openapi-typescript ../../../api/openapi.json \
 	  --output src/gen/api.ts --alphabetize --empty-objects-unknown >/dev/null
 
