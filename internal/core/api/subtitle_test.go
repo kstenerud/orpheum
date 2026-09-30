@@ -35,7 +35,7 @@ const sidecarStreamID = 7
 func (harness testHarness) shelveSidecar(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
 		 filing_reason,
 		 attached_to_file, first_seen_at, last_seen_at) VALUES
 		 (10, 1, 1, '/media/Film (2002).es.srt', CAST('/media/Film (2002).es.srt' AS BLOB), 5, X'1e1f', 'attached',

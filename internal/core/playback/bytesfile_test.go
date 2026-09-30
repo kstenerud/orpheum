@@ -18,7 +18,7 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/"})
 	service := &Service{database: database}
 	named, err := service.bytesFileOf(t.Context(), located{
-		subject: "file 1", libraryID: libraryID, nodeID: nodeID, reportedPathBytes: []byte("/Film.mkv"),
+		subject: "file 1", libraryID: libraryID, nodeID: nodeID, reportedPathRaw: []byte("/Film.mkv"),
 		payloadHash: []byte{0x0c},
 	})
 	if err != nil || named.RootPath != "/" || string(named.Path) != "Film.mkv" || named.PayloadHash != "0c" {

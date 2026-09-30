@@ -65,7 +65,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 	librarytest.NodeWithLibrary(t, harness.database,
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
 		 probe_json,
 		 first_seen_at,
 		 last_seen_at) VALUES

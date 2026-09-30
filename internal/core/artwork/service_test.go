@@ -341,7 +341,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
 		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: "nfo_then_tmdb", Root: "/m"})
 	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
-		"INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, filing, "+
+		"INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at, filing, "+
 			"filing_reason, first_seen_at, last_seen_at) "+
 			"VALUES (40, %d, %d, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
 			"'attached', 'image', 1, 1)", libraryID, nodeID))

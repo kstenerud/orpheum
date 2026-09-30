@@ -273,3 +273,52 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestMigrate_Step0027RenamesByWhatIsHeldAndKeepsAResponsesBodyAgeApartFromItsLastAsking(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (1, 'title', 1, 9)",
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, filing, modified_at, first_seen_at,
+		 last_seen_at) VALUES (1, 1, 1, '/m/a.mkv', X'2FFF', 'listed', 7, 1, 1)`,
+		`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, last_seen_at)
+		 VALUES (X'01', 'session', 1, 'role', 2, 5)`,
+		`INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
+		 VALUES (1, 'tmdb', '', 40, X'1F8B'), (1, 'tmdb', 'season/1', 41, X'1F8B')`,
+		`INSERT INTO setting (scope, key, value_json, is_modified, set_at) VALUES
+		 ('server', 'session_last_seen_write_interval_s', '120', 1, 1)`)
+	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []struct {
+		query   string
+		columns int
+		want    string
+	}{
+		{"SELECT hex(reported_path_raw) FROM file", 1, "[[2FFF]]"},
+		{`SELECT last_used_at FROM "grant"`, 1, "[[5]]"},
+		{
+			"SELECT part, fetched_at, last_asked_at, hex(body_gzip) FROM provider_response ORDER BY part", 4,
+			"[[ 40 40 1F8B] [season/1 41 41 1F8B]]",
+		},
+		{
+			"SELECT key, value_json, is_modified FROM setting WHERE key LIKE 'session_last%'", 3,
+			"[[session_last_used_write_interval_s 120 1]]",
+		},
+	} {
+		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
+			t.Errorf("after step 0027, %s =\n%s\nwant\n%s (D227)", check.query, got, check.want)
+		}
+	}
+}

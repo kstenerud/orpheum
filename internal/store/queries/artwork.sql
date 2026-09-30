@@ -67,7 +67,7 @@ GROUP BY artwork.source_sha256;
 
 -- name: GetFileForArtwork :one
 -- An image beside the media: the node that holds it, and its path, for the node to read.
-SELECT node_id, path, reported_path_bytes
+SELECT node_id, path, reported_path_raw
 FROM file
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 

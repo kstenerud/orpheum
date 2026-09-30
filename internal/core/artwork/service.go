@@ -237,7 +237,7 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 			Err: fmt.Errorf("node %d, which holds it, is not connected", file.NodeID),
 		}
 	}
-	return file.NodeID, &nodeproto.Path{Text: file.Path, Bytes: file.ReportedPathBytes}, nil
+	return file.NodeID, &nodeproto.Path{Text: file.Path, Bytes: file.ReportedPathRaw}, nil
 }
 
 // anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.

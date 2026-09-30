@@ -10,14 +10,14 @@ import (
 )
 
 const getGrantState = `-- name: GetGrantState :one
-SELECT kind, revoked_at, expires_at, last_seen_at, issued_at FROM "grant" WHERE secret_sha256 = ?1
+SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE secret_sha256 = ?1
 `
 
 type GetGrantStateRow struct {
 	Kind       string
 	RevokedAt  *int64
 	ExpiresAt  *int64
-	LastSeenAt *int64
+	LastUsedAt *int64
 	IssuedAt   int64
 }
 
@@ -29,7 +29,7 @@ func (q *Queries) GetGrantState(ctx context.Context, secretSha256 []byte) (GetGr
 		&i.Kind,
 		&i.RevokedAt,
 		&i.ExpiresAt,
-		&i.LastSeenAt,
+		&i.LastUsedAt,
 		&i.IssuedAt,
 	)
 	return i, err
@@ -76,7 +76,7 @@ func (q *Queries) GetLatestLiveGrantOfUser(ctx context.Context, arg GetLatestLiv
 }
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, device_id, device_name
+SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name
 FROM "grant"
 WHERE secret_sha256 = ?1
   AND revoked_at IS NULL
@@ -95,7 +95,7 @@ type GetLiveGrantRow struct {
 	Scope        string
 	IssuedAt     int64
 	ExpiresAt    *int64
-	LastSeenAt   *int64
+	LastUsedAt   *int64
 	DeviceID     *int64
 	DeviceName   *string
 }
@@ -110,7 +110,7 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.Scope,
 		&i.IssuedAt,
 		&i.ExpiresAt,
-		&i.LastSeenAt,
+		&i.LastUsedAt,
 		&i.DeviceID,
 		&i.DeviceName,
 	)
@@ -119,7 +119,7 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 
 const insertGrant = `-- name: InsertGrant :exec
 
-INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, device_name, device_id)
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?5, ?7, ?8)
 `
@@ -190,17 +190,17 @@ func (q *Queries) RevokeLiveGrantsOfUser(ctx context.Context, arg RevokeLiveGran
 	return err
 }
 
-const updateGrantLastSeen = `-- name: UpdateGrantLastSeen :exec
-UPDATE "grant" SET last_seen_at = ?1
+const updateGrantLastUsed = `-- name: UpdateGrantLastUsed :exec
+UPDATE "grant" SET last_used_at = ?1
 WHERE secret_sha256 = ?2
 `
 
-type UpdateGrantLastSeenParams struct {
-	LastSeenAt   *int64
+type UpdateGrantLastUsedParams struct {
+	LastUsedAt   *int64
 	SecretSha256 []byte
 }
 
-func (q *Queries) UpdateGrantLastSeen(ctx context.Context, arg UpdateGrantLastSeenParams) error {
-	_, err := q.db.ExecContext(ctx, updateGrantLastSeen, arg.LastSeenAt, arg.SecretSha256)
+func (q *Queries) UpdateGrantLastUsed(ctx context.Context, arg UpdateGrantLastUsedParams) error {
+	_, err := q.db.ExecContext(ctx, updateGrantLastUsed, arg.LastUsedAt, arg.SecretSha256)
 	return err
 }

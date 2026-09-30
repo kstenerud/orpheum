@@ -20,7 +20,7 @@ const (
 	SignInFailureLimit              Key = "signin_failure_limit"
 	SignInFailureWindowS            Key = "signin_failure_window_s"
 	SessionIdleExpiryH              Key = "session_idle_expiry_h"
-	SessionLastSeenWriteIntervalS   Key = "session_last_seen_write_interval_s"
+	SessionLastUsedWriteIntervalS   Key = "session_last_used_write_interval_s"
 	Argon2MemoryKiB                 Key = "argon2_memory_kib"
 	Argon2Iterations                Key = "argon2_iterations"
 	Argon2Parallelism               Key = "argon2_parallelism"
@@ -108,7 +108,7 @@ func Registry() []Definition {
 			"how long, in seconds, a failed sign-in counts toward the limit"),
 		integerSetting(SessionIdleExpiryH, "2160", 1, 10*365*24,
 			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
-		integerSetting(SessionLastSeenWriteIntervalS, "60", 1, 24*3600,
+		integerSetting(SessionLastUsedWriteIntervalS, "60", 1, 24*3600,
 			"how often, in seconds, a session's last use is written; idle expiry needs no finer grain"),
 		integerSetting(Argon2MemoryKiB, "65536", 8, math.MaxUint32,
 			"argon2id memory per password hash, KiB: RFC 9106's second option (D194 §2); new costs re-hash on sign-in"),

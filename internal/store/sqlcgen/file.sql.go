@@ -121,18 +121,18 @@ func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootPa
 	return library_id, err
 }
 
-const getLiveFileByReportedPathBytes = `-- name: GetLiveFileByReportedPathBytes :one
+const getLiveFileByReportedPathRaw = `-- name: GetLiveFileByReportedPathRaw :one
 SELECT id, payload_hash, last_seen_at
 FROM file
-WHERE node_id = ?1 AND reported_path_bytes = ?2 AND removed_at IS NULL
+WHERE node_id = ?1 AND reported_path_raw = ?2 AND removed_at IS NULL
 `
 
-type GetLiveFileByReportedPathBytesParams struct {
-	NodeID            int64
-	ReportedPathBytes []byte
+type GetLiveFileByReportedPathRawParams struct {
+	NodeID          int64
+	ReportedPathRaw []byte
 }
 
-type GetLiveFileByReportedPathBytesRow struct {
+type GetLiveFileByReportedPathRawRow struct {
 	ID          int64
 	PayloadHash []byte
 	LastSeenAt  int64
@@ -140,9 +140,9 @@ type GetLiveFileByReportedPathBytesRow struct {
 
 // A live file by the bytes its node reported (D211): two names that are one NFC text are two
 // files.
-func (q *Queries) GetLiveFileByReportedPathBytes(ctx context.Context, arg GetLiveFileByReportedPathBytesParams) (GetLiveFileByReportedPathBytesRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveFileByReportedPathBytes, arg.NodeID, arg.ReportedPathBytes)
-	var i GetLiveFileByReportedPathBytesRow
+func (q *Queries) GetLiveFileByReportedPathRaw(ctx context.Context, arg GetLiveFileByReportedPathRawParams) (GetLiveFileByReportedPathRawRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveFileByReportedPathRaw, arg.NodeID, arg.ReportedPathRaw)
+	var i GetLiveFileByReportedPathRawRow
 	err := row.Scan(&i.ID, &i.PayloadHash, &i.LastSeenAt)
 	return i, err
 }
@@ -159,19 +159,19 @@ func (q *Queries) GetNFOBody(ctx context.Context, id int64) ([]byte, error) {
 }
 
 const getPlayableFile = `-- name: GetPlayableFile :one
-SELECT id, node_id, library_id, reported_path_bytes, payload_hash, probe_json, size_bytes
+SELECT id, node_id, library_id, reported_path_raw, payload_hash, probe_json, size_bytes
 FROM file
 WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified')
 `
 
 type GetPlayableFileRow struct {
-	ID                int64
-	NodeID            int64
-	LibraryID         int64
-	ReportedPathBytes []byte
-	PayloadHash       []byte
-	ProbeJSON         *string
-	SizeBytes         *int64
+	ID              int64
+	NodeID          int64
+	LibraryID       int64
+	ReportedPathRaw []byte
+	PayloadHash     []byte
+	ProbeJSON       *string
+	SizeBytes       *int64
 }
 
 // A live file a person may play: a video the scan filed, whatever it was identified as. What a
@@ -183,7 +183,7 @@ func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFil
 		&i.ID,
 		&i.NodeID,
 		&i.LibraryID,
-		&i.ReportedPathBytes,
+		&i.ReportedPathRaw,
 		&i.PayloadHash,
 		&i.ProbeJSON,
 		&i.SizeBytes,
@@ -222,21 +222,21 @@ func (q *Queries) GetSidecarStream(ctx context.Context, bytesFile int64) (GetSid
 }
 
 const getSubtitleStream = `-- name: GetSubtitleStream :one
-SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_bytes, f.payload_hash
+SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.id = ?1 AND s.kind = 'subtitle'
 `
 
 type GetSubtitleStreamRow struct {
-	ID                int64
-	VideoFile         int64
-	StreamIndex       *int64
-	Codec             *string
-	LibraryID         int64
-	NodeID            int64
-	ReportedPathBytes []byte
-	PayloadHash       []byte
+	ID              int64
+	VideoFile       int64
+	StreamIndex     *int64
+	Codec           *string
+	LibraryID       int64
+	NodeID          int64
+	ReportedPathRaw []byte
+	PayloadHash     []byte
 }
 
 // A subtitle track, and the live file its bytes are in, for the job that extracts it.
@@ -250,7 +250,7 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 		&i.Codec,
 		&i.LibraryID,
 		&i.NodeID,
-		&i.ReportedPathBytes,
+		&i.ReportedPathRaw,
 		&i.PayloadHash,
 	)
 	return i, err
@@ -258,7 +258,7 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes,
+  library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
   filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
@@ -273,7 +273,7 @@ type InsertFileParams struct {
 	LibraryID         int64
 	NodeID            int64
 	Path              string
-	ReportedPathBytes []byte
+	ReportedPathRaw   []byte
 	SizeBytes         *int64
 	ModifiedAt        *int64
 	PayloadHash       []byte
@@ -291,7 +291,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.LibraryID,
 		arg.NodeID,
 		arg.Path,
-		arg.ReportedPathBytes,
+		arg.ReportedPathRaw,
 		arg.SizeBytes,
 		arg.ModifiedAt,
 		arg.PayloadHash,
@@ -310,7 +310,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 
 const insertSidecarFile = `-- name: InsertSidecarFile :one
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes, filing,
+  library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes, filing,
   filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
@@ -321,18 +321,18 @@ RETURNING id
 `
 
 type InsertSidecarFileParams struct {
-	LibraryID         int64
-	NodeID            int64
-	Path              string
-	ReportedPathBytes []byte
-	SizeBytes         *int64
-	ModifiedAt        *int64
-	PayloadHash       []byte
-	PayloadBytes      *int64
-	FilingReason      *string
-	SidecarKind       *string
-	NFOBody           []byte
-	SeenAt            int64
+	LibraryID       int64
+	NodeID          int64
+	Path            string
+	ReportedPathRaw []byte
+	SizeBytes       *int64
+	ModifiedAt      *int64
+	PayloadHash     []byte
+	PayloadBytes    *int64
+	FilingReason    *string
+	SidecarKind     *string
+	NFOBody         []byte
+	SeenAt          int64
 }
 
 // A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none. Only
@@ -342,7 +342,7 @@ func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFilePa
 		arg.LibraryID,
 		arg.NodeID,
 		arg.Path,
-		arg.ReportedPathBytes,
+		arg.ReportedPathRaw,
 		arg.SizeBytes,
 		arg.ModifiedAt,
 		arg.PayloadHash,
@@ -422,7 +422,7 @@ func (q *Queries) ListLibraryRootsOnNode(ctx context.Context, arg ListLibraryRoo
 }
 
 const listLiveFilesByNode = `-- name: ListLiveFilesByNode :many
-SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
+SELECT id, library_id, path, reported_path_raw, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
   error_detail_json, first_seen_at, last_seen_at
 FROM file
 WHERE node_id = ? AND removed_at IS NULL
@@ -430,18 +430,18 @@ ORDER BY path
 `
 
 type ListLiveFilesByNodeRow struct {
-	ID                int64
-	LibraryID         int64
-	Path              string
-	ReportedPathBytes []byte
-	SizeBytes         *int64
-	PayloadHash       []byte
-	PayloadBytes      *int64
-	Filing            string
-	FilingReason      *string
-	ErrorDetailJSON   *string
-	FirstSeenAt       int64
-	LastSeenAt        int64
+	ID              int64
+	LibraryID       int64
+	Path            string
+	ReportedPathRaw []byte
+	SizeBytes       *int64
+	PayloadHash     []byte
+	PayloadBytes    *int64
+	Filing          string
+	FilingReason    *string
+	ErrorDetailJSON *string
+	FirstSeenAt     int64
+	LastSeenAt      int64
 }
 
 func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]ListLiveFilesByNodeRow, error) {
@@ -457,7 +457,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 			&i.ID,
 			&i.LibraryID,
 			&i.Path,
-			&i.ReportedPathBytes,
+			&i.ReportedPathRaw,
 			&i.SizeBytes,
 			&i.PayloadHash,
 			&i.PayloadBytes,
@@ -481,7 +481,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 }
 
 const listLiveFilesByPayloadHash = `-- name: ListLiveFilesByPayloadHash :many
-SELECT id, path, reported_path_bytes, last_seen_at
+SELECT id, path, reported_path_raw, last_seen_at
 FROM file
 WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
 ORDER BY id
@@ -493,10 +493,10 @@ type ListLiveFilesByPayloadHashParams struct {
 }
 
 type ListLiveFilesByPayloadHashRow struct {
-	ID                int64
-	Path              string
-	ReportedPathBytes []byte
-	LastSeenAt        int64
+	ID              int64
+	Path            string
+	ReportedPathRaw []byte
+	LastSeenAt      int64
 }
 
 func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFilesByPayloadHashParams) ([]ListLiveFilesByPayloadHashRow, error) {
@@ -511,7 +511,7 @@ func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFi
 		if err := rows.Scan(
 			&i.ID,
 			&i.Path,
-			&i.ReportedPathBytes,
+			&i.ReportedPathRaw,
 			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
@@ -528,7 +528,7 @@ func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFi
 }
 
 const listLiveFilesForAttaching = `-- name: ListLiveFilesForAttaching :many
-SELECT id, path, reported_path_bytes, filing, sidecar_kind, payload_hash, attached_to_file
+SELECT id, path, reported_path_raw, filing, sidecar_kind, payload_hash, attached_to_file
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path
@@ -540,13 +540,13 @@ type ListLiveFilesForAttachingParams struct {
 }
 
 type ListLiveFilesForAttachingRow struct {
-	ID                int64
-	Path              string
-	ReportedPathBytes []byte
-	Filing            string
-	SidecarKind       *string
-	PayloadHash       []byte
-	AttachedToFile    *int64
+	ID              int64
+	Path            string
+	ReportedPathRaw []byte
+	Filing          string
+	SidecarKind     *string
+	PayloadHash     []byte
+	AttachedToFile  *int64
 }
 
 func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFilesForAttachingParams) ([]ListLiveFilesForAttachingRow, error) {
@@ -561,7 +561,7 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 		if err := rows.Scan(
 			&i.ID,
 			&i.Path,
-			&i.ReportedPathBytes,
+			&i.ReportedPathRaw,
 			&i.Filing,
 			&i.SidecarKind,
 			&i.PayloadHash,
@@ -581,7 +581,7 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 }
 
 const listLiveFilesOfLibraryOnNode = `-- name: ListLiveFilesOfLibraryOnNode :many
-SELECT id, path, reported_path_bytes, last_seen_at
+SELECT id, path, reported_path_raw, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id
@@ -593,10 +593,10 @@ type ListLiveFilesOfLibraryOnNodeParams struct {
 }
 
 type ListLiveFilesOfLibraryOnNodeRow struct {
-	ID                int64
-	Path              string
-	ReportedPathBytes []byte
-	LastSeenAt        int64
+	ID              int64
+	Path            string
+	ReportedPathRaw []byte
+	LastSeenAt      int64
 }
 
 func (q *Queries) ListLiveFilesOfLibraryOnNode(ctx context.Context, arg ListLiveFilesOfLibraryOnNodeParams) ([]ListLiveFilesOfLibraryOnNodeRow, error) {
@@ -611,7 +611,7 @@ func (q *Queries) ListLiveFilesOfLibraryOnNode(ctx context.Context, arg ListLive
 		if err := rows.Scan(
 			&i.ID,
 			&i.Path,
-			&i.ReportedPathBytes,
+			&i.ReportedPathRaw,
 			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
@@ -800,7 +800,7 @@ const updateObservedFile = `-- name: UpdateObservedFile :exec
 UPDATE file SET
   library_id = ?1,
   path = ?2,
-  reported_path_bytes = ?3,
+  reported_path_raw = ?3,
   size_bytes = ?4,
   modified_at = ?5,
   payload_hash = ?6,
@@ -819,7 +819,7 @@ WHERE id = ?12
 type UpdateObservedFileParams struct {
 	LibraryID          int64
 	Path               string
-	ReportedPathBytes  []byte
+	ReportedPathRaw    []byte
 	SizeBytes          *int64
 	ModifiedAt         *int64
 	PayloadHash        []byte
@@ -837,7 +837,7 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 	_, err := q.db.ExecContext(ctx, updateObservedFile,
 		arg.LibraryID,
 		arg.Path,
-		arg.ReportedPathBytes,
+		arg.ReportedPathRaw,
 		arg.SizeBytes,
 		arg.ModifiedAt,
 		arg.PayloadHash,

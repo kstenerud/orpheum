@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0025_baseline.sql`, and the one step after it, `0026_newest_first_index.sql`; the
-> notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0025 are folded into the baseline and survive only in
+> baseline, `0026_baseline.sql`, and the one step after it, `0027_names_say_what_they_hold.sql`;
+> the notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
+> added or renamed a column. Steps 0001 to 0026 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -193,7 +193,7 @@ CREATE TABLE file (                                        -- class I (identity 
   library_id    INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form
-  reported_path_bytes      BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211)
+  reported_path_raw        BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211); 0027: was reported_path_bytes
   size_bytes          INTEGER,
   modified_at         INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
@@ -216,7 +216,7 @@ CREATE TABLE file (                                        -- class I (identity 
   last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_bytes) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
+CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
@@ -609,7 +609,7 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
   issued_at   INTEGER NOT NULL,
   expires_at  INTEGER,
-  last_seen_at   INTEGER,
+  last_used_at   INTEGER,                -- 0027: was last_seen_at; the API's lastUsedAt
   revoked_at  INTEGER,
   device_name TEXT,                      -- the device an add-device code makes
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
@@ -787,7 +787,8 @@ CREATE TABLE provider_response (                           -- class F: the store
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
-  fetched_at  INTEGER NOT NULL,
+  fetched_at  INTEGER NOT NULL,          -- when body_gzip was fetched: the body's age
+  last_asked_at INTEGER NOT NULL,        -- 0027: when the provider was last asked, with or without a new body (D213 §4)
   body_gzip   BLOB NOT NULL,             -- gzipped; cast and crew are read from here in Cut A
   PRIMARY KEY (item_id, provider, part)
 );

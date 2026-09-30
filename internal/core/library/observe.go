@@ -33,9 +33,9 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 	if err != nil {
 		return err
 	}
-	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
-		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: batch.nodeID, ReportedPathBytes: seenFile.reportedBytes,
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathRaw(ctx,
+		sqlcgen.GetLiveFileByReportedPathRawParams{
+			NodeID: batch.nodeID, ReportedPathRaw: seenFile.reportedBytes,
 		}))
 	switch {
 	case err == nil && bytes.Equal(existing.PayloadHash, seenFile.hash):
@@ -59,7 +59,7 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		// Only a file under this scan's root can be judged absent by it. One in another root was
 		// simply not looked at, so a match there is a duplicate, never a move.
 		unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
-			_, under := RelativeToRoot(row.ReportedPathBytes, scan.root)
+			_, under := RelativeToRoot(row.ReportedPathRaw, scan.root)
 			return row.LastSeenAt < scan.startedAt && under
 		})
 		if unseenIndex >= 0 && len(elsewhere) == 1 {
@@ -139,7 +139,7 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenFile observation) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
 		ProbeJSON: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
@@ -157,7 +157,7 @@ func (batch *ingestBatch) updateObservedFile(
 ) error {
 	observed, reason := seenFile.observed, notIdentifiedYet
 	err := batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
+		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes:  &observed.SizeBytes,
 		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
 		UnidentifiedReason: &reason, ProbeJSON: &seenFile.probeJSON, OpensubtitlesHash: seenFile.openSubtitlesHash,
@@ -176,9 +176,9 @@ func (batch *ingestBatch) recordFiling(
 	ctx context.Context, scan *scanState, reported nodeproto.Path, filing, reason string, detail *string,
 ) error {
 	located := resolveReportedPath(scan.root, reported)
-	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
-		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: batch.nodeID, ReportedPathBytes: located.reportedBytes,
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathRaw(ctx,
+		sqlcgen.GetLiveFileByReportedPathRawParams{
+			NodeID: batch.nodeID, ReportedPathRaw: located.reportedBytes,
 		}))
 	if err == nil {
 		err = batch.queries.UpdateFileFilingAndLastSeen(ctx, sqlcgen.UpdateFileFilingAndLastSeenParams{
@@ -193,7 +193,7 @@ func (batch *ingestBatch) recordFiling(
 		return err
 	}
 	_, err = batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
 		Filing: filing, FilingReason: &reason, ErrorDetailJSON: detail, SeenAt: batch.nowMs,
 	})
 	if err != nil {

@@ -262,7 +262,7 @@ func TestIngest_APathIsStoredInNFCBesideItsBytes(t *testing.T) {
 	decomposed := "Fièvre.mkv" // as macOS writes it
 	world.scan([]nodeproto.Record{observedRecord(decomposed, "fievre")}, true)
 	row, found := world.liveFilesByPath()[root+"/Fièvre.mkv"]
-	if !found || string(row.ReportedPathBytes) != root+"/"+decomposed {
+	if !found || string(row.ReportedPathRaw) != root+"/"+decomposed {
 		t.Errorf("rows %+v: want the NFC path, with the decomposed bytes beside it (D49)", world.liveFilesByPath())
 	}
 }
@@ -415,9 +415,9 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 		t.Fatalf("files %+v, %v", rows, err)
 	}
 	file := rows[0]
-	if file.Path != root+"/evil�vkm.mkv" || string(file.ReportedPathBytes) != root+"/evil\u202Evkm.mkv" {
+	if file.Path != root+"/evil�vkm.mkv" || string(file.ReportedPathRaw) != root+"/evil\u202Evkm.mkv" {
 		t.Errorf("path %q, raw %q; want the override marked in the text and kept in the bytes",
-			file.Path, file.ReportedPathBytes)
+			file.Path, file.ReportedPathRaw)
 	}
 	streams, err := world.database.Read().ListStreamsOfBytesFile(t.Context(), file.ID)
 	if err != nil || len(streams) < 2 || streams[1].ContainerTitle == nil ||

@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 25
--- compatible_version 25
+-- user_version 27
+-- compatible_version 27
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -16,7 +16,7 @@ CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);
 
 -- index file_live_path
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_bytes) WHERE removed_at IS NULL;
+CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;
 
 -- index file_payload
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;
@@ -26,6 +26,9 @@ CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 
 -- index grant_user
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
+
+-- index item_added
+CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;
 
 -- index item_library
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
@@ -211,7 +214,7 @@ CREATE TABLE file (                                        -- class I (identity 
   -- changed keeps its title; a renamed or moved one is identified again, unless a person
   -- confirmed its match.
   identified_from_path TEXT,             -- class O
-  reported_path_bytes BLOB,              -- class I: the bytes the node reported, the file's key (D211)
+  reported_path_raw BLOB,              -- class I: the bytes the node reported, the file's key (D211)
   opensubtitles_hash TEXT,               -- 16 hex digits of OpenSubtitles' moviehash (D224); NULL until scanned
   is_identity_confirmed INTEGER NOT NULL DEFAULT 1
     CHECK (is_identity_confirmed IN (0, 1)),  -- D179: 0 after a rebuild, until re-seen
@@ -228,7 +231,7 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
   issued_at   INTEGER NOT NULL,
   expires_at  INTEGER,
-  last_seen_at INTEGER,
+  last_used_at INTEGER,
   revoked_at  INTEGER,
   device_name TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
@@ -444,11 +447,12 @@ CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
 -- table provider_response
-CREATE TABLE provider_response (                           -- class F: the stored input (D170)
+CREATE TABLE "provider_response" (                       -- class F: the stored input (D170)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
-  fetched_at  INTEGER NOT NULL,
+  fetched_at  INTEGER NOT NULL,          -- when body_gzip was fetched: the body's age
+  last_asked_at INTEGER NOT NULL,        -- when the provider was last asked, with or without a new body
   body_gzip   BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
   PRIMARY KEY (item_id, provider, part)
 );

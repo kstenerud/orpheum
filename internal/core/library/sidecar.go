@@ -44,9 +44,9 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		}
 		hash, payloadBytes = decoded, &sidecar.Identity.PayloadBytes
 	}
-	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
-		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: batch.nodeID, ReportedPathBytes: located.reportedBytes,
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathRaw(ctx,
+		sqlcgen.GetLiveFileByReportedPathRawParams{
+			NodeID: batch.nodeID, ReportedPathRaw: located.reportedBytes,
 		}))
 	if err == nil {
 		err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
@@ -64,7 +64,7 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		return err
 	}
 	_, err = batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
 		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
 		SidecarKind: &kind, FilingReason: &reason,
 		NFOBody: sidecar.NFOBody, SeenAt: batch.nowMs,
@@ -89,7 +89,7 @@ func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) e
 	}
 	videosByFolder := map[string][]sqlcgen.ListLiveFilesForAttachingRow{} // by folder
 	isInRoot := func(file sqlcgen.ListLiveFilesForAttachingRow) bool {
-		_, under := RelativeToRoot(file.ReportedPathBytes, scan.root)
+		_, under := RelativeToRoot(file.ReportedPathRaw, scan.root)
 		return under
 	}
 	for _, file := range files {

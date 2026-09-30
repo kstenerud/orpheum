@@ -34,15 +34,33 @@ func (lib *testLibrary) refresh(itemID int64) {
 	}
 }
 
-// fetchedAt is when an item's stored part was last fetched.
-func (lib *testLibrary) fetchedAt(itemID int64, part string) int64 {
+// fetchedAt is when an item's own stored response was last fetched.
+func (lib *testLibrary) fetchedAt(itemID int64) int64 {
 	lib.t.Helper()
 	at, err := lib.database.Read().GetProviderResponseFetchedAt(lib.t.Context(),
-		sqlcgen.GetProviderResponseFetchedAtParams{ItemID: itemID, Provider: "tmdb", Part: part})
+		sqlcgen.GetProviderResponseFetchedAtParams{ItemID: itemID, Provider: "tmdb", Part: ""})
 	if err != nil {
 		lib.t.Fatal(err)
 	}
 	return at
+}
+
+// lastAskedAt is when TMDB was last asked for an item's stored parts: the part asked longest ago.
+func (lib *testLibrary) lastAskedAt(itemID int64) int64 {
+	lib.t.Helper()
+	due, err := lib.database.Read().ListResponsesAskedBefore(lib.t.Context(), sqlcgen.ListResponsesAskedBeforeParams{
+		Provider: "tmdb", Before: lib.clock.Now().UnixMilli() + 1,
+	})
+	if err != nil {
+		lib.t.Fatal(err)
+	}
+	for _, item := range due {
+		if item.ItemID == itemID {
+			return item.OldestAskedAt
+		}
+	}
+	lib.t.Fatalf("item %d has no stored TMDB response", itemID)
+	return 0
 }
 
 // matchedMetropolis is a TMDB library holding Metropolis, matched.
@@ -78,7 +96,7 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 		t.Errorf("after the refresh: %q, %q; want TMDB's new overview and the person's name",
 			ptr.ValueOrZero(detail.Name), ptr.ValueOrZero(detail.Overview))
 	}
-	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
+	if lib.fetchedAt(titleID) != lib.clock.Now().UnixMilli() {
 		t.Error("the stored response was not fetched again")
 	}
 }
@@ -86,6 +104,7 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
+	fetchedAt := lib.fetchedAt(titleID)
 	delete(lib.provider.Films, heat.ID)
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
@@ -94,8 +113,12 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 		file.Filing != identify.FilingListed {
 		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, titleName(file))
 	}
-	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
+	if lib.lastAskedAt(titleID) != lib.clock.Now().UnixMilli() {
 		t.Error("the attempt was not noted; the next sweep would ask again at once")
+	}
+	if lib.fetchedAt(titleID) != fetchedAt {
+		t.Errorf("the kept copy's fetched time is %d, want %d: no body came, so its age is unchanged",
+			lib.fetchedAt(titleID), fetchedAt)
 	}
 }
 
@@ -130,7 +153,7 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 	if due < period*3/4 || due > period {
 		t.Fatalf("due after %v; want within the last quarter of %v", due, period)
 	}
-	fetched := time.UnixMilli(lib.fetchedAt(titleID, ""))
+	fetched := time.UnixMilli(lib.fetchedAt(titleID))
 	lib.clock.Set(fetched.Add(due - time.Minute))
 	if count, err := refresher.Sweep(t.Context()); err != nil || count != 0 {
 		t.Fatalf("a minute before it is due: queued %d (%v)", count, err)

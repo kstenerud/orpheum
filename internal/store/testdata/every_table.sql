@@ -72,7 +72,7 @@ INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort
 INSERT INTO group_text (collection_id, group_number, language, name, overview) VALUES (3, 1, 'en', 'Season 1', 'The first.');
 
 INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
-INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, device_name, device_id)
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
   VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1);
 INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at)
   VALUES ('server', NULL, 'should_check_for_updates', 'false', 1, 1790000000000),
@@ -95,7 +95,7 @@ INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000);
-INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
-  VALUES (1, 'tmdb', '', 1790000000000, X'1F8B0800');
-INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
-  VALUES (3, 'tmdb', 'season/2', 1790000000000, X'1F8B0800');
+INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
+  VALUES (1, 'tmdb', '', 1790000000000, 1790000300000, X'1F8B0800');
+INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
+  VALUES (3, 'tmdb', 'season/2', 1790000000000, 1790000000000, X'1F8B0800');

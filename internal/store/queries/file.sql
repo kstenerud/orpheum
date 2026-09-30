@@ -9,25 +9,25 @@ WHERE library_root.node_id = ? AND library_root.root_path = ? AND library.remove
 ORDER BY library_root.library_id
 LIMIT 1;
 
--- name: GetLiveFileByReportedPathBytes :one
+-- name: GetLiveFileByReportedPathRaw :one
 -- A live file by the bytes its node reported (D211): two names that are one NFC text are two
 -- files.
 SELECT id, payload_hash, last_seen_at
 FROM file
-WHERE node_id = sqlc.arg(node_id) AND reported_path_bytes = sqlc.arg(reported_path_bytes) AND removed_at IS NULL;
+WHERE node_id = sqlc.arg(node_id) AND reported_path_raw = sqlc.arg(reported_path_raw) AND removed_at IS NULL;
 
 -- name: ListLiveFilesByPayloadHash :many
-SELECT id, path, reported_path_bytes, last_seen_at
+SELECT id, path, reported_path_raw, last_seen_at
 FROM file
 WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
 ORDER BY id;
 
 -- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes,
+  library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
   filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
-  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_bytes), sqlc.arg(size_bytes),
+  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_raw), sqlc.arg(size_bytes),
   sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
   sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(probe_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
   sqlc.narg(opensubtitles_hash)
@@ -40,7 +40,7 @@ RETURNING id;
 UPDATE file SET
   library_id = sqlc.arg(library_id),
   path = sqlc.arg(path),
-  reported_path_bytes = sqlc.arg(reported_path_bytes),
+  reported_path_raw = sqlc.arg(reported_path_raw),
   size_bytes = sqlc.arg(size_bytes),
   modified_at = sqlc.arg(modified_at),
   payload_hash = sqlc.arg(payload_hash),
@@ -65,7 +65,7 @@ UPDATE file SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfLibraryOnNode :many
-SELECT id, path, reported_path_bytes, last_seen_at
+SELECT id, path, reported_path_raw, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id;
@@ -112,7 +112,7 @@ WHERE bytes_file = sqlc.arg(file_id) AND stream_index IS NOT NULL
   AND stream_index NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(kept_indexes) AS TEXT)));
 
 -- name: ListLiveFilesByNode :many
-SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
+SELECT id, library_id, path, reported_path_raw, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
   error_detail_json, first_seen_at, last_seen_at
 FROM file
 WHERE node_id = ? AND removed_at IS NULL
@@ -128,10 +128,10 @@ ORDER BY stream_index;
 -- A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none. Only
 -- an NFO's bytes are kept, in nfo_body.
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes, filing,
+  library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes, filing,
   filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
 ) VALUES (
-  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_bytes), sqlc.arg(size_bytes),
+  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_raw), sqlc.arg(size_bytes),
   sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), 'attached', sqlc.arg(filing_reason),
   sqlc.arg(sidecar_kind), sqlc.arg(nfo_body), sqlc.arg(seen_at), sqlc.arg(seen_at)
 )
@@ -148,7 +148,7 @@ UPDATE file SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesForAttaching :many
-SELECT id, path, reported_path_bytes, filing, sidecar_kind, payload_hash, attached_to_file
+SELECT id, path, reported_path_raw, filing, sidecar_kind, payload_hash, attached_to_file
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path;
@@ -162,7 +162,7 @@ SELECT nfo_body FROM file WHERE id = ?;
 -- name: GetPlayableFile :one
 -- A live file a person may play: a video the scan filed, whatever it was identified as. What a
 -- scan skipped, could not read or attached to another is not played.
-SELECT id, node_id, library_id, reported_path_bytes, payload_hash, probe_json, size_bytes
+SELECT id, node_id, library_id, reported_path_raw, payload_hash, probe_json, size_bytes
 FROM file
 WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified');
 
@@ -185,7 +185,7 @@ ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path;
 
 -- name: GetSubtitleStream :one
 -- A subtitle track, and the live file its bytes are in, for the job that extracts it.
-SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_bytes, f.payload_hash
+SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.id = sqlc.arg(id) AND s.kind = 'subtitle';

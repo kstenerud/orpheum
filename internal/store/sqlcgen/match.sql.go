@@ -358,9 +358,11 @@ func (q *Queries) UpsertOverride(ctx context.Context, arg UpsertOverrideParams) 
 }
 
 const upsertProviderResponse = `-- name: UpsertProviderResponse :exec
-INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
-VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body_gzip = excluded.body_gzip
+INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
+VALUES (?1, ?2, ?3, ?4, ?4,
+        ?5)
+ON CONFLICT (item_id, provider, part) DO UPDATE
+SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip
 `
 
 type UpsertProviderResponseParams struct {
@@ -371,6 +373,7 @@ type UpsertProviderResponseParams struct {
 	BodyGzip  []byte
 }
 
+// A body fetched is a body asked for: both times are the fetch's.
 func (q *Queries) UpsertProviderResponse(ctx context.Context, arg UpsertProviderResponseParams) error {
 	_, err := q.db.ExecContext(ctx, upsertProviderResponse,
 		arg.ItemID,

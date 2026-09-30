@@ -342,14 +342,14 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, fmt.Errorf("look up the session: %w", err)
 	}
-	idleExpiry, lastSeenResolution, err := service.sessionPolicy(ctx)
+	idleExpiry, useWriteInterval, err := service.sessionPolicy(ctx)
 	if err != nil {
 		return Principal{}, err
 	}
 	// Sessions end on idle, not absolutely (D154 §3). issued_at stands in for a session never used.
 	lastUsedAt := grant.IssuedAt
-	if grant.LastSeenAt != nil {
-		lastUsedAt = *grant.LastSeenAt
+	if grant.LastUsedAt != nil {
+		lastUsedAt = *grant.LastUsedAt
 	}
 	if now.Sub(time.UnixMilli(lastUsedAt)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
@@ -363,10 +363,10 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, err
 	}
-	if now.Sub(time.UnixMilli(lastUsedAt)) >= lastSeenResolution {
+	if now.Sub(time.UnixMilli(lastUsedAt)) >= useWriteInterval {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-			return queries.UpdateGrantLastSeen(ctx, sqlcgen.UpdateGrantLastSeenParams{
-				SecretSha256: hash, LastSeenAt: new(now.UnixMilli()),
+			return queries.UpdateGrantLastUsed(ctx, sqlcgen.UpdateGrantLastUsedParams{
+				SecretSha256: hash, LastUsedAt: new(now.UnixMilli()),
 			})
 		})
 		if err != nil {
