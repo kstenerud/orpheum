@@ -55,7 +55,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D45](working-notes.md#d45--metadata-is-multi-language-in-the-schema-chosen-per-request) Metadata is multi-language in the schema, chosen per request
 - [D46](working-notes.md#d46--no-translated-string-is-ever-stored-in-the-database) No translated string is ever stored in the database
 - [D47](working-notes.md#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale) Sort order is a materialised CLDR sort key, per item per locale
-- [D48](working-notes.md#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser) Two FTS5 tokenisers, routed by script and length, and exactly one normaliser
+- [D48](working-notes.md#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser) Two FTS5 tokenisers, routed by script and length, and exactly one normaliser — *revisited by D232*
 - [D49](working-notes.md#d49--unicode-discipline-at-the-boundaries-enforced-by-tests) Unicode discipline at the boundaries, enforced by tests — *revisited by D211*
 - [D50](working-notes.md#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles) Build libass correctly and turn off VSFilter bug-compatibility for non-authored subtitles — *revisited by D53*
 - [D51](working-notes.md#d51--react-i18next-catalogues-served-by-us-weblate-deferred) react-i18next, catalogues served by us, Weblate deferred
@@ -237,6 +237,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D229](working-notes.md#d229--code-that-looks-alike-is-merged-only-when-it-is-the-same-thing-settled-look-alikes-are-listed-here-and-doubtful-ones-are-watched) Code that looks alike is merged only when it is the same thing; settled look-alikes are listed here, and doubtful ones are watched
 - [D230](working-notes.md#d230--the-last-subtitle-and-audio-language-chosen-in-a-series-follows-its-unwatched-episodes-worked-out-at-play-time) The last subtitle and audio language chosen in a series follows its unwatched episodes, worked out at play time
 - [D231](working-notes.md#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work) Work is derived from state, the job queue is a regenerable cache, and a destination that is down parks its work
+- [D232](working-notes.md#d232--what-makes-two-names-the-same-work-is-one-identity-fold-derived-from-the-search-fold) What makes two names the same work is one identity fold, derived from the search fold
 
 ## Archived
 
