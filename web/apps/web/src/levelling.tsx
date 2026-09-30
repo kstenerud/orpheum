@@ -21,18 +21,22 @@ export interface SoundLevel {
 }
 
 /**
- * The sound a playback starts with: the original's main track, or a prepared copy's first mix,
- * whose boosted twin plays at the same gain (D226 §3).
+ * The sound of one audio track of a playback: a prepared copy's standard mix of the track at
+ * audioTrackIndex, whose boosted twin plays at the same gain (D226 §3); or, for the original or a
+ * copy with no such track, the sound the playback starts with.
  */
-export function startingSoundLevel(
+export function soundLevelOf(
   decision: Pick<
     components["schemas"]["StartPlaybackOutputBody"],
     "delivery" | "levelling" | "audioRenditions"
   >,
+  audioTrackIndex: number | undefined,
 ): SoundLevel {
-  const firstMix = decision.audioRenditions?.[0];
-  if (decision.delivery === "hls" && firstMix !== undefined) {
-    return { levelling: firstMix.levelling, carriedGainDb: firstMix.carriedGainDb };
+  const mix = decision.audioRenditions?.find(
+    (candidate) => candidate.audioTrackIndex === audioTrackIndex && !candidate.isDialogueBoosted,
+  );
+  if (decision.delivery === "hls" && mix !== undefined) {
+    return { levelling: mix.levelling, carriedGainDb: mix.carriedGainDb };
   }
   return { levelling: decision.levelling, carriedGainDb: 0 };
 }

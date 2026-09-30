@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { boostMixIndices, playbackFailureText, PlayView, requestPlayback } from "./play.tsx";
+import { audioRenditionIndex, playbackFailureText, PlayView, requestPlayback } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
@@ -66,7 +66,7 @@ describe("playing a file", () => {
     expect(markup).toContain("Dialogue boost");
   });
 
-  it("finds the standard and boosted mixes of the first track", () => {
+  it("plays a track's boosted mix when the boost is on and it has one, else its standard mix", () => {
     const decision = directDecision({
       delivery: "hls",
       url: "/u",
@@ -76,15 +76,30 @@ describe("playing a file", () => {
         { audioTrackIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
       ],
     });
-    expect(boostMixIndices(decision)).toEqual({ standard: 0, boosted: 1 });
-    expect(
-      boostMixIndices({
-        ...decision,
-        audioRenditions: [
-          { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
-        ],
-      }),
-    ).toBe(undefined);
+    expect(audioRenditionIndex(decision, 0, true)).toBe(1);
+    expect(audioRenditionIndex(decision, 0, false)).toBe(0);
+    expect(audioRenditionIndex(decision, 1, true)).toBe(2); // German has no centre to raise
+    expect(audioRenditionIndex(decision, 2, false)).toBe(undefined);
+  });
+
+  it("offers the file's audio tracks, starting with the one the playback starts with", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={directDecision({
+            audioTracks: [
+              { streamId: 80, audioTrackIndex: 0, language: "en", kind: "plain" },
+              { streamId: 81, audioTrackIndex: 1, language: "fr", kind: "commentary" },
+            ],
+            startingAudioStreamId: 81,
+          })}
+          onDecideAgain={() => undefined}
+        />,
+      ),
+    );
+    expect(markup).toContain("Sound");
+    expect(markup).toContain('<option value="81" selected="">French · commentary</option>');
   });
 
   it("words every playback failure by the player's code, never the browser's text", () => {
