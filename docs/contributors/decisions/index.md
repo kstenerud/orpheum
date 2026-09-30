@@ -238,7 +238,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D230](working-notes.md#d230--the-last-subtitle-and-audio-language-chosen-in-a-series-follows-its-unwatched-episodes-worked-out-at-play-time) The last subtitle and audio language chosen in a series follows its unwatched episodes, worked out at play time
 - [D231](working-notes.md#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work) Work is derived from state, the job queue is a regenerable cache, and a destination that is down parks its work
 - [D232](working-notes.md#d232--what-makes-two-names-the-same-work-is-one-identity-fold-derived-from-the-search-fold) What makes two names the same work is one identity fold, derived from the search fold
-- [D233](working-notes.md#d233--work-handed-to-a-node-survives-restarts-and-lost-messages-an-outbox-reconciliation-at-hello-results-known-by-what-they-are-and-a-watchdog-on-both-sides) Work handed to a node survives restarts and lost messages: an outbox, reconciliation at hello, results known by what they are, and a watchdog on both sides
+- [D233](working-notes.md#d233--work-handed-to-a-node-survives-restarts-and-lost-messages-an-outbox-reconciliation-at-hello-results-known-by-what-they-are-and-a-watchdog-on-both-sides) Work handed to a node survives restarts and lost messages: an outbox, reconciliation at hello, results known by what they are, and a watchdog on both sides — *revisited by D234*
+- [D234](working-notes.md#d234--the-core-drives-the-node-the-node-keeps-a-durable-journal-of-its-jobs-and-schedules-them-pushes-progress-and-acknowledged-results-and-the-core-checks-and-reconciles) The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 
 ## Archived
 

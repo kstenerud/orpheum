@@ -17308,3 +17308,55 @@ pass missed it.
    core cannot serve is parked with that reason, and an unknown command is refused explicitly.
 
 **Status:** Decided 2026-09-30.
+
+## D234 — The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
+
+**Proposed** (2026-09-30), from the owner's model of the link, for the owner's review. It revises
+D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with practice are
+[node-link-2026-09-30](../design/research/node-link-2026-09-30.md).
+
+1. **Why.** The owner, on how core and node talk today: *"Both the node and the core are
+   spontaneously driving each other for various functions. It should be the core that drives the
+   node."* The readiness audit ([audit-2026-09-30](../design/research/audit-2026-09-30.md)) found
+   the round trip written five times, each a goroutine blocked on its answer, with everything in
+   flight in memory on both sides.
+2. **The node dials; the core decides.** The node opens and holds the connection (D127), so a node
+   the core cannot reach still works, and says hello: who it is, its protocol number and
+   capabilities, and a summary of its state. From then on the core sends requests over that
+   connection and the node answers them, each matched by id.
+3. **Jobs are the core's to give and the node's to schedule.** A job carries its id, an attempt
+   number, a priority and its limits: a deadline, and for work a person waits for, a "wanted until"
+   past which it falls to background priority (D233 §7). The core gives each node a window of work
+   a little beyond its free slots and keeps global priority; the node keeps its jobs in a durable
+   journal (`node.db`), orders them within their priorities, and takes updates, including a new
+   priority, and cancels, each naming the attempt it applies to. The node's desired jobs carry a
+   generation number the node echoes back.
+4. **The node owns its jobs to the end.** It runs each to completion whether or not the core is
+   there; its watchdog (D233 §5) keeps runs from getting stuck; it retries what it can and reports
+   what it cannot as one of D233 §6's three failure sources. A job running when the node restarted
+   is run again or reported interrupted. A node whose disk is full refuses new work, with its
+   reason. Its own hang is the service manager's to restart.
+5. **Progress is pushed, results are acknowledged.** While a job runs the node sends best-effort
+   updates of where it is, throttled, the newest superseding the rest, no acknowledgement. When it
+   ends the node sends its outcome: the result inline when small, a reference when large (always
+   fetchable from the node's byte socket and checked by hash; readable on a shared mount when the
+   core's shows the same content). An outcome is kept and resent until acknowledged, and after that
+   for a retention period, bounded by the cache cleanup, oldest unacknowledged first under
+   pressure. The core deduplicates by the result's identity and attempt.
+6. **The core checks and reconciles.** The core expects updates from a node with assigned work; after
+   a few update intervals of silence it asks the node what is happening, and a node that does not
+   answer is unreachable and its work parks (D231 §5). At hello, and whenever it chooses, the core
+   asks for the node's jobs and outcomes and squares them with its own: it adopts, re-issues or
+   cancels, and tells the node to drop jobs it does not know. An idle node sends nothing; the
+   core's periodic check is the liveness signal.
+7. **The core never blocks on a node.** A job given to a node is a row in the assigned state, not a
+   waiting goroutine; whatever depends on it waits with a timeout for its resolution: finished,
+   failed, timed out, cancelled, or parked.
+8. **A scan is a job.** Its result is a record stream the core reads from an offset, which retires
+   the report stream as a mechanism of its own.
+9. **Before a node is remote,** it is authenticated by a key or mutual TLS bound to its name.
+10. **What it revises.** D233 §3's outbox becomes the journal with acknowledged outcomes; D233 §5's
+    core lease becomes the expectation of updates; D233 §7's claiming by slots becomes the node's
+    own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
+
+**Status:** Proposed 2026-09-30; the owner has not yet decided it.
