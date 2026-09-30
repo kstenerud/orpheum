@@ -24,7 +24,7 @@ GOLANGCI_LINT_VERSION := 2.13.2
 GO_MINOR := 1.26
 NODE_MAJOR := 22
 
-BASE ?= origin/main
+BASE ?=
 PYTHON := python3
 
 # Tools that `go install` puts in GOPATH/bin (sqlc, golangci-lint, dlv) are found by every
@@ -140,13 +140,25 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 
 # ---------------------------------------------------------------------------------------------
 # Branch gates: they compare a branch against its base, so they run in CI on a pull request and
-# locally with `make check-pr` before pushing.
+# locally with `make check-pr` before pushing. BASE names the base; without it the gates use the
+# commit the owner last took (`make mark-applied`), then origin/main, and refuse one too far back
+# to mean anything (scripts/branch_base.py).
 # ---------------------------------------------------------------------------------------------
 
+RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
+
+# Revert-red runs after the tiers, never beside them: a timing test failing under the load of a
+# probe would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6).
 .PHONY: check-pr
-check-pr: ## Branch gates against BASE (default origin/main), with the integration and browser tiers, in parallel
-	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target \
-	  test-integration test-browser check-revert-red check-test-weakening lint-commits web-lint-full
+check-pr: ## Branch gates against BASE (default: the owner's mark), the integration and browser tiers in parallel, then revert-red
+	@base="$$($(RESOLVE_BASE))"; \
+	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target BASE="$$base" \
+	    test-integration test-browser check-test-weakening check-decision-status lint-commits web-lint-full; \
+	  $(MAKE) --no-print-directory BASE="$$base" check-revert-red
+
+.PHONY: mark-applied
+mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner took, the branch gates' base
+	@$(PYTHON) scripts/branch_base.py --mark '$(or $(REV),HEAD)'
 
 .PHONY: web-lint-full
 web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed
@@ -154,15 +166,19 @@ web-lint-full: web-deps ## eslint without its cache: make check's cached lint ca
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190)
-	@$(PYTHON) scripts/check_revert_red.py --base $(BASE)
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base"
 
 .PHONY: check-test-weakening
-check-test-weakening: ## No test got weaker without a Test-Weakened: trailer
-	@$(PYTHON) scripts/check_test_weakening.py --base $(BASE)
+check-test-weakening: ## No test got weaker, and no gate changed, without a trailer on a commit that touched it
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_test_weakening.py --base "$$base"
+
+.PHONY: check-decision-status
+check-decision-status: ## No commit records a decision whose Status already says it is built
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_docs.py --base "$$base"
 
 .PHONY: lint-commits
 lint-commits: ## Commit subjects, bodies and attribution trailers
-	@$(PYTHON) scripts/lint_commits.py --base $(BASE)
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/lint_commits.py --base "$$base"
 
 # ---------------------------------------------------------------------------------------------
 # Longer runs

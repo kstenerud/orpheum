@@ -74,6 +74,9 @@ counted:
   §9 E).
 - **Process lesson:** a gate that compares against a reference should print the reference and how
   far back it is, and refuse one it cannot vouch for, rather than pass quietly.
+- **Since (2026-09-30):** the gates' base is `refs/orpheum/applied`, which the owner sets with
+  `make mark-applied` after `yoloai apply`, then origin/main; `check-pr` prints it and how far
+  back it is, and refuses an implicit base more than 150 commits back (`scripts/branch_base.py`).
 
 ### P36 — The code outgrew cut-a's layout, lists and counts, and the frozen text still shows the old ones (M3, 2026-09-29) · plan-gap
 
