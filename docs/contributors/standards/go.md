@@ -353,7 +353,7 @@ D194 is the design. In Go:
   canary test that drives the API, logs, `doctor`, backups and the database file
   (`TestCanary_ASecretAppearsNowhereButAsCiphertext`), and bug reports once they exist.
 - **`Value.Reveal()` is called only by the provider client that sends the secret to its owner's
-  service** (TMDB under `identify`, OpenSubtitles under `playback/opensubtitles`, TURN
+  service** (TMDB and OpenSubtitles under `providers`, TURN
   credential derivation in `turn`; the DNS-01 client joins the list when it lands). Pass the `Value`, never the string. **Enforced
   by:** `[reveal]`, whose path exceptions are the list.
 - **Only `internal/core/secrets` queries the `secret` table.** **Enforced by:** `[sealed-secret]`.

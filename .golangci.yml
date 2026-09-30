@@ -696,9 +696,10 @@ linters:
       - path: ^internal/core/.*_test\.go$
         linters: [forbidigo]
         text: '\[core-fs\]'
-      # Provider clients: TMDB lives under identify; TURN derives credentials from its secret;
-      # OpenSubtitles under playback (D224). The DNS-01 client is added here, by the owner, when it lands.
-      - path: ^internal/core/(secrets|identify|turn|playback/opensubtitles)/
+      # Provider clients: TMDB and OpenSubtitles live under providers (the jobs rebuild's Phase 2,
+      # the owner 2026-09-30); TURN derives credentials from its secret. The DNS-01 client is added
+      # here, by the owner, when it lands.
+      - path: ^internal/core/(secrets|providers|turn)/
         linters: [forbidigo]
         text: '\[reveal\]'
       - path: ^internal/(core/secrets|store)/
@@ -709,7 +710,7 @@ linters:
         text: '\[client-identity\]'
 
       # ---- wrapcheck applies only where errors enter from outside the module
-      - path-except: ^internal/(store|core/(datadir|identify|turn|api)|node/(execx|confine|scan|probe|bytes))/
+      - path-except: ^internal/(store|core/(datadir|identify|providers|turn|api)|node/(execx|confine|scan|probe|bytes))/
         linters: [wrapcheck]
 
       # ---- tests: repetition is clearer than abstraction in table cases

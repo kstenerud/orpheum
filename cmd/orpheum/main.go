@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
-	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
-	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 )

@@ -139,7 +139,8 @@
 //     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and
 //     the rolling refresh.
-//   - chooser.go: what a person does — list, choose, override. tmdb/: the TMDB client.
+//   - chooser.go: what a person does — list, choose, override. The TMDB client is
+//     internal/core/providers/tmdb.
 //   - identifytest/: the fake TMDB that this package's tests and the API's share. The tests that
 //     drive a library through it are package identify_test (identifytest imports identify);
 //     export_test.go names what they read of the package's own.

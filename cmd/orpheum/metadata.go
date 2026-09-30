@@ -12,10 +12,10 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
-	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"

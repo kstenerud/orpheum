@@ -19,7 +19,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"

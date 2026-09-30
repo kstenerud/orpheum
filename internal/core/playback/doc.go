@@ -140,7 +140,7 @@
 //   - D81: play state is an append-only event log plus a guarded position.
 //   - D191: signed-in Watch Together viewing is also recorded.
 //   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
-//   - D224: fetching a subtitle on request; the provider client is opensubtitles/.
+//   - D224: fetching a subtitle on request; the provider client is internal/core/providers/opensubtitles.
 //   - D225: a finished rendition records what made its video and how fast, for the System page.
 //   - D226: loudness is measured by the node and levelled by the player; the gain's rule.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.

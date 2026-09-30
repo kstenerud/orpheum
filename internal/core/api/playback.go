@@ -15,8 +15,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
