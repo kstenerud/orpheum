@@ -4,8 +4,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { camelKey } from "./catalogue-key.ts";
-import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
+import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { languageName } from "./language-name.ts";
@@ -96,17 +95,11 @@ export function subtitleProblemText(
             );
       return t("play.findSubtitles.quotaSpent", { when: resetTime });
     }
-    const reason = cause.detail["reason"];
-    if (cause.code === "provider_error" && reason !== undefined) {
-      return t(`play.findSubtitles.reason.${camelKey(reason)}`, {
-        defaultValue: t("play.findSubtitles.reason.unknown"),
-      });
-    }
     if (cause.code === "conflict") {
       return t("play.findSubtitles.nothingToSearchBy");
     }
   }
-  return problemText(t, cause);
+  return providerProblemText(t, cause, "play.findSubtitles.reason");
 }
 
 /**

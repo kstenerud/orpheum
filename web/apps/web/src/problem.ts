@@ -37,6 +37,22 @@ export function problemText(
 }
 
 /**
+ * What to tell a person about an outside provider's refusal (provider_error), by the reason the
+ * server gives ("no_key"), from the screen's own catalogue of them: `reasons` names it
+ * ("identify.providerReason"), and its `unknown` says a reason this client does not know. Any
+ * other failure, or a provider_error without a reason, is problemText's.
+ */
+export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
+  if (cause instanceof ApiProblem && cause.code === "provider_error") {
+    const reason = cause.detail["reason"];
+    if (reason !== undefined) {
+      return t(`${reasons}.${camelKey(reason)}`, { defaultValue: t(`${reasons}.unknown`) });
+    }
+  }
+  return problemText(t, cause);
+}
+
+/**
  * Why the server refused a session, by the reason its refusal gives ("session_ended"); a refusal
  * that gives none says only that there is no session ("no_session").
  */
