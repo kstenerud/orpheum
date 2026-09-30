@@ -44,40 +44,41 @@ func (q *Queries) ListResponseParts(ctx context.Context, arg ListResponsePartsPa
 	return items, nil
 }
 
-const listResponsesFetchedBefore = `-- name: ListResponsesFetchedBefore :many
+const listResponsesAskedBefore = `-- name: ListResponsesAskedBefore :many
 
-SELECT provider_response.item_id, CAST(MIN(provider_response.fetched_at) AS INTEGER) AS oldest
+SELECT provider_response.item_id, CAST(MIN(provider_response.last_asked_at) AS INTEGER) AS oldest_asked_at
 FROM provider_response
 JOIN item ON item.id = provider_response.item_id
 WHERE provider_response.provider = ?1 AND item.removed_at IS NULL
 GROUP BY provider_response.item_id
-HAVING MIN(provider_response.fetched_at) < ?2
+HAVING MIN(provider_response.last_asked_at) < ?2
 `
 
-type ListResponsesFetchedBeforeParams struct {
+type ListResponsesAskedBeforeParams struct {
 	Provider string
 	Before   int64
 }
 
-type ListResponsesFetchedBeforeRow struct {
-	ItemID int64
-	Oldest int64
+type ListResponsesAskedBeforeRow struct {
+	ItemID        int64
+	OldestAskedAt int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The rolling refresh of stored provider responses, D213: what is due, and what a refresh
 // touches.
-// Live items with a response from this provider fetched before a time: the oldest part decides.
-func (q *Queries) ListResponsesFetchedBefore(ctx context.Context, arg ListResponsesFetchedBeforeParams) ([]ListResponsesFetchedBeforeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listResponsesFetchedBefore, arg.Provider, arg.Before)
+// Live items whose provider was last asked for a response before a time: the part asked longest
+// ago decides.
+func (q *Queries) ListResponsesAskedBefore(ctx context.Context, arg ListResponsesAskedBeforeParams) ([]ListResponsesAskedBeforeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listResponsesAskedBefore, arg.Provider, arg.Before)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListResponsesFetchedBeforeRow{}
+	items := []ListResponsesAskedBeforeRow{}
 	for rows.Next() {
-		var i ListResponsesFetchedBeforeRow
-		if err := rows.Scan(&i.ItemID, &i.Oldest); err != nil {
+		var i ListResponsesAskedBeforeRow
+		if err := rows.Scan(&i.ItemID, &i.OldestAskedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -92,22 +93,22 @@ func (q *Queries) ListResponsesFetchedBefore(ctx context.Context, arg ListRespon
 }
 
 const markProviderResponseAsked = `-- name: MarkProviderResponseAsked :exec
-UPDATE provider_response SET fetched_at = ?1
+UPDATE provider_response SET last_asked_at = ?1
 WHERE item_id = ?2 AND provider = ?3 AND part = ?4
 `
 
 type MarkProviderResponseAskedParams struct {
-	FetchedAt int64
-	ItemID    int64
-	Provider  string
-	Part      string
+	LastAskedAt int64
+	ItemID      int64
+	Provider    string
+	Part        string
 }
 
 // A refresh that found the item gone upstream keeps our copy and notes that it asked, so it is
-// not asked again before its next period, D213 section 4.
+// not asked again before its next period, D213 section 4. The copy's fetched_at stays its age.
 func (q *Queries) MarkProviderResponseAsked(ctx context.Context, arg MarkProviderResponseAskedParams) error {
 	_, err := q.db.ExecContext(ctx, markProviderResponseAsked,
-		arg.FetchedAt,
+		arg.LastAskedAt,
 		arg.ItemID,
 		arg.Provider,
 		arg.Part,

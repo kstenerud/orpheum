@@ -257,7 +257,7 @@ func (filer *libraryFiler) relativePath(file sqlcgen.ListIdentifyFilesRow) (stri
 			rootPaths = append(rootPaths, root.RootPath)
 		}
 	}
-	_, relative, found := library.RootHolding(file.ReportedPathBytes, rootPaths)
+	_, relative, found := library.RootHolding(file.ReportedPathRaw, rootPaths)
 	if !found {
 		return "", false
 	}

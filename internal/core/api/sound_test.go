@@ -21,7 +21,7 @@ func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
 		 probe_json,
 		 first_seen_at, last_seen_at) VALUES
 		 (4, 1, 1, '/media/Loud (2008).mp4', CAST('/media/Loud (2008).mp4' AS BLOB), 10, X'1a1b', 'listed', '`+

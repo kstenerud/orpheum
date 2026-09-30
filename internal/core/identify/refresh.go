@@ -215,12 +215,13 @@ func (matcher *Matcher) keepGoneCopy(ctx context.Context, libraryID *int64, gone
 	return err
 }
 
-// noteRefreshAttempt stamps a stored part's FetchedAt with now: the provider was asked, and the
-// rolling refresh waits a full period before asking again.
+// noteRefreshAttempt stamps a stored part's LastAskedAt with now: the provider was asked, and the
+// rolling refresh waits a full period before asking again. Its FetchedAt stays the stored body's
+// age, which a season listing's staleness is judged by.
 func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneResponsePart) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.MarkProviderResponseAsked(ctx, sqlcgen.MarkProviderResponseAskedParams{
-			FetchedAt: matcher.clock.Now().UnixMilli(), ItemID: gone.itemID, Provider: gone.provider, Part: gone.part,
+			LastAskedAt: matcher.clock.Now().UnixMilli(), ItemID: gone.itemID, Provider: gone.provider, Part: gone.part,
 		})
 	})
 	if err != nil {
@@ -323,14 +324,14 @@ func (refresher *Refresher) Sweep(ctx context.Context) (int, error) {
 			continue // never, as a person chose
 		}
 		period := time.Duration(days) * 24 * time.Hour
-		due, err := refresher.database.Read().ListResponsesFetchedBefore(ctx, sqlcgen.ListResponsesFetchedBeforeParams{
+		due, err := refresher.database.Read().ListResponsesAskedBefore(ctx, sqlcgen.ListResponsesAskedBeforeParams{
 			Provider: provider, Before: now.Add(-period * 3 / 4).UnixMilli(),
 		})
 		if err != nil {
 			return queued, fmt.Errorf("list %s data due: %w", provider, err)
 		}
 		for _, item := range due {
-			if now.Before(time.UnixMilli(item.Oldest).Add(dueAfter(period, item.ItemID))) {
+			if now.Before(time.UnixMilli(item.OldestAskedAt).Add(dueAfter(period, item.ItemID))) {
 				continue
 			}
 			added, err := refresher.queueDue(ctx, item.ItemID, provider)

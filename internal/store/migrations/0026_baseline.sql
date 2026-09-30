@@ -1,12 +1,13 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds a79ed26e02e67bb8093e45ea0abc5ebdc0a1003e192d258232ca885b18c7e191
--- The baseline (D228): library.db's schema at version 25 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0025 (D185's first schema and the steps
--- D200 to D227 added), and builds the schema and the seeded rows they built; the checksum above
--- is 0025_one_name_per_value.sql's, which a database migrated through that step recorded. Until the
--- owner declares migrations live, a schema change folds the last step into this file, which moves
--- up to its version, and adds the change as the one step after it. The tables are documented in
+-- orpheum:baseline folds 85aa54684e6f9fcb419d3dd638fd37b1d79aaf539bebbdf46891256f9c87c29f
+-- The baseline (D228): library.db's schema at version 26 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0026 (D185's first schema, the steps
+-- D200 to D227 added, and 0026's index for the newest-first listings), and builds the schema and
+-- the seeded rows they built; the checksum above is 0026_newest_first_index.sql's, which a
+-- database migrated through that step recorded. Until the owner declares migrations live, a
+-- schema change folds the last step into this file, which moves up to its version, and adds the
+-- change as the one step after it. The tables are documented in
 -- docs/contributors/design/plans/schema.md.
 -- The runner owns application_id, user_version and compatible_version; this file holds DDL and
 -- the two built-in roles only.
@@ -174,6 +175,9 @@ CREATE TABLE item (                                        -- class I
   removed_at  INTEGER
 );
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
+-- The newest-first listings walk the live items in the order they were added; the rowid rides in
+-- the index, so it serves their (added_at, id) order too.
+CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;
 CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)

@@ -66,22 +66,22 @@ func (q *Queries) GetArtworkSource(ctx context.Context, sourceSha256 []byte) (Ge
 }
 
 const getFileForArtwork = `-- name: GetFileForArtwork :one
-SELECT node_id, path, reported_path_bytes
+SELECT node_id, path, reported_path_raw
 FROM file
 WHERE id = ?1 AND removed_at IS NULL
 `
 
 type GetFileForArtworkRow struct {
-	NodeID            int64
-	Path              string
-	ReportedPathBytes []byte
+	NodeID          int64
+	Path            string
+	ReportedPathRaw []byte
 }
 
 // An image beside the media: the node that holds it, and its path, for the node to read.
 func (q *Queries) GetFileForArtwork(ctx context.Context, id int64) (GetFileForArtworkRow, error) {
 	row := q.db.QueryRowContext(ctx, getFileForArtwork, id)
 	var i GetFileForArtworkRow
-	err := row.Scan(&i.NodeID, &i.Path, &i.ReportedPathBytes)
+	err := row.Scan(&i.NodeID, &i.Path, &i.ReportedPathRaw)
 	return i, err
 }
 

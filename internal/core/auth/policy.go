@@ -61,12 +61,12 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 }
 
 // sessionPolicy reads how long a session may go unused, and how often its use is written.
-func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, lastSeenResolution time.Duration, err error) {
+func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, useWriteInterval time.Duration, err error) {
 	idleHours, err := service.settings.Int(ctx, settings.SessionIdleExpiryH)
 	if err != nil {
 		return 0, 0, err
 	}
-	resolutionSeconds, err := service.settings.Int(ctx, settings.SessionLastSeenWriteIntervalS)
+	resolutionSeconds, err := service.settings.Int(ctx, settings.SessionLastUsedWriteIntervalS)
 	if err != nil {
 		return 0, 0, err
 	}

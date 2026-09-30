@@ -10,7 +10,7 @@ RETURNING id;
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
 -- of its sessions, and whether any is still live.
 SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
-  CAST(coalesce(max("grant".last_seen_at), device.added_at) AS INTEGER) AS last_used_at,
+  CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in
 FROM device
 LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'

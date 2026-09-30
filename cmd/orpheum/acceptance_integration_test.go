@@ -79,7 +79,7 @@ func acceptanceRun(
 	}
 	filings := map[string]storedFiling{}
 	for _, file := range files {
-		raw := string(file.ReportedPathBytes)
+		raw := string(file.ReportedPathRaw)
 		filings[strings.TrimPrefix(raw, root+"/")] = storedFiling{
 			filing: file.Filing, reason: ptr.ValueOrZero(file.FilingReason),
 		}

@@ -150,11 +150,11 @@ func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) ([]i
 	var unseenFileIDs []int64
 	liveFileCount := 0
 	for _, file := range files {
-		if _, under := RelativeToRoot(file.ReportedPathBytes, scan.root); !under {
+		if _, under := RelativeToRoot(file.ReportedPathRaw, scan.root); !under {
 			continue
 		}
 		liveFileCount++
-		if file.LastSeenAt < scan.startedAt && !scan.isUnread(file.ReportedPathBytes) {
+		if file.LastSeenAt < scan.startedAt && !scan.isUnread(file.ReportedPathRaw) {
 			unseenFileIDs = append(unseenFileIDs, file.ID)
 		}
 	}

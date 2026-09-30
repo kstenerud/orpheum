@@ -18,9 +18,12 @@ WHERE item_id = sqlc.arg(item_id)
 ORDER BY provider, provider_id;
 
 -- name: UpsertProviderResponse :exec
-INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
-VALUES (sqlc.arg(item_id), sqlc.arg(provider), sqlc.arg(part), sqlc.arg(fetched_at), sqlc.arg(body_gzip))
-ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body_gzip = excluded.body_gzip;
+-- A body fetched is a body asked for: both times are the fetch's.
+INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
+VALUES (sqlc.arg(item_id), sqlc.arg(provider), sqlc.arg(part), sqlc.arg(fetched_at), sqlc.arg(fetched_at),
+        sqlc.arg(body_gzip))
+ON CONFLICT (item_id, provider, part) DO UPDATE
+SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip;
 
 -- name: GetProviderResponse :one
 -- An item's stored response: part '' is the item itself, 'season/N' a series' season listing.

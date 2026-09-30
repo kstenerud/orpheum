@@ -56,8 +56,9 @@
 //   - Cache queries are generated into cachegen, apart from sqlcgen, so a library query cannot
 //     name a cache table (M2-1). Enforced by sqlc.yaml's two entries.
 //   - Every data-transforming step has a test on its rows, until a fold takes it into the
-//     baseline (D228); step 0026 only adds an index and transforms none. The runner's
-//     handling of such a step, and of a rebuild, is tested on synthetic steps in
+//     baseline (D228): step 0027 in
+//     TestMigrate_Step0027RenamesByWhatIsHeldAndKeepsAResponsesBodyAgeApartFromItsLastAsking.
+//     The runner's handling of such a step, and of a rebuild, is tested on synthetic steps in
 //     TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion and
 //     TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence.
 //   - Open and the runner take their choices (the reader pool minimum, the free-space database

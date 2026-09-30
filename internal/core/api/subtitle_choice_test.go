@@ -22,13 +22,13 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 		`INSERT INTO title (id, kind, identification_state)
 		 VALUES (22, 'episode', 'identified'), (23, 'episode', 'identified')`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 22, 3), (6, 23, 3)",
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, filing, version_id,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, filing, version_id,
 		 first_seen_at,
 		 last_seen_at) VALUES
 		 (5, 1, 1, '/m/BB/S01E02.mkv', CAST('/m/BB/S01E02.mkv' AS BLOB), 10, 'listed', 5, 1, 1),
 		 (6, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, 'listed', 6, 1, 1)`,
 		"UPDATE file SET payload_hash = X'0102', probe_json = "+probe+" WHERE id IN (2, 5, 6)",
-		"UPDATE file SET reported_path_bytes = CAST(path AS BLOB) WHERE id = 2",
+		"UPDATE file SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)",
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
