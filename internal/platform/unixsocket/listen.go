@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package datadir
+package unixsocket
 
 import (
 	"errors"
@@ -15,11 +15,18 @@ import (
 // counting the terminating NUL.
 const maxSocketPathBytes = 103
 
-// ListenUnix listens on the Unix socket name in directory, which it creates with mode 0700 if it
+// The socket directory and the socket are private to the user the process runs as: their
+// permissions are the node channel's authentication (D107).
+const (
+	socketDirectoryMode = 0o700
+	socketMode          = 0o600
+)
+
+// Listen listens on the Unix socket name in directory, which it creates with mode 0700 if it
 // is missing. The socket is mode 0600: its permissions are the node channel's authentication
 // (cut-a §2, D107). A socket a crash left behind is removed first; anything else at that path is
 // refused, never removed.
-func ListenUnix(directory, name string) (*net.UnixListener, error) {
+func Listen(directory, name string) (*net.UnixListener, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("socket directory %q: want an absolute path", directory)
 	}
@@ -28,7 +35,7 @@ func ListenUnix(directory, name string) (*net.UnixListener, error) {
 		return nil, fmt.Errorf("socket path %s is %d bytes; a Unix socket's path may have at most %d",
 			path, len(path), maxSocketPathBytes)
 	}
-	if err := os.MkdirAll(directory, directoryMode); err != nil {
+	if err := os.MkdirAll(directory, socketDirectoryMode); err != nil {
 		return nil, fmt.Errorf("create the socket directory %s: %w", directory, err)
 	}
 	info, err := os.Lstat(path)
@@ -46,7 +53,7 @@ func ListenUnix(directory, name string) (*net.UnixListener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen on %s: %w", path, err)
 	}
-	if chmodErr := os.Chmod(path, fileMode); chmodErr != nil {
+	if chmodErr := os.Chmod(path, socketMode); chmodErr != nil {
 		return nil, errors.Join(fmt.Errorf("make %s mode 0600: %w", path, chmodErr), listener.Close())
 	}
 	return listener, nil

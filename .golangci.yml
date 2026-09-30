@@ -366,6 +366,17 @@ linters:
             - pkg: "github.com/kstenerud/orpheum/internal/store"
               desc: "[node-boundary] the node never touches the database; it reports and the core writes (D31, D42)"
 
+        # D33: the node role in cmd/orpheum is held to the node's boundary too; it wires node
+        # packages and nothing of the core's (architecture map F8).
+        node-role-boundary:
+          list-mode: lax
+          files: ["**/cmd/orpheum/node.go"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core"
+              desc: "[node-boundary] the node role imports nothing from the core; a helper both roles need belongs in internal/platform (D33)"
+            - pkg: "github.com/kstenerud/orpheum/internal/store"
+              desc: "[node-boundary] the node role never touches the database (D31, D42)"
+
         # cut-a §3: nodeproto is wire types with no logic. Fuller form: TestArch_NodeprotoHasNoLogic.
         nodeproto-is-types:
           list-mode: lax
@@ -655,6 +666,10 @@ linters:
         linters: [forbidigo]
         text: '\[exec\]'
       - path: ^internal/(node/trash|node/prepared|core/datadir)/
+        linters: [forbidigo]
+        text: '\[delete\]'
+      # A socket a crash left behind, and nothing else, which Listen checks first.
+      - path: ^internal/platform/unixsocket/listen\.go$
         linters: [forbidigo]
         text: '\[delete\]'
       - path: ^internal/core/datadir/
