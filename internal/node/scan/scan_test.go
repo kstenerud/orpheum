@@ -4,7 +4,6 @@ package scan
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -55,20 +55,6 @@ func writeTree(t *testing.T, files map[string]string) string {
 		}
 	}
 	return root
-}
-
-func openRoot(t *testing.T, path string) *confine.MediaRoot {
-	t.Helper()
-	media, err := confine.OpenMediaRoot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := media.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	return media
 }
 
 var options = Options{
@@ -139,7 +125,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	if err := syscall.Mkfifo(filepath.Join(root, "Movies", "pipe.mkv"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	want := []string{
 		"scan_begin",
@@ -214,11 +200,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 		return
 	}
 	const contents = "1\n00:00:01,000 --> 00:00:02,000\nHello\n"
-	want, err := hash.PayloadIdentity(strings.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sidecar.Identity == nil || sidecar.Identity.PayloadHash != hex.EncodeToString(want.PayloadHash[:]) {
+	if sidecar.Identity == nil || sidecar.Identity.PayloadHash != nodetest.PayloadHashHex(t, contents) {
 		t.Errorf("subtitle %s carries identity %+v, want its bytes' payload hash", sidecar.Path.Text, sidecar.Identity)
 	}
 }
@@ -226,7 +208,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{"Film/film.nfo": strings.Repeat("x", maxNFOBytes+1)})
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	want := []string{"scan_begin", "error Film/film.nfo entry io_error", "scan_complete"}
 	if got := summary(records); !slices.Equal(got, want) {
@@ -255,7 +237,7 @@ func TestScan_FollowsASymlinkOnlyIntoAMediaRoot(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	filmsRoot, showsRoot := openRoot(t, films), openRoot(t, shows)
+	filmsRoot, showsRoot := nodetest.OpenMediaRoot(t, films), nodetest.OpenMediaRoot(t, shows)
 	prober := &fakeProber{}
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{filmsRoot, showsRoot}, prober, options), filmsRoot)
 
@@ -301,7 +283,7 @@ func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 
 	want := []string{
@@ -336,7 +318,7 @@ func TestScan_StopsARootThatKeepsFailing(t *testing.T) {
 	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
 		failing[name+".mkv"] = errors.New("Invalid data found when processing input")
 	}
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	limited := options
 	limited.MaxErrors = 3
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{failing: failing}, limited), media)
@@ -362,7 +344,7 @@ func TestScan_ACancelledScanNeverSaysComplete(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b", "c.mkv": "c"})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	scanner := NewScanner([]*confine.MediaRoot{media}, &fakeProber{onProbe: cancel}, options)
 	records, err := scanRecords(ctx, scanner, media)
 	if !errors.Is(err, context.Canceled) {
@@ -380,7 +362,7 @@ func TestScan_ACancelledScanNeverSaysComplete(t *testing.T) {
 func TestScan_StopsWhenNobodyIsListening(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b"})
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	gone := errors.New("the core hung up")
 	sent := 0
 	err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).Scan(t.Context(), media,
@@ -403,7 +385,7 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, name), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	observed := records[1].Observed
 	if observed == nil || string(observed.Path.Bytes) != name || observed.Path.Text != "Am�lie.mkv" {
@@ -416,7 +398,7 @@ func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"Film (1999)/poster.jpg": "jpeg", "Film (1999)/Film (1999)-fanart.PNG": "png", "Film (1999)/notes.gif": "gif",
 	})
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	var images []string
 	for _, record := range records {
@@ -438,7 +420,7 @@ func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
 	t.Parallel()
 	body := strings.Repeat("orpheum!", 25_000) // 200,000 bytes, past OpenSubtitles' 128 KiB floor
 	root := writeTree(t, map[string]string{"Movies/Big.mkv": body, "Movies/Small.mkv": "small"})
-	media := openRoot(t, root)
+	media := nodetest.OpenMediaRoot(t, root)
 	hashes := map[string]string{}
 	for _, record := range scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media) {
 		if record.Type == nodeproto.RecordObserved {

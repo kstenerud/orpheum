@@ -4,7 +4,6 @@ package agent
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -14,7 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -78,12 +77,8 @@ func preparableFilm(t *testing.T, root *confine.MediaRoot) nodeproto.BytesFile {
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
-	if err != nil {
-		t.Fatal(err)
-	}
 	return nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 }
 
@@ -171,14 +166,10 @@ func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testi
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
-	if err != nil {
-		t.Fatal(err)
-	}
 	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 		JobID: 1, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 		Video: nodeproto.BytesFile{
-			RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+			RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 		},
 	}}
 	if done := finalPrepareReport(t, core); done.State != nodeproto.PrepareDone {
@@ -198,12 +189,8 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
-	if err != nil {
-		t.Fatal(err)
-	}
 	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
@@ -235,12 +222,8 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
-	if err != nil {
-		t.Fatal(err)
-	}
 	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{

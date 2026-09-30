@@ -4,7 +4,6 @@ package agent
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -67,12 +66,8 @@ func startExtractionAgent(t *testing.T) (video, sidecar nodeproto.BytesFile, cor
 		if err := os.WriteFile(filepath.Join(root.Path(), name), []byte(contents), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		identity, err := hash.PayloadIdentity(strings.NewReader(contents), int64(len(contents)))
-		if err != nil {
-			t.Fatal(err)
-		}
 		named[name] = nodeproto.BytesFile{
-			RootPath: root.Path(), Path: []byte(name), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+			RootPath: root.Path(), Path: []byte(name), PayloadHash: nodetest.PayloadHashHex(t, contents),
 		}
 	}
 	return named["film.mkv"], named["film.en.srt"], core

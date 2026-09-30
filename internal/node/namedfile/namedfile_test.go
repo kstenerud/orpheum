@@ -7,37 +7,15 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
-
-// openRoot is a media root over directory.
-func openRoot(t *testing.T, directory string) *confine.MediaRoot {
-	t.Helper()
-	root, err := confine.OpenMediaRoot(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // read-only
-	return root
-}
-
-// payloadHashOf is the payload hash of contents.
-func payloadHashOf(t *testing.T, contents string) []byte {
-	t.Helper()
-	identity, err := hash.PayloadIdentity(strings.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return identity.PayloadHash[:]
-}
 
 func TestOpen_RefusesWhatIsNotARegularFile(t *testing.T) {
 	t.Parallel()
@@ -51,21 +29,22 @@ func TestOpen_RefusesWhatIsNotARegularFile(t *testing.T) {
 	if err := syscall.Mkfifo(filepath.Join(directory, "pipe.mkv"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	root := openRoot(t, directory)
-	file, info, err := namedfile.Open(root, "film.mkv", payloadHashOf(t, "a film"))
+	root := nodetest.OpenMediaRoot(t, directory)
+	file, info, err := namedfile.Open(root, "film.mkv", nodetest.PayloadHash(t, "a film"))
 	if err != nil || info.Size() != 6 {
 		t.Fatalf("the regular file: %v, %v", info, err)
 	}
 	_ = file.Close() //nolint:errcheck // read-only
 	for _, name := range []string{"Extras", "."} {
-		if _, _, err := namedfile.Open(root, name, payloadHashOf(t, "")); !errors.Is(err, namedfile.ErrNotRegular) {
+		_, _, err := namedfile.Open(root, name, nodetest.PayloadHash(t, ""))
+		if !errors.Is(err, namedfile.ErrNotRegular) {
 			t.Errorf("the directory %q: %v, want ErrNotRegular", name, err)
 		}
 	}
 	// A pipe opened for reading waits for a writer; it is opened without waiting and refused.
 	done := make(chan error, 1)
 	go func() {
-		_, _, err := namedfile.Open(root, "pipe.mkv", payloadHashOf(t, ""))
+		_, _, err := namedfile.Open(root, "pipe.mkv", nodetest.PayloadHash(t, ""))
 		done <- err
 	}()
 	select {
@@ -85,8 +64,9 @@ func TestOpen_RefusesAFileThatIsNoLongerTheOneNamed(t *testing.T) {
 	if err := os.WriteFile(full, []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	root, hashes, named := openRoot(t, directory), namedfile.NewHashes(), payloadHashOf(t, "a film")
-	_, _, err := namedfile.Open(root, "film.mkv", payloadHashOf(t, "another"))
+	root, hashes := nodetest.OpenMediaRoot(t, directory), namedfile.NewHashes()
+	named := nodetest.PayloadHash(t, "a film")
+	_, _, err := namedfile.Open(root, "film.mkv", nodetest.PayloadHash(t, "another"))
 	if !errors.Is(err, namedfile.ErrChanged) {
 		t.Errorf("naming another hash: %v, want ErrChanged", err)
 	}
@@ -117,9 +97,9 @@ func TestOpenNamed_FindsTheRootByItsPathAndRefusesABadName(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	root := openRoot(t, directory)
+	root := nodetest.OpenMediaRoot(t, directory)
 	roots := map[string]*confine.MediaRoot{root.Path(): root}
-	payloadHash := hex.EncodeToString(payloadHashOf(t, "a film"))
+	payloadHash := hex.EncodeToString(nodetest.PayloadHash(t, "a film"))
 	named := nodeproto.BytesFile{RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: payloadHash}
 	file, _, err := namedfile.OpenNamed(roots, named)
 	if err != nil {
