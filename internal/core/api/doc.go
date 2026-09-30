@@ -94,7 +94,8 @@
 //     home.go, accounts.go, devices.go and jobs.go.
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
 //     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,
-//     for the byte paths, in media_cookie.go.
+//     the one sign-in of every byte path, in media_cookie.go, with the byte paths' Cache-Control
+//     values.
 //   - One refusal leaves with one code and one message: a package's errors are mapped by that
 //     package's one mapper, which every handler calling it answers through: authError
 //     (server.go), playbackError (playback.go), libraryError (libraries.go), identifyError

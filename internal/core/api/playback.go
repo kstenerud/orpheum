@@ -206,8 +206,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 func (server *Server) relayDirect(
 	ctx context.Context, method string, input *DirectInput,
 ) (*huma.StreamResponse, error) {
-	authorization := input.asAuthorizationHeader()
-	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
+	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +221,7 @@ func (server *Server) relayDirect(
 	if input.IfRange != "" {
 		header.Set("If-Range", input.IfRange)
 	}
-	return server.relay(ctx, dependencies, relayRequest{method, source, header, "private, no-store"},
+	return server.relay(ctx, dependencies, relayRequest{method, source, header, cacheNeverPrivately},
 		func() error {
 			// The node refuses a file that is gone or no longer the one named (D100).
 			return newError(http.StatusNotFound, CodeFileUnavailable, "the file is no longer there as it was")
@@ -237,8 +236,7 @@ func (server *Server) relayHLSFile(
 	if !hlsFilePattern.MatchString(renditionPath) {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such rendition file")
 	}
-	authorization := credentials.asAuthorizationHeader()
-	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
+	dependencies, principal, err := server.requireSignedInForMedia(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -252,9 +250,9 @@ func (server *Server) relayHLSFile(
 		header.Set("Range", byteRange)
 	}
 	// A playlist grows while the rendition is made; a segment never changes once written.
-	cacheControl := "private, max-age=86400"
+	cacheControl := cacheForADay
 	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != playback.Complete {
-		cacheControl = "no-cache"
+		cacheControl = cacheRevalidate
 	}
 	request := relayRequest{http.MethodGet, source.Source, header, cacheControl}
 	return server.relay(ctx, dependencies, request, func() error {
