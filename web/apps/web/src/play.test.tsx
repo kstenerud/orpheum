@@ -93,7 +93,10 @@ describe("playing a file", () => {
       const text = playbackFailureText(t, failure);
       expect(text).not.toContain("play.failure");
       expect(text).not.toBe("");
+      expect(text).not.toBe(failure);
     }
+    const texts = playbackFailures.map((failure) => playbackFailureText(t, failure));
+    expect(new Set(texts).size).toBe(texts.length);
     expect(playbackFailureText(t, "unsupported")).toBe("this browser does not play its format");
   });
 });
