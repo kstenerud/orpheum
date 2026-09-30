@@ -9,7 +9,8 @@
 *.out
 coverage.*
 # web
-node_modules/
+# no trailing slash: a node_modules symlink in a scratch worktree is ignored too
+node_modules
 web/**/dist/
 web/**/.vite/
 # local state

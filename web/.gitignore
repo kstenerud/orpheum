@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-node_modules/
+node_modules
 dist/
 .tsbuild/
 .vite/
