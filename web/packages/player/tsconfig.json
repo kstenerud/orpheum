@@ -7,5 +7,6 @@
     "outDir": ".tsbuild",
     "tsBuildInfoFile": ".tsbuild/tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../sdk" }]
 }
