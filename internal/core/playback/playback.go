@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -41,6 +42,7 @@ type Settings interface {
 // Nodes is how playback reaches the nodes: nodes.Service.
 type Nodes interface {
 	Enqueue(nodeID int64, command nodeproto.Command)
+	IsConnected(nodeID int64) bool
 }
 
 // Queue is the job queue: jobs.Queue.
@@ -82,6 +84,9 @@ type Service struct {
 	subtitleTextAnswers *nodes.AnswerRouter[nodeproto.SubtitleText]
 	loudnessAnswers     *nodes.AnswerRouter[nodeproto.LoudnessResult]
 	subtitler           Subtitler
+	// fetchConversions counts the conversions a fetch asks a node for while a person waits. Each
+	// is named to the node, and its answer found, by the count's negative, which no job's id is.
+	fetchConversions atomic.Int64
 }
 
 // NewService returns the playback service.

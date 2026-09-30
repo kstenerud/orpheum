@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -88,6 +89,14 @@ func newHarness(t *testing.T) testHarness {
 	}
 	// One queue, as the server has: a cancel reaches the job the runner is running.
 	queue := jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler))
+	playbackService := playback.NewService(playback.Parts{
+		Database: database, Cache: cache, Queue: queue,
+		Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+		MaxSilence: time.Minute, Subtitler: subtitler,
+	})
+	nodes.takeSubtitleText = func(nodeID int64, answer nodeproto.SubtitleText) {
+		playbackService.TakeSubtitleText(t.Context(), nodeID, answer)
+	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
@@ -98,11 +107,7 @@ func newHarness(t *testing.T) testHarness {
 			Database: database, Queue: queue,
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
-		Playback: playback.NewService(playback.Parts{
-			Database: database, Cache: cache, Queue: queue,
-			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			MaxSilence: time.Minute, Subtitler: subtitler,
-		}),
+		Playback:    playbackService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
 		NodeReports: nodes,

@@ -16793,7 +16793,12 @@ and a download a capability on the role.
 5. **The node converts a fetched subtitle** as it converts a subtitle file beside the media (the
    owner: *"sounds good"*): it is hostile input, and the node is where hostile input is parsed
    (threat-model.md). The core sends the text in an `extract_subtitle` command, a third form
-   beside a track in a video and a file beside it.
+   beside a track in a video and a file beside it. *(Noted 2026-09-30: the node converts it while
+   the person who fetched it waits, and it is kept (§6) and made their choice only once the node
+   has converted it, so nothing unparsed becomes a choice; one the node cannot read is kept
+   nowhere. A download's link is kept for its three hours, so fetching the same subtitle again
+   within them spends no second download. The owner: "agreed"
+   ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 A7).)*
 
 6. **A fetched subtitle is kept in `library.db`, compressed** (the owner, 2026-09-27: *"go with
    your recommendations"*), as schema.md has it. The owner asked whether it should go in

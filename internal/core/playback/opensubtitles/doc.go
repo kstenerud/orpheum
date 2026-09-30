@@ -23,6 +23,11 @@
 //     (opensubtitles-api.md §3). TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges.
 //   - A search asks by a film's ids or an episode's series and place, and the file's moviehash,
 //     as OpenSubtitles asks for them (D224 §3). TestSearch_AsksForAnEpisodeByItsSeriesAndPlace.
+//   - A download is spent once per file while its link works (three hours,
+//     opensubtitles-api.md §2): a link that fails as unavailable or rate limited is retried, with
+//     back-off, within the Download and by the next Download of the file, and a link refused any
+//     other way is forgotten.
+//     TestDownload_ALinkThatFailsIsRetriedWhileItWorksAndSpendsNoSecondDownload.
 //   - A download says what is left and when the count resets, as OpenSubtitles says; a spent
 //     quota says so with that time (D224 §4).
 //     TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets.

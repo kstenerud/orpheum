@@ -5,6 +5,7 @@ package opensubtitles
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -124,24 +125,102 @@ type Downloaded struct {
 	DownloadsResetAt   time.Time
 }
 
-// Download fetches one file, which spends one of the account's downloads.
+// linkLife is how long a download's link is used: OpenSubtitles' lasts at most three hours from
+// the download that made it (opensubtitles-api.md §2).
+const linkLife = 3 * time.Hour
+
+// heldLink is a download's answer, kept while its link works.
+type heldLink struct {
+	answer    downloadAnswer
+	usedUntil time.Time
+}
+
+// Download fetches one file. The first Download of a file spends one of the account's downloads;
+// its link is kept for its three hours, and a Download of the same file within them fetches the
+// link again rather than spending another. So a link that fails once the download is spent, as
+// unavailable or rate limited, costs nothing: it is retried, with back-off, within this call and
+// by the next Download of the file while it works. A link refused any other way is forgotten.
 func (client *Client) Download(ctx context.Context, providerFileID int64) (Downloaded, error) {
-	body, err := json.Marshal(map[string]any{"file_id": providerFileID, "sub_format": "srt"})
-	if err != nil {
-		return Downloaded{}, fmt.Errorf("opensubtitles: encode the download: %w", err)
+	held, isHeld := client.heldLink(providerFileID)
+	if !isHeld {
+		body, err := json.Marshal(map[string]any{"file_id": providerFileID, "sub_format": "srt"})
+		if err != nil {
+			return Downloaded{}, fmt.Errorf("opensubtitles: encode the download: %w", err)
+		}
+		var answer downloadAnswer
+		downloadErr := client.callAuthorised(ctx, http.MethodPost, "/download", nil, body, &answer)
+		if downloadErr != nil {
+			return Downloaded{}, downloadErr
+		}
+		held = heldLink{answer: answer, usedUntil: client.clock.Now().Add(linkLife)}
+		client.holdLink(providerFileID, held)
 	}
-	var answer downloadAnswer
-	if downloadErr := client.callAuthorised(ctx, http.MethodPost, "/download", nil, body, &answer); downloadErr != nil {
-		return Downloaded{}, downloadErr
-	}
-	text, err := client.fetch(ctx, answer.Link)
+	text, err := client.fetchRetrying(ctx, held.answer.Link)
 	if err != nil {
+		if !mayWorkLater(err) {
+			client.forgetLink(providerFileID)
+		}
 		return Downloaded{}, err
 	}
+	answer := held.answer
 	return Downloaded{
 		Body: text, FileName: textindex.Line(answer.FileName), RemainingDownloads: answer.Remaining,
 		DownloadsResetAt: answer.resetAt(),
 	}, nil
+}
+
+// mayWorkLater is a link's failure that says nothing of the link: unavailable, or rate limited.
+func mayWorkLater(err error) bool {
+	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
+	return (isLimited && limited != nil) || errors.Is(err, outbound.ErrUnavailable)
+}
+
+// heldLink is the kept link of a file's download, while it works.
+func (client *Client) heldLink(providerFileID int64) (heldLink, bool) {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	held, found := client.linkByProviderFileID[providerFileID]
+	return held, found && client.clock.Now().Before(held.usedUntil)
+}
+
+// holdLink keeps a download's link, and lets go of those past their time.
+func (client *Client) holdLink(providerFileID int64, held heldLink) {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	now := client.clock.Now()
+	for id, kept := range client.linkByProviderFileID {
+		if !now.Before(kept.usedUntil) {
+			delete(client.linkByProviderFileID, id)
+		}
+	}
+	client.linkByProviderFileID[providerFileID] = held
+}
+
+// forgetLink lets go of a link that will not work again.
+func (client *Client) forgetLink(providerFileID int64) {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	delete(client.linkByProviderFileID, providerFileID)
+}
+
+// fetchRetrying fetches a link, and again after each of linkRetryDelays while it answers as
+// unavailable.
+func (client *Client) fetchRetrying(ctx context.Context, link string) ([]byte, error) {
+	text, err := client.fetch(ctx, link)
+	for _, delay := range client.linkRetryDelays {
+		if !errors.Is(err, outbound.ErrUnavailable) {
+			break
+		}
+		wait := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			wait.Stop()
+			return nil, errors.Join(err, ctx.Err())
+		case <-wait.C:
+		}
+		text, err = client.fetch(ctx, link)
+	}
+	return text, err
 }
 
 // downloadAnswer is what a download answers, and a spent quota's answer too.

@@ -89,6 +89,11 @@
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
 //     TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem,
 //     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
+//   - A fetched subtitle is converted by the video's node while the person waits, and kept and
+//     made their choice only once converted: nothing unparsed becomes a choice, one the node
+//     cannot read is kept nowhere, and a node that is away is found before a download is spent
+//     (D224 §5). TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen
+//     (internal/core/api).
 //   - Each live video with sound is measured once per payload hash, by a job behind anything a
 //     person waits on; one FFmpeg cannot measure is not asked again, and one its node would not
 //     try is (D226 §2): its job is tried again on its back-off, and once it gives up the next

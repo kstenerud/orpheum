@@ -4,6 +4,7 @@ package api
 
 import (
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -31,6 +32,10 @@ type fakeSubtitler struct {
 	mutex   sync.Mutex
 	queries []opensubtitles.Query
 	failure error
+	// body, when set, is the subtitle a download gives in place of fetchedText.
+	body string
+	// downloadCount counts the downloads asked for.
+	downloadCount int
 }
 
 // fetchedText is the subtitle the fake gives.
@@ -59,11 +64,12 @@ func (fake *fakeSubtitler) Search(_ context.Context, query opensubtitles.Query) 
 func (fake *fakeSubtitler) Download(context.Context, int64) (opensubtitles.Downloaded, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
+	fake.downloadCount++
 	if fake.failure != nil {
 		return opensubtitles.Downloaded{}, fake.failure
 	}
 	return opensubtitles.Downloaded{
-		Body: []byte(fetchedText), FileName: "Film.2002.1080p.de.srt", RemainingDownloads: 19,
+		Body: []byte(cmp.Or(fake.body, fetchedText)), FileName: "Film.2002.1080p.de.srt", RemainingDownloads: 19,
 		DownloadsResetAt: resetAt,
 	}, nil
 }
@@ -222,6 +228,57 @@ func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testin
 	if served := harness.getBytePath(t, track.VTTURL, user, true, ""); served.status != http.StatusOK ||
 		!strings.Contains(served.body, "Hallo") {
 		t.Errorf("the fetched track: %d %q, want its converted text", served.status, served.body)
+	}
+}
+
+// Hostile text is parsed on a node (D224 §5): a fetched subtitle is kept, and made the person's
+// choice, only once its node has converted it, and its converted text is ready at once. One the
+// node cannot read is kept nowhere; a node that is away is found before a download is spent.
+func TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.identifyFilm(t)
+	fetch := func() response {
+		return harness.do(t, http.MethodPost, "/files/2/subtitles", user,
+			map[string]any{"providerFileId": 7, "language": "de"})
+	}
+	harness.subtitler.mutex.Lock()
+	harness.subtitler.body = unreadableText
+	harness.subtitler.mutex.Unlock()
+	unreadable := fetch()
+	if unreadable.status != http.StatusServiceUnavailable ||
+		!strings.Contains(unreadable.body, `"reason":"unreadable"`) {
+		t.Errorf("a subtitle the node cannot read: %d %s, want provider_error unreadable", unreadable.status,
+			unreadable.body)
+	}
+	kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2)
+	if err != nil || len(kept) != 0 {
+		t.Errorf("kept %+v, %v after an unreadable fetch; want nothing kept", kept, err)
+	}
+	if choice := harness.choiceIn(t, user, 2); choice != "none" {
+		t.Errorf("the choice after an unreadable fetch is %s, want none", choice)
+	}
+
+	harness.nodes.isAway.Store(true)
+	harness.subtitler.mutex.Lock()
+	harness.subtitler.body, harness.subtitler.downloadCount = "", 0
+	harness.subtitler.mutex.Unlock()
+	wantError(t, fetch(), http.StatusServiceUnavailable, CodeNodeSilent)
+	harness.subtitler.mutex.Lock()
+	spent := harness.subtitler.downloadCount
+	harness.subtitler.mutex.Unlock()
+	if spent != 0 {
+		t.Errorf("a fetch for a file whose node is away spent %d downloads, want none", spent)
+	}
+
+	harness.nodes.isAway.Store(false)
+	fetchedID := fetchGerman(t, harness, user)
+	track := offeredFetched(t, harness.play(t, user, chrome(2)), fetchedID)
+	if served := harness.getBytePath(t, track.VTTURL, user, true, ""); served.status != http.StatusOK ||
+		!strings.Contains(served.body, "Hallo") {
+		t.Errorf("the fetched track at once: %d %q, want the text its node converted", served.status, served.body)
 	}
 }
 

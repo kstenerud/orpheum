@@ -2223,7 +2223,8 @@
               "no_login",
               "login_refused",
               "not_configured",
-              "unavailable"
+              "unavailable",
+              "unreadable"
             ],
             "type": "string"
           }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,7 +36,17 @@ type fakeNodes struct {
 	disks []nodeproto.Disk
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
+	// isAway is a node that has not connected.
+	isAway atomic.Bool
+	// takeSubtitleText is where the node's answers to a fetch's conversion go, which it answers at
+	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
+	takeSubtitleText func(nodeID int64, answer nodeproto.SubtitleText)
 }
+
+// unreadableText is a fetched subtitle the fake node cannot convert.
+const unreadableText = "not a subtitle"
+
+func (nodes *fakeNodes) IsConnected(int64) bool { return !nodes.isAway.Load() }
 
 func (nodes *fakeNodes) ConnectedNodeRoots(name string) (int64, []string, bool) {
 	if name != "local" || nodes.roots == nil {
@@ -67,6 +78,17 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
+	if extract := command.ExtractSubtitle; extract != nil && extract.JobID < 0 && nodes.takeSubtitleText != nil {
+		answer := nodeproto.SubtitleText{
+			JobID: extract.JobID, ASS: []byte("[Script Info]"),
+			VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
+		}
+		if string(extract.FetchedSubRip) == unreadableText {
+			answer = nodeproto.SubtitleText{JobID: extract.JobID, Failure: "Invalid data found when processing input"}
+		}
+		nodes.takeSubtitleText(1, answer)
+		return
+	}
 	if nodes.commanded != nil {
 		nodes.commanded <- command
 		return

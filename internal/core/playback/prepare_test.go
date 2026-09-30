@@ -61,6 +61,8 @@ type fakeNodes struct{ sent chan nodeproto.Command }
 
 func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
+func (fakeNodes) IsConnected(int64) bool { return true }
+
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
 	t.Parallel()
 	const silence = 200 * time.Millisecond
