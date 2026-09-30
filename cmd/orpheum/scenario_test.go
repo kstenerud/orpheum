@@ -468,7 +468,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		Logger: slog.New(slog.DiscardHandler),
 	})
 	services := jobServices{queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass}
-	for _, sweep := range services.sweeps() {
+	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		if sweep.Name != sweepLoudness && sweep.Name != sweepRollingRefresh { // no files to measure; nothing due
 			world.queue.AddSweep(sweep)
 		}

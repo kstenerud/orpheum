@@ -6,7 +6,13 @@ import type { components } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { blankLibrary, CreateLibraryForm, withRootChosen } from "./create-library.tsx";
+import {
+  blankLibrary,
+  checkEveryHoursToStart,
+  CreateLibraryForm,
+  withChangeDetection,
+  withRootChosen,
+} from "./create-library.tsx";
 import { LibraryCard, rootAnswerRequest } from "./libraries.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -111,6 +117,7 @@ describe("libraries", () => {
             },
             { name: "attic", isConnected: false, rootPaths: [] },
           ]}
+          checkEveryHoursToStart={24}
           problem=""
           onDraftChange={ignore}
           onSubmit={ignore}
@@ -133,12 +140,47 @@ describe("libraries", () => {
     expect(withRootChosen(["/a", "/b"], "/a", false)).toEqual(["/b"]);
   });
 
+  it("starts an interval at the server's library_check_every_hours and sends hours only with one", () => {
+    const setting = {
+      key: "library_check_every_hours",
+      kind: "integer" as const,
+      value: 6,
+      startingValue: 24,
+      isModified: true,
+      isExposed: false,
+      description: "",
+      setAt: 1,
+    };
+    expect(checkEveryHoursToStart([setting])).toBe(6);
+    expect(() => checkEveryHoursToStart([])).toThrow("library_check_every_hours");
+    const interval = withChangeDetection(blankLibrary(), "interval", 6);
+    expect(interval.checkEveryHours).toBe(6);
+    expect(
+      withChangeDetection({ ...interval, checkEveryHours: 3 }, "interval", 6).checkEveryHours,
+    ).toBe(3);
+    expect("checkEveryHours" in withChangeDetection(interval, "watch", 6)).toBe(false);
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={{ ...blankLibrary(), changeDetection: "interval" }}
+          nodes={[]}
+          checkEveryHoursToStart={6}
+          problem=""
+          onDraftChange={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    expect(markup).toMatch(/type="number"[^>]*value="6"/u);
+  });
+
   it("says to start a node when none is connected, rather than offer nothing to choose", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <CreateLibraryForm
           draft={blankLibrary()}
           nodes={[{ name: "local", isConnected: false, rootPaths: [] }]}
+          checkEveryHoursToStart={24}
           problem=""
           onDraftChange={ignore}
           onSubmit={ignore}

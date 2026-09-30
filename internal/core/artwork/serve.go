@@ -29,9 +29,6 @@ var (
 	ErrNoArt = errors.New("no such image")
 )
 
-// jpegQuality is what the core cuts JPEG at: a fallback for clients without WebP.
-const jpegQuality = 85
-
 // makePriority puts a size someone is waiting for ahead of fetching.
 const makePriority = 10
 
@@ -129,12 +126,16 @@ func (service *Service) cutJPEG(ctx context.Context, art ArtFiles, sourceSha256H
 		return nil, fmt.Errorf("art %s %s is %d×%d, over the pixel limit", sourceSha256Hex, name, config.Width,
 			config.Height)
 	}
+	quality, err := service.parts.Settings.Int(ctx, settings.ArtworkJPEGQuality)
+	if err != nil {
+		return nil, fmt.Errorf("read artwork_jpeg_quality: %w", err)
+	}
 	decoded, err := webp.Decode(bytes.NewReader(source))
 	if err != nil {
 		return nil, fmt.Errorf("decode art %s %s: %w", sourceSha256Hex, name, err)
 	}
 	var cut bytes.Buffer
-	if err := jpeg.Encode(&cut, decoded, &jpeg.Options{Quality: jpegQuality}); err != nil {
+	if err := jpeg.Encode(&cut, decoded, &jpeg.Options{Quality: int(quality)}); err != nil {
 		return nil, fmt.Errorf("cut JPEG of art %s %s: %w", sourceSha256Hex, name, err)
 	}
 	if err := service.writeArt(ctx, sourceSha256Hex, string(name)+"."+FormatJPEG, cut.Bytes()); err != nil {

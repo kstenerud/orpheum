@@ -3,7 +3,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"slices"
 	"testing"
@@ -55,9 +57,39 @@ func TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange(t *te
 	}
 }
 
+// unreadableSettings is a database that cannot be read.
+type unreadableSettings struct{}
+
+func (unreadableSettings) Duration(context.Context, settings.Key) (time.Duration, error) {
+	return 0, errors.New("database is locked")
+}
+
+// A loop's wait is its setting, read afresh; when the setting cannot be read, the loop goes on at
+// the registry's starting value, not a copy of it.
+func TestLengthOrStarting_IsTheSettingOrElseItsStartingValue(t *testing.T) {
+	t.Parallel()
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	settingstest.Set(t, config, settings.LoudnessSweepEveryHours, "3")
+	logger := slog.New(slog.DiscardHandler)
+	if got := lengthOrStarting(t.Context(), config, settings.LoudnessSweepEveryHours, logger); got != 3*time.Hour {
+		t.Errorf("loudness_sweep_every_hours at 3: a wait of %v, want 3h", got)
+	}
+	for _, check := range []struct {
+		key  settings.Key
+		want time.Duration
+	}{
+		{settings.MetadataRefreshCheckEveryHours, 24 * time.Hour},
+		{settings.ArtworkServedAtFlushEverySeconds, time.Hour},
+	} {
+		if got := lengthOrStarting(t.Context(), unreadableSettings{}, check.key, logger); got != check.want {
+			t.Errorf("%s unreadable: a wait of %v, want its starting value, %v", check.key, got, check.want)
+		}
+	}
+}
+
 func TestRunners_PreparesRunAsManyAtOnceAsANodeHasSlots(t *testing.T) {
 	t.Parallel()
-	for _, runner := range (jobServices{}).runners() {
+	for _, runner := range (jobServices{}).runners(nil) {
 		want := 1
 		if runner.kind == jobs.KindPrepare {
 			// A second person's copy is not held behind the first's.
@@ -73,14 +105,14 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 	t.Parallel()
 	services := jobServices{}
 	sweepNames := map[string]bool{}
-	for _, sweep := range services.sweeps() {
+	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		if sweep.Derive == nil || sweep.Every == nil || sweepNames[sweep.Name] {
 			t.Errorf("sweep %q is incomplete or named twice", sweep.Name)
 		}
 		sweepNames[sweep.Name] = true
 	}
 	run := map[jobs.Kind]bool{}
-	for _, runner := range services.runners() {
+	for _, runner := range services.runners(nil) {
 		run[runner.kind] = true
 		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
 		if runner.recordFailure == nil && runner.kind != jobs.KindPrepare {

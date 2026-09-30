@@ -129,11 +129,12 @@
 //     TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff (internal/core/api), and
 //     end to end by
 //     TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled (cmd/orpheum).
-//   - A playback says the gain that levels its sound: towards -23 LUFS both ways, never lifting
-//     the true peak above -1 dBTP nor raising more than 20 dB, silence left as it is; a prepared
-//     one levels each mix as its track's stereo mix and says what gain its copy already carries,
-//     which the copy's making put in (D226 §3, §4). Enforced by
-//     TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits and
+//   - A playback says the gain that levels its sound: towards loudness_target_lufs (-23 to start)
+//     both ways, never lifting the true peak above -1 dBTP nor raising more than
+//     loudness_max_raise_db (20 to start), silence left as it is; a prepared one levels each mix as
+//     its track's stereo mix and says what gain its copy already carries, which the copy's making
+//     put in (D226 §3, §4). Enforced by TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits,
+//     TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay and
 //     TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain.
 //   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.

@@ -7,20 +7,31 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // RetrySchedule is how a make_artwork_sizes job that failed through no fault of its image waits before
-// each retry, before it fails: a minute, five, half an hour, two hours, twelve, then daily for a
-// week (D213 §5).
-func RetrySchedule() []time.Duration {
-	schedule := []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 12 * time.Hour}
-	for range 7 {
-		schedule = append(schedule, 24*time.Hour)
+// each retry, before it fails: artwork_seconds_before_each_retry, which starts as a minute, five,
+// half an hour, two hours, twelve, then daily for a week (D213 §5).
+func RetrySchedule(ctx context.Context, config Settings) ([]time.Duration, error) {
+	listed, err := config.String(ctx, settings.ArtworkSecondsBeforeEachRetry)
+	if err != nil {
+		return nil, fmt.Errorf("read artwork_seconds_before_each_retry: %w", err)
 	}
-	return schedule
+	var schedule []time.Duration
+	for field := range strings.SplitSeq(listed, ",") {
+		seconds, err := strconv.ParseInt(field, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("artwork_seconds_before_each_retry %q: %w", listed, err)
+		}
+		schedule = append(schedule, time.Duration(seconds)*time.Second)
+	}
+	return schedule, nil
 }
 
 // fetch downloads an image from its source's image server. A server that is down or asks us to

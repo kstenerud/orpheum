@@ -43,6 +43,9 @@
 //     suffix spells, and Duration is the one place its count becomes a time.Duration.
 //     TestRegistry_ALengthOfTimeHasTheUnitItsKeySpells,
 //     TestDuration_ReadsASettingInItsUnitAndRefusesOneWithNone.
+//   - A reader that must go on when a setting cannot be read falls back on StartingDuration, the
+//     registry's starting value, never a copy of it in its own code.
+//     TestStartingDuration_IsTheRegistrysStartingValueInItsUnit.
 //
 // # Read before changing
 //

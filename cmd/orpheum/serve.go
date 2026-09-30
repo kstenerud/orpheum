@@ -66,7 +66,14 @@ func serve(
 		return err
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
-	stopBackgroundJobs := opened.jobServices.startBackgroundLoops(ctx, logger)
+	stopBackgroundJobs, err := opened.jobServices.startBackgroundLoops(ctx, logger)
+	if err != nil {
+		server.SetStatus(api.StatusDegraded, "the background jobs could not start", err.Error())
+		logger.ErrorContext(ctx, "the background jobs could not start; the server stays up to report why",
+			"err", err)
+		<-ctx.Done()
+		return err
+	}
 	defer stopBackgroundJobs()
 	stopNodes, err := runNodeChannel(ctx, config, opened, outside.startNode, logger)
 	if err != nil {

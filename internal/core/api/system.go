@@ -13,14 +13,12 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 )
-
-// recentPrepareCount is how many of a node's finished prepares the System page lists.
-const recentPrepareCount = 10
 
 // NodeReports is what each connected node said about itself: nodes.Service.
 type NodeReports interface {
@@ -377,7 +375,11 @@ func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
 }
 
 func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID int64) ([]FinishedPrepareBody, error) {
-	finished, err := dependencies.Playback.FinishedPrepares(ctx, nodeID, recentPrepareCount)
+	maxPrepares, err := dependencies.Settings.Int(ctx, settings.SystemPageRecentPreparesPerNode)
+	if err != nil {
+		return nil, fmt.Errorf("read system_page_recent_prepares_per_node: %w", err)
+	}
+	finished, err := dependencies.Playback.FinishedPrepares(ctx, nodeID, int(maxPrepares))
 	if err != nil {
 		return nil, fmt.Errorf("list node %d's prepares: %w", nodeID, err)
 	}

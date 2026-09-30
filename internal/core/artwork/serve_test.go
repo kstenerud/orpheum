@@ -3,6 +3,7 @@
 package artwork
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -12,8 +13,45 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
+
+// smallWebP is a 32×32 frame of FFmpeg's testsrc2, as libwebp encodes it: our own encoder's
+// output, which is all the core decodes (D212 §5).
+const smallWebP = "UklGRtIBAABXRUJQVlA4IMYBAABQDACdASogACAAPpE4l0eloyIhMAgAsBIJbACdMoRwN67w5+4XBLlggwH/o9MfPdP6B+uX" +
+	"ALf132Of0z9gDypPY2/cP0xrlLzgqDZv/SGfpp/5XmJzKurMNxQ4t0KS0rVz2XdfPfJdt+7HwAD+9HvtGfR0CRsnua42HwzA" +
+	"PqLND4PEptHlm925+iNiBzdqHhzubMouLJek5QaGKcAhjVAbK9Gbg1gT0vfvp7sL8e0mnNnMd0y8JwlKC6MPVKIx33/xMQmS" +
+	"vz/xKJRSX9L/uwEG3mzRP2K/hLoMO5OIemTpJuftC5woNRtxBYEJ7zTV6wYfy2wH9wm+WHA2K3DkKwK/JPZWyIxKN2wfwMEI" +
+	"NPMtGftcVgoyEHgzOqWBOWjNMSUtaU9DJkVqs82kXIrXmFKSfwhbvUuaQa2ygTCBl2s+Fq8GBE+WN4p0MaM7MhPpFOADOqBk" +
+	"SxEtHEre30LEJ8XU6nOCC/tPM5/43edp/9mE3LqUQUJ5hez3ivZwk/HPebRDWBs0XW8fUfTuOa8ON35u+PJd/8koByoY/olh" +
+	"b/ySgHKhoylBP2+2IbFXjZDhffIZOUE0WKD/uVlE/zRxs+ZMNv80cIAA"
+
+func TestServe_AJPEGIsCutAtTheQualityTheSettingSays(t *testing.T) {
+	t.Parallel()
+	webp, err := base64.StdEncoding.DecodeString(smallWebP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cutAt := func(quality string) int {
+		t.Helper()
+		bench := newBench(t, fakeFetcher{})
+		settingstest.Set(t, bench.settings, settings.ArtworkJPEGQuality, quality)
+		sourceSha256Hex := Received([]byte("poster")).sourceSha256Hex()
+		if err := bench.art.WriteArt(sourceSha256Hex, "portrait-s.webp", webp); err != nil {
+			t.Fatal(err)
+		}
+		served, err := bench.service.Serve(t.Context(), sourceSha256Hex, nodeproto.PortraitS, FormatJPEG)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(served.Bytes)
+	}
+	if low, high := cutAt("5"), cutAt("100"); low >= high {
+		t.Errorf("cut at artwork_jpeg_quality 5: %d bytes; at 100: %d; want the lower quality smaller", low, high)
+	}
+}
 
 // storePoster gives the bench a poster stored at the sizes named, from source, as the item's poster.
 func (bench *bench) storePoster(t *testing.T, source []byte, sizes ...nodeproto.ArtSizeName) string {

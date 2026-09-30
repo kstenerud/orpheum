@@ -94,7 +94,7 @@ export const en = {
     mismatch: "The two passwords are not the same.",
     refused: "{{refusalText}}",
     badLink:
-      "This link does not work: it was used, replaced by a newer one, or is more than seven days old. Ask the person who made it for a new one.",
+      "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
   },
   account: {
     heading: "Your account",

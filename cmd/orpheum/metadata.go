@@ -153,10 +153,11 @@ type jobRunners []struct {
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
-// runners are the kinds of job the server works. Prepares run as many at once as a node has
+// runners are the kinds of job the server works, each kind's artwork retry schedule read by the
+// caller. Prepares run as many at once as a node has
 // slots (cut-a §5.3), so a second person's copy is not held behind the first's. A prepare records
 // no failure of its own: the next play asks again (its rendition's state is Phase 4's, G8).
-func (services jobServices) runners() jobRunners {
+func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
 	return jobRunners{
 		{
 			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
@@ -164,7 +165,7 @@ func (services jobServices) runners() jobRunners {
 		},
 		{
 			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
-			artwork.RetrySchedule(), 1,
+			artworkRetrySchedule, 1,
 			[]string{sweepPasses},
 		},
 		{
@@ -213,17 +214,13 @@ func sweepsAfterAPass() []string {
 // until the settings work gives each sweep's interval a setting (the owner, 2026-09-30).
 const derivedWorkSweepEvery = time.Hour
 
-// measureSweepEvery is how often the server looks for files to measure when no scan has said so.
-// A named constant until the settings work makes it a setting (the owner, 2026-09-30).
-const measureSweepEvery = time.Hour
-
 // sweepCheckEvery is how often the sweeping loop looks for a sweep whose interval has passed: a
 // bound on how late one runs, not a choice about how often work is derived.
 const sweepCheckEvery = time.Minute
 
 // sweeps are every sweep that derives the server's work from library.db (D231 §3), each queuing
 // what the library's state implies of one kind's work, as its name says.
-func (services jobServices) sweeps() []jobs.Sweep {
+func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 	derivedWorkEvery := func(context.Context) time.Duration { return derivedWorkSweepEvery }
 	return []jobs.Sweep{
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
@@ -238,32 +235,50 @@ func (services jobServices) sweeps() []jobs.Sweep {
 				return services.refresher.QueueRechecks(ctx, due)
 			},
 		},
-		{Name: sweepRollingRefresh, Derive: services.refresher.Sweep, Every: services.rollingRefreshCheckEvery},
+		{
+			Name: sweepRollingRefresh, Derive: services.refresher.Sweep,
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.MetadataRefreshCheckEveryHours, logger)
+			},
+		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
 		{
 			Name: sweepLoudness, Derive: services.playback.QueueMeasurements,
-			Every: func(context.Context) time.Duration { return measureSweepEvery },
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.LoudnessSweepEveryHours, logger)
+			},
 		},
 	}
 }
 
-// rollingRefreshCheckEvery is metadata_refresh_check_every_hours, read at each look, so a change
-// takes effect at the next (D213 §3); a day when it cannot be read, its starting value.
-func (services jobServices) rollingRefreshCheckEvery(ctx context.Context) time.Duration {
-	checkEvery, err := services.settings.Duration(ctx, settings.MetadataRefreshCheckEveryHours)
+// settingReader reads a length-of-time setting: settings.Service.
+type settingReader interface {
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
+}
+
+// lengthOrStarting is a loop's wait, read afresh each time so a change takes effect at the next
+// one; when it cannot be read, the loop goes on at the setting's starting value and says so.
+func lengthOrStarting(ctx context.Context, config settingReader, key settings.Key, logger *slog.Logger) time.Duration {
+	length, err := config.Duration(ctx, key)
 	if err != nil {
-		return 24 * time.Hour
+		length = settings.StartingDuration(key)
+		logger.WarnContext(ctx, "could not read a setting; going on at its starting value", "key", string(key),
+			"startingValue", length.String(), "err", err)
 	}
-	return checkEvery
+	return length
 }
 
 // startBackgroundLoops starts a runner for every kind of job, the sweeps that derive their work
 // (at start, on their timers, after each pass and when a destination comes back, D231 §3), and
 // the artwork cache's upkeep. They run until the returned stop is called.
-func (services jobServices) startBackgroundLoops(ctx context.Context, logger *slog.Logger) (stop func()) {
+func (services jobServices) startBackgroundLoops(ctx context.Context, logger *slog.Logger) (stop func(), err error) {
+	artworkRetrySchedule, err := artwork.RetrySchedule(ctx, services.settings)
+	if err != nil {
+		return nil, err
+	}
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
-	for _, runnerSpec := range services.runners() {
+	for _, runnerSpec := range services.runners(artworkRetrySchedule) {
 		for range runnerSpec.concurrency {
 			kind, runner := runnerSpec.kind, services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
 			if runnerSpec.retrySchedule != nil {
@@ -281,7 +296,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			})
 		}
 	}
-	for _, sweep := range services.sweeps() {
+	for _, sweep := range services.sweeps(logger) {
 		services.queue.AddSweep(sweep)
 	}
 	loops.Go(func() {
@@ -289,8 +304,8 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		services.queue.Sweeping(loopsContext, ticker.C)
 	})
-	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, logger) })
-	return func() { cancel(); loops.Wait() }
+	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
+	return func() { cancel(); loops.Wait() }, nil
 }
 
 // keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's

@@ -208,6 +208,25 @@ func TestDuration_ReadsASettingInItsUnitAndRefusesOneWithNone(t *testing.T) {
 	}
 }
 
+func TestStartingDuration_IsTheRegistrysStartingValueInItsUnit(t *testing.T) {
+	t.Parallel()
+	for _, check := range []struct {
+		key  Key
+		want time.Duration
+	}{
+		{NodeSilentAfterSeconds, 30 * time.Second},
+		{MetadataRefreshCheckEveryHours, 24 * time.Hour},
+		{RemovedItemArtworkKeptDays, 30 * 24 * time.Hour},
+		{ArtworkWebPQuality, 0},    // no length of time
+		{ShouldCheckForUpdates, 0}, // a question
+		{"no_such_setting_seconds", 0},
+	} {
+		if got := StartingDuration(check.key); got != check.want {
+			t.Errorf("StartingDuration(%s) = %v, want %v", check.key, got, check.want)
+		}
+	}
+}
+
 func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 	t.Parallel()
 	service, _ := newSeededService(t)
