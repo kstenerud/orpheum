@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -61,6 +62,8 @@ type Dependencies struct {
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.
 	Playback *playback.Service
+	// Preferences keeps a person's own choices, which hold in every file (D230).
+	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.
 	NodeBytes NodeBytes
 	// Jobs is the one work queue, the one whose runners run the jobs, for the job view and cancel.

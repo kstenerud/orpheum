@@ -1,11 +1,18 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
--- A person's preferences (schema.md, preference; D24, D90): one value per axis at a scope. A
--- value set equal to the starting one is still a choice, so it is stored, never deleted.
+-- A person's preferences (schema.md, preference; D24, D90, D230): one value per axis at a scope.
+-- A value set equal to the starting one is still a choice, so it is stored, never deleted.
 
 -- name: SetPreference :exec
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 VALUES (sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(scope_id), sqlc.arg(axis), sqlc.arg(value_json), sqlc.arg(set_at))
 ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at;
+
+-- name: KeepPreferenceUnlessSet :exec
+-- A value kept only where the axis has none at the scope: what a started file used, which a choice
+-- made in the file has already set (D230).
+INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(scope_id), sqlc.arg(axis), sqlc.arg(value_json), sqlc.arg(set_at))
+ON CONFLICT (user_id, scope, scope_id, axis) DO NOTHING;
 
 -- name: ListPreferencesAtScope :many
 -- A person's preferences at one scope: a file's sync offset, say.
@@ -14,31 +21,15 @@ FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis;
 
--- name: DeletePreference :exec
-DELETE FROM preference
-WHERE user_id = sqlc.arg(user_id) AND scope = sqlc.arg(scope) AND scope_id = sqlc.arg(scope_id) AND axis = sqlc.arg(axis);
-
--- name: GetTitleOfFile :one
--- The title a live file is a version of.
-SELECT version.title_id
+-- name: GetWorkOfFile :one
+-- The work a live file is of (D230): the series its title is an episode of, or the title itself,
+-- a film or an episode in no series, as the item that names it.
+SELECT CAST(coalesce((
+  SELECT collection_member.collection_id FROM collection_member
+  JOIN collection ON collection.id = collection_member.collection_id AND collection.kind = 'series'
+  WHERE collection_member.member_title = version.title_id
+  ORDER BY collection_member.collection_id LIMIT 1
+), version.title_id) AS INTEGER) AS work_id
 FROM file
 JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
 WHERE file.id = sqlc.arg(file_id) AND file.removed_at IS NULL;
-
--- name: ListFilesOfWork :many
--- The live files of a work, for carrying a choice across it (D219): of the title, or when the
--- title is an episode in a series, of every episode of that series.
--- It starts from the work's titles, so it reads their versions and files by index, never every
--- file (sql.md section 11).
-SELECT DISTINCT file.id
-FROM version
-JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
-WHERE version.removed_at IS NULL AND version.title_id IN (
-  SELECT CAST(sqlc.arg(title_id) AS INTEGER) AS member_title
-  UNION
-  SELECT sibling.member_title FROM collection_member AS own
-  JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
-  JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
-  WHERE own.member_title = sqlc.arg(title_id)
-)
-ORDER BY file.id;

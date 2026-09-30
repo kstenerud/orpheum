@@ -160,7 +160,7 @@ func TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem(t *testing
 		t.Errorf("a person who is not an admin was offered %+v, want both candidates", offered)
 	}
 	fetchedID := fetchGerman(t, harness, guest)
-	if choice := harness.choiceIn(t, guest, 2); choice != fmt.Sprintf("fetched %d carried=false", fetchedID) {
+	if choice := harness.startIn(t, guest, 2).subtitle; choice != fmt.Sprintf("fetched %d", fetchedID) {
 		t.Errorf("the guest's choice is %s, want the subtitle the guest fetched", choice)
 	}
 }
@@ -221,7 +221,7 @@ func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testin
 
 	// The next playback offers it, chosen, and has it converted.
 	track := offeredFetched(t, harness.play(t, user, chrome(2)), fetchedID)
-	if choice := harness.choiceIn(t, user, 2); choice != fmt.Sprintf("fetched %d carried=false", fetchedID) {
+	if choice := harness.startIn(t, user, 2).subtitle; choice != fmt.Sprintf("fetched %d", fetchedID) {
 		t.Errorf("the file's choice is %s, want the fetched track (D224 §4)", choice)
 	}
 	convertFetched(t, harness, fetchedID)
@@ -257,7 +257,7 @@ func TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen(t *testing.T
 	if err != nil || len(kept) != 0 {
 		t.Errorf("kept %+v, %v after an unreadable fetch; want nothing kept", kept, err)
 	}
-	if choice := harness.choiceIn(t, user, 2); choice != "none" {
+	if choice := harness.startIn(t, user, 2).subtitle; choice != "none" {
 		t.Errorf("the choice after an unreadable fetch is %s, want none", choice)
 	}
 

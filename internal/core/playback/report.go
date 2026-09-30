@@ -123,10 +123,16 @@ func (service *Service) keepReport(
 				return err
 			}
 		}
-		return queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
+		err := queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
 			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.ReportSeq,
 			DeviceID: log.deviceID, UpdatedAt: nowMs, PositionReadAt: watchedAt,
 		})
+		if err != nil {
+			return err
+		}
+		// A reported playback has started its file, which plays again with what it used (D230 §2).
+		return service.preferences.KeepUsed(ctx, queries, userID, playback.fileID, playback.used.subtitle,
+			playback.used.audio)
 	})
 }
 

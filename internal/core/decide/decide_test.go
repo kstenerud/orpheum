@@ -230,6 +230,30 @@ func TestDecide_APersonsChoiceWins(t *testing.T) {
 	}
 }
 
+// A chosen audio track that is not the one the original starts with is prepared, since a browser
+// plays the original's first, and it is the chosen track whose codec is asked (D230 §5).
+func TestDecide_AChosenAudioTrackOtherThanTheFirstIsPreparedAndItsCodecAsked(t *testing.T) {
+	t.Parallel()
+	english, french := audioStream("aac", "LC", 2, "default"), audioStream("aac", "LC", 2)
+	english.StreamIndex, french.StreamIndex = 1, 2
+	picture := videoStream("h264", "High", "yuv420p", "")
+	two := probeOf("mp4", picture, english, french)
+	first := decide.Decide(decide.Input{Probe: two, PlayableFormats: browser, AudioStreamIndex: new(1)})
+	if got := first; got.Delivery != decide.Direct {
+		t.Errorf("the first track chosen: %+v, want direct", got)
+	}
+	got := decide.Decide(decide.Input{Probe: two, PlayableFormats: browser, AudioStreamIndex: new(2)})
+	if got.Profile != decide.Remux || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonAudioTrack}) {
+		t.Errorf("the second track chosen: %+v, want remux for audio_track", got)
+	}
+	french.Codec = "truehd"
+	two = probeOf("mp4", picture, english, french)
+	got = decide.Decide(decide.Input{Probe: two, PlayableFormats: browser, AudioStreamIndex: new(2)})
+	if !slices.Contains(got.NotDirectReasons, decide.ReasonAudioCodec) {
+		t.Errorf("a chosen track the browser cannot decode: %+v, want audio_codec among the reasons", got)
+	}
+}
+
 func TestPlayableFormats_RefusesAListWithoutTheBaselinesOrWithAnUnknownName(t *testing.T) {
 	t.Parallel()
 	if err := browser.Validate(); err != nil {

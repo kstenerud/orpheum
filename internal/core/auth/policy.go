@@ -54,7 +54,7 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 	if err != nil {
 		return 0, 0, err
 	}
-	window, err := service.settings.Duration(ctx, settings.SignInFailureWindowS)
+	window, err := service.settings.Duration(ctx, settings.SignInFailureWindowSeconds)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -63,11 +63,11 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 
 // sessionPolicy reads how long a session may go unused, and how often its use is written.
 func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, useWriteInterval time.Duration, err error) {
-	idleExpiry, err = service.settings.Duration(ctx, settings.SessionIdleExpiryH)
+	idleExpiry, err = service.settings.Duration(ctx, settings.SessionIdleExpiryHours)
 	if err != nil {
 		return 0, 0, err
 	}
-	useWriteInterval, err = service.settings.Duration(ctx, settings.SessionLastUsedWriteIntervalS)
+	useWriteInterval, err = service.settings.Duration(ctx, settings.SessionLastUsedWriteIntervalSeconds)
 	if err != nil {
 		return 0, 0, err
 	}

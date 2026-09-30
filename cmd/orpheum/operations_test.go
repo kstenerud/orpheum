@@ -138,7 +138,7 @@ func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T
 	config, path := startServerOnce(t)
 	database := filepath.Join(config.Server.DataDir, "library.db")
 	storetest.ExecRaw(t, database,
-		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'backup_age_warn_h', '24', 1)")
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('backup_age_warn_h', '24', 1)")
 	text := strings.Replace(string(readFile(t, path)),
 		"shutdown_grace_seconds = 10\n", "shutdwn_grace_seconds = 5\n", 1)
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {

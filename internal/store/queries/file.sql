@@ -183,6 +183,14 @@ JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = sqlc.arg(video_file) AND s.kind = 'subtitle'
 ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path;
 
+-- name: ListAudioTracksOfVideo :many
+-- A video's own audio tracks in the order of their stream indexes, which is their place among
+-- them, as a prepare numbers them: what a person chooses a language from (D230).
+SELECT id, stream_index, language, container_title, disposition_flags
+FROM stream
+WHERE video_file = sqlc.arg(video_file) AND bytes_file = video_file AND kind = 'audio'
+ORDER BY stream_index;
+
 -- name: GetSubtitleStream :one
 -- A subtitle track, and the live file its bytes are in, for the job that extracts it.
 SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_raw, f.payload_hash

@@ -384,6 +384,52 @@ func (q *Queries) InsertSidecarStream(ctx context.Context, arg InsertSidecarStre
 	return err
 }
 
+const listAudioTracksOfVideo = `-- name: ListAudioTracksOfVideo :many
+SELECT id, stream_index, language, container_title, disposition_flags
+FROM stream
+WHERE video_file = ?1 AND bytes_file = video_file AND kind = 'audio'
+ORDER BY stream_index
+`
+
+type ListAudioTracksOfVideoRow struct {
+	ID               int64
+	StreamIndex      *int64
+	Language         *string
+	ContainerTitle   *string
+	DispositionFlags int64
+}
+
+// A video's own audio tracks in the order of their stream indexes, which is their place among
+// them, as a prepare numbers them: what a person chooses a language from (D230).
+func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) ([]ListAudioTracksOfVideoRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAudioTracksOfVideo, videoFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAudioTracksOfVideoRow{}
+	for rows.Next() {
+		var i ListAudioTracksOfVideoRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StreamIndex,
+			&i.Language,
+			&i.ContainerTitle,
+			&i.DispositionFlags,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibraryRootsOnNode = `-- name: ListLibraryRootsOnNode :many
 SELECT root_path
 FROM library_root

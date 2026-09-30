@@ -55,21 +55,13 @@ func (server *Server) registerSettings() {
 		OperationID: "putSettings", Method: http.MethodPut, Path: "/settings",
 		Summary: "Change server settings the settings page shows, all or none (admin)", Tags: tags,
 	}, server.putSettings)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getMySettings", Method: http.MethodGet, Path: "/me/settings",
-		Summary: "This user's own settings", Tags: tags,
-	}, server.getMySettings)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "putMySettings", Method: http.MethodPut, Path: "/me/settings",
-		Summary: "Change this user's own settings, all or none", Tags: tags,
-	}, server.putMySettings)
 	server.registerConfig()
 }
 
 func (server *Server) listSettings(
-	ctx context.Context, service *settings.Service, ownerUserID *int64, isExposedOnly bool,
+	ctx context.Context, service *settings.Service, isExposedOnly bool,
 ) (*SettingsOutput, error) {
-	entries, err := service.List(ctx, ownerUserID, isExposedOnly)
+	entries, err := service.List(ctx, isExposedOnly)
 	if err != nil {
 		return nil, server.settingsError(ctx, "list settings", err)
 	}
@@ -89,8 +81,8 @@ func (server *Server) settingsError(ctx context.Context, action string, err erro
 	switch {
 	case errors.Is(err, settings.ErrNoServerSetting):
 		return newError(http.StatusNotFound, CodeNotFound, "no such server setting")
-	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrWrongScope),
-		errors.Is(err, settings.ErrInvalidValue), errors.Is(err, settings.ErrNotExposed):
+	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrInvalidValue),
+		errors.Is(err, settings.ErrNotExposed):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
 	case errors.Is(err, settings.ErrInUse):
 		return newError(http.StatusConflict, CodeConflict,
@@ -114,14 +106,13 @@ func settingBody(entry settings.Entry) SettingBody {
 }
 
 func (server *Server) writeSettings(
-	ctx context.Context, service *settings.Service, ownerUserID *int64, values map[string]json.RawMessage,
-	setByUserID int64,
+	ctx context.Context, service *settings.Service, values map[string]json.RawMessage, setByUserID int64,
 	isExposedOnly bool,
 ) (*SettingsOutput, error) {
-	if err := service.Set(ctx, ownerUserID, values, &setByUserID, isExposedOnly); err != nil {
+	if err := service.Set(ctx, values, &setByUserID, isExposedOnly); err != nil {
 		return nil, server.settingsError(ctx, "set settings", err)
 	}
-	return server.listSettings(ctx, service, ownerUserID, isExposedOnly)
+	return server.listSettings(ctx, service, isExposedOnly)
 }
 
 // getSettings answers GET /settings: the server settings the settings page shows (admin).
@@ -130,7 +121,7 @@ func (server *Server) getSettings(ctx context.Context, input *AuthorizationHeade
 	if err != nil {
 		return nil, err
 	}
-	return server.listSettings(ctx, dependencies.Settings, nil, true)
+	return server.listSettings(ctx, dependencies.Settings, true)
 }
 
 // putSettings answers PUT /settings: change server settings the settings page shows, all or none (admin).
@@ -139,24 +130,5 @@ func (server *Server) putSettings(ctx context.Context, input *PutSettingsInput) 
 	if err != nil {
 		return nil, err
 	}
-	return server.writeSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, true)
-}
-
-// getMySettings answers GET /me/settings: this user's own settings.
-func (server *Server) getMySettings(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	return server.listSettings(ctx, dependencies.Settings, &principal.UserID, true)
-}
-
-// putMySettings answers PUT /me/settings: change this user's own settings, all or none.
-func (server *Server) putMySettings(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	return server.writeSettings(ctx, dependencies.Settings, &principal.UserID, input.Body.ValuesByKey,
-		principal.UserID, true)
+	return server.writeSettings(ctx, dependencies.Settings, input.Body.ValuesByKey, principal.UserID, true)
 }

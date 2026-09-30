@@ -6,17 +6,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
+// episodeProbe is an episode's stored probe: a picture, and English and French sound, the English
+// marked default.
+const episodeProbe = `'{"format":{"formatNames":["matroska"]},"streams":[` +
+	`{"streamIndex":0,"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
+	`{"streamIndex":1,"kind":"audio","codec":"aac","language":"en","disposition":["default"],` +
+	`"audio":{"channelCount":2}},` +
+	`{"streamIndex":4,"kind":"audio","codec":"aac","language":"fr","audio":{"channelCount":2}}]}'`
+
 // shelveEpisodes adds two more episodes to shelve's series: the pilot (file 2) has English and
-// Spanish subtitles, episode 2 (file 5) English and French, episode 3 (file 6) French only.
+// Spanish subtitles, episode 2 (file 5) English and French, episode 3 (file 6) French only. Each
+// has English sound, its default, and French.
 func (harness testHarness) shelveEpisodes(t *testing.T) {
 	t.Helper()
-	const probe = `'{"format":{"formatNames":["matroska"]},"streams":[{"streamIndex":0,"kind":"video","codec":"h264",` +
-		`"codecProfile":"High","video":{"pixelFormat":"yuv420p"}}]}'`
 	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 3), (23, 'title', 1, 3)",
 		`INSERT INTO title (id, kind, identification_state)
@@ -27,14 +35,36 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 		 last_seen_at) VALUES
 		 (5, 1, 1, '/m/BB/S01E02.mkv', CAST('/m/BB/S01E02.mkv' AS BLOB), 10, 'listed', 5, 1, 1),
 		 (6, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, 'listed', 6, 1, 1)`,
-		"UPDATE file SET payload_hash = X'0102', probe_json = "+probe+" WHERE id IN (2, 5, 6)",
+		"UPDATE file SET payload_hash = X'0102', probe_json = "+episodeProbe+" WHERE id IN (2, 5, 6)",
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB) WHERE id = 2",
 		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)",
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
 		 (50, 2, 2, 2, 'subtitle', 'subrip', 'en'), (51, 2, 2, 3, 'subtitle', 'subrip', 'es'),
 		 (52, 5, 5, 2, 'subtitle', 'ass', 'en'), (53, 5, 5, 3, 'subtitle', 'ass', 'fr'),
-		 (54, 6, 6, 2, 'subtitle', 'subrip', 'fr')`)
+		 (54, 6, 6, 2, 'subtitle', 'subrip', 'fr')`,
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags)
+		 VALUES (80, 2, 2, 1, 'audio', 'aac', 'en', 1), (81, 2, 2, 4, 'audio', 'aac', 'fr', 0),
+		 (82, 5, 5, 1, 'audio', 'aac', 'en', 1), (83, 5, 5, 4, 'audio', 'aac', 'fr', 0),
+		 (84, 6, 6, 1, 'audio', 'aac', 'en', 1), (85, 6, 6, 4, 'audio', 'aac', 'fr', 0)`)
+}
+
+// addEpisode adds an episode to shelve's series after the others, as a scan that finds it later
+// does: its title, its file, and the file's tracks.
+func (harness testHarness) addEpisode(t *testing.T, titleID, fileID int64, tracks string) {
+	t.Helper()
+	storetest.ExecRaw(t, harness.databasePath,
+		fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 4)", titleID),
+		fmt.Sprintf("INSERT INTO title (id, kind, identification_state) VALUES (%d, 'episode', 'identified')", titleID),
+		fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 4)", fileID, titleID),
+		fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, filing, version_id,
+		 first_seen_at, last_seen_at, payload_hash, probe_json)
+		 VALUES (%d, 1, 1, '/m/BB/E%d.mkv', CAST('/m/BB/E%d.mkv' AS BLOB), 10, 'listed', %d, 4, 4, X'0102', %s)`,
+			fileID, fileID, fileID, fileID, episodeProbe),
+		fmt.Sprintf("INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, %d, %d)",
+			titleID, 10000+titleID),
+		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) "+
+			"VALUES "+tracks)
 }
 
 // choose makes a subtitle choice in a file: a track, or off when streamID is 0.
@@ -48,47 +78,77 @@ func (harness testHarness) choose(t *testing.T, sessionToken string, fileID, str
 		map[string]any{"subtitleChoice": choice})
 }
 
-// choiceIn is the subtitle choice a playback of a file starts with: "none", "off", or the track
-// and whether it was carried.
-func (harness testHarness) choiceIn(t *testing.T, sessionToken string, fileID int64) string {
+// chooseAudio chooses an audio track in a file.
+func (harness testHarness) chooseAudio(t *testing.T, sessionToken string, fileID, streamID int64) response {
+	t.Helper()
+	return harness.do(t, http.MethodPut, fmt.Sprintf("/files/%d/preferences", fileID), sessionToken,
+		map[string]any{"audioChoice": map[string]any{"streamId": streamID}})
+}
+
+// started is what a playback of a file starts with: its subtitle track, "none" or the stream, and
+// its audio track, with the decision's media token and reasons.
+type started struct {
+	subtitle   string
+	audio      int64
+	mediaToken string
+	reasons    []string
+	answer     decision
+}
+
+// startIn starts a playback of a file.
+func (harness testHarness) startIn(t *testing.T, sessionToken string, fileID int64) started {
 	t.Helper()
 	answer := harness.do(t, http.MethodPost, "/playback", sessionToken, chrome(fileID))
 	var decided struct {
-		Preferences PlaybackPreferencesBody `json:"preferences"`
+		decision
+		StartingAudioStreamID int64                   `json:"startingAudioStreamId"`
+		Preferences           PlaybackPreferencesBody `json:"preferences"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &decided); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /playback of file %d = %d %s", fileID, answer.status, answer.body)
 	}
-	choice := decided.Preferences.SubtitleChoice
-	switch {
-	case choice == nil:
-		return "none"
-	case choice.IsOff:
-		return fmt.Sprintf("off carried=%v", choice.IsCarriedFromWork)
+	result := started{
+		subtitle: "none", audio: decided.StartingAudioStreamID, mediaToken: decided.MediaToken,
+		reasons: decided.NotDirectReasons, answer: decided.decision,
 	}
-	if choice.FetchedSubtitleID != 0 {
-		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedSubtitleID, choice.IsCarriedFromWork)
+	if choice := decided.Preferences.SubtitleChoice; choice != nil {
+		switch {
+		case choice.IsOff:
+			t.Errorf("file %d starts with subtitles off as a track; want no track", fileID)
+		case choice.FetchedSubtitleID != 0:
+			result.subtitle = fmt.Sprintf("fetched %d", choice.FetchedSubtitleID)
+		default:
+			result.subtitle = fmt.Sprint(choice.StreamID)
+		}
 	}
-	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarriedFromWork)
+	return result
 }
 
-// A choice is read from the axis subtitle_choice (D227): a row written straight to the store,
-// not through the API, is the one a playback starts with.
-func TestSubtitleChoice_IsReadFromTheSubtitleChoiceAxis(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	user := harness.createAdminAndSignIn(t)
-	harness.shelve(t)
-	harness.shelveEpisodes(t)
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
-		VALUES (1, 'file', 2, 'subtitle_choice', '{"isOff":true}', 1)`)
-	if got := harness.choiceIn(t, user, 2); got != "off carried=false" {
-		t.Errorf("a choice stored as subtitle_choice: file 2 starts with %q, want it off", got)
+// watch starts a playback of a file and reports it playing: the file is started (D230 §2).
+func (harness testHarness) watch(t *testing.T, sessionToken string, fileID int64) {
+	t.Helper()
+	playing := harness.startIn(t, sessionToken, fileID)
+	if answer := harness.report(t, sessionToken, playing.answer, reportBody(1, 5000, 10)); answer.status !=
+		http.StatusNoContent {
+		t.Fatalf("reporting file %d playing: %d %s", fileID, answer.status, answer.body)
 	}
 }
 
-func TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn(t *testing.T) {
+// subtitlesIn are the subtitle tracks playbacks of files start with, by file.
+func (harness testHarness) subtitlesIn(t *testing.T, sessionToken string, fileIDs ...int64) map[int64]string {
+	t.Helper()
+	found := map[int64]string{}
+	for _, fileID := range fileIDs {
+		found[fileID] = harness.startIn(t, sessionToken, fileID).subtitle
+	}
+	return found
+}
+
+// The owner's scenario (D230 §1): English chosen in the first episode plays in every unwatched one
+// that has it, episodes added later and a file whose tracks changed included; French chosen later
+// in another makes the unwatched ones French; an episode already started plays again with what it
+// used.
+func TestSubtitleChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -97,33 +157,63 @@ func TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOw
 	check := func(when string, want map[int64]string) {
 		t.Helper()
 		for fileID, wanted := range want {
-			if got := harness.choiceIn(t, user, fileID); got != wanted {
+			if got := harness.subtitlesIn(t, user, fileID)[fileID]; got != wanted {
 				t.Errorf("%s, file %d starts with %q, want %q", when, fileID, got, wanted)
 			}
 		}
 	}
+	check("before any choice", map[int64]string{2: "none", 5: "none"}) // subtitles start off (D223 §3)
 	if answer := harness.choose(t, user, 2, 50); answer.status != http.StatusNoContent {
 		t.Fatalf("choosing English in the pilot: %d %s", answer.status, answer.body)
 	}
-	check("after English in the pilot", map[int64]string{
-		2: "50 carried=false", 5: "52 carried=true", 6: "none", // episode 3 has no English: no choice
+	// Episode 3 has no English, so it plays without subtitles: a fallback is not a choice (D24).
+	check("after English in the pilot", map[int64]string{2: "50", 5: "52", 6: "none"})
+	harness.watch(t, user, 5) // episode 2 is started with English
+	// Episode 4 arrives after the choice, and episode 3's file gains an English track.
+	harness.addEpisode(t, 24, 7,
+		"(55, 7, 7, 2, 'subtitle', 'subrip', 'en', 0), (56, 7, 7, 3, 'subtitle', 'subrip', 'fr', 0)")
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) "+
+			"VALUES (57, 6, 6, 3, 'subtitle', 'subrip', 'en')")
+	check("after episode 4 came and episode 3 gained English", map[int64]string{7: "55", 6: "57"})
+	if answer := harness.choose(t, user, 6, 54); answer.status != http.StatusNoContent {
+		t.Fatalf("choosing French in episode 3: %d %s", answer.status, answer.body)
+	}
+	check("after French in episode 3", map[int64]string{
+		6: "54", 7: "56", // chosen there, and unwatched
+		5: "52", // started with English, so it plays again with English
+		2: "50", // chosen there
 	})
-	harness.choose(t, user, 6, 54) // French in episode 3: its own
-	harness.choose(t, user, 2, 51) // Spanish in the pilot
-	check("after Spanish in the pilot", map[int64]string{
-		2: "51 carried=false", 5: "none", 6: "54 carried=false", // no Spanish in 2; 3's own French stands
-	})
-	harness.choose(t, user, 5, 0) // off in episode 2: its own
-	harness.choose(t, user, 2, 50)
-	check("after English again", map[int64]string{5: "off carried=false", 6: "54 carried=false"})
-	harness.choose(t, user, 6, 0)
-	harness.choose(t, user, 2, 0) // off in the pilot carries as off, but not over the others' own
-	check("after off in the pilot", map[int64]string{2: "off carried=false", 5: "off carried=false"})
+	harness.choose(t, user, 2, 0) // off in the pilot follows as off
+	check("after off in the pilot", map[int64]string{2: "none", 7: "none", 6: "54", 5: "52"})
 	if answer := harness.choose(t, user, 2, 52); answer.status != http.StatusBadRequest {
 		t.Errorf("choosing another file's track: %d, want 400", answer.status)
 	}
 }
 
+// A language, not a track (D230 §3): of the tracks in the chosen language, the one of the same
+// kind is taken, then the one of the same title.
+func TestSubtitleChoice_AnUnwatchedEpisodeTakesTheSameKindThenTheSameTitle(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE stream SET container_title = 'Full', disposition_flags = 128 WHERE id = 50`) // for the deaf
+	harness.addEpisode(t, 24, 7, `(60, 7, 7, 2, 'subtitle', 'subrip', 'en', 64), (61, 7, 7, 3, 'subtitle',
+		'subrip', 'en', 0), (62, 7, 7, 4, 'subtitle', 'subrip', 'en', 128), (63, 7, 7, 5, 'subtitle', 'subrip',
+		'en', 128)`)
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE stream SET container_title = 'Full' WHERE id = 63")
+	harness.choose(t, user, 2, 50)
+	if got := harness.subtitlesIn(t, user, 7)[7]; got != "63" {
+		t.Errorf("English for the deaf titled Full, chosen: episode 4 starts with %s, want 63, of that kind and title",
+			got)
+	}
+}
+
+// A started file's track is found again by what it is when a rescan writes its streams anew, and
+// one whose track went follows the work again.
 func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -135,18 +225,71 @@ func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing
 	}
 	// A rescan writes the file's streams again under new ids; the French track is still there.
 	storetest.ExecRaw(t, harness.databasePath,
-		"DELETE FROM stream WHERE bytes_file = 5",
+		"DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'",
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
 		 (62, 5, 5, 2, 'subtitle', 'ass', 'en'), (63, 5, 5, 3, 'subtitle', 'ass', 'fr')`)
-	if got := harness.choiceIn(t, session, 5); got != "63 carried=false" {
+	if got := harness.subtitlesIn(t, session, 5)[5]; got != "63" {
 		t.Errorf("after the rescan: %s, want the French track under its new id", got)
 	}
-	// Episode 3 had French carried to it; its French track goes, and English comes.
+	harness.choose(t, session, 2, 50) // English in the pilot is the work's language now
 	storetest.ExecRaw(t, harness.databasePath,
-		"DELETE FROM stream WHERE bytes_file = 6",
+		"DELETE FROM stream WHERE bytes_file = 5 AND kind = 'subtitle'",
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language)
-		 VALUES (64, 6, 6, 2, 'subtitle', 'subrip', 'en')`)
-	if got := harness.choiceIn(t, session, 6); got != "none" {
-		t.Errorf("episode 3 without French: %s, want no choice rather than a track that is gone", got)
+		 VALUES (64, 5, 5, 2, 'subtitle', 'ass', 'en')`)
+	if got := harness.subtitlesIn(t, session, 5)[5]; got != "64" {
+		t.Errorf("episode 2 without its French: %s, want the work's English rather than a track that is gone", got)
+	}
+}
+
+// What is kept is read from the axes D230 names: a work's subtitle_language, as a language, kind
+// and containerTitle, and a file's subtitle_used, a track and what it is.
+func TestSubtitleChoice_IsReadFromTheWorksLanguageAndTheFilesUsedTrack(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"UPDATE stream SET container_title = 'Signs' WHERE id = 53",
+		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at) VALUES
+		 (1, 'work', 20, 'subtitle_language', '{"language":"fr","kind":"plain","containerTitle":"Signs"}', 1),
+		 (1, 'file', 2, 'subtitle_used', '{"streamId":99,"track":{"language":"es","kind":"plain"}}', 1)`)
+	if got := harness.subtitlesIn(t, user, 2, 5); got[5] != "53" || got[2] != "51" {
+		t.Errorf("stored as subtitle_language and subtitle_used: files start with %v, want 5 French (53) "+
+			"and 2 its used Spanish found again (51)", got)
+	}
+}
+
+// Audio follows by the same rule (D230 §5): the language chosen in one episode is the one an
+// unwatched episode starts with, which a browser plays only prepared, and a started one plays again
+// with what it used.
+func TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	if got := harness.startIn(t, user, 5); got.audio != 82 || slices.Contains(got.reasons, "audio_track") {
+		t.Errorf("before any choice, episode 2 starts with audio %d (%v), want its default English, 82", got.audio,
+			got.reasons)
+	}
+	harness.watch(t, user, 6) // episode 3 is started, with its default English
+	if answer := harness.chooseAudio(t, user, 2, 81); answer.status != http.StatusNoContent {
+		t.Fatalf("choosing French sound in the pilot: %d %s", answer.status, answer.body)
+	}
+	unwatched := harness.startIn(t, user, 5)
+	if unwatched.audio != 83 || !slices.Contains(unwatched.reasons, "audio_track") {
+		t.Errorf("after French in the pilot, episode 2 starts with audio %d (%v), want French, 83, prepared "+
+			"because it is not the track the original starts with", unwatched.audio, unwatched.reasons)
+	}
+	harness.addEpisode(t, 24, 7, "(90, 7, 7, 1, 'audio', 'aac', 'en', 1), (91, 7, 7, 4, 'audio', 'aac', 'fr', 0)")
+	if got := harness.startIn(t, user, 7).audio; got != 91 {
+		t.Errorf("an episode added after the choice starts with audio %d, want its French, 91", got)
+	}
+	if got := harness.startIn(t, user, 6).audio; got != 84 {
+		t.Errorf("episode 3, started with English, starts again with audio %d, want its English, 84", got)
+	}
+	if answer := harness.chooseAudio(t, user, 2, 84); answer.status != http.StatusBadRequest {
+		t.Errorf("choosing another file's audio track: %d, want 400", answer.status)
 	}
 }

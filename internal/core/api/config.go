@@ -54,8 +54,6 @@ type SettingOutput struct {
 // UnusedBody is a setting row this release does not read (D202).
 type UnusedBody struct {
 	Key           string          `json:"key"`
-	Scope         string          `enum:"server,user" json:"scope"`
-	UserID        *int64          `json:"userId,omitempty"`
 	Value         json.RawMessage `json:"value"`
 	RetiredIn     string          `doc:"The release that stopped reading it; empty for a typo" json:"retiredIn,omitempty"` //nolint:lll // one struct tag
 	RetiredReason string          `json:"retiredReason,omitempty"`
@@ -68,11 +66,10 @@ type UnusedOutput struct {
 	}
 }
 
-// DeleteUnusedInput names one unused row; UserID names a user's row, and 0 or absent a server one.
+// DeleteUnusedInput names one unused row.
 type DeleteUnusedInput struct {
 	AuthorizationHeader
-	Key    string `path:"key"`
-	UserID int64  `doc:"The user whose row it is; 0 or absent for a server row" query:"userId"`
+	Key string `path:"key"`
 }
 
 // registerConfig is the raw view of every server setting, as Firefox's about:config is (D200).
@@ -112,7 +109,7 @@ func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*C
 	if err != nil {
 		return nil, err
 	}
-	listed, err := server.listSettings(ctx, dependencies.Settings, nil, false)
+	listed, err := server.listSettings(ctx, dependencies.Settings, false)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +129,7 @@ func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*
 	if err != nil {
 		return nil, err
 	}
-	return server.writeSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, false)
+	return server.writeSettings(ctx, dependencies.Settings, input.Body.ValuesByKey, principal.UserID, false)
 }
 
 func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (*SettingOutput, error) {
@@ -144,7 +141,7 @@ func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (
 	if err != nil {
 		return nil, server.settingsError(ctx, "reset a setting", err)
 	}
-	listed, err := server.listSettings(ctx, dependencies.Settings, nil, false)
+	listed, err := server.listSettings(ctx, dependencies.Settings, false)
 	if err != nil {
 		return nil, err
 	}
@@ -168,9 +165,7 @@ func (server *Server) getUnusedConfig(ctx context.Context, input *AuthorizationH
 	output := &UnusedOutput{}
 	output.Body.UnusedSettings = []UnusedBody{}
 	for _, row := range unused {
-		body := UnusedBody{
-			Key: row.Key, Scope: string(row.Scope), UserID: row.UserID, Value: json.RawMessage(row.ValueJSON),
-		}
+		body := UnusedBody{Key: row.Key, Value: json.RawMessage(row.ValueJSON)}
 		if row.Retired != nil {
 			body.RetiredIn, body.RetiredReason = row.Retired.Release, row.Retired.Reason
 		}
@@ -184,11 +179,7 @@ func (server *Server) deleteUnusedConfig(ctx context.Context, input *DeleteUnuse
 	if err != nil {
 		return nil, err
 	}
-	var ownerUserID *int64
-	if input.UserID != 0 {
-		ownerUserID = &input.UserID
-	}
-	err = dependencies.Settings.DeleteUnused(ctx, input.Key, ownerUserID)
+	err = dependencies.Settings.DeleteUnused(ctx, input.Key)
 	if err != nil {
 		return nil, server.settingsError(ctx, "delete an unused setting", err)
 	}

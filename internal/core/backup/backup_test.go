@@ -76,7 +76,7 @@ func (server server) populate(t *testing.T) {
 	storetest.InsertUser(t, server.database, "owner", "admin")
 	now := clocktest.NewFake(testTime)
 	seeded := settingstest.Seeded(t, server.database)
-	err := seeded.Set(ctx, nil, map[string]json.RawMessage{"should_check_for_updates": json.RawMessage("false")}, nil,
+	err := seeded.Set(ctx, map[string]json.RawMessage{"should_check_for_updates": json.RawMessage("false")}, nil,
 		true)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	}
 	restoredSettings := settings.NewService(restored, clocktest.NewFake(testTime),
 		slog.New(slog.NewTextHandler(t.Output(), nil)))
-	entries, err := restoredSettings.List(t.Context(), nil, false)
+	entries, err := restoredSettings.List(t.Context(), false)
 	if err != nil {
 		t.Fatal(err)
 	}

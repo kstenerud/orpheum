@@ -44,7 +44,10 @@ const (
 	ReasonVideoCodec    Reason = "video_codec"
 	ReasonBandwidth     Reason = "bandwidth"
 	ReasonDialogueBoost Reason = "dialogue_boost"
-	ReasonUserChoice    Reason = "user_choice"
+	// ReasonAudioTrack is an audio track a person chose that is not the one the original starts with:
+	// a browser plays the original's first, and a prepared copy carries every track (D217 §3, D230).
+	ReasonAudioTrack Reason = "audio_track"
+	ReasonUserChoice Reason = "user_choice"
 )
 
 // Network is where the client is: on the house's network, or outside it.
@@ -72,6 +75,9 @@ type Input struct {
 	// speakers or headphones. A sound of more than two channels is then always prepared, so the
 	// dialogue boost can act and be switched mid-film (D222).
 	IsStereoOutput bool
+	// AudioStreamIndex is the stream index of the audio track a person chose (D230), or nil for the
+	// one a player starts with, MainAudio.
+	AudioStreamIndex *int
 }
 
 // Decision is the answer: how the file plays and why, and the recipe when it is prepared.
@@ -79,7 +85,7 @@ type Decision struct {
 	Delivery Delivery
 	Profile  Profile // empty for Direct
 	// NotDirectReasons lists every axis that stopped direct play: container, video, audio, bandwidth,
-	// boost, then a person's choice.
+	// boost, the chosen audio track, then a person's choice.
 	NotDirectReasons []Reason
 }
 
@@ -96,8 +102,12 @@ func Decide(input Input) Decision {
 		reasons = append(reasons, ReasonBandwidth)
 	}
 	// The boost changes nothing on a source with no centre channel to raise.
-	if audio, hasAudio := MainAudio(input.Probe); input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
+	audio, hasAudio := playedAudio(input)
+	if input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
+	}
+	if main, hasMain := MainAudio(input.Probe); hasAudio && hasMain && audio.StreamIndex != main.StreamIndex {
+		reasons = append(reasons, ReasonAudioTrack)
 	}
 	if input.PreferredDelivery == HLS {
 		reasons = append(reasons, ReasonUserChoice)
@@ -113,7 +123,7 @@ func Decide(input Input) Decision {
 }
 
 // axisReasons asks the playable formats' three axes of the original: its container, its picture and the
-// track a player starts with. It also says whether the picture can be copied as it is.
+// audio track that plays. It also says whether the picture can be copied as it is.
 func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	container, found := ContainerOf(input.Probe.Format)
 	if !found || !slices.Contains(input.PlayableFormats.Containers, container) {
@@ -127,11 +137,24 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
-	if audio, present := MainAudio(input.Probe); present {
+	if audio, present := playedAudio(input); present {
 		name, placed := audioEntry(audio)
 		if !placed || !slices.Contains(input.PlayableFormats.AudioCodecs, name) {
 			reasons = append(reasons, ReasonAudioCodec)
 		}
 	}
 	return reasons, videoFits
+}
+
+// playedAudio is the audio track that plays: the one a person chose, when the file has it, or the
+// one a player starts with.
+func playedAudio(input Input) (nodeproto.ProbeStream, bool) {
+	if input.AudioStreamIndex != nil {
+		for _, stream := range input.Probe.Streams {
+			if stream.Kind == "audio" && stream.StreamIndex == *input.AudioStreamIndex {
+				return stream, true
+			}
+		}
+	}
+	return MainAudio(input.Probe)
 }

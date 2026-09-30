@@ -179,7 +179,7 @@ func checkDatabase(
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
 	}
 	findings = append(findings, unusedFindings(ctx, settingsService)...)
-	backupAgeWarning, err := settingsService.Duration(ctx, settings.BackupAgeWarningH)
+	backupAgeWarning, err := settingsService.Duration(ctx, settings.BackupAgeWarningHours)
 	if err != nil {
 		findings = append(findings, finding{
 			verdictWarning, "the settings cannot be read: " + err.Error(),
@@ -252,7 +252,7 @@ func checkBackups(directories *datadir.Directories, now time.Time, oldBackupAge 
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
 			if oldBackupAge == nil {
 				return finding{verdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
-					"backup_age_warning_h setting", file.Name, age), ""}
+					"backup_age_warning_hours setting", file.Name, age), ""}
 			}
 			if age > *oldBackupAge {
 				return finding{

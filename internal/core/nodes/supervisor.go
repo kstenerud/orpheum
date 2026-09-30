@@ -30,8 +30,8 @@ type Liveness interface {
 }
 
 // Supervisor keeps the co-located node running (cut-a §2, D43, D44): it starts the child, says
-// when it has gone silent (node_silent_after_s), restarts it when silence lasts
-// (node_restart_after_silent_s), and starts it again after node_restart_after_exit_s when it exits, so a
+// when it has gone silent (node_silent_after_seconds), restarts it when silence lasts
+// (node_restart_after_silent_seconds), and starts it again after node_restart_after_exit_seconds when it exits, so a
 // crashing node cannot spin. It never exits because the node did: it reports.
 type Supervisor struct {
 	startNode Starter
@@ -149,9 +149,9 @@ func (supervisor *Supervisor) readLivenessLimits(ctx context.Context) (livenessL
 		key   settings.Key
 		limit *time.Duration
 	}{
-		{settings.NodeSilentAfterS, &limits.silentAfter},
-		{settings.NodeRestartAfterSilentS, &limits.restartAfterSilence},
-		{settings.NodeRestartAfterExitS, &limits.restartAfterExit},
+		{settings.NodeSilentAfterSeconds, &limits.silentAfter},
+		{settings.NodeRestartAfterSilentSeconds, &limits.restartAfterSilence},
+		{settings.NodeRestartAfterExitSeconds, &limits.restartAfterExit},
 	} {
 		value, err := supervisor.settings.Duration(ctx, read.key)
 		*read.limit = value

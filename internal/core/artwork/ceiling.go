@@ -188,9 +188,9 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, err
 	}
-	grace, err := service.parts.Settings.Duration(ctx, settings.RemovedItemArtworkKeptD)
+	grace, err := service.parts.Settings.Duration(ctx, settings.RemovedItemArtworkKeptDays)
 	if err != nil {
-		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_d: %w", err)
+		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_days: %w", err)
 	}
 	rows, err := service.parts.Database.Read().ListArtworkSourceSha256s(ctx)
 	if err != nil {

@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0026_baseline.sql`, and the one step after it, `0027_names_say_what_they_hold.sql`;
+> baseline, `0027_baseline.sql`, and the one step after it, `0028_choices_follow_the_work.sql`;
 > the notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0026 are folded into the baseline and survive only in
+> added or renamed a column. Steps 0001 to 0027 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -628,17 +628,15 @@ device will be listed under (ten minutes). Both are single use, and like every g
 stored only as a hash.
 
 ```sql
-CREATE TABLE setting (                                     -- class A
-  scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
-  user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL for 'server'
-  key         TEXT NOT NULL,             -- a name from the settings registry in code
+CREATE TABLE setting (                                     -- class A: the server's (D200)
+  key         TEXT NOT NULL PRIMARY KEY, -- a name from the settings registry in code; 0028: its unit spelled out
   value_json       TEXT NOT NULL,             -- JSON
   set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
   set_at      INTEGER NOT NULL,
-  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),  -- a person set it (D201)
-  CHECK ((scope = 'server') = (user_id IS NULL))
+  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1))  -- a person set it (D201)
 );
-CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
+-- 0028 dropped scope and user_id: no setting is a person's. A person's choices are preferences
+-- (the architecture map's F6), and a user scope nothing defined was removed with its endpoints.
 ```
 
 **Everything changeable at runtime lives here** ([D181](../../decisions/working-notes.md),
@@ -649,7 +647,7 @@ row** ([D200](../../decisions/working-notes.md)): the server writes each missing
 value at start, reads only rows, and treats a missing row as an error that names the key and its
 starting value. Migration 0002 adds `is_modified INTEGER NOT NULL DEFAULT 0` ([D201](../../decisions/working-notes.md)):
 a person's set marks it, "set to default" clears it, and an unmarked row follows its starting value
-when a release changes it. Per-item preferences stay in their own table.
+when a release changes it. A person's choices are not settings: they are preferences, below.
 
 ```sql
 CREATE TABLE secret (                                      -- class A, sealed (D194)
@@ -741,13 +739,15 @@ CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
-CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103)
+CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  scope       TEXT NOT NULL CHECK (scope IN ('user','library','series','device','file')),
-  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
-  axis        TEXT NOT NULL,               -- 'subtitle_offset_ms', 'subtitle_choice' (a file's);
-                                           -- 'dialogue_boost', 'levelling' (a person's own)
-  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset ≠ false
+  scope       TEXT NOT NULL CHECK (scope IN ('user','library','work','device','file')),  -- 0028: 'work' for 'series'
+  scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; a work's is its series' or its title's item
+  axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'subtitle_used',
+                                           -- 'audio_used'; a work's 'subtitle_language',
+                                           -- 'audio_language'; a person's own 'dialogue_boost',
+                                           -- 'levelling'
+  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset is not false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
@@ -757,8 +757,17 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
 ```
 
 **A sync offset is a preference at `file` scope**, because it is expressed in seconds of one
-file ([D173](../../decisions/working-notes.md)); a series-wide offset is the same axis at
-`series` scope, which is what D90 asked for.
+file ([D173](../../decisions/working-notes.md)); a series-wide offset would be the same axis at
+`work` scope, which is what D90 asked for.
+
+**A subtitle or audio choice is kept twice, and copied nowhere** ([D230](../../decisions/working-notes.md#d230--the-last-subtitle-and-audio-language-chosen-in-a-series-follows-its-unwatched-episodes-worked-out-at-play-time)).
+At `work` scope (a series, or a film's title, by its item id) `subtitle_language` and
+`audio_language` hold the person's last choice there: `{"language","kind","containerTitle"}`, or
+`{"isOff":true}` for subtitles. At `file` scope `subtitle_used` and `audio_used` hold what was
+last used in a started file: `{"streamId"|"fetchedSubtitleId","track":{…}}`, the track and what
+it is, or `{"isOff":true}`; a choice in the file writes it, and the first play report of a file
+with none writes what the playback started with. A file's tracks are matched when it plays: its
+own `…_used` found again, else the work's language, of the same kind, then the same title.
 
 ## No caches in `library.db` — measured
 
@@ -969,7 +978,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `play_position` | library.db | `internal/core/playback` | |
 | `play_span` | library.db | `internal/core/playback` | |
 | `position` | library.db | `internal/core/identify` | |
-| `preference` | library.db | `internal/core/playback` | |
+| `preference` | library.db | `internal/core/preferences` | |
 | `progress_hide` | library.db | `internal/core/playback` | |
 | `provider_response` | library.db | `internal/core/identify` | |
 | `role` | library.db | none yet | the baseline seeds the built-in roles |

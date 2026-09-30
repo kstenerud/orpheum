@@ -16968,6 +16968,10 @@ ones.
    number in the group that `position` keeps for any ordering, not only a series'; and the
    error body's `detail` keeps its common name. *(Since 2026-09-29, migration 0025 is folded into the baseline, whose name and version move with each fold ([D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline) §3),
    and later changes have taken cache.db to version 18. Noted 2026-09-30; the owner: "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 D).)*
+   *(Since 2026-09-30, a setting key spells out its unit too: standards/sql.md's allowance for a
+   setting key's short `_s`, `_h` and `_d` is withdrawn (the owner: "keep spelled out names"), so
+   `job_first_retry_delay_s` is `job_first_retry_delay_seconds` and so on, `_ms` staying; step
+   0028 moves the stored rows, and [retired-names.md](../retired-names.md) lists the old keys.)*
 
 **Status:** Decided; built before M3's closing audit.
 

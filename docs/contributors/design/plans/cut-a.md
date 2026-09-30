@@ -358,7 +358,7 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   -map 0:v:0 -c:v copy | -c:v h264_qsv -b:v 8M -maxrate 10M -bufsize 16M -g <2 s>
   -map 0:a:<chosen> -c:a aac -ac 2 -b:a 192k                                  # standard
   -map 0:a:<chosen> -c:a aac -b:a 192k -af "pan=stereo|FL=<centre-boost matrix>|FR=<…>"
-  -f hls -hls_segment_type fmp4 -hls_time <hls_segment_length_s: 2> -hls_playlist_type event
+  -f hls -hls_segment_type fmp4 -hls_time <hls_segment_length_seconds: 2> -hls_playlist_type event
   -master_pl_name master.m3u8 -var_stream_map "v:0,agroup:a a:0,agroup:a,default:yes a:1,agroup:a"
   <out_dir>/v%v/stream.m3u8
 ```

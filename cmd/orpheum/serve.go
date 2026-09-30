@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
@@ -165,7 +166,7 @@ func openAndWire(
 	dependencies.Playback = playback.NewService(playback.Parts{
 		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
 		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
-		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler,
+		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
 	})
 	opened.jobServices.playback = dependencies.Playback
 	opened.nodes.SetPrepareSink(dependencies.Playback)
@@ -264,6 +265,7 @@ func buildDependencies(
 	return api.Dependencies{
 		Auth: authService, Settings: settingsService,
 		Secrets: secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService), SetupCodes: codes,
+		Preferences: preferences.NewService(database, systemClock),
 	}, nil
 }
 

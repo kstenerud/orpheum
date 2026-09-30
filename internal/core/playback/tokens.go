@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -27,6 +28,15 @@ type tokenPlayback struct {
 	// lastReportSeq is the number of the last play report taken for this playback: the player
 	// numbers its reports from 1, and one sent again is taken once.
 	lastReportSeq int64
+	// used is what the playback started with, which its file keeps once a report says it is started.
+	used usedTracks
+}
+
+// usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
+// with no sound.
+type usedTracks struct {
+	subtitle preferences.Used
+	audio    *preferences.Used
 }
 
 // tokens are the playbacks in progress, in memory: a restart ends them, and the client asks for

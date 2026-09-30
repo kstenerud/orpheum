@@ -403,8 +403,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value_json = 'true', is_modified = 1 "+
-			"WHERE scope = 'server' AND key = 'should_serve_debug_pprof'")
+		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE key = 'should_serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := requestAPI(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {

@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -30,7 +31,7 @@ const (
 // file beside it, named by its stream row, with what the container or the file's name says of it;
 // or a subtitle fetched on request, named by its own row, with the provider's name for it (D224).
 type SubtitleTrack struct {
-	TrackRef
+	preferences.TrackRef
 	// Language is BCP 47, or empty when nothing named one.
 	Language string
 	// ContainerTitle is the title the container gives a track in or beside the file; empty for
@@ -43,18 +44,6 @@ type SubtitleTrack struct {
 	IsForced          bool
 	IsHearingImpaired bool
 }
-
-// TrackRef names a subtitle track: a stream of the file's, or a subtitle fetched for it. Exactly
-// one is set.
-type TrackRef struct {
-	StreamID int64 `json:"streamId,omitempty"`
-	// FetchedSubtitleID is a subtitle fetched on request; it is unverified, as every fetched one is in
-	// Cut A (D224 §4, D178 §4).
-	FetchedSubtitleID int64 `json:"fetchedSubtitleId,omitempty"`
-}
-
-// IsFetched is whether the track is a subtitle fetched on request.
-func (ref TrackRef) IsFetched() bool { return ref.FetchedSubtitleID != 0 }
 
 // SubtitleFormat is one of the two forms a subtitle is served in (cut-a §6).
 type SubtitleFormat string
@@ -133,7 +122,7 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTr
 	tracks := make([]SubtitleTrack, 0, len(rows))
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
-			TrackRef: TrackRef{FetchedSubtitleID: row.ID}, Language: row.Language,
+			TrackRef: preferences.TrackRef{FetchedSubtitleID: row.ID}, Language: row.Language,
 			ReleaseName: ptr.ValueOrZero(row.ReleaseName),
 		})
 	}
@@ -161,7 +150,7 @@ func streamTracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack
 	tracks := make([]SubtitleTrack, 0, len(rows))
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
-			TrackRef: TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Language),
+			TrackRef: preferences.TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Language),
 			ContainerTitle:    ptr.ValueOrZero(row.ContainerTitle),
 			IsDefault:         row.DispositionFlags&library.DispositionBit("default") != 0,
 			IsForced:          row.DispositionFlags&library.DispositionBit("forced") != 0,
@@ -210,7 +199,8 @@ func (service *Service) wantText(ctx context.Context, want wantedText, nowMs int
 // Subtitle is the text, in format, of a subtitle track of the file a media token refers to
 // (cut-a §5). A track of any other file is no subtitle of this playback.
 func (service *Service) Subtitle(
-	ctx context.Context, token string, track TrackRef, format SubtitleFormat, userID int64, sessionKey string,
+	ctx context.Context, token string, track preferences.TrackRef, format SubtitleFormat, userID int64,
+	sessionKey string,
 ) (Subtitle, error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
@@ -246,7 +236,7 @@ func (service *Service) Subtitle(
 
 // textKeyOfTrack is where a track of video's text is kept, or ErrNoSubtitle for a track of another.
 func (service *Service) textKeyOfTrack(
-	ctx context.Context, track TrackRef, videoFileID int64,
+	ctx context.Context, track preferences.TrackRef, videoFileID int64,
 ) (cachegen.GetSubtitleTextParams, error) {
 	if track.IsFetched() {
 		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedSubtitleID))

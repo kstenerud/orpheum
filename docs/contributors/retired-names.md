@@ -78,12 +78,12 @@ trailer on the commit that removes it.
 | `segment_length_s` | `segment_length_seconds` | D227 §6 |
 | `removal_withhold_percent` | `scan_withhold_removals_over_percent` | D227 |
 | `removal_withhold_min_files` | `scan_withhold_removals_over_files` | D227 |
-| `node_restart_after_s` | `node_restart_after_silent_s` | D227 |
-| `node_restart_delay_s` | `node_restart_after_exit_s` | D227 |
-| `refresh_check_every_h` | `metadata_refresh_check_every_h` | D227 |
-| `artwork_removed_grace_d` | `removed_item_artwork_kept_d` | D227 |
-| `job_retry_backoff_s` | `job_first_retry_delay_s` | D227 |
-| `subtitle_track` | `subtitle_choice` | D227 |
+| `node_restart_after_s` | `node_restart_after_silent_seconds` | D227 |
+| `node_restart_delay_s` | `node_restart_after_exit_seconds` | D227 |
+| `refresh_check_every_h` | `metadata_refresh_check_every_hours` | D227 |
+| `artwork_removed_grace_d` | `removed_item_artwork_kept_days` | D227 |
+| `job_retry_backoff_s` | `job_first_retry_delay_seconds` | D227 |
+| `subtitle_track` | `subtitle_used` (a file's) and `subtitle_language` (a work's) | D227, D230 |
 | `migrate_space_factor` | `migrate_free_space_db_multiple` | D227 |
 | `readers_minimum` | `read_connections_minimum` | D227 |
 | `prepared_disk_limit_percent` | `prepared_disk_used_limit_percent` | D227 §5 |
@@ -93,7 +93,8 @@ trailer on the commit that removes it.
 | `serve_debug_metrics` | `should_serve_debug_metrics` | D227 §6 |
 | `scan_on_node_hello` | `should_scan_on_node_hello` | D227 §6 |
 | `secret_hint_chars` | `secret_last_chars_shown` | D227 §6 |
-| `prepared_grace_h` | `prepared_kept_after_play_h` | D227 §6 |
+| `prepared_grace_h` | `prepared_kept_after_play_hours` | D227 §6 |
+| `prepared_kept_after_play_h` | `prepared_kept_after_play_hours` | D227 §6; owner 2026-09-30 |
 | `read_header_timeout_s` | `read_header_timeout_seconds` | D227 §6; owner 2026-09-30 |
 | `shutdown_grace_s` | `shutdown_grace_seconds` | D227 §6; owner 2026-09-30 |
 | `probe_timeout_s` | `probe_timeout_seconds` | D227 §6; owner 2026-09-30 |
