@@ -109,7 +109,29 @@ queries that read whole tables reached `main` because only CI ran it.
   sqlc output, the OpenAPI document and the TypeScript client cannot drift from their sources,
   whether or not the correct output is staged yet.
 
-**Enforced by:** `make check` itself and `check-tools`; the budget is **review-only**.
+### The fix-and-re-run loop
+
+`make check-pr` takes minutes, most of them in steps that passed. While fixing a failure, re-run
+only what failed, then run the whole gate once:
+
+1. **Loop on the narrowest run that shows the failure**: `go test -run <Test> ./<pkg>/`,
+   `npm --prefix web test -- <file>`, or revert-red on chosen files with
+   `make check-revert-red BASE=<base> ONLY="<path> <path>"`. `ONLY` still judges each path
+   against the base, and says why it skips one (exempt by commit type, test code, unchanged).
+2. **`make check-pr-failed`** re-runs the check-pr steps that failed at the last `make check-pr`
+   against the same base, or never ran, and names the ones it skipped with the commit they passed
+   on. Revert-red re-runs only the files it failed on (`make check-revert-red-failed`). The head
+   may have moved, since the fixes are new commits; another base is refused.
+3. **One full `make check-pr`** when the targeted runs pass, before the branch is done. A
+   targeted green is never the gate's: the steps it skipped passed on an older commit.
+
+The records the re-runs read live in the git common directory (`revert-red/last-failures`,
+`check-pr/last-results`; `scripts/last_run.py`). No hook reads them, and nothing the loop runs
+writes the check stamp.
+
+**Enforced by:** `make check` itself and `check-tools`; the budget is **review-only**. The
+re-runs by `scripts/tests/test_gate_reruns.py`; running the full `make check-pr` last is
+**review-only**.
 
 ## 5. Tools are pinned, and a derived list beats a written one
 
