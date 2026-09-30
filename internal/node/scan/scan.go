@@ -407,7 +407,7 @@ func toNodePath(reported string) nodeproto.Path {
 	if utf8.ValidString(reported) {
 		return nodeproto.Path{Text: reported}
 	}
-	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Bytes: []byte(reported)}
+	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Raw: []byte(reported)}
 }
 
 // isImage is an image extension a poster or backdrop beside the media is saved with (D215).

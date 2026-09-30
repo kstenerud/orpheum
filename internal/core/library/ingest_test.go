@@ -391,7 +391,7 @@ func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	invalid1, invalid2 := observedRecord("a�.mkv", "first"), observedRecord("a�.mkv", "second")
-	invalid1.Observed.Path.Bytes, invalid2.Observed.Path.Bytes = []byte("a\xff.mkv"), []byte("a\xfe.mkv")
+	invalid1.Observed.Path.Raw, invalid2.Observed.Path.Raw = []byte("a\xff.mkv"), []byte("a\xfe.mkv")
 	// "é" as one code point and as e plus a combining accent: one NFC text, two files on ext4.
 	composed, decomposed := observedRecord("café.mkv", "third"), observedRecord("café.mkv", "fourth")
 	for range 2 {
