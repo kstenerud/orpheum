@@ -29,6 +29,45 @@ D231 §2, §8, §10; D233 §6 (panic recovery, claim-time attempt check).
   moved over without losing behaviour; the job view keeps its contract.
 - Closes G11 (repeat requests) and the crash loop of S86.
 
+**Built** (2026-09-30):
+
+- `internal/platform/jobqueue`, generic over the target type (a comparable value it only
+  compares) with kinds as names. Its `Storage` interface is `internal/store`'s `JobStorage` on
+  cache.db's job table, which keeps a target in its own column per kind (D227 §2); store is now
+  the table's one writer. `jobqueuetest.Memory` is the same storage in memory, for its tests.
+- Merging (D231 §8): a repeat request merges into the queued job (the higher priority wins, with
+  its reason; the soonest time asked for, unless the job is snoozed; the arguments by the kind's
+  `ArgsMerge`, the queued job's kept by default). While a job runs, a request it covers is
+  dropped (by default, the same arguments) and another becomes the one queued follow-up. A
+  fetch's merge is `identify.FetchArgsMerge`, wired in `cmd/orpheum`: a refresh behind a refresh
+  asks for the images again if either did, but a match and a refresh never fold into each other,
+  since a refresh fetches only what is stored and a match fetches a new season's listing; that
+  case keeps the queued job's arguments, as before, until §3's facts.
+- Back-off: `job_first_retry_delay_seconds` doubling, `job_attempt_limit`, ±10% jitter on every
+  wait the queue computes (back-off, a kind's own schedule, a hold, a tool's retry), none past a
+  day. Snooze (`jobqueue.Snooze`) and `RetryAtError` wait at no cost of an attempt, and a repeat
+  request does not bring them forward (cache.db's new `is_snoozed`).
+- D233 §6: a panic in a handler is recovered and is the tool's failure: free the first time, the
+  job's own the second in a row (`last_attempt_tool_failed`). A claim refuses a job whose count
+  has passed its limit and fails it unrun, giving back the claim's attempt, so a job that stops
+  the server every time ends (S86). What a stop left running keeps its attempt, as before.
+- The job view's contract is unchanged; no state was added.
+- Scenario tests: `TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsksForTheImagesAgain`,
+  `TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPanicFailsOnlyItsJob`.
+
+**Deviations and what Phase 2 must know:**
+
+- A stall answered by a handler (`jobs.MarkStalled`, i.e. `jobqueue.ToolFailed`) stays the
+  handler's to count: playback fails a second stall in a row itself, and the queue fails the job
+  only on a panic after a tool failure. Two stalls in a row that a handler tolerates are not
+  failed by the queue.
+- No `discarded` state was added (the survey's River idea): D231 §10 records an exhausted job as
+  the item's failure, which §3's facts make, and the job view's words are D231 §12's, Phase 6.
+- The extension points: `jobqueue.Claim` is where a claim learns which destinations are parked,
+  and each job's destination key belongs in the storage beside its target; `Blocked` and
+  `RetryAtError`'s hold on a runner are what parking replaces.
+- A graceful stop still costs every running job an attempt, as before (S72).
+
 ## Phase 2 — destinations and parking
 
 D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); replaces D213 §5's breaker.
