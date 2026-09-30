@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { tenthsText } from "./number-text.ts";
-import { dataOrThrow } from "./problem.ts";
+import { Link } from "./link.tsx";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -24,6 +26,7 @@ type FinishedPrepare = components["schemas"]["FinishedPrepareBody"];
 type Finding = components["schemas"]["FindingBody"];
 type Build = components["schemas"]["BuildBody"];
 type Host = components["schemas"]["HostBody"];
+type Offline = components["schemas"]["OfflineBody"];
 
 /** A size in bytes, in the unit that keeps it short: "12.3 GB". */
 export function byteSizeText(bytes: number): string {
@@ -42,11 +45,29 @@ export function byteSizeText(bytes: number): string {
   }).format(value);
 }
 
-/** The System page, loaded from the server. */
+/** The System page, loaded from the server, and retiring a machine from it. */
 export function System(): JSX.Element {
+  const { t } = useTranslation();
   const { api } = useServices();
-  const [report] = useResource("system", async () => dataOrThrow(await api.GET("/system")));
-  return <Loaded resource={report} render={(value) => <SystemView report={value} />} />;
+  const [report, reload] = useResource("system", async () => dataOrThrow(await api.GET("/system")));
+  const [problem, setProblem] = useState("");
+  const retireNode = (nodeName: string): void => {
+    api
+      .POST("/nodes/retire", { body: { nodeName } })
+      .then(throwIfRefused)
+      .then(reload, (cause: unknown) => {
+        setProblem(problemText(t, cause));
+      });
+  };
+  return (
+    <>
+      {problem === "" ? null : <p role="alert">{problem}</p>}
+      <Loaded
+        resource={report}
+        render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
+      />
+    </>
+  );
 }
 
 /**
@@ -54,7 +75,10 @@ export function System(): JSX.Element {
  * disks and databases; what doctor finds; and for each machine, its software, its sandbox,
  * whether it encodes on its GPU, and what its recent prepares used.
  */
-export function SystemView(props: { readonly report: SystemReport }): JSX.Element {
+export function SystemView(props: {
+  readonly report: SystemReport;
+  readonly onRetireNode: (nodeName: string) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { server } = props.report;
   return (
@@ -76,8 +100,15 @@ export function SystemView(props: { readonly report: SystemReport }): JSX.Elemen
         <Disks disks={server.disks ?? []} />
       </section>
       <Findings findings={props.report.findings ?? []} />
+      <OfflineStorage offline={props.report.offline ?? []} />
       {(props.report.nodes ?? []).map((node) => (
-        <NodeFacts key={node.name} node={node} />
+        <NodeFacts
+          key={node.name}
+          node={node}
+          onRetire={() => {
+            props.onRetireNode(node.name);
+          }}
+        />
       ))}
     </div>
   );
@@ -219,7 +250,44 @@ function Findings(props: { readonly findings: readonly Finding[] }): JSX.Element
   );
 }
 
-function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
+/**
+ * The folders and disks scans have found missing, each since the first scan that did: nothing
+ * of theirs is removed until an admin retires them or a scan finds them (D41, D231 §7).
+ */
+function OfflineStorage(props: { readonly offline: readonly Offline[] }): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.offline.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="system-offline">
+      <h2 id="system-offline">{t("system.offline")}</h2>
+      <ul>
+        {props.offline.map((missing) => {
+          const since = dateTimeText(missing.since, i18n.language);
+          const place = { library: missing.libraryName, node: missing.nodeName, since };
+          return (
+            <li key={`${missing.nodeName}:${missing.rootPath}:${missing.mountPath ?? ""}`}>
+              {missing.mountPath === undefined
+                ? t("system.offlineRoot", { ...place, path: missing.rootPath })
+                : t("system.offlineDisk", { ...place, path: missing.mountPath })}
+            </li>
+          );
+        })}
+      </ul>
+      <p>
+        {t("system.offlineHelp")}{" "}
+        <Link to={{ screen: "libraries" }}>{t("system.offlineWhere")}</Link>
+      </p>
+    </section>
+  );
+}
+
+/** A machine's facts, and retiring it for good, confirmed first (D231 §7). */
+function NodeFacts(props: {
+  readonly node: SystemNode;
+  readonly onRetire: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
   const headingId = `system-node-${node.name}`;
@@ -251,6 +319,12 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
             : t("system.awaitingHello")}
         </p>
       )}
+      <ConfirmButton
+        label={t("system.retireNode")}
+        consequence={t("system.retireNodeConsequence")}
+        confirmLabel={t("system.retireNodeConfirm")}
+        onConfirm={props.onRetire}
+      />
     </section>
   );
 }

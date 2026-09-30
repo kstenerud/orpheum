@@ -22,6 +22,7 @@ describe("libraries", () => {
           note="Asked 1 roots to scan."
           onScan={ignore}
           onAnswer={ignore}
+          onDelete={ignore}
           library={{
             id: 3,
             name: "Films",
@@ -69,12 +70,17 @@ describe("libraries", () => {
       endpoint: "/libraries/{id}/removals",
       body: { nodeName: "local", path: "/media/films" },
     });
+    expect(rootAnswerRequest(root, { kind: "retire" })).toEqual({
+      endpoint: "/libraries/{id}/roots/retire",
+      body: { nodeName: "local", path: "/media/films" },
+    });
     const markup = renderToStaticMarkup(
       withServices(
         <LibraryCard
           note=""
           onScan={ignore}
           onAnswer={ignore}
+          onDelete={ignore}
           library={{
             id: 3,
             name: "Films",
