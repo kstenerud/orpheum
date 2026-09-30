@@ -12,6 +12,7 @@ from unittest import mock
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import fetch_ffmpeg  # noqa: E402
+import fetch_mkvtoolnix  # noqa: E402
 
 CONTAINERFILE = REPO / "deploy" / "dev.Containerfile"
 
@@ -42,24 +43,28 @@ class Pins(unittest.TestCase):
 
 
 class ToolsDir(unittest.TestCase):
-    def test_tools_live_in_the_clone_unless_the_environment_names_a_directory(self):
-        root = Path("/r")
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop(fetch_ffmpeg.TOOLS_DIR_ENV, None)
-            self.assertEqual(fetch_ffmpeg.tools_dir(root), Path("/r/.tools"))
-        with mock.patch.dict(os.environ, {fetch_ffmpeg.TOOLS_DIR_ENV: "/opt/orpheum/tools"}):
-            self.assertEqual(fetch_ffmpeg.tools_dir(root), Path("/opt/orpheum/tools"))
+    """A tool baked into the image is found there, not fetched into the clone again."""
 
-    def test_a_tool_already_in_the_named_directory_is_not_fetched_again(self):
+    def install_with_tools_in(self, tools: Path, install):
+        with mock.patch.dict(os.environ, {"ORPHEUM_TOOLS_DIR": str(tools)}), \
+                mock.patch("urllib.request.urlopen", side_effect=AssertionError("fetched")):
+            return install("linux/amd64", Path(tempfile.mkdtemp()))
+
+    def test_ffmpeg_in_the_named_directory_is_used(self):
         tools = Path(tempfile.mkdtemp())
-        target = "linux/amd64"
         dest = tools / "ffmpeg" / f"{fetch_ffmpeg.VERSION}-linux-amd64"
         dest.mkdir(parents=True)
         for name in ("ffmpeg", "ffprobe"):
             (dest / name).write_text("")
-        with mock.patch.dict(os.environ, {fetch_ffmpeg.TOOLS_DIR_ENV: str(tools)}), \
-                mock.patch("urllib.request.urlopen", side_effect=AssertionError("fetched")):
-            self.assertEqual(fetch_ffmpeg.install(target, Path(tempfile.mkdtemp())), dest)
+        self.assertEqual(self.install_with_tools_in(tools, fetch_ffmpeg.install), dest)
+
+    def test_mkvtoolnix_in_the_named_directory_is_used(self):
+        tools = Path(tempfile.mkdtemp())
+        dest = tools / "mkvtoolnix" / f"{fetch_mkvtoolnix.VERSION}-linux-amd64"
+        (dest / "usr" / "bin").mkdir(parents=True)
+        for name in fetch_mkvtoolnix.TOOLS:
+            (dest / "usr" / "bin" / name).write_text("")
+        self.assertEqual(self.install_with_tools_in(tools, fetch_mkvtoolnix.install), dest)
 
 
 if __name__ == "__main__":
