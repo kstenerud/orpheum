@@ -17366,3 +17366,41 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
     own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
 
 **Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4.
+
+## D235 — Development and deployment run in containers: one image family, one command each, built by GoReleaser
+
+**Decided** (2026-09-30), by the project owner. It revises cut-a §2's "one binary, one systemd
+unit" deployment and the core's supervision of a node child (D43's thin supervisor, D207's execx
+start), which D233 §2 and D234 already ended.
+
+1. **Why.** The owner wants a development environment on devnas (Debian trixie) that does not
+   *"pollute the operating system with a bunch of stuff since it's supposed to just be a NAS"*, that
+   does not accrete dependencies that make it *"harder to replicate on other machines"*, and
+   end-user deployments that are *"easy to use"*: *"Ideally dev env setup, deployment packaging,
+   and deployment use should be single-command if possible."* And: *"I think containers are going
+   to keep things cleanest, so let's go with that."*
+2. **One image family.** A runtime image holds the binary, the pinned FFmpeg and nothing else, runs
+   as a non-root user, and is built for amd64 and arm64 (keeping arm64 open). A development image
+   holds every tool the gates need (Go, Node, sqlc, the linters, Playwright and its browsers,
+   Python), each pinned by version and checksum as `make ffmpeg` pins FFmpeg today; CI runs in the
+   same image. Both share a base, so development and production differ only by the tools.
+3. **Development is one command.** A host needs a container runtime and git. `./dev` builds or pulls
+   the development image and runs it with the repository mounted, the media read-only, `/dev/dri`
+   for Quick Sync, and the caches (Go's, npm's, the browsers') in named volumes, so nothing lands on
+   the host; `./dev make check` runs a gate the same way. A new machine is a clone and `./dev`.
+4. **Deployment is a compose file.** Two services, `orpheum-core` and `orpheum-node`, from the one
+   runtime image. The runtime's restart policy and health checks are the service manager D234 §4
+   asks for. Only the node mounts the media, read-only, and `/dev/dri`; library.db and the caches
+   are volumes; the two sockets live on a volume both share. `docker compose up -d` installs and
+   starts it.
+5. **Packaging is one command.** `make release` runs GoReleaser: the binaries, the multi-arch
+   images, checksums, a software bill of materials and signatures, in one pass that D220's audit
+   can read. A `.deb` is deferred, not refused.
+6. **Confinement holds inside the container.** FFmpeg's Landlock and seccomp confinement (D193 §7,
+   D112) nests under the container's; the container's own seccomp profile must allow the Landlock
+   system calls, and the escape test (VQ9) runs inside the container. No service runs privileged.
+7. **Mac and Windows are deferred.** Both can run the development image through a desktop container
+   runtime or WSL2, without Quick Sync; a native node there would be unconfined until its own
+   confinement is designed.
+
+**Status:** Decided 2026-09-30.
