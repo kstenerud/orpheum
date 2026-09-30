@@ -102,12 +102,9 @@ func decodeFetchArgs(argsJSON string) (refreshArgs, error) {
 // OutcomeKept is a refresh that found the item gone from its provider: our copy is kept (D213 §4).
 const OutcomeKept Outcome = "kept: gone from its provider"
 
-// personRefreshPriority puts a person's refresh ahead of the queue's own work; the rolling refresh
-// comes after it.
-const (
-	personRefreshPriority = 20
-	rollingPriority       = -10
-)
+// rollingPriority puts the rolling refresh behind the queue's other work; a person's refresh is
+// jobs.PriorityPersonsRequest, ahead of it.
+const rollingPriority = -10
 
 // refreshPeriods are the settings that say, per provider, how old its data may get (D213 §3).
 func refreshPeriods() map[string]settings.Key {
@@ -375,7 +372,7 @@ func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, er
 	if err != nil {
 		return false, fmt.Errorf("record item %d's refresh: %w", itemID, err)
 	}
-	job, err := RefreshJob(itemID, personsRefreshReason, time.Time{}, true, personRefreshPriority)
+	job, err := RefreshJob(itemID, personsRefreshReason, time.Time{}, true, jobs.PriorityPersonsRequest)
 	if err != nil {
 		return false, err
 	}
@@ -399,7 +396,7 @@ func (refresher *Refresher) QueueRequested(ctx context.Context) (int, error) {
 	queued := 0
 	for _, request := range requests {
 		job, err := RefreshJob(request.ItemID, personsRefreshReason, time.Time{}, request.ShouldFetchImages != 0,
-			personRefreshPriority)
+			jobs.PriorityPersonsRequest)
 		if err != nil {
 			return queued, err
 		}

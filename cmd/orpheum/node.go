@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
@@ -212,7 +213,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 		return preparedDirectory{}, err
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
-		MaxBytes:             config.Node.PreparedBudgetGiB << 30,
+		MaxBytes:             config.Node.PreparedBudgetGiB * diskspace.BytesPerGiB,
 		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayHours) * time.Hour,
 		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
@@ -293,6 +294,7 @@ func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner,
 func describeNode(
 	ctx context.Context, config Config, runner *execx.Runner, detected nodeCapabilities,
 ) (nodeproto.Hello, error) {
+	// ffprobe -version prints a few kilobytes of build options; a mebibyte bounds a broken binary.
 	output, err := runner.Run(ctx, execx.FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
 	if err != nil {
 		return nodeproto.Hello{}, fmt.Errorf("run the pinned ffprobe: %w", err)

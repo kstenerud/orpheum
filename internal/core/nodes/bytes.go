@@ -26,7 +26,8 @@ type ByteSocketClient struct {
 // NewByteSocketClient reads from the node socket at socketPath, for nodes the service has heard from.
 func NewByteSocketClient(service *Service, socketPath string) *ByteSocketClient {
 	transport := unixsocket.Transport(socketPath)
-	// A player's reads come one range after another; keep the connection for the next.
+	// A player's reads come one range after another; keep the connection for the next. Four is a
+	// few players at once, each with a request in flight; more would only hold idle sockets.
 	transport.MaxIdleConnsPerHost = 4
 	return &ByteSocketClient{service: service, httpClient: &http.Client{Transport: transport}}
 }

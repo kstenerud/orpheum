@@ -9,6 +9,9 @@ import (
 	"syscall"
 )
 
+// BytesPerGiB is a gibibyte: the unit of every size a person sets or is shown in GiB.
+const BytesPerGiB = 1 << 30
+
 // Space is a filesystem's size and what is free on it, in bytes, as a user who is not root sees
 // them.
 type Space struct {

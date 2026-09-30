@@ -26,9 +26,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// defaultWait is how long a job waits for a node's answer.
-const defaultWait = 2 * time.Minute
-
 // webpSuffix ends the name of every WebP size the art directory holds: "portrait-m.webp".
 const webpSuffix = ".webp"
 
@@ -73,7 +70,7 @@ type Parts struct {
 	Fetchers map[string]Fetcher // by source: "tmdb"
 	Clock    clock.Clock
 	Logger   *slog.Logger
-	// AnswerWait is how long a job waits for the node's answer; two minutes when zero.
+	// AnswerWait is how long a job waits for the node's answer; nodeproto.ArtworkAnswerWait when zero.
 	AnswerWait time.Duration
 }
 
@@ -89,7 +86,7 @@ type Service struct {
 // NewService returns the service.
 func NewService(parts Parts) *Service {
 	if parts.AnswerWait == 0 {
-		parts.AnswerWait = defaultWait
+		parts.AnswerWait = nodeproto.ArtworkAnswerWait
 	}
 	return &Service{
 		parts: parts, answers: nodes.NewAnswerRouter[nodeproto.ArtworkResult](parts.Logger, "an artwork answer"),

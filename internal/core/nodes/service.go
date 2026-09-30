@@ -428,20 +428,17 @@ func (service *Service) isConnectedLocked(node *connectedNode, silentAfter time.
 	return node.openPollCount > 0 || service.clock.Now().Sub(node.lastHeard) < silentAfter
 }
 
-// silentAfter is node_silent_after_seconds, or its starting value when it cannot be read.
+// silentAfter is node_silent_after_seconds, or its starting value when it cannot be read, so a
+// node's connection is still judged when the settings cannot be read.
 func (service *Service) silentAfter(ctx context.Context) time.Duration {
 	silentAfter, err := service.settings.Duration(ctx, settings.NodeSilentAfterSeconds)
 	if err != nil {
-		service.logger.WarnContext(ctx, "could not read node_silent_after_seconds; taking 30 s", "err", err)
-		return defaultSilentAfter
+		silentAfter = settings.StartingDuration(settings.NodeSilentAfterSeconds)
+		service.logger.WarnContext(ctx, "could not read node_silent_after_seconds; taking its starting value",
+			"startingValue", silentAfter.String(), "err", err)
 	}
 	return silentAfter
 }
-
-// defaultSilentAfter is node_silent_after_seconds' starting value, for when it cannot be read. It
-// is fixed, not a setting of its own: a fallback that keeps a node's connection judged when the
-// settings cannot be read.
-const defaultSilentAfter = 30 * time.Second
 
 // Send queues a command for a node that is connected, numbering it, and wakes a waiting
 // long-poll. To a node that is not, it queues nothing and answers that the job is parked on the

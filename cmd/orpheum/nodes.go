@@ -62,6 +62,8 @@ func runNodeChannel(
 	})
 	supervisorContext, stopSupervising := context.WithCancel(ctx)
 	if startNode != nil {
+		// The supervisor judges its child each second: far finer than the silences it acts on
+		// (node_restart_after_silent_seconds), and nothing to a machine's load.
 		ticker := time.NewTicker(time.Second)
 		supervisor := nodes.NewSupervisor(startNode, service, config.Node.Name, clock.System{}, opened.settings, logger)
 		running.Go(func() {

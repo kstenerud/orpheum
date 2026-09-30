@@ -295,6 +295,8 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			runner.WithFailureRecorder(runnerSpec.recordFailure)
 		}
 		loops.Go(func() {
+			// A runner looks for due jobs each second, and at once when the queue wakes it (a new
+			// job, an unparked destination), so the tick only catches a retry coming due.
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
 			if err := runner.Run(loopsContext, ticker.C); err != nil {
