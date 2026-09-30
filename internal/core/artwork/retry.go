@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -100,14 +99,8 @@ func (service *Service) recordMissing(ctx context.Context, fetcher Fetcher, want
 		return nil // rechecked once already: given up
 	}
 	at := service.parts.Clock.Now().Add(fetcher.RecheckAfter())
-	job, err := identify.RefreshJob(want.itemID,
-		"an image it names is missing; its record is looked at again once", at, true, 0)
-	if err != nil {
-		return err
-	}
-	_, err = service.parts.Queue.Enqueue(ctx, job)
-	if err != nil {
-		return fmt.Errorf("queue item %d's recheck: %w", want.itemID, err)
+	if err := service.parts.Rechecker.Recheck(ctx, want.itemID, at); err != nil {
+		return fmt.Errorf("ask for item %d's recheck: %w", want.itemID, err)
 	}
 	return nil
 }

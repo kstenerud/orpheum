@@ -3,6 +3,8 @@
 package identify_test
 
 import (
+	"context"
+	"encoding/json"
 	"slices"
 	"testing"
 	"time"
@@ -170,5 +172,59 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 	}
 	if queued, err := refresher.Request(t.Context(), titleID); err != nil || !queued {
 		t.Errorf("a person's request: %v, %v; they may refresh whenever they like", queued, err)
+	}
+}
+
+// fakeImageRetrier records the items whose images a refresh asked for again.
+type fakeImageRetrier struct{ itemIDs []int64 }
+
+func (retrier *fakeImageRetrier) RetryImages(_ context.Context, itemIDs ...int64) error {
+	retrier.itemIDs = append(retrier.itemIDs, itemIDs...)
+	return nil
+}
+
+func TestRefresh_ARefreshThatLooksAgainAsksForTheItemsImagesAgain(t *testing.T) {
+	t.Parallel()
+	lib, titleID := matchedMetropolis(t)
+	retrier := &fakeImageRetrier{}
+	lib.matcher.SetImageRetrier(retrier)
+	lib.refresh(titleID)
+	if len(retrier.itemIDs) != 0 {
+		t.Fatalf("the rolling refresh asked again for the images of %v; want none", retrier.itemIDs)
+	}
+	job, err := identify.RefreshJob(titleID, "a person asked", time.Time{}, true, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = lib.matcher.Handle(t.Context(), jobs.Job{ID: 2, Kind: job.Kind, Target: job.Target, ArgsJSON: job.ArgsJSON})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(retrier.itemIDs, []int64{titleID}) {
+		t.Errorf("a person's refresh asked again for the images of %v; want Metropolis's (D213 §2)", retrier.itemIDs)
+	}
+}
+
+func TestRefresher_ARecheckIsARefreshThatAsksForTheImagesAgainAtItsTime(t *testing.T) {
+	t.Parallel()
+	lib, titleID := matchedMetropolis(t)
+	queue := &jobstest.Queue{}
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
+	at := lib.clock.Now().Add(12 * time.Hour)
+	if err := refresher.Recheck(t.Context(), titleID, at); err != nil {
+		t.Fatal(err)
+	}
+	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetchMetadata || (*queue)[0].ItemID != titleID ||
+		!(*queue)[0].RunnableAt.Equal(at) {
+		t.Fatalf("queued %+v; want Metropolis's refresh, twelve hours on", *queue)
+	}
+	var args struct {
+		IsRefresh         bool `json:"isRefresh"`
+		ShouldRetryImages bool `json:"shouldRetryImages"`
+	}
+	if err := json.Unmarshal([]byte((*queue)[0].ArgsJSON), &args); err != nil || !args.IsRefresh ||
+		!args.ShouldRetryImages {
+		t.Errorf("the recheck's args %s (%v); want a refresh that asks for the images again (D213 §1)",
+			(*queue)[0].ArgsJSON, err)
 	}
 }

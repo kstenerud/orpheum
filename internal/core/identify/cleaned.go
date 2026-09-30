@@ -54,9 +54,9 @@ func (provider cleaningProvider) Parse(kind string, body []byte) (Metadata, erro
 	for source, id := range metadata.IDs {
 		ids[textindex.Line(source)] = textindex.Line(id)
 	}
-	artwork := make([]ArtRef, 0, len(metadata.Artwork))
+	artwork := make([]ImageRef, 0, len(metadata.Artwork))
 	for _, image := range metadata.Artwork {
-		artwork = append(artwork, ArtRef{Kind: textindex.Line(image.Kind), Ref: textindex.Line(image.Ref)})
+		artwork = append(artwork, ImageRef{Kind: textindex.Line(image.Kind), Ref: textindex.Line(image.Ref)})
 	}
 	return Metadata{
 		Artwork: artwork,

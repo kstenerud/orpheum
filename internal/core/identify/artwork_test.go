@@ -9,106 +9,71 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
-func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
+func TestPass_ReportsTheImagesAMatchNamesOnEveryPass(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
-	film.Artwork = []identify.ArtRef{
-		{Kind: identify.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-back.jpg"},
+	film.Artwork = []identify.ImageRef{
+		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
 	const rel = "Metropolis (1995).mkv"
-	if report := lib.scan(videoRecord(rel)); len(report.OwedArtwork) != 0 {
-		t.Fatalf("before its match: owed %+v; want nothing, it has no source yet", report.OwedArtwork)
+	if report := lib.scan(videoRecord(rel)); len(report.NamedImages) != 0 {
+		t.Fatalf("before its match: named %+v; want nothing, it has no source yet", report.NamedImages)
 	}
-	var followed []identify.OwedArtwork
+	var followed []identify.NamedImages
 	lib.pass.AfterPass(func(_ context.Context, report identify.Report) {
-		followed = append(followed, report.OwedArtwork...)
+		followed = append(followed, report.NamedImages...)
 	})
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
 	titleID := lib.titlesByPath()[rel].TitleID
 	if len(followed) != 1 || !slices.Equal(followed[0].Refs, film.Artwork) {
-		t.Errorf("the match itself left owing %+v; want the film's images, without waiting for a scan", followed)
+		t.Errorf("the match itself reported %+v; want the film's images, without waiting for a scan", followed)
 	}
-	report := lib.scan(videoRecord(rel))
-	if len(report.OwedArtwork) != 1 || report.OwedArtwork[0].ItemID != titleID ||
-		report.OwedArtwork[0].Source != "tmdb" || !slices.Equal(report.OwedArtwork[0].Refs, film.Artwork) {
-		t.Fatalf("owed %+v; want the film's poster and backdrop", report.OwedArtwork)
-	}
-	// The poster is stored; the backdrop was refused by the node, and is held with no hash.
-	for _, row := range []sqlcgen.InsertArtworkParams{
-		{
-			ItemID: titleID, Kind: identify.ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"),
-			SourceSha256: []byte{1},
-		},
-		{ItemID: titleID, Kind: identify.ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg")},
-	} {
-		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-			_, err := queries.InsertArtwork(t.Context(), row)
-			return err //nolint:wrapcheck // a test
-		}); err != nil {
-			t.Fatal(err)
+	for range 2 { // the artwork service, not the pass, says which it holds
+		report := lib.scan(videoRecord(rel))
+		if len(report.NamedImages) != 1 || report.NamedImages[0].ItemID != titleID ||
+			report.NamedImages[0].Source != "tmdb" || !slices.Equal(report.NamedImages[0].Refs, film.Artwork) {
+			t.Fatalf("named %+v; want the film's poster and backdrop", report.NamedImages)
 		}
-	}
-	if report = lib.scan(videoRecord(rel)); len(report.OwedArtwork) != 0 {
-		t.Errorf("owed %+v once both are held; want nothing", report.OwedArtwork)
 	}
 }
 
-func TestChoose_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T) {
+func TestChoose_ARematchReportsTheNewWorksImages(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
-	film.Artwork = []identify.ArtRef{
-		{Kind: identify.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-back.jpg"},
+	film.Artwork = []identify.ImageRef{
+		{Kind: library.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: library.ArtBackdrop, Ref: "/heat-back.jpg"},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
 	other := leon
-	other.Artwork = []identify.ArtRef{{Kind: identify.ArtPoster, Ref: "/leon-poster.jpg"}}
+	other.Artwork = []identify.ImageRef{{Kind: library.ArtPoster, Ref: "/leon-poster.jpg"}}
 	lib.provider.Add(other)
 	const rel = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(rel))
+	var rematched []identify.NamedImages
+	lib.pass.AfterPass(func(_ context.Context, report identify.Report) {
+		rematched = append(rematched, report.Rematched...)
+	})
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	titleID := lib.titlesByPath()[rel].TitleID
-	// Metropolis's poster and backdrop are stored, and a person chose a backdrop of their own.
-	for _, row := range []sqlcgen.InsertArtworkParams{
-		{
-			ItemID: titleID, Kind: identify.ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"),
-			SourceSha256: []byte{1},
-		},
-		{
-			ItemID: titleID, Kind: identify.ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"),
-			SourceSha256: []byte{2},
-		},
-		{ItemID: titleID, Kind: identify.ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
-	} {
-		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-			_, err := queries.InsertArtwork(t.Context(), row)
-			return err //nolint:wrapcheck // a test
-		}); err != nil {
-			t.Fatal(err)
-		}
+	if len(rematched) != 0 {
+		t.Fatalf("a first match reported %+v rematched; want nothing", rematched)
 	}
+	titleID := lib.titlesByPath()[rel].TitleID
 	if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", other.ID); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := lib.database.Read().ListLiveArtwork(t.Context(), titleID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var live []string
-	for _, row := range rows {
-		live = append(live, row.Kind+" "+row.Source)
-	}
-	slices.Sort(live)
-	if want := []string{"backdrop user"}; !slices.Equal(live, want) {
-		t.Errorf("after the rematch: %v live, want %v: none of Metropolis's images, the person's kept (D223 §9)", live, want)
+	if len(rematched) != 1 || rematched[0].ItemID != titleID || rematched[0].Source != "tmdb" ||
+		!slices.Equal(rematched[0].Refs, other.Artwork) {
+		t.Errorf("after the rematch: reported %+v; want the title with Léon's images, so Metropolis's go (D223 §9)",
+			rematched)
 	}
 }

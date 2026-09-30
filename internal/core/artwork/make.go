@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -38,7 +37,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 			return service.cutFrom(ctx, nodeID, command, args, false)
 		}
 	}
-	if want.source == identify.SourceLocal {
+	if want.source == SourceLocal {
 		nodeID, named, err := service.localFile(ctx, want.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
 			return service.noteCannotMake(ctx, args.SourceSha256, args.SizeNames)
@@ -166,7 +165,7 @@ func (service *Service) queueMake(ctx context.Context, sourceSha256Hex string, w
 		return nil
 	}
 	args, err := json.Marshal(artworkJobArgs{
-		ArtworkSource: origin.Source, Refs: []owedRef{{Kind: origin.Kind, SourceRef: *origin.SourceRef}},
+		ArtworkSource: origin.Source, Refs: []Ref{{Kind: origin.Kind, SourceRef: *origin.SourceRef}},
 		SourceSha256: sourceSha256Hex,
 		SizeNames:    sizes,
 	})

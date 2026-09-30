@@ -165,7 +165,7 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 	}
 	spec.source, spec.sourceID, spec.identification, spec.reason = provider, episode.ID, identificationIdentified, ""
 	if episode.StillRef != "" {
-		spec.artwork = []ArtRef{{Kind: ArtStill, Ref: episode.StillRef}}
+		spec.artwork = []ImageRef{{Kind: library.ArtStill, Ref: episode.StillRef}}
 	}
 }
 

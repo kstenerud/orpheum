@@ -34,6 +34,9 @@ type Matcher struct {
 	providers Providers
 	clock     clock.Clock
 	logger    *slog.Logger
+	// imageRetrier asks for an item's missing images again: the artwork service, set by the
+	// server's wiring.
+	imageRetrier ImageRetrier
 }
 
 // NewMatcher returns the matcher. It reaches the providers through the pass, which re-derives a
@@ -218,7 +221,7 @@ type titleMatch struct {
 	id             string
 	identification string
 	// artwork is the work's images, whose refs a rematch keeps of the item's earlier ones.
-	artwork []ArtRef
+	artwork []ImageRef
 }
 
 // recordMatch stores a match's response and re-derives the title from it, as a pass would.
@@ -238,9 +241,8 @@ func (matcher *Matcher) recordMatch(
 	if isRematch := ptr.ValueOrZero(title.FollowedSource) == provider &&
 		ptr.ValueOrZero(title.FollowedSourceID) != id &&
 		title.FollowedSourceID != nil; isRematch {
-		if err := retireArtworkOf(ctx, queries, title.ID, provider, found.artwork, now); err != nil {
-			return err
-		}
+		derive.report.Rematched = append(derive.report.Rematched,
+			NamedImages{ItemID: title.ID, Source: provider, Refs: found.artwork})
 	}
 	titleID, err := joinExisting(ctx, queries, provider, id, title, now)
 	if err != nil {
@@ -266,28 +268,6 @@ func (matcher *Matcher) recordMatch(
 		return err
 	}
 	return refile(ctx, queries, titleID, resolution.identification, resolution.reason)
-}
-
-// retireArtworkOf retires an item's images from a provider that its new work does not have: a
-// rematch to another work leaves none of the earlier work's kinds behind (D223 §9).
-func retireArtworkOf(
-	ctx context.Context, queries *sqlcgen.Queries, itemID int64, provider string, keptArtwork []ArtRef, now int64,
-) error {
-	refs := make([]string, 0, len(keptArtwork))
-	for _, ref := range keptArtwork {
-		refs = append(refs, ref.Ref)
-	}
-	encoded, err := json.Marshal(refs)
-	if err != nil {
-		return fmt.Errorf("encode item %d's artwork: %w", itemID, err)
-	}
-	err = queries.RetireArtworkNotFound(ctx, sqlcgen.RetireArtworkNotFoundParams{
-		RemovedAt: &now, ItemID: itemID, Source: provider, FoundRefs: string(encoded),
-	})
-	if err != nil {
-		return fmt.Errorf("retire item %d's earlier work's artwork: %w", itemID, err)
-	}
-	return nil
 }
 
 // joinExisting moves a title's versions into another live title of its library that already

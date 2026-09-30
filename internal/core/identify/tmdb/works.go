@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
 // endpoint is where one kind of work lives at TMDB, and what its search is keyed on.
@@ -160,12 +161,12 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	if kind == identify.KindSeries {
 		runtimeMinutes = 0 // a series has no runtime; its episodes each have theirs
 	}
-	var artwork []identify.ArtRef
+	var artwork []identify.ImageRef
 	if work.PosterPath != "" {
-		artwork = append(artwork, identify.ArtRef{Kind: identify.ArtPoster, Ref: work.PosterPath})
+		artwork = append(artwork, identify.ImageRef{Kind: library.ArtPoster, Ref: work.PosterPath})
 	}
 	if work.BackdropPath != "" {
-		artwork = append(artwork, identify.ArtRef{Kind: identify.ArtBackdrop, Ref: work.BackdropPath})
+		artwork = append(artwork, identify.ImageRef{Kind: library.ArtBackdrop, Ref: work.BackdropPath})
 	}
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,

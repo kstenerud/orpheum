@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -56,9 +56,9 @@ func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.
 	clock := bench.clock
 	poster, backdrop := sourceSha256HexOf("a"), sourceSha256HexOf("b")
 	removed, orphan := sourceSha256HexOf("c"), sourceSha256HexOf("d")
-	bench.show(t, identify.ArtPoster, poster, 0)
-	bench.show(t, identify.ArtBackdrop, backdrop, 0)
-	bench.show(t, identify.ArtPoster, removed, clock.Now().Add(-24*time.Hour).UnixMilli()) // within its grace
+	bench.show(t, library.ArtPoster, poster, 0)
+	bench.show(t, library.ArtBackdrop, backdrop, 0)
+	bench.show(t, library.ArtPoster, removed, clock.Now().Add(-24*time.Hour).UnixMilli()) // within its grace
 	bench.hold(poster, map[string]float64{
 		"portrait-s.webp": 0.01, "portrait-m.webp": 0.1, "portrait-l.webp": 0.3, "portrait-m.jpeg": 0.2,
 	})
@@ -103,7 +103,7 @@ func TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace(t 
 	bench := newBench(t, fakeFetcher{})
 	clock := bench.clock
 	removed := sourceSha256HexOf("c")
-	bench.show(t, identify.ArtPoster, removed, clock.Now().UnixMilli())
+	bench.show(t, library.ArtPoster, removed, clock.Now().UnixMilli())
 	bench.hold(removed, map[string]float64{"portrait-m.webp": 0.001})
 	bench.hold(sourceSha256HexOf("a"), map[string]float64{"portrait-l.webp": 0.001})
 	if _, err := bench.service.Sweep(t.Context()); err != nil {
@@ -126,7 +126,7 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	bench := newBench(t, fakeFetcher{})
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "2")
 	wall := sourceSha256HexOf("a")
-	bench.show(t, identify.ArtPoster, wall, 0)
+	bench.show(t, library.ArtPoster, wall, 0)
 	bench.hold(wall, map[string]float64{"portrait-m.webp": 2.5})
 	pressure, err := bench.service.Sweep(t.Context())
 	if err != nil {
@@ -176,7 +176,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		}
 		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
-	bench.handle(t, owedRef{Kind: identify.ArtBackdrop, SourceRef: "/back.jpg"})
+	bench.handle(t, Ref{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"})
 	sourceSha256Hex := Received(source).sourceSha256Hex()
 	if err := bench.service.evict(candidate{sourceSha256Hex: sourceSha256Hex, name: "landscape-m.webp"}); err != nil {
 		t.Fatal(err)
