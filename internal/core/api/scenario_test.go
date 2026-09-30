@@ -52,7 +52,10 @@ func TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor(t *testing.T) {
 	harness.nodes.isAway.Store(false)
 	harness.queue.Unpark(t.Context(), jobs.NodeDestination(1)) // the node's hello
 	go func() {
-		command := <-harness.nodes.commanded
+		command, isSent := harness.commandWithin(t)
+		if !isSent {
+			return
+		}
 		playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
 			JobID: command.Prepare.JobID, State: nodeproto.PrepareDone, SizeBytes: 9,
 		})
@@ -92,7 +95,10 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 	}
 	playback := harness.server.dependencies.Load().Playback
 	go func() {
-		command := <-harness.nodes.commanded
+		command, isSent := harness.commandWithin(t)
+		if !isSent {
+			return
+		}
 		playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{
 			JobID: command.MeasureLoudness.JobID, Failure: "Invalid data found when processing input",
 		})

@@ -158,6 +158,41 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 	nodes.queued = append(nodes.queued, command)
 }
 
+// commandWait bounds a test's wait for the node's next command: long past any honest wait on a
+// loaded machine, short of the package's ten-minute timeout, whose report names only the test.
+const commandWait = time.Minute
+
+// nextCommand is the next command sent to the node, from the test's own goroutine; a command that
+// never comes fails the test with the queue's jobs, which say why.
+func (harness testHarness) nextCommand(t *testing.T) nodeproto.Command {
+	t.Helper()
+	command, isSent := harness.commandWithin(t)
+	if !isSent {
+		t.FailNow()
+	}
+	return command
+}
+
+// commandWithin is the next command sent to the node, and whether one came within commandWait;
+// when none does, the test fails with the queue's jobs. Safe from any goroutine.
+func (harness testHarness) commandWithin(t *testing.T) (nodeproto.Command, bool) {
+	t.Helper()
+	select {
+	case command := <-harness.nodes.commanded:
+		return command, true
+	case <-time.After(commandWait):
+	}
+	views, err := harness.queue.List(context.WithoutCancel(t.Context()), 20)
+	var jobsNow []string
+	for _, view := range views {
+		jobsNow = append(jobsNow, fmt.Sprintf("job %d %s %s, attempt %d, last failure %q",
+			view.ID, view.Kind, view.State, view.AttemptCount, view.LastFailure))
+	}
+	t.Errorf("no command reached the node within %s; the queue's jobs (err %v):\n%s", commandWait, err,
+		strings.Join(jobsNow, "\n"))
+	return nodeproto.Command{}, false
+}
+
 // connectNode enrols node 1, "local", and has it name its roots.
 func (harness testHarness) connectNode(t *testing.T, roots ...string) {
 	t.Helper()

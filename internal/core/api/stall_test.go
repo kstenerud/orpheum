@@ -25,7 +25,7 @@ func answerAfterStall(
 	t.Helper()
 	finished := make(chan error, 1)
 	go func() { finished <- handle(t.Context(), job) }()
-	<-harness.nodes.commanded
+	harness.nextCommand(t)
 	answer()
 	return <-finished
 }

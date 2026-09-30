@@ -82,7 +82,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 77, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.JobID != 77 ||
 		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
@@ -114,7 +114,7 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
-	<-harness.nodes.commanded
+	harness.nextCommand(t)
 	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
 	playback.TakePrepareReport(t.Context(), 1, failed)
 	if err := <-finished; err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
@@ -137,7 +137,7 @@ func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testin
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
-	<-harness.nodes.commanded
+	harness.nextCommand(t)
 	refused := nodeproto.PrepareReport{JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk has no room"}
 	playback.TakePrepareReport(t.Context(), 1, refused)
 	select {
@@ -166,7 +166,7 @@ func TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRo
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
-	<-harness.nodes.commanded
+	harness.nextCommand(t)
 	playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
 		JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
 		RefusalCode: nodeproto.RefusedNoRoom,
@@ -214,7 +214,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 			Target: jobs.Target{RenditionID: 1},
 		})
 	}()
-	<-harness.nodes.commanded
+	harness.nextCommand(t)
 	done := nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9}
 	playback.TakePrepareReport(t.Context(), 1, done)
 	if err := <-first; err != nil {
@@ -303,7 +303,7 @@ func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodepr
 			ID: jobID, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
 		})
 	}()
-	command := <-harness.nodes.commanded
+	command := harness.nextCommand(t)
 	done := nodeproto.PrepareReport{JobID: jobID, State: nodeproto.PrepareDone, SizeBytes: 9}
 	playback.TakePrepareReport(t.Context(), 1, done)
 	if err := <-finished; err != nil {
