@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Dependency gate run by `make check`: every Go module in go.mod and every
-# ABOUTME: package in a web/ package.json must be on the owner's allowlist, with a reason.
+# ABOUTME: package in a web/ package.json must be on the owner's allowlist, with a reason; the
+# ABOUTME: pinned Playwright is the lockfile's; eslint names only installed packages as the fix.
 """Check that every dependency is one the owner chose.
 
 Adding a dependency is an owner action. Three failures motivate it:
@@ -17,6 +18,15 @@ The allowlists are `deps/go.allow` and `deps/npm.allow`, one entry per line:
 an allowlist of bare names records that something was added but not why, and "why" is
 what the next person needs. An allowlisted name that nothing uses is reported (not
 failed), so the list does not quietly outlive its reasons.
+
+Two checks keep what the tooling says about dependencies true:
+
+* **The Makefile's Playwright pin is the lockfile's.** `make browsers` installs the browsers for
+  `PLAYWRIGHT_VERSION`; Playwright fetches the browsers of its own version, so a pin that
+  drifted from `@playwright/test` would refuse every browser-tier run.
+* **eslint's "use X instead" names an installed package.** Each banned library's message is the
+  fix, and a fix naming a scoped package nothing installs (it named `@tanstack/react-query` when
+  the app's `useResource` does the job) sends the reader to add a dependency.
 """
 
 from __future__ import annotations
@@ -30,6 +40,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 GO_REQUIRE_LINE = re.compile(r"^\s*([^\s()]+)\s+v[^\s]+")
+PLAYWRIGHT_PIN = re.compile(r"^PLAYWRIGHT_VERSION\s*:?=\s*(\S+)", re.M)
+# One entry of eslint.config.js's alternativeLibraries: ["banned", "what to use instead"].
+LINT_ALTERNATIVE = re.compile(r'^\s*\["([^"]+)",\s*"([^"]+)"\],?\s*$', re.M)
+SCOPED_PACKAGE = re.compile(r"(?<![\w@/.-])@[a-z0-9][\w.-]*/[a-z0-9][\w.-]*")
 
 
 @dataclass(frozen=True)
@@ -121,6 +135,32 @@ def check_set(
     return problems, unused
 
 
+def playwright_pin_problems(makefile: str, lockfile: dict[str, object]) -> list[Problem]:
+    """The Makefile's PLAYWRIGHT_VERSION differs from the @playwright/test the lockfile installs."""
+    pin = PLAYWRIGHT_PIN.search(makefile)
+    packages = lockfile.get("packages")
+    entry = packages.get("node_modules/@playwright/test") if isinstance(packages, dict) else None
+    locked = entry.get("version") if isinstance(entry, dict) else None
+    if pin is None:
+        return [Problem("Makefile", "sets no PLAYWRIGHT_VERSION, so `make browsers` pins nothing")]
+    if pin.group(1) != locked:
+        return [Problem("Makefile", f"PLAYWRIGHT_VERSION is {pin.group(1)}, but web/package-lock.json "
+                                    f"installs @playwright/test {locked}: the browsers are Playwright's own "
+                                    "version's, so pin the one installed")]
+    return []
+
+
+def lint_alternative_problems(eslint_config: str, installed: set[str]) -> list[Problem]:
+    """eslint messages that tell the reader to use a scoped package nothing installs."""
+    return [
+        Problem("web/eslint.config.js", f"the message for {banned!r} names {name}, which no web "
+                                        "package installs: name what the code uses instead")
+        for banned, instead in LINT_ALTERNATIVE.findall(eslint_config)
+        for name in SCOPED_PACKAGE.findall(instead)
+        if name not in installed
+    ]
+
+
 def check(root: Path) -> tuple[list[Problem], list[str]]:
     problems: list[Problem] = []
     notes: list[str] = []
@@ -142,6 +182,13 @@ def check(root: Path) -> tuple[list[Problem], list[str]]:
     p, n = check_set("npm", npm_used, npm_allowed, npm_bare, "deps/npm.allow")
     problems += p
     notes += n
+
+    # A tree without a web client or a Makefile (a gate test's) has nothing of these to check.
+    lockfile, makefile, eslint = root / "web/package-lock.json", root / "Makefile", root / "web/eslint.config.js"
+    if lockfile.exists() and makefile.exists():
+        problems += playwright_pin_problems(makefile.read_text(), json.loads(lockfile.read_text()))
+    if eslint.exists():
+        problems += lint_alternative_problems(eslint.read_text(), set(npm_used) | ours)
     return problems, notes
 
 

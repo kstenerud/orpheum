@@ -180,7 +180,22 @@ test-integration: ## The integration tier: tests that run the pinned FFmpeg and 
 		go test -tags integration -count=1 ./...
 
 .PHONY: test-browser
-test-browser: web-deps browser-tier ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
+test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
+	@$(MAKE) --no-print-directory browser-tier
+
+# The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
+# web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
+# (check-deps compares the two). Nothing else installed them, so a fresh machine or CI failed at
+# the browser tier (audit-2026-09-29 §6). CI adds --with-deps for the system libraries. With the
+# browsers already there, the install checks and does nothing.
+PLAYWRIGHT_VERSION := 1.63.0
+PLAYWRIGHT_INSTALL_FLAGS ?=
+
+.PHONY: browsers
+browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (CI: PLAYWRIGHT_INSTALL_FLAGS=--with-deps)
+	@v="$$(npm --prefix web exec -- playwright --version)"; [ "$$v" = "Version $(PLAYWRIGHT_VERSION)" ] || \
+	  { echo "playwright is $$v; this project pins $(PLAYWRIGHT_VERSION)"; exit 1; }
+	@npm --prefix web exec -- playwright install $(PLAYWRIGHT_INSTALL_FLAGS) chromium firefox
 
 # The browser tier without installing the web packages: revert-red runs it in a worktree whose
 # packages are links to the working tree's, which an install would replace.
