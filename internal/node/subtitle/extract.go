@@ -37,11 +37,14 @@ const (
 // Extractor makes ASS and WebVTT with the bundled FFmpeg.
 type Extractor struct {
 	runner Runner
+	// slowestReadBytesPerSecond is the slowest the node reads a whole file (nodeproto.Capacity).
+	slowestReadBytesPerSecond int64
 }
 
-// NewExtractor returns the extractor.
-func NewExtractor(runner Runner) *Extractor {
-	return &Extractor{runner: runner}
+// NewExtractor returns the extractor, whose watchdog allows an extraction as long as reading its
+// file at slowestReadBytesPerSecond takes.
+func NewExtractor(runner Runner, slowestReadBytesPerSecond int64) *Extractor {
+	return &Extractor{runner: runner, slowestReadBytesPerSecond: slowestReadBytesPerSecond}
 }
 
 // Text is one subtitle in both formats.
@@ -58,7 +61,8 @@ func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, 
 		Arguments:        arguments(execx.FileInput(videoPath), "0:"+strconv.Itoa(streamIndex), codecASS),
 		StdoutLimitBytes: MaxTextBytes,
 		Watch: execx.Watch{
-			StartGrace: trackStartGrace, StallWindow: trackStallWindow, Deadline: execx.ReadingDeadline(videoPath),
+			StartGrace: trackStartGrace, StallWindow: trackStallWindow,
+			Deadline: execx.ReadingDeadline(videoPath, extractor.slowestReadBytesPerSecond),
 		},
 	})
 	if err != nil {

@@ -43,6 +43,8 @@ type fakeNodes struct {
 	commanded chan nodeproto.Command
 	// isAway is a node that has not connected.
 	isAway atomic.Bool
+	// isReadRateUnknown is a node whose hello did not say how fast it reads.
+	isReadRateUnknown bool
 	// awayNodeID is another node than 1, enrolled and away while node 1 is connected; 0 for none.
 	awayNodeID int64
 	// database is where a retired node is removed, at clock's time.
@@ -96,6 +98,17 @@ func (nodes *fakeNodes) Send(ctx context.Context, nodeID int64, command nodeprot
 }
 
 func (*fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
+
+// SlowestReadBytesPerSecond is node 1's: a busy disk, unless its hello did not say.
+func (nodes *fakeNodes) SlowestReadBytesPerSecond(int64) int64 {
+	if nodes.isReadRateUnknown {
+		return 0
+	}
+	return fakeNodeSlowestRead
+}
+
+// fakeNodeSlowestRead is how fast node 1 says it reads a whole file.
+const fakeNodeSlowestRead = 20 << 20
 
 func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int64, []string, bool) {
 	if name != "local" || nodes.roots == nil {

@@ -39,11 +39,14 @@ const measureStallWindow = 3 * time.Minute
 // Measurer measures loudness with the bundled FFmpeg.
 type Measurer struct {
 	runner Runner
+	// slowestReadBytesPerSecond is the slowest the node reads a whole file (nodeproto.Capacity).
+	slowestReadBytesPerSecond int64
 }
 
-// NewMeasurer returns the measurer.
-func NewMeasurer(runner Runner) *Measurer {
-	return &Measurer{runner: runner}
+// NewMeasurer returns the measurer, whose watchdog allows a measurement as long as reading its file
+// at slowestReadBytesPerSecond takes.
+func NewMeasurer(runner Runner, slowestReadBytesPerSecond int64) *Measurer {
+	return &Measurer{runner: runner, slowestReadBytesPerSecond: slowestReadBytesPerSecond}
 }
 
 // The two sounds of a track a measurement names: as it is, and as a stereo device hears it.
@@ -66,7 +69,7 @@ func (measurer *Measurer) Measure(
 		LogLimitBytes: maxLogBytes,
 		Watch: execx.Watch{
 			StartGrace: measureStartGrace, StallWindow: measureStallWindow,
-			Deadline: execx.ReadingDeadline(videoPath),
+			Deadline: execx.ReadingDeadline(videoPath, measurer.slowestReadBytesPerSecond),
 		},
 	})
 	if err != nil {

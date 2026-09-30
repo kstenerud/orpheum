@@ -125,6 +125,9 @@ prepared_dir = %q
 prepared_budget_gib = 1
 prepared_kept_after_play_hours = 72
 prepared_disk_used_limit_percent = 95
+encode_slot_count = 1
+remux_slot_count = 2
+slowest_read_mib_per_second = 20
 
 [log]
 level = "debug"

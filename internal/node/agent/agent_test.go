@@ -246,6 +246,9 @@ func (fakeArtworker) Derive(ctx context.Context, command nodeproto.Artwork) node
 	}
 }
 
+// testCapacity is the test node's: one encode and two remuxes at once.
+var testCapacity = nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 2, SlowestReadBytesPerSecond: 20 << 20}
+
 func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
 	return startAgentWithShelf(t, socket, nil)
@@ -266,7 +269,7 @@ func startAgentWithWorkers(t *testing.T, socket string, workers Workers) (*confi
 	t.Helper()
 	root := nodetest.OpenMediaRoot(t, t.TempDir())
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
+	node := New(socket, nodeproto.Hello{Name: "local", Capacity: testCapacity}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
 	node.answerRetry = answerRetry{
 		firstWait: time.Millisecond, longestWait: 4 * time.Millisecond, patience: time.Second,

@@ -80,10 +80,11 @@ type Service struct {
 	logger       *slog.Logger
 	pollHold     time.Duration
 
-	artworkSink  ArtworkSink
-	prepareSink  PrepareSink
-	subtitleSink SubtitleSink
-	loudnessSink LoudnessSink
+	artworkSink      ArtworkSink
+	prepareSink      PrepareSink
+	subtitleSink     SubtitleSink
+	loudnessSink     LoudnessSink
+	prepareSlotsSink PrepareSlotsSink
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode
@@ -111,6 +112,39 @@ func (service *Service) SetSubtitleSink(sink SubtitleSink) {
 // an answer that arrives with none set is refused.
 func (service *Service) SetLoudnessSink(sink LoudnessSink) {
 	service.loudnessSink = sink
+}
+
+// PrepareSlotsSink is told, after each hello, how many prepare slots the nodes that said hello
+// since the core started have in all: the core runs as many prepares at once (cut-a §5.3, as
+// plan-deviations P36 records).
+type PrepareSlotsSink func(prepareSlotCount int)
+
+// SetPrepareSlotsSink names who hears the nodes' prepare slots. Set it before the channel serves.
+func (service *Service) SetPrepareSlotsSink(sink PrepareSlotsSink) {
+	service.prepareSlotsSink = sink
+}
+
+// prepareSlotCount is the encode and remux slots of every node that said hello since the core
+// started, added up.
+func (service *Service) prepareSlotCount() int {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	count := 0
+	for _, node := range service.connectedNodes {
+		count += node.hello.Capacity.EncodeSlotCount + node.hello.Capacity.RemuxSlotCount
+	}
+	return count
+}
+
+// SlowestReadBytesPerSecond is the slowest the node reads a whole file, as its last hello said;
+// zero when it has not said hello since the core started.
+func (service *Service) SlowestReadBytesPerSecond(nodeID int64) int64 {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, found := service.connectedNodes[nodeID]; found {
+		return node.hello.Capacity.SlowestReadBytesPerSecond
+	}
+	return 0
 }
 
 // connectedNode is what the core holds for one connected node.
@@ -192,7 +226,10 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	service.connect(node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
-		"confinement", hello.Confinement)
+		"confinement", hello.Confinement, "capacity", hello.Capacity)
+	if service.prepareSlotsSink != nil {
+		service.prepareSlotsSink(service.prepareSlotCount())
+	}
 	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
 	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
 	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)

@@ -13,13 +13,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -37,6 +37,8 @@ type jobServices struct {
 	artwork   *artwork.Service
 	// playback runs the prepare jobs, which share the one queue (cut-a §5.3).
 	playback *playback.Service
+	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
+	nodes *nodes.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -138,7 +140,10 @@ func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
 // jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
 // its item's own failure (D231 §4, §10), its retry schedule when it has its own, how many of its
 // jobs run at once, and the sweeps that derive its work from library.db (D231 §3).
-type jobRunners []struct {
+type jobRunners []jobRunner
+
+// jobRunner is one of them.
+type jobRunner struct {
 	kind          jobs.Kind
 	handler       jobs.Handler
 	recordFailure jobs.FailureRecorder
@@ -153,10 +158,10 @@ type jobRunners []struct {
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
-// runners are the kinds of job the server works, each kind's artwork retry schedule read by the
-// caller. Prepares run as many at once as a node has
-// slots (cut-a §5.3), so a second person's copy is not held behind the first's. A prepare records
-// no failure of its own: the next play asks again (its rendition's state is Phase 4's, G8).
+// runners are the kinds of job the server works one at a time, the artwork retry schedule read by
+// the caller: one fetch per provider, and each node job its node's one slot of that kind (cut-a
+// §5.3). Prepares are not among them: they run as many at once as the nodes have slots
+// (prepareRunners, runnerPool).
 func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
 	return jobRunners{
 		{
@@ -167,10 +172,6 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
 			artworkRetrySchedule, 1,
 			[]string{sweepPasses},
-		},
-		{
-			jobs.KindPrepare, services.playback.HandlePrepare, nil, nil,
-			nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount, derivedByAPlay(),
 		},
 		{
 			jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, services.playback.RecordSubtitleFailure,
@@ -186,6 +187,13 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			[]string{sweepLoudness},
 		},
 	}
+}
+
+// prepareRunners is the prepare runner the pool starts copies of, one for each slot the nodes have.
+// A prepare records no failure of its own: the next play asks again (its rendition's state is
+// Phase 4's, G8).
+func (services jobServices) prepareRunners() jobRunners {
+	return jobRunners{{jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 0, derivedByAPlay()}}
 }
 
 // The sweeps, by what they derive (D231 §3): the first match of each film and series with no
@@ -278,24 +286,34 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	}
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
+	startRunner := func(runnerSpec jobRunner) {
+		kind, runner := runnerSpec.kind, services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
+		if runnerSpec.retrySchedule != nil {
+			runner.WithRetrySchedule(runnerSpec.retrySchedule)
+		}
+		if runnerSpec.recordFailure != nil {
+			runner.WithFailureRecorder(runnerSpec.recordFailure)
+		}
+		loops.Go(func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			if err := runner.Run(loopsContext, ticker.C); err != nil {
+				logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
+			}
+		})
+	}
 	for _, runnerSpec := range services.runners(artworkRetrySchedule) {
 		for range runnerSpec.concurrency {
-			kind, runner := runnerSpec.kind, services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
-			if runnerSpec.retrySchedule != nil {
-				runner.WithRetrySchedule(runnerSpec.retrySchedule)
-			}
-			if runnerSpec.recordFailure != nil {
-				runner.WithFailureRecorder(runnerSpec.recordFailure)
-			}
-			loops.Go(func() {
-				ticker := time.NewTicker(time.Second)
-				defer ticker.Stop()
-				if err := runner.Run(loopsContext, ticker.C); err != nil {
-					logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
-				}
-			})
+			startRunner(runnerSpec)
 		}
 	}
+	prepares := &runnerPool{start: func() { startRunner(services.prepareRunners()[0]) }}
+	services.nodes.SetPrepareSlotsSink(func(prepareSlotCount int) {
+		if grown := prepares.growTo(prepareSlotCount); grown > 0 {
+			logger.InfoContext(ctx, "runs more prepares at once, as the nodes have slots",
+				"prepareRunnerCount", prepareSlotCount)
+		}
+	})
 	for _, sweep := range services.sweeps(logger) {
 		services.queue.AddSweep(sweep)
 	}
@@ -305,7 +323,38 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		services.queue.Sweeping(loopsContext, ticker.C)
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
-	return func() { cancel(); loops.Wait() }, nil
+	return func() { prepares.stop(); cancel(); loops.Wait() }, nil
+}
+
+// runnerPool is the prepare runners: as many as the nodes that said hello have encode and remux
+// slots in all, so a second person's copy is not held behind the first's (cut-a §5.3, with the
+// slots each node's config, as plan-deviations P36 records). It grows when a hello reports more,
+// and never shrinks: a runner with no free slot on its node waits there, as the node holds it.
+type runnerPool struct {
+	mutex     sync.Mutex
+	start     func()
+	running   int
+	isStopped bool
+}
+
+// growTo starts runners until count run, unless the pool has stopped, and says how many it
+// started.
+func (pool *runnerPool) growTo(count int) int {
+	pool.mutex.Lock()
+	defer pool.mutex.Unlock()
+	started := 0
+	for ; !pool.isStopped && pool.running < count; pool.running++ {
+		pool.start()
+		started++
+	}
+	return started
+}
+
+// stop starts no more runners: the loops are ending.
+func (pool *runnerPool) stop() {
+	pool.mutex.Lock()
+	defer pool.mutex.Unlock()
+	pool.isStopped = true
 }
 
 // keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's

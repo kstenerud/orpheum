@@ -10,6 +10,10 @@
 //   - The core never reaches os/exec: the child is started through the Starter interface.
 //     Enforced by the depguard rule core-boundary and TestArch_CoreNeverExecs.
 //   - A node is enrolled once per name (D207). TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot.
+//   - What a node's machine can do is its config's, told in its hello: after each hello the
+//     prepare slots of every node that said one are added up for whoever runs prepares, and each
+//     node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
+//     TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads.
 //   - A report's records reach the ingest in order, batched, and as soon as the stream goes
 //     quiet; a record out of sequence is refused. TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
 //     TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.

@@ -68,6 +68,11 @@ type NodeConfig struct {
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
 	PreparedKeptAfterPlayHours   int64 `toml:"prepared_kept_after_play_hours"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
+	// EncodeSlotCount, RemuxSlotCount and SlowestReadMiBPerSecond are what this machine can do,
+	// which the node tells the core in its hello (nodeproto.Capacity).
+	EncodeSlotCount         int64 `toml:"encode_slot_count"`
+	RemuxSlotCount          int64 `toml:"remux_slot_count"`
+	SlowestReadMiBPerSecond int64 `toml:"slowest_read_mib_per_second"`
 }
 
 // LogConfig is how the server logs.
@@ -99,7 +104,7 @@ func (key configKey) path() string {
 
 // configKeys is every key of the file, in the order the file is written.
 func configKeys() []configKey {
-	return []configKey{
+	return append([]configKey{
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "data_dir", "", "where library.db, secret.key and backups live on this machine"},
 		{tableServer, "cache_dir", "", "where cache.db and the artwork cache live on this machine"},
@@ -117,6 +122,12 @@ func configKeys() []configKey {
 			tableDatabase, "migrate_free_space_db_multiple", "3",
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
 		},
+	}, append(nodeConfigKeys(), logConfigKeys()...)...)
+}
+
+// nodeConfigKeys are the file's keys for the media node, in the order the file is written.
+func nodeConfigKeys() []configKey {
+	return []configKey{
 		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
 		{tableNode, "root_paths", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
@@ -158,6 +169,25 @@ func configKeys() []configKey {
 			"how full the prepared directory's disk may be, whatever the budget; past it, renditions are " +
 				"evicted, and a prepare with nothing to evict is refused (D217 §5)",
 		},
+		{
+			tableNode, "encode_slot_count", "1",
+			"encodes this node runs at once, which its processor or GPU bounds (cut-a §5.3)",
+		},
+		{
+			tableNode, "remux_slot_count", "2",
+			"remuxes this node runs at once, which its disk bounds (cut-a §5.3)",
+		},
+		{
+			tableNode, "slowest_read_mib_per_second", "20",
+			"the slowest this node reads a whole file, a busy spinning disk or a network mount: how long a " +
+				"run that reads one is allowed, and how long the core waits for a loudness measurement",
+		},
+	}
+}
+
+// logConfigKeys are the file's keys for logging.
+func logConfigKeys() []configKey {
+	return []configKey{
 		{tableLog, "level", `"info"`, "debug, info, warn or error"},
 		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
 	}
@@ -285,6 +315,9 @@ func (config *Config) check() error {
 		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
+		"node.encode_slot_count":                  config.Node.EncodeSlotCount,
+		"node.remux_slot_count":                   config.Node.RemuxSlotCount,
+		"node.slowest_read_mib_per_second":        config.Node.SlowestReadMiBPerSecond,
 	} {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
