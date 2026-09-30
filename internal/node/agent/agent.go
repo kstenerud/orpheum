@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"slices"
 	"strconv"
@@ -25,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
 // nodeHeader names the node on every request after its hello; the core's nodes.NodeIDHeader.
@@ -99,15 +99,10 @@ func New(
 		byPath[root.Path()] = root
 		hello.RootPaths = append(hello.RootPaths, root.Path())
 	}
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
-		},
-	}
 	return &Agent{
-		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, workers: workers,
-		clock: clockSource, logger: logger, activity: "idle", slots: newSlots(),
+		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
+		workers: workers,
+		clock:   clockSource, logger: logger, activity: "idle", slots: newSlots(),
 	}
 }
 
