@@ -5,6 +5,8 @@ package api
 import (
 	"context"
 	"net/http"
+
+	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
 // MediaCookieName names the cookie that carries the session to the byte paths, all under /bytes/
@@ -43,10 +45,26 @@ func (credentials MediaCredentials) asAuthorizationHeader() string {
 }
 
 // requireSignedInForMedia authenticates a byte path's request by its header, else its media
-// cookie.
+// cookie: the one way every byte path signs a request in.
 func (server *Server) requireSignedInForMedia(
 	ctx context.Context, credentials MediaCredentials,
-) (*Dependencies, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, credentials.asAuthorizationHeader())
-	return dependencies, err
+) (*Dependencies, auth.Principal, error) {
+	return server.requireSignedIn(ctx, credentials.asAuthorizationHeader())
 }
+
+// The Cache-Control values the byte paths answer with, one per kind of bytes, so each kind is
+// spelled once.
+const (
+	// An image size: its URL names its content, so a client keeps it for good (D212; artwork.md,
+	// Content-addressed).
+	cacheImmutable = "private, max-age=31536000, immutable"
+	// Bytes that never change once made: a rendition's segment or finished playlist, and a
+	// subtitle track.
+	cacheForADay = "private, max-age=86400"
+	// A playlist that grows while its rendition is made.
+	cacheRevalidate = "no-cache"
+	// A redirect to the nearest image size while the one asked for is not made.
+	cacheNever = "no-store"
+	// A direct playback's bytes, relayed from the file on its node.
+	cacheNeverPrivately = "private, no-store"
+)

@@ -14,10 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// artCacheControl lets a client keep an image for good: its URL names its content (D212,
-// artwork.md, Content-addressed).
-const artCacheControl = "private, max-age=31536000, immutable"
-
 // ArtInput asks for one size of one image.
 type ArtInput struct {
 	MediaCredentials
@@ -49,7 +45,7 @@ func (server *Server) registerArt() {
 }
 
 func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, error) {
-	dependencies, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
+	dependencies, _, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +62,11 @@ func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, 
 	}
 	if image.RedirectName != "" {
 		return &ArtOutput{
-			Status: http.StatusTemporaryRedirect, CacheControl: "no-store",
+			Status: http.StatusTemporaryRedirect, CacheControl: cacheNever,
 			Location: Prefix + "/bytes/art/" + input.SourceSha256 + "/" + image.RedirectName,
 		}, nil
 	}
 	return &ArtOutput{
-		Status: http.StatusOK, ContentType: "image/" + format, CacheControl: artCacheControl, Body: image.Bytes,
+		Status: http.StatusOK, ContentType: "image/" + format, CacheControl: cacheImmutable, Body: image.Bytes,
 	}, nil
 }

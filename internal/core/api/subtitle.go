@@ -118,8 +118,7 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 	if match[3] == string(playback.FormatWebVTT) {
 		format, contentType = playback.FormatWebVTT, vttContentType
 	}
-	authorization := input.asAuthorizationHeader()
-	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
+	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +138,7 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		stream.SetHeader("Content-Type", contentType)
 		stream.SetHeader("Content-Length", strconv.Itoa(len(subtitleText.Text)))
-		stream.SetHeader("Cache-Control", "private, max-age=86400")
+		stream.SetHeader("Cache-Control", cacheForADay)
 		stream.SetStatus(http.StatusOK)
 		// A player that stops reading ends the copy; there is nothing to report to it.
 		_, _ = stream.BodyWriter().Write(subtitleText.Text) //nolint:errcheck // see above
