@@ -16283,7 +16283,11 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
 3. **Nine named sizes, a closed set, cropped to the exact shape** (a 27×40 one-sheet loses about
    1%): portrait 240×360, 480×720, 960×1440; landscape 480×270, 960×540, 1920×1080, 3840×2160;
    logo within 400×155 and 800×310. None larger than its source. The two largest are made on
-   request; the rest when the image is fetched.
+   request; the rest when the image is fetched. *(Noted 2026-09-30: a stored size is keyed by
+   its source's SHA-256 alone, not by the encoder's settings, so a change of
+   `artwork_webp_quality` applies only to images made after it, and what is already stored is
+   kept, as intended; evicting a size, or a base being lost, is what remakes it. The owner:
+   "agreed" ([M3's closing audit](../design/research/audit-2026-09-29.md) §9 C).)*
 4. **The format is in the URL, and the client chooses it.** WebP always; JPEG is cut by the core
    on the first request for it, from the base, and kept. No Cut A client needs JPEG.
 5. **The core may decode its own base images, and nothing else** (narrowing D99): they are our
