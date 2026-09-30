@@ -31,6 +31,9 @@
 //     error never repeats the URL.
 //     TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFails,
 //     TestSearch_ARateLimitIsTheOneEveryProviderReturns.
+//   - The text OpenSubtitles sends that a person is shown, a release's and a file's name and a
+//     language, passes through the one display sanitiser as it is read (D211 §2).
+//     TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters.
 //   - Only this package reveals the login (D194). Enforced by the forbidigo rule tagged [reveal].
 //
 // # Read before changing

@@ -3,6 +3,7 @@
 package opensubtitles
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -53,7 +54,10 @@ type fakeProvider struct {
 	isDroppedTokenA500 bool
 	// loginHost and linkAddress, when set, are the host a login names and the download link.
 	loginHost, linkAddress string
-	server                 *httptest.Server
+	// releaseName and fileName, when set, are the first candidate's release and a download's file
+	// name, as a JSON string.
+	releaseName, fileName string
+	server                *httptest.Server
 }
 
 func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Request) {
@@ -94,7 +98,8 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 		}
 		fake.searched = append(fake.searched, request.URL.Query())
 		reply(writer, `{"data":[
-			{"attributes":{"language":"en","release":"Film.2020.1080p","moviehash_match":true,
+			{"attributes":{"language":"en","release":`+cmp.Or(fake.releaseName, `"Film.2020.1080p"`)+`,
+			  "moviehash_match":true,
 			  "download_count":120,"upload_date":"2024-06-26T07:02:57Z","files":[{"file_id":7}]}},
 			{"attributes":{"language":"en","release":"Film.2020.720p","hearing_impaired":true,
 			  "files":[{"file_id":8}]}},
@@ -140,8 +145,8 @@ func (fake *fakeProvider) serveDownload(writer http.ResponseWriter) {
 	if fake.linkAddress != "" {
 		link = fake.linkAddress
 	}
-	reply(writer, fmt.Sprintf(`{"link":%q,"file_name":"Film.2020.srt","remaining":%d,`+
-		`"reset_time_utc":"2026-09-29T06:00:00.000Z"}`, link, fake.remaining))
+	reply(writer, fmt.Sprintf(`{"link":%q,"file_name":%s,"remaining":%d,`+
+		`"reset_time_utc":"2026-09-29T06:00:00.000Z"}`, link, cmp.Or(fake.fileName, `"Film.2020.srt"`), fake.remaining))
 }
 
 // serveLink answers the download link: the subtitle, or linkStatus when it is set.
@@ -404,5 +409,28 @@ func TestIsOwnHost_IsOpenSubtitlesDomainOrTheBasesHost(t *testing.T) {
 		if got := client.isOwnHost(host); got != want {
 			t.Errorf("isOwnHost(%q) = %v, want %v", host, got, want)
 		}
+	}
+}
+
+func TestRequests_TextOpenSubtitlesSendsIsCleanedWhereItEnters(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	// A right-to-left override makes "Film.2020.srt\u202Egnp.exe" read as ending in .png; a
+	// control and a zero-width space hide in the rest (D211 §2).
+	fake.releaseName = `"Film.2020\u202E\u200B.1080p\u0007"`
+	fake.fileName = `"Film.2020\u202Etrs.exe\u0000"`
+	candidates, err := client.Search(t.Context(), Query{IMDbID: "tt0000001", Language: "en"})
+	if err != nil || len(candidates) == 0 {
+		t.Fatalf("search: %v, %v", candidates, err)
+	}
+	if got := candidates[0].ReleaseName; got != "Film.2020.1080p" {
+		t.Errorf("the release name: %q, want it cleaned to %q", got, "Film.2020.1080p")
+	}
+	downloaded, err := client.Download(t.Context(), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if downloaded.FileName != "Film.2020trs.exe" {
+		t.Errorf("the file name: %q, want it cleaned to %q", downloaded.FileName, "Film.2020trs.exe")
 	}
 }

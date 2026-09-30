@@ -14,6 +14,10 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
+//   - A person's name, and a device's name and platform, pass through the one display sanitiser
+//     (textindex.Line) where they enter, and a sign-in reads the name it is given the same way
+//     (D211 §2). Enforced by TestNames_APersonsNameIsCleanedWhereItEntersAndSignsInAsTyped and
+//     TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter.
 //   - A password is stored only as an argon2id PHC string, with RFC 9106's second parameters.
 //     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
 //   - A sign-in under older costs re-hashes the password. Enforced by

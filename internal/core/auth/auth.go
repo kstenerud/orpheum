@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -143,7 +144,7 @@ func (service *Service) CreateUser(ctx context.Context, user NewUser) (int64, er
 
 // insertUser adds a user inside the caller's write transaction.
 func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries, user NewUser) (int64, error) {
-	name := strings.TrimSpace(user.Name)
+	name := textindex.Line(user.Name)
 	if name == "" || (user.Password == "") != user.AwaitsRegistration {
 		return 0, errors.New("a user needs a name, and a password unless they await registration")
 	}
@@ -218,7 +219,7 @@ func (service *Service) SignIn(
 	if err != nil {
 		return "", err
 	}
-	user, err := store.OrNotFound(service.database.Read().GetLiveUserByName(ctx, strings.TrimSpace(name)))
+	user, err := store.OrNotFound(service.database.Read().GetLiveUserByName(ctx, textindex.Line(name)))
 	if errors.Is(err, store.ErrNotFound) {
 		// An unknown name costs what a known one does, so timing does not tell them apart.
 		_, hashErr := HashPassword(password, parameters, service.random)
@@ -269,7 +270,7 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 
 // accountLimitKey is a person's key in the failed-sign-in limit.
 func accountLimitKey(name string) string {
-	return "account:" + strings.ToLower(strings.TrimSpace(name))
+	return "account:" + strings.ToLower(textindex.Line(name))
 }
 
 // resumeOrMakeDevice is the device a sign-in is on: the one the client remembers, when it is the
@@ -280,7 +281,9 @@ func resumeOrMakeDevice(
 	if device.PreviousDeviceID != 0 {
 		known, err := liveDevice(ctx, queries, userID, device.PreviousDeviceID)
 		if err == nil {
-			touch := sqlcgen.RecordDeviceSignInParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
+			touch := sqlcgen.RecordDeviceSignInParams{
+				Platform: textindex.Line(device.Platform), SignedInAt: now, ID: known.ID,
+			}
 			if touchErr := queries.RecordDeviceSignIn(ctx, touch); touchErr != nil {
 				return 0, fmt.Errorf("resume device %d: %w", known.ID, touchErr)
 			}
@@ -291,7 +294,7 @@ func resumeOrMakeDevice(
 		}
 	}
 	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
-		UserID: &userID, Name: device.Name, Platform: device.Platform, SignedInAt: now,
+		UserID: &userID, Name: textindex.Line(device.Name), Platform: textindex.Line(device.Platform), SignedInAt: now,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("record the device: %w", err)
