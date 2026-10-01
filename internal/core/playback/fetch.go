@@ -231,33 +231,33 @@ func (service *Service) convertFetched(
 	ctx context.Context, nodeID int64, text []byte,
 ) (nodeproto.SubtitleText, error) {
 	conversionID := -service.fetchConversions.Add(1)
-	answers := service.subtitleTextAnswers.Await(conversionID)
-	defer service.subtitleTextAnswers.Forget(conversionID)
-	err := service.nodes.Send(ctx, nodeID, nodeproto.Command{
+	exchange, err := service.exchanges.Ask(ctx, nodeID, conversionID, nodeproto.Command{
 		Type:            nodeproto.CommandExtractSubtitle,
 		ExtractSubtitle: &nodeproto.ExtractSubtitle{JobID: conversionID, FetchedSubRip: text},
-	})
+	}, "a fetched subtitle")
 	if err != nil {
 		return nodeproto.SubtitleText{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", nodeID, err)
 	}
-	timer := time.NewTimer(service.maxSilence)
-	defer timer.Stop()
-	select {
-	case answer := <-answers:
-		switch {
-		case answer.Refusal != "":
-			return answer, fmt.Errorf("node %d refused to convert a fetched subtitle: %s: %w",
-				nodeID, answer.Refusal, nodes.ErrNodeSilent)
-		case answer.Failure != "":
-			return answer, fmt.Errorf("%w: %s", ErrUnreadableSubtitle, answer.Failure)
-		}
-		return answer, nil
-	case <-timer.C:
-		return nodeproto.SubtitleText{}, fmt.Errorf("node %d said nothing about a fetched subtitle for %s: %w",
-			nodeID, service.maxSilence, nodes.ErrNodeSilent)
-	case <-ctx.Done():
-		return nodeproto.SubtitleText{}, fmt.Errorf("wait for a fetched subtitle's conversion: %w", ctx.Err())
+	// A person waits for this, not a job: their request ending stops the node's work too.
+	defer exchange.Close()
+	result, err := exchange.Next(ctx, service.maxSilence)
+	switch {
+	case err != nil:
+		return nodeproto.SubtitleText{}, err
+	case result.Subtitle == nil:
+		return nodeproto.SubtitleText{}, fmt.Errorf(
+			"node %d answered a fetched subtitle with something other than a subtitle: %w", nodeID, nodes.ErrNodeSilent)
 	}
+	exchange.MarkEndedByNode()
+	answer := *result.Subtitle
+	switch {
+	case answer.Refusal != "":
+		return answer, fmt.Errorf("node %d refused to convert a fetched subtitle: %s: %w",
+			nodeID, answer.Refusal, nodes.ErrNodeSilent)
+	case answer.Failure != "":
+		return answer, fmt.Errorf("%w: %s", ErrUnreadableSubtitle, answer.Failure)
+	}
+	return answer, nil
 }
 
 // keepConvertedText keeps a fetched subtitle's converted text where a playback finds it.

@@ -6,12 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -290,43 +288,39 @@ func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 	key sqlcgen.GetSubtitleTextParams,
 ) error {
-	answers := service.subtitleTextAnswers.Await(job.ID)
-	defer service.subtitleTextAnswers.Forget(job.ID)
-	err := service.nodes.Send(ctx, nodeID, nodeproto.Command{
+	exchange, err := service.exchanges.Ask(ctx, nodeID, job.ID, nodeproto.Command{
 		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
-	})
+	}, fmt.Sprintf("%s job %d", job.Kind, job.ID))
 	if err != nil {
 		return fmt.Errorf("%s job %d: %w", job.Kind, job.ID, err)
 	}
-	timer := time.NewTimer(service.maxSilence)
-	defer timer.Stop()
-	select {
-	case answer := <-answers:
-		if answer.Refusal != "" {
-			return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)
-		}
-		if answer.Stall != nil {
-			return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,
-				func(failure string) error {
-					return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: failure})
-				})
-		}
-		if answer.Failure != "" {
-			failure := errors.New(answer.Failure)
-			return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
-		}
-		return service.finishSubtitle(ctx, key, answer)
-	case <-timer.C:
-		return service.nodes.Unanswered(ctx, nodeID,
-			fmt.Errorf("node %d said nothing about %s job %d for %s", nodeID, job.Kind, job.ID, service.maxSilence))
-	case <-ctx.Done():
-		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-			// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
-			service.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
-			return jobs.MarkPermanent(jobs.ErrCancelled)
-		}
-		return fmt.Errorf("wait for %s job %d: %w", job.Kind, job.ID, ctx.Err())
+	defer exchange.Close()
+	result, err := exchange.Next(ctx, service.maxSilence)
+	switch {
+	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
+		// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
+		return jobs.MarkPermanent(jobs.ErrCancelled)
+	case err != nil:
+		return err
+	case result.Subtitle == nil:
+		return fmt.Errorf("node %d answered %s job %d with something other than a subtitle", nodeID, job.Kind, job.ID)
 	}
+	exchange.MarkEndedByNode()
+	answer := *result.Subtitle
+	if answer.Refusal != "" {
+		return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)
+	}
+	if answer.Stall != nil {
+		return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,
+			func(failure string) error {
+				return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: failure})
+			})
+	}
+	if answer.Failure != "" {
+		failure := errors.New(answer.Failure)
+		return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
+	}
+	return service.finishSubtitle(ctx, key, answer)
 }
 
 // finishSubtitle keeps a node's answer in library.db: the text, or why there is none.
@@ -391,5 +385,5 @@ func (service *Service) RecordSubtitleFailure(ctx context.Context, job jobs.Job,
 
 // TakeSubtitleText takes a node's answer to an extract_subtitle command to the job waiting for it.
 func (service *Service) TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
-	service.subtitleTextAnswers.Deliver(ctx, nodeID, answer.JobID, answer)
+	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: answer.JobID, Subtitle: &answer})
 }

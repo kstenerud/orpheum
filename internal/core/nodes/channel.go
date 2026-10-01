@@ -42,8 +42,8 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 	}
 	service.notePoll(nodeID, 1)
 	defer service.notePoll(nodeID, -1)
-	timer := time.NewTimer(service.pollHold)
-	defer timer.Stop()
+	hold := service.clock.NewTimer(service.pollHold)
+	defer hold.Stop()
 	for {
 		pending, wake := service.dropAckedAndListPending(nodeID, ackedSeq)
 		if len(pending) > 0 {
@@ -52,7 +52,7 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		}
 		select {
 		case <-wake:
-		case <-timer.C:
+		case <-hold.C():
 			writeJSON(writer, nodeproto.Commands{Commands: []nodeproto.Command{}})
 			return
 		case <-request.Context().Done():

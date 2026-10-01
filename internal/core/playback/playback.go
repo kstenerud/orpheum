@@ -81,20 +81,20 @@ type Parts struct {
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
 type Service struct {
-	database            *store.Database
-	cache               *store.Cache
-	queue               Queue
-	nodes               Nodes
-	settings            Settings
-	clock               clock.Clock
-	random              io.Reader
-	maxSilence          time.Duration
-	tokens              *tokens
-	prepares            *prepares
-	subtitleTextAnswers *nodes.AnswerRouter[nodeproto.SubtitleText]
-	loudnessAnswers     *nodes.AnswerRouter[nodeproto.LoudnessResult]
-	subtitler           Subtitler
-	preferences         *preferences.Service
+	database   *store.Database
+	cache      *store.Cache
+	queue      Queue
+	nodes      Nodes
+	settings   Settings
+	clock      clock.Clock
+	random     io.Reader
+	maxSilence time.Duration
+	tokens     *tokens
+	prepares   *prepares
+	// exchanges are the jobs waiting on a node: a prepare, an extraction, a measurement.
+	exchanges   *nodes.Exchanges
+	subtitler   Subtitler
+	preferences *preferences.Service
 	// fetchConversions counts the conversions a fetch asks a node for while a person waits. Each
 	// is named to the node, and its answer found, by the count's negative, which no job's id is.
 	fetchConversions atomic.Int64
@@ -102,14 +102,12 @@ type Service struct {
 
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
+	exchanges := nodes.NewExchanges(parts.Nodes, parts.Clock, parts.Logger)
 	return &Service{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
-		tokens: newTokens(), prepares: newPrepares(parts),
-		subtitleTextAnswers: nodes.NewAnswerRouter[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
-		subtitler:           parts.Subtitler,
-		preferences:         parts.Preferences,
-		loudnessAnswers:     nodes.NewAnswerRouter[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
+		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
+		subtitler: parts.Subtitler, preferences: parts.Preferences,
 	}
 }
 
