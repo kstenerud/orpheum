@@ -247,6 +247,24 @@ func (failure *Error) GetStatus() int {
 	return failure.status
 }
 
+// logErrorAnswer logs every error the API answers with, at debug: a client shows a person only words
+// chosen by the code, so the log is where an error's operation, code and message can be read. It
+// is a huma transformer, so huma's own errors are logged too; it never changes the body.
+func (server *Server) logErrorAnswer(ctx huma.Context, status string, body any) (any, error) {
+	failure, isError := body.(*Error)
+	if !isError {
+		return body, nil
+	}
+	operationID := ""
+	if operation := ctx.Operation(); operation != nil {
+		operationID = operation.OperationID
+	}
+	server.logger.DebugContext(ctx.Context(), "answered with an error",
+		"operation", operationID, "method", ctx.Method(), "path", ctx.URL().Path, "status", status,
+		"code", failure.ErrorBody.Error.Code, "message", failure.ErrorBody.Error.Message)
+	return body, nil
+}
+
 // newError builds an Error.
 func newError(status int, code Code, message string) *Error {
 	return &Error{status: status, ErrorBody: ErrorBody{Error: ProblemBody{Code: code, Message: message}}}

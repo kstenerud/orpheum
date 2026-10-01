@@ -25,6 +25,9 @@
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
+//   - Every error the API answers with, huma's own included, is logged at debug with its operation,
+//     method, path, status, code and message, never the submitted value, since a client shows only
+//     words chosen by the code. Enforced by TestErrorAnswers_AreLoggedWithTheirOperationAndCode.
 //   - An error's detail is typed by its code, and the document gives every code its form, so a
 //     client that narrows by code reads typed detail (cut-a §5.2). An error takes its code from its
 //     detail's type (newDetailedError). Enforced by

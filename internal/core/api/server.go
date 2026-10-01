@@ -106,11 +106,9 @@ func NewServer(logger *slog.Logger) *Server {
 	config.Info.Description = "The Orpheum media server's client API (cut-a §5). Errors have one shape: " +
 		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
 	mux := http.NewServeMux()
-	server := &Server{
-		humaAPI: humago.NewWithPrefix(mux, Prefix, config),
-		mux:     mux,
-		logger:  logger.With("component", "api"),
-	}
+	server := &Server{mux: mux, logger: logger.With("component", "api")}
+	config.Transformers = append(config.Transformers, server.logErrorAnswer)
+	server.humaAPI = humago.NewWithPrefix(mux, Prefix, config)
 	server.health.status = StatusStarting
 	server.registerHealth()
 	server.registerSetupAndAuth()
