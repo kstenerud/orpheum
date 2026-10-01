@@ -185,5 +185,5 @@ func (service *Service) prepareOrderFor(
 
 // TakePrepareReport takes a node's report on a prepare to the job waiting for it.
 func (service *Service) TakePrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	service.prepares.reported(ctx, nodeID, report)
+	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: report.JobID, Prepare: &report})
 }

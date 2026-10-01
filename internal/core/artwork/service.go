@@ -78,9 +78,9 @@ type Parts struct {
 type Service struct {
 	parts Parts
 
-	answers  *nodes.AnswerRouter[nodeproto.ArtworkResult]
-	holdings *holdings
-	beside   *besideTheMedia
+	exchanges *nodes.Exchanges
+	holdings  *holdings
+	beside    *besideTheMedia
 }
 
 // NewService returns the service.
@@ -89,7 +89,7 @@ func NewService(parts Parts) *Service {
 		parts.AnswerWait = nodeproto.ArtworkAnswerWait
 	}
 	return &Service{
-		parts: parts, answers: nodes.NewAnswerRouter[nodeproto.ArtworkResult](parts.Logger, "an artwork answer"),
+		parts: parts, exchanges: nodes.NewExchanges(parts.Nodes, parts.Clock, parts.Logger),
 		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
 	}
 }
@@ -276,35 +276,31 @@ func (service *Service) reEncode(
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_webp_quality: %w", err)
 	}
-	answers := service.answers.Await(command.JobID)
-	defer service.answers.Forget(command.JobID)
 	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
-	err = service.parts.Nodes.Send(ctx, nodeID,
-		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command})
+	exchange, err := service.exchanges.Ask(ctx, nodeID, command.JobID,
+		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command}, "re-encoding an image")
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
 	}
-	timer := time.NewTimer(service.parts.AnswerWait)
-	defer timer.Stop()
-	select {
-	case result := <-answers:
-		return result, nil
-	case <-timer.C:
-		return nodeproto.ArtworkResult{}, service.parts.Nodes.Unanswered(ctx, nodeID,
-			fmt.Errorf("node %d did not answer within %s", nodeID, service.parts.AnswerWait))
-	case <-ctx.Done():
-		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-			service.parts.Nodes.Enqueue(nodeID, nodes.CancelCommand(command.JobID))
-			return nodeproto.ArtworkResult{}, jobs.MarkPermanent(jobs.ErrCancelled)
-		}
-		return nodeproto.ArtworkResult{}, fmt.Errorf("wait for node %d: %w", nodeID, ctx.Err())
+	defer exchange.Close()
+	result, err := exchange.Next(ctx, service.parts.AnswerWait)
+	switch {
+	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
+		return nodeproto.ArtworkResult{}, jobs.MarkPermanent(jobs.ErrCancelled)
+	case err != nil:
+		return nodeproto.ArtworkResult{}, err
+	case result.Artwork == nil:
+		return nodeproto.ArtworkResult{}, fmt.Errorf("node %d answered re-encoding an image with something else",
+			nodeID)
 	}
+	exchange.MarkEndedByNode()
+	return *result.Artwork, nil
 }
 
 // TakeArtworkAnswer takes a node's answer to the job waiting for it. One nothing waits for — it came after
 // the wait ended — is dropped; its job was retried.
 func (service *Service) TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
-	service.answers.Deliver(ctx, nodeID, result.JobID, result)
+	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: result.JobID, Artwork: &result})
 }
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is

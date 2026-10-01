@@ -89,6 +89,17 @@ const (
 	PrepareStalled PrepareState = "stalled"
 )
 
+// IsEnd is whether a report in this state is the prepare's last: the node is done with it, made
+// or not.
+func (state PrepareState) IsEnd() bool {
+	switch state {
+	case PrepareDone, PrepareFailed, PrepareRefused, PrepareStalled:
+		return true
+	case PrepareWaiting, PrepareRunning:
+	}
+	return false
+}
+
 // RefusalCode names a refusal the core acts on, rather than only shows.
 type RefusalCode string
 

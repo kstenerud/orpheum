@@ -12,7 +12,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -281,46 +280,42 @@ func (service *Service) measure(
 	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,
 	patience time.Duration,
 ) error {
-	answers := service.loudnessAnswers.Await(job.ID)
-	defer service.loudnessAnswers.Forget(job.ID)
-	err := service.nodes.Send(ctx, file.NodeID, nodeproto.Command{
+	exchange, err := service.exchanges.Ask(ctx, file.NodeID, job.ID, nodeproto.Command{
 		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
-	})
+	}, fmt.Sprintf("measuring file %d", file.ID))
 	if err != nil {
 		return fmt.Errorf("measure file %d: %w", file.ID, err)
 	}
-	timer := time.NewTimer(patience)
-	defer timer.Stop()
-	select {
-	case answer := <-answers:
-		if answer.Refusal != "" {
-			// A refusal says nothing of the file's bytes (a full disk, a file changed since the
-			// scan): nothing is kept, and the job is tried again on its back-off, as when the node
-			// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
-			return fmt.Errorf("node %d refused to measure file %d: %s", file.NodeID, file.ID, answer.Refusal)
-		}
-		if answer.Stall != nil {
-			return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,
-				func(failure string) error {
-					return service.keepLoudness(ctx, file.PayloadHash, command.Tracks,
-						nodeproto.LoudnessResult{JobID: job.ID, Failure: failure})
-				})
-		}
-		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
-		if answer.Failure != "" {
-			return jobs.MarkPermanent(errors.Join(errors.New(answer.Failure), keepErr))
-		}
-		return keepErr
-	case <-timer.C:
-		return service.nodes.Unanswered(ctx, file.NodeID,
-			fmt.Errorf("node %d said nothing about measuring file %d for %s", file.NodeID, file.ID, patience))
-	case <-ctx.Done():
-		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-			service.nodes.Enqueue(file.NodeID, nodes.CancelCommand(job.ID))
-			return jobs.MarkPermanent(jobs.ErrCancelled)
-		}
-		return fmt.Errorf("wait for measurement job %d: %w", job.ID, ctx.Err())
+	defer exchange.Close()
+	result, err := exchange.Next(ctx, patience)
+	switch {
+	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
+		return jobs.MarkPermanent(jobs.ErrCancelled)
+	case err != nil:
+		return err
+	case result.Loudness == nil:
+		return fmt.Errorf("node %d answered measuring file %d with something other than loudness", file.NodeID, file.ID)
 	}
+	exchange.MarkEndedByNode()
+	answer := *result.Loudness
+	if answer.Refusal != "" {
+		// A refusal says nothing of the file's bytes (a full disk, a file changed since the
+		// scan): nothing is kept, and the job is tried again on its back-off, as when the node
+		// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
+		return fmt.Errorf("node %d refused to measure file %d: %s", file.NodeID, file.ID, answer.Refusal)
+	}
+	if answer.Stall != nil {
+		return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,
+			func(failure string) error {
+				return service.keepLoudness(ctx, file.PayloadHash, command.Tracks,
+					nodeproto.LoudnessResult{JobID: job.ID, Failure: failure})
+			})
+	}
+	keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
+	if answer.Failure != "" {
+		return jobs.MarkPermanent(errors.Join(errors.New(answer.Failure), keepErr))
+	}
+	return keepErr
 }
 
 // keepLoudness keeps a node's answer by the file's payload hash: each track's sounds, or, when
@@ -371,5 +366,5 @@ func loudnessRow(
 
 // TakeLoudness takes a node's answer to a measure_loudness command to the job waiting for it.
 func (service *Service) TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
-	service.loudnessAnswers.Deliver(ctx, nodeID, answer.JobID, answer)
+	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: answer.JobID, Loudness: &answer})
 }

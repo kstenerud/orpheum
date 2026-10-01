@@ -93,7 +93,7 @@ func TestSend_ACommandToANodeNotConnectedParksItsJobAndSendsNothing(t *testing.T
 		t.Errorf("a command to a silent node parks %+v (%v); want it parked since the node was last heard",
 			parking, isParked)
 	}
-	if commands, _ := harness.poll(t, reply.NodeID, 1); len(commands.Commands) != 0 {
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 1); len(commands.Commands) != 0 {
 		t.Errorf("a silent node was queued %+v; a parked job sends nothing", commands.Commands)
 	}
 }

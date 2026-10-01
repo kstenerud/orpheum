@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -176,6 +177,27 @@ func (harness *fixture) poll(t *testing.T, nodeID, after int64) (nodeproto.Comma
 	return commands, response.StatusCode
 }
 
+// pollThroughHold is a long-poll with nothing to answer: the clock moves on past the poll's hold,
+// which runs on the core's clock, until the poll answers.
+func (harness *fixture) pollThroughHold(t *testing.T, nodeID, after int64) (nodeproto.Commands, int) {
+	t.Helper()
+	type answer struct {
+		commands nodeproto.Commands
+		status   int
+	}
+	answered := make(chan answer, 1)
+	go func() {
+		commands, status := harness.poll(t, nodeID, after)
+		answered <- answer{commands, status}
+	}()
+	for len(answered) == 0 {
+		harness.clock.Advance(harness.service.pollHold)
+		runtime.Gosched()
+	}
+	got := testutil.Receive(t, answered, "the long-poll's empty answer")
+	return got.commands, got.status
+}
+
 func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
@@ -235,7 +257,7 @@ func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
-	if commands, _ := harness.poll(t, reply.NodeID, 0); len(commands.Commands) != 0 {
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); len(commands.Commands) != 0 {
 		t.Errorf("commands %+v, want none", commands.Commands)
 	}
 }
@@ -274,7 +296,7 @@ func TestCommands_ALongPollWithNothingToSayAnswersEmpty(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	commands, status := harness.poll(t, reply.NodeID, 0)
+	commands, status := harness.pollThroughHold(t, reply.NodeID, 0)
 	if status != http.StatusOK || commands.Commands == nil || len(commands.Commands) != 0 {
 		t.Errorf("status %d, %+v; want 200 and an empty list", status, commands)
 	}

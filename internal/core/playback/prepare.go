@@ -52,15 +52,15 @@ type prepares struct {
 	// maxSlotWait is how long in all a prepare may wait for a slot on its node (maxSlotWait).
 	maxSlotWait time.Duration
 
-	reportAnswers *nodes.AnswerRouter[nodeproto.PrepareReport]
+	exchanges *nodes.Exchanges
 }
 
-func newPrepares(parts Parts) *prepares {
+func newPrepares(parts Parts, exchanges *nodes.Exchanges) *prepares {
 	return &prepares{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
 		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence, maxSlotWait: maxSlotWait,
-		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
+		exchanges: exchanges,
 	}
 }
 
@@ -183,13 +183,13 @@ const maxSlotWait = 6 * time.Hour
 // has held it waiting for a slot for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
-	answers := all.reportAnswers.Await(job.ID)
-	defer all.reportAnswers.Forget(job.ID)
 	command.JobID = job.ID
-	err := all.nodes.Send(ctx, nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
+	exchange, err := all.exchanges.Ask(ctx, nodeID, job.ID,
+		nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command}, "prepare "+command.RenditionDir)
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
+	defer exchange.Close()
 	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
@@ -197,25 +197,25 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
 		return err
 	}
-	timer := time.NewTimer(all.maxSilence)
-	defer timer.Stop()
 	var waitingSince time.Time
 	for {
-		select {
-		case report := <-answers:
-			isOver, err := all.takeReport(ctx, job, order, report, &waitingSince)
-			if isOver {
-				return err
-			}
-			timer.Reset(all.maxSilence)
-		case <-timer.C:
-			return all.nodes.Unanswered(ctx, nodeID, fmt.Errorf("node %d said nothing about prepare %s for %s",
-				nodeID, command.RenditionDir, all.maxSilence))
-		case <-ctx.Done():
-			if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-				return all.abandon(ctx, job, nodeID)
-			}
-			return fmt.Errorf("wait for prepare %s: %w", command.RenditionDir, ctx.Err())
+		result, err := exchange.Next(ctx, all.maxSilence)
+		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+			return all.abandon(ctx, job)
+		}
+		if err != nil {
+			return err
+		}
+		if result.Prepare == nil {
+			return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",
+				nodeID, command.RenditionDir)
+		}
+		if result.Prepare.State.IsEnd() {
+			exchange.MarkEndedByNode()
+		}
+		isOver, err := all.takeReport(ctx, job, order, *result.Prepare, &waitingSince)
+		if isOver {
+			return err
 		}
 	}
 }
@@ -234,7 +234,7 @@ func (all *prepares) takeReport(
 			*waitingSince = all.clock.Now()
 		}
 		if waited := all.clock.Now().Sub(*waitingSince); waited >= all.maxSlotWait {
-			all.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
+			// The exchange's close tells the node to stop it.
 			return true, fmt.Errorf("node %d held prepare %s waiting for a slot for %s", nodeID, renditionDir, waited)
 		}
 		return false, nil
@@ -281,8 +281,7 @@ func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedT
 
 // abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
 // a later play prepares it again rather than waiting on one no one is making.
-func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
-	all.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
+func (all *prepares) abandon(ctx context.Context, job jobs.Job) error {
 	finishErr := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
 	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
 }
@@ -345,11 +344,6 @@ func (all *prepares) finish(
 		return fmt.Errorf("record rendition %d finished: %w", renditionID, err)
 	}
 	return nil
-}
-
-// reported hands a node's report to the job waiting for it.
-func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	all.reportAnswers.Deliver(ctx, nodeID, report.JobID, report)
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its

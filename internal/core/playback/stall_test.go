@@ -23,9 +23,9 @@ func preparesOnAFakeNode(t *testing.T, node fakeNodes, clockSource *clocktest.Fa
 	t.Helper()
 	return &prepares{
 		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
-		clock: clockSource, maxSilence: time.Hour, maxSlotWait: maxSlotWait,
-		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](slog.New(slog.DiscardHandler),
-			"a prepare report"),
+		// The silence limit outlasts the slot cap, which these tests move the clock past at once.
+		clock: clockSource, maxSilence: 2 * maxSlotWait, maxSlotWait: maxSlotWait,
+		exchanges: nodes.NewExchanges(node, clockSource, slog.New(slog.DiscardHandler)),
 	}
 }
 
@@ -60,7 +60,7 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		ended := make(chan error, 1)
 		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
 		testutil.Receive(t, node.sent, "the prepare command")
-		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareStalled, Stall: stall})
+		all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
@@ -108,7 +108,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
-		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
 		select {
 		case err := <-ended:
 			if err == nil || !strings.Contains(err.Error(), "waiting for a slot") ||

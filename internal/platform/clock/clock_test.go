@@ -36,3 +36,24 @@ func TestSystem_SleepWaitsOrEndsWithItsContext(t *testing.T) {
 		t.Errorf("a sleep whose context ended: %v, want its error at once", err)
 	}
 }
+
+func TestSystem_ATimerFiresAfterItsWaitAndAStoppedOneDoesNot(t *testing.T) {
+	t.Parallel()
+	var system clock.System
+	fired := system.NewTimer(time.Millisecond)
+	select {
+	case <-fired.C():
+	case <-time.After(time.Minute):
+		t.Fatal("a timer of a millisecond did not fire within a minute")
+	}
+	stopped := system.NewTimer(time.Hour)
+	if !stopped.Stop() {
+		t.Error("Stop on an armed timer said it was not armed")
+	}
+	stopped.Reset(time.Millisecond)
+	select {
+	case <-stopped.C():
+	case <-time.After(time.Minute):
+		t.Fatal("a timer reset to a millisecond did not fire within a minute")
+	}
+}

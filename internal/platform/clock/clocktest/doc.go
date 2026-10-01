@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package clocktest provides Fake, the clock.Clock that tests control. It is imported only by
-// tests; production code uses clock.System.
+// Package clocktest provides Fake, the clock.Clock that tests control: its time moves only when a
+// test moves it, and its timers fire when it moves past them. It is imported only by tests;
+// production code uses clock.System.
 //
 // # Invariants
 //
