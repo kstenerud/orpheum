@@ -47,11 +47,12 @@ class Summary(unittest.TestCase):
 
 
 class Running(unittest.TestCase):
-    def run_gate(self, makefile: str, verbose: bool = False) -> tuple[int, str, Path]:
-        root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
-        (root / "Makefile").write_text(makefile)
+    def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None) -> tuple[int, str, Path]:
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") and k != "VERBOSE"}
-        subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
+        if root is None:
+            root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
+        (root / "Makefile").write_text(makefile)
         if verbose:
             env["VERBOSE"] = "1"
         cwd = os.getcwd()
@@ -77,6 +78,17 @@ class Running(unittest.TestCase):
         self.assertNotIn("ok  \tpkg", printed)
         self.assertIn(str(log), printed)
         self.assertIn("make gate: FAILED", printed)
+
+    def test_a_failures_log_outlives_the_passing_run_after_it(self):
+        """A hang's diagnostic was overwritten by the passing re-run's log (audit-2026-09-30 §5)."""
+        code, printed, log = self.run_gate("gate:\n\t@echo 'the hang, diagnosed'\n\t@false\n")
+        failed = log.with_name("gate.failed.log")
+        self.assertNotEqual(code, 0)
+        self.assertIn(f"it is kept in {failed} until the next failure", printed)
+        code, _, _ = self.run_gate("gate:\n\t@echo 'make gate: all gates passed'\n", root=log.parents[2])
+        self.assertEqual(code, 0)
+        self.assertNotIn("the hang", log.read_text())
+        self.assertIn("the hang, diagnosed", failed.read_text())
 
     def test_verbose_prints_everything(self):
         code, _, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n", verbose=True)
