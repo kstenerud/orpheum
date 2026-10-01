@@ -15,7 +15,13 @@ export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { textWhenReady, whenReady } from "./ready.ts";
-export { ApiProblem, dataOrThrow, problemFromAnswer, throwIfRefused } from "./problem.ts";
+export {
+  ApiProblem,
+  dataOrThrow,
+  problemFromAnswer,
+  reportFailure,
+  throwIfRefused,
+} from "./problem.ts";
 export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } from "./problem.ts";
 export type { WaitOptions } from "./ready.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
