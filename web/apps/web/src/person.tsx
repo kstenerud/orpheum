@@ -17,8 +17,13 @@ import { dateText } from "./date-time-text.ts";
 import { NewDeviceCodeForm } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
-import { IssuedInvitationView, registrationText, type IssuedInvitation } from "./people.tsx";
-import { problemText } from "./problem.ts";
+import {
+  IssuedInvitationView,
+  personWords,
+  registrationText,
+  type IssuedInvitation,
+} from "./people.tsx";
+import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -41,7 +46,7 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const showProblem = (cause: unknown): void => {
-    setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
+    setProblem(fieldProblemText(t, cause, personWords(t)));
   };
   const actions = {
     rename: (name: string): void => {

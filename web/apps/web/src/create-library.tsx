@@ -5,7 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -69,6 +69,11 @@ export function withRootChosen(
   return isChosen ? [...new Set([...roots, root])] : roots.filter((chosen) => chosen !== root);
 }
 
+/** Whether the draft has a folder to read: the server refuses a library without one. */
+export function hasARoot(draft: NewLibrary): boolean {
+  return (draft.rootPaths ?? []).length > 0;
+}
+
 /** Where the library's folders are: a connected node, and which of its configured roots. */
 function WhereItIs(props: {
   readonly draft: NewLibrary;
@@ -102,6 +107,7 @@ function WhereItIs(props: {
       </label>
       <fieldset>
         <legend>{t("libraries.roots")}</legend>
+        <p>{t("libraries.rootsHelp")}</p>
         {(chosenNode?.rootPaths ?? []).map((root) => (
           <label key={root}>
             <input
@@ -293,7 +299,9 @@ export function CreateLibraryForm(props: {
       />
       <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
       {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
-      <button type="submit">{t("libraries.create")}</button>
+      <button type="submit" disabled={!hasARoot(draft)}>
+        {t("libraries.create")}
+      </button>
     </form>
   );
 }
@@ -322,7 +330,16 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
           props.onCreated();
         },
         (cause: unknown) => {
-          setProblem(problemText(t, cause));
+          setProblem(
+            fieldProblemText(t, cause, {
+              fields: {
+                "body.name": t("libraries.name"),
+                "body.nodeName": t("libraries.node"),
+                "body.rootPaths": t("libraries.roots"),
+                "body.checkEveryHours": t("libraries.checkEvery"),
+              },
+            }),
+          );
         },
       );
   };

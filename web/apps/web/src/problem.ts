@@ -37,6 +37,47 @@ export function problemText(
   return t("problem.unknown");
 }
 
+/** A form's words for a refusal: its fields' labels, and problemText's overrides. */
+export interface FormWords {
+  /**
+   * Where the server says a problem is ("body.rootPaths", which also covers "body.rootPaths[0]"),
+   * mapped to the label the person sees on that field.
+   */
+  readonly fields: Readonly<Record<string, string>>;
+  readonly overrides?: Readonly<Partial<Record<string, string>>>;
+}
+
+/**
+ * What to tell a person when the server refused what was entered (invalid_request), naming the
+ * fields in the form's own words. When a problem is somewhere the form has no label for, or the
+ * server does not say where, the words are problemText's, as for any other failure.
+ */
+export function fieldProblemText(t: TFunction, cause: unknown, words: FormWords): string {
+  if (cause instanceof ApiProblem) {
+    const problems = cause.withCode("invalid_request")?.detail?.problems ?? [];
+    const labels = problems.map((problem) => fieldLabel(words.fields, problem.location));
+    if (labels.length > 0 && labels.every((label): label is string => label !== undefined)) {
+      return t("problem.invalidFields", { fields: [...new Set(labels)] });
+    }
+  }
+  return problemText(t, cause, words.overrides);
+}
+
+/** The label of the field a problem's location is in, or undefined where the form has none. */
+function fieldLabel(
+  fields: Readonly<Record<string, string>>,
+  location: string | undefined,
+): string | undefined {
+  if (location === undefined) {
+    return undefined;
+  }
+  const found = Object.entries(fields).find(
+    ([path]) =>
+      location === path || location.startsWith(`${path}[`) || location.startsWith(`${path}.`),
+  );
+  return found?.[1];
+}
+
 /**
  * What to tell a person about an outside provider's refusal (provider_error), by the reason the
  * server gives ("no_key"), from the screen's own catalogue of them, which names its provider:

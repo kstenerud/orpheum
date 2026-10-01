@@ -5,7 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -240,7 +240,7 @@ function Secrets(): JSX.Element {
         showNote(successNote);
       },
       (cause: unknown) => {
-        showNote(problemText(t, cause));
+        showNote(fieldProblemText(t, cause, { fields: { "body.value": t("settings.newValue") } }));
       },
     );
   };

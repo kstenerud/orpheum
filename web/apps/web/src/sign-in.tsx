@@ -12,7 +12,7 @@ import {
   CredentialsProblem,
   PasswordField,
 } from "./credentials-form.tsx";
-import { problemText, signedOutText } from "./problem.ts";
+import { fieldProblemText, signedOutText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 
@@ -86,10 +86,13 @@ export function SignIn(): JSX.Element {
     problem,
     runRequest,
   } = useRequest((cause) =>
-    problemText(t, cause, {
-      authRequired: t("signIn.wrongNameOrPassword"),
-      rateLimited: t("signIn.tooManyAttempts"),
-      setupRequired: t("signIn.noAdminYet"),
+    fieldProblemText(t, cause, {
+      fields: { "body.name": t("signIn.name"), "body.password": t("signIn.password") },
+      overrides: {
+        authRequired: t("signIn.wrongNameOrPassword"),
+        rateLimited: t("signIn.tooManyAttempts"),
+        setupRequired: t("signIn.noAdminYet"),
+      },
     }),
   );
   const [isUsingCode, setIsUsingCode] = useState(false);

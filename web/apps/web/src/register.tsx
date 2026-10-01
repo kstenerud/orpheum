@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { register, secretFromHash } from "./accounts.ts";
 import { CredentialsForm, CredentialsProblem, PasswordField } from "./credentials-form.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
 
@@ -43,7 +43,12 @@ export function Register(): JSX.Element {
         navigation.replace({ screen: "films" });
       },
       (cause: unknown) => {
-        setRefusalText(problemText(t, cause, { authRequired: t("register.badLink") }));
+        setRefusalText(
+          fieldProblemText(t, cause, {
+            fields: { "body.password": t("register.password") },
+            overrides: { authRequired: t("register.badLink") },
+          }),
+        );
         setProblem("refused");
       },
     );

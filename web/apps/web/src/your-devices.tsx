@@ -15,7 +15,7 @@ import {
 } from "./accounts.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { submitWith } from "./form-row.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { audioOutputName, audioOutputs } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
@@ -42,7 +42,9 @@ export function YourDevices(props: {
         afterwards?.();
       },
       (cause: unknown) => {
-        setProblem(problemText(t, cause));
+        setProblem(
+          fieldProblemText(t, cause, { fields: { "body.name": t("account.deviceName") } }),
+        );
       },
     );
   };

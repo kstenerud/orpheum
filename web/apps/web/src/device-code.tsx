@@ -14,7 +14,7 @@ import {
 } from "./accounts.ts";
 import { storageIfAllowed, storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import { FormRow } from "./form-row.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { useResource } from "./use-resource.ts";
@@ -74,7 +74,9 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
         keepShownCode(tabStorage(), shown);
       },
       (cause: unknown) => {
-        setIssueProblem(problemText(t, cause));
+        setIssueProblem(
+          fieldProblemText(t, cause, { fields: { "body.deviceName": t("account.deviceName") } }),
+        );
       },
     );
   };

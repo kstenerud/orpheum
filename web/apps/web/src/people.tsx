@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { createAccount, listAccounts, registrationUrl, type Account } from "./accounts.ts";
 import { FormRow } from "./form-row.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText, type FormWords } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { QrCode } from "./qr-code.tsx";
 import { Loaded } from "./title.tsx";
@@ -41,7 +41,7 @@ export function People(): JSX.Element {
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const showProblem = (cause: unknown): void => {
-    setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
+    setProblem(fieldProblemText(t, cause, personWords(t)));
   };
   return (
     <section className="people" aria-labelledby="people-heading">
@@ -127,6 +127,14 @@ function AddPerson(props: {
 }
 
 /** Whether a person has set their password yet, in words. */
+/** How a refusal of a person's name or role is told, on the People page and a person's own. */
+export function personWords(t: TFunction): FormWords {
+  return {
+    fields: { "body.name": t("people.name"), "body.role": t("people.role") },
+    overrides: { conflict: t("people.nameTaken") },
+  };
+}
+
 export function registrationText(t: TFunction, account: { readonly hasPassword: boolean }): string {
   return t(account.hasPassword ? "people.registered" : "people.notRegistered");
 }
