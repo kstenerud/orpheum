@@ -21,10 +21,10 @@
 //     node_restart_after_silent_seconds it is restarted; one that exits is started again after
 //     node_restart_after_exit_seconds, so it cannot spin.
 //     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.
-//   - A node's artwork answer, bounded, goes to the artwork service and nowhere else; one from a
-//     node that has not said hello is refused (D212 §8).
-//     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly. A prepare report goes to the
-//     playback service the same way, through the same handler.
+//   - A node's word on a job, bounded, is one Result posted to one path, whichever the work: it
+//     goes to the result sink (Exchanges) and nowhere else, and one from a node that has not said
+//     hello is refused. An artwork result is the artwork store's one way in (D212 §8).
+//     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly.
 //   - A job asks a node for work through Exchanges, the one way it is done: the command sent,
 //     the node's results handed to the job by its id, the wait bounded by the core's clock, and
 //     the node sent CancelCommand on every way out that leaves it working — a cancel, a silence,
@@ -68,7 +68,7 @@
 //
 //   - service.go: hello and enrolment, each node's connection, sending it work, and each
 //     connected node's roots as its hello named them;
-//     channel.go: commands, the report and artwork answers; supervisor.go: the child; bytes.go:
+//     channel.go: commands, the report and the nodes' results; supervisor.go: the child; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: a job asking a
 //     node for work and waiting for its results, and the cancel it sends.
 package nodes

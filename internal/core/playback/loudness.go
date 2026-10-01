@@ -227,7 +227,7 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command := nodeproto.MeasureLoudness{JobID: job.ID}
+	command := nodeproto.MeasureLoudness{}
 	for _, stream := range audioStreams(probe) {
 		command.Tracks = append(command.Tracks, nodeproto.LoudnessTrack{
 			StreamIndex: stream.StreamIndex, ChannelCount: stream.Audio.ChannelCount,
@@ -272,7 +272,7 @@ func (service *Service) RecordMeasurementFailure(ctx context.Context, job jobs.J
 		tracks = append(tracks, nodeproto.LoudnessTrack{StreamIndex: stream.StreamIndex})
 	}
 	return service.keepLoudness(ctx, file.PayloadHash, tracks,
-		nodeproto.LoudnessResult{JobID: job.ID, Failure: "given up: " + failure})
+		nodeproto.LoudnessResult{Failure: "given up: " + failure})
 }
 
 // measure has the node measure, waits for its answer, and keeps it.
@@ -308,7 +308,7 @@ func (service *Service) measure(
 		return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,
 			func(failure string) error {
 				return service.keepLoudness(ctx, file.PayloadHash, command.Tracks,
-					nodeproto.LoudnessResult{JobID: job.ID, Failure: failure})
+					nodeproto.LoudnessResult{Failure: failure})
 			})
 	}
 	keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
@@ -362,9 +362,4 @@ func loudnessRow(
 		IntegratedLUFS: &measured.IntegratedLUFS, RangeLU: &measured.RangeLU, TruePeakDBTP: measured.TruePeakDBTP,
 		MeasuredAt: now,
 	}
-}
-
-// TakeLoudness takes a node's answer to a measure_loudness command to the job waiting for it.
-func (service *Service) TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
-	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: answer.JobID, Loudness: &answer})
 }

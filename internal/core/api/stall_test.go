@@ -46,7 +46,7 @@ func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T)
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		return answerAfterStall(t, harness, job, playback.HandleMeasureLoudness, func() {
-			playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{JobID: 95, Stall: testStall})
+			harness.answerLoudness(t, 95, nodeproto.LoudnessResult{Stall: testStall})
 		})
 	}
 	if err := measure(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") {
@@ -78,7 +78,7 @@ func TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure(t *testing.
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		return answerAfterStall(t, harness, job, playback.HandleExtractSubtitle, func() {
-			playback.TakeSubtitleText(t.Context(), 1, nodeproto.SubtitleText{JobID: 96, Stall: testStall})
+			harness.answerSubtitle(t, 96, nodeproto.SubtitleText{Stall: testStall})
 		})
 	}
 	if err := extract(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") {

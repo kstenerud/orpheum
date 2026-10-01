@@ -189,19 +189,22 @@ with the file channel deleted.
 | Request | Body |
 | --- | --- |
 | `POST /node/v1/hello` | its `name`, version, `ffmpegVersion` and `ffmpegSha256`, its `rootPaths`, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism (`mechanism`, `isInForce`, `causeCode`, `reason`, `remedy`; D227) ([D112](../../decisions/working-notes.md)) |
-| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{rootPath, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, modifiedAt, identity{payloadHash, payloadBytes}, probe, opensubtitlesHash}`, `sidecar{path, kind, sizeBytes, modifiedAt, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platformError}`, `scan_complete{rootPath, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
+| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{rootPath, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, modifiedAt, identity{payloadHash, payloadBytes}, probe, opensubtitlesHash}`, `sidecar{path, kind, sizeBytes, modifiedAt, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platformError}`, `scan_complete{rootPath, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted as results, not reported (D227 renamed these fields) |
 | `GET /node/v1/commands?afterCommandSeq=<commandSeq>` | long-poll; returns the next commands |
+| `POST /node/v1/result` | a job's word, by the `jobId` its command carried: `{jobId, prepare\|subtitle\|loudness\|artwork}`, exactly one set. A prepare's progress is one too, the newest superseding the rest. *(Since the jobs rebuild's Phase 4.0, D234 §2: it replaced a path for each kind of work.)* |
 
-**Commands** (core → node, delivered by the long-poll):
+**Commands** (core → node, delivered by the long-poll). Each is `{commandSeq, type, jobId, <payload>}`:
+the job it is for is the envelope's `jobId`, which its result names *(since the jobs rebuild's
+Phase 4.0, D234 §2; before, each payload carried it)*.
 - `scan{rootPath}` (each `root` became `rootPath`, D227)
-- `prepare{jobId, source{rootPath, path, payloadHash}, profile, renditionDir, audio[]}`
-- `extract_subtitle{jobId, video{rootPath, path, payloadHash}, streamIndex}`, `{jobId, sidecar{…}}` or
-  `{jobId, fetchedSubRip}`: one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
-- `measure_loudness{jobId, video{rootPath, path, payloadHash}, tracks[]}`: each audio track's
+- `prepare{source{rootPath, path, payloadHash}, profile, renditionDir, audio[]}`
+- `extract_subtitle{video{rootPath, path, payloadHash}, streamIndex}`, `{sidecar{…}}` or
+  `{fetchedSubRip}`: one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
+- `measure_loudness{video{rootPath, path, payloadHash}, tracks[]}`: each audio track's
   integrated loudness, loudness range and true peak, and its standard stereo mix's when it has more
   than two channels, from one read of the file ([D226](../../decisions/working-notes.md) §1)
-- `encode_artwork{jobId, …}`: an image made into the sizes a person sees (D212)
-- `cancel{jobId}`
+- `encode_artwork{…}`: an image made into the sizes a person sees (D212)
+- `cancel`: the envelope alone, naming the job to stop
 
 **A command names its target by path *and* payload hash**, and the node refuses it if they no
 longer match ([D100](../../decisions/working-notes.md)).
@@ -315,7 +318,7 @@ fetches, prepares, scans and backups.
   `runnable_at` has passed and whose runner has a free slot. The slots are: one encode per node,
   two remux or extract jobs per node, one loudness measurement per node, one fetch per provider
   under its rate limit, and one backup.
-- **Node jobs** become commands, and each answers on its own path (§4).
+- **Node jobs** become commands, and each answers with results by its job id (§4).
 - **"Play this now"** sets the highest priority.
 - **Cancelling** a job sends `cancel` to the node.
 - **After a crash, `running` jobs return to `queued`.** Output is a cache, so they restart from

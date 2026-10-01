@@ -187,10 +187,9 @@ func (agent *Agent) pollCommands(ctx context.Context, nodeID int64, commandQueue
 		}
 		for _, command := range answer.Commands {
 			// A cancel is carried out as it arrives, not queued behind the work it stops.
-			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
-				if !agent.jobs.cancel(command.Cancel.JobID) {
-					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "jobId",
-						command.Cancel.JobID)
+			if command.Type == nodeproto.CommandCancel {
+				if !agent.jobs.cancel(command.JobID) {
+					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "jobId", command.JobID)
 				}
 				lastTakenCommandSeq = command.CommandSeq
 				continue
@@ -225,19 +224,19 @@ func (agent *Agent) runCommand(
 	ctx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
 ) {
 	if command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil {
-		agent.deriveAndPostArtwork(ctx, nodeID, *command.EncodeArtwork)
+		agent.deriveAndPostArtwork(ctx, nodeID, command.JobID, *command.EncodeArtwork)
 		return
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
-		agent.startPrepare(ctx, nodeID, *command.Prepare)
+		agent.startPrepare(ctx, nodeID, command.JobID, *command.Prepare)
 		return
 	}
 	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
-		agent.extractSubtitle(ctx, nodeID, *command.ExtractSubtitle)
+		agent.extractSubtitle(ctx, nodeID, command.JobID, *command.ExtractSubtitle)
 		return
 	}
 	if command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil {
-		agent.measureLoudness(ctx, nodeID, *command.MeasureLoudness)
+		agent.measureLoudness(ctx, nodeID, command.JobID, *command.MeasureLoudness)
 		return
 	}
 	if command.Type == nodeproto.CommandScan {
@@ -269,10 +268,10 @@ func (agent *Agent) runCommand(
 // deriveAndPostArtwork re-encodes an image and posts the answer — the sizes, or why there are
 // none — to the core, whose artwork store takes images from nowhere else (D212 §8). The answer is
 // posted beside the node's other work, so a core slow to take it holds up no other command.
-func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) {
+func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork) {
 	agent.setActivity("re-encoding artwork")
 	defer agent.setActivity("idle")
-	jobCtx, finishJob := agent.jobs.startJob(ctx, command.JobID)
+	jobCtx, finishJob := agent.jobs.startJob(ctx, jobID)
 	defer finishJob()
 	var result nodeproto.ArtworkResult
 	sourceHash := ""
@@ -282,7 +281,7 @@ func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, comm
 			sum := sha256.Sum256(source)
 			command.SourceImage, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
 		} else {
-			result = nodeproto.ArtworkResult{JobID: command.JobID, Refusal: err.Error()}
+			result = nodeproto.ArtworkResult{Refusal: err.Error()}
 		}
 	}
 	if result.Refusal == "" {
@@ -290,9 +289,9 @@ func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, comm
 		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {
-		agent.logger.WarnContext(ctx, "refused an image", "jobId", command.JobID, "refusal", result.Refusal)
+		agent.logger.WarnContext(ctx, "refused an image", "jobId", jobID, "refusal", result.Refusal)
 	}
-	go agent.postAnswer(ctx, nodeID, nodeproto.PathArtwork, "an artwork re-encode", command.JobID, result)
+	go agent.postResult(ctx, nodeID, "an artwork re-encode", nodeproto.Result{JobID: jobID, Artwork: &result})
 }
 
 // maxImageBytes bounds an image beside the media the node reads: posters are megabytes.

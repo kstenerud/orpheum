@@ -182,8 +182,3 @@ func (service *Service) prepareOrderFor(
 		command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
 	}, nil
 }
-
-// TakePrepareReport takes a node's report on a prepare to the job waiting for it.
-func (service *Service) TakePrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: report.JobID, Prepare: &report})
-}

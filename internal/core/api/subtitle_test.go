@@ -57,8 +57,7 @@ func (harness testHarness) extract(
 	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
 	go func() { finished <- playback.HandleExtractSubtitle(t.Context(), job) }()
 	command := harness.nextCommand(t)
-	answer.JobID = jobID
-	playback.TakeSubtitleText(t.Context(), 1, answer)
+	harness.answerSubtitle(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
 	return command, testutil.Receive(t, finished, "the extraction job to end")
 }
@@ -158,9 +157,9 @@ func TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntil
 func checkExtractCommand(t *testing.T, command nodeproto.Command, jobID int64) {
 	t.Helper()
 	sent := command.ExtractSubtitle
-	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || sent.JobID != jobID || sent.Sidecar != nil ||
-		sent.Video == nil || sent.Video.RootPath != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
-		sent.Video.PayloadHash != "0c0d" || sent.StreamIndex != 2 {
+	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || command.JobID != jobID ||
+		sent.Sidecar != nil || sent.Video == nil || sent.Video.RootPath != "/media" ||
+		string(sent.Video.Path) != "Film (2002).mkv" || sent.Video.PayloadHash != "0c0d" || sent.StreamIndex != 2 {
 		t.Fatalf("the node was sent %+v, want stream 2 of the MKV by root, path and hash", command)
 	}
 }
@@ -284,8 +283,8 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		string(sent.Sidecar.Path) != "Film (2002).es.srt" || sent.Sidecar.PayloadHash != "1e1f" {
 		t.Fatalf("the node was sent %+v, want the subtitle file whole, by root, path and hash", command)
 	}
-	extracted := nodeproto.SubtitleText{JobID: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
-	playback.TakeSubtitleText(t.Context(), 1, extracted)
+	extracted := nodeproto.SubtitleText{ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
+	harness.answerSubtitle(t, 92, extracted)
 	if err := testutil.Receive(t, finished, "the extraction job to end"); err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}

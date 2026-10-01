@@ -41,28 +41,34 @@ func (fakeMeasurer) Measure(
 	return measured, nil
 }
 
-func receiveLoudness(t *testing.T, core *fakeCore) nodeproto.LoudnessResult {
+// jobLoudness is a loudness measurement with the job id its result carried.
+type jobLoudness struct {
+	JobID int64
+	nodeproto.LoudnessResult
+}
+
+func receiveLoudness(t *testing.T, core *fakeCore) jobLoudness {
 	t.Helper()
 	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
 	defer stop()
 	select {
-	case answer := <-core.loudness:
-		return answer
+	case result := <-core.loudness:
+		return jobLoudness{JobID: result.JobID, LoudnessResult: *result.Loudness}
 	case <-ctx.Done():
 		t.Fatal("no loudness reached the core")
 	}
-	return nodeproto.LoudnessResult{}
+	return jobLoudness{}
 }
 
 func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	t.Parallel()
 	video, _, core := startExtractionAgent(t)
-	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) nodeproto.LoudnessResult {
+	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) jobLoudness {
 		command := nodeproto.MeasureLoudness{
-			JobID: job, Video: named, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
+			Video: named, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
 		}
 		core.commands <- nodeproto.Command{
-			CommandSeq: job, Type: nodeproto.CommandMeasureLoudness,
+			CommandSeq: job, Type: nodeproto.CommandMeasureLoudness, JobID: job,
 			MeasureLoudness: &command,
 		}
 		return receiveLoudness(t, core)

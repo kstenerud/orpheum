@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
@@ -50,6 +51,8 @@ type testHarness struct {
 	tmdbProvider *identifytest.Provider
 	cache        *store.Cache
 	nodes        *fakeNodes
+	// exchanges are the jobs waiting on the node; answerPrepare and the like hand them its results.
+	exchanges    *corenodes.Exchanges
 	httpServer   *httptest.Server
 	logs         *bytes.Buffer
 	authService  *auth.Service
@@ -99,14 +102,15 @@ func newHarness(t *testing.T) testHarness {
 		Logger: slog.New(slog.DiscardHandler),
 	})
 	preferencesService := preferences.NewService(database, now)
+	exchanges := corenodes.NewExchanges(nodes, now, slog.New(slog.DiscardHandler))
 	playbackService := playback.NewService(playback.Parts{
-		Database: database, Cache: cache, Queue: queue,
-		Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges,
+		Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService,
 	})
 	nodes.database, nodes.clock = database, now
-	nodes.takeSubtitleText = func(nodeID int64, answer nodeproto.SubtitleText) {
-		playbackService.TakeSubtitleText(t.Context(), nodeID, answer)
+	nodes.takeResult = func(nodeID int64, result nodeproto.Result) {
+		exchanges.Deliver(t.Context(), nodeID, result)
 	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
@@ -144,10 +148,28 @@ func newHarness(t *testing.T) testHarness {
 		server: server, httpServer: served, logs: logs, authService: service, setupCodes: codes,
 		databasePath: database.Path(),
 		database:     database,
-		tmdbProvider: provider, cache: cache, nodes: nodes, directories: directories, clock: now,
+		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue,
 		subtitler: subtitler,
 	}
+}
+
+// answerPrepare hands node 1's report on prepare job jobID to the job, as the node channel does.
+func (harness testHarness) answerPrepare(t *testing.T, jobID int64, report nodeproto.PrepareReport) {
+	t.Helper()
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Prepare: &report})
+}
+
+// answerLoudness hands node 1's measurement for job jobID to the job.
+func (harness testHarness) answerLoudness(t *testing.T, jobID int64, answer nodeproto.LoudnessResult) {
+	t.Helper()
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Loudness: &answer})
+}
+
+// answerSubtitle hands node 1's subtitle text for job jobID to the job.
+func (harness testHarness) answerSubtitle(t *testing.T, jobID int64, answer nodeproto.SubtitleText) {
+	t.Helper()
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Subtitle: &answer})
 }
 
 type response struct {

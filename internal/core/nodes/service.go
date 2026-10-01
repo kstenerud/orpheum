@@ -40,26 +40,11 @@ type Sink interface {
 	IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error
 }
 
-// ArtworkSink receives a node's answer to an artwork command: the artwork store's one way in
+// ResultSink receives a node's word on a job, to hand to the job that asked: Exchanges. It is the
+// one way a node's results reach the core; an artwork result, the artwork store's one way in
 // (D212 §8).
-type ArtworkSink interface {
-	TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult)
-}
-
-// PrepareSink receives a node's reports on a prepare: how far it is, and how it ended.
-type PrepareSink interface {
-	TakePrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport)
-}
-
-// SubtitleSink receives a node's answer to an extract_subtitle command: the text, or why none.
-type SubtitleSink interface {
-	TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText)
-}
-
-// LoudnessSink receives a node's answer to a measure_loudness command: the measurements, or why
-// none (D226).
-type LoudnessSink interface {
-	TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult)
+type ResultSink interface {
+	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result)
 }
 
 // Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back
@@ -80,38 +65,17 @@ type Service struct {
 	logger       *slog.Logger
 	pollHold     time.Duration
 
-	artworkSink      ArtworkSink
-	prepareSink      PrepareSink
-	subtitleSink     SubtitleSink
-	loudnessSink     LoudnessSink
+	resultSink       ResultSink
 	prepareSlotsSink PrepareSlotsSink
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode
 }
 
-// SetArtworkSink names where the nodes' artwork answers go. Set it before the channel serves; an
-// answer that arrives with none set is refused.
-func (service *Service) SetArtworkSink(sink ArtworkSink) {
-	service.artworkSink = sink
-}
-
-// SetPrepareSink names where the nodes' prepare reports go. Set it before the channel serves; a
-// report that arrives with none set is refused.
-func (service *Service) SetPrepareSink(sink PrepareSink) {
-	service.prepareSink = sink
-}
-
-// SetSubtitleSink names where the nodes' subtitle answers go. Set it before the channel serves;
-// an answer that arrives with none set is refused.
-func (service *Service) SetSubtitleSink(sink SubtitleSink) {
-	service.subtitleSink = sink
-}
-
-// SetLoudnessSink names where the nodes' loudness answers go. Set it before the channel serves;
-// an answer that arrives with none set is refused.
-func (service *Service) SetLoudnessSink(sink LoudnessSink) {
-	service.loudnessSink = sink
+// SetResultSink names where the nodes' results go. Set it before the channel serves; a result that
+// arrives with none set is refused.
+func (service *Service) SetResultSink(sink ResultSink) {
+	service.resultSink = sink
 }
 
 // PrepareSlotsSink is told, after each hello, how many prepare slots the nodes that said hello
@@ -193,10 +157,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+nodeproto.PathHello, service.hello)
 	mux.HandleFunc("POST "+nodeproto.PathReport, service.serveReport)
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, service.prepareReport)
-	mux.HandleFunc("POST "+nodeproto.PathSubtitle, service.subtitleAnswer)
-	mux.HandleFunc("POST "+nodeproto.PathLoudness, service.loudnessAnswer)
+	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
 	return mux
 }
 

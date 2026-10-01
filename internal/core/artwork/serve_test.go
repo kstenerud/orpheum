@@ -56,12 +56,12 @@ func TestServe_AJPEGIsCutAtTheQualityTheSettingSays(t *testing.T) {
 // storePoster gives the bench a poster stored at the sizes named, from source, as the item's poster.
 func (bench *bench) storePoster(t *testing.T, source []byte, sizes ...nodeproto.ArtSizeName) string {
 	t.Helper()
-	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
+	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage
 		for _, size := range sizes {
 			images = append(images, nodeproto.ArtImage{SizeName: size, WebP: ourWebP})
 		}
-		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
+		return nodeproto.ArtworkResult{Images: images}
 	}
 	bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
 	return Received(source).sourceSha256Hex()
@@ -163,13 +163,13 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		if !slices.Equal(command.SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitL}) {
 			t.Errorf("asked for %v, want portrait-l only", command.SizeNames)
 		}
-		if command.JobID != job.ID {
-			t.Errorf("the command names job %d, want the job that makes it, %d", command.JobID, job.ID)
-		}
-		return nodeproto.ArtworkResult{JobID: command.JobID}
+		return nodeproto.ArtworkResult{}
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
+	}
+	if ids := bench.node.sentJobIDs; len(ids) == 0 || ids[len(ids)-1] != job.ID {
+		t.Errorf("the commands named jobs %v, want the last the job that makes it, %d", ids, job.ID)
 	}
 	if _, noted := bench.art[sourceSha256Hex+"/portrait-l.none"]; !noted {
 		t.Fatalf("stored %v; want portrait-l noted as impossible", storedNames(bench.art))
@@ -182,8 +182,8 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 
 	// Made: portrait-l is stored under the same hash.
 	delete(bench.art, sourceSha256Hex+"/portrait-l.none")
-	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
+		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{
 			{SizeName: nodeproto.PortraitL, WebP: ourWebP},
 		}}
 	}

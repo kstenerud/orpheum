@@ -183,7 +183,6 @@ const maxSlotWait = 6 * time.Hour
 // has held it waiting for a slot for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
-	command.JobID = job.ID
 	exchange, err := all.exchanges.Ask(ctx, nodeID, job.ID,
 		nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command}, "prepare "+command.RenditionDir)
 	if err != nil {

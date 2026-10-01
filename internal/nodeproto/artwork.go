@@ -84,8 +84,6 @@ const CommandEncodeArtwork CommandType = "encode_artwork"
 // bytes — a provider's download, a file beside the media — and is decoded only here, under
 // FFmpeg's confinement.
 type Artwork struct {
-	// JobID names the core's job the answer belongs to.
-	JobID       int64  `json:"jobId"`
 	SourceImage []byte `json:"sourceImage,omitempty"`
 	// AbsolutePath, in place of SourceImage, names an image beside the media for the node to read
 	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
@@ -100,9 +98,6 @@ type Artwork struct {
 	WebPQuality int `json:"webpQuality"`
 }
 
-// PathArtwork is where the node posts an artwork command's answer.
-const PathArtwork = "/node/v1/artwork"
-
 // ArtImage is one size the node made: our own encoder's WebP.
 type ArtImage struct {
 	SizeName ArtSizeName `json:"sizeName"`
@@ -112,7 +107,6 @@ type ArtImage struct {
 // ArtworkResult is the node's answer: every size it made, as our own encoder wrote it, or why it
 // made none.
 type ArtworkResult struct {
-	JobID        int64      `json:"jobId"`
 	SourceWidth  int        `json:"sourceWidth"`
 	SourceHeight int        `json:"sourceHeight"`
 	Images       []ArtImage `json:"images"`

@@ -16,13 +16,12 @@ type Measurer interface {
 
 // measureLoudness starts a measurement beside the node's other work, one at a time, since it reads
 // the whole video, and posts the answer to the core (D226 §2).
-func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command nodeproto.MeasureLoudness) {
+func (agent *Agent) measureLoudness(ctx context.Context, nodeID, jobID int64, command nodeproto.MeasureLoudness) {
 	agent.answerInBackground(ctx, nodeID, backgroundJob{
-		jobID: command.JobID, slot: agent.slots.measure, answerPath: nodeproto.PathLoudness,
-		jobKind: "a loudness measurement",
-		makeAnswer: func(jobCtx context.Context) (any, string) {
+		jobID: jobID, slot: agent.slots.measure, jobKind: "a loudness measurement",
+		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runMeasurement(jobCtx, command)
-			return answer, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
+			return nodeproto.Result{Loudness: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})
 }
@@ -31,7 +30,7 @@ func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command n
 // that FFmpeg could not, which is the file's, or that the node did not try.
 func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.MeasureLoudness) nodeproto.LoudnessResult {
 	refuse := func(err error) nodeproto.LoudnessResult {
-		return nodeproto.LoudnessResult{JobID: command.JobID, Refusal: err.Error()}
+		return nodeproto.LoudnessResult{Refusal: err.Error()}
 	}
 	if agent.workers.LoudnessMeasurer == nil {
 		return refuse(errors.New("this node does not measure loudness"))
@@ -42,10 +41,10 @@ func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.Measur
 	}
 	tracks, err := agent.workers.LoudnessMeasurer.Measure(ctx, videoPath, command.Tracks)
 	if stall := stallOf(err); stall != nil {
-		return nodeproto.LoudnessResult{JobID: command.JobID, Stall: stall}
+		return nodeproto.LoudnessResult{Stall: stall}
 	}
 	if err != nil {
-		return nodeproto.LoudnessResult{JobID: command.JobID, Failure: err.Error()}
+		return nodeproto.LoudnessResult{Failure: err.Error()}
 	}
-	return nodeproto.LoudnessResult{JobID: command.JobID, Tracks: tracks}
+	return nodeproto.LoudnessResult{Tracks: tracks}
 }

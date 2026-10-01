@@ -25,12 +25,13 @@ func defaultAnswerRetry() answerRetry {
 	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, patience: nodeproto.ArtworkAnswerWait}
 }
 
-// postAnswer posts a job's answer to the core at path. A post that fails, the core busy or the
-// connection broken, is tried again with a doubling wait until the waits reach the retry's
-// patience or the session ends. An answer that never arrives is logged and costs only its own job,
-// which the core tries again: it never ends the session, whose running work it would stop.
-func (agent *Agent) postAnswer(ctx context.Context, nodeID int64, path, jobKind string, jobID int64, answer any) {
-	encoded, err := json.Marshal(answer)
+// postResult posts a job's result to the core. A post that fails, the core busy or the connection
+// broken, is tried again with a doubling wait until the waits reach the retry's patience or the
+// session ends. A result that never arrives is logged and costs only its own job, which the core
+// tries again: it never ends the session, whose running work it would stop.
+func (agent *Agent) postResult(ctx context.Context, nodeID int64, jobKind string, result nodeproto.Result) {
+	jobID := result.JobID
+	encoded, err := json.Marshal(result)
 	if err != nil {
 		agent.logger.ErrorContext(ctx, "could not encode a job's answer", "jobKind", jobKind, "jobId", jobID,
 			"err", err)
@@ -39,7 +40,7 @@ func (agent *Agent) postAnswer(ctx context.Context, nodeID int64, path, jobKind 
 	wait, waited := agent.answerRetry.firstWait, time.Duration(0)
 	for {
 		var accepted struct{}
-		err = agent.exchange(ctx, http.MethodPost, path, nodeID, bytes.NewReader(encoded), &accepted)
+		err = agent.exchange(ctx, http.MethodPost, nodeproto.PathResult, nodeID, bytes.NewReader(encoded), &accepted)
 		if err == nil || ctx.Err() != nil {
 			return
 		}

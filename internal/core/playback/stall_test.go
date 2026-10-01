@@ -60,7 +60,7 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		ended := make(chan error, 1)
 		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
 		testutil.Receive(t, node.sent, "the prepare command")
-		all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareStalled, Stall: stall})
+		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
@@ -108,7 +108,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
-		all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
 		select {
 		case err := <-ended:
 			if err == nil || !strings.Contains(err.Error(), "waiting for a slot") ||
@@ -116,7 +116,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 				t.Errorf("a prepare held waiting past the cap ended %v; want given up as an ordinary retry", err)
 			}
 			cancel := testutil.Receive(t, node.sent, "the cancel of job 7")
-			if cancel.Type != nodeproto.CommandCancel || cancel.Cancel.JobID != 7 {
+			if cancel.Type != nodeproto.CommandCancel || cancel.JobID != 7 {
 				t.Errorf("the node was sent %+v; want it told to stop job 7", cancel)
 			}
 			return

@@ -5,9 +5,6 @@ package nodeproto
 // CommandPrepare asks the node to prepare an HLS rendition of one of its files (cut-a §4, §6).
 const CommandPrepare CommandType = "prepare"
 
-// PathPrepare is where the node reports a prepare's progress and its end.
-const PathPrepare = "/node/v1/prepare"
-
 // PathBytesPrepared is the byte socket's route for a rendition's files:
 // PathBytesPrepared + "<file_id>/<profile>/<run_id>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
@@ -34,7 +31,6 @@ const (
 // Prepare is one prepare job: the video named by identity (D100), the profile, the audio
 // tracks to carry, and where under the node's prepared directory the rendition goes.
 type Prepare struct {
-	JobID   int64          `json:"jobId"`
 	Video   BytesFile      `json:"video"`
 	Profile PrepareProfile `json:"profile"`
 	// RenditionDir is "<file_id>/<profile>/<run_id>", this making's directory under the node's prepared
@@ -109,7 +105,6 @@ const RefusedNoRoom RefusalCode = "no_room"
 
 // PrepareReport is the node's word on a prepare: how far it is, or how it ended.
 type PrepareReport struct {
-	JobID int64        `json:"jobId"`
 	State PrepareState `json:"state"`
 	// PreparedThroughMs is how much of the source is prepared, in milliseconds of its time.
 	PreparedThroughMs int64 `json:"preparedThroughMs"`

@@ -56,32 +56,32 @@ func (all slots) forProfile(profile nodeproto.PrepareProfile) chan struct{} {
 // startPrepare starts a prepare beside the node's other work, once a slot of its kind is free, and
 // reports its progress and its end to the core. The source is checked to be the file the core
 // named before FFmpeg reads it (D100).
-func (agent *Agent) startPrepare(ctx context.Context, nodeID int64, command nodeproto.Prepare) {
-	jobCtx, finishJob := agent.jobs.startJob(ctx, command.JobID)
+func (agent *Agent) startPrepare(ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare) {
+	jobCtx, finishJob := agent.jobs.startJob(ctx, jobID)
 	go func() {
 		defer finishJob()
-		if !agent.takePrepareSlot(jobCtx, nodeID, command) {
+		if !agent.takePrepareSlot(jobCtx, nodeID, jobID, command.Profile) {
 			return
 		}
 		defer func() { <-agent.slots.forProfile(command.Profile) }()
-		outcome := agent.runPrepare(jobCtx, nodeID, command)
+		outcome := agent.runPrepare(jobCtx, nodeID, jobID, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", command.JobID)
+			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", jobID)
 			return
 		}
 		switch outcome.State {
 		case nodeproto.PrepareFailed:
 			agent.logger.WarnContext(ctx, "a prepare failed",
-				"jobId", command.JobID, "renditionDir", command.RenditionDir, "failure", outcome.Failure)
+				"jobId", jobID, "renditionDir", command.RenditionDir, "failure", outcome.Failure)
 		case nodeproto.PrepareRefused:
 			agent.logger.WarnContext(ctx, "a prepare was refused",
-				"jobId", command.JobID, "renditionDir", command.RenditionDir, "refusal", outcome.Refusal)
+				"jobId", jobID, "renditionDir", command.RenditionDir, "refusal", outcome.Refusal)
 		case nodeproto.PrepareStalled:
 			agent.logger.WarnContext(ctx, "a prepare stalled and was stopped",
-				"jobId", command.JobID, "renditionDir", command.RenditionDir, "stall", outcome.Stall.Detail)
+				"jobId", jobID, "renditionDir", command.RenditionDir, "stall", outcome.Stall.Detail)
 		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
 		}
-		agent.postAnswer(ctx, nodeID, nodeproto.PathPrepare, "a prepare", command.JobID, outcome)
+		agent.postResult(ctx, nodeID, "a prepare", nodeproto.Result{JobID: jobID, Prepare: &outcome})
 		agent.evict(ctx)
 	}()
 }
@@ -99,16 +99,16 @@ func (agent *Agent) evict(ctx context.Context) {
 // takePrepareSlot takes a slot of the prepare's kind, and reports false when the job ended first. A
 // prepare that has to wait says so at once and at each status tick while it waits (sayWaiting),
 // so the core keeps waiting for it (cut-a §5.3).
-func (agent *Agent) takePrepareSlot(ctx context.Context, nodeID int64, command nodeproto.Prepare) bool {
-	slot := agent.slots.forProfile(command.Profile)
+func (agent *Agent) takePrepareSlot(ctx context.Context, nodeID, jobID int64, profile nodeproto.PrepareProfile) bool {
+	slot := agent.slots.forProfile(profile)
 	select {
 	case slot <- struct{}{}:
 		return true
 	default:
 	}
-	agent.jobs.setWaiting(command.JobID, true)
-	defer agent.jobs.setWaiting(command.JobID, false)
-	agent.sayWaiting(ctx, nodeID, command.JobID)
+	agent.jobs.setWaiting(jobID, true)
+	defer agent.jobs.setWaiting(jobID, false)
+	agent.sayWaiting(ctx, nodeID, jobID)
 	select {
 	case slot <- struct{}{}:
 		return true
@@ -119,8 +119,8 @@ func (agent *Agent) takePrepareSlot(ctx context.Context, nodeID int64, command n
 
 // sayWaiting tells the core a prepare is waiting for a slot.
 func (agent *Agent) sayWaiting(ctx context.Context, nodeID, jobID int64) {
-	waiting := nodeproto.PrepareReport{JobID: jobID, State: nodeproto.PrepareWaiting}
-	if err := agent.sendPrepareReport(ctx, nodeID, waiting); err != nil && ctx.Err() == nil {
+	waiting := nodeproto.PrepareReport{State: nodeproto.PrepareWaiting}
+	if err := agent.sendPrepareReport(ctx, nodeID, jobID, waiting); err != nil && ctx.Err() == nil {
 		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "jobId", jobID, "err", err)
 	}
 }
@@ -128,10 +128,10 @@ func (agent *Agent) sayWaiting(ctx context.Context, nodeID, jobID int64) {
 // runPrepare runs one prepare to its end and says how it ended: done, FFmpeg failing on the
 // source, or refused without trying, which says nothing of the source's bytes.
 func (agent *Agent) runPrepare(
-	ctx context.Context, nodeID int64, command nodeproto.Prepare,
+	ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare,
 ) nodeproto.PrepareReport {
 	refused := func(err error) nodeproto.PrepareReport {
-		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareRefused, Refusal: err.Error()}
+		return nodeproto.PrepareReport{State: nodeproto.PrepareRefused, Refusal: err.Error()}
 	}
 	if agent.workers.Preparer == nil {
 		return refused(errors.New("this node does not prepare"))
@@ -145,11 +145,11 @@ func (agent *Agent) runPrepare(
 		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= progressEvery {
 			lastProgressSentAt = now
 			running := nodeproto.PrepareReport{
-				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedThroughMs: preparedThroughMs,
+				State: nodeproto.PrepareRunning, PreparedThroughMs: preparedThroughMs,
 			}
-			if sendErr := agent.sendPrepareReport(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
+			if sendErr := agent.sendPrepareReport(ctx, nodeID, jobID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
-					"jobId", command.JobID, "err", sendErr)
+					"jobId", jobID, "err", sendErr)
 			}
 		}
 	}
@@ -160,13 +160,13 @@ func (agent *Agent) runPrepare(
 		return noRoom
 	}
 	if stall := stallOf(err); stall != nil {
-		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareStalled, Stall: stall}
+		return nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall}
 	}
 	if err != nil {
-		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareFailed, Failure: err.Error()}
+		return nodeproto.PrepareReport{State: nodeproto.PrepareFailed, Failure: err.Error()}
 	}
 	return nodeproto.PrepareReport{
-		JobID: command.JobID, State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
+		State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
 		RealtimeFactor: made.RealtimeFactor,
 	}
 }
@@ -192,11 +192,15 @@ func (agent *Agent) openNamed(named nodeproto.BytesFile) (*os.File, error) {
 	return file, nil
 }
 
-func (agent *Agent) sendPrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) error {
-	encoded, err := json.Marshal(report)
+// sendPrepareReport posts a prepare's progress, or that it waits for a slot, once: the newest
+// supersedes it, so a lost one is not tried again.
+func (agent *Agent) sendPrepareReport(
+	ctx context.Context, nodeID, jobID int64, report nodeproto.PrepareReport,
+) error {
+	encoded, err := json.Marshal(nodeproto.Result{JobID: jobID, Prepare: &report})
 	if err != nil {
 		return fmt.Errorf("encode a prepare report: %w", err)
 	}
 	var accepted struct{}
-	return agent.exchange(ctx, http.MethodPost, nodeproto.PathPrepare, nodeID, bytes.NewReader(encoded), &accepted)
+	return agent.exchange(ctx, http.MethodPost, nodeproto.PathResult, nodeID, bytes.NewReader(encoded), &accepted)
 }

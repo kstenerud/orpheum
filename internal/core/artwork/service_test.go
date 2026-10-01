@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -44,10 +45,11 @@ type fakeNode struct {
 	isConnected bool
 	answer      func(nodeproto.Artwork) nodeproto.ArtworkResult
 
-	mutex     sync.Mutex
-	sent      []nodeproto.Artwork
-	cancelled []int64       // the jobs a cancel was sent for
-	enqueued  chan struct{} // told of each artwork command, when set
+	mutex      sync.Mutex
+	sent       []nodeproto.Artwork
+	sentJobIDs []int64       // the job each command in sent was for, as its envelope named it
+	cancelled  []int64       // the jobs a cancel was sent for
+	enqueued   chan struct{} // told of each artwork command, when set
 }
 
 // fakeNodeID is the fake's one node: the first a test's database enrols.
@@ -71,17 +73,20 @@ func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { retur
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
 	if command.Type == nodeproto.CommandCancel {
-		node.cancelled = append(node.cancelled, command.Cancel.JobID)
+		node.cancelled = append(node.cancelled, command.JobID)
 		node.mutex.Unlock()
 		return
 	}
 	node.sent = append(node.sent, *command.EncodeArtwork)
+	node.sentJobIDs = append(node.sentJobIDs, command.JobID)
 	node.mutex.Unlock()
 	if node.enqueued != nil {
 		node.enqueued <- struct{}{}
 	}
 	if node.answer != nil {
-		go node.service.TakeArtworkAnswer(node.ctx, fakeNodeID, node.answer(*command.EncodeArtwork))
+		result := node.answer(*command.EncodeArtwork)
+		go node.service.exchanges.Deliver(node.ctx, fakeNodeID,
+			nodeproto.Result{JobID: command.JobID, Artwork: &result})
 	}
 }
 
@@ -164,11 +169,12 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
-		Cache:    storetest.OpenCache(t),
-		Settings: config,
-		Fetchers: map[string]Fetcher{"tmdb": images},
-		Clock:    fakeClock,
-		Logger:   slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
+		Exchanges: nodes.NewExchanges(node, fakeClock, slog.New(slog.DiscardHandler)),
+		Cache:     storetest.OpenCache(t),
+		Settings:  config,
+		Fetchers:  map[string]Fetcher{"tmdb": images},
+		Clock:     fakeClock,
+		Logger:    slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
 	})
 	node.service = service
 	return &bench{
@@ -207,9 +213,9 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 	t.Parallel()
 	source := []byte("a provider's JPEG, with whatever else it carries")
 	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
-	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
+	bench.node.answer = func(nodeproto.Artwork) nodeproto.ArtworkResult {
 		return nodeproto.ArtworkResult{
-			JobID: command.JobID, SourceWidth: 600, SourceHeight: 900,
+			SourceWidth: 600, SourceHeight: 900,
 			Images: []nodeproto.ArtImage{
 				{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 				{SizeName: nodeproto.PortraitM, WebP: source},    // not WebP: never stored
@@ -261,11 +267,11 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	bench := newBench(t, fakeFetcher{"/old.jpg": []byte("old"), "/new.jpg": []byte("<html>")})
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		if string(command.SourceImage) == "old" {
-			return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+			return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{
 				{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 			}}
 		}
-		return nodeproto.ArtworkResult{JobID: command.JobID, Refusal: "not an image"}
+		return nodeproto.ArtworkResult{Refusal: "not an image"}
 	}
 	for _, ref := range []string{"/old.jpg", "/new.jpg", "/gone.jpg"} {
 		bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: ref})
@@ -317,9 +323,10 @@ func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
 	if !errors.Is(err, jobs.ErrCancelled) {
 		t.Errorf("the cancelled job ended with %v, want it cancelled for good", err)
 	}
-	if len(bench.node.sent) != 1 || bench.node.sent[0].JobID != 41 || !slices.Equal(bench.node.cancelled, []int64{41}) {
-		t.Errorf("the node was sent %+v and cancels for %v; want job 41's command, then its cancel",
-			bench.node.sent, bench.node.cancelled)
+	if len(bench.node.sent) != 1 || !slices.Equal(bench.node.sentJobIDs, []int64{41}) ||
+		!slices.Equal(bench.node.cancelled, []int64{41}) {
+		t.Errorf("the node was sent commands for jobs %v and cancels for %v; want job 41's command, then its cancel",
+			bench.node.sentJobIDs, bench.node.cancelled)
 	}
 }
 
@@ -330,7 +337,7 @@ func TestTake_QueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		size := command.SizeNames[0]
-		return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{{
+		return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{
 			SizeName: size,
 			WebP:     ourWebP,
 		}}}
@@ -369,7 +376,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	fileID = 40
 	localSum := sha256.Sum256([]byte("the file beside the film"))
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		result := nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+		result := nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{
 			{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 		}}
 		if command.AbsolutePath != nil {

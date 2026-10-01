@@ -109,6 +109,8 @@ type openedServices struct {
 	secrets     *secrets.Store
 	jobServices jobServices
 	nodes       *nodes.Service
+	// exchanges are how a job asks a node for work; the node channel hands them the results.
+	exchanges *nodes.Exchanges
 }
 
 func (opened openedServices) release() error {
@@ -160,6 +162,8 @@ func openAndWire(
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
+		opened.exchanges = nodes.NewExchanges(opened.nodes, clock.System{}, logger)
+		opened.nodes.SetResultSink(opened.exchanges)
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err != nil {
@@ -174,13 +178,11 @@ func openAndWire(
 	dependencies.Artwork = opened.jobServices.artwork
 	dependencies.Playback = playback.NewService(playback.Parts{
 		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
-		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
+		Exchanges: opened.exchanges,
+		Settings:  opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
 		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
 	})
 	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
-	opened.nodes.SetPrepareSink(dependencies.Playback)
-	opened.nodes.SetSubtitleSink(dependencies.Playback)
-	opened.nodes.SetLoudnessSink(dependencies.Playback)
 	dependencies.NodeBytes = nodes.NewByteSocketClient(
 		opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocketName))
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()

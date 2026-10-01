@@ -6,14 +6,9 @@ package nodeproto
 // D217 §6).
 const CommandExtractSubtitle CommandType = "extract_subtitle"
 
-// PathSubtitle is where the node posts an extract_subtitle command's answer.
-const PathSubtitle = "/node/v1/subtitle"
-
 // ExtractSubtitle is one subtitle to extract: a track inside a video, a file beside it, or a
 // subtitle fetched on request. Exactly one of Video, Sidecar and FetchedSubRip is set.
 type ExtractSubtitle struct {
-	// JobID names the core's job the answer belongs to.
-	JobID int64 `json:"jobId"`
 	// Video is the file that carries the track, named by payload hash and checked before FFmpeg
 	// reads it (D100).
 	Video *BytesFile `json:"video,omitempty"`
@@ -30,9 +25,8 @@ type ExtractSubtitle struct {
 // SubtitleText is the node's answer: the subtitle as ASS, for JASSUB, and as WebVTT, for the
 // cast receiver (cut-a §6), or why neither was made.
 type SubtitleText struct {
-	JobID int64  `json:"jobId"`
-	ASS   []byte `json:"ass,omitempty"`
-	VTT   []byte `json:"vtt,omitempty"`
+	ASS []byte `json:"ass,omitempty"`
+	VTT []byte `json:"vtt,omitempty"`
 	// Failure is the converter's word that it could not make the text: a fact about the source's
 	// bytes, such as a track FFmpeg cannot convert, which asking again would not change.
 	Failure string `json:"failure,omitempty"`

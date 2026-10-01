@@ -37,8 +37,7 @@ func (harness testHarness) measureWith(
 		finished <- service.HandleMeasureLoudness(t.Context(), job)
 	}()
 	command := harness.nextCommand(t)
-	answer.JobID = jobID
-	service.TakeLoudness(t.Context(), 1, answer)
+	harness.answerLoudness(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
 	return command.MeasureLoudness, testutil.Receive(t, finished, "the measurement job to end")
 }
@@ -127,9 +126,8 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		command.Prepare.AudioTracks[0].CarriedGainDB != 5.0 {
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
 	}
-	service := harness.server.dependencies.Load().Playback
-	done := nodeproto.PrepareReport{JobID: 92, State: nodeproto.PrepareDone, SizeBytes: 1}
-	service.TakePrepareReport(t.Context(), 1, done)
+	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 1}
+	harness.answerPrepare(t, 92, done)
 	if err := testutil.Receive(t, prepared, "the prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
@@ -180,8 +178,8 @@ func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.
 	go func() { ran <- runner.RunDue(t.Context()) }()
 	command := harness.nextCommand(t)
 	refusal := "the disk has no room"
-	answer := nodeproto.LoudnessResult{JobID: command.MeasureLoudness.JobID, Refusal: refusal}
-	playback.TakeLoudness(t.Context(), 1, answer)
+	answer := nodeproto.LoudnessResult{Refusal: refusal}
+	harness.answerLoudness(t, command.JobID, answer)
 	if err := testutil.Receive(t, ran, "the measurement runner to end"); err != nil {
 		t.Fatal(err)
 	}
@@ -344,9 +342,8 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 		if !isSent {
 			return
 		}
-		playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{
-			JobID: command.MeasureLoudness.JobID, Failure: "Invalid data found when processing input",
-		})
+		harness.answerLoudness(t, command.JobID,
+			nodeproto.LoudnessResult{Failure: "Invalid data found when processing input"})
 	}()
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)

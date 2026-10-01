@@ -85,16 +85,16 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	command := harness.nextCommand(t)
 	sent := command.Prepare
-	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.JobID != 77 ||
+	if command.Type != nodeproto.CommandPrepare || sent == nil || command.JobID != 77 ||
 		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
 		sent.Video.RootPath != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
 		sent.Video.PayloadHash != "0c0d" || len(sent.AudioTracks) != 1 || sent.AudioTracks[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
-	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
-	playback.TakePrepareReport(t.Context(), 1, running)
-	done := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234}
-	playback.TakePrepareReport(t.Context(), 1, done)
+	running := nodeproto.PrepareReport{State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
+	harness.answerPrepare(t, 77, running)
+	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 1234}
+	harness.answerPrepare(t, 77, done)
 	if err := testutil.Receive(t, finished, "the prepare job to end"); err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
@@ -116,8 +116,8 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	harness.nextCommand(t)
-	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
-	playback.TakePrepareReport(t.Context(), 1, failed)
+	failed := nodeproto.PrepareReport{State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
+	harness.answerPrepare(t, 78, failed)
 	err := testutil.Receive(t, finished, "the prepare job to end")
 	if err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
@@ -140,8 +140,8 @@ func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testin
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	harness.nextCommand(t)
-	refused := nodeproto.PrepareReport{JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk has no room"}
-	playback.TakePrepareReport(t.Context(), 1, refused)
+	refused := nodeproto.PrepareReport{State: nodeproto.PrepareRefused, Refusal: "the disk has no room"}
+	harness.answerPrepare(t, 79, refused)
 	select {
 	case err := <-finished:
 		if err == nil || !strings.Contains(err.Error(), "the disk has no room") {
@@ -169,8 +169,8 @@ func TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRo
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	harness.nextCommand(t)
-	playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
-		JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
+	harness.answerPrepare(t, 79, nodeproto.PrepareReport{
+		State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
 		RefusalCode: nodeproto.RefusedNoRoom,
 	})
 	err := testutil.Receive(t, finished, "the prepare job to end")
@@ -217,8 +217,8 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 		})
 	}()
 	harness.nextCommand(t)
-	done := nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9}
-	playback.TakePrepareReport(t.Context(), 1, done)
+	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9}
+	harness.answerPrepare(t, 80, done)
 	if err := testutil.Receive(t, first, "the first prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
@@ -306,8 +306,8 @@ func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodepr
 		})
 	}()
 	command := harness.nextCommand(t)
-	done := nodeproto.PrepareReport{JobID: jobID, State: nodeproto.PrepareDone, SizeBytes: 9}
-	playback.TakePrepareReport(t.Context(), 1, done)
+	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9}
+	harness.answerPrepare(t, jobID, done)
 	if err := testutil.Receive(t, finished, "the prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
