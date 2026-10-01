@@ -3,6 +3,7 @@
 # ABOUTME: the dev library covers every Cut A path, and the dev loop renders and watches right.
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -81,6 +82,14 @@ class DevLoop(unittest.TestCase):
         self.assertIn('roots = ["/r/.dev/media"]', text)
         self.assertIn('ffmpeg_dir = "/f"', text)
         self.assertEqual(dev.listen_address(text), "0.0.0.0:9000")
+
+    def test_your_media_is_a_root_the_node_offers_and_none_is_added_without_it(self):
+        """A library could not be made of ORPHEUM_DEV_MEDIA: no root named it (2026-10-01)."""
+        template = (dev.ROOT / "deploy" / "dev" / "orpheum.dev.toml").read_text()
+        config = dev.render_config(template, Path("/r"), Path("/f"), None)
+        self.assertEqual(dev.with_media_root(config, None), config)
+        roots = tomllib.loads(dev.with_media_root(config, "/tank/media"))["node"]["root_paths"]
+        self.assertEqual(roots, ["/tank/media", "/r/.dev/media/movies", "/r/.dev/media/shows"])
 
     def test_vite_binds_the_host_dev_listen_gives(self):
         self.assertEqual(dev.web_host(None), "127.0.0.1")

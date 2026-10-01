@@ -123,6 +123,12 @@ class RunArgs(unittest.TestCase):
         mounts = pairs(self.run_args(env={"ORPHEUM_DEV_MEDIA": str(media)}), "--mount")
         self.assertIn(f"type=bind,src={media.resolve()},dst={media.resolve()},readonly", mounts)
 
+    def test_the_dev_loop_inside_is_told_where_the_media_is_so_it_offers_it_as_a_root(self):
+        self.assertNotIn("ORPHEUM_DEV_MEDIA", " ".join(pairs(self.run_args(), "--env")))
+        media = Path(tempfile.mkdtemp())
+        self.assertIn(f"ORPHEUM_DEV_MEDIA={media.resolve()}",
+                      pairs(self.run_args(env={"ORPHEUM_DEV_MEDIA": str(media)}), "--env"))
+
     def test_dri_is_passed_with_its_groups_only_when_present(self):
         self.assertEqual(pairs(self.run_args(), "--device"), [])
         dri = Path(tempfile.mkdtemp())
