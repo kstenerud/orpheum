@@ -282,6 +282,9 @@ D233 §2, §3, §4, §7, §9.
 - Per-node slots in claiming; a play-now prepare pauses background reads on its node; play-driven
   work carries "wanted until".
 - A protocol number in the hello; an incompatible node parked; an unknown command refused.
+- A scan as a job shows itself on the library screen (D236 §2): *"Scanning… N files found so
+  far"* beside the root, from its pushed progress. A scan asked for while one runs schedules one
+  rescan after it rather than another scan (D236 §3, D38); the button says so.
 - Removes the negative ids of conversions done while a person waits (O2 replaces them).
 - A handler that fails after its command reached the node (a prepare whose cache write fails
   after the send) leaves the node working on a job that will be retried: the core tells the node
