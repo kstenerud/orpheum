@@ -22,7 +22,7 @@ See also: [testing.md](testing.md) (what a test is for, the uncontrolled list),
 
 ## The gate
 
-`npm --prefix web run check` runs, failing fast:
+`make check-web` runs these at once, each one of `web/package.json`'s scripts:
 
 | Step | Command | Config |
 | --- | --- | --- |

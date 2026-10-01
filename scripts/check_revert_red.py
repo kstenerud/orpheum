@@ -141,8 +141,26 @@ VQ_REF = re.compile(r"\bVQ(\d+)\b")
 VQ_TICKED = re.compile(r"^- \[[xX]\] \*\*VQ(\d+)\b", re.M)
 VQ_ANY = re.compile(r"^- \[[ xX]\] \*\*VQ(\d+)\b", re.M)
 
-# Directories pytest is pointed at; a Python change outside them has no scope to run.
-PY_ROOTS = ("scripts",)
+# Every Python test is in scripts/tests (PY_TEST), so every Python source outside it is in their
+# scope: the gate scripts, the Claude hooks in .claude/hooks, and ./dev. A list of roots left the
+# hooks and ./dev unprobed (2026-10-01).
+PY_TESTS_COMMAND = [sys.executable, str(Path(__file__).resolve().parent / "py_tests.py")]
+
+
+@functools.cache
+def is_python(path: str) -> bool:
+    """Whether path is Python source: by its suffix, or, with none, by an interpreter line naming
+    Python, as ./dev has. Read from the working tree, which is the branch's head."""
+    if PY_SOURCE.search(path):
+        return True
+    if Path(path).suffix:
+        return False
+    try:
+        with open(path, "rb") as source:
+            first = source.readline(200)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and b"python" in first
 
 
 @dataclass(frozen=True)
@@ -190,7 +208,7 @@ def claims_behavior_change(types: set[str | None]) -> bool:
 
 def is_probed_kind(path: str) -> bool:
     """Whether this gate has a probe for this kind of file."""
-    return bool(GO_SOURCE.search(path) or PY_SOURCE.search(path) or TS_SOURCE.search(path)
+    return bool(GO_SOURCE.search(path) or is_python(path) or TS_SOURCE.search(path)
                 or CSS_SOURCE.search(path) or MIGRATION_STEP.match(path) or path == STORE_SCHEMA)
 
 
@@ -219,7 +237,7 @@ def is_test_file(path: str) -> bool:
     """
     if GO_SOURCE.search(path):
         return bool(GO_TEST.search(path)) or path.startswith(GO_TEST_SUPPORT)
-    if PY_SOURCE.search(path):
+    if is_python(path):
         return bool(PY_TEST.search(path))
     if TS_SOURCE.search(path):
         return bool(TS_TEST.search(path))
@@ -251,7 +269,7 @@ def unchecked_behavioral_files(base: str, head: str, probed: frozenset[str] = fr
         elif not is_probed_kind(path):
             unchecked.append((path, f"no probe for this kind of file ({Path(path).suffix or Path(path).name})"))
         elif scope_for(path) is None:
-            unchecked.append((path, "no test scope covers it (outside PY_ROOTS)"))
+            unchecked.append((path, "no test scope covers it"))
     return unchecked
 
 
@@ -326,9 +344,8 @@ def scope_for(path: str) -> list[str] | None:
         return browser_tier_command()
     if GO_SOURCE.search(path):
         return ["go", "test", "./" + str(Path(path).parent) + "/..."]
-    if PY_SOURCE.search(path) and any(path.startswith(r + "/") for r in PY_ROOTS):
-        root = next(r for r in PY_ROOTS if path.startswith(r + "/"))
-        return ["python3", "-m", "unittest", "discover", "-q", "-s", f"{root}/tests"]
+    if is_python(path):
+        return PY_TESTS_COMMAND
     if TS_SOURCE.search(path):
         return ["npm", "--prefix", "web", "run", "test"]
     return None

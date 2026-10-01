@@ -39,6 +39,7 @@ NOISE = [re.compile(pattern) for pattern in (
     r"^\s+at least ~.* faster with",
     r"^no pinned MKVToolNix for",
     r"^Ran \d+ tests? in ",
+    r"^py_tests: \d+ modules, 0 failed$",
     r"^OK$",
     r"^-{20,}$",
     r"^ORPHEUM_TEST_UNCONTROLLED=",

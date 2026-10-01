@@ -48,13 +48,15 @@ check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 pri
 	@$(PYTHON) scripts/quiet_gate.py "make check" check-verbose
 
 .PHONY: check-verbose
-check-verbose: check-tools check-generated ## The gate with every step's output
+check-verbose: check-tools ## The gate with every step's output
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
 	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
 
 .PHONY: check-parallel
-check-parallel: check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web
+# check-generated runs beside the rest: nothing reads what it generates, which goes to a temporary
+# directory, and as a prerequisite it held every other step back by 7.6 s (2026-10-01).
+check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web
 
 .PHONY: check-tools
 check-tools: ## Fail if a pinned tool is missing or at the wrong version
@@ -76,7 +78,7 @@ check-docs: ## Links, anchors, decision citations and the decision index
 
 .PHONY: check-scripts
 check-scripts: ## The gate scripts' own tests, and shellcheck on every shell script
-	@$(HERMETIC) $(PYTHON) -m unittest discover -s scripts/tests -q
+	@$(HERMETIC) $(PYTHON) scripts/py_tests.py
 	@files="$$(git ls-files --cached --others --exclude-standard | grep -E '(\.sh$$|^\.githooks/)' || true)"; \
 	  if [ -n "$$files" ]; then shellcheck $$files; fi
 
@@ -138,8 +140,22 @@ check-generated: ## Fail if committed generated code differs from what its sourc
 	@$(PYTHON) scripts/check_generated.py
 
 .PHONY: check-web
-check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for web/
-	@npm --prefix web run --silent check
+check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for web/, at once
+	@$(MAKE) --no-print-directory -j5 --output-sync=target web-typecheck web-lint web-format-check web-deps-check web-test
+
+# The web checks, each one of web/package.json's scripts. check-web runs them at once: one after
+# another they took 16 s, the longest step of make check (2026-10-01).
+.PHONY: web-typecheck web-lint web-format-check web-deps-check web-test
+web-typecheck:
+	@npm --prefix web run --silent typecheck
+web-lint:
+	@npm --prefix web run --silent lint
+web-format-check:
+	@npm --prefix web run --silent format:check
+web-deps-check:
+	@npm --prefix web run --silent deps:check
+web-test:
+	@npm --prefix web run --silent test
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale
