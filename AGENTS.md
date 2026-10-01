@@ -108,4 +108,5 @@ done. *Standards: makefile.md §4.*
 | `web/` | MPL-2.0: `packages/sdk`, `packages/player`, `apps/web`, `apps/cast-receiver` |
 | `scripts/` | the gates, in Python, with tests in `scripts/tests/` |
 | `deps/` | the dependency allowlists |
+| `deploy/` | the container images (D235); `./dev` runs the development one |
 | `docs/contributors/` | design, decisions, standards, principles |

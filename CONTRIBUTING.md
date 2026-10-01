@@ -22,7 +22,25 @@ it lands in.
 
 ## Setting up
 
-You need Go 1.26, Node 22, Python 3, shellcheck and a C compiler (only for `make tools-sqlc`).
+The simplest way needs only git and a container engine
+([D235](docs/contributors/decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)).
+Install [Docker](https://docs.docker.com/engine/install/) (Podman should work too), then:
+
+```
+git clone <the repository> orpheum && cd orpheum
+./dev                  # a shell in the development container; the first run builds its image
+./dev make check       # the gate, exactly as it runs everywhere
+./dev make dev         # the app on http://127.0.0.1:5173
+```
+
+The image (`deploy/dev.Containerfile`) holds every pinned tool; the caches live in named volumes,
+so nothing but the clone lands on the machine. `./dev` explains its knobs at the top of the file:
+`ORPHEUM_DEV_MEDIA` mounts a media directory read-only, `ORPHEUM_DEV_PUBLISH=0.0.0.0` opens the
+dev ports to the LAN, and `./dev --stop` removes the container. The git pre-commit hook runs the
+gate through `./dev` too when the machine has no Go or Node of its own.
+
+Without a container, you need Go (go.mod's `toolchain` line names the exact version), Node 22,
+Python 3, shellcheck and a C compiler (only for `make tools-sqlc`).
 
 ```
 make tools     # the pinned golangci-lint

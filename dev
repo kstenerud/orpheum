@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# ABOUTME: `./dev`: runs a command, or a shell, in the development image (D235 §3), building the
+# ABOUTME: image first when it is missing or its inputs changed. The host needs only git and Docker.
+"""Run a command in the development container.
+
+    ./dev                 a shell in the container, in the directory you are in
+    ./dev make check      the gate, the same way CI and every other machine run it
+    ./dev make dev        the app, on http://127.0.0.1:5173 (the server on :8432)
+    ./dev --stop          remove this repository's container (the volumes stay)
+
+The image is built from deploy/dev.Containerfile and tagged with a hash of every file it is built
+from and of your uid and gid, so a changed pin builds a new one and an unchanged tree reuses it.
+
+One container per clone runs in the background, and every `./dev` runs its command in it: a dev
+loop in one terminal and `./dev make check` in another share it and do not fight over ports. The
+container is replaced when the image or anything below changes.
+
+- The repository is mounted at its own path, so paths read the same inside and out.
+- You are yourself inside: the image's user has your uid and gid.
+- Go's module and build caches, npm's cache and Playwright's browsers live in named volumes
+  (VOLUMES), never on the host.
+- ORPHEUM_DEV_MEDIA, when set, is a media directory mounted read-only at its own path.
+- /dev/dri is passed through when the host has it, for Quick Sync.
+- The dev loop's ports are published on ORPHEUM_DEV_PUBLISH (default 127.0.0.1; 0.0.0.0 opens
+  them to the LAN, as `make dev-lan` does outside a container).
+- ORPHEUM_DEV_ENGINE picks the container engine; otherwise docker, then podman.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+CONTAINERFILE = "deploy/dev.Containerfile"
+# Every file the image is built from, at its repository path. The image tag hashes them; the
+# build context holds only them, so a large .dev/ or node_modules is never sent to the engine.
+BUILD_INPUTS = (
+    CONTAINERFILE,
+    "Makefile",
+    "go.mod",
+    "scripts/fetch_ffmpeg.py",
+    "scripts/fetch_mkvtoolnix.py",
+    "web/package-lock.json",
+)
+IMAGE = "orpheum-dev"
+# The image's user's home (deploy/dev.Containerfile).
+HOME = "/home/dev"
+VOLUMES = {
+    "orpheum-dev-go": f"{HOME}/go",  # Go's module cache (GOPATH)
+    "orpheum-dev-cache": f"{HOME}/.cache",  # Go's build cache, golangci-lint's, Playwright's browsers
+    "orpheum-dev-npm": f"{HOME}/.npm",  # npm's cache
+}
+# The dev loop's ports: the server's (deploy/dev/orpheum.dev.toml's listen) and Vite's (scripts/dev.py).
+SERVER_PORT = 8432
+VITE_PORT = 5173
+# Inside the container the loop listens on every interface, or a published port reaches nothing;
+# what the host exposes is decided by ORPHEUM_DEV_PUBLISH. DEV_LISTEN is the Makefile's knob.
+CONTAINER_LISTEN = f"0.0.0.0:{SERVER_PORT}"
+DEFAULT_PUBLISH = "127.0.0.1"
+ENGINES = ("docker", "podman")
+# Labels: one marks every image and container this script made, one records a container's
+# configuration so a changed one is replaced.
+LABEL = "orpheum.dev"
+CONFIG_LABEL = "orpheum.dev.config"
+# The caller's environment variables a command inside sees too.
+FORWARDED_ENV = ("TERM",)
+FORWARDED_ENV_PREFIXES = ("ORPHEUM_TEST_",)
+
+
+def image_tag(root: Path, uid: int, gid: int) -> str:
+    """The image's name and tag: a hash of every build input, and of the uid and gid baked in."""
+    digest = hashlib.sha256(f"uid={uid} gid={gid}\n".encode())
+    for rel in BUILD_INPUTS:
+        digest.update(rel.encode() + b"\0")
+        digest.update((root / rel).read_bytes() + b"\0")
+    return f"{IMAGE}:{digest.hexdigest()[:16]}"
+
+
+def container_name(root: Path) -> str:
+    """One container per clone, named for the clone's path."""
+    return f"{IMAGE}-{hashlib.sha256(str(root).encode()).hexdigest()[:12]}"
+
+
+def find_engine(env: dict[str, str], which=shutil.which) -> str | None:
+    """ORPHEUM_DEV_ENGINE if set, else the first of docker and podman on PATH."""
+    wanted = env.get("ORPHEUM_DEV_ENGINE")
+    for name in (wanted,) if wanted else ENGINES:
+        if which(name):
+            return name
+    return None
+
+
+def dri_groups(dri: Path) -> list[int]:
+    """The groups owning the GPU's device nodes, which the user needs to open them."""
+    return sorted({entry.stat().st_gid for entry in dri.iterdir()}) if dri.is_dir() else []
+
+
+def build_args(engine: str, tag: str, context: Path, uid: int, gid: int) -> list[str]:
+    return [engine, "build", "--file", str(context / CONTAINERFILE), "--tag", tag,
+            "--label", f"{LABEL}=1", "--build-arg", f"DEV_UID={uid}", "--build-arg", f"DEV_GID={gid}",
+            str(context)]
+
+
+def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, gitconfig: Path) -> list[str]:
+    """`<engine> run` for the background container, without the name and config labels."""
+    publish = env.get("ORPHEUM_DEV_PUBLISH", DEFAULT_PUBLISH)
+    args = [engine, "run", "--detach", "--init", "--label", f"{LABEL}=1",
+            "--mount", f"type=bind,src={root},dst={root}",
+            "--env", f"DEV_LISTEN={CONTAINER_LISTEN}"]
+    if engine == "podman":
+        args.append("--userns=keep-id")  # rootless podman: map the host user to the same uid inside
+    for volume, path in VOLUMES.items():
+        args += ["--mount", f"type=volume,src={volume},dst={path}"]
+    for port in (SERVER_PORT, VITE_PORT):
+        args += ["--publish", f"{publish}:{port}:{port}"]
+    media = env.get("ORPHEUM_DEV_MEDIA")
+    if media:
+        media_path = Path(media).resolve()
+        args += ["--mount", f"type=bind,src={media_path},dst={media_path},readonly"]
+    if dri.is_dir():
+        args += ["--device", str(dri)]
+        for group in dri_groups(dri):
+            args += ["--group-add", str(group)]
+    if gitconfig.is_file():  # so a commit made inside is made as you
+        args += ["--mount", f"type=bind,src={gitconfig},dst={HOME}/.gitconfig,readonly"]
+    return args + [tag, "sleep", "infinity"]
+
+
+def config_hash(args: list[str]) -> str:
+    return hashlib.sha256("\0".join(args).encode()).hexdigest()[:16]
+
+
+def exec_args(engine: str, name: str, root: Path, cwd: Path, command: list[str], env: dict[str, str],
+              tty: bool) -> list[str]:
+    """`<engine> exec` running command in the container, in cwd when it is inside the clone."""
+    workdir = cwd if cwd == root or root in cwd.parents else root
+    args = [engine, "exec", "--interactive", "--workdir", str(workdir)]
+    if tty:
+        args.append("--tty")
+    for key in sorted(env):
+        if key in FORWARDED_ENV or key.startswith(FORWARDED_ENV_PREFIXES):
+            args += ["--env", key]
+    return args + [name] + (command or ["bash"])
+
+
+def quiet(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, capture_output=True, text=True, check=False)
+
+
+def ensure_image(engine: str, root: Path, uid: int, gid: int) -> str:
+    tag = image_tag(root, uid, gid)
+    if quiet([engine, "image", "inspect", tag]).returncode == 0:
+        return tag
+    print(f"dev: building {tag} from {CONTAINERFILE} (first run, or a pin changed)", file=sys.stderr)
+    with tempfile.TemporaryDirectory(prefix="orpheum-dev-") as tmp:
+        context = Path(tmp)
+        for rel in BUILD_INPUTS:
+            (context / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(root / rel, context / rel)
+        subprocess.run(build_args(engine, tag, context, uid, gid), check=True)
+    return tag
+
+
+def ensure_container(engine: str, name: str, args: list[str]) -> None:
+    config = config_hash(args)
+    state = quiet([engine, "inspect", "--format", f'{{{{index .Config.Labels "{CONFIG_LABEL}"}}}} {{{{.State.Running}}}}',
+                   name])
+    if state.returncode == 0:
+        if state.stdout.split() == [config, "true"]:
+            return
+        print(f"dev: replacing {name}: its image or configuration changed, or it had stopped", file=sys.stderr)
+        quiet([engine, "rm", "--force", name])
+    started = [*args[:2], "--name", name, "--label", f"{CONFIG_LABEL}={config}", *args[2:]]
+    subprocess.run(started, check=True, stdout=subprocess.DEVNULL)
+
+
+def main(argv: list[str]) -> int:
+    env = dict(os.environ)
+    engine = find_engine(env)
+    if engine is None:
+        print("dev: no container engine found. Install Docker (https://docs.docker.com/engine/install/)"
+              " or Podman, or name one in ORPHEUM_DEV_ENGINE.", file=sys.stderr)
+        return 127
+    uid, gid = os.getuid(), os.getgid()
+    if uid == 0:
+        print("dev: run it as your own user, not root: the container's user takes your uid.", file=sys.stderr)
+        return 2
+    name = container_name(ROOT)
+    if argv == ["--stop"]:
+        return quiet([engine, "rm", "--force", name]).returncode
+    try:
+        tag = ensure_image(engine, ROOT, uid, gid)
+        ensure_container(engine, name, run_args(engine, tag, ROOT, env, Path("/dev/dri"),
+                                                 Path.home() / ".gitconfig"))
+    except subprocess.CalledProcessError as failed:
+        print(f"dev: {' '.join(failed.cmd[:2])} failed (exit {failed.returncode}); its output is above",
+              file=sys.stderr)
+        return failed.returncode
+    tty = sys.stdin.isatty() and sys.stdout.isatty()
+    command = exec_args(engine, name, ROOT, Path.cwd().resolve(), argv, env, tty)
+    os.execvp(command[0], command)
+    return 0  # not reached: execvp replaces this process
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import fetch_ffmpeg  # noqa: E402
 import fetch_mkvtoolnix  # noqa: E402
+import run_gate  # noqa: E402
 
 CONTAINERFILE = REPO / "deploy" / "dev.Containerfile"
 
@@ -55,6 +56,9 @@ class Pins(unittest.TestCase):
 
     def test_the_base_image_is_pinned_by_digest(self):
         self.assertRegex(self.containerfile_arg("DEBIAN_IMAGE"), r"^debian:trixie-slim@sha256:[0-9a-f]{64}$")
+
+    def test_the_image_says_it_is_the_dev_image_so_the_hooks_run_the_gate_directly(self):
+        self.assertRegex(CONTAINERFILE.read_text(), rf"(?m)^ENV .*\b{run_gate.IN_DEV_IMAGE}=1\b")
 
 
 class ToolsDir(unittest.TestCase):

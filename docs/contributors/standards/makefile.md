@@ -79,7 +79,9 @@ runs it.
 
 `make check` is the fast gate. The Stop hook, the pre-commit hook and CI all run it; the
 pre-commit hook skips a commit of exactly the tree the gate last passed on
-(`scripts/check_stamp.py`), since the Stop hook has just run it. Its checks run in parallel after
+(`scripts/check_stamp.py`), since the Stop hook has just run it. Both hooks run it where the
+tools are: directly in the development image or on a host with Go and Node, through `./dev`
+otherwise (`scripts/run_gate.py`, D235). Its checks run in parallel after
 two that must come first, the tools and the generated code, and a target added to it must not
 write files another check reads. **Read its prerequisite lines in the Makefile; do not copy them
 into a document**, where it would go stale the

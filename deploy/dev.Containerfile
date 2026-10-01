@@ -130,5 +130,7 @@ RUN set -eu; \
     mkdir -p /home/dev/go /home/dev/.cache /home/dev/.npm; \
     chown -R "$DEV_UID:$DEV_GID" /home/dev
 USER dev
-ENV HOME=/home/dev GOPATH=/home/dev/go
+# ORPHEUM_IN_DEV_IMAGE tells the git and Claude Code hooks they are inside this image, where the
+# gate runs directly rather than through `./dev` (scripts/run_gate.py).
+ENV HOME=/home/dev GOPATH=/home/dev/go ORPHEUM_IN_DEV_IMAGE=1
 WORKDIR /home/dev
