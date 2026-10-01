@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { signInWithCode } from "./accounts.ts";
 import { CredentialsField, CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /**
@@ -28,7 +28,12 @@ export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element 
         session.signIn(token, user.device?.id);
       },
       (cause: unknown) => {
-        setProblem(problemText(t, cause, { authRequired: t("codeSignIn.badCode") }));
+        setProblem(
+          fieldProblemText(t, cause, {
+            fields: { "body.code": t("codeSignIn.code") },
+            overrides: { authRequired: t("codeSignIn.badCode") },
+          }),
+        );
       },
     );
   };

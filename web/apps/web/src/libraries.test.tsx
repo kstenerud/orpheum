@@ -10,6 +10,7 @@ import {
   blankLibrary,
   checkEveryHoursToStart,
   CreateLibraryForm,
+  hasARoot,
   withChangeDetection,
   withRootChosen,
 } from "./create-library.tsx";
@@ -172,6 +173,27 @@ describe("libraries", () => {
       ),
     );
     expect(markup).toMatch(/type="number"[^>]*value="6"/u);
+  });
+
+  it("says where its folders come from, and creates nothing until one is ticked", () => {
+    const form = (rootPaths: string[]): string =>
+      renderToStaticMarkup(
+        withServices(
+          <CreateLibraryForm
+            draft={{ ...blankLibrary(), name: "movies", rootPaths }}
+            nodes={[{ name: "local", isConnected: true, rootPaths: ["/media/films"] }]}
+            checkEveryHoursToStart={24}
+            problem=""
+            onDraftChange={ignore}
+            onSubmit={ignore}
+          />,
+        ),
+      );
+    expect(form([])).toContain("<legend>Folders this library reads</legend>");
+    expect(form([])).toContain("to add one, list it there and restart the node.");
+    expect(form([])).toMatch(/<button type="submit" disabled="">Create and scan<\/button>/u);
+    expect(form(["/media/films"])).toContain('<button type="submit">Create and scan</button>');
+    expect(hasARoot(blankLibrary())).toBe(false);
   });
 
   it("says to start a node when none is connected, rather than offer nothing to choose", () => {

@@ -11,7 +11,7 @@ import {
   type DeviceCodeState,
 } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
-import { problemText } from "./problem.ts";
+import { fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
@@ -74,7 +74,15 @@ function ChangePassword(): JSX.Element {
         setOutcome(t("account.passwordChanged"));
       },
       (cause: unknown) => {
-        setOutcome(problemText(t, cause, { forbidden: t("account.wrongPassword") }));
+        setOutcome(
+          fieldProblemText(t, cause, {
+            fields: {
+              "body.currentPassword": t("account.currentPassword"),
+              "body.newPassword": t("account.newPassword"),
+            },
+            overrides: { forbidden: t("account.wrongPassword") },
+          }),
+        );
       },
     );
   };

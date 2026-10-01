@@ -45,6 +45,8 @@ export const en = {
     forbidden: "Only an administrator can do that.",
     notFound: "That is no longer here: it may have been removed. Go back and try again.",
     invalidRequest: "The server could not accept that. Check what was entered and try again.",
+    invalidFields:
+      "The server did not accept what was entered in {{fields, list}}. Correct what is there and try again.",
     conflict: "That clashes with something that already exists.",
     stale: "Someone changed this meanwhile. Reload and try again.",
     rateLimited: "Too many attempts. Wait a minute, then try again.",
@@ -492,7 +494,9 @@ export const en = {
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",
     node: "Node",
     nodeAway: "{{name}} (not connected)",
-    roots: "Folders, as the node's configuration names them",
+    roots: "Folders this library reads",
+    rootsHelp:
+      "Tick at least one. Only the folders the node's configuration lists (node.root_paths) appear here; to add one, list it there and restart the node.",
     noNodes:
       "No node has connected since the server started. Start one, and its folders show here.",
     create: "Create and scan",
