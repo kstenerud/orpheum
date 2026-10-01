@@ -22,7 +22,7 @@ import (
 
 // Config is the file read before the database opens: only what must exist by then, or must not
 // be changeable by someone holding only an admin account (D182 §3, D200); everything else is a
-// setting in the database. Its keys are exactly those of dev/orpheum.dev.toml (cut-a §2a) and
+// setting in the database. Its keys are exactly those of deploy/dev/orpheum.dev.toml (cut-a §2a) and
 // configKeys, which gives each its starting value: a key the file lacks runs on it and says so
 // (D202).
 type Config struct {

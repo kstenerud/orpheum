@@ -15668,7 +15668,9 @@ rebuilds on a change. Vite serves the app, and `/api` is proxied to the server.
 
 The owner's rule is that a default must be safe to be wrong and visible
 ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)).
-So every dev choice lives in two committed files, `dev/orpheum.dev.toml` and `dev/seed.toml`,
+So every dev choice lives in two committed files, `dev/orpheum.dev.toml` and `dev/seed.toml`
+(since 2026-10-01 they live in `deploy/dev/`, so that `./dev` can be the container launcher of
+[D235](#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)),
 and the loop prints them in a banner at start:
 
 - **Loopback, plain HTTP.** Browsers treat localhost as a secure context, so the microphone

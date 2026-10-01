@@ -110,7 +110,7 @@ counted:
     also include `openapi`, `version` and, in dev builds, `dev`. `go.mod` has no `tool`
     directives: sqlc and golangci-lint are pinned in the Makefile. `testdata/`, `assumptions/`
     and `tools/gates/` do not exist (the gates are `scripts/`).
-  - **§2a config keys.** "Exactly the keys in `dev/orpheum.dev.toml`" is true of the file, but the
+  - **§2a config keys.** "Exactly the keys in `deploy/dev/orpheum.dev.toml`" is true of the file, but the
     list beside it leaves out `server.socket_dir`, `node.name`, `video_extensions`,
     `subtitle_extensions`, `max_errors_per_root`, `probe_timeout_seconds` and
     `status_interval_seconds`.

@@ -7,16 +7,16 @@
 `make dev` runs `loop`:
 
 1. **Prepare.** Fetch the pinned FFmpeg (`make ffmpeg`), generate the dev library
-   (`make dev-media`) and render `dev/orpheum.dev.toml` into `.dev/orpheum.toml`.
+   (`make dev-media`) and render `deploy/dev/orpheum.dev.toml` into `.dev/orpheum.toml`.
 2. **Build.** `go build -tags dev -race` into `.dev/bin/orpheum`. The dev tag adds the
    `orpheum dev` subcommand, and the race detector is on because two people and a watcher are
    exactly where data races hide. `DEV_RACE=0` turns it off.
-3. **Seed.** If `.dev/state` is empty, run `orpheum dev seed` with `dev/seed.toml`, rendered
+3. **Seed.** If `.dev/state` is empty, run `orpheum dev seed` with `deploy/dev/seed.toml`, rendered
    into `.dev/seed.toml` like the config.
 4. **Run.** Start `orpheum run` against the dev config, and the Vite dev server with hot reload,
    which proxies the API and media to the server. Output goes to the terminal, prefixed
    `[server]` and `[web]`; the server's is also appended to `.dev/orpheum.log`.
-5. **Watch.** Poll the Go sources, `go.mod` and `dev/*.toml` every second. On a change, rebuild
+5. **Watch.** Poll the Go sources, `go.mod` and `deploy/dev/*.toml` every second. On a change, rebuild
    and restart the server. The web dev server reloads itself. A server that exits is reported
    with its status, and the loop keeps watching, so a failed build is fixed and retried without
    restarting anything.
@@ -38,9 +38,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEV = ROOT / ".dev"
-CONFIG_TEMPLATE = ROOT / "dev" / "orpheum.dev.toml"
+CONFIG_TEMPLATE = ROOT / "deploy" / "dev" / "orpheum.dev.toml"
 CONFIG = DEV / "orpheum.toml"
-SEED_TEMPLATE = ROOT / "dev" / "seed.toml"
+SEED_TEMPLATE = ROOT / "deploy" / "dev" / "seed.toml"
 SEED = DEV / "seed.toml"
 BINARY = DEV / "bin" / "orpheum"
 LOG = DEV / "orpheum.log"
@@ -104,7 +104,7 @@ def snapshot(root: Path) -> dict[str, float]:
         if any(part in rel + "/" for part in SKIPPED_PARTS):
             continue
         watched = path.suffix in WATCHED_SUFFIXES or path.name in WATCHED_NAMES
-        watched = watched or (path.parent == root / "dev" and path.suffix == ".toml")
+        watched = watched or (path.parent == root / "deploy" / "dev" and path.suffix == ".toml")
         if watched and path.is_file():
             times[rel] = path.stat().st_mtime
     return times
@@ -164,7 +164,7 @@ def seed_if_empty() -> None:
     state = DEV / "state"
     if state.exists() and any(state.iterdir()):
         return
-    print("[dev] empty database: seeding from dev/seed.toml", flush=True)
+    print("[dev] empty database: seeding from deploy/dev/seed.toml", flush=True)
     subprocess.run([str(BINARY), "dev", "seed", "--config", str(CONFIG), "--seed", str(SEED)],
                    cwd=ROOT, check=False)
 
@@ -177,13 +177,13 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> 
         f"  web (Vite)   {web_url(listen, lan_ip())}   hot reload; proxies /api and /media to the server"
         if with_web else "  web          served by the server (built into the binary)",
         "  users        owner / owner (admin)      partner / partner (outsider)",
-        f"  config       {CONFIG}   (from dev/orpheum.dev.toml)",
+        f"  config       {CONFIG}   (from deploy/dev/orpheum.dev.toml)",
         f"  seed         {ROOT / 'dev' / 'seed.toml'}   (applied to an empty database)",
         f"  media        {DEV / 'media'}   (read-only, generated)",
         f"  ffmpeg       {ffmpeg_dir}",
         f"  logs         {LOG}",
         f"  race         {'on' if race else 'off (DEV_RACE=0)'}; confinement reported, not required",
-        "  rebuilds     on any .go, go.mod or dev/*.toml change; Ctrl-C stops everything",
+        "  rebuilds     on any .go, go.mod or deploy/dev/*.toml change; Ctrl-C stops everything",
     ]
     print("\n".join(lines), flush=True)
 

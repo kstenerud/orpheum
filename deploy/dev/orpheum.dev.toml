@@ -3,7 +3,7 @@
 # .dev/orpheum.toml, filling in {root} (the repository) and {ffmpeg_dir} (the pinned FFmpeg from
 # `make ffmpeg`), and prints the result. The file holds only what must exist before the
 # database opens (D182 §3, D200); a key the file lacks runs on its starting value and doctor lists
-# it (D202). Everything else is a setting in the database, and dev's values come from dev/seed.toml.
+# it (D202). Everything else is a setting in the database, and dev's values come from deploy/dev/seed.toml.
 #
 # Every value here is a choice for debugging, not a production default:
 #   - listen on loopback only, plain HTTP. Browsers treat localhost as a secure context, so the
@@ -27,7 +27,7 @@ migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
-root_paths = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per library in dev/seed.toml
+root_paths = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per library in deploy/dev/seed.toml
 ffmpeg_dir = "{ffmpeg_dir}"
 confinement_policy = "report"   # "require" refuses to start unconfined; "report" runs and says so
 video_extensions = ["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob", "flv", "ogv", "3gp"]

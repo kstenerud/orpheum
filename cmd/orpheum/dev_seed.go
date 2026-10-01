@@ -26,7 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// seedFile is dev/seed.toml (cut-a §2a).
+// seedFile is deploy/dev/seed.toml (cut-a §2a).
 type seedFile struct {
 	Users     []seedUser     `toml:"user"`
 	Libraries []seedLibrary  `toml:"library"`
@@ -51,7 +51,7 @@ type seedLibrary struct {
 }
 
 // devSecrets maps the environment variables `make dev` passes on to the secrets they seal
-// (dev/seed.toml; D194).
+// (deploy/dev/seed.toml; D194).
 func devSecrets() []struct {
 	variable string
 	name     secrets.Name
@@ -74,7 +74,7 @@ func commandDev(ctx context.Context, call invocation) int {
 	call.arguments = call.arguments[1:]
 	var seedPath string
 	config, configReport, err := call.loadConfigFromFlags("dev seed", func(flags *flag.FlagSet) {
-		flags.StringVar(&seedPath, "seed", "", "the seed file, dev/seed.toml rendered (required)")
+		flags.StringVar(&seedPath, "seed", "", "the seed file, deploy/dev/seed.toml rendered (required)")
 	})
 	if err != nil {
 		return call.fail(err)
