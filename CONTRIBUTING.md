@@ -40,10 +40,10 @@ dev ports to the LAN, and `./dev --stop` removes the container. The git pre-comm
 gate through `./dev` too when the machine has no Go or Node of its own.
 
 Without a container, you need Go (go.mod's `toolchain` line names the exact version), Node 22,
-Python 3, shellcheck and a C compiler (only for `make tools-sqlc`).
+Python 3, shellcheck and a C compiler (for the race detector). The gate fetches the pinned
+golangci-lint and sqlc into `.tools/` itself.
 
 ```
-make tools     # the pinned golangci-lint
 make setup     # git hooks, web dependencies
 make check     # the gate; must pass before every commit
 ```

@@ -60,6 +60,15 @@ class ImageTag(unittest.TestCase):
         for rel in launcher.BUILD_INPUTS:
             self.assertTrue((REPO / rel).is_file(), rel)
 
+    def test_every_build_input_is_one_the_containerfile_copies_so_other_edits_reuse_the_image(self):
+        """A Makefile edit rebuilt the image and its ten-minute tool layer (2026-10-01)."""
+        text = (REPO / launcher.CONTAINERFILE).read_text()
+        copied = {launcher.CONTAINERFILE}
+        for line in text.splitlines():
+            if line.startswith("COPY ") and "--from=" not in line:
+                copied.update(line.split()[1:-1])
+        self.assertEqual(set(launcher.BUILD_INPUTS), copied)
+
 
 class Engine(unittest.TestCase):
     def test_docker_comes_first_then_podman(self):

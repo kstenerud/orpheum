@@ -43,10 +43,10 @@ CONTAINERFILE = "deploy/dev.Containerfile"
 # build context holds only them, so a large .dev/ or node_modules is never sent to the engine.
 BUILD_INPUTS = (
     CONTAINERFILE,
-    "Makefile",
     "go.mod",
     "scripts/fetch_ffmpeg.py",
     "scripts/fetch_mkvtoolnix.py",
+    "scripts/fetch_tools.py",
     "web/package-lock.json",
 )
 IMAGE = "orpheum-dev"

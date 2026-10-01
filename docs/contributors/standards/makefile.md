@@ -137,11 +137,13 @@ re-runs by `scripts/tests/test_gate_reruns.py`; running the full `make check-pr`
 
 ## 5. Tools are pinned, and a derived list beats a written one
 
-- **Every tool's version is pinned in one place**, a variable at the top of the Makefile
-  (`GOLANGCI_LINT_VERSION`, the Go and Node versions), and `check-tools` — the first
-  prerequisite of `make check` — fails when a tool is missing or at another version, naming the
-  command that fixes it. `make tools` installs the pinned versions. Changing a pin is an owner
-  action, because a linter upgrade changes what the gate means.
+- **Every tool's version is pinned in one place.** Go's and Node's are variables at the top of
+  the Makefile; golangci-lint's and sqlc's are `scripts/fetch_tools.py`'s, a version and one
+  SHA-256 per platform for each project's own release binary, as FFmpeg is pinned ([D235](../decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)
+  §2). `check-tools`, the first prerequisite of `make check`, fetches those two into `.tools/`
+  when they are missing and fails when another tool is missing or at another version, naming the
+  command that fixes it. Changing a pin is an owner action, because a linter upgrade changes what
+  the gate means.
 - **Node tools** come from the web workspace's lockfile.
 - **System tools** are checked the same way: shellcheck by `check-tools`. The integration tier's
   FFmpeg and MKVToolNix are pinned and fetched by `make ffmpeg` and `make mkvtoolnix`, each

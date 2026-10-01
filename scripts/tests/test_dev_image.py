@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import fetch_ffmpeg  # noqa: E402
 import fetch_mkvtoolnix  # noqa: E402
+import fetch_tools  # noqa: E402
 import run_gate  # noqa: E402
 
 CONTAINERFILE = REPO / "deploy" / "dev.Containerfile"
@@ -54,6 +55,12 @@ class Pins(unittest.TestCase):
             for arch in ("AMD64", "ARM64"):
                 self.assertRegex(self.containerfile_arg(f"{tool}_SHA256_{arch}"), r"^[0-9a-f]{64}( |$)")
 
+    def test_no_tool_is_built_from_source(self):
+        """`go install` of golangci-lint, sqlc and delve took 613 s of the image's build on devnas
+        (2026-09-30); the gate tools are fetched release binaries, and delve is installed on use."""
+        self.assertNotIn("go install", CONTAINERFILE.read_text())
+        self.assertRegex(CONTAINERFILE.read_text(), r"(?m)^RUN python3 /opt/orpheum/scripts/fetch_tools\.py$")
+
     def test_the_base_image_is_pinned_by_digest(self):
         self.assertRegex(self.containerfile_arg("DEBIAN_IMAGE"), r"^debian:trixie-slim@sha256:[0-9a-f]{64}$")
 
@@ -84,6 +91,15 @@ class ToolsDir(unittest.TestCase):
         for name in fetch_mkvtoolnix.TOOLS:
             (dest / "usr" / "bin" / name).write_text("")
         self.assertEqual(self.install_with_tools_in(tools, fetch_mkvtoolnix.install), dest)
+
+    def test_a_gate_tool_in_the_named_directory_is_used(self):
+        tools = Path(tempfile.mkdtemp())
+        tool = fetch_tools.TOOLS[0]
+        dest = tools / tool.name / f"{tool.version}-linux-amd64"
+        dest.mkdir(parents=True)
+        (dest / tool.name).write_text("")
+        self.assertEqual(self.install_with_tools_in(tools, lambda target, root: fetch_tools.install(tool, target, root)),
+                         dest / tool.name)
 
 
 if __name__ == "__main__":
