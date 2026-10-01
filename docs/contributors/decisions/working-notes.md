@@ -17226,6 +17226,16 @@ image breaker, and **amends** D41 and D208 with the retire actions of §7.
     …" with a try-again; spent quota shows when it resets; our own pacing shows a spinner, and words
     past a couple of seconds; a missing or refused credential says who can fix it.
 
+*Settled in the readiness audit's questions (2026-10-01; [audit-2026-09-30.md](../design/research/audit-2026-09-30.md)
+§7 D7–D10, the owner: "Yes to your recommendations"):* §7's dismissal of the offline reminder stays
+a preference (`offline_reminder_dismissed_at`), one value per person, not a table of its own; a
+folder or disk that goes offline after an admin dismissed the reminder brings it back at once,
+since a dismissal hides what the admin saw. §12's countdown holds for a person's own call to a
+host that asked us to wait. Two names now say what they hold: the setting
+`library_check_every_hours`, only a new library's starting interval, is
+`new_library_scan_every_hours`, and the retire answers' `removedFileCount`, which counts
+tombstoned files, is `tombstonedFileCount`.
+
 **Status:** Decided 2026-09-30.
 
 ## D232 — What makes two names the same work is one identity fold, derived from the search fold
