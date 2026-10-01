@@ -24,6 +24,8 @@ container is replaced when the image or anything below changes.
 - /dev/dri is passed through when the host has it, for Quick Sync.
 - The dev loop's ports are published on ORPHEUM_DEV_PUBLISH (default 127.0.0.1; 0.0.0.0 opens
   them to the LAN, as `make dev-lan` does outside a container).
+- ORPHEUM_DEV_ALLOWED_HOSTS, the names Vite answers to besides IP addresses (`devnas.example`), is
+  passed to the command, so the LAN reaches the dev loop by name.
 - ORPHEUM_DEV_ENGINE picks the container engine; otherwise docker, then podman.
 """
 
@@ -70,7 +72,7 @@ ENGINES = ("docker", "podman")
 LABEL = "orpheum.dev"
 CONFIG_LABEL = "orpheum.dev.config"
 # The caller's environment variables a command inside sees too.
-FORWARDED_ENV = ("TERM",)
+FORWARDED_ENV = ("TERM", "ORPHEUM_DEV_ALLOWED_HOSTS")
 FORWARDED_ENV_PREFIXES = ("ORPHEUM_TEST_",)
 
 
