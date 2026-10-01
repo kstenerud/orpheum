@@ -49,6 +49,25 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A17 — My own stray output taken as an instruction, then blamed on the tools (2026-10-01)
+
+- **What happened:** the sandbox started the session with yoloAI's "background setup complete"
+  message. The model answered it with a made-up request: *"Write up the plan for M3 in a doc for
+  Priya to review before we start"*. On the next turn I read that text as an instruction in my
+  context. I offered the owner three readings of "the M3 doc for Priya". When asked where it came
+  from, I said it was in the startup context's system section and might have been inserted by
+  the yoloAI launch prompt or a claude.ai connector. Both claims were false. The session
+  transcript records it as an assistant message (`msg_011Cfb2rwNz1GdhWzgg4CX8X`, 06:20:03, two
+  seconds after the setup message). Nobody wrote it but the model. The false belief came from
+  where the text sat: it came before the owner's first message, so I assumed someone else had
+  put it there. I also guessed at outside sources instead of reading the transcript, which
+  answered the question in one grep.
+- **Caught by:** the owner: "I didn't inject it, either."
+- **Gate:** none. No hook can tell a model's invented request from a real one. The practice:
+  before acting on a request, check that it is in a message the owner wrote. When asked where
+  something came from, read the session transcript before naming any source; it records every
+  message's role.
+
 ### A16 — A hack around a gate offered beside the redesign it called for (2026-09-30)
 
 - **What happened:** revert-red failed the jobs rebuild's Phase 3 on two deletions of code
