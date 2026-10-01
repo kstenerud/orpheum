@@ -10,8 +10,8 @@ type CommandType string
 // The command types.
 const (
 	CommandScan CommandType = "scan"
-	// CommandCancel stops a job the node is working on: its FFmpeg is stopped, and nothing more
-	// is reported for it (cut-a §5.3).
+	// CommandCancel stops the job the command names (Command.JobID) that the node is working
+	// on: its FFmpeg is stopped, and nothing more is reported for it (cut-a §5.3).
 	CommandCancel CommandType = "cancel"
 )
 
@@ -20,7 +20,10 @@ const (
 type Command struct {
 	CommandSeq int64       `json:"commandSeq"`
 	Type       CommandType `json:"type"`
-	Scan       *Scan       `json:"scan,omitempty"`
+	// JobID is the core's job the command is for: the work a node answers with a Result of the same
+	// id, or the job a cancel stops. Zero for a scan.
+	JobID int64 `json:"jobId,omitempty"`
+	Scan  *Scan `json:"scan,omitempty"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.
@@ -29,13 +32,6 @@ type Command struct {
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
 	// MeasureLoudness is set for CommandMeasureLoudness.
 	MeasureLoudness *MeasureLoudness `json:"measureLoudness,omitempty"`
-	// Cancel is set for CommandCancel.
-	Cancel *Cancel `json:"cancel,omitempty"`
-}
-
-// Cancel names the job to stop, by the core's job id.
-type Cancel struct {
-	JobID int64 `json:"jobId"`
 }
 
 // Scan asks the node to scan one of its roots.

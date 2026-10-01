@@ -50,9 +50,9 @@ type fakeNodes struct {
 	// database is where a retired node is removed, at clock's time.
 	database *store.Database
 	clock    clock.Clock
-	// takeSubtitleText is where the node's answers to a fetch's conversion go, which it answers at
+	// takeResult is where the node's answers to a fetch's conversion go, which it answers at
 	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
-	takeSubtitleText func(nodeID int64, answer nodeproto.SubtitleText)
+	takeResult func(nodeID int64, result nodeproto.Result)
 }
 
 // RemoveNode removes a node an admin retired, as the node service does; node 1 is away from then
@@ -140,15 +140,14 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
-	if extract := command.ExtractSubtitle; extract != nil && extract.JobID < 0 && nodes.takeSubtitleText != nil {
+	if extract := command.ExtractSubtitle; extract != nil && command.JobID < 0 && nodes.takeResult != nil {
 		answer := nodeproto.SubtitleText{
-			JobID: extract.JobID, ASS: []byte("[Script Info]"),
-			VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
+			ASS: []byte("[Script Info]"), VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
 		}
 		if string(extract.FetchedSubRip) == unreadableText {
-			answer = nodeproto.SubtitleText{JobID: extract.JobID, Failure: "Invalid data found when processing input"}
+			answer = nodeproto.SubtitleText{Failure: "Invalid data found when processing input"}
 		}
-		nodes.takeSubtitleText(1, answer)
+		nodes.takeResult(1, nodeproto.Result{JobID: command.JobID, Subtitle: &answer})
 		return
 	}
 	if nodes.commanded != nil {

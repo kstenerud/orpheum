@@ -6,8 +6,8 @@ package nodeproto
 // logic on it.
 type RecordType string
 
-// The record types. A job's progress and end are not records: each kind of job posts its own
-// answer to its own path (PathPrepare, PathSubtitle, PathLoudness, PathArtwork).
+// The record types. A job's progress and end are not records: they are Results, posted to
+// PathResult.
 const (
 	RecordStatus       RecordType = "status"
 	RecordScanBegin    RecordType = "scan_begin"

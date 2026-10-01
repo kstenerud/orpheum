@@ -120,78 +120,31 @@ func (service *Service) serveReport(writer http.ResponseWriter, request *http.Re
 	writer.WriteHeader(http.StatusNoContent)
 }
 
-// maxArtworkBytes bounds an artwork answer: seven sizes of our own WebP, the largest 3840×2160,
-// in base64. Real ones are a few megabytes.
-const maxArtworkBytes = 64 << 20
+// maxResultBytes bounds a result. The largest is an artwork re-encode's: seven sizes of our own
+// WebP, the largest 3840×2160, in base64; real ones are a few megabytes. A subtitle's is its text
+// twice, each at most the node's own bound of 16 MiB, in base64; a prepare report and a loudness
+// measurement are a few numbers.
+const maxResultBytes = 64 << 20
 
-// artworkAnswer takes a node's answer to an artwork command to the artwork store.
-func (service *Service) artworkAnswer(writer http.ResponseWriter, request *http.Request) {
-	var deliver func(context.Context, int64, nodeproto.ArtworkResult)
-	if service.artworkSink != nil {
-		deliver = service.artworkSink.TakeArtworkAnswer
-	}
-	takeAnswer(service, writer, request, maxArtworkBytes, "an artwork answer", deliver)
-}
-
-// maxPrepareReportBytes bounds a prepare report: a few numbers and an error's tail.
-const maxPrepareReportBytes = 64 << 10
-
-// prepareReport takes a node's report on a prepare to the job waiting for it.
-func (service *Service) prepareReport(writer http.ResponseWriter, request *http.Request) {
-	var deliver func(context.Context, int64, nodeproto.PrepareReport)
-	if service.prepareSink != nil {
-		deliver = service.prepareSink.TakePrepareReport
-	}
-	takeAnswer(service, writer, request, maxPrepareReportBytes, "a prepare report", deliver)
-}
-
-// maxSubtitleAnswerBytes bounds a subtitle answer: the text twice, each at most the node's own bound
-// of 16 MiB, in base64.
-const maxSubtitleAnswerBytes = 48 << 20
-
-// subtitleAnswer takes a node's answer to an extract_subtitle command to the job waiting for it.
-func (service *Service) subtitleAnswer(writer http.ResponseWriter, request *http.Request) {
-	var deliver func(context.Context, int64, nodeproto.SubtitleText)
-	if service.subtitleSink != nil {
-		deliver = service.subtitleSink.TakeSubtitleText
-	}
-	takeAnswer(service, writer, request, maxSubtitleAnswerBytes, "a subtitle", deliver)
-}
-
-// maxLoudnessAnswerBytes bounds a loudness answer: a few numbers for each audio track.
-const maxLoudnessAnswerBytes = 1 << 20
-
-// loudnessAnswer takes a node's answer to a measure_loudness command to the job waiting for it.
-func (service *Service) loudnessAnswer(writer http.ResponseWriter, request *http.Request) {
-	var deliver func(context.Context, int64, nodeproto.LoudnessResult)
-	if service.loudnessSink != nil {
-		deliver = service.loudnessSink.TakeLoudness
-	}
-	takeAnswer(service, writer, request, maxLoudnessAnswerBytes, "a loudness measurement", deliver)
-}
-
-// takeAnswer reads one JSON answer of at most maxBytes bytes from a known node and delivers it; with
-// nothing to deliver to, the answer is refused.
-func takeAnswer[Answer any](
-	service *Service, writer http.ResponseWriter, request *http.Request, maxBytes int64, answerDescription string,
-	deliver func(context.Context, int64, Answer),
-) {
+// takeResult reads a known node's word on a job, at most maxResultBytes of JSON, and hands it to
+// the job waiting for it; with nowhere to hand it, the result is refused.
+func (service *Service) takeResult(writer http.ResponseWriter, request *http.Request) {
 	nodeID, ok := service.knownNodeIDOf(writer, request)
 	if !ok {
 		return
 	}
 	service.noteHeard(nodeID)
-	if deliver == nil {
-		http.Error(writer, "this core takes no "+answerDescription, http.StatusServiceUnavailable)
+	if service.resultSink == nil {
+		http.Error(writer, "this core takes no results", http.StatusServiceUnavailable)
 		return
 	}
-	var answer Answer
-	body := http.MaxBytesReader(writer, request.Body, maxBytes)
-	if err := json.NewDecoder(body).Decode(&answer); err != nil {
-		http.Error(writer, answerDescription+" is JSON: "+err.Error(), http.StatusBadRequest)
+	var result nodeproto.Result
+	body := http.MaxBytesReader(writer, request.Body, maxResultBytes)
+	if err := json.NewDecoder(body).Decode(&result); err != nil {
+		http.Error(writer, "a result is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	deliver(request.Context(), nodeID, answer)
+	service.resultSink.Deliver(request.Context(), nodeID, result)
 	writeJSON(writer, struct{}{}) // the node reads a JSON answer
 }
 

@@ -71,7 +71,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 		t.Fatalf("POST %s: %d, want 204", cancel, status)
 	}
 	stop := harness.nextCommand(t)
-	if stop.Type != nodeproto.CommandCancel || stop.Cancel == nil || stop.Cancel.JobID != queued.ID {
+	if stop.Type != nodeproto.CommandCancel || stop.JobID != queued.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, queued.ID)
 	}
 	if err := testutil.Receive(t, ran, "the runner to end"); err != nil {
@@ -130,7 +130,7 @@ func TestJobs_ACancelledSubtitleExtractionIsStoppedOnTheNode(t *testing.T) {
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusNoContent {
 		t.Fatalf("POST %s: %d, want 204", cancel, status)
 	}
-	if stop := harness.nextCommand(t); stop.Type != nodeproto.CommandCancel || stop.Cancel.JobID != extraction.ID {
+	if stop := harness.nextCommand(t); stop.Type != nodeproto.CommandCancel || stop.JobID != extraction.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, extraction.ID)
 	}
 	if err := testutil.Receive(t, ran, "the runner to end"); err != nil {

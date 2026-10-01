@@ -274,9 +274,9 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command := &nodeproto.ExtractSubtitle{JobID: job.ID, Sidecar: &bytesFile}
+	command := &nodeproto.ExtractSubtitle{Sidecar: &bytesFile}
 	if stream.StreamIndex != nil {
-		command = &nodeproto.ExtractSubtitle{JobID: job.ID, Video: &bytesFile, StreamIndex: int(*stream.StreamIndex)}
+		command = &nodeproto.ExtractSubtitle{Video: &bytesFile, StreamIndex: int(*stream.StreamIndex)}
 	}
 	return service.makeSubtitleText(ctx, job, stream.NodeID, command, textKey(stream.PayloadHash, stream.StreamIndex))
 }
@@ -313,7 +313,7 @@ func (service *Service) makeSubtitleText(
 	if answer.Stall != nil {
 		return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,
 			func(failure string) error {
-				return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: failure})
+				return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: failure})
 			})
 	}
 	if answer.Failure != "" {
@@ -380,10 +380,5 @@ func (service *Service) RecordSubtitleFailure(ctx context.Context, job jobs.Job,
 		jobs.KindScan, jobs.KindBackup:
 		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
 	}
-	return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{JobID: job.ID, Failure: "given up: " + failure})
-}
-
-// TakeSubtitleText takes a node's answer to an extract_subtitle command to the job waiting for it.
-func (service *Service) TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
-	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: answer.JobID, Subtitle: &answer})
+	return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: "given up: " + failure})
 }

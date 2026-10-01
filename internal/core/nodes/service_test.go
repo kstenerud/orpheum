@@ -431,21 +431,21 @@ func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	}
 }
 
-// recordingArtworkSink records the artwork answers it is handed.
-type recordingArtworkSink struct {
-	answers []nodeproto.ArtworkResult
+// recordingResultSink records the results it is handed.
+type recordingResultSink struct {
+	results []nodeproto.Result
 	from    []int64
 }
 
-func (sink *recordingArtworkSink) TakeArtworkAnswer(_ context.Context, nodeID int64, result nodeproto.ArtworkResult) {
-	sink.answers = append(sink.answers, result)
+func (sink *recordingResultSink) Deliver(_ context.Context, nodeID int64, result nodeproto.Result) {
+	sink.results = append(sink.results, result)
 	sink.from = append(sink.from, nodeID)
 }
 
-func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
+func TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	answerJSON := func(result nodeproto.ArtworkResult) io.Reader {
+	resultJSON := func(result nodeproto.Result) io.Reader {
 		encoded, err := json.Marshal(result)
 		if err != nil {
 			t.Fatal(err)
@@ -453,23 +453,24 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 		return bytes.NewReader(encoded)
 	}
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	result := nodeproto.ArtworkResult{
-		JobID: 4, Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: []byte("RIFF")}},
-	}
-	if refused := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result)); refused.status !=
+	result := nodeproto.Result{JobID: 4, Artwork: &nodeproto.ArtworkResult{
+		Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: []byte("RIFF")}},
+	}}
+	if refused := harness.post(t, nodeproto.PathResult, reply.NodeID, resultJSON(result)); refused.status !=
 		http.StatusServiceUnavailable {
-		t.Errorf("with no artwork sink: %d, want 503", refused.status)
+		t.Errorf("with no result sink: %d, want 503", refused.status)
 	}
-	sink := &recordingArtworkSink{}
-	harness.service.SetArtworkSink(sink)
-	if stranger := harness.post(t, nodeproto.PathArtwork, reply.NodeID+1, answerJSON(result)); stranger.status !=
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	if stranger := harness.post(t, nodeproto.PathResult, reply.NodeID+1, resultJSON(result)); stranger.status !=
 		http.StatusConflict {
 		t.Errorf("from a node that never said hello: %d, want 409", stranger.status)
 	}
-	taken := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result))
-	if taken.status != http.StatusOK || len(sink.answers) != 1 || sink.from[0] != reply.NodeID ||
-		sink.answers[0].JobID != 4 || string(sink.answers[0].Images[0].WebP) != "RIFF" {
-		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.answers)
+	taken := harness.post(t, nodeproto.PathResult, reply.NodeID, resultJSON(result))
+	if taken.status != http.StatusOK || len(sink.results) != 1 || sink.from[0] != reply.NodeID ||
+		sink.results[0].JobID != 4 || sink.results[0].Artwork == nil ||
+		string(sink.results[0].Artwork.Images[0].WebP) != "RIFF" {
+		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.results)
 	}
 	if connected, found := harness.service.ConnectedNodeID(t.Context()); !found || connected != reply.NodeID {
 		t.Errorf("Connected = %d, %v; want the node", connected, found)

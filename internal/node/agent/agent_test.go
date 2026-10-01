@@ -30,17 +30,18 @@ import (
 
 // fakeCore answers the node channel the way the core does, and hands the test what it hears.
 type fakeCore struct {
-	mutex          sync.Mutex
-	hellos         []nodeproto.Hello
-	commands       chan nodeproto.Command
-	records        chan nodeproto.Record
-	artwork        chan nodeproto.ArtworkResult
-	prepareReports chan nodeproto.PrepareReport
-	subtitles      chan nodeproto.SubtitleText
-	loudness       chan nodeproto.LoudnessResult
-	reportsToDrop  int            // the first reports it ends at once, as a core that went away would
-	postsToRefuse  map[string]int // by path, the first answers it refuses, as a busy core would
-	stopped        chan struct{}  // closed at teardown: a handler stops handing on what it heard
+	mutex    sync.Mutex
+	hellos   []nodeproto.Hello
+	commands chan nodeproto.Command
+	records  chan nodeproto.Record
+	// The node's results, each on its kind's channel: a Result carrying its job id and one payload.
+	artwork        chan nodeproto.Result
+	prepareReports chan nodeproto.Result
+	subtitles      chan nodeproto.Result
+	loudness       chan nodeproto.Result
+	reportsToDrop  int                // the first reports it ends at once, as a core that went away would
+	postsToRefuse  map[resultKind]int // by kind, the first results it refuses, as a busy core would
+	stopped        chan struct{}      // closed at teardown: a handler stops handing on what it heard
 }
 
 // isMalformed says the node posted something that is not the JSON it should be; a body cut short
@@ -65,8 +66,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
-		artwork: make(chan nodeproto.ArtworkResult, 4), prepareReports: make(chan nodeproto.PrepareReport, 16),
-		subtitles: make(chan nodeproto.SubtitleText, 4), loudness: make(chan nodeproto.LoudnessResult, 4),
+		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
+		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
 		stopped: make(chan struct{}),
 	}
 	mux := http.NewServeMux()
@@ -97,10 +98,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 	})
 	mux.HandleFunc("POST "+nodeproto.PathReport, core.receiveReport(t))
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core, nodeproto.PathArtwork, core.artwork))
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core, nodeproto.PathPrepare, core.prepareReports))
-	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core, nodeproto.PathSubtitle, core.subtitles))
-	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core, nodeproto.PathLoudness, core.loudness))
+	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
 	socket := core.serve(t, mux)
 	return core, socket
 }
@@ -169,45 +167,86 @@ func (core *fakeCore) serve(t *testing.T, handler http.Handler) string {
 	return socket
 }
 
-// forwardPosted hands the test each answer the node posts to path, past the first postsToRefuse
-// of them.
-func forwardPosted[Answer any](t *testing.T, core *fakeCore, path string, into chan<- Answer) http.HandlerFunc {
+// resultKind is which payload a result carries.
+type resultKind string
+
+// The kinds of result.
+const (
+	artworkResult  resultKind = "artwork"
+	prepareResult  resultKind = "prepare"
+	subtitleResult resultKind = "subtitle"
+	loudnessResult resultKind = "loudness"
+)
+
+// kindOf is the one payload a result carries; a result with none or several is not one the node
+// should post.
+func kindOf(result nodeproto.Result) (resultKind, bool) {
+	var kinds []resultKind
+	for kind, isSet := range map[resultKind]bool{
+		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
+		subtitleResult: result.Subtitle != nil, loudnessResult: result.Loudness != nil,
+	} {
+		if isSet {
+			kinds = append(kinds, kind)
+		}
+	}
+	if len(kinds) != 1 {
+		return "", false
+	}
+	return kinds[0], true
+}
+
+// receiveResult hands the test each result the node posts, on its kind's channel, past the first
+// postsToRefuse of its kind.
+func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if core.refusesNextPost(path) {
-			http.Error(writer, "the core is busy", http.StatusServiceUnavailable)
-			return
-		}
-		var answer Answer
-		err := json.NewDecoder(request.Body).Decode(&answer)
+		var result nodeproto.Result
+		err := json.NewDecoder(request.Body).Decode(&result)
 		if isMalformed(err) {
 			t.Error(err)
 		}
-		if err != nil || !handOn(core, into, answer) {
+		if err != nil {
+			return
+		}
+		kind, isOne := kindOf(result)
+		if !isOne {
+			t.Errorf("the node posted %+v, want a result with exactly one payload", result)
+			return
+		}
+		if core.refusesNextPost(kind) {
+			http.Error(writer, "the core is busy", http.StatusServiceUnavailable)
+			return
+		}
+		into := map[resultKind]chan nodeproto.Result{
+			artworkResult: core.artwork, prepareResult: core.prepareReports,
+			subtitleResult: core.subtitles, loudnessResult: core.loudness,
+		}[kind]
+		if !handOn(core, into, result) {
 			return
 		}
 		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
 }
 
-// refuseFirstPosts has the core refuse the next count answers posted to path.
-func (core *fakeCore) refuseFirstPosts(path string, count int) {
+// refuseFirstPosts has the core refuse the next count results of kind.
+func (core *fakeCore) refuseFirstPosts(kind resultKind, count int) {
 	core.mutex.Lock()
 	defer core.mutex.Unlock()
 	if core.postsToRefuse == nil {
-		core.postsToRefuse = map[string]int{}
+		core.postsToRefuse = map[resultKind]int{}
 	}
-	core.postsToRefuse[path] = count
+	core.postsToRefuse[kind] = count
 }
 
-// refusesNextPost says whether the core refuses this answer posted to path, and counts it.
-func (core *fakeCore) refusesNextPost(path string) bool {
+// refusesNextPost says whether the core refuses this result of kind, and counts it.
+func (core *fakeCore) refusesNextPost(kind resultKind) bool {
 	core.mutex.Lock()
 	defer core.mutex.Unlock()
-	if core.postsToRefuse[path] <= 0 {
+	if core.postsToRefuse[kind] <= 0 {
 		return false
 	}
-	core.postsToRefuse[path]--
+	core.postsToRefuse[kind]--
 	return true
 }
 
@@ -238,13 +277,11 @@ type fakeArtworker struct{}
 
 func (fakeArtworker) Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
 	if ctx.Err() != nil {
-		return nodeproto.ArtworkResult{JobID: command.JobID, Refusal: "cancelled"}
+		return nodeproto.ArtworkResult{Refusal: "cancelled"}
 	}
 	reversed := slices.Clone(command.SourceImage)
 	slices.Reverse(reversed)
-	return nodeproto.ArtworkResult{
-		JobID: command.JobID, Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: reversed}},
-	}
+	return nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: reversed}}}
 }
 
 // testCapacity is the test node's: one encode and two remuxes at once.
@@ -375,13 +412,15 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	core, socket := startFakeCore(t)
 	startAgent(t, socket)
 	artwork := &nodeproto.Artwork{
-		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+	}
 	select {
 	case result := <-core.artwork:
-		if result.JobID != 12 || len(result.Images) != 1 || string(result.Images[0].WebP) != "cba" {
+		if result.JobID != 12 || len(result.Artwork.Images) != 1 || string(result.Artwork.Images[0].WebP) != "cba" {
 			t.Errorf("the core heard %+v", result)
 		}
 	case <-t.Context().Done():
@@ -414,15 +453,17 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 	if running := nextPrepareReport(t, core); running.State != nodeproto.PrepareRunning {
 		t.Fatalf("the prepare's first report = %+v, want running", running)
 	}
-	core.refuseFirstPosts(nodeproto.PathArtwork, 1)
+	core.refuseFirstPosts(artworkResult, 1)
 	artwork := &nodeproto.Artwork{
-		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+	}
 	select {
 	case result := <-core.artwork:
-		if result.JobID != 12 || len(result.Images) != 1 {
+		if result.JobID != 12 || len(result.Artwork.Images) != 1 {
 			t.Errorf("the core heard %+v, want job 12's image", result)
 		}
 	case <-time.After(answerTimeout):
@@ -442,16 +483,17 @@ func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	startAgent(t, socket)
-	cancel := &nodeproto.Cancel{JobID: 12}
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandCancel, Cancel: cancel}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandCancel, JobID: 12}
 	artwork := &nodeproto.Artwork{
-		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+	}
 	select {
 	case result := <-core.artwork:
-		if result.JobID != 12 || result.Refusal != "cancelled" || len(result.Images) != 0 {
+		if result.JobID != 12 || result.Artwork.Refusal != "cancelled" || len(result.Artwork.Images) != 0 {
 			t.Errorf("the core heard %+v, want job 12 stopped before it re-encoded anything", result)
 		}
 	case <-t.Context().Done():
@@ -473,15 +515,18 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
 		core.commands <- nodeproto.Command{
-			CommandSeq: job, Type: nodeproto.CommandEncodeArtwork,
+			CommandSeq: job, Type: nodeproto.CommandEncodeArtwork, JobID: job,
 			EncodeArtwork: &nodeproto.Artwork{
-				JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
+				AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 			},
 		}
 		select {
 		case result := <-core.artwork:
-			return result
+			if result.JobID != job {
+				t.Errorf("the core heard job %d's image, want job %d's", result.JobID, job)
+			}
+			return *result.Artwork
 		case <-t.Context().Done():
 			t.Fatal("no artwork answer reached the core")
 			return nodeproto.ArtworkResult{}

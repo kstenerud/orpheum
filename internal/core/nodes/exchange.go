@@ -41,15 +41,17 @@ func NewExchanges(sender Sender, clockSource clock.Clock, logger *slog.Logger) *
 	return &Exchanges{sender: sender, clock: clockSource, logger: logger, waiting: map[int64]chan nodeproto.Result{}}
 }
 
-// Ask sends a node one job's command and waits for its results, which Next takes. The work is
-// named by about in errors and the log ("prepare 3/remux/ab12"). The caller closes the exchange it returns;
-// a command that could not be sent returns Send's error and nothing to close.
+// Ask sends a node one job's command, named by the job's id, and waits for its results, which Next
+// takes. The work is named by about in errors and the log ("prepare 3/remux/ab12"). The caller
+// closes the exchange it returns; a command that could not be sent returns Send's error and nothing
+// to close.
 func (all *Exchanges) Ask(
 	ctx context.Context, nodeID, jobID int64, command nodeproto.Command, about string,
 ) (*Exchange, error) {
 	// A job's results are few (a prepare's progress, then its end), and each is taken as it comes;
 	// a buffer of a few lets the node's post return without waiting on the job's loop.
 	results := make(chan nodeproto.Result, 8)
+	command.JobID = jobID
 	all.mutex.Lock()
 	all.waiting[jobID] = results
 	all.mutex.Unlock()
@@ -137,5 +139,5 @@ func (exchange *Exchange) Close() {
 
 // CancelCommand tells a node to stop a job it is working on (cut-a §5.3): Close sends it.
 func CancelCommand(jobID int64) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: jobID}}
+	return nodeproto.Command{Type: nodeproto.CommandCancel, JobID: jobID}
 }

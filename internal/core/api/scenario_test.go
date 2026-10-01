@@ -56,9 +56,7 @@ func TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor(t *testing.T) {
 		if !isSent {
 			return
 		}
-		playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
-			JobID: command.Prepare.JobID, State: nodeproto.PrepareDone, SizeBytes: 9,
-		})
+		harness.answerPrepare(t, command.JobID, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9})
 	}()
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
@@ -99,9 +97,8 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 		if !isSent {
 			return
 		}
-		playback.TakeLoudness(t.Context(), 1, nodeproto.LoudnessResult{
-			JobID: command.MeasureLoudness.JobID, Failure: "Invalid data found when processing input",
-		})
+		harness.answerLoudness(t, command.JobID,
+			nodeproto.LoudnessResult{Failure: "Invalid data found when processing input"})
 	}()
 	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
 	if err := runner.RunDue(t.Context()); err != nil {

@@ -176,7 +176,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		for _, size := range command.SizeNames {
 			images = append(images, nodeproto.ArtImage{SizeName: size, WebP: ourWebP})
 		}
-		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
+		return nodeproto.ArtworkResult{Images: images}
 	}
 	bench.handle(t, Ref{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"})
 	sourceSha256Hex := Received(source).sourceSha256Hex()

@@ -90,12 +90,11 @@ func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *tes
 	deriver, runner := newDeriver(t)
 	poster := withComment(t, generateSourceImage(t, runner, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
-		JobID: 7, SourceImage: poster, Shape: nodeproto.ShapePortrait, MaxSourcePixels: 40_000_000, WebPQuality: 82,
+		SourceImage: poster, Shape: nodeproto.ShapePortrait, MaxSourcePixels: 40_000_000, WebPQuality: 82,
 		SizeNames: []nodeproto.ArtSizeName{"portrait-s", "portrait-m", "portrait-l"},
 	})
-	if result.Refusal != "" || result.JobID != 7 || result.SourceWidth != 900 || result.SourceHeight != 1350 {
-		t.Fatalf("result: refused %q, job %d, %d×%d", result.Refusal, result.JobID, result.SourceWidth,
-			result.SourceHeight)
+	if result.Refusal != "" || result.SourceWidth != 900 || result.SourceHeight != 1350 {
+		t.Fatalf("result: refused %q, %d×%d", result.Refusal, result.SourceWidth, result.SourceHeight)
 	}
 	for _, want := range []struct {
 		name          nodeproto.ArtSizeName

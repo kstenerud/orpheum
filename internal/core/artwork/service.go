@@ -64,12 +64,15 @@ type Parts struct {
 	Database *store.Database
 	Queue    Queue
 	Nodes    Nodes
-	ArtFiles ArtFiles
-	Cache    *store.Cache // when each image was last served
-	Settings Settings
-	Fetchers map[string]Fetcher // by source: "tmdb"
-	Clock    clock.Clock
-	Logger   *slog.Logger
+	// Exchanges are how a job asks a node for work and waits for its results; the node channel
+	// hands them the results (nodes.Service.SetResultSink), which are the store's one way in (D212 §8).
+	Exchanges *nodes.Exchanges
+	ArtFiles  ArtFiles
+	Cache     *store.Cache // when each image was last served
+	Settings  Settings
+	Fetchers  map[string]Fetcher // by source: "tmdb"
+	Clock     clock.Clock
+	Logger    *slog.Logger
 	// AnswerWait is how long a job waits for the node's answer; nodeproto.ArtworkAnswerWait when zero.
 	AnswerWait time.Duration
 }
@@ -89,7 +92,7 @@ func NewService(parts Parts) *Service {
 		parts.AnswerWait = nodeproto.ArtworkAnswerWait
 	}
 	return &Service{
-		parts: parts, exchanges: nodes.NewExchanges(parts.Nodes, parts.Clock, parts.Logger),
+		parts: parts, exchanges: parts.Exchanges,
 		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
 	}
 }
@@ -184,7 +187,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	if err != nil || held {
 		return err
 	}
-	command := nodeproto.Artwork{JobID: want.jobID, Shape: shape, SizeNames: fetchedSizes(shape)}
+	command := nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
 	sourceSha256Hex := ""
 	if want.source == SourceLocal {
@@ -206,7 +209,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	if err != nil {
 		return err
 	}
-	result, err := service.reEncode(ctx, nodeID, command)
+	result, err := service.reEncode(ctx, nodeID, want.jobID, command)
 	if err != nil {
 		return err
 	}
@@ -263,10 +266,10 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 	return holds(rows, want.source, want.ref), nil
 }
 
-// reEncode sends a source to the node and waits for its answer, by the job id the command
-// carries. A job cancelled while it waits tells the node to stop.
+// reEncode sends a source to the node for job jobID and waits for its answer. A job cancelled while
+// it waits tells the node to stop.
 func (service *Service) reEncode(
-	ctx context.Context, nodeID int64, command nodeproto.Artwork,
+	ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork,
 ) (nodeproto.ArtworkResult, error) {
 	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
@@ -277,7 +280,7 @@ func (service *Service) reEncode(
 		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_webp_quality: %w", err)
 	}
 	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
-	exchange, err := service.exchanges.Ask(ctx, nodeID, command.JobID,
+	exchange, err := service.exchanges.Ask(ctx, nodeID, jobID,
 		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command}, "re-encoding an image")
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
@@ -295,12 +298,6 @@ func (service *Service) reEncode(
 	}
 	exchange.MarkEndedByNode()
 	return *result.Artwork, nil
-}
-
-// TakeArtworkAnswer takes a node's answer to the job waiting for it. One nothing waits for — it came after
-// the wait ended — is dropped; its job was retried.
-func (service *Service) TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
-	service.exchanges.Deliver(ctx, nodeID, nodeproto.Result{JobID: result.JobID, Artwork: &result})
 }
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is

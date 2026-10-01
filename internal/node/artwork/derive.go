@@ -38,7 +38,7 @@ func NewDeriver(runner *execx.Runner, timeout time.Duration) *Deriver {
 // for, each our own encode, or why none was made. The source is anyone's bytes; it reaches
 // FFmpeg on a pipe, never as a name, and only the pipe protocol is allowed.
 func (deriver *Deriver) Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
-	result := nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{}}
+	result := nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{}}
 	width, height, err := deriver.dimensions(ctx, command.SourceImage)
 	switch {
 	case err != nil:

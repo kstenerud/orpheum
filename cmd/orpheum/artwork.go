@@ -27,7 +27,8 @@ func newArtwork(
 	httpClient := opened.jobServices.outboundClient
 	images := tmdb.NewImageFetcher(httpClient, imageBaseURL, opened.jobServices.providerServices.tmdbImages)
 	service := artwork.NewService(artwork.Parts{
-		Database: opened.database, Queue: opened.jobServices.queue, Nodes: opened.nodes, ArtFiles: directories,
+		Database: opened.database, Queue: opened.jobServices.queue, Nodes: opened.nodes,
+		Exchanges: opened.exchanges, ArtFiles: directories,
 		Cache:    opened.cache,
 		Settings: opened.settings,
 		Fetchers: map[string]artwork.Fetcher{"tmdb": images},
@@ -36,7 +37,6 @@ func newArtwork(
 	if err := service.LoadHoldings(ctx); err != nil {
 		return nil, err
 	}
-	opened.nodes.SetArtworkSink(service)
 	opened.jobServices.pass.AfterPass(func(ctx context.Context, report identify.Report) {
 		service.Take(ctx, foundImages(report))
 	})

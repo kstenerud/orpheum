@@ -49,22 +49,28 @@ func (fakePreparer) Prepare(
 // never comes fails the test in seconds rather than at the suite's deadline.
 const answerTimeout = 10 * time.Second
 
+// jobPrepareReport is a prepare report with the job id its result carried.
+type jobPrepareReport struct {
+	JobID int64
+	nodeproto.PrepareReport
+}
+
 // nextPrepareReport is the core's next report from a prepare.
-func nextPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
+func nextPrepareReport(t *testing.T, core *fakeCore) jobPrepareReport {
 	t.Helper()
 	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
 	defer stop()
 	select {
-	case report := <-core.prepareReports:
-		return report
+	case result := <-core.prepareReports:
+		return jobPrepareReport{JobID: result.JobID, PrepareReport: *result.Prepare}
 	case <-ctx.Done():
 		t.Fatal("no prepare report reached the core")
 	}
-	return nodeproto.PrepareReport{}
+	return jobPrepareReport{}
 }
 
 // finalPrepareReport is the core's last word from a prepare: done, failed or refused, past any waiting or running.
-func finalPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
+func finalPrepareReport(t *testing.T, core *fakeCore) jobPrepareReport {
 	t.Helper()
 	for {
 		report := nextPrepareReport(t, core)
@@ -87,9 +93,11 @@ func preparableFilm(t *testing.T, root *confine.MediaRoot) nodeproto.BytesFile {
 
 // sendPrepare commands a remux of source into renditionDir as job.
 func (core *fakeCore) sendPrepare(job int64, source nodeproto.BytesFile, renditionDir string) {
-	core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-		JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: renditionDir,
-	}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: &nodeproto.Prepare{
+			Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: renditionDir,
+		},
+	}
 }
 
 func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
@@ -170,12 +178,14 @@ func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testi
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-		JobID: 1, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
-		Video: nodeproto.BytesFile{
-			RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandPrepare, JobID: 1, Prepare: &nodeproto.Prepare{
+			Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+			Video: nodeproto.BytesFile{
+				RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+			},
 		},
-	}}
+	}
 	if done := finalPrepareReport(t, core); done.State != nodeproto.PrepareDone {
 		t.Fatalf("the prepare ended %+v, want done", done)
 	}
@@ -197,9 +207,8 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
-		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
-		}}
+		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir}
+		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: payload}
 	}
 	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
 	core.commands <- commandFor(1, "3/remux/slow")
@@ -209,10 +218,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
-	core.commands <- nodeproto.Command{
-		CommandSeq: 3, Type: nodeproto.CommandCancel,
-		Cancel: &nodeproto.Cancel{JobID: 1},
-	}
+	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1}
 	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
 	if next := finalPrepareReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
@@ -230,9 +236,8 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
-		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Video: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
-		}}
+		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir}
+		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: payload}
 	}
 	// One encode slot: the first encode runs, the second waits for it.
 	core.commands <- encode(1, "3/h264-8m/slow")
@@ -247,10 +252,7 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	if again := nextPrepareReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
-	core.commands <- nodeproto.Command{
-		CommandSeq: 3, Type: nodeproto.CommandCancel,
-		Cancel: &nodeproto.Cancel{JobID: 1},
-	}
+	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1}
 	if done := finalPrepareReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}
@@ -263,7 +265,7 @@ func TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry(t *testing.T) {
 	core, socket := startFakeCore(t)
 	root, _ := startAgent(t, socket)
 	// The first post is the prepare's progress, which is not tried again; the second is its end.
-	core.refuseFirstPosts(nodeproto.PathPrepare, 2)
+	core.refuseFirstPosts(prepareResult, 2)
 	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
 	if done := finalPrepareReport(t, core); done.JobID != 1 || done.State != nodeproto.PrepareDone {
 		t.Errorf("the prepare's end after a refusal = %+v, want done", done)

@@ -46,17 +46,23 @@ func (fakeSubtitler) ConvertText(_ context.Context, source []byte) (subtitle.Tex
 	return subtitle.Text{ASS: source, VTT: source}, nil
 }
 
-func receiveSubtitle(t *testing.T, core *fakeCore) nodeproto.SubtitleText {
+// jobSubtitleText is a subtitle's text with the job id its result carried.
+type jobSubtitleText struct {
+	JobID int64
+	nodeproto.SubtitleText
+}
+
+func receiveSubtitle(t *testing.T, core *fakeCore) jobSubtitleText {
 	t.Helper()
 	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
 	defer stop()
 	select {
-	case answer := <-core.subtitles:
-		return answer
+	case result := <-core.subtitles:
+		return jobSubtitleText{JobID: result.JobID, SubtitleText: *result.Subtitle}
 	case <-ctx.Done():
 		t.Fatal("no subtitle reached the core")
 	}
-	return nodeproto.SubtitleText{}
+	return jobSubtitleText{}
 }
 
 // startExtractionAgent starts an agent whose root holds film.mkv and film.en.srt, and returns them named
@@ -79,9 +85,8 @@ func startExtractionAgent(t *testing.T) (video, sidecar nodeproto.BytesFile, cor
 
 // queueExtraction sends an extraction as job, without waiting for the answer.
 func (core *fakeCore) queueExtraction(job int64, extract nodeproto.ExtractSubtitle) {
-	extract.JobID = job
 	core.commands <- nodeproto.Command{
-		CommandSeq: job, Type: nodeproto.CommandExtractSubtitle,
+		CommandSeq: job, Type: nodeproto.CommandExtractSubtitle, JobID: job,
 		ExtractSubtitle: &extract,
 	}
 }
@@ -89,7 +94,7 @@ func (core *fakeCore) queueExtraction(job int64, extract nodeproto.ExtractSubtit
 func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot(t *testing.T) {
 	t.Parallel()
 	video, sidecar, core := startExtractionAgent(t)
-	send := func(job int64, extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
+	send := func(job int64, extract nodeproto.ExtractSubtitle) jobSubtitleText {
 		core.queueExtraction(job, extract)
 		return receiveSubtitle(t, core)
 	}
@@ -147,10 +152,7 @@ func TestAgent_ACancelStopsARunningExtractionAndNothingIsReportedForIt(t *testin
 	video, _, core := startExtractionAgent(t)
 	// One extraction runs at a time, so the next runs only once the cancel frees the slot.
 	core.queueExtraction(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: slowStreamIndex})
-	core.commands <- nodeproto.Command{
-		CommandSeq: 2, Type: nodeproto.CommandCancel,
-		Cancel: &nodeproto.Cancel{JobID: 1},
-	}
+	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandCancel, JobID: 1}
 	core.queueExtraction(3, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
 	if next := receiveSubtitle(t, core); next.JobID != 3 || next.Refusal != "" {
 		t.Errorf("the first answer = %+v, want job 3's text and nothing for the cancelled job 1", next)
@@ -176,7 +178,7 @@ func TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile(t *testing.T
 func TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry(t *testing.T) {
 	t.Parallel()
 	_, sidecar, core := startExtractionAgent(t)
-	core.refuseFirstPosts(nodeproto.PathSubtitle, 1)
+	core.refuseFirstPosts(subtitleResult, 1)
 	core.queueExtraction(1, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
 	if answer := receiveSubtitle(t, core); answer.JobID != 1 || string(answer.ASS) != "the sidecar" {
 		t.Errorf("the answer after one refusal = %+v, want job 1's text", answer)

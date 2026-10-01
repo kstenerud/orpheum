@@ -26,8 +26,9 @@
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
 //     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
-//   - An artwork command's answer — the sizes the deriver made, or why none — is posted to the
-//     core's artwork path (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
+//   - Every job's answer is a Result naming the job its command named, posted to the core's one
+//     result path; an artwork command's — the sizes the deriver made, or why none — is the
+//     artwork store's one way in (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
 //   - A prepare runs only on the file the core named, a regular file under one of the node's roots
 //     whose payload hash is still the one named (D100), opened and checked by
 //     internal/node/namedfile; its progress and its end are posted to the core. One
@@ -75,7 +76,7 @@
 // # Where to change
 //
 //   - agent.go: the session and its four parts; report.go: numbering; answer.go: posting a job's
-//     answer, and trying it again; prepare.go: prepares and their slots; subtitle.go: subtitle
+//     result, and trying it again; prepare.go: prepares and their slots; subtitle.go: subtitle
 //     extraction, and running a command in the background; loudness.go: loudness measurement;
 //     working.go: the jobs running, and cancel.
 package agent

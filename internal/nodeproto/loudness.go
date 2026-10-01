@@ -6,13 +6,8 @@ package nodeproto
 // §4, D226 §1).
 const CommandMeasureLoudness CommandType = "measure_loudness"
 
-// PathLoudness is where the node posts a measure_loudness command's answer.
-const PathLoudness = "/node/v1/loudness"
-
 // MeasureLoudness is one video whose audio tracks to measure, from one read of the file.
 type MeasureLoudness struct {
-	// JobID names the core's job the answer belongs to.
-	JobID int64 `json:"jobId"`
 	// Video is the file, named by payload hash and checked before FFmpeg reads it (D100).
 	Video BytesFile `json:"video"`
 	// Tracks lists the tracks to measure.
@@ -30,7 +25,6 @@ type LoudnessTrack struct {
 
 // LoudnessResult is the node's answer: each track's measurements, or why there are none.
 type LoudnessResult struct {
-	JobID  int64           `json:"jobId"`
 	Tracks []TrackLoudness `json:"tracks,omitempty"`
 	// Failure is FFmpeg's word that it could not measure the file: a fact about its bytes, which
 	// measuring again would not change.

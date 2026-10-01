@@ -233,7 +233,7 @@ func (service *Service) convertFetched(
 	conversionID := -service.fetchConversions.Add(1)
 	exchange, err := service.exchanges.Ask(ctx, nodeID, conversionID, nodeproto.Command{
 		Type:            nodeproto.CommandExtractSubtitle,
-		ExtractSubtitle: &nodeproto.ExtractSubtitle{JobID: conversionID, FetchedSubRip: text},
+		ExtractSubtitle: &nodeproto.ExtractSubtitle{FetchedSubRip: text},
 	}, "a fetched subtitle")
 	if err != nil {
 		return nodeproto.SubtitleText{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", nodeID, err)
@@ -288,6 +288,6 @@ func (service *Service) HandleConvertFetchedSubtitle(ctx context.Context, job jo
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command := &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text}
+	command := &nodeproto.ExtractSubtitle{FetchedSubRip: text}
 	return service.makeSubtitleText(ctx, job, fetched.NodeID, command, fetchedKey(fetched.BodyGzip))
 }

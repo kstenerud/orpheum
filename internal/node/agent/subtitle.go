@@ -21,12 +21,12 @@ type Subtitler interface {
 
 // extractSubtitle starts an extraction beside the node's other work, one at a time, since an
 // embedded track means reading the whole video, and posts the answer to the core.
-func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command nodeproto.ExtractSubtitle) {
+func (agent *Agent) extractSubtitle(ctx context.Context, nodeID, jobID int64, command nodeproto.ExtractSubtitle) {
 	agent.answerInBackground(ctx, nodeID, backgroundJob{
-		jobID: command.JobID, slot: agent.slots.extract, answerPath: nodeproto.PathSubtitle, jobKind: "a subtitle",
-		makeAnswer: func(jobCtx context.Context) (any, string) {
+		jobID: jobID, slot: agent.slots.extract, jobKind: "a subtitle",
+		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runExtraction(jobCtx, command)
-			return answer, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
+			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})
 }
@@ -36,10 +36,11 @@ type backgroundJob struct {
 	jobID int64
 	// slot bounds how many of its kind run at once.
 	slot chan struct{}
-	// answerPath is where the answer is posted; jobKind names the work in the log.
-	answerPath, jobKind string
-	// makeAnswer makes the answer, and says why nothing was made: a refusal or a failure.
-	makeAnswer func(ctx context.Context) (answer any, refusalOrFailure string)
+	// jobKind names the work in the log.
+	jobKind string
+	// makeAnswer makes the result, its job id left for answerInBackground to fill, and says why
+	// nothing was made: a refusal or a failure.
+	makeAnswer func(ctx context.Context) (result nodeproto.Result, refusalOrFailure string)
 }
 
 // answerInBackground runs one command beside the node's other work once its slot is free, and
@@ -54,7 +55,8 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job ba
 			return
 		}
 		defer func() { <-job.slot }()
-		answer, refusalOrFailure := job.makeAnswer(jobCtx)
+		result, refusalOrFailure := job.makeAnswer(jobCtx)
+		result.JobID = job.jobID
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a job was cancelled", "jobKind", job.jobKind, "jobId", job.jobID)
 			return
@@ -63,7 +65,7 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job ba
 			agent.logger.WarnContext(ctx, "a job was refused or failed", "jobKind", job.jobKind, "jobId", job.jobID,
 				"refusalOrFailure", refusalOrFailure)
 		}
-		agent.postAnswer(ctx, nodeID, job.answerPath, job.jobKind, job.jobID, answer)
+		agent.postResult(ctx, nodeID, job.jobKind, result)
 	}()
 }
 
@@ -97,15 +99,15 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 		text, err = agent.convertSidecar(ctx, *command.Sidecar)
 	}
 	if errors.As(err, new(notTriedError)) {
-		return nodeproto.SubtitleText{JobID: command.JobID, Refusal: err.Error()}
+		return nodeproto.SubtitleText{Refusal: err.Error()}
 	}
 	if stall := stallOf(err); stall != nil {
-		return nodeproto.SubtitleText{JobID: command.JobID, Stall: stall}
+		return nodeproto.SubtitleText{Stall: stall}
 	}
 	if err != nil {
-		return nodeproto.SubtitleText{JobID: command.JobID, Failure: err.Error()}
+		return nodeproto.SubtitleText{Failure: err.Error()}
 	}
-	return nodeproto.SubtitleText{JobID: command.JobID, ASS: text.ASS, VTT: text.VTT}
+	return nodeproto.SubtitleText{ASS: text.ASS, VTT: text.VTT}
 }
 
 // extractTrack extracts a track of a video checked to be the one the core named (D100).

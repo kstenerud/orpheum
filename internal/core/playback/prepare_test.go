@@ -73,9 +73,9 @@ func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { retur
 
 func (fakeNodes) SlowestReadBytesPerSecond(int64) int64 { return 20 << 20 }
 
-// reported hands node 1's report to the job waiting for it, as the node channel does.
+// reported hands node 1's report on job 7 to the job waiting for it, as the node channel does.
 func (all *prepares) reported(ctx context.Context, report nodeproto.PrepareReport) {
-	all.exchanges.Deliver(ctx, 1, nodeproto.Result{JobID: report.JobID, Prepare: &report})
+	all.exchanges.Deliver(ctx, 1, nodeproto.Result{JobID: 7, Prepare: &report})
 }
 
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
@@ -95,9 +95,9 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		clockSource.Advance(silence / 2)
-		all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
 	}
-	all.reported(t.Context(), nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
+	all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}

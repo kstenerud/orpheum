@@ -65,8 +65,11 @@ type Parts struct {
 	Cache    *store.Cache
 	Queue    Queue
 	Nodes    Nodes
-	Settings Settings
-	Clock    clock.Clock
+	// Exchanges are how a job asks a node for work and waits for its results; the node channel
+	// hands them the results (nodes.Service.SetResultSink).
+	Exchanges *nodes.Exchanges
+	Settings  Settings
+	Clock     clock.Clock
 	// Random makes media tokens and the run ids of renditions.
 	Random io.Reader
 	Logger *slog.Logger
@@ -102,7 +105,7 @@ type Service struct {
 
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
-	exchanges := nodes.NewExchanges(parts.Nodes, parts.Clock, parts.Logger)
+	exchanges := parts.Exchanges
 	return &Service{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,

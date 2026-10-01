@@ -53,9 +53,11 @@ func TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed(t *test
 	t.Parallel()
 	video, _, core := startExtractionAgent(t)
 	command := nodeproto.MeasureLoudness{
-		JobID: 1, Video: video, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: stallingStreamIndex, ChannelCount: 2}},
+		Video: video, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: stallingStreamIndex, ChannelCount: 2}},
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandMeasureLoudness, JobID: 1, MeasureLoudness: &command,
+	}
 	measured := receiveLoudness(t, core)
 	if measured.Failure != "" || measured.Refusal != "" {
 		t.Errorf("a stalled measurement answered %+v; want a stall, not the file's failure", measured)

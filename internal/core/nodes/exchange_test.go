@@ -82,12 +82,12 @@ func (bench exchangeBench) wantToldToStop(t *testing.T, exchange *nodes.Exchange
 	t.Helper()
 	exchange.Close()
 	stop := testutil.Receive(t, bench.sender.sent, "the cancel")
-	if stop.Type != nodeproto.CommandCancel || stop.Cancel == nil || stop.Cancel.JobID != 7 {
+	if stop.Type != nodeproto.CommandCancel || stop.JobID != 7 {
 		t.Errorf("the node was sent %+v, want it told to stop job 7", stop)
 	}
 }
 
-var prepareCommand = nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{JobID: 7}}
+var prepareCommand = nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{}}
 
 // A result reaches the job that asked, by its id, and once the node said how the work ended,
 // closing the exchange sends it nothing more.
@@ -99,8 +99,9 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sent := testutil.Receive(t, sender.sent, "the prepare command"); sent.Type != nodeproto.CommandPrepare {
-		t.Fatalf("the node was sent %+v, want the prepare", sent)
+	if sent := testutil.Receive(t, sender.sent, "the prepare command"); sent.Type != nodeproto.CommandPrepare ||
+		sent.JobID != 7 {
+		t.Fatalf("the node was sent %+v, want the prepare, named by its job's id", sent)
 	}
 	exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 8, Prepare: &nodeproto.PrepareReport{}})
 	done := nodeproto.Result{JobID: 7, Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone}}
