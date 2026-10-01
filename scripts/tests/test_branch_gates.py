@@ -224,6 +224,19 @@ class RetiredNamesList(unittest.TestCase):
 
 
 class RevertRedKinds(unittest.TestCase):
+    def test_python_outside_the_tests_is_probed_by_them_whatever_its_name(self):
+        repo = Repo({"dev": "#!/usr/bin/env python3\nprint(1)\n", ".claude/hooks/on_stop.py": "x = 1\n",
+                     "deploy/run.sh": "#!/bin/sh\necho\n"})
+        repo.commit("chore: base")
+        with repo.cwd():
+            rr.is_python.cache_clear()
+            for path in ("dev", ".claude/hooks/on_stop.py", "scripts/tool.py"):
+                self.assertTrue(rr.is_probed_kind(path), path)
+                self.assertEqual(rr.scope_for(path), rr.PY_TESTS_COMMAND, path)
+            self.assertFalse(rr.is_probed_kind("deploy/run.sh"))
+            self.assertTrue(rr.is_test_file("scripts/tests/test_tool.py"))
+            rr.is_python.cache_clear()
+
     def test_css_is_probed_in_the_browser_tier_alone(self):
         css = "web/apps/web/src/play.css"
         self.assertTrue(rr.is_probed_kind(css))
