@@ -29,7 +29,8 @@ func TestAskForAPassOnNewFiles_AFilmFoundMidScanAsksForTheIdentificationPasses(t
 	nodeID, _ := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
 	fakeClock := clocktest.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC))
-	ingester := library.NewIngester(database, fakeClock, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler))
+	seeded := settingstest.Seeded(t, database)
+	ingester := library.NewIngester(database, fakeClock, seeded, slog.New(slog.DiscardHandler))
 	sweeps := &requestedSweeps{}
 	askForAPassOnNewFiles(ingester, sweeps)
 	var reports librarytest.Reports
