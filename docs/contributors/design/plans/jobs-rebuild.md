@@ -269,9 +269,9 @@ D231 §3, §4, §7, §9; F1.
 
 ## Phase 4 — the core drives the node
 
-> **A proposed re-cut, for the owner's review (2026-10-01).** Phase 4 was planned on D233 before
-> D234 revised it, D235 put core and node in separate containers, and D236 added the scan's
-> display. Nothing below is built until the owner accepts it; the questions at the end are theirs.
+> **The re-cut, accepted by the owner (2026-10-01: "yes to your proposals").** Phase 4 was planned
+> on D233 before D234 revised it, D235 put core and node in separate containers, and D236 added
+> the scan's display. The questions at the end are answered as proposed.
 
 D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and §6; D236 §2 and §3.
 
@@ -356,8 +356,8 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
 
 S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
 
-**Questions for the owner.** Each is what the system does; the numbers proposed are best guesses,
-and each would be a setting, read where it is used (D200):
+**The owner's answers** (2026-10-01, every one as proposed). Each number is a best guess and a
+setting, read where it is used (D200):
 
 - **A. Silence.** How long a node with work may stay silent before the core asks what it is doing:
   proposed three of its status intervals (`status_interval_seconds`, 10 s in the dev config).
