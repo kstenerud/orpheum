@@ -104,9 +104,7 @@ func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})
 	queue := opened.jobServices.queue
-	// A batch that stored a new film asks for a pass while the scan goes on, so what is found early
-	// is playable early; the sweeper runs it within a minute, once however many batches asked.
-	ingester.SetOnNewFiles(func(context.Context) { queue.RequestSweeps(sweepPasses) })
+	askForAPassOnNewFiles(ingester, queue)
 	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {
 		for _, path := range paths {
 			queue.Unpark(ctx, jobs.RootDestination(nodeID, path)) // a root back is a root's probe (D231 §6)
@@ -117,6 +115,18 @@ func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 		Database: opened.database, Clock: clock.System{}, Settings: opened.settings, Sink: sink, Destinations: queue,
 		Logger: logger, PollHold: commandPollHold,
 	})
+}
+
+// sweepRequester asks for sweeps to run soon: the job queue.
+type sweepRequester interface {
+	RequestSweeps(names ...string)
+}
+
+// askForAPassOnNewFiles has a batch of a scan that stored a new film ask for an identification
+// pass while the scan goes on, so what is found early is playable early (D236 §1). The sweeper
+// runs it within a minute, once however many batches asked.
+func askForAPassOnNewFiles(ingester *library.Ingester, sweeps sweepRequester) {
+	ingester.SetOnNewFiles(func(context.Context) { sweeps.RequestSweeps(sweepPasses) })
 }
 
 // reportSink stores what a node reports in library.db, then logs the scan's milestones.
