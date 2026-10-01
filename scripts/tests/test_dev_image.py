@@ -61,6 +61,10 @@ class Pins(unittest.TestCase):
         self.assertNotIn("go install", CONTAINERFILE.read_text())
         self.assertRegex(CONTAINERFILE.read_text(), r"(?m)^RUN python3 /opt/orpheum/scripts/fetch_tools\.py$")
 
+    def test_the_gate_tools_are_on_every_shells_path(self):
+        """`golangci-lint` in a ./dev shell found nothing once the tools left /usr/local/bin (2026-10-01)."""
+        self.assertRegex(CONTAINERFILE.read_text(), r"(?m)^ENV PATH=/opt/orpheum/tools/bin:\$PATH$")
+
     def test_the_base_image_is_pinned_by_digest(self):
         self.assertRegex(self.containerfile_arg("DEBIAN_IMAGE"), r"^debian:trixie-slim@sha256:[0-9a-f]{64}$")
 
