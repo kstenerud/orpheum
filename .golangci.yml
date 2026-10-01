@@ -16,7 +16,9 @@ version: "2"
 
 run:
   go: "1.26"
-  timeout: 5m
+  # A bound on a hang, not a speed requirement: a cold first run on a 4-core Celeron NAS (devnas)
+  # took more than 5m, and a gate fails on problems, not on slow hardware (2026-10-01).
+  timeout: 30m
   tests: true
   relative-path-mode: gitroot
 
