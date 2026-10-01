@@ -127,7 +127,8 @@ type RetiredOutput struct {
 
 func retiredOutput(retired library.Retired) *RetiredOutput {
 	output := &RetiredOutput{}
-	output.Body.TombstonedFileCount, output.Body.CancelledJobCount = retired.TombstonedFileCount, retired.CancelledJobCount
+	output.Body.TombstonedFileCount = retired.TombstonedFileCount
+	output.Body.CancelledJobCount = retired.CancelledJobCount
 	return output
 }
 
