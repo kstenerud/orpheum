@@ -91,6 +91,7 @@ func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, s
 	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
 		return fmt.Errorf("revive file %d at %s: %w", tombstone, seenFile.path, err)
 	}
+	batch.hasNewFiles = true
 	return batch.updateObservedFile(ctx, scan, tombstone, seenFile)
 }
 
@@ -147,6 +148,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
+	batch.hasNewFiles = true
 	return batch.syncStreams(ctx, id, observed.Probe)
 }
 

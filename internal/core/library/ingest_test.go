@@ -386,6 +386,25 @@ func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
 	}
 }
 
+func TestIngest_ABatchThatAddsAFileAsksForAPassBeforeTheScanEnds(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	asked := 0
+	world.ingester.SetOnNewFiles(func(context.Context) { asked++ })
+	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, false)
+	if asked != 1 {
+		t.Errorf("a scan still going that found a new film asked for %d passes, want 1", asked)
+	}
+	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, false)
+	if asked != 1 {
+		t.Errorf("the same film read again unchanged asked for a pass (%d asked), want none", asked)
+	}
+	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b")}, true)
+	if asked != 2 {
+		t.Errorf("a second film asked for %d passes in all, want 2", asked)
+	}
+}
+
 // D211 §1: two names that fold to one text are two files.
 func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
 	t.Parallel()

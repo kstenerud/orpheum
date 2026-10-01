@@ -104,6 +104,9 @@ func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})
 	queue := opened.jobServices.queue
+	// A batch that stored a new film asks for a pass while the scan goes on, so what is found early
+	// is playable early; the sweeper runs it within a minute, once however many batches asked.
+	ingester.SetOnNewFiles(func(context.Context) { queue.RequestSweeps(sweepPasses) })
 	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {
 		for _, path := range paths {
 			queue.Unpark(ctx, jobs.RootDestination(nodeID, path)) // a root back is a root's probe (D231 §6)

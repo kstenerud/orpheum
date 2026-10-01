@@ -35,6 +35,15 @@ type Ingester struct {
 	scanByNodeID map[int64]*scanState // by node: a node scans one root at a time
 	onScanEnded  func(ctx context.Context, libraryID int64)
 	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
+	onNewFiles   func(ctx context.Context)
+}
+
+// SetOnNewFiles sets what runs once a batch that stored a new file is committed, while its scan
+// may still be going: a file read again unchanged is not new. It asks for an identification pass,
+// so a film found early in a long scan can be played before the scan ends (the owner, 2026-10-01).
+// It must return at once; the node's records wait behind it.
+func (ingester *Ingester) SetOnNewFiles(onNewFiles func(ctx context.Context)) {
+	ingester.onNewFiles = onNewFiles
 }
 
 // SetOnPathsFound sets what runs once a complete scan is committed, with the node and the paths
@@ -98,6 +107,7 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 	nowMs := ingester.clock.Now().UnixMilli()
 	var endedLibraryIDs []int64
 	var foundPaths []string
+	hasNewFiles := false
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &ingestBatch{ingester: ingester, queries: queries, nodeID: nodeID, nowMs: nowMs}
 		for _, record := range records {
@@ -105,11 +115,14 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 				return fmt.Errorf("record %d (%s): %w", record.ReportSeq, record.Type, err)
 			}
 		}
-		endedLibraryIDs, foundPaths = batch.endedLibraryIDs, batch.foundPaths
+		endedLibraryIDs, foundPaths, hasNewFiles = batch.endedLibraryIDs, batch.foundPaths, batch.hasNewFiles
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	if ingester.onNewFiles != nil && hasNewFiles {
+		ingester.onNewFiles(ctx)
 	}
 	if ingester.onPathsFound != nil && len(foundPaths) > 0 {
 		ingester.onPathsFound(ctx, nodeID, foundPaths)
@@ -132,6 +145,8 @@ type ingestBatch struct {
 	// foundPaths are the roots, and the disks mounted inside them, that a complete scan in this
 	// batch found.
 	foundPaths []string
+	// hasNewFiles is whether the batch added a file or brought one back from its tombstone.
+	hasNewFiles bool
 }
 
 func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Record) error {
