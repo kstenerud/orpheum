@@ -143,8 +143,11 @@ func supervise(t *testing.T) *supervised {
 }
 
 // advanceAndJudge advances the clock and ticks twice: the second tick is received only once the first has
-// been acted on, so on return the supervisor has judged the new time.
+// been acted on, so on return the supervisor has judged the new time. The tick before the clock moves is
+// received only once the previous call's last pass has finished, so that pass judges the old time: a kill's
+// exit noted there was noted after the advance under load, and the restart came 5 s late (2026-10-01).
 func (harness *supervised) advanceAndJudge(step time.Duration) {
+	harness.tick <- harness.clock.Now()
 	harness.clock.Advance(step)
 	harness.tick <- harness.clock.Now()
 	harness.tick <- harness.clock.Now()
