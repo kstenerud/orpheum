@@ -13,10 +13,11 @@
 # The build context is the repository root, or the subset of it `./dev` copies (the same relative
 # paths), so `docker build -f deploy/dev.Containerfile .` from the root builds the same image.
 #
-# Every pin is written once. Go's version follows go.mod's `go` line and Node's major follows the
-# Makefile's NODE_MAJOR; scripts/tests/test_dev_image.py fails when either drifts. The gate
-# tools' versions stay in the Makefile and are installed by its own `make tools` targets. Debian
-# packages are verified by apt's signed archive, not pinned by version.
+# Every pin is written once. Go's version is go.mod's `toolchain` line, read at build time, and
+# Node's major follows the Makefile's NODE_MAJOR; scripts/tests/test_dev_image.py fails when a
+# checksum or Node drifts. The gate tools' versions stay in the Makefile and are installed by its
+# own `make tools` targets. Debian packages are verified by apt's signed archive, not pinned by
+# version.
 
 # debian:trixie-slim, the multi-arch index digest read from Docker Hub on 2026-09-30. Trixie is
 # what devnas runs.
@@ -56,19 +57,26 @@ RUN apt-get update -q \
 
 COPY --from=fetch /opt/orpheum/tools/mkvtoolnix /opt/orpheum/tools/mkvtoolnix
 
-# Go: go.mod's `go` line, with the SHA-256 go.dev/dl publishes for each archive. GOTOOLCHAIN=local
-# keeps Go from fetching another toolchain behind the pin's back.
-ARG GO_VERSION=1.26.0
-ARG GO_SHA256_AMD64=aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235
-ARG GO_SHA256_ARM64=bd03b743eb6eb4193ea3c3fd3956546bf0e3ca5b7076c8226334afe6b75704cd
+# Go: the version go.mod's `toolchain` line names, read from go.mod here so it is written nowhere
+# else. Each checksum is a sha256sum line naming the archive it is for, with the SHA-256 go.dev/dl
+# publishes; a toolchain bump without new checksums stops the build here and fails
+# test_dev_image.py. GOTOOLCHAIN=local keeps Go from fetching another toolchain behind the pin.
+ARG GO_SHA256_AMD64="990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282  go1.26.2.linux-amd64.tar.gz"
+ARG GO_SHA256_ARM64="c958a1fe1b361391db163a485e21f5f228142d6f8b584f6bef89b26f66dc5b23  go1.26.2.linux-arm64.tar.gz"
+COPY go.mod /opt/orpheum/src/go.mod
 RUN set -eu; arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
       amd64) sum="$GO_SHA256_AMD64" ;; arm64) sum="$GO_SHA256_ARM64" ;; \
       *) echo "no pinned Go for $arch" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz"; \
-    echo "$sum  /tmp/go.tar.gz" | sha256sum -c -; \
-    tar -C /usr/local -xzf /tmp/go.tar.gz; rm /tmp/go.tar.gz
+    version="$(sed -n 's/^toolchain go//p' /opt/orpheum/src/go.mod)"; \
+    [ -n "$version" ] || { echo "go.mod has no toolchain line to take Go's version from" >&2; exit 1; }; \
+    archive="go${version}.linux-${arch}.tar.gz"; \
+    [ "${sum##* }" = "$archive" ] || { \
+      echo "go.mod wants $archive; the Containerfile's checksum is for ${sum##* }" >&2; exit 1; }; \
+    curl -fsSL -o "/tmp/$archive" "https://go.dev/dl/$archive"; \
+    (cd /tmp && echo "$sum" | sha256sum -c -); \
+    tar -C /usr/local -xzf "/tmp/$archive"; rm "/tmp/$archive"
 ENV PATH=/usr/local/go/bin:$PATH GOTOOLCHAIN=local
 
 # Node: the newest 22.x on 2026-09-30 (the Makefile pins the major only), with the SHA-256 from
