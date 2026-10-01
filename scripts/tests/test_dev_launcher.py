@@ -172,12 +172,15 @@ class ExecArgs(unittest.TestCase):
         self.assertNotIn("--tty", self.exec_args(self.root, []))
         self.assertIn("--tty", self.exec_args(self.root, [], tty=True))
 
-    def test_only_the_terminal_vites_host_names_and_test_capabilities_cross_over(self):
-        """Vite refused devnas.example: the names it may answer to stayed outside (2026-10-01)."""
-        env = {"TERM": "xterm", "ORPHEUM_TEST_UNCONTROLLED": "mkvtoolnix", "ORPHEUM_DEV_ALLOWED_HOSTS": "devnas.example",
-               "HOME": "/home/k", "PATH": "/x"}
+    def test_only_the_terminal_and_test_capabilities_cross_over(self):
+        env = {"TERM": "xterm", "ORPHEUM_TEST_UNCONTROLLED": "mkvtoolnix", "HOME": "/home/k", "PATH": "/x"}
         self.assertEqual(pairs(self.exec_args(self.root, [], env=env), "--env"),
-                         ["ORPHEUM_DEV_ALLOWED_HOSTS", "ORPHEUM_TEST_UNCONTROLLED", "TERM"])
+                         ["ORPHEUM_TEST_UNCONTROLLED", "TERM"])
+
+    def test_the_names_vite_answers_to_cross_over(self):
+        """Vite refused devnas.example: the names it may answer to stayed outside (2026-10-01)."""
+        env = {"ORPHEUM_DEV_ALLOWED_HOSTS": "devnas.example", "HOME": "/home/k"}
+        self.assertEqual(pairs(self.exec_args(self.root, [], env=env), "--env"), ["ORPHEUM_DEV_ALLOWED_HOSTS"])
 
 
 if __name__ == "__main__":
