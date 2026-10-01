@@ -11,7 +11,8 @@ the only platform pinned; elsewhere this prints nothing, and a test that needs M
 unless its job lists "mkvtoolnix" in ORPHEUM_TEST_UNCONTROLLED (standards/testing.md §3).
 
 The AppImage is extracted with its own --appimage-extract, which needs no FUSE, after its hash
-is verified. Its tools find their bundled libraries through LD_LIBRARY_PATH=<dir>/usr/lib.
+is verified, and pruned to the two tools and the bundled libraries they load. They find those
+through LD_LIBRARY_PATH=<dir>/usr/lib.
 
 Prints the path of the extracted directory and nothing else on stdout, so a Makefile can
 capture it. Changing the pin is an owner action, like any gate.
@@ -59,11 +60,43 @@ def install(target: str, root: Path) -> Path | None:
         missing = [tool for tool in TOOLS if not (extracted / "usr" / "bin" / tool).exists()]
         if missing:
             raise SystemExit(f"{ASSET} did not contain {', '.join(missing)}")
+        keep_only_the_tools(extracted)
         make_readable(extracted)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.rmtree(dest, ignore_errors=True)
         shutil.move(str(extracted), dest)
     return dest
+
+
+def keep_only_the_tools(tree: Path) -> None:
+    """Delete all of the AppImage but TOOLS and the bundled libraries they load.
+
+    The AppImage is the GUI's: Qt's plugins, icons and translations, 161 MB extracted, of which
+    mkvmerge and mkvpropedit load 45 MB (2026-10-01). ldd names what they load; a library it
+    finds outside usr/lib is the system's, and stays the system's.
+    """
+    usr = tree / "usr"
+    lib = (usr / "lib").resolve()
+    keep = {usr / "bin" / tool for tool in TOOLS}
+    for tool in TOOLS:
+        loaded = subprocess.run(["ldd", str(usr / "bin" / tool)], env={"LD_LIBRARY_PATH": str(lib)},
+                                check=True, capture_output=True, text=True).stdout
+        for line in loaded.splitlines():
+            name, _, found = line.strip().partition(" => ")
+            if found.startswith("not found") and (lib / name).exists():
+                raise SystemExit(f"ldd could not resolve {name} for {tool}, though {ASSET} bundles it")
+            path = Path(found.split(" (")[0])
+            if path.is_absolute() and path.resolve().parent == lib:
+                keep.add(usr / "lib" / path.name)
+                keep.add(usr / "lib" / path.resolve().name)
+    for path in sorted(tree.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        if path in keep:
+            continue
+        if path.is_dir() and not path.is_symlink():
+            if not any(path.iterdir()):
+                path.rmdir()
+        else:
+            path.unlink()
 
 
 def make_readable(tree: Path) -> None:

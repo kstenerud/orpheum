@@ -116,5 +116,24 @@ class Readable(unittest.TestCase):
                          {".": 0o755, "usr": 0o755, "usr/bin": 0o755, "usr/bin/mkvmerge": 0o755, "usr/lib.so": 0o644})
 
 
+class Pruned(unittest.TestCase):
+    def test_only_the_tools_and_the_bundled_libraries_they_load_are_kept(self):
+        tree = Path(tempfile.mkdtemp())
+        lib = tree / "usr" / "lib"
+        for rel in ("usr/bin/mkvmerge", "usr/bin/mkvpropedit", "usr/bin/mkvtoolnix-gui", "usr/lib/libQt6Core.so.6",
+                    "usr/lib/libogg.so.0.8", "usr/lib/libQt6Gui.so.6", "usr/plugins/platforms/libqxcb.so",
+                    "usr/share/icons/mkv.png", "AppRun"):
+            (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tree / rel).write_text("")
+        (lib / "libogg.so.0").symlink_to("libogg.so.0.8")
+        ldd = (f"\tlinux-vdso.so.1 (0x1)\n\tlibQt6Core.so.6 => {lib.resolve()}/libQt6Core.so.6 (0x2)\n"
+               f"\tlibogg.so.0 => {lib.resolve()}/libogg.so.0 (0x3)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x4)\n")
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout=ldd)):
+            fetch_mkvtoolnix.keep_only_the_tools(tree)
+        self.assertEqual(sorted(p.relative_to(tree).as_posix() for p in tree.rglob("*") if not p.is_dir()),
+                         ["usr/bin/mkvmerge", "usr/bin/mkvpropedit", "usr/lib/libQt6Core.so.6", "usr/lib/libogg.so.0",
+                          "usr/lib/libogg.so.0.8"])
+
+
 if __name__ == "__main__":
     unittest.main()
