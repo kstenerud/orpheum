@@ -262,11 +262,16 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, identify.ErrNoOverride):
 		return newError(http.StatusNotFound, CodeNotFound, "the field has no override")
-	case errors.Is(err, identify.ErrUnknownProvider), errors.Is(err, identify.ErrUnknownField),
-		errors.Is(err, identify.ErrBadValue), errors.Is(err, identify.ErrNotChoosable):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
+	case errors.Is(err, identify.ErrUnknownProvider): // a chosen match names its provider
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.provider", err.Error())
+	case errors.Is(err, identify.ErrUnknownField): // an override names its field in the path
+		return invalidRequestAt(http.StatusUnprocessableEntity, "path.field", err.Error())
+	case errors.Is(err, identify.ErrBadValue):
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.value", err.Error())
+	case errors.Is(err, identify.ErrNotChoosable): // an episode, named in the path
+		return invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
 	case errors.Is(err, identify.ErrNoMatch):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the provider has no such work")
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.providerId", "the provider has no such work")
 	case isLimited:
 		return providerRateLimited(limited)
 	case errors.Is(err, identify.ErrNoKey):

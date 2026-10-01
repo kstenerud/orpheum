@@ -75,15 +75,16 @@ func (server *Server) listSettings(
 
 // settingsError maps the settings package's refusals to API errors. Every handler that calls
 // settings answers through it, so a refusal always leaves with one code and one message: a
-// setting named in the path that is not there is not_found, a value in the body that cannot be
-// set is invalid_request, naming the key.
+// setting named in the path that is not there is not_found, and a value in the body that cannot
+// be set is invalid_request at body.valuesByKey.<key>, so the settings page shows it beside that
+// setting. A setting read as the wrong kind is the server's fault, not the request's.
 func (server *Server) settingsError(ctx context.Context, action string, err error) error {
+	refused, isRefused := errors.AsType[*settings.ValueError](err)
 	switch {
 	case errors.Is(err, settings.ErrNoServerSetting):
 		return newError(http.StatusNotFound, CodeNotFound, "no such server setting")
-	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrInvalidValue),
-		errors.Is(err, settings.ErrNotExposed):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
+	case isRefused:
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.valuesByKey."+string(refused.Key), err.Error())
 	case errors.Is(err, settings.ErrInUse):
 		return newError(http.StatusConflict, CodeConflict,
 			"this release reads that setting; set it to default instead of deleting it")

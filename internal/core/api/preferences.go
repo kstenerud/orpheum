@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -127,17 +128,23 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 			}
 		}
 		if named != 1 {
-			return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
+			return nil, invalidRequestAt(http.StatusBadRequest, "body.subtitleChoice",
 				"a subtitle choice is one track, a stream or a fetched one, or off")
 		}
 		err = dependencies.Playback.ChooseSubtitle(ctx, principal.UserID, input.FileID, preferences.Used{
 			TrackRef: preferences.TrackRef{StreamID: choice.StreamID, FetchedSubtitleID: choice.FetchedSubtitleID},
 			IsOff:    choice.IsOff,
 		})
+		if errors.Is(err, preferences.ErrNoTrack) {
+			return nil, invalidRequestAt(http.StatusBadRequest, "body.subtitleChoice", "this file has no such track")
+		}
 	}
 	if choice := input.Body.AudioChoice; err == nil && choice != nil {
 		err = dependencies.Playback.ChooseAudio(ctx, principal.UserID, input.FileID,
 			preferences.TrackRef{StreamID: choice.StreamID})
+		if errors.Is(err, preferences.ErrNoTrack) {
+			return nil, invalidRequestAt(http.StatusBadRequest, "body.audioChoice", "this file has no such track")
+		}
 	}
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a file's preferences", err)

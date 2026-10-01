@@ -15,7 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
@@ -312,16 +311,16 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	spent, isSpent := errors.AsType[*providers.QuotaSpentError](err)
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
-	case errors.Is(err, decide.ErrBadPlayableFormats), errors.Is(err, playback.ErrBadReport):
-		return newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
+	case errors.Is(err, decide.ErrBadPlayableFormats):
+		return invalidRequestAt(http.StatusBadRequest, "body.playableFormats", err.Error())
+	case errors.Is(err, playback.ErrBadReport):
+		return invalidRequestAt(http.StatusBadRequest, "body", err.Error())
 	case errors.Is(err, playback.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
 	case errors.Is(err, playback.ErrNoToken):
 		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
 	case errors.Is(err, playback.ErrNoSubtitle):
 		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
-	case errors.Is(err, preferences.ErrNoTrack):
-		return newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such track")
 	case errors.Is(err, playback.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such item")
 	case errors.Is(err, playback.ErrNothingToSearchBy):

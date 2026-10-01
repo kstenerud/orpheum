@@ -160,6 +160,38 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
   });
 });
 
+describe("a refused setting is named beside it, in the form's words", () => {
+  it("saving a setting's value the server does not accept", async () => {
+    const services = servedBy({
+      "GET /secrets": [200, { secrets: [secret] }],
+      "GET /config": [200, { settings: [setting, libraryCheck] }],
+      "PUT /config": [
+        422,
+        {
+          error: {
+            code: "invalid_request",
+            message: "a note for developers",
+            detail: {
+              problems: [
+                { location: "body.valuesByKey.library_check_every_hours", message: "too big" },
+              ],
+            },
+          },
+        },
+      ],
+    });
+    mounted = await mount(withServices(<Settings />, services));
+    const form = 'form[aria-labelledby="setting-library_check_every_hours"]';
+    await submit(mounted.container.querySelector(form));
+    expect(mounted.container.querySelector(`${form} [role="alert"]`)?.textContent).toBe(
+      "The server did not accept what was entered in library_check_every_hours. Correct what is there and try again.",
+    );
+    const other = 'form[aria-labelledby="setting-should_scan_on_node_hello"] [role="alert"]';
+    expect(mounted.container.querySelector(other)).toBeNull();
+    expectSays("library_check_every_hours. Correct what is there");
+  });
+});
+
 describe("a request that never reaches the server says so, rather than nothing", () => {
   const cannotReach = "The server could not be reached. Check the connection and try again.";
 

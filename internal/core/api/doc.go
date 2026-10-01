@@ -30,6 +30,11 @@
 //     detail's type (newDetailedError). Enforced by
 //     TestProblemBody_TheDocumentNamesEveryCodeOnceAndTypesItsDetail and
 //     TestInvalidRequest_NamesEachProblemByWhereItIsInTheDetail.
+//   - Every invalid_request names where each problem is: a field (body.rootPaths, query.cursor,
+//     body.valuesByKey.<key>) or body for the request as a whole, so a form names the field in its
+//     own words (D188 §1). A handler builds one only with invalidRequestAt. Enforced by
+//     TestArch_EveryInvalidRequestSaysWhere and by the tests' wantError, which fails an
+//     invalid_request without a location.
 //   - A credential is read from the Authorization header only, never the URL; the byte paths
 //     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and

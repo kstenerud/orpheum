@@ -223,7 +223,7 @@ func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput
 	}
 	body := input.Body
 	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
-		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
 			"checkEveryHours is given with changeDetection interval, and only then")
 	}
 	id, err := dependencies.Libraries.Create(ctx, library.CreateRequest{
@@ -435,7 +435,8 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 	case errors.Is(err, library.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, library.ErrBadCursor):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the cursor is not one this server gave")
+		return invalidRequestAt(http.StatusUnprocessableEntity, "query.cursor",
+			"the cursor is not one this server gave")
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
 	case errors.Is(err, library.ErrNoNode):
@@ -445,8 +446,10 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 	case errors.Is(err, library.ErrNodeNotConnected):
 		return newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the node has not connected since the server started, so its roots are not known")
-	case errors.Is(err, library.ErrNotANodeRoot), errors.Is(err, library.ErrNoSuchRoot):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
+	case errors.Is(err, library.ErrNotANodeRoot): // only a new library names roots
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.rootPaths", err.Error())
+	case errors.Is(err, library.ErrNoSuchRoot): // a root's answer names it by path
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.path", err.Error())
 	case errors.Is(err, library.ErrNothingWithheld), errors.Is(err, library.ErrMountNotMissing):
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	}

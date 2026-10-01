@@ -262,8 +262,8 @@ func TestPlayback_RefusesWhatCannotBePlayed(t *testing.T) {
 		"videoCodecs": []string{"hevc-sdr"}, "audioCodecs": []string{"aac-stereo"},
 		"subtitleFormats": []string{}, "containers": []string{},
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/playback", user, noBaseline), http.StatusBadRequest,
-		CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/playback", user, noBaseline), http.StatusBadRequest,
+		"body.playableFormats")
 	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(3)), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(99)), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodPost, "/playback", "", chrome(1)), http.StatusUnauthorized, CodeAuthRequired)

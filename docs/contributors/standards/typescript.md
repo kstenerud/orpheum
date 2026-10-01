@@ -190,6 +190,12 @@ environment, never a `.env` file (`envDir: false`), and refuses to serve without
   is `no-empty` (in `@eslint/js` recommended).
 - **Every error shown to a person names the item, the cause and one next action**
   ([D188](../decisions/working-notes.md) §1). — review-only.
+- **A form's refusal names the refused field in the form's words.** A form's submit tells its
+  failure with `fieldProblemText`, mapping each location the server can refuse
+  (`body.rootPaths`) to the label the person sees on that field; where no label fits, it falls
+  back to `problemText`'s words. A refusal of one item in a list (a setting, a secret) is shown
+  beside that item, not at the top of the page. — review-only; the server's side is enforced
+  (go.md §7).
 - React render errors are caught by an error boundary per screen, never one for the whole app.
   — review-only.
 

@@ -219,15 +219,26 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	return nil
 }
 
+// ValueError is a value Set refused, with the key it was given for, so the refusal can say which
+// setting was wrong. It wraps ErrUnknownSetting, ErrNotExposed or ErrInvalidValue.
+type ValueError struct {
+	Key Key
+	Err error
+}
+
+func (refused *ValueError) Error() string { return refused.Err.Error() }
+
+func (refused *ValueError) Unwrap() error { return refused.Err }
+
 // Set stores values, each checked against the registry, in one transaction: all of them or
 // none. The person who changed them is setByUserID, nil for the dev seed. With exposedOnly, a key
-// the settings page does not show is refused.
+// the settings page does not show is refused. A value it refuses is a *ValueError.
 func (service *Service) Set(
 	ctx context.Context, values map[string]json.RawMessage, setByUserID *int64, exposedOnly bool,
 ) error {
 	for key, value := range values {
 		if err := checkValue(Key(key), value, exposedOnly); err != nil {
-			return err
+			return &ValueError{Key: Key(key), Err: err}
 		}
 	}
 	setAt := service.clock.Now().UnixMilli()

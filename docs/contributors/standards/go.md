@@ -212,6 +212,14 @@ describe in a phrase, and give it that phrase as its name.
   ([testing.md](testing.md) §11) *(M2)*.
 - **No `panic`** outside `cmd/orpheum` and tests; return an error. **Enforced by:** `[panic]`.
 - **A type assertion uses the two-value form.** **Enforced by:** forcetypeassert, errcheck.
+- **An API refusal of what a request carries says where.** A handler builds `invalid_request`
+  only with `invalidRequestAt(status, location, message)`, naming the field (`body.rootPaths`,
+  `query.cursor`, `body.valuesByKey.<key>`), or `body` when the request as a whole is wrong, so a
+  form can name the field in its own words ([D188](../decisions/working-notes.md) §1). A domain
+  error that the API must place carries what it needs (`settings.ValueError` carries its key);
+  where only the handler knows the field, the handler places it. **Enforced by:**
+  `TestArch_EveryInvalidRequestSaysWhere`; the API tests' `wantError` fails an `invalid_request`
+  without a location.
 
 ## 8. Context
 

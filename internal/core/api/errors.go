@@ -107,7 +107,7 @@ func (InvalidRequestDetailBody) problemCode() Code { return CodeInvalidRequest }
 
 // RequestProblemBody is one problem in a request.
 type RequestProblemBody struct {
-	Location string `doc:"Where it is, such as body.name; absent when the request as a whole is wrong" json:"location,omitempty"` //nolint:lll // one struct tag
+	Location string `doc:"Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong" json:"location"` //nolint:lll // one struct tag
 	Message  string `json:"message"`
 }
 
@@ -259,6 +259,16 @@ func newDetailedError(status int, message string, detail problemDetail) *Error {
 	return failure
 }
 
+// invalidRequestAt is a refusal of what a request carries, naming where: a field such as
+// body.rootPaths, query.cursor or body.valuesByKey.<key>, or body when the request as a whole is
+// wrong. A client names the field in its own words from location (D188 §1), so every
+// invalid_request a handler sends is built here; TestArch_EveryInvalidRequestSaysWhere holds it.
+func invalidRequestAt(status int, location, message string) *Error {
+	return newDetailedError(status, message, InvalidRequestDetailBody{
+		Problems: []RequestProblemBody{{Location: location, Message: message}},
+	})
+}
+
 // providerRateLimited is a provider asking us to wait, as every endpoint that calls one answers
 // it: rate_limited, the wait in detail.retryAfterMs, and the provider as the failing leg.
 func providerRateLimited(limited *outbound.RateLimitedError) *Error {
@@ -295,13 +305,14 @@ func UseErrorShape() {
 	}
 }
 
-// describeProblem names a validation problem by its location and message, never its value.
+// describeProblem names a validation problem by its location and message, never its value. A
+// problem huma does not place, a body that is not JSON, is the body's as a whole.
 func describeProblem(detail error) RequestProblemBody {
 	located, isLocated := errors.AsType[*huma.ErrorDetail](detail)
-	if isLocated {
+	if isLocated && located.Location != "" {
 		return RequestProblemBody{Location: located.Location, Message: located.Message}
 	}
-	return RequestProblemBody{Message: "the request is not valid"}
+	return RequestProblemBody{Location: "body", Message: "the request is not valid"}
 }
 
 // codeForStatus maps huma's statuses to our codes.

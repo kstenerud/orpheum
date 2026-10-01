@@ -292,7 +292,8 @@ One shape everywhere, one enumeration shared by the Go server and the SDK:
 
 `detail` is typed by the code, and the API document gives each code its form (`ProblemBody`), so a
 number is a number: `auth_required` carries `reason`; `invalid_request` carries `problems`, each a
-`location` and a `message`; `rate_limited` carries `retryAfterMs`; `quota_exhausted` carries
+`location` (a field such as `body.name`, or `body` for the body as a whole; always present) and a
+`message`; `rate_limited` carries `retryAfterMs`; `quota_exhausted` carries
 `downloadsResetAt`, in Unix milliseconds; `provider_error` carries `reason`, in the provider's
 terms. The other codes carry none (M3's closing audit, under D227).
 

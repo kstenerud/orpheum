@@ -251,3 +251,20 @@ func TestSubtitleChoice_IsReadFromTheWorksLanguageAndTheFilesUsedTrack(t *testin
 			"and 2 its used Spanish found again (51)", got)
 	}
 }
+
+func TestFilePreferences_ARefusedChoiceNamesItsField(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	put := func(body map[string]any) response {
+		return harness.do(t, http.MethodPut, "/files/2/preferences", user, body)
+	}
+	wantInvalidAt(t, put(map[string]any{"subtitleChoice": map[string]any{"isOff": true, "streamId": 51}}),
+		http.StatusBadRequest, "body.subtitleChoice")
+	wantInvalidAt(t, put(map[string]any{"subtitleChoice": map[string]any{"streamId": 999}}),
+		http.StatusBadRequest, "body.subtitleChoice")
+	wantInvalidAt(t, put(map[string]any{"audioChoice": map[string]any{"streamId": 999}}),
+		http.StatusBadRequest, "body.audioChoice")
+}
