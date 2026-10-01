@@ -16,7 +16,7 @@ import (
 func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
-	template, err := os.ReadFile(filepath.Join("..", "..", "dev", "seed.toml"))
+	template, err := os.ReadFile(filepath.Join("..", "..", "deploy", "dev", "seed.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

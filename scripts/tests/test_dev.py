@@ -97,17 +97,18 @@ class DevLoop(unittest.TestCase):
 
     def test_the_real_templates_leave_no_placeholder(self):
         for name in ("orpheum.dev.toml", "seed.toml"):
-            text = dev.render_config((dev.ROOT / "dev" / name).read_text(), Path("/r"), Path("/f"), None)
+            template = (dev.ROOT / "deploy" / "dev" / name).read_text()
+            text = dev.render_config(template, Path("/r"), Path("/f"), None)
             self.assertNotIn("{root}", text)
             self.assertNotIn("{ffmpeg_dir}", text)
 
     def test_snapshot_watches_go_and_dev_config_but_not_web_or_state(self):
         root = Path(tempfile.mkdtemp())
-        for rel in ("internal/a.go", "go.mod", "dev/seed.toml", "web/x.go", ".dev/state/b.go",
-                    "docs/c.md"):
+        for rel in ("internal/a.go", "go.mod", "deploy/dev/seed.toml", "dev/x.toml", "web/x.go",
+                    ".dev/state/b.go", "docs/c.md"):
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
             (root / rel).write_text("x")
-        self.assertEqual(sorted(dev.snapshot(root)), ["/dev/seed.toml", "/go.mod", "/internal/a.go"])
+        self.assertEqual(sorted(dev.snapshot(root)), ["/deploy/dev/seed.toml", "/go.mod", "/internal/a.go"])
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ func writeConfig(t *testing.T, text string) string {
 
 func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 	t.Parallel()
-	template, err := os.ReadFile(filepath.Join("..", "..", "dev", "orpheum.dev.toml"))
+	template, err := os.ReadFile(filepath.Join("..", "..", "deploy", "dev", "orpheum.dev.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

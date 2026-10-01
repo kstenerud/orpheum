@@ -291,7 +291,7 @@ fmt: ## Format Go and web sources in place
 
 # ---------------------------------------------------------------------------------------------
 # Development and debugging. Opinionated on purpose: every choice is printed by `make dev` and
-# written in dev/orpheum.dev.toml and dev/seed.toml, never hidden (D183). All state lives in
+# written in deploy/dev/orpheum.dev.toml and deploy/dev/seed.toml, never hidden (D183). All state lives in
 # .dev/, which is disposable.
 # ---------------------------------------------------------------------------------------------
 
@@ -338,7 +338,7 @@ dev-media: ## Generate the synthetic dev library in .dev/media (FORCE=1 regenera
 	@$(PYTHON) scripts/dev_media.py --ffmpeg-dir "$(FFMPEG_DIR)" --dest $(DEV_DIR)/media $(if $(FORCE),--force)
 
 .PHONY: dev-seed
-dev-seed: ## Seed the dev database from dev/seed.toml, even if it is not empty
+dev-seed: ## Seed the dev database from deploy/dev/seed.toml, even if it is not empty
 	@$(PYTHON) scripts/dev.py seed
 
 .PHONY: dev-reset

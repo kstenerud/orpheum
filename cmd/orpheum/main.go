@@ -84,7 +84,7 @@ func plannedSubcommands() []subcommand {
 	if isDevBuild {
 		planned = append(planned, subcommand{
 			name:           "dev",
-			summary:        "development only: seed the dev database from dev/seed.toml (make dev)",
+			summary:        "development only: seed the dev database from deploy/dev/seed.toml (make dev)",
 			implementation: devCommand(),
 		})
 	}

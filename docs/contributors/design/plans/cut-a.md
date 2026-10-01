@@ -109,7 +109,7 @@ other debugging targets (`dev-server`, `dev-lan`, `dev-reset`, `dev-db`, `dev-lo
 loop to work:**
 
 - **`orpheum run --config <file>`**, reading TOML with exactly the keys in
-  [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml); nothing defaults in code
+  [`deploy/dev/orpheum.dev.toml`](../../../../deploy/dev/orpheum.dev.toml); nothing defaults in code
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_seconds`,
     `shutdown_grace_seconds`
@@ -128,7 +128,7 @@ loop to work:**
   lesson 11). pprof and `/metrics` are the `should_serve_debug_pprof` and `should_serve_debug_metrics` settings, served on
   the listen address only when it is loopback; every opinionated value is a setting (D200).
 - **`orpheum dev seed --config <file> --seed <file>`, in `-tags dev` builds only** (M1 for the
-  users and settings, M2 for the libraries). It applies [`dev/seed.toml`](../../../../dev/seed.toml):
+  users and settings, M2 for the libraries). It applies [`deploy/dev/seed.toml`](../../../../deploy/dev/seed.toml):
   - the two users with their public dev passwords;
   - the two libraries, with D184's three questions answered;
   - the server settings;
