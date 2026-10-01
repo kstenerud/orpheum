@@ -17413,3 +17413,27 @@ start), which D233 §2 and D234 already ended.
    reads rather than keeping a copy of.
 
 **Status:** Decided 2026-09-30.
+
+## D236 — A scan shows itself and its count, a second request waits for it, and what it finds is playable before it ends
+
+**Decided** (2026-10-01), by the project owner, after trying the dev loop on devnas: *"there's no
+way to know from the UI that a library is currently scanning, so I ended up queuing multiple scan
+requests"*, and *"it would be good to get rolling updates as the scan progresses, so that I can
+start playing the already scanned movies while it's still scanning."*
+
+1. **What a scan finds is identified while it runs.** A batch of records that stores a new file,
+   or brings one back from its tombstone, asks for an identification pass; the sweeper runs one
+   within a minute however many batches asked (D231 §3), off the path that takes the node's
+   records. A film found early is browsable and playable before the scan ends; a series may show
+   some episodes first and fill in. Removals still wait for a complete scan (D39): only a
+   complete pass proves a file gone. For now, ahead of Phase 4.
+2. **The library screen shows a scan as it runs:** beside the root, *"Scanning… 312 files found so
+   far"*, updating as it goes. A percentage bar was refused: it needs a first pass to count the
+   root's files. Built with the jobs rebuild's Phase 4, where a scan is a job whose progress is
+   pushed (D234 §5, §8), not on the report stream Phase 4 retires: in Phase 4.
+3. **A scan asked for while one runs does not start another** (D38's rule, which the code broke:
+   each press queued a full scan behind the running one). The button reads *"Scan again when this
+   one ends"*, and any number of presses during a scan schedule one rescan after it. In Phase 4,
+   with §2.
+
+**Status:** Decided 2026-10-01. §1 is for now; §2 and §3 are owed to the jobs rebuild's Phase 4.

@@ -241,6 +241,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D233](working-notes.md#d233--work-handed-to-a-node-survives-restarts-and-lost-messages-an-outbox-reconciliation-at-hello-results-known-by-what-they-are-and-a-watchdog-on-both-sides) Work handed to a node survives restarts and lost messages: an outbox, reconciliation at hello, results known by what they are, and a watchdog on both sides — *revisited by D234*
 - [D234](working-notes.md#d234--the-core-drives-the-node-the-node-keeps-a-durable-journal-of-its-jobs-and-schedules-them-pushes-progress-and-acknowledged-results-and-the-core-checks-and-reconciles) The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 - [D235](working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser) Development and deployment run in containers: one image family, one command each, built by GoReleaser
+- [D236](working-notes.md#d236--a-scan-shows-itself-and-its-count-a-second-request-waits-for-it-and-what-it-finds-is-playable-before-it-ends) A scan shows itself and its count, a second request waits for it, and what it finds is playable before it ends
 
 ## Archived
 
