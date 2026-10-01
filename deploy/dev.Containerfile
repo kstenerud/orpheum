@@ -3,8 +3,9 @@
 # ABOUTME: version and checksum. `./dev` builds it and runs it; nothing here is meant to be run by hand.
 #
 # Stages:
-#   fetch  downloads the pinned FFmpeg and MKVToolNix with the repository's own fetch scripts,
-#          which verify each download's SHA-256 (one way to fetch them, AGENTS rule 11).
+#   fetch  downloads the pinned FFmpeg, MKVToolNix, golangci-lint and sqlc with the repository's
+#          own fetch scripts, which verify each download's SHA-256 (one way to fetch them, AGENTS
+#          rule 11).
 #   base   Debian and the pinned FFmpeg: what the runtime image will share (D235 §2).
 #   dev    base plus Go, Node, the gate tools, Playwright's system libraries and a user whose
 #          uid and gid are the host's, so files written in the bind-mounted repository are the
@@ -15,9 +16,9 @@
 #
 # Every pin is written once. Go's version is go.mod's `toolchain` line, read at build time, and
 # Node's major follows the Makefile's NODE_MAJOR; scripts/tests/test_dev_image.py fails when a
-# checksum or Node drifts. The gate tools' versions stay in the Makefile and are installed by its
-# own `make tools` targets. Debian packages are verified by apt's signed archive, not pinned by
-# version.
+# checksum or Node drifts. golangci-lint's and sqlc's pins are scripts/fetch_tools.py's, so a
+# Makefile edit rebuilds nothing here. Delve is not baked in: `make dev-debug` installs it on first
+# use. Debian packages are verified by apt's signed archive, not pinned by version.
 
 # debian:trixie-slim, the multi-arch index digest read from Docker Hub on 2026-09-30. Trixie is
 # what devnas runs.
@@ -36,6 +37,10 @@ COPY scripts/fetch_ffmpeg.py scripts/fetch_mkvtoolnix.py /opt/orpheum/scripts/
 RUN python3 /opt/orpheum/scripts/fetch_ffmpeg.py \
  && python3 /opt/orpheum/scripts/fetch_mkvtoolnix.py \
  && mkdir -p /opt/orpheum/tools/mkvtoolnix
+# The gate tools, linked from /opt/orpheum/tools/bin, which the Makefile puts on PATH. A layer of
+# its own, so a changed pin fetches only them again.
+COPY scripts/fetch_tools.py /opt/orpheum/scripts/
+RUN python3 /opt/orpheum/scripts/fetch_tools.py
 
 # ---------------------------------------------------------------------------------------------
 FROM ${DEBIAN_IMAGE} AS base
@@ -48,8 +53,8 @@ COPY --from=fetch /opt/orpheum/tools/ffmpeg /opt/orpheum/tools/ffmpeg
 # ---------------------------------------------------------------------------------------------
 FROM base AS dev
 
-# gcc and libc6-dev: cgo, which `make tools-sqlc` and the race detector need. xz-utils: Node's
-# archive. shellcheck: `make check-scripts`. python3: the gate scripts.
+# gcc and libc6-dev: cgo, which the race detector needs. xz-utils: Node's archive. shellcheck:
+# `make check-scripts`. python3: the gate scripts.
 RUN apt-get update -q \
  && apt-get install -y -q --no-install-recommends \
       bash curl gcc git libc6-dev make procps python3 shellcheck xz-utils \
@@ -110,14 +115,10 @@ RUN set -eu; \
     node /tmp/playwright-core/package/cli.js install-deps chromium firefox; \
     rm -rf /tmp/playwright* /var/lib/apt/lists/*
 
-# The gate tools, at the Makefile's pins, by the Makefile's own targets. `go install` checks every
-# module against go.sum's checksum database. GOBIN puts them on every user's PATH; the module and
-# build caches used here are thrown away.
-COPY Makefile /opt/orpheum/src/Makefile
-RUN set -eu; cd /opt/orpheum/src; \
-    export GOBIN=/usr/local/bin GOPATH=/tmp/gopath GOCACHE=/tmp/gocache; \
-    make tools tools-sqlc tools-dlv; \
-    rm -rf /tmp/gopath /tmp/gocache
+# The gate tools, last of the tools, so a changed pin rebuilds nothing above.
+COPY --from=fetch /opt/orpheum/tools/golangci-lint /opt/orpheum/tools/golangci-lint
+COPY --from=fetch /opt/orpheum/tools/sqlc /opt/orpheum/tools/sqlc
+COPY --from=fetch /opt/orpheum/tools/bin /opt/orpheum/tools/bin
 
 # The developer: the host's uid and gid (`./dev` passes them), so the repository's files stay
 # theirs. Their caches live in named volumes mounted over these directories; a new volume takes

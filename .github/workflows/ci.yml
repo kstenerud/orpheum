@@ -30,11 +30,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Install pinned tools
-        run: |
-          sudo apt-get update -q && sudo apt-get install -y -q shellcheck
-          make tools
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # make check fetches the pinned golangci-lint and sqlc itself (scripts/fetch_tools.py).
+      - name: Install shellcheck
+        run: sudo apt-get update -q && sudo apt-get install -y -q shellcheck
       - name: make check
         run: make check VERBOSE=1
       # The integration tier runs the pinned FFmpeg and MKVToolNix; each download is verified by

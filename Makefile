@@ -18,18 +18,19 @@ HERMETIC := TZ=UTC LC_ALL=C.UTF-8 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTE
 # profile. Every Go test run prints it, so a test that skipped for want of one is never silent.
 UNCONTROLLED := echo "ORPHEUM_TEST_UNCONTROLLED=$${ORPHEUM_TEST_UNCONTROLLED:-(none: a missing capability fails)}"
 
-# Pinned tool versions. Changing one is an owner action (the pre-edit hook asks), because a
-# linter upgrade changes what the gate means.
-GOLANGCI_LINT_VERSION := 2.13.2
+# Pinned tool versions. Changing one is an owner action (the pre-edit hook asks). golangci-lint's
+# and sqlc's pins are in scripts/fetch_tools.py, which the development image is built from.
 GO_MINOR := 1.26
 NODE_MAJOR := 22
 
 BASE ?=
 PYTHON := python3
 
-# Tools that `go install` puts in GOPATH/bin (sqlc, golangci-lint, dlv) are found by every
-# target whatever the machine's profile says; a fresh container's PATH often lacks it.
-export PATH := $(shell go env GOPATH)/bin:$(PATH)
+# The pinned golangci-lint and sqlc (scripts/fetch_tools.py links them into TOOLS_BIN) come first
+# on every target's PATH, before any other copy the machine has. GOPATH/bin holds what `go install`
+# put there (dlv); a fresh container's PATH often lacks it.
+TOOLS_BIN := $(or $(ORPHEUM_TOOLS_DIR),$(CURDIR)/.tools)/bin
+export PATH := $(TOOLS_BIN):$(shell go env GOPATH)/bin:$(PATH)
 
 .PHONY: help
 help: ## List the targets
@@ -61,13 +62,11 @@ check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web
 
 .PHONY: check-tools
-check-tools: ## Fail if a pinned tool is missing or at the wrong version
+check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if another pinned tool is missing or at the wrong version
+	@$(PYTHON) scripts/fetch_tools.py
 	@command -v go >/dev/null || { echo "go is not installed (need $(GO_MINOR).x)"; exit 1; }
 	@case "$$(go env GOVERSION)" in go$(GO_MINOR)|go$(GO_MINOR).*) ;; \
 	  *) echo "go is $$(go env GOVERSION); this project pins $(GO_MINOR).x"; exit 1;; esac
-	@command -v golangci-lint >/dev/null || { echo "golangci-lint is not installed; run: make tools"; exit 1; }
-	@v="$$(golangci-lint version --short)"; [ "$$v" = "$(GOLANGCI_LINT_VERSION)" ] || \
-	  { echo "golangci-lint is $$v; this project pins $(GOLANGCI_LINT_VERSION). Run: make tools"; exit 1; }
 	@command -v node >/dev/null || { echo "node is not installed (need $(NODE_MAJOR).x)"; exit 1; }
 	@v="$$(node --version)"; case "$$v" in v$(NODE_MAJOR).*) ;; \
 	  *) echo "node is $$v; this project pins $(NODE_MAJOR).x"; exit 1;; esac
@@ -306,7 +305,7 @@ build: web-deps ## Build the web apps into their dist/, then the server binary, 
 .PHONY: generate
 generate: web-deps ## Regenerate committed generated code (sqlc for library.db and cache.db, the OpenAPI document, and the SDK's TS types)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
-	  command -v sqlc >/dev/null || { echo "sqlc is not installed; run: make tools-sqlc"; exit 1; }; \
+	  $(PYTHON) scripts/fetch_tools.py; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
 	@openapi_next=$$(mktemp api/openapi.json.XXXXXX) && \
@@ -333,6 +332,8 @@ MKVTOOLNIX_DIR = $(shell $(PYTHON) scripts/fetch_mkvtoolnix.py)
 PKG ?= ./...
 RUN ?= .
 FILE ?=
+# Delve publishes no release binaries, so `make dev-debug` installs it with `go install` (checked
+# against go.sum's checksum database) the first time it runs, rather than every image building it.
 DELVE_VERSION := 1.27.2
 
 .PHONY: ffmpeg
@@ -396,7 +397,7 @@ dev-doctor: ## Run `orpheum doctor` against the dev config
 
 .PHONY: dev-debug
 dev-debug: ## Run the dev server under delve, headless on 127.0.0.1:2345, for an IDE to attach
-	@command -v dlv >/dev/null || { echo "delve is not installed; run: make tools-dlv"; exit 1; }
+	@dlv version 2>/dev/null | grep -qx "Version: $(DELVE_VERSION)" || go install github.com/go-delve/delve/cmd/dlv@v$(DELVE_VERSION)
 	@$(PYTHON) scripts/dev.py config >/dev/null
 	@dlv debug ./cmd/orpheum --build-flags="-tags=dev" --headless --listen=127.0.0.1:2345 \
 	  --api-version=2 --accept-multiclient -- run --config $(DEV_CONFIG)
@@ -434,19 +435,9 @@ cover: ## Go coverage for PKG, as an HTML report at .dev/coverage.html
 # Setting up a machine
 # ---------------------------------------------------------------------------------------------
 
-SQLC_VERSION := 1.31.1
-
 .PHONY: tools
-tools: ## Install the pinned gate tools into $(go env GOPATH)/bin
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_LINT_VERSION)
-
-.PHONY: tools-sqlc
-tools-sqlc: ## Install the pinned sqlc (needs cgo and a C compiler); only `make generate` uses it
-	@CGO_ENABLED=1 go install github.com/sqlc-dev/sqlc/cmd/sqlc@v$(SQLC_VERSION)
-
-.PHONY: tools-dlv
-tools-dlv: ## Install the pinned delve debugger (make dev-debug uses it)
-	@go install github.com/go-delve/delve/cmd/dlv@v$(DELVE_VERSION)
+tools: ## Fetch the pinned golangci-lint and sqlc into .tools/ (make check does it too)
+	@$(PYTHON) scripts/fetch_tools.py
 
 .PHONY: setup
 setup: web-deps ## One-time setup of a clone: git hooks and web dependencies
