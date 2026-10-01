@@ -20,6 +20,7 @@ capture it. Changing the pin is an owner action, like any gate.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -58,10 +59,25 @@ def install(target: str, root: Path) -> Path | None:
         missing = [tool for tool in TOOLS if not (extracted / "usr" / "bin" / tool).exists()]
         if missing:
             raise SystemExit(f"{ASSET} did not contain {', '.join(missing)}")
+        make_readable(extracted)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.rmtree(dest, ignore_errors=True)
         shutil.move(str(extracted), dest)
     return dest
+
+
+def make_readable(tree: Path) -> None:
+    """Let every user read tree and run what its owner can run.
+
+    --appimage-extract leaves its directories mode 700, so in the development image, where root
+    fetches and the developer runs the tests, the tools were there and unreachable (2026-10-01).
+    """
+    for path in [tree, *tree.rglob("*")]:
+        if path.is_symlink():
+            continue
+        mode = path.stat().st_mode
+        extra = 0o055 if path.is_dir() or mode & 0o100 else 0o044
+        os.chmod(path, mode | extra)
 
 
 def main() -> int:
