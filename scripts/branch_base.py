@@ -66,11 +66,12 @@ def is_ancestor(older: str, newer: str) -> bool:
     return _git("merge-base", "--is-ancestor", older, newer).returncode == 0
 
 
-def implicit(head: str = "HEAD") -> tuple[str, str, int] | None:
-    """(the ref, its commit, the commits from it to head) of the newest of the checked mark, the
-    owner's mark and origin/main that head descends from, or None."""
+def implicit(head: str = "HEAD", refs: tuple[str, ...] = (CHECKED_REF, APPLIED_REF, FALLBACK_REF),
+             ) -> tuple[str, str, int] | None:
+    """(the ref, its commit, the commits from it to head) of the newest of refs that head descends
+    from, or None."""
     found = []
-    for ref in (CHECKED_REF, APPLIED_REF, FALLBACK_REF):
+    for ref in refs:
         sha = commit_of(ref)
         if sha is not None and is_ancestor(sha, head):
             found.append((ref, sha, commits_between(sha, head)))
@@ -106,7 +107,9 @@ def mark_checked(head: str, base: str) -> str | None:
     head_sha = commit_of(head)
     if head_sha is None:
         raise BaseError(f"{head} is not a commit this repository can resolve")
-    newest = implicit(head_sha)
+    # Only the two marks say what was checked or taken; origin/main is where a sandbox started, and
+    # a first pass from any base after it is the first checkpoint, not a skip.
+    newest = implicit(head_sha, (CHECKED_REF, APPLIED_REF))
     if newest is not None and not is_ancestor(base, newest[1]):
         return None
     done = _git("update-ref", "-m", "orpheum: check-pr passed up to here", CHECKED_REF, head_sha)

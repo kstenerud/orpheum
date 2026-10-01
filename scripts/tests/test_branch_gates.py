@@ -48,6 +48,12 @@ class BranchBase(unittest.TestCase):
             bb.mark(shas[4])  # the owner took more than was checked: the newer mark wins
             self.assertEqual(bb.resolve(None), (bb.APPLIED_REF, shas[4], 0))
 
+    def test_the_first_pass_marks_whatever_base_it_started_from(self):
+        repo, shas = self.repo_with_history(4)
+        repo.git("update-ref", "refs/remotes/origin/main", shas[0])
+        with repo.cwd():
+            self.assertEqual(bb.mark_checked(shas[3], shas[2]), shas[3], "origin/main is not a checkpoint")
+
     def test_a_run_that_started_after_the_last_checked_commit_marks_nothing(self):
         repo, shas = self.repo_with_history(5)
         with repo.cwd():
