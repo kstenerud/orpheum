@@ -21,13 +21,28 @@ class Pins(unittest.TestCase):
     """The image's Go and Node follow the repository's pins; nothing else says which to use."""
 
     def containerfile_arg(self, name: str) -> str:
-        match = re.search(rf"^ARG {name}=(\S+)$", CONTAINERFILE.read_text(), re.M)
+        match = re.search(rf'^ARG {name}=(?:"([^"]+)"|(\S+))$', CONTAINERFILE.read_text(), re.M)
         self.assertIsNotNone(match, name)
+        return match.group(1) or match.group(2)
+
+    def toolchain(self) -> str:
+        match = re.search(r"^toolchain go(\d+\.\d+\.\d+)$", (REPO / "go.mod").read_text(), re.M)
+        self.assertIsNotNone(match, "go.mod pins Go exactly with a toolchain line")
         return match.group(1)
 
     def test_go_is_go_mods_version(self):
+        """The image reads Go's version from go.mod's toolchain line; no second copy is kept."""
+        text = CONTAINERFILE.read_text()
+        self.assertNotRegex(text, r"(?m)^ARG GO_VERSION")
+        self.assertRegex(text, r"(?m)^COPY go\.mod ")
+        self.assertIn("sed -n 's/^toolchain go//p'", text)
         go_line = re.search(r"^go (\S+)$", (REPO / "go.mod").read_text(), re.M).group(1)
-        self.assertEqual(self.containerfile_arg("GO_VERSION"), go_line)
+        self.assertEqual(self.toolchain().split(".")[:2], go_line.split(".")[:2])
+
+    def test_each_go_checksum_is_for_go_mods_toolchain(self):
+        for arch in ("amd64", "arm64"):
+            self.assertRegex(self.containerfile_arg(f"GO_SHA256_{arch.upper()}"),
+                             rf"^[0-9a-f]{{64}}  go{re.escape(self.toolchain())}\.linux-{arch}\.tar\.gz$")
 
     def test_node_is_the_makefiles_major(self):
         major = re.search(r"^NODE_MAJOR := (\d+)$", (REPO / "Makefile").read_text(), re.M).group(1)
@@ -36,7 +51,7 @@ class Pins(unittest.TestCase):
     def test_every_download_has_a_sha256_per_architecture(self):
         for tool in ("GO", "NODE"):
             for arch in ("AMD64", "ARM64"):
-                self.assertRegex(self.containerfile_arg(f"{tool}_SHA256_{arch}"), r"^[0-9a-f]{64}$")
+                self.assertRegex(self.containerfile_arg(f"{tool}_SHA256_{arch}"), r"^[0-9a-f]{64}( |$)")
 
     def test_the_base_image_is_pinned_by_digest(self):
         self.assertRegex(self.containerfile_arg("DEBIAN_IMAGE"), r"^debian:trixie-slim@sha256:[0-9a-f]{64}$")
