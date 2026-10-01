@@ -27,6 +27,7 @@ Ctrl-C stops everything. Stdlib only, so the loop adds no dependency.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import signal
 import socket
@@ -59,6 +60,18 @@ def render_config(template: str, root: Path, ffmpeg_dir: Path, listen: str | Non
     if listen:
         text = text.replace('listen = "127.0.0.1:8432"', f'listen = "{listen}"')
     return text
+
+
+# A media directory of your own: ./dev mounts it read-only at its own path, and the dev node is
+# given it as one more root, so a new library can choose it (D107: roots are the node's to name).
+MEDIA_ENV = "ORPHEUM_DEV_MEDIA"
+
+
+def with_media_root(config: str, media: str | None) -> str:
+    """The config with media first among the node's root_paths; unchanged when media is unset."""
+    if not media:
+        return config
+    return config.replace("root_paths = [", f"root_paths = [{json.dumps(media)}, ", 1)
 
 
 def listen_address(config: str) -> str:
@@ -114,7 +127,8 @@ def prepare(listen: str | None) -> Path:
     ffmpeg_dir = fetch_ffmpeg.install(fetch_ffmpeg.this_platform(), ROOT)
     dev_media.build(ffmpeg_dir, DEV / "media", seconds=30, force=False)
     DEV.mkdir(exist_ok=True)
-    CONFIG.write_text(render_config(CONFIG_TEMPLATE.read_text(), ROOT, ffmpeg_dir, listen))
+    config = render_config(CONFIG_TEMPLATE.read_text(), ROOT, ffmpeg_dir, listen)
+    CONFIG.write_text(with_media_root(config, os.environ.get(MEDIA_ENV)))
     SEED.write_text(render_config(SEED_TEMPLATE.read_text(), ROOT, ffmpeg_dir, None))
     return ffmpeg_dir
 
@@ -178,8 +192,10 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> 
         if with_web else "  web          served by the server (built into the binary)",
         "  users        owner / owner (admin)      partner / partner (outsider)",
         f"  config       {CONFIG}   (from deploy/dev/orpheum.dev.toml)",
-        f"  seed         {ROOT / 'dev' / 'seed.toml'}   (applied to an empty database)",
+        f"  seed         {SEED_TEMPLATE}   (applied to an empty database)",
         f"  media        {DEV / 'media'}   (read-only, generated)",
+        *([f"  your media   {os.environ[MEDIA_ENV]}   (read-only; a root a new library can choose)"]
+          if os.environ.get(MEDIA_ENV) else []),
         f"  ffmpeg       {ffmpeg_dir}",
         f"  logs         {LOG}",
         f"  race         {'on' if race else 'off (DEV_RACE=0)'}; confinement reported, not required",

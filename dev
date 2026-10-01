@@ -20,7 +20,8 @@ container is replaced when the image or anything below changes.
 - You are yourself inside: the image's user has your uid and gid.
 - Go's module and build caches, npm's cache and Playwright's browsers live in named volumes
   (VOLUMES), never on the host.
-- ORPHEUM_DEV_MEDIA, when set, is a media directory mounted read-only at its own path.
+- ORPHEUM_DEV_MEDIA, when set, is a media directory mounted read-only at its own path, and the dev
+  loop gives the node it as a root, so a new library can choose it.
 - /dev/dri is passed through when the host has it, for Quick Sync.
 - The dev loop's ports are published on ORPHEUM_DEV_PUBLISH (default 127.0.0.1; 0.0.0.0 opens
   them to the LAN, as `make dev-lan` does outside a container).
@@ -125,7 +126,8 @@ def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, 
     media = env.get("ORPHEUM_DEV_MEDIA")
     if media:
         media_path = Path(media).resolve()
-        args += ["--mount", f"type=bind,src={media_path},dst={media_path},readonly"]
+        args += ["--mount", f"type=bind,src={media_path},dst={media_path},readonly",
+                 "--env", f"ORPHEUM_DEV_MEDIA={media_path}"]
     if dri.is_dir():
         args += ["--device", str(dri)]
         for group in dri_groups(dri):
