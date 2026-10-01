@@ -282,6 +282,9 @@ D233 §2, §3, §4, §7, §9.
 - Per-node slots in claiming; a play-now prepare pauses background reads on its node; play-driven
   work carries "wanted until".
 - A protocol number in the hello; an incompatible node parked; an unknown command refused.
+- Once tests have a bounded receive (the clock's timers, 4.0), a lint refuses a bare receive from
+  a channel in a test outside that helper, so a wait cannot hang a run (audit-2026-09-30 §5.3;
+  the owner, 2026-10-01: "Yes, all three").
 - A scan as a job shows itself on the library screen (D236 §2): *"Scanning… N files found so
   far"* beside the root, from its pushed progress. A scan asked for while one runs schedules one
   rescan after it rather than another scan (D236 §3, D38); the button says so.

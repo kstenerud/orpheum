@@ -167,6 +167,22 @@ class Claims(unittest.TestCase):
         self.assertNotIn("TestArch_OldHistory", messages)  # history may cite anything
         self.assertNotIn("TestArch_Defined", messages)
 
+    def test_every_go_test_a_doc_cites_exists(self):
+        files = {
+            "internal/a/a_test.go": "func TestA_Holds(t *testing.T) {}\nfunc TestA_S7b_Gone(t *testing.T) {}\n",
+            "internal/a/doc.go": "// Enforced by TestA_Holds, TestA_S7b_* and TestA_FoldedAway.\n"
+                                 "// TestB_Nothing_* has no test, and TestMain is a word.\n",
+            "web/README.md": "TestA_AlsoGone\n",
+            "docs/contributors/design/research/old.md": "TestA_History\n",
+            "internal/a/a.go": "// TestA_NotADoc\n",
+        }
+        messages = " | ".join(f"{p.where}: {p.message}" for p in cc.check_cited_tests(files))
+        self.assertIn("internal/a/doc.go: cites `TestA_FoldedAway`, which no test defines", messages)
+        self.assertIn("internal/a/doc.go: cites `TestB_Nothing_*`, but no test's name starts so", messages)
+        self.assertIn("web/README.md: cites `TestA_AlsoGone`", messages)
+        for fine in ("TestA_Holds`", "TestA_S7b_*", "TestMain", "TestA_History", "TestA_NotADoc"):
+            self.assertNotIn(fine, messages)
+
     def test_code_decisions_resolve_and_are_live(self):
         files = {
             "internal/a.go": "// D193: the node does the work. D5 was Postgres. D999 is invented.\n"

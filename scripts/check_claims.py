@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Claims gate run by `make check`: every cited TestArch_ test exists and every one
 # ABOUTME: is cited; every decision ID in code resolves to a live decision; every
-# ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190); no retired name is left.
+# ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190); no retired name is left;
+# ABOUTME: every Go test a doc.go or README cites exists.
 """Keep the prose and the code telling the same story.
 
-Four checks. Each is for a way a true sentence silently becomes false:
+Five checks. Each is for a way a true sentence silently becomes false:
 
 1. **Architecture claims are tests** (D190). Prose that asserts a checkable fact about the
    code cites a test named `TestArch_<Claim>`. A cited name that no test defines is a
@@ -26,6 +27,10 @@ Four checks. Each is for a way a true sentence silently becomes false:
    which move rows from them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
    by an audit and never by a gate (agent-failures A12). Taking a name off the list is a
    weakening `check_test_weakening.py` asks a trailer for.
+5. **A cited test exists.** A doc.go or README that names a Go test as what enforces an
+   invariant names one some test file defines; `TestX_*` names every test with that prefix,
+   and there must be one. A step's test folded into the baseline survived in internal/store's
+   doc.go as a citation of nothing (audit-2026-09-30 §5, settled 2026-10-01).
 """
 
 from __future__ import annotations
@@ -55,6 +60,10 @@ RETIRED_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)
 SYNTHETIC = ("scripts/tests/",)
 
 ARCH_NAME = re.compile(r"\bTestArch_[A-Za-z0-9_]+")
+# A Go test named in prose: Test<Subject>_<Claim>, or Test<Subject>_<Prefix>_* for every test so
+# named. A name with no underscore is a word ("TestMain"), not a citation.
+CITED_TEST = re.compile(r"\bTest[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]*(?:\*)?")
+GO_TEST_DEF = re.compile(r"^func (Test[A-Za-z0-9_]+)\(t \*testing\.T\)", re.M)
 GO_ARCH_DEF = re.compile(r"^func (TestArch_[A-Za-z0-9_]+)\(t \*testing\.T\)", re.M)
 TS_ARCH_DEF = re.compile(r"""\b(?:it|test)\(\s*["'`](TestArch_[A-Za-z0-9_]+)""")
 DECISION_HEADING = re.compile(r"^## D(\d+) — ", re.M)
@@ -124,6 +133,27 @@ def check_arch(files: dict[str, str]) -> list[Problem]:
         for name, path in sorted(defined.items())
         if name not in cited_in_docs
     ]
+    return problems
+
+
+def check_cited_tests(files: dict[str, str]) -> list[Problem]:
+    """Go tests a doc.go or README names that no test file defines; TestArch_ names are
+    check_arch's."""
+    defined = {name for path, text in files.items() if path.endswith("_test.go")
+               for name in GO_TEST_DEF.findall(text)}
+    problems: list[Problem] = []
+    for path, text in sorted(files.items()):
+        if path.startswith(HISTORY_PREFIXES + SYNTHETIC) or not path.endswith(("doc.go", "README.md")):
+            continue
+        for name in sorted(set(CITED_TEST.findall(text))):
+            if name.startswith("TestArch_"):
+                continue
+            if name.endswith("*"):
+                if not any(test.startswith(name[:-1]) for test in defined):
+                    problems.append(Problem(path, f"cites `{name}`, but no test's name starts so"))
+            elif name not in defined:
+                problems.append(Problem(path, f"cites `{name}`, which no test defines — an invariant "
+                                              "nothing enforces any more"))
     return problems
 
 
@@ -208,7 +238,7 @@ def check(root: Path) -> list[Problem]:
     files = read_text_files(root, tracked(root))
     live, archived = decision_status(files.get(LIVE_LOG, ""), files.get(ARCHIVE_LOG, ""))
     return (check_arch(files) + check_code_decisions(files, live, archived) + check_test_vars(files)
-            + check_retired(files, retired_names(files.get(RETIRED_NAMES, ""))))
+            + check_retired(files, retired_names(files.get(RETIRED_NAMES, ""))) + check_cited_tests(files))
 
 
 def main() -> int:
@@ -221,8 +251,8 @@ def main() -> int:
     if problems:
         print(f"check_claims: {len(problems)} problem(s)")
         return 1
-    print("check_claims: architecture citations, code decision IDs and test variables all resolve; "
-          "no retired name is used")
+    print("check_claims: architecture citations, cited tests, code decision IDs and test variables all "
+          "resolve; no retired name is used")
     return 0
 
 

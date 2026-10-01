@@ -9,6 +9,10 @@ test runners' summaries), and agents read them every run; the owner asked for le
 This runs `make <target>` with the full output written to a log under the git directory, then
 prints one line on a pass, or on a failure the lines that are not known passing noise, capped,
 with the log's path. `VERBOSE=1` in the environment prints everything, as before.
+
+A failed run's output is also kept as `<target>.failed.log`, which only the next failure
+replaces: a hang's diagnostic once went into the log that the passing re-run then overwrote, and
+the evidence was lost (audit-2026-09-30 §5, settled 2026-10-01).
 """
 
 from __future__ import annotations
@@ -53,13 +57,14 @@ def is_noise(line: str) -> bool:
     return not line.strip() or any(pattern.search(line) for pattern in NOISE)
 
 
-def summary(output: str, log: Path) -> str:
+def summary(output: str, log: Path, failed_log: Path | None = None) -> str:
     """The lines of a failed run worth reading, capped, with where the rest is."""
     kept = [line for line in output.splitlines() if not is_noise(line)]
     shown = kept[:MAX_LINES]
     if len(kept) > MAX_LINES:
         shown.append(f"… {len(kept) - MAX_LINES} more lines")
-    shown.append(f"(the full output is in {log})")
+    kept_note = f"; it is kept in {failed_log} until the next failure" if failed_log else ""
+    shown.append(f"(the full output is in {log}{kept_note})")
     return "\n".join(shown)
 
 
@@ -89,7 +94,9 @@ def main(argv: list[str]) -> int:
         last = next((line for line in reversed(output.splitlines()) if line.strip()), "")
         print(last if last.startswith(label) else f"{label}: passed")
         return 0
-    print(summary(output, log))
+    failed_log = log.with_name(f"{make_args[0]}.failed.log")
+    failed_log.write_text(output, encoding="utf-8")
+    print(summary(output, log, failed_log))
     print(f"{label}: FAILED")
     return done.returncode
 
