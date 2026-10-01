@@ -39,6 +39,22 @@ class BranchBase(unittest.TestCase):
             self.assertEqual(bb.mark(shas[2]), shas[2])
             self.assertEqual(bb.resolve(None), (bb.APPLIED_REF, shas[2], 1))
 
+    def test_a_pass_marks_where_it_ended_and_the_next_run_starts_there(self):
+        repo, shas = self.repo_with_history(5)
+        repo.git("update-ref", bb.APPLIED_REF, shas[0])
+        with repo.cwd():
+            self.assertEqual(bb.mark_checked(shas[3], shas[0]), shas[3])
+            self.assertEqual(bb.resolve(None), (bb.CHECKED_REF, shas[3], 1))
+            bb.mark(shas[4])  # the owner took more than was checked: the newer mark wins
+            self.assertEqual(bb.resolve(None), (bb.APPLIED_REF, shas[4], 0))
+
+    def test_a_run_that_started_after_the_last_checked_commit_marks_nothing(self):
+        repo, shas = self.repo_with_history(5)
+        with repo.cwd():
+            bb.mark_checked(shas[1], shas[0])
+            self.assertIsNone(bb.mark_checked(shas[4], shas[3]), "shas[2] and shas[3] were never checked")
+            self.assertEqual(bb.resolve(None)[1], shas[1])
+
     def test_no_base_at_all_is_refused_rather_than_guessed(self):
         repo, _ = self.repo_with_history(1)
         with repo.cwd(), self.assertRaisesRegex(bb.BaseError, "make mark-applied"):

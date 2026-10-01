@@ -50,8 +50,8 @@ class Running(unittest.TestCase):
     def run_gate(self, makefile: str, verbose: bool = False) -> tuple[int, str, Path]:
         root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
         (root / "Makefile").write_text(makefile)
-        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") and k != "VERBOSE"}
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
         if verbose:
             env["VERBOSE"] = "1"
         cwd = os.getcwd()

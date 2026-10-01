@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Tests for py_tests.py: every module runs, a failure fails the run and is shown, and a
 # ABOUTME: pass prints one line.
+import os
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,16 @@ class Runner(unittest.TestCase):
         self.assertIn("broken", done.stdout)
         self.assertNotIn("test_b.py failed", done.stdout)
         self.assertIn("py_tests: 2 modules, 1 failed", done.stdout)
+
+    def test_no_module_sees_the_hooks_repository(self):
+        sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_env(self):\n"
+                "        self.assertNotIn('GIT_DIR', os.environ)\n")
+        root = Path(tempfile.mkdtemp(prefix="py-tests-"))
+        (root / "scripts" / "tests").mkdir(parents=True)
+        (root / "scripts" / "tests" / "test_env.py").write_text(sees)
+        done = subprocess.run([sys.executable, str(RUNNER)], cwd=root, capture_output=True, text=True,
+                              check=False, env={**os.environ, "GIT_DIR": "/nowhere/.git"})
+        self.assertEqual(done.returncode, 0, done.stdout)
 
     def test_a_pass_is_one_line(self):
         done = self.run_in({"test_a.py": PASSES, "test_b.py": PASSES})

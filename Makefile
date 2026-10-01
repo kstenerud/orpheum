@@ -48,7 +48,9 @@ check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 pri
 	@$(PYTHON) scripts/quiet_gate.py "make check" check-verbose
 
 .PHONY: check-verbose
-check-verbose: check-tools ## The gate with every step's output
+# web-deps runs before the parallel steps: check-generated and check-web both need it, and two
+# installs at once raced each other (2026-10-01). It does nothing when the install is current.
+check-verbose: check-tools web-deps ## The gate with every step's output
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
 	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
@@ -186,12 +188,13 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
 .PHONY: check-pr-verbose
-check-pr-verbose: ## Branch gates against BASE (default: the owner's mark), the integration and browser tiers in parallel, then revert-red
-	@base="$$($(RESOLVE_BASE))"; \
+check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), the tiers in parallel, then revert-red; a pass marks HEAD as checked
+	@base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
 	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
 	    $(PR_STEPS:%=pr-step-%); \
-	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%)
+	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
+	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base"
 
 # The loop's re-run: never a pass of check-pr, which is still required before a branch is done.
 .PHONY: check-pr-failed
