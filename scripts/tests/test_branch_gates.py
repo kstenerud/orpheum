@@ -4,7 +4,9 @@
 # ABOUTME: kinds, units, UNCHECKED list and Refactor-Only; each is shown failing on a case built to
 # ABOUTME: fail (D190).
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -97,6 +99,21 @@ class CheckPrWiring(unittest.TestCase):
             self.assertIn("$(RESOLVE_BASE)", recipe.group(1), target)
         self.assertRegex(self.MAKEFILE, r"(?m)^RESOLVE_BASE = .*scripts/branch_base\.py")
         self.assertRegex(self.MAKEFILE, r"(?m)^mark-applied:.*\n\t.*branch_base\.py --mark")
+
+
+class WebDeps(unittest.TestCase):
+    def test_a_symlinked_node_modules_is_refused_not_emptied(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            target = Path(scratch) / "elsewhere"
+            target.mkdir()
+            (target / "kept").write_text("x")
+            (Path(scratch) / "web").mkdir()
+            (Path(scratch) / "web" / "node_modules").symlink_to(target)
+            done = subprocess.run(["make", "--no-print-directory", "-f", str(REPO / "Makefile"), "web-deps"],
+                                  cwd=scratch, capture_output=True, text=True, check=False)
+            self.assertNotEqual(done.returncode, 0, done.stdout + done.stderr)
+            self.assertIn("is a symlink", done.stdout)
+            self.assertTrue((target / "kept").exists())
 
 
 class TrailersTiedToCommits(unittest.TestCase):
@@ -278,6 +295,21 @@ class RevertRedClaims(unittest.TestCase):
         self.assertEqual((outcome.verdict, outcome.detail),
                          ("CLAIMED", "Refactor-Only: the rename moved no behaviour"))
         self.assertIn("On the author's word", rr.report([outcome]))
+
+    def test_a_claim_on_its_commit_does_not_excuse_a_file_a_test_covers(self):
+        repo, base = self.repo()
+        repo.commit("fix(tool): answer two\n\nIt answered one.\n\nVerified-By: VQ99", {
+            self.CODE: "def f():\n    return 2\n",
+            self.TEST: (repo.root / self.TEST).read_text() + "        assert tool.f() == 2\n"})
+        self.assertEqual(self.probe(repo, base).verdict, "RED_TEST",
+                         "an unticked VQ item failed a file its test covers")
+
+    def test_a_ticked_verification_covers_a_file_no_test_notices(self):
+        repo, base = self.repo()
+        repo.commit("docs: queue", {rr.VQ_FILE: "- [x] **VQ7** — seen on the television\n"})
+        repo.commit("fix(tool): answer two\n\nIt answered one.\n\nVerified-By: VQ7",
+                    {self.CODE: "def f():\n    return 2\n"})
+        self.assertEqual(self.probe(repo, base).verdict, "CLAIMED")
 
     def test_every_file_a_behaviour_commit_changed_and_no_probe_undid_is_listed(self):
         repo, base = self.repo()

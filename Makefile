@@ -143,6 +143,9 @@ check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for w
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale
+	@# npm ci empties node_modules first, through a symlink too: a scratch worktree whose
+	@# node_modules pointed at the main tree's emptied it twice (2026-09-30, 2026-10-01).
+	@if [ -L web/node_modules ]; then echo "web-deps: web/node_modules is a symlink; npm ci would empty what it points at. Remove it and run make web-deps here."; exit 1; fi
 	@if [ ! -f web/node_modules/.package-lock.json ] || [ web/package-lock.json -nt web/node_modules/.package-lock.json ]; then \
 	  npm --prefix web ci --no-audit --no-fund; fi
 

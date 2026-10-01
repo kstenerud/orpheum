@@ -428,16 +428,36 @@ def is_build_failure(output: str) -> bool:
 
 
 def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outcome:
-    """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
-    refactor = refactor_only(base, head, change.path)
+    """One file's verdict: its revert probed, and the branch's claims read only when nothing went
+    red."""
+    outcome = probe_unclaimed(tree, base, head, change, timeout)
+    if outcome.verdict != "GREEN":
+        return outcome
+    return claimed(tree, base, head, change.path) or outcome
+
+
+def claimed(tree: str, base: str, head: str, path: str) -> Outcome | None:
+    """What the branch's trailers say of a file whose revert turned nothing red, or None.
+
+    A claim is consulted only after the probe: a file a test covers is covered whatever a
+    trailer on its commit says. Read first, a `Verified-By:` for one file of a commit excused
+    the commit's every file from probing, and an unticked VQ item then failed files that tests
+    did cover (8fd8beb's on_stop.py and run_gate.py, 2026-10-01).
+    """
+    refactor = refactor_only(base, head, path)
     if refactor:
-        return Outcome(change.path, "CLAIMED", f"Refactor-Only: {refactor}")
-    claim = verified_out_of_suite(base, head, change.path)
+        return Outcome(path, "CLAIMED", f"Refactor-Only: {refactor}")
+    claim = verified_out_of_suite(base, head, path)
     if claim:
         problem = verification_queue_problem(claim, tree)
         if problem:
-            return Outcome(change.path, "GREEN", f"Verified-By: {claim} — {problem}")
-        return Outcome(change.path, "CLAIMED", f"Verified-By: {claim}")
+            return Outcome(path, "GREEN", f"Verified-By: {claim} — {problem}")
+        return Outcome(path, "CLAIMED", f"Verified-By: {claim}")
+    return None
+
+
+def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: int) -> Outcome:
+    """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
     if change.status == "M" and is_cosmetic(tree, base, head, change.path):
         return Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour to cover")
     if change.status in ("M", "D"):
