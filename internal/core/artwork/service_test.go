@@ -31,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // A WebP as our encoder writes one, as far as the service looks: a RIFF container of WebP.
@@ -308,9 +309,9 @@ func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
 	ctx, cancel := context.WithCancelCause(t.Context())
 	ended := make(chan error, 1)
 	go func() { ended <- bench.service.Handle(ctx, job) }()
-	<-bench.node.enqueued
+	testutil.Receive(t, bench.node.enqueued, "the artwork command")
 	cancel(jobs.ErrCancelled)
-	err := <-ended
+	err := testutil.Receive(t, ended, "the artwork job to end")
 	bench.node.mutex.Lock()
 	defer bench.node.mutex.Unlock()
 	if !errors.Is(err, jobs.ErrCancelled) {

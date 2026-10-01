@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakeCore answers the node channel the way the core does, and hands the test what it hears.
@@ -280,7 +281,7 @@ func startAgentWithWorkers(t *testing.T, socket string, workers Workers) (*confi
 	go func() { finished <- node.Run(ctx, tick) }()
 	t.Cleanup(func() {
 		cancel()
-		if err := <-finished; err != nil {
+		if err := testutil.Receive(t, finished, "the node's run to end"); err != nil {
 			t.Error(err)
 		}
 	})

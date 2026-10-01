@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // subtitleStreamID is the stream row of film 2's ASS track, as shelveSubtitles records it.
@@ -58,7 +59,8 @@ func (harness testHarness) extract(
 	command := harness.nextCommand(t)
 	answer.JobID = jobID
 	playback.TakeSubtitleText(t.Context(), 1, answer)
-	return command, <-finished
+	//nolint:wrapcheck // the job's own error, which the test reads as it is
+	return command, testutil.Receive(t, finished, "the extraction job to end")
 }
 
 // storeExtractedText keeps text as extracted for the track at streamIndex of the file with
@@ -284,7 +286,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	}
 	extracted := nodeproto.SubtitleText{JobID: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
 	playback.TakeSubtitleText(t.Context(), 1, extracted)
-	if err := <-finished; err != nil {
+	if err := testutil.Receive(t, finished, "the extraction job to end"); err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
 	if served := harness.getBytePath(t, decided.Subtitles[1].ASSURL, user, true, ""); served.status != http.StatusOK ||

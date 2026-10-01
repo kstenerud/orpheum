@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // listedJobs is the job view as an admin's GET /jobs answers it.
@@ -73,7 +74,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if stop.Type != nodeproto.CommandCancel || stop.Cancel == nil || stop.Cancel.JobID != queued.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, queued.ID)
 	}
-	if err := <-ran; err != nil {
+	if err := testutil.Receive(t, ran, "the runner to end"); err != nil {
 		t.Fatal(err)
 	}
 	if cancelled := newestPrepareJob(t, harness.listedJobs(t, admin)); cancelled.State != "cancelled" {
@@ -132,7 +133,7 @@ func TestJobs_ACancelledSubtitleExtractionIsStoppedOnTheNode(t *testing.T) {
 	if stop := harness.nextCommand(t); stop.Type != nodeproto.CommandCancel || stop.Cancel.JobID != extraction.ID {
 		t.Errorf("the node was then sent %+v, want a cancel of job %d", stop, extraction.ID)
 	}
-	if err := <-ran; err != nil {
+	if err := testutil.Receive(t, ran, "the runner to end"); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -81,7 +81,7 @@ func TestStartSelf_StartsAChildWithAnEmptyEnvironmentAndKillsItWhole(t *testing.
 	if err := child.Kill(); err != nil {
 		t.Fatal(err)
 	}
-	<-child.Done()
+	testutil.Receive(t, child.Done(), "the killed child to end")
 	if child.Err() == nil {
 		t.Error("a killed child reports no error")
 	}
@@ -96,7 +96,7 @@ func TestStartSelf_EndingTheContextKillsTheChild(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	child, fake := holdingChild(ctx, t)
 	cancel()
-	<-child.Done()
+	testutil.Receive(t, child.Done(), "the child to end with its context")
 	assertGone(t, fake.GrandchildPID(t))
 }
 
@@ -108,7 +108,7 @@ func TestStartSelf_TheChildsOutputReachesTheCaller(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	<-child.Done()
+	testutil.Receive(t, child.Done(), "the child to exit")
 	if got := output.String(); !strings.Contains(got, "out\n") || !strings.Contains(got, "err\n") {
 		t.Errorf("output = %q, want the child's stdout and stderr", got)
 	}

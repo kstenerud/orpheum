@@ -49,7 +49,7 @@ func runUntilStalled(t *testing.T, runner *Runner, ticks chan time.Time, clockSo
 		_, err := runner.RunWatched(t.Context(), WatchedRun{Arguments: []string{"-i", "x"}, Watch: watch})
 		ended <- err
 	}()
-	<-reported
+	testutil.Receive(t, reported, "the watch's report")
 	clockSource.Advance(testWatch.StallWindow)
 	ticks <- clockSource.Now()
 	select {

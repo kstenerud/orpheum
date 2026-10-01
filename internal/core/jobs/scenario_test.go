@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fillingDisk is cache.db's job storage on a disk that fills and empties: while it is full, every
@@ -165,7 +166,7 @@ func (world *repeatWorld) request(itemID, priority int64, argsJSON string) {
 	}
 }
 
-func (world *repeatWorld) handle(_ context.Context, job Job) error {
+func (world *repeatWorld) handle(ctx context.Context, job Job) error {
 	world.ran = append(world.ran, job.ItemID)
 	switch {
 	case job.ItemID == waitingItem && job.AttemptNumber == 1:
@@ -174,7 +175,11 @@ func (world *repeatWorld) handle(_ context.Context, job Job) error {
 		return Park(Parking{Destination: DestinationTMDBAPI, Reason: "unreachable"}, errors.New("refused"))
 	case job.ItemID == runningItem && job.ArgsJSON == "{}":
 		close(world.running)
-		<-world.release
+		select {
+		case <-world.release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	return nil
 }
@@ -241,13 +246,13 @@ func TestScenario_S71_ARepeatRequestRaisesWakesAndMerges(t *testing.T) {
 	world.request(runningItem, 0, "")
 	done := make(chan error)
 	go func() { done <- runner.RunDue(t.Context()) }()
-	<-world.running
+	testutil.Receive(t, world.running, "the job to start running")
 	world.request(runningItem, 0, "") // covered: the same arguments
 	world.request(runningItem, 0, `{"shouldRetryImages":true}`)
 	world.request(runningItem, PriorityPersonsRequest, `{"shouldRetryImages":true}`)
 	followUps := world.queuedCount(runningItem)
 	close(world.release)
-	if err := <-done; err != nil {
+	if err := testutil.Receive(t, done, "the runner to end"); err != nil {
 		t.Fatal(err)
 	}
 	if followUps != 1 {

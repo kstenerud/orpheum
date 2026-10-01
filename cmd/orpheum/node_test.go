@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -39,8 +41,14 @@ func (node *inProcessNode) Done() <-chan struct{} { return node.done }
 func (node *inProcessNode) Err() error            { return node.err }
 func (node *inProcessNode) Kill() error {
 	node.cancel()
-	<-node.done
-	return nil
+	timer := time.NewTimer(testutil.ReceiveLimit)
+	defer timer.Stop()
+	select {
+	case <-node.done:
+		return nil
+	case <-timer.C:
+		return fmt.Errorf("the node did not stop within %s of being killed", testutil.ReceiveLimit)
+	}
 }
 
 func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
@@ -287,7 +295,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	go func() { done <- runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
-		if err := <-done; err != nil {
+		if err := testutil.Receive(t, done, "the node to stop"); err != nil {
 			t.Errorf("runNode returned %v", err)
 		}
 	}()
@@ -350,7 +358,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 		}
 	}
 	cancel()
-	if err := <-done; err != nil {
+	if err := testutil.Receive(t, done, "the node to stop"); err != nil {
 		t.Errorf("runNode returned %v", err)
 	}
 }

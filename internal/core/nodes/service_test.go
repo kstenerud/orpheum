@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // recordingSink keeps every batch it was handed, and says when one arrives.
@@ -257,8 +258,9 @@ func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *test
 	// The poll is held until a command is queued; Enqueue before the poll starts is also
 	// answered at once, so the order of these two does not matter.
 	harness.service.Enqueue(reply.NodeID, scanOf("/a"))
-	if commands := <-got; len(commands.Commands) != 1 || commands.Commands[0].Scan.RootPath != "/a" {
-		t.Fatalf("the long-poll answered %+v, want the scan of /a", commands)
+	first := testutil.Receive(t, got, "the long-poll's answer")
+	if len(first.Commands) != 1 || first.Commands[0].Scan.RootPath != "/a" {
+		t.Fatalf("the long-poll answered %+v, want the scan of /a", first)
 	}
 	harness.service.Enqueue(reply.NodeID, scanOf("/b"))
 	commands, _ := harness.poll(t, reply.NodeID, 1)
@@ -381,14 +383,14 @@ func TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing
 	}
 	// The stream stays open and nothing else is written: the record must still arrive, because a
 	// quiet stream is flushed rather than held for a full batch.
-	<-harness.sink.arrived
+	testutil.Receive(t, harness.sink.arrived, "the record to reach the ingest")
 	if got := harness.sink.all(); len(got) != 1 || got[0].Type != nodeproto.RecordScanBegin {
 		t.Errorf("the ingest has %+v, want the scan_begin", got)
 	}
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if response := <-done; response.status != http.StatusNoContent {
+	if response := testutil.Receive(t, done, "the report's answer"); response.status != http.StatusNoContent {
 		t.Errorf("the report answered %d %s", response.status, response.body)
 	}
 }

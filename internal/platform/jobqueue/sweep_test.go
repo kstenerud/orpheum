@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // derivedState is the state a test's sweep derives its work from: the targets owed a fetch.
@@ -86,7 +87,7 @@ func TestSweeping_RunsEverySweepAtOnceThenEachOnItsTimerAndWhenAskedOrADestinati
 		jobs.queue.Sweeping(ctx, tick)
 		close(stopped)
 	}()
-	defer func() { cancel(); <-stopped }()
+	defer func() { cancel(); testutil.Receive(t, stopped, "the sweeping to stop") }()
 	// expect sends ticks, which run nothing that is not due, until the sweeps have run as want
 	// says: a tick is taken only once the loop has done what came before it, and a request's
 	// nudge may be taken after a tick sent with it.

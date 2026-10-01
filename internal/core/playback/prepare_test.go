@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // progressQueue keeps each job's progress as the job view would.
@@ -86,14 +87,14 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: 1}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, prepareOrder{command: nodeproto.Prepare{}, nodeID: 1}) }()
-	<-node.sent
+	testutil.Receive(t, node.sent, "the prepare command")
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		time.Sleep(silence / 2)
 		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
 	}
 	all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
-	if err := <-ended; err != nil {
+	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}
 }

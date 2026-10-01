@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // unreachableURL is where tests that fake no provider (TMDB, OpenSubtitles) send it: a closed port
@@ -189,7 +190,7 @@ func startServing(
 		}
 		stopped = true
 		cancel()
-		return <-done
+		return testutil.Receive(t, done, "serve to stop")
 	}
 	t.Cleanup(func() {
 		if err := stop(); err != nil {

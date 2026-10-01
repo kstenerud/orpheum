@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // testStall is a node's word that the FFmpeg it ran stood still at 4 s for three minutes.
@@ -27,7 +28,8 @@ func answerAfterStall(
 	go func() { finished <- handle(t.Context(), job) }()
 	harness.nextCommand(t)
 	answer()
-	return <-finished
+	//nolint:wrapcheck // the job's own error, which the test reads as it is
+	return testutil.Receive(t, finished, "the job to end")
 }
 
 func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T) {

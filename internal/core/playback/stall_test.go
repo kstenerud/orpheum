@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // preparesOnAFakeNode is a prepare runner whose node is node, whose clock is clockSource, and
@@ -58,9 +59,9 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		}
 		ended := make(chan error, 1)
 		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
-		<-node.sent
+		testutil.Receive(t, node.sent, "the prepare command")
 		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareStalled, Stall: stall})
-		return <-ended
+		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
 		!strings.Contains(err.Error(), "stood_still at 4000 ms") {
@@ -104,7 +105,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
-	<-node.sent
+	testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
 		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
@@ -114,7 +115,8 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 				strings.HasPrefix(err.Error(), "stalled: ") {
 				t.Errorf("a prepare held waiting past the cap ended %v; want given up as an ordinary retry", err)
 			}
-			if cancel := <-node.sent; cancel.Type != nodeproto.CommandCancel || cancel.Cancel.JobID != 7 {
+			cancel := testutil.Receive(t, node.sent, "the cancel of job 7")
+			if cancel.Type != nodeproto.CommandCancel || cancel.Cancel.JobID != 7 {
 				t.Errorf("the node was sent %+v; want it told to stop job 7", cancel)
 			}
 			return

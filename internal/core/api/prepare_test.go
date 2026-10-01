@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // putRenditionFile puts one file of film 2's remux, in its current run, on the fake node.
@@ -94,7 +95,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	playback.TakePrepareReport(t.Context(), 1, running)
 	done := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234}
 	playback.TakePrepareReport(t.Context(), 1, done)
-	if err := <-finished; err != nil {
+	if err := testutil.Receive(t, finished, "the prepare job to end"); err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
 	again := harness.play(t, user, chrome(2))
@@ -117,7 +118,8 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	harness.nextCommand(t)
 	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
 	playback.TakePrepareReport(t.Context(), 1, failed)
-	if err := <-finished; err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
+	err := testutil.Receive(t, finished, "the prepare job to end")
+	if err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
 	playlist := harness.getBytePath(t, decided.URL, user, true, "")
@@ -171,7 +173,7 @@ func TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRo
 		JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
 		RefusalCode: nodeproto.RefusedNoRoom,
 	})
-	err := <-finished
+	err := testutil.Receive(t, finished, "the prepare job to end")
 	parking, isParked := jobqueue.ParkingOf(err)
 	if !isParked || parking.Destination != jobs.PreparedDirectoryDestination(1) || !parking.AwaitsSignal ||
 		!strings.Contains(err.Error(), "past its limit") {
@@ -217,7 +219,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 	harness.nextCommand(t)
 	done := nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9}
 	playback.TakePrepareReport(t.Context(), 1, done)
-	if err := <-first; err != nil {
+	if err := testutil.Receive(t, first, "the first prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
 	// Complete, but the node has no playlist for it: it was evicted, or its directory lost.
@@ -306,7 +308,7 @@ func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodepr
 	command := harness.nextCommand(t)
 	done := nodeproto.PrepareReport{JobID: jobID, State: nodeproto.PrepareDone, SizeBytes: 9}
 	playback.TakePrepareReport(t.Context(), 1, done)
-	if err := <-finished; err != nil {
+	if err := testutil.Receive(t, finished, "the prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
 	return *command.Prepare
