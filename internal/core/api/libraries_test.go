@@ -216,12 +216,12 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
 		http.StatusServiceUnavailable, CodeNodeSilent)
 	harness.connectNode(t, "/media/shows")
-	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/etc")),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/etc")),
+		http.StatusUnprocessableEntity, "body.rootPaths")
 	interval := newShows("/media/shows")
 	interval["changeDetection"] = "interval"
 	withoutHours := harness.do(t, http.MethodPost, "/libraries", admin, interval)
-	wantError(t, withoutHours, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantInvalidAt(t, withoutHours, http.StatusUnprocessableEntity, "body.checkEveryHours")
 	if !strings.Contains(withoutHours.body, "checkEveryHours") {
 		t.Errorf("an interval library with no hours = %s, want it to name checkEveryHours", withoutHours.body)
 	}
@@ -300,8 +300,8 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/files", admin, nil),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
-	wantError(t, harness.do(t, http.MethodGet, "/files?limit=2&cursor=x", admin, nil),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodGet, "/files?limit=2&cursor=x", admin, nil),
+		http.StatusUnprocessableEntity, "query.cursor")
 }
 
 func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing.T) {
@@ -322,8 +322,8 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	if approved.status != http.StatusAccepted || !strings.Contains(approved.body, `"isScanning":true`) {
 		t.Errorf("POST removals = %d %s", approved.status, approved.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
-		map[string]string{"nodeName": "local", "path": "/other"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
+		map[string]string{"nodeName": "local", "path": "/other"}), http.StatusUnprocessableEntity, "body.path")
 	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
 		map[string]string{"nodeName": "local", "path": "/m/disk1"})
 	if gone.status != http.StatusAccepted {

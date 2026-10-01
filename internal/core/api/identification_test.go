@@ -70,8 +70,10 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 		!strings.Contains(confirmed.body, `"year":2002`) {
 		t.Errorf("after choosing: %s", confirmed.body)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/items/10/match", admin,
-		map[string]string{"provider": "tmdb", "providerId": "404"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/items/10/match", admin,
+		map[string]string{"provider": "tmdb", "providerId": "404"}), http.StatusUnprocessableEntity, "body.providerId")
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/items/10/match", admin,
+		map[string]string{"provider": "imdb", "providerId": "2"}), http.StatusUnprocessableEntity, "body.provider")
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"}), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=maybe", admin, nil),
@@ -87,8 +89,8 @@ func TestIdentification_OverridesAreSetAndRemoved(t *testing.T) {
 	if set.status != http.StatusNoContent {
 		t.Fatalf("PUT an override = %d %s", set.status, set.body)
 	}
-	wantError(t, harness.do(t, http.MethodPut, "/items/10/overrides/year", admin, map[string]string{"value": "soon"}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	soon := harness.do(t, http.MethodPut, "/items/10/overrides/year", admin, map[string]string{"value": "soon"})
+	wantInvalidAt(t, soon, http.StatusUnprocessableEntity, "body.value")
 	if removed := harness.do(t, http.MethodDelete, "/items/10/overrides/year", admin, nil); removed.status !=
 		http.StatusNoContent {
 		t.Errorf("DELETE the override = %d %s", removed.status, removed.body)

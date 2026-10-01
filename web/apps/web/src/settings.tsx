@@ -5,7 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -128,6 +128,8 @@ export function SecretsView(props: {
 /** One setting: its value, edited by its kind, and a way back to its starting value. */
 function SettingRow(props: {
   readonly setting: Setting;
+  /** Why the server refused this setting's last change, beside it; "" when it did not. */
+  readonly problem: string;
   readonly onSave: (value: string | number | boolean) => void;
   readonly onReset: () => void;
 }): JSX.Element {
@@ -174,13 +176,16 @@ function SettingRow(props: {
           </button>
         </>
       ) : null}
+      {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
     </form>
   );
 }
 
-/** Every server setting, beside its starting value (D200). */
+/** Every server setting, beside its starting value (D200), and a refusal beside its setting. */
 export function SettingsView(props: {
   readonly settings: readonly Setting[];
+  /** Why the server refused a setting's last change, by key. */
+  readonly problems: ReadonlyMap<string, string>;
   readonly onSave: (key: string, value: string | number | boolean) => void;
   readonly onReset: (key: string) => void;
 }): JSX.Element {
@@ -192,6 +197,7 @@ export function SettingsView(props: {
         <SettingRow
           key={`${setting.key}/${settingText(setting.value)}`}
           setting={setting}
+          problem={props.problems.get(setting.key) ?? ""}
           onSave={(value) => {
             props.onSave(setting.key, value);
           }}
@@ -271,47 +277,51 @@ function Secrets(): JSX.Element {
   );
 }
 
-/** The server's settings, loaded, with saving and resetting. */
+/** The server's settings, loaded, with saving and resetting; a refusal is shown beside its setting. */
 function ServerSettings(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [problem, setProblem] = useState("");
+  const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [settings, reload] = useResource("config", async () => {
     const configBody = dataOrThrow(await api.GET("/config"));
     return configBody.settings ?? [];
   });
-  /** Shows a change's refusal, if any, then loads the settings again. */
-  const showRefusalAndReload = (request: Promise<RefusableAnswer>): void => {
+  /** Shows a change's refusal beside its setting, or clears it, then loads the settings again. */
+  const showRefusalAndReload = (key: string, request: Promise<RefusableAnswer>): void => {
+    const showProblem = (text: string): void => {
+      setProblems((previous) => new Map(previous).set(key, text));
+      reload();
+    };
     request.then(throwIfRefused).then(
       () => {
-        setProblem("");
-        reload();
+        showProblem("");
       },
       (cause: unknown) => {
-        setProblem(problemText(t, cause));
-        reload();
+        showProblem(fieldProblemText(t, cause, { fields: { [`body.valuesByKey.${key}`]: key } }));
       },
     );
   };
   return (
-    <>
-      {problem === "" ? null : <p role="alert">{problem}</p>}
-      <Loaded
-        resource={settings}
-        render={(loadedSettings) => (
-          <SettingsView
-            settings={loadedSettings}
-            onSave={(key, newValue) => {
-              showRefusalAndReload(
-                api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
-              );
-            }}
-            onReset={(key) => {
-              showRefusalAndReload(api.POST("/config/{key}/reset", { params: { path: { key } } }));
-            }}
-          />
-        )}
-      />
-    </>
+    <Loaded
+      resource={settings}
+      render={(loadedSettings) => (
+        <SettingsView
+          settings={loadedSettings}
+          problems={problems}
+          onSave={(key, newValue) => {
+            showRefusalAndReload(
+              key,
+              api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
+            );
+          }}
+          onReset={(key) => {
+            showRefusalAndReload(
+              key,
+              api.POST("/config/{key}/reset", { params: { path: { key } } }),
+            );
+          }}
+        />
+      )}
+    />
   );
 }

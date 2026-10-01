@@ -48,6 +48,7 @@ describe("settings", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <SettingsView
+          problems={new Map()}
           onSave={ignore}
           onReset={ignore}
           settings={[

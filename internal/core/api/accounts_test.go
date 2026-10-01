@@ -209,8 +209,8 @@ func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
 	if got := waiting(); !strings.Contains(got, `"isWaiting":true,"deviceName":"TV"`) {
 		t.Errorf("with a code made: %s", got)
 	}
-	wantError(t, harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{}),
-		http.StatusBadRequest, CodeInvalidRequest)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{}),
+		http.StatusBadRequest, "body")
 	forListed := harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{"deviceId": 1})
 	var code IssuedSecretBody
 	if err := json.Unmarshal([]byte(forListed.body), &code); err != nil || code.Secret == "" {

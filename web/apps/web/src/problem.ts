@@ -49,8 +49,8 @@ export interface FormWords {
 
 /**
  * What to tell a person when the server refused what was entered (invalid_request), naming the
- * fields in the form's own words. When a problem is somewhere the form has no label for, or the
- * server does not say where, the words are problemText's, as for any other failure.
+ * fields in the form's own words. When a problem is somewhere the form has no label for, the body
+ * as a whole included, the words are problemText's, as for any other failure.
  */
 export function fieldProblemText(t: TFunction, cause: unknown, words: FormWords): string {
   if (cause instanceof ApiProblem) {
@@ -66,11 +66,8 @@ export function fieldProblemText(t: TFunction, cause: unknown, words: FormWords)
 /** The label of the field a problem's location is in, or undefined where the form has none. */
 function fieldLabel(
   fields: Readonly<Record<string, string>>,
-  location: string | undefined,
+  location: string,
 ): string | undefined {
-  if (location === undefined) {
-    return undefined;
-  }
   const found = Object.entries(fields).find(
     ([path]) =>
       location === path || location.startsWith(`${path}[`) || location.startsWith(`${path}.`),

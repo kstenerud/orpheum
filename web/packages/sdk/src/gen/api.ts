@@ -1921,8 +1921,8 @@ export interface components {
             spans: components["schemas"]["SpanBody"][] | null;
         };
         RequestProblemBody: {
-            /** @description Where it is, such as body.name; absent when the request as a whole is wrong */
-            location?: string;
+            /** @description Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong */
+            location: string;
             message: string;
         };
         RescanOutputBody: {

@@ -140,7 +140,7 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 		return nil, err
 	}
 	if input.Body.Name == nil && input.Body.AudioOutput == nil {
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
+		return nil, invalidRequestAt(http.StatusBadRequest, "body",
 			"a change names a new name or how the device makes sound")
 	}
 	if name := input.Body.Name; name != nil {

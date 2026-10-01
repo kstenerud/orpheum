@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -207,6 +208,44 @@ func wantError(t *testing.T, got response, status int, code Code) {
 	if problem.Code != code || problem.Message == "" {
 		t.Errorf("error = %+v, want code %s with a message", problem, code)
 	}
+	if code == CodeInvalidRequest {
+		for _, location := range problemLocations(t, got) {
+			if location == "" {
+				t.Errorf("an invalid_request names no location, so no form can say which field: %s", got.body)
+			}
+		}
+	}
+}
+
+// problemLocations are where an invalid_request's problems are, one per problem; it fails a
+// refusal that names none.
+func problemLocations(t *testing.T, got response) []string {
+	t.Helper()
+	var body struct {
+		Error struct {
+			Detail InvalidRequestDetailBody `json:"detail"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(got.body), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Error.Detail.Problems) == 0 {
+		t.Errorf("an invalid_request lists no problems: %s", got.body)
+	}
+	locations := make([]string, 0, len(body.Error.Detail.Problems))
+	for _, problem := range body.Error.Detail.Problems {
+		locations = append(locations, problem.Location)
+	}
+	return locations
+}
+
+// wantInvalidAt asserts an invalid_request with a problem at location, the field a form names.
+func wantInvalidAt(t *testing.T, got response, status int, location string) {
+	t.Helper()
+	wantError(t, got, status, CodeInvalidRequest)
+	if locations := problemLocations(t, got); !slices.Contains(locations, location) {
+		t.Errorf("the refusal's problems are at %v, want one at %s: %s", locations, location, got.body)
+	}
 }
 
 // decodedProblem is a ProblemBody as a client reads it, its detail left as JSON.
@@ -339,12 +378,12 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	user := harness.signIn(t, "partner", "partner-password")
 	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, CodeForbidden)
 
-	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
+	wantInvalidAt(t, harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": "yes"}}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
-	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
+		http.StatusUnprocessableEntity, "body.valuesByKey.should_check_for_updates")
+	wantInvalidAt(t, harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 3}}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, "body.valuesByKey.signin_failure_limit")
 	page := harness.do(t, http.MethodGet, "/settings", admin, nil)
 	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "should_check_for_updates") {
 		t.Errorf("GET /settings shows a setting it should not, or misses one it should: %s", page.body)
@@ -440,9 +479,9 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 		`"isModified":true`) {
 		t.Errorf("PUT /config = %d %s", changed.status, changed.body)
 	}
-	wantError(t, harness.do(t, http.MethodPut, "/config", admin,
+	wantInvalidAt(t, harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 0}}),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+		http.StatusUnprocessableEntity, "body.valuesByKey.signin_failure_limit")
 	reset := harness.do(t, http.MethodPost, "/config/signin_failure_limit/reset", admin, nil)
 	if reset.status != http.StatusOK || !strings.Contains(reset.body,
 		`"value":5,"startingValue":5,"isModified":false`) {

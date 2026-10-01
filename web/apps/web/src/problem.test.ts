@@ -8,16 +8,12 @@ import { ApiProblem, fieldProblemText, problemText } from "./problem.ts";
 const t = i18n.t.bind(i18n);
 
 /** An invalid_request refusal with a problem at each location. */
-function refusedAt(...locations: (string | undefined)[]): ApiProblem {
+function refusedAt(...locations: string[]): ApiProblem {
   return new ApiProblem({
     code: "invalid_request",
     message: "validation failed",
     detail: {
-      problems: locations.map((location) =>
-        location === undefined
-          ? { message: "expected an object" }
-          : { location, message: "expected array length >= 1" },
-      ),
+      problems: locations.map((location) => ({ location, message: "expected array length >= 1" })),
     },
   });
 }
@@ -48,7 +44,7 @@ describe("fieldProblemText", () => {
   it("falls back to the general words when a problem is not somewhere the form labels", () => {
     const general = problemText(t, refusedAt("body.name"));
     expect(fieldProblemText(t, refusedAt("body.name", "body.kind"), { fields })).toBe(general);
-    expect(fieldProblemText(t, refusedAt(undefined), { fields })).toBe(general);
+    expect(fieldProblemText(t, refusedAt("body"), { fields })).toBe(general);
     expect(fieldProblemText(t, refusedAt(), { fields })).toBe(general);
   });
 

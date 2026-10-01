@@ -225,7 +225,7 @@ func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInpu
 		userID = input.Body.UserID
 	}
 	if (input.Body.DeviceName == "") == (input.Body.DeviceID == 0) {
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
+		return nil, invalidRequestAt(http.StatusBadRequest, "body",
 			"a code is for a new device, named, or a listed one")
 	}
 	deviceCode, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
