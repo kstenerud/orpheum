@@ -66,8 +66,10 @@
 //
 // # Where to change
 //
-//   - service.go: hello and enrolment, each node's connection, sending it work, and each
-//     connected node's roots as its hello named them;
+//   - service.go: the service, its parts and its paths; enrol.go: hello, enrolment and retiring a
+//     node; connection.go: whether each node is connected and when it was last heard; send.go:
+//     sending a node work, and what a wait for it that ran out means; facts.go: what each node
+//     last said about itself — its roots, slots, hardware and status;
 //     channel.go: commands, the report and the nodes' results; supervisor.go: the child; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: a job asking a
 //     node for work and waiting for its results, and the cancel it sends.
