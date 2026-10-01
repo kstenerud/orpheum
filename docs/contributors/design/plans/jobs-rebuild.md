@@ -267,35 +267,115 @@ D231 §3, §4, §7, §9; F1.
 - The retire's steps owned by other packages (hiding titles, removing the node) are separate
   transactions from the library's: a failure between them is finished by retrying the action.
 
-## Phase 4 — the link to the node
+## Phase 4 — the core drives the node
 
-D233 §2, §3, §4, §7, §9.
+> **A proposed re-cut, for the owner's review (2026-10-01).** Phase 4 was planned on D233 before
+> D234 revised it, D235 put core and node in separate containers, and D236 added the scan's
+> display. Nothing below is built until the owner accepts it; the questions at the end are theirs.
 
-- The node as its own service (`orpheum-node`), the core watching only that it lives.
-- Results in an outbox on the node's disk, acknowledged as the report stream is; results known by
-  what they are, attempt tokens, an id for the core's run; the core ignores duplicates and keeps a
-  still-valid late result.
-- "Awaiting hello" after a core restart; reconciliation at hello (running, finished-unacked,
-  renditions on disk; the core adopts, re-queues or parks, rebuilds its rendition index from the
-  inventory, and says what to stop); commands of ended jobs never sent; a dropped session no longer
-  cancels node work.
-- Per-node slots in claiming; a play-now prepare pauses background reads on its node; play-driven
-  work carries "wanted until".
-- A protocol number in the hello; an incompatible node parked; an unknown command refused.
-- Once tests have a bounded receive (the clock's timers, 4.0), a lint refuses a bare receive from
-  a channel in a test outside that helper, so a wait cannot hang a run (audit-2026-09-30 §5.3;
-  the owner, 2026-10-01: "Yes, all three").
-- A scan as a job shows itself on the library screen (D236 §2): *"Scanning… N files found so
-  far"* beside the root, from its pushed progress. A scan asked for while one runs schedules one
-  rescan after it rather than another scan (D236 §3, D38); the button says so.
-- Removes the negative ids of conversions done while a person waits (O2 replaces them).
-- A handler that fails after its command reached the node (a prepare whose cache write fails
-  after the send) leaves the node working on a job that will be retried: the core tells the node
-  to stop, or reconciliation at the next hello finds it. Suspected cause of the intermittent hang
-  in `TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain` under a
-  loaded `make check` (2026-09-30); the test's wait is now bounded and prints the queue's jobs, so
-  the next occurrence says which.
-- Closes G4, G5, G8, G13, S26–S28, S72, S79–S85, S87–S91.
+D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and §6; D236 §2 and §3.
+
+**What D234 settled of the readiness audit's open questions** ([audit-2026-09-30](../research/audit-2026-09-30.md) §2):
+
+| Audit question | Settled by |
+| --- | --- |
+| 1. A job on a node with nobody waiting for it | D234 §7: a job given to a node is a row in the *assigned* state, resolved by its outcome, a timeout, a cancel or parking, never a waiting goroutine |
+| 2. Awaiting hello | D234 §6: the core expects updates from a node with work; after a few intervals of silence it asks, and a node that does not answer is unreachable and its work parks (D231 §5). *How many intervals is question A below* |
+| 3. The outbox | D234 §3, §5: the node's journal (`node.db`) holds its jobs and their outcomes, each resent until acknowledged; §4: a node whose disk is full refuses new work. *Retention is question B* |
+| 4. The attempt token | D234 §3: every job, update and cancel names its attempt; the core deduplicates by result identity and attempt (§5) |
+| 5. The rendition inventory | Not settled: question D |
+| 6. A handler failing after its command reached the node | D234 §4, §6: both. The core cancels on every way out, and its reconciliation finds what a lost cancel left, reporting it as a broken invariant |
+| 7. The node as its own service | D235 §4: `orpheum-core` and `orpheum-node`, two services of one image, restarted by the runtime; D234 §4: a hung node is the service manager's. *The dev loop's shape is question F* |
+| 8. "Wanted until" | D234 §3: past it, the work falls to background priority, not cancelled. *How long is question C* |
+| 9. What a person sees | D231 §12's rule holds; the words for Phase 4's new waits are question E |
+
+**The steps.** Each ends with `make check-pr` green and the dev loop working, as every phase does.
+
+### 4.0 — preparation, no behaviour change
+
+- The clock's timers, and a bounded receive for tests; then a lint that refuses a bare receive
+  from a channel in a test outside that helper, so a wait cannot hang a run (audit-2026-09-30
+  §5.3; the owner, 2026-10-01: "Yes, all three").
+- One request/answer envelope and one `nodes` seam that the five round trips use today
+  (prepare, subtitle, loudness, artwork, scan), replacing a goroutine blocked on each answer.
+- `nodes/service.go` split along that seam.
+- The queue's *assigned* state, built and tested in `jobqueue`, not yet used.
+
+### 4a — the node stands alone
+
+- `orpheum-node` runs as its own process: the core no longer starts it as a child (D43 and D207's
+  start end, as D233 §2 and D235 §4 say), and the supervisor goes. Node work is tied to the node,
+  not to its session with the core, so a dropped connection cancels nothing.
+- The hello carries a protocol number; a node whose number the core cannot serve is parked with
+  that reason; an unknown request is refused explicitly (D233 §9).
+- Closes S89.
+
+### 4b — the journal and acknowledged outcomes
+
+- `node.db` on the node's own volume: its jobs by id and attempt, ordered within their
+  priorities; a job running when the node restarted is run again or reported interrupted.
+- Progress pushed while a job runs, throttled, newest superseding the rest; an outcome inline when
+  small, by reference when large (fetched from the byte socket and checked by hash), kept and
+  resent until acknowledged.
+- An answer is taken only from the node the job was sent to; the node's "changed since the scan"
+  refusal is retried, not answered with a rescan (S74); the negative ids of conversions done while
+  a person waits go (O2 replaces them).
+- A node whose disk is full refuses new work with its reason (D234 §4): its prepares wait and say
+  why, and work that writes elsewhere goes on (S28).
+- Closes G13, S28, S81, S83–S85.
+
+### 4c — the core reconciles
+
+- The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's
+  jobs and outcomes and squares them with its own model: adopt, re-issue or cancel, and tell the
+  node to drop what the core does not know. Each difference is logged and counted as a broken
+  invariant (D234 §6), never repaired silently.
+- The rendition index rebuilt from the node's inventory (question D); commands of ended jobs never
+  sent.
+- The intermittent hang in
+  `TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain`, a handler
+  failing after its command reached the node, is closed by the cancel on every way out.
+- Closes G4, G5, G8, S26, S27, S72, S82, S91.
+
+### 4d — windows, slots and priority
+
+- The core gives each node a window of work a little beyond its free slots and keeps global
+  priority; the node schedules within it (D234 §3), replacing `runnerPool`.
+- A play-now prepare pauses background reads on its node; play-driven work carries "wanted
+  until" and falls to background priority past it (question C).
+- Closes S87, S88.
+
+### 4e — a scan is a job
+
+- A scan's result is a record stream the core reads from an offset, which retires the report
+  stream (D234 §8).
+- Its pushed progress shows beside the root: *"Scanning… N files found so far"* (D236 §2); a
+  scan asked for while one runs schedules one rescan after it, and the button says *"Scan again
+  when this one ends"* (D236 §3, D38).
+- Last, because it moves the oldest path, the report stream, onto everything 4b–4d built.
+
+S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
+
+**Questions for the owner.** Each is what the system does; the numbers proposed are best guesses,
+and each would be a setting, read where it is used (D200):
+
+- **A. Silence.** How long a node with work may stay silent before the core asks what it is doing:
+  proposed three of its status intervals (`status_interval_seconds`, 10 s in the dev config).
+- **B. Retention.** How long the node keeps an outcome after the core acknowledged it: proposed a
+  week, bounded by the cache cleanup, oldest unacknowledged first under pressure (D234 §5).
+- **C. "Wanted until".** How long after the last person waiting stops a play-driven prepare keeps
+  its play priority: proposed ten minutes.
+- **D. The rendition inventory.** Rebuilding the core's index from the node needs a manifest beside
+  each rendition (its profile, the source's identity, the gains, the run that made it), which
+  nothing writes today. Proposed: the node writes one with each rendition, and reconciliation reads
+  them.
+- **E. What a person sees** for the new waits, in D231 §12's manner: a node on a version the core
+  cannot serve (*"The media machine needs updating"*), a node that has not answered since the
+  server restarted (*"Waiting for <node> to say what it is doing (since …)"*), and work waiting
+  for a free slot (*"Waiting for a free slot on <node>"*).
+- **F. The dev loop.** In the development image, core and node as two processes in the one
+  container that `./dev make dev` starts and restarts (proposed), or two containers as in
+  deployment.
 
 ## Phase 5 — the watchdog's second stage
 
