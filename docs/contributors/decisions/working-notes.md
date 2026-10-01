@@ -17404,5 +17404,12 @@ start), which D233 §2 and D234 already ended.
 7. **Mac and Windows are deferred.** Both can run the development image through a desktop container
    runtime or WSL2, without Quick Sync; a native node there would be unconfined until its own
    confinement is designed.
+8. **Settled in building it** (2026-10-01, the owner: *"agreed"*). The dev loop's templates moved
+   from `dev/` to `deploy/dev/`, so the name `./dev` is the launcher's alone. The git pre-commit
+   hook and the Stop hook run the gate where the tools are: directly inside the development image
+   (it sets `ORPHEUM_IN_DEV_IMAGE=1`) or on a host with Go and Node on its PATH, through `./dev`
+   otherwise, and fail saying how to fix the machine when neither works; the choice is made once,
+   in `scripts/run_gate.py`. Go is pinned exactly by go.mod's `toolchain` line, which the image
+   reads rather than keeping a copy of.
 
 **Status:** Decided 2026-09-30.
