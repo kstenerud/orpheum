@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // silentAfter is node_silent_after_seconds' starting value, which the tests' settings keep.
@@ -58,7 +59,7 @@ func TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwis
 	if !harness.service.IsConnected(ctx, reply.NodeID) {
 		t.Error("a node with a long-poll open is not connected")
 	}
-	<-polled
+	testutil.Receive(t, polled, "the long-poll to end")
 	harness.clock.Advance(silentAfter)
 	if harness.service.IsConnected(ctx, reply.NodeID) {
 		t.Error("the node is still connected node_silent_after_seconds after its poll ended")

@@ -5,7 +5,8 @@
 // capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory and RequireMKVToolNix find the
 // pinned tools that way. It installs the fake ffmpeg and ffprobe (testing.md §11), and runs the
 // MKVToolNix that tests edit Matroska files with, which the node never runs. It generates media
-// with the pinned FFmpeg: test images and the M2 acceptance's 200-file fixture tree.
+// with the pinned FFmpeg: test images and the M2 acceptance's 200-file fixture tree. Receive is a
+// test's bounded wait on a channel.
 //
 // # Invariants
 //
@@ -37,4 +38,6 @@
 //     EBUR128Summary is the loudness log the fake writes where a test needs FFmpeg to have
 //     measured something.
 //   - self.go: RunSelf, which runs the test binary again as a process of its own.
+//   - receive.go: Receive, the one way a test waits on a channel: bounded by ReceiveLimit, and
+//     failing with what it waited for and every goroutine's stack, so a wait cannot hang a run.
 package testutil

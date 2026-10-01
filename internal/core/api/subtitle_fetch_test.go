@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakeSubtitler is OpenSubtitles: it records what it was asked, offers one subtitle made for the
@@ -348,7 +349,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 		t.Fatalf("the node was sent %+v, want the fetched text to convert (D224 §5)", command)
 	}
 	playback.TakeSubtitleText(t.Context(), 1, nodeproto.SubtitleText{JobID: 95, VTT: []byte("WEBVTT\n\nHallo")})
-	if err := <-finished; err != nil {
+	if err := testutil.Receive(t, finished, "the conversion job to end"); err != nil {
 		t.Fatalf("the conversion ended %v, want done", err)
 	}
 }

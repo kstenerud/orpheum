@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakeProcess is a node child the test ends by hand.
@@ -137,7 +138,9 @@ func supervise(t *testing.T) *supervised {
 	go func() { harness.finished <- supervisor.Run(ctx, harness.tick) }()
 	t.Cleanup(func() {
 		cancel()
-		<-harness.finished
+		if err := testutil.Receive(t, harness.finished, "the supervisor to stop"); err != nil {
+			t.Errorf("the supervisor stopped with %v", err)
+		}
 	})
 	return harness
 }
@@ -210,7 +213,7 @@ func TestSupervisor_ACouldNotStartIsTriedAgainAndStoppingKillsTheNode(t *testing
 			len(harness.startedProcesses()), harness.log.String())
 	}
 	harness.stop()
-	if err := <-harness.finished; err != nil {
+	if err := testutil.Receive(t, harness.finished, "the supervisor to stop"); err != nil {
 		t.Errorf("Run returned %v", err)
 	}
 	harness.finished <- nil // for the cleanup

@@ -332,10 +332,14 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 	release := make(chan struct{})
 	never := make(chan time.Time)
 	for range runners {
-		runner := jobs.queue.NewRunner(KindPrepare, func(_ context.Context, job Job) error {
+		runner := jobs.queue.NewRunner(KindPrepare, func(ctx context.Context, job Job) error {
 			started <- job.RenditionID
-			<-release
-			return nil
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		})
 		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
 	}

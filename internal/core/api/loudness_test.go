@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // shelveAudioStreams gives the shelved films the audio streams a scan records: the MP4's stereo
@@ -38,7 +39,8 @@ func (harness testHarness) measureWith(
 	command := harness.nextCommand(t)
 	answer.JobID = jobID
 	service.TakeLoudness(t.Context(), 1, answer)
-	return command.MeasureLoudness, <-finished
+	//nolint:wrapcheck // the job's own error, which the test reads as it is
+	return command.MeasureLoudness, testutil.Receive(t, finished, "the measurement job to end")
 }
 
 // filesToMeasure is what a sweep would find to measure now.
@@ -128,7 +130,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	service := harness.server.dependencies.Load().Playback
 	done := nodeproto.PrepareReport{JobID: 92, State: nodeproto.PrepareDone, SizeBytes: 1}
 	service.TakePrepareReport(t.Context(), 1, done)
-	if err := <-prepared; err != nil {
+	if err := testutil.Receive(t, prepared, "the prepare job to end"); err != nil {
 		t.Fatal(err)
 	}
 	again := harness.play(t, user, chrome(2))
@@ -180,7 +182,7 @@ func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.
 	refusal := "the disk has no room"
 	answer := nodeproto.LoudnessResult{JobID: command.MeasureLoudness.JobID, Refusal: refusal}
 	playback.TakeLoudness(t.Context(), 1, answer)
-	if err := <-ran; err != nil {
+	if err := testutil.Receive(t, ran, "the measurement runner to end"); err != nil {
 		t.Fatal(err)
 	}
 	job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness)
