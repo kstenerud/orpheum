@@ -26,9 +26,12 @@ func (service *Service) DismissOfflineReminder(ctx context.Context, userID int64
 }
 
 // IsOfflineReminderDue is whether an admin is reminded, now, of what is offline: never dismissed,
-// or dismissed hiddenFor or longer ago (D231 §7). Whether anything is offline is the caller's to
-// know.
-func (service *Service) IsOfflineReminderDue(ctx context.Context, userID int64, hiddenFor time.Duration) (bool, error) {
+// dismissed hiddenFor or longer ago, or dismissed before newestOfflineSince, when the latest of what
+// is offline went missing: a dismissal hides what the admin saw, not what went missing after it
+// (D231 §7, settled 2026-10-01). Whether anything is offline is the caller's to know.
+func (service *Service) IsOfflineReminderDue(
+	ctx context.Context, userID int64, hiddenFor time.Duration, newestOfflineSince time.Time,
+) (bool, error) {
 	kept, err := service.database.Read().ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
@@ -43,7 +46,8 @@ func (service *Service) IsOfflineReminderDue(ctx context.Context, userID int64, 
 		if parseErr != nil {
 			return false, fmt.Errorf("read user %d's dismissal of the offline reminder: %w", userID, parseErr)
 		}
-		return !service.clock.Now().Before(time.UnixMilli(dismissedAtMs).Add(hiddenFor)), nil
+		dismissedAt := time.UnixMilli(dismissedAtMs)
+		return newestOfflineSince.After(dismissedAt) || !service.clock.Now().Before(dismissedAt.Add(hiddenFor)), nil
 	}
 	return true, nil
 }

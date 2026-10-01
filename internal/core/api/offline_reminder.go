@@ -16,7 +16,7 @@ import (
 type OfflineReminderOutput struct {
 	Body struct {
 		// IsShown is whether the admin is reminded now: something is offline, and they have not
-		// dismissed the reminder within the interval.
+		// dismissed the reminder within the interval, or something went offline since they did.
 		IsShown bool `json:"isShown"`
 		// RootCount and DiskCount are how many library folders, and disks mounted inside one, are
 		// offline, as the System page lists them.
@@ -64,11 +64,18 @@ func (server *Server) getOfflineReminder(
 		}
 	}
 	output.Body.Since = offline[0].Since.UnixMilli() // the longest offline comes first
+	newestSince := offline[0].Since
+	for _, missing := range offline {
+		if missing.Since.After(newestSince) {
+			newestSince = missing.Since
+		}
+	}
 	hiddenFor, err := dependencies.Settings.Duration(ctx, settings.OfflineReminderIntervalDays)
 	if err != nil {
 		return nil, server.settingsError(ctx, "read offline_reminder_interval_days", err)
 	}
-	output.Body.IsShown, err = dependencies.Preferences.IsOfflineReminderDue(ctx, principal.UserID, hiddenFor)
+	output.Body.IsShown, err = dependencies.Preferences.IsOfflineReminderDue(ctx, principal.UserID, hiddenFor,
+		newestSince)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "read whether the offline reminder was dismissed", err)
 	}
