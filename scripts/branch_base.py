@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-# ABOUTME: Resolves the base the branch gates (`make check-pr`) compare against: the BASE given,
-# ABOUTME: or the commit the owner last took (refs/orpheum/applied), or origin/main. It prints the
-# ABOUTME: base and how far back it is, and refuses an implicit base too far back to mean anything.
+# ABOUTME: Resolves the base the branch gates (`make check-pr`) compare against: the BASE given, or
+# ABOUTME: the newest of what check-pr last passed through, what the owner last took, and
+# ABOUTME: origin/main. It prints the base and refuses an implicit base too far back to mean anything.
 """Which commit the branch gates compare the work against.
 
 The branch gates ask what the work since a base changed: revert-red reverts each changed file,
@@ -16,6 +16,13 @@ owner takes commits out with `yoloai apply`, which moves nothing in the sandbox.
 marks what was taken, `make mark-applied` (or `REV=<commit>` for an earlier one), which sets
 `refs/orpheum/applied`, and the gates compare against that. Without the ref they fall back to
 origin/main.
+
+A passing check-pr records the commit it checked as `refs/orpheum/checked`, so the next run starts
+where the last one ended, and a batch of work is gated once without anyone marking anything: the
+owner, outside the sandbox, could not run `make mark-applied` easily (2026-10-01). The implicit
+base is the newest of the two marks and origin/main that HEAD descends from. A run moves the
+checked mark only when its base was no newer than that implicit base, so a run named to start
+later cannot mark the commits it skipped as checked.
 
 An implicit base more than MAX_IMPLICIT_COMMITS behind HEAD is refused: the mark was probably not
 moved after an apply. 150 is a little more than the busiest day's commits in this repository so
@@ -32,6 +39,7 @@ import subprocess
 import sys
 
 APPLIED_REF = "refs/orpheum/applied"
+CHECKED_REF = "refs/orpheum/checked"
 FALLBACK_REF = "origin/main"
 MAX_IMPLICIT_COMMITS = 150
 
@@ -54,31 +62,57 @@ def commits_between(base: str, head: str) -> int:
     return int(_git("rev-list", "--count", f"{base}..{head}").stdout.strip() or "0")
 
 
+def is_ancestor(older: str, newer: str) -> bool:
+    return _git("merge-base", "--is-ancestor", older, newer).returncode == 0
+
+
+def implicit(head: str = "HEAD") -> tuple[str, str, int] | None:
+    """(the ref, its commit, the commits from it to head) of the newest of the checked mark, the
+    owner's mark and origin/main that head descends from, or None."""
+    found = []
+    for ref in (CHECKED_REF, APPLIED_REF, FALLBACK_REF):
+        sha = commit_of(ref)
+        if sha is not None and is_ancestor(sha, head):
+            found.append((ref, sha, commits_between(sha, head)))
+    return min(found, key=lambda candidate: candidate[2]) if found else None
+
+
 def resolve(explicit: str | None, head: str = "HEAD",
             limit: int = MAX_IMPLICIT_COMMITS) -> tuple[str, str, int]:
     """(the ref used, its commit, the commits from it to head). An explicit ref is used as
-    given; otherwise the owner's mark, then origin/main, and an implicit one past `limit`
-    commits is refused."""
+    given; otherwise the newest mark (implicit), and one past `limit` commits is refused."""
     if explicit:
         sha = commit_of(explicit)
         if sha is None:
             raise BaseError(f"BASE={explicit} is not a commit this repository can resolve")
         return explicit, sha, commits_between(sha, head)
-    for ref in (APPLIED_REF, FALLBACK_REF):
-        sha = commit_of(ref)
-        if sha is None:
-            continue
-        count = commits_between(sha, head)
-        if count > limit:
-            raise BaseError(
-                f"the implicit base {ref} ({sha[:12]}) is {count} commits behind {head}, more than "
-                f"{limit}.\nThe gates would report work the owner already took as this branch's, "
-                "mostly as added files, which they cannot check.\nAfter `yoloai apply`, mark what "
-                "was taken with `make mark-applied` (REV=<commit> for an earlier one), or name "
-                "the base: `make check-pr BASE=<commit>`.")
-        return ref, sha, count
-    raise BaseError(f"neither {APPLIED_REF} nor {FALLBACK_REF} exists: name the base, "
-                    "`make check-pr BASE=<commit>`, or mark it with `make mark-applied`")
+    newest = implicit(head)
+    if newest is None:
+        raise BaseError(f"none of {CHECKED_REF}, {APPLIED_REF} or {FALLBACK_REF} is behind {head}: name "
+                        "the base, `make check-pr BASE=<commit>`, or mark it with `make mark-applied`")
+    ref, sha, count = newest
+    if count > limit:
+        raise BaseError(
+            f"the implicit base {ref} ({sha[:12]}) is {count} commits behind {head}, more than "
+            f"{limit}.\nThe gates would report work already checked or taken as this branch's, "
+            "mostly as added files, which they cannot check.\nName the base: "
+            "`make check-pr BASE=<commit>`; a pass then marks where it ended.")
+    return ref, sha, count
+
+
+def mark_checked(head: str, base: str) -> str | None:
+    """Records head as checked after check-pr passed from base, and returns its commit; None, and
+    nothing recorded, when base is newer than the implicit base (the run skipped commits)."""
+    head_sha = commit_of(head)
+    if head_sha is None:
+        raise BaseError(f"{head} is not a commit this repository can resolve")
+    newest = implicit(head_sha)
+    if newest is not None and not is_ancestor(base, newest[1]):
+        return None
+    done = _git("update-ref", "-m", "orpheum: check-pr passed up to here", CHECKED_REF, head_sha)
+    if done.returncode != 0:
+        raise BaseError(f"could not set {CHECKED_REF}: {done.stderr.strip()}")
+    return head_sha
 
 
 def mark(rev: str) -> str:
@@ -94,11 +128,21 @@ def mark(rev: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base", default="", help="the base to use as given (default: the owner's mark, then origin/main)")
+    ap.add_argument("--base", default="", help="the base to use as given (default: the newest of the checked mark, the owner's mark and origin/main)")
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--mark", metavar="REV", help=f"set {APPLIED_REF} to REV and exit")
+    ap.add_argument("--checked", metavar="REV", help=f"after a pass from --base, set {CHECKED_REF} to REV")
     args = ap.parse_args()
     try:
+        if args.checked:
+            sha = mark_checked(args.checked, args.base)
+            if sha is None:
+                print(f"branch base: {args.base[:12]} is newer than what was checked; {CHECKED_REF} stays",
+                      file=sys.stderr)
+            else:
+                print(f"branch base: {CHECKED_REF} is now {sha[:12]}; the next check-pr starts there",
+                      file=sys.stderr)
+            return 0
         if args.mark:
             sha = mark(args.mark)
             print(f"mark-applied: {APPLIED_REF} is now {sha[:12]}; the branch gates compare against it")

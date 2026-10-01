@@ -36,7 +36,8 @@ headline fix has one" — the second change in a commit is the one that escapes.
   word, not passed silently.
 
 **Enforced by:** `scripts/check_revert_red.py`, run by `make check-pr` against a base revision
-(the commit the owner last took, marked with `make mark-applied`). For each source file a
+(where the last passing `check-pr` ended, which it marks itself, or the commit the owner last took,
+marked with `make mark-applied`, whichever is newer). For each source file a
 behaviour commit changes (Go, Python, web TypeScript and CSS, a migration step with its checksum
 line and golden), it restores the old file in a throwaway worktree and requires a test to fail,
 and it accepts a `Verified-By:` trailer only for a ticked item. Every other file a behaviour

@@ -23,9 +23,17 @@ from pathlib import Path
 TESTS = Path("scripts/tests")
 
 
+# Run from a git hook, the environment names the repository being committed to, and a test's own
+# `git init` in a scratch directory then reinitialised that repository instead: it set core.bare
+# on this one (2026-10-01). No test may inherit them.
+HOOK_GIT_VARIABLES = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX",
+                      "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES")
+
+
 def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
+    env = {name: value for name, value in os.environ.items() if name not in HOOK_GIT_VARIABLES}
     done = subprocess.run([sys.executable, "-m", "unittest", "-q", str(module)], capture_output=True,
-                          text=True, check=False)
+                          text=True, check=False, env=env)
     return module, done
 
 
