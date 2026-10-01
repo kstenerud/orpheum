@@ -70,7 +70,7 @@ const setting = {
 
 /** The hours a new library checked on an interval starts at, which the create form reads. */
 const libraryCheck = {
-  key: "library_check_every_hours",
+  key: "new_library_scan_every_hours",
   kind: "integer",
   description: "hours between checks",
   value: 24,
@@ -173,7 +173,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
             message: "a note for developers",
             detail: {
               problems: [
-                { location: "body.valuesByKey.library_check_every_hours", message: "too big" },
+                { location: "body.valuesByKey.new_library_scan_every_hours", message: "too big" },
               ],
             },
           },
@@ -181,14 +181,14 @@ describe("a refused setting is named beside it, in the form's words", () => {
       ],
     });
     mounted = await mount(withServices(<Settings />, services));
-    const form = 'form[aria-labelledby="setting-library_check_every_hours"]';
+    const form = 'form[aria-labelledby="setting-new_library_scan_every_hours"]';
     await submit(mounted.container.querySelector(form));
     expect(mounted.container.querySelector(`${form} [role="alert"]`)?.textContent).toBe(
-      "The server did not accept what was entered in library_check_every_hours. Correct what is there and try again.",
+      "The server did not accept what was entered in new_library_scan_every_hours. Correct what is there and try again.",
     );
     const other = 'form[aria-labelledby="setting-should_scan_on_node_hello"] [role="alert"]';
     expect(mounted.container.querySelector(other)).toBeNull();
-    expectSays("library_check_every_hours. Correct what is there");
+    expectSays("new_library_scan_every_hours. Correct what is there");
   });
 });
 

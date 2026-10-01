@@ -34,12 +34,12 @@ type Setting = components["schemas"]["SettingBody"];
 
 /**
  * The hours between checks a new library checked on an interval starts with: the server's
- * library_check_every_hours, so the form holds no default of its own (D200).
+ * new_library_scan_every_hours, so the form holds no default of its own (D200).
  */
 export function checkEveryHoursToStart(settings: readonly Setting[]): number {
-  const value = settings.find((setting) => setting.key === "library_check_every_hours")?.value;
+  const value = settings.find((setting) => setting.key === "new_library_scan_every_hours")?.value;
   if (typeof value !== "number") {
-    throw new Error("the server did not say library_check_every_hours");
+    throw new Error("the server did not say new_library_scan_every_hours");
   }
   return value;
 }
@@ -276,7 +276,7 @@ function WritableChoice(props: {
 export function CreateLibraryForm(props: {
   readonly draft: NewLibrary;
   readonly nodes: readonly LibraryNode[];
-  /** The server's library_check_every_hours, which an interval starts at. */
+  /** The server's new_library_scan_every_hours, which an interval starts at. */
   readonly checkEveryHoursToStart: number;
   readonly problem: string;
   readonly onDraftChange: (draft: NewLibrary) => void;

@@ -118,8 +118,8 @@ type RetireNodeInput struct {
 // RetiredOutput says what a retire took out of the library (D231 §7).
 type RetiredOutput struct {
 	Body struct {
-		// RemovedFileCount is how many live files became tombstones, their history kept.
-		RemovedFileCount int `json:"removedFileCount"`
+		// TombstonedFileCount is how many live files became tombstones, their history kept.
+		TombstonedFileCount int `json:"tombstonedFileCount"`
 		// CancelledJobCount is how many queued, waiting or running jobs of theirs were cancelled.
 		CancelledJobCount int `json:"cancelledJobCount"`
 	}
@@ -127,7 +127,7 @@ type RetiredOutput struct {
 
 func retiredOutput(retired library.Retired) *RetiredOutput {
 	output := &RetiredOutput{}
-	output.Body.RemovedFileCount, output.Body.CancelledJobCount = retired.RemovedFileCount, retired.CancelledJobCount
+	output.Body.TombstonedFileCount, output.Body.CancelledJobCount = retired.TombstonedFileCount, retired.CancelledJobCount
 	return output
 }
 
