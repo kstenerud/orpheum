@@ -174,6 +174,38 @@ class TrailersTiedToCommits(unittest.TestCase):
         self.assertEqual(status, 1, out)
         self.assertIn("test 'TestB' was removed", out)
 
+    def test_a_rename_that_reaches_into_the_body_holds_only_as_a_claim_that_checks_out(self):
+        """Renaming a setting renamed the test naming it, body and all (2026-10-01)."""
+        repo = Repo({self.TEST: self.TWO})
+        base = repo.commit("chore: base")
+        renamed = self.TWO.replace('TestB(t *testing.T) { t.Error("b") }',
+                                   'TestB_NewKey(t *testing.T) { t.Error("new key") }')
+        repo.commit("test(a): rename", {self.TEST: renamed})
+        status, out = self.run_gate(repo, base)
+        self.assertEqual(status, 1, out)
+        self.assertIn("test 'TestB' was removed", out)
+        claim = f'Test-Renamed: {self.TEST}: "TestB" -> "TestB_NewKey"'
+        repo.commit(f"chore: say so\n\n{claim}", {"notes.txt": "the claim names its file\n"})
+        status, out = self.run_gate(repo, base)
+        self.assertEqual(status, 0, out)
+        self.assertIn("test 'TestB' is now 'TestB_NewKey' (Test-Renamed), its checks kept", out)
+
+    def test_a_rename_claim_that_does_not_hold_is_listed(self):
+        repo = Repo({self.TEST: self.TWO})
+        base = repo.commit("chore: base")
+        weaker = self.TWO.replace('TestB(t *testing.T) { t.Error("b") }', "TestB_NewKey(t *testing.T) { }")
+        repo.commit(f'test(a): rename\n\nTest-Renamed: {self.TEST}: "TestB" -> "TestB_NewKey"', {self.TEST: weaker})
+        status, out = self.run_gate(repo, base)
+        self.assertEqual(status, 1, out)
+        self.assertIn("but its checks went from 1 to 0", out)
+        elsewhere = Repo({self.TEST: self.TWO})
+        base = elsewhere.commit("chore: base")
+        renamed = self.TWO.replace('TestB(t *testing.T) { t.Error("b") }', 'TestB_NewKey(t *testing.T) { t.Error("k") }')
+        elsewhere.commit(f'test(a): rename\n\nTest-Renamed: {self.TEST}: "TestB" -> "TestC"', {self.TEST: renamed})
+        status, out = self.run_gate(elsewhere, base)
+        self.assertEqual(status, 1, out)
+        self.assertIn("no test of that name is in the file", out)
+
     def test_a_test_moved_to_a_new_file_takes_its_checks_with_it(self):
         repo = Repo({self.TEST: self.TWO})
         base = repo.commit("chore: base")

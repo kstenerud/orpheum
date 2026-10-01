@@ -17,7 +17,12 @@ see a test that got weaker in the same branch. This gate lists the weakening its
 * a Go `func Test…`, a TS `it(`/`test(` or a Python `def test_…` that existed at the base and
   no longer does, unless a test with the same body (its name aside) is in the branch's test
   files: that test was renamed or moved, not removed. A moved test's checks leave its old file
-  with it, so they are not counted as that file's loss;
+  with it, so they are not counted as that file's loss. A test renamed with its body, when the
+  rename reaches inside it (a renamed setting it names), is one too when a commit in the range
+  says so with `Test-Renamed: <file>: "<old name>" -> "<new name>"`, and the new test is in that
+  file with at least the old one's checks. The claim names its file and is checked against it, so
+  unlike `Test-Weakened:` it need not ride on a commit that touched the file; one that does not
+  hold is listed;
 * a new `t.Skip`/`t.SkipNow`/`.skip(`/`.todo(`/`.only(` line, or in Python `self.skipTest(`,
   `@unittest.skip…` or `@unittest.expectedFailure`;
 * a test file whose assertion count went down (`t.Error*`, `t.Fatal*`, `expect(`, Python's
@@ -65,6 +70,8 @@ INLINE_TABLE = re.compile(r"\brange\s+(?=\[\]|map\[)")
 TEST_FILE = re.compile(r"(_test\.go|\.test\.tsx?|/tests/test_\w+\.py)$")
 GOLDEN = re.compile(r"(^|/)testdata/(golden|baselines?)/")
 TRAILER = re.compile(r"^Test-Weakened:\s*(\S.*)$", re.M | re.I)
+# Test-Renamed: <file>: "<old name>" -> "<new name>", a rename that reached into the test's body.
+RENAMED_TRAILER = re.compile(r'^Test-Renamed:\s*(\S+):\s*"(.+)"\s*->\s*"(.+)"\s*$', re.M | re.I)
 GATE_TRAILER = re.compile(r"^Gate-Changed:\s*(\S.*)$", re.M | re.I)
 
 
@@ -245,8 +252,10 @@ def compare(path: str, before: str, after: str,
 
 
 def compare_with_moves(path: str, before: str, after: str,
-                       elsewhere: dict[str, str] | None = None) -> tuple[list[Weakening], list[str]]:
-    """compare's weakenings, and the moves it did not count as removals, as sentences."""
+                       elsewhere: dict[str, str] | None = None,
+                       renames: dict[str, str] | None = None) -> tuple[list[Weakening], list[str]]:
+    """compare's weakenings, and the moves it did not count as removals, as sentences. `renames`
+    are this file's Test-Renamed claims, old name to new."""
     found: list[Weakening] = []
     moves: list[str] = []
     before_tests, after_tests = test_bodies(path, before), test_bodies(path, after)
@@ -255,6 +264,14 @@ def compare_with_moves(path: str, before: str, after: str,
     for gone in sorted(set(before_tests) - set(after_tests)):
         key = same_body_key(gone, before_tests[gone])
         destination = here.get(key) or (elsewhere or {}).get(key)
+        if destination is None and gone in (renames or {}):
+            problem = rename_problem(before_tests[gone], after_tests, (renames or {})[gone], path)
+            if problem:
+                found.append(Weakening(path, f"test {gone!r} {problem}"))
+            else:
+                moves.append(f"{path}: test {gone!r} is now {(renames or {})[gone]!r} (Test-Renamed), "
+                             "its checks kept")
+            continue
         if destination is None:
             found.append(Weakening(path, f"test {gone!r} was removed"))
             continue
@@ -269,6 +286,23 @@ def compare_with_moves(path: str, before: str, after: str,
     if after and after_asserts < before_asserts:
         found.append(Weakening(path, f"assertions went from {before_asserts} to {after_asserts}"))
     return found, moves
+
+
+def rename_problem(old_body: str, after_tests: dict[str, str], new_name: str, path: str) -> str:
+    """Why a Test-Renamed claim does not hold, or "" when it does: the new test is in the file and
+    keeps at least the old one's checks."""
+    if new_name not in after_tests:
+        return f"was claimed renamed to {new_name!r} (Test-Renamed), but no test of that name is in the file"
+    kept, had = checks(path, after_tests[new_name]), checks(path, old_body)
+    if kept < had:
+        return f"was claimed renamed to {new_name!r} (Test-Renamed), but its checks went from {had} to {kept}"
+    return ""
+
+
+def renamed_tests(base: str, head: str, path: str) -> dict[str, str]:
+    """The range's Test-Renamed claims for a file, old name to new."""
+    log = git("log", "--format=%B", f"{base}..{head}")
+    return {old: new for claimed, old, new in RENAMED_TRAILER.findall(log) if claimed == path}
 
 
 def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -> Weakening | None:
@@ -330,7 +364,7 @@ def weakenings(base: str, head: str, moves: list[str] | None = None) -> list[Wea
             continue
         before = git("show", f"{base}:{path}")
         after = "" if status == "D" else git("show", f"{head}:{path}")
-        weakened, moved = compare_with_moves(path, before, after, elsewhere)
+        weakened, moved = compare_with_moves(path, before, after, elsewhere, renamed_tests(base, head, path))
         found += weakened
         if moves is not None:
             moves += moved
@@ -417,6 +451,8 @@ def main() -> int:
     print(
         "\nIf the weakening is right — a test that tested the wrong thing, a golden re-recorded\n"
         "by the owner — add a `Test-Weakened: <why>` trailer to a commit that touches the file.\n"
+        "If a test was renamed and the rename reached into its body, say so on any commit with\n"
+        "`Test-Renamed: <file>: \"<old name>\" -> \"<new name>\"`; the gate checks it keeps its checks.\n"
         "If it is not, restore the test and fix the code instead."
     )
     return 1
