@@ -50,7 +50,7 @@ check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 pri
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
-check-verbose: check-tools web-deps ## The gate with every step's output
+check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
 	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
@@ -102,6 +102,14 @@ check-architecture: ## Every package has a row in the architecture map; schema.m
 
 .PHONY: check-go
 check-go: go-fmt go-lint go-vet go-test go-tidy go-speculative ## All Go checks
+
+# go-warm compiles every package, test variants included, once, before lint, vet and the tests
+# start beside each other: on a cold cache each of them compiled the same dependencies at once.
+# On 4 CPUs with a cold cache, compiling first took the three from 232 s to 197 s; on a warm
+# cache it costs under a second, since export data is cached and nothing is linked (2026-10-01).
+.PHONY: go-warm
+go-warm:
+	@go list -export -deps -test ./... >/dev/null
 
 .PHONY: go-fmt
 go-fmt: ## Fail if gofumpt or gci would change a file (fix with: make fmt)
