@@ -145,3 +145,46 @@ func TestInvalidRequest_NamesEachProblemByWhereItIsInTheDetail(t *testing.T) {
 		t.Errorf("the refusal's detail is %s, want its problems, one at body.name", refused.body)
 	}
 }
+
+// TestErrorAnswers_AreLoggedWithTheirOperationAndCode holds that every error answer, a handler's
+// and huma's own, is in the debug log with its operation and code: a client shows only words
+// chosen by the code, so the log is where a person finds what failed. The submitted value is not.
+func TestErrorAnswers_AreLoggedWithTheirOperationAndCode(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	wantError(t, harness.do(t, http.MethodPost, "/session", "",
+		map[string]any{"name": "owner", "password": "CANARY-wrong", "device": testDevice}),
+		http.StatusUnauthorized, CodeAuthRequired)
+	unnamed := harness.do(t, http.MethodPost, "/session", "",
+		map[string]any{"name": "owner", "password": "CANARY-unnamed"})
+	wantError(t, unnamed, unnamed.status, CodeInvalidRequest)
+
+	type errorAnswer struct {
+		Message   string `json:"msg"`
+		Operation string `json:"operation"`
+		Method    string `json:"method"`
+		Path      string `json:"path"`
+		Code      Code   `json:"code"`
+	}
+	var answers []errorAnswer
+	for line := range strings.Lines(harness.logs.String()) {
+		var record errorAnswer
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			t.Fatalf("a log line is not JSON: %s", line)
+		}
+		if record.Message == "answered with an error" {
+			answers = append(answers, record)
+		}
+	}
+	want := []errorAnswer{
+		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", CodeAuthRequired},
+		{"answered with an error", "signIn", http.MethodPost, "/api/v1/session", CodeInvalidRequest},
+	}
+	if !slices.Equal(answers, want) {
+		t.Errorf("the error answers logged = %+v, want %+v", answers, want)
+	}
+	if strings.Contains(harness.logs.String(), "CANARY") {
+		t.Errorf("the log shows a submitted password:\n%s", harness.logs.String())
+	}
+}
