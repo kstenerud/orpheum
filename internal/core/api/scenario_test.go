@@ -277,7 +277,7 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 	}
 	retired := harness.retire(t, admin, http.MethodPost, "/libraries/1/roots/retire",
 		map[string]string{"nodeName": "local", "path": "/media"})
-	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
 		t.Errorf("the retire = %+v; want the root's 3 files removed and both jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, root)
@@ -308,7 +308,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 		{Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 7}, Destination: node},
 	}, node)
 	retired := harness.retire(t, admin, http.MethodPost, "/nodes/retire", map[string]string{"nodeName": "local"})
-	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
 		t.Errorf("the retire = %+v; want the node's 3 files removed and both its jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, node)
@@ -344,7 +344,7 @@ func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheir
 		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}},
 	})
 	retired := harness.retire(t, admin, http.MethodDelete, "/libraries/1", nil)
-	if retired.Body.RemovedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
+	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {
 		t.Errorf("the delete = %+v; want its 3 files removed and both its jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, jobs.RootDestination(1, "/media"))

@@ -81,7 +81,7 @@ it("retires a root only once the admin confirms, and keeping it sends nothing (D
         [200, { libraries: [{ ...films, roots: [] }] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
-      "POST /libraries/3/roots/retire": [200, { removedFileCount: 40, cancelledJobCount: 2 }],
+      "POST /libraries/3/roots/retire": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
   );
@@ -110,7 +110,7 @@ it("deletes a library only once the admin confirms (D231 §7)", async () => {
         [200, { libraries: [] }],
       ],
       "GET /nodes": [200, { nodes: [] }],
-      "DELETE /libraries/3": [200, { removedFileCount: 40, cancelledJobCount: 2 }],
+      "DELETE /libraries/3": [200, { tombstonedFileCount: 40, cancelledJobCount: 2 }],
     },
     heard,
   );
@@ -130,7 +130,7 @@ it("the System page says since when each folder and disk is offline, and retires
         [200, report],
         [200, { ...report, nodes: [] }],
       ],
-      "POST /nodes/retire": [200, { removedFileCount: 3, cancelledJobCount: 1 }],
+      "POST /nodes/retire": [200, { tombstonedFileCount: 3, cancelledJobCount: 1 }],
     },
     heard,
   );

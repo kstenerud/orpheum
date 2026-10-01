@@ -1932,7 +1932,7 @@ export interface components {
             /** Format: int64 */
             cancelledJobCount: number;
             /** Format: int64 */
-            removedFileCount: number;
+            tombstonedFileCount: number;
         };
         RetireNodeInputBody: {
             /** @description The node's configured name */

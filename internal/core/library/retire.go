@@ -40,8 +40,8 @@ type Retirement struct {
 // Retired is what a retire action did: how many live files became tombstones, and how many jobs
 // of theirs, and of their titles, were cancelled.
 type Retired struct {
-	RemovedFileCount  int
-	CancelledJobCount int
+	TombstonedFileCount int
+	CancelledJobCount   int
 }
 
 // retiring gathers, inside a retire's transaction, what it took out of the library.
@@ -153,7 +153,7 @@ func (admin *Admin) Delete(ctx context.Context, libraryID int64) (Retired, error
 // retire runs a retire's changes in one transaction, then cancels the work of what it took out.
 func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) error) (Retired, error) {
 	var work jobs.RetiredWork
-	removedFileCount := 0
+	tombstonedFileCount := 0
 	err := admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		retire := &retiring{queries: queries, nowMs: admin.clock.Now().UnixMilli()}
 		if changeErr := change(retire); changeErr != nil {
@@ -161,7 +161,7 @@ func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) er
 		}
 		var workErr error
 		work, workErr = retire.work(ctx)
-		removedFileCount = len(retire.fileIDs)
+		tombstonedFileCount = len(retire.fileIDs)
 		return workErr
 	})
 	if err != nil {
@@ -171,7 +171,7 @@ func (admin *Admin) retire(ctx context.Context, change func(retire *retiring) er
 	if err != nil {
 		return Retired{}, fmt.Errorf("cancel the retired work: %w", err)
 	}
-	return Retired{RemovedFileCount: removedFileCount, CancelledJobCount: cancelled}, nil
+	return Retired{TombstonedFileCount: tombstonedFileCount, CancelledJobCount: cancelled}, nil
 }
 
 // root retires one root of a library on a node and tombstones the live files it holds: those

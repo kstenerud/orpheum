@@ -59,7 +59,7 @@ const (
 	ResumeMinPercent                               Key = "resume_min_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
-	LibraryCheckEveryHours                         Key = "library_check_every_hours"
+	NewLibraryScanEveryHours                       Key = "new_library_scan_every_hours"
 	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
@@ -291,7 +291,7 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
 				"after them while any is still offline (D231 §7)"),
 			"best guess: a weekly reminder, the owner 2026-09-30"),
-		sourced(durationSetting(LibraryCheckEveryHours, time.Hour, "24", 1, 8760,
+		sourced(durationSetting(NewLibraryScanEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for changes that a new library checked on an interval starts with; each "+
 				"library keeps its own once made"),
 			"best guess: daily, as metadata_refresh_check_every_hours; the web form had it as its own default"),

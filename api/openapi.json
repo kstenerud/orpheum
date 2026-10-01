@@ -2732,13 +2732,13 @@
             "format": "int64",
             "type": "integer"
           },
-          "removedFileCount": {
+          "tombstonedFileCount": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "removedFileCount",
+          "tombstonedFileCount",
           "cancelledJobCount"
         ],
         "type": "object"

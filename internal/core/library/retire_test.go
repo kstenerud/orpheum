@@ -54,7 +54,7 @@ func TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItN
 		t.Errorf("retiring a root the library lacks: %v, want ErrNoSuchRoot", err)
 	}
 	retired, err := admin.RetireRoot(t.Context(), libraryID, "local", root)
-	if err != nil || retired.RemovedFileCount != 32 {
+	if err != nil || retired.TombstonedFileCount != 32 {
 		t.Fatalf("RetireRoot = %+v, %v; want all 32 files, the missing disk's too, removed", retired, err)
 	}
 	if live := len(world.liveFilesByPath()); live != 0 {
@@ -92,7 +92,7 @@ func TestRetireNode_RetiresItsRootsCancelsItsWorkAndForgetsIt(t *testing.T) {
 		t.Errorf("retiring a node that is not enrolled: %v, want ErrNoNode", err)
 	}
 	retired, err := admin.RetireNode(t.Context(), "local")
-	if err != nil || retired.RemovedFileCount != 3 {
+	if err != nil || retired.TombstonedFileCount != 3 {
 		t.Fatalf("RetireNode = %+v, %v; want its 3 files removed", retired, err)
 	}
 	if !slices.Equal(nodes.removed, []int64{world.nodeID}) {
@@ -122,7 +122,7 @@ func TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork(t *testing.T)
 	work, libraryID := admin.work, admin.libraryID
 	world.scan(filmRecords(3), true)
 	retired, err := admin.Delete(t.Context(), libraryID)
-	if err != nil || retired.RemovedFileCount != 3 {
+	if err != nil || retired.TombstonedFileCount != 3 {
 		t.Fatalf("Delete = %+v, %v; want its 3 files removed", retired, err)
 	}
 	if libraries, err := admin.List(t.Context()); err != nil || len(libraries) != 0 {
