@@ -102,5 +102,19 @@ class ToolsDir(unittest.TestCase):
                          dest / tool.name)
 
 
+class Readable(unittest.TestCase):
+    def test_an_extracted_mkvtoolnix_is_readable_and_runnable_by_every_user(self):
+        tree = Path(tempfile.mkdtemp())
+        (tree / "usr" / "bin").mkdir(parents=True)
+        tool, lib = tree / "usr" / "bin" / "mkvmerge", tree / "usr" / "lib.so"
+        tool.write_text("")
+        lib.write_text("")
+        for path, mode in ((tool, 0o700), (lib, 0o600), (tree / "usr" / "bin", 0o700), (tree / "usr", 0o700), (tree, 0o700)):
+            path.chmod(mode)
+        fetch_mkvtoolnix.make_readable(tree)
+        self.assertEqual({p.relative_to(tree).as_posix(): p.stat().st_mode & 0o777 for p in [tree, *tree.rglob("*")]},
+                         {".": 0o755, "usr": 0o755, "usr/bin": 0o755, "usr/bin/mkvmerge": 0o755, "usr/lib.so": 0o644})
+
+
 if __name__ == "__main__":
     unittest.main()
