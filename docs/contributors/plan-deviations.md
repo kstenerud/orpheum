@@ -40,6 +40,25 @@ counted:
 
 ## Log
 
+### P40 — A prepare's film shows a growing length, and a seek cannot reach past what is made (after the jobs rebuild's Phase 3, 2026-10-01) · plan-gap
+
+- **Planned:** D193 §2: prepare writes a growing `EVENT` playlist so playback starts at the
+  first segments, and "a seek past the prepared point waits". On-demand segment-addressed
+  transcoding, D4's path (b), stays unbuilt until a measurement says first-play latency hurts.
+- **What happened:** the owner played an XviD film on their phone. The player, the browser's own
+  controls, showed the length made so far (1:54, then 3:58, growing as it played), and its bar
+  ended there, so there was no seek past the prepared point to wait for. In the sandbox the x264
+  encode barely outruns playback.
+- **Why the plan missed it:** the decision described the server's side of a seek and never what
+  the player shows of a playlist that is still growing; nothing in cut-a or web-client.md says
+  what a person sees while a prepare runs.
+- **Cost:** none yet. The owner deferred it (2026-10-01). What they want, recorded as F96 and
+  F97 in [FEATURES.md](../FEATURES.md): the whole length from the start; a seek that stops the
+  run and starts again where it lands, keeping every segment made and making nothing before the
+  play point, as D4 (b) describes; a scrub bar that previews frames; controls sized for touch.
+- **Process lesson:** when a design streams something still being made, say what the person's
+  player shows of it (length, bar, seeking), not only what the server does.
+
 ### P39 — "The weekly reminder" assumed a way to tell the admin that does not exist (jobs rebuild Phase 3, 2026-09-30) · plan-gap
 
 - **Planned:** D231 §7 and the jobs rebuild's Phase 3: offline storage never ends without the
