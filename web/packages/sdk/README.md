@@ -33,4 +33,5 @@ making, and the reading of refusals; the Watch Together client is still to come.
   `src/client.ts`.
 - What this browser can play: `src/playable-formats.ts`.
 - Waiting for a file the server is still making (`whenReady`, `textWhenReady`): `src/ready.ts`.
-- Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`): `src/problem.ts`.
+- Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`), and writing a failure's
+  cause to the console (`reportFailure`, the one place the client logs): `src/problem.ts`.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { reportFailure } from "@orpheum/sdk";
 import { useState } from "react";
 
 /** A request a screen runs, and how it is going: running, or failed with why. */
@@ -12,7 +13,7 @@ export interface RequestState {
 
 /**
  * One request at a time: whether it is running, and why it failed when it did, in the words
- * describeFailure gives the cause.
+ * describeFailure gives the cause. The cause itself goes to the console (reportFailure).
  */
 export function useRequest(describeFailure: (cause: unknown) => string): RequestState {
   const [isBusy, setIsBusy] = useState(false);
@@ -25,6 +26,7 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
         setIsBusy(false);
       },
       (cause: unknown) => {
+        reportFailure(cause);
         setIsBusy(false);
         setProblem(describeFailure(cause));
       },

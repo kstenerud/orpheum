@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useState } from "react";
 
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
- * its cause, which a screen tells the person in their words (problemText).
+ * its cause, which a screen tells the person in their words (problemText), and the console is
+ * told it as it is (reportFailure).
  */
 export type Resource<T> =
   | { readonly state: "loading" }
@@ -40,6 +42,7 @@ export function useResource<T>(
           }
         },
         (cause: unknown) => {
+          reportFailure(cause);
           if (isCurrent) {
             setHeld({ key, resource: { state: "failed", cause } });
           }

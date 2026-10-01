@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { act, createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
@@ -63,6 +63,14 @@ describe("useResource", () => {
       state: "failed",
       cause: network,
     });
+  });
+
+  it("writes a failed load's cause to the console, as the person's words leave it out", async () => {
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cause = new SyntaxError("JSON.parse: unexpected end of data");
+    await settledAfter(() => Promise.reject(cause));
+    expect(written.mock.calls.map((call): unknown => call.at(-1))).toEqual([cause]);
+    vi.restoreAllMocks();
   });
 
   it("tells the person what went wrong in their words, with what to do", () => {

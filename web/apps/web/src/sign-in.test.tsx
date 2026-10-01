@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import { SignIn, SignInForm } from "./sign-in.tsx";
@@ -49,6 +49,16 @@ describe("sign-in", () => {
     expect(markup).toContain('role="alert"');
     expect(markup).toContain("setup code");
     expect(markup).toContain('autoComplete="current-password"');
+  });
+
+  it("says a failure that is neither the server's nor the network's in general words, and writes its cause to the console", async () => {
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // A 204 is an answer with nothing in it: the SDK has no session and no refusal to read.
+    expect(await problemShownFor([204, undefined])).toBe(i18n.t("problem.unknown"));
+    const causes = written.mock.calls.map((call): unknown => call.at(-1));
+    expect(causes).toHaveLength(1);
+    expect(causes[0]).toBeInstanceOf(Error);
+    vi.restoreAllMocks();
   });
 
   it("labels every field and says nothing when nothing went wrong", () => {
