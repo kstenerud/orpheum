@@ -115,10 +115,13 @@ RUN set -eu; \
     node /tmp/playwright-core/package/cli.js install-deps chromium firefox; \
     rm -rf /tmp/playwright* /var/lib/apt/lists/*
 
-# The gate tools, last of the tools, so a changed pin rebuilds nothing above.
+# The gate tools, last of the tools, so a changed pin rebuilds nothing above. Their links are on
+# every shell's PATH, as the Makefile puts them on its own, so `golangci-lint` typed in `./dev`
+# is the pinned one.
 COPY --from=fetch /opt/orpheum/tools/golangci-lint /opt/orpheum/tools/golangci-lint
 COPY --from=fetch /opt/orpheum/tools/sqlc /opt/orpheum/tools/sqlc
 COPY --from=fetch /opt/orpheum/tools/bin /opt/orpheum/tools/bin
+ENV PATH=/opt/orpheum/tools/bin:$PATH
 
 # The developer: the host's uid and gid (`./dev` passes them), so the repository's files stay
 # theirs. Their caches live in named volumes mounted over these directories; a new volume takes
