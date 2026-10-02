@@ -77,13 +77,28 @@ func (name ArtSizeName) Size() (ArtSize, bool) {
 	return ArtSize{}, false
 }
 
-// CommandEncodeArtwork asks the node to re-encode an image (D212 §1).
+// CommandEncodeArtwork asks the node to re-encode the images of one artwork job (D212 §1), each in
+// turn, and answer once for all.
 const CommandEncodeArtwork CommandType = "encode_artwork"
+
+// ArtworkBatch is one artwork job's images, every one the job still wants, as a scan is one root's
+// files: the core has fetched what its providers hold, and the node re-encodes each.
+type ArtworkBatch struct {
+	Images []Artwork `json:"images"`
+}
+
+// ArtworkBatchResult is the node's answer for an ArtworkBatch: one result for each image, each
+// naming its image's Key.
+type ArtworkBatchResult struct {
+	Images []ArtworkResult `json:"images"`
+}
 
 // Artwork is a source image the node sanitises and cuts into sizes. The source is anyone's
 // bytes — a provider's download, a file beside the media — and is decoded only here, under
 // FFmpeg's confinement.
 type Artwork struct {
+	// Key names the image to the core among its batch's, and its answer echoes it.
+	Key         string `json:"key"`
 	SourceImage []byte `json:"sourceImage,omitempty"`
 	// SourceSha256 is, with SourceImage, the hex SHA-256 of the image the sizes are of, as the core
 	// stores them: its source's, also when SourceImage is a size already made of it (D212 §2). It is
@@ -111,6 +126,8 @@ type ArtImage struct {
 // ArtworkResult is the node's answer: every size it made, as our own encoder wrote it, or why it
 // made none.
 type ArtworkResult struct {
+	// Key is the image's (Artwork.Key), echoed.
+	Key          string     `json:"key"`
 	SourceWidth  int        `json:"sourceWidth"`
 	SourceHeight int        `json:"sourceHeight"`
 	Images       []ArtImage `json:"images"`

@@ -39,9 +39,9 @@ type Result struct {
 	Held *HeldResult `json:"held,omitempty"`
 	// Refusal says why the node took no part of the command: a command it does not know, from a
 	// core of another build, which the core reads as the node needing an update (D233 §9).
-	Refusal  string          `json:"refusal,omitempty"`
-	Prepare  *PrepareReport  `json:"prepare,omitempty"`
-	Subtitle *SubtitleText   `json:"subtitle,omitempty"`
-	Loudness *LoudnessResult `json:"loudness,omitempty"`
-	Artwork  *ArtworkResult  `json:"artwork,omitempty"`
+	Refusal  string              `json:"refusal,omitempty"`
+	Prepare  *PrepareReport      `json:"prepare,omitempty"`
+	Subtitle *SubtitleText       `json:"subtitle,omitempty"`
+	Loudness *LoudnessResult     `json:"loudness,omitempty"`
+	Artwork  *ArtworkBatchResult `json:"artwork,omitempty"`
 }

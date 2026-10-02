@@ -37,15 +37,15 @@
 //     job's OnProgress, its own attempt's only (D234 §5).
 //     TestProgress_ReachesTheResultSinkFromAKnownNodeOnly,
 //     TestExchange_ProgressKeepsTheWaitAliveAndOnlyItsOwnReachesTheJob.
-//   - A job asks a node for work through Exchanges, the one way it is done: the command sent,
-//     named by an attempt token made for that sending, the node's results handed to the job by
-//     that token and only from the node it asked, never by the job's id alone, which an earlier
-//     attempt and a discarded cache.db share (S83, S84), the wait bounded by the core's clock, and
-//     the node sent CancelCommand, naming the attempt, on every way out that leaves it working — a cancel, a silence,
-//     a failure after the send (audit-2026-09-30 §3). Playback and artwork both ask this way.
-//     TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled,
+//   - A job gives a node work through Exchanges, the one way it is done: the command sent, named
+//     by an attempt token made for that sending, the node's results resolving the job by that
+//     token and only from the node it was given to, never by the job's id alone, which an earlier
+//     attempt and a discarded cache.db share (S83, S84), its silence bounded by the core's clock,
+//     and the node sent CancelCommand, naming the attempt, on every way out that leaves it working —
+//     a cancel, a silence, progress refused (audit-2026-09-30 §3). Playback and artwork both give
+//     work this way. TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled,
 //     TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway,
-//     TestExchange_AContextEndingTellsTheNodeToStop,
+//     TestExchange_ACancelTellsTheNodeToStop,
 //     TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID,
 //     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //   - A job whose work a node does is given to it, not waited for (D234 §7): Assign keeps its attempt,
@@ -112,7 +112,7 @@
 //     sending a node work, and what a wait for it that ran out means; facts.go: what each node
 //     last said about itself — its roots, slots, hardware and status;
 //     channel.go: commands, the report and the nodes' results; bytes.go:
-//     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the results and
-//     progress nodes send, and a job asking a node for work and waiting for its results, which only
-//     artwork does now; assign.go: a job given to a node, assigned, and resolved by its word.
+//     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the exchanges,
+//     and the results and progress nodes send; assign.go: a job given to a node, assigned, and
+//     resolved by its word.
 package nodes

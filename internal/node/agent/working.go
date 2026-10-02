@@ -44,18 +44,7 @@ type attempt struct {
 
 // attemptOf is the attempt a command names.
 func attemptOf(command nodeproto.Command) attempt {
-	echoed := command.Work
-	if echoed.EncodeArtwork != nil {
-		artwork := *echoed.EncodeArtwork
-		artwork.SourceImage = nil
-		echoed.EncodeArtwork = &artwork
-	}
-	if echoed.ExtractSubtitle != nil {
-		extract := *echoed.ExtractSubtitle
-		extract.FetchedSubRip = nil
-		echoed.ExtractSubtitle = &extract
-	}
-	return attempt{jobID: command.JobID, token: command.AttemptToken, work: echoed}
+	return attempt{jobID: command.JobID, token: command.AttemptToken, work: command.WithoutBytes()}
 }
 
 // named is result naming the attempt it answers, and echoing its work.

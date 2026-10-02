@@ -169,7 +169,7 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		}
 		return nodeproto.ArtworkResult{}
 	}
-	if err := bench.service.Handle(t.Context(), job); err != nil {
+	if err := bench.run(t, job); err != nil {
 		t.Fatal(err)
 	}
 	if ids := bench.node.sentJobIDs; len(ids) == 0 || ids[len(ids)-1] != job.ID {
@@ -191,7 +191,7 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 			{SizeName: nodeproto.PortraitL, WebP: ourWebP},
 		}}
 	}
-	if err := bench.service.Handle(t.Context(), job); err != nil {
+	if err := bench.run(t, job); err != nil {
 		t.Fatal(err)
 	}
 	if served, err := bench.service.Serve(t.Context(), sourceSha256Hex, nodeproto.PortraitL, FormatWebP); err != nil ||
@@ -216,7 +216,7 @@ func TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash(t *testing.T) {
 		ID: 2, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID},
 		ArgsJSON: (*queue)[0].ArgsJSON,
 	}
-	if err := bench.service.Handle(t.Context(), job); err != nil {
+	if err := bench.run(t, job); err != nil {
 		t.Fatal(err)
 	}
 	if len(bench.node.sent) != sent {

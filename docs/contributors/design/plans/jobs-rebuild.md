@@ -481,6 +481,13 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
 at start (`Load`); the node's word resolves each by its kind's `Assignee`; a silence past the limit
 (`Watch`) or a restart is unanswered, the node told to stop; a cancel tells the node and the kind
 (`Queue.OnCancel`); `assigned_job_limit_hours` (24) is the backstop. Only artwork still waits (4c.2).
+A node's work is sent once its job is recorded assigned (`AssignThen`), so a quick answer finds it.
+
+*4c.2 built 2026-10-02:* an artwork job fetches what its images need, then gives every image it
+still wants to one node in one command (`ArtworkBatch`, each image named by a key), and is assigned;
+the node re-encodes each in turn and answers once for all; the answer stores each image as before.
+Images beside the media on another node than the first's are left for the next pass. The core
+waits on no node now. Node protocol 8.
 
 ### 4d — windows, slots and priority
 
