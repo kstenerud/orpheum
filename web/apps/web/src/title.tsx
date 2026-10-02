@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
+import { backgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -196,8 +197,10 @@ export function Loaded<T>(props: {
 /** A title's page, loaded by its id. */
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [title] = useResource(`title/${String(props.id)}`, async () =>
-    dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
+  const [title] = useResource(
+    `title/${String(props.id)}`,
+    async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
+    backgroundChanges,
   );
   return <Loaded resource={title} render={(value) => <TitleView title={value} />} />;
 }

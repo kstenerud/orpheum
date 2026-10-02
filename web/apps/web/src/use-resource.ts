@@ -3,6 +3,8 @@
 import { reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useState } from "react";
 
+import type { Poller } from "./polling.ts";
+
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
  * its cause, which a screen tells the person in their words (problemText), and the console is
@@ -17,15 +19,16 @@ export type Resource<T> =
  * Loads a value when the component mounts and whenever key changes, and reloads when the returned
  * function is called. An answer that arrives after the key changed is dropped.
  *
- * Given refreshEveryMs, it also asks again that often for as long as the component shows it, and
- * keeps what it shows meanwhile: a reload does not go back to loading, so a view that follows
- * something moving (the jobs, a device code waiting to be used) does not flicker. A new key always
- * starts from loading. This is the one way the client polls the server.
+ * Given a poller, it also asks again for as long as the component shows it, as the poller's
+ * schedule says (D237): backgroundChanges backs off while the answer is unchanged. It keeps what it shows meanwhile: a
+ * reload does not go back to loading, so a view that follows something moving (the jobs, a scan's
+ * films) does not flicker. A new key always starts from loading. This is the one way the client
+ * polls the server; usePages polls a paged list the same way.
  */
 export function useResource<T>(
   key: string,
   load: () => Promise<T>,
-  refreshEveryMs?: number,
+  poller?: Poller,
 ): [Resource<T>, () => void] {
   const [held, setHeld] = useState<{ readonly key: string; readonly resource: Resource<T> }>({
     key,
@@ -34,35 +37,44 @@ export function useResource<T>(
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let isCurrent = true;
-    const ask = (): void => {
+    let lastAnswer: string | undefined;
+    // One read; answered, when polling, hears whether it changed what is shown.
+    const read = (answered?: (isChanged: boolean) => void): void => {
       load().then(
         (value) => {
-          if (isCurrent) {
+          const answer = JSON.stringify(value);
+          const isChanged = answer !== lastAnswer;
+          lastAnswer = answer;
+          if (isCurrent && isChanged) {
             setHeld({ key, resource: { state: "loaded", value } });
           }
+          answered?.(isChanged);
         },
         (cause: unknown) => {
           reportFailure(cause);
+          const isChanged = lastAnswer !== undefined;
+          lastAnswer = undefined;
           if (isCurrent) {
             setHeld({ key, resource: { state: "failed", cause } });
           }
+          answered?.(isChanged);
         },
       );
     };
-    if (refreshEveryMs === undefined) {
+    if (poller === undefined) {
       setHeld({ key, resource: { state: "loading" } });
-      ask();
+      read();
       return () => {
         isCurrent = false;
       };
     }
-    ask();
-    const refreshTimer = setInterval(ask, refreshEveryMs);
+    read();
+    const stopPolling = poller.start(read);
     return () => {
       isCurrent = false;
-      clearInterval(refreshTimer);
+      stopPolling();
     };
-  }, [key, attempt, refreshEveryMs]);
+  }, [key, attempt, poller]);
   const reload = useCallback(() => {
     setAttempt((count) => count + 1);
   }, []);

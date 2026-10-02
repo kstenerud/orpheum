@@ -6,6 +6,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { backgroundChanges } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -127,7 +128,11 @@ export function ContinueWatchingView(props: {
 /** Continue Watching, loaded from the server, with hide and undo. */
 export function ContinueWatching(): JSX.Element | null {
   const { api } = useServices();
-  const [rows, reload] = useResource("continue-watching", () => loadContinueWatching(api));
+  const [rows, reload] = useResource(
+    "continue-watching",
+    () => loadContinueWatching(api),
+    backgroundChanges,
+  );
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
   if (rows.state !== "loaded") {
     return null; // the lists below say when the server cannot be reached

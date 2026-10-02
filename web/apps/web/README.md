@@ -29,6 +29,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the dialogue boost starts as the person left it (D222). `src/sound.test.tsx`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
+- **A screen showing what the server changes in the background asks again** — the lists, a title,
+  *Needs a match*, the libraries, the System page, the jobs and the home rows — after 2 s, backing
+  off while nothing changes to 30 s, and keeps what it shows meanwhile (D237). One way to poll:
+  `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
+  `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**

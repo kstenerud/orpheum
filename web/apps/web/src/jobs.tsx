@@ -10,6 +10,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { backgroundChanges } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
@@ -24,9 +25,6 @@ export async function listJobs(api: Api): Promise<Job[]> {
 export async function cancelJob(api: Api, jobId: number): Promise<void> {
   throwIfRefused(await api.POST("/jobs/{id}/cancel", { params: { path: { id: jobId } } }));
 }
-
-/** How often the view asks again, so a running job's progress moves on the screen. */
-const refreshEveryMs = 3000;
 
 /** The id of what a job works on: the one field its kind sets (D227). */
 export function targetId(job: Job): number | undefined {
@@ -64,7 +62,7 @@ export function isCancellable(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), refreshEveryMs);
+  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), backgroundChanges);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const cancel = (job: Job): void => {
     cancelJob(api, job.id).then(
