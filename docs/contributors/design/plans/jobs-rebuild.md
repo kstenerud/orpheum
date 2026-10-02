@@ -508,6 +508,10 @@ listing. A rendition the index holds complete that the node no longer has is not
 hello, which could race a making that ends meanwhile: the play that finds it gone prepares it again,
 as before (`PrepareAgain`). Node protocol 10.
 
+*Since 4c.1, for tests:* a job given to a node ends only when the node's answer is taken, not when
+its runner returns. A test that answers from a goroutine waits for that answer before it checks the
+job: S76 and S29 did not, and failed under the gates' load.
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global
