@@ -42,6 +42,12 @@ func ParkingOf(answer error) (Parking, bool) {
 // has run out, and that is its own failure.
 func Assign(until time.Time) error { return &assigned{until: until} }
 
+// IsAssigned is whether a handler's answer is Assign: its job given to another machine.
+func IsAssigned(answer error) bool {
+	var handOff *assigned
+	return errors.As(answer, &handOff)
+}
+
 type assigned struct{ until time.Time }
 
 func (handOff *assigned) Error() string {

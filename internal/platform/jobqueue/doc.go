@@ -68,7 +68,10 @@
 //     for it. The node's outcome is taken once (Runner.Resolve), as a handler's answer; one past
 //     its time is its own failure, retried or failed at its limit, and a late outcome is dropped.
 //     An assigned job counts as running for a request and a cancel, and a restart leaves it with
-//     its node (D234 §7). TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce,
+//     its node (D234 §7). ResolveBy decides the outcome from the job as assigned, and a cancel is
+//     told to the queue's cancel hook (OnCancel), so the node can be told to stop.
+//     TestResolveBy_DecidesFromTheJobAndACancelIsHeardByTheHook,
+//     TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce,
 //     TestResolve_TakesTheNodesOutcomeAsAHandlersAnswer,
 //     TestAssign_AJobWhoseTimeRunsOutFailsAndALateOutcomeIsDropped,
 //     TestAssign_AnAssignedJobCountsAsRunningForRequestsCancelsAndRestarts,

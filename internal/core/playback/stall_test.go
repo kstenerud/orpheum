@@ -3,6 +3,7 @@
 package playback
 
 import (
+	"context"
 	"crypto/rand"
 	"log/slog"
 	"strings"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -19,18 +22,32 @@ import (
 )
 
 // preparesOnAFakeNode is a prepare runner whose node is node, whose clock is clockSource, and
-// which never gives up for silence within a test.
-func preparesOnAFakeNode(t *testing.T, node fakeNodes, clockSource *clocktest.Fake) *prepares {
+// which never gives up for silence within a test; and start, which runs a prepare of testOrder and
+// returns where the answer its node's word resolves it with arrives.
+func preparesOnAFakeNode(
+	t *testing.T, node fakeNodes, clockSource *clocktest.Fake,
+) (all *prepares, start func(job jobs.Job) <-chan error) {
 	t.Helper()
-	all := &prepares{
-		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
-		// The silence limit outlasts the slot cap, which these tests move the clock past at once.
-		clock: clockSource, maxSilence: 2 * maxSlotWait, maxSlotWait: maxSlotWait,
-		exchanges: nodes.NewExchanges(node, clockSource, rand.Reader, slog.New(slog.DiscardHandler)),
-		logger:    slog.New(slog.DiscardHandler),
+	cache := storetest.OpenCache(t)
+	all = &prepares{
+		cache: cache, queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
+		clock: clockSource, maxSlotWait: maxSlotWait,
+		exchanges: nodes.NewExchanges(nodes.ExchangeParts{
+			Sender: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: 2 * maxSlotWait,
+		}),
+		logger:       slog.New(slog.DiscardHandler),
+		waitingSince: map[string]time.Time{},
 	}
 	all.exchanges.Record(nodeproto.CommandPrepare, all.recordPrepare)
-	return all
+	resolver := nodestest.NewResolver()
+	all.exchanges.Handle(jobs.KindPrepare, all.assignee(resolver.Of(nil)))
+	return all, func(job jobs.Job) <-chan error {
+		job.Kind = jobs.KindPrepare
+		return resolver.Start(t, func(ctx context.Context, job jobs.Job) error {
+			return all.handle(ctx, job, testOrder)
+		}, job)
+	}
 }
 
 // insertRendition records a rendition being made, and returns its id.
@@ -54,15 +71,14 @@ func insertRendition(t *testing.T, all *prepares) int64 {
 func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
 	rendition := insertRendition(t, all)
 	stall := &nodeproto.Stall{Cause: nodeproto.StallStoodStill, LastPositionMs: 4000, WithoutAdvanceMs: 180_000}
 	prepareAfter := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptStalled,
 		}
-		ended := make(chan error, 1)
-		go func() { ended <- all.handle(t.Context(), job, testOrder) }()
+		ended := start(job)
 		command := testutil.Receive(t, node.sent, "the prepare command")
 		all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
@@ -88,14 +104,13 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
 	rendition := insertRendition(t, all)
 	prepareAfter := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
-		ended := make(chan error, 1)
-		go func() { ended <- all.handle(t.Context(), job, testOrder) }()
+		ended := start(job)
 		testutil.Receive(t, node.sent, "the prepare command")
 		all.exchanges.Interrupt(t.Context(), 1)
 		return testutil.Receive(t, ended, "the prepare job to end")
@@ -137,10 +152,9 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
 	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
-	all := preparesOnAFakeNode(t, node, clockSource)
+	all, start := preparesOnAFakeNode(t, node, clockSource)
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
-	ended := make(chan error, 1)
-	go func() { ended <- all.handle(t.Context(), job, testOrder) }()
+	ended := start(job)
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
@@ -169,7 +183,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
+	all, _ := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
 	rendition := insertRendition(t, all)
 	doneBy := func(run renditionRun) {
 		t.Helper()

@@ -32,6 +32,7 @@ const (
 	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
 	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
+	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
@@ -165,6 +166,9 @@ func Registry() []Definition {
 		sourced(durationSetting(NodeSilentAfterSeconds, time.Second, "30", 1, 24*3600,
 			"seconds without a record from a node before the core shows it as silent (cut-a §4)"),
 			"cut-a §4: silent after 30 s with no record, three status intervals"),
+		sourced(durationSetting(AssignedJobLimitHours, time.Hour, "24", 1, 24*30,
+			"hours a job given to a node may stay without its outcome before it is its own failure (D234 §7)"),
+			"the owner, 2026-10-02: a backstop; silence and the node's own list find a lost job first"),
 		{
 			Key: ShouldScanOnNodeHello, Kind: KindBool, StartJSON: json.RawMessage("true"),
 			Description: "whether the core asks a node to scan every root it names each time it says hello",

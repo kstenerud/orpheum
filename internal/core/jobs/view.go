@@ -70,3 +70,9 @@ func (queue *Queue) Cancel(ctx context.Context, id int64) error {
 func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64) error {
 	return queue.queue.SetProgress(ctx, id, fraction)
 }
+
+// OnCancel has the queue tell cancelled each job a cancel ended: an assigned job's node is told to
+// stop its work (D234 §6).
+func (queue *Queue) OnCancel(cancelled func(ctx context.Context, id int64)) {
+	queue.queue.OnCancel(cancelled)
+}

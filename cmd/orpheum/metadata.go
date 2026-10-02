@@ -39,6 +39,8 @@ type jobServices struct {
 	playback *playback.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
 	nodes *nodes.Service
+	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
+	exchanges *nodes.Exchanges
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -152,6 +154,8 @@ type jobRunner struct {
 	// derivedBy names the sweeps that queue the kind's work again from persistent.db, or is
 	// derivedByAPlay for work a play asks for, which the next play asks for again.
 	derivedBy []string
+	// assignee, for a kind whose work a node does, is how its jobs given to a node are resolved.
+	assignee func(runner nodes.Resolver) nodes.Assignee
 }
 
 // derivedByAPlay names what derives the work a play asks for: a prepare, a subtitle's text. It
@@ -167,24 +171,27 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 		{
 			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
 			[]string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses},
+			nil,
 		},
 		{
 			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
 			artworkRetrySchedule, 1,
 			[]string{sweepPasses},
+			nil,
 		},
 		{
 			jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, services.playback.RecordSubtitleFailure,
-			nil, 1, derivedByAPlay(),
+			nil, 1, derivedByAPlay(), services.playback.SubtitleAssignee,
 		},
 		{
 			jobs.KindConvertFetchedSubtitle, services.playback.HandleConvertFetchedSubtitle,
-			services.playback.RecordSubtitleFailure, nil, 1, derivedByAPlay(),
+			services.playback.RecordSubtitleFailure, nil, 1, derivedByAPlay(), services.playback.SubtitleAssignee,
 		},
 		{
 			jobs.KindMeasureLoudness, services.playback.HandleMeasureLoudness,
 			services.playback.RecordMeasurementFailure, nil, 1,
 			[]string{sweepLoudness},
+			services.playback.LoudnessAssignee,
 		},
 	}
 }
@@ -193,7 +200,10 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 // A prepare records no failure of its own: the next play asks again (its rendition's state is
 // Phase 4's, G8).
 func (services jobServices) prepareRunners() jobRunners {
-	return jobRunners{{jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 0, derivedByAPlay()}}
+	return jobRunners{{
+		jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 0, derivedByAPlay(),
+		services.playback.PrepareAssignee,
+	}}
 }
 
 // The sweeps, by what they derive (D231 §3): the first match of each film and series with no
@@ -276,6 +286,18 @@ func lengthOrStarting(ctx context.Context, config settingReader, key settings.Ke
 	return length
 }
 
+// newRunner is a runner of one kind, with its retry schedule and the recording of its failures.
+func (services jobServices) newRunner(runnerSpec jobRunner) *jobs.Runner {
+	runner := services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
+	if runnerSpec.retrySchedule != nil {
+		runner.WithRetrySchedule(runnerSpec.retrySchedule)
+	}
+	if runnerSpec.recordFailure != nil {
+		runner.WithFailureRecorder(runnerSpec.recordFailure)
+	}
+	return runner
+}
+
 // startBackgroundLoops starts a runner for every kind of job, the sweeps that derive their work
 // (at start, on their timers, after each pass and when a destination comes back, D231 §3), and
 // the artwork cache's upkeep. They run until the returned stop is called.
@@ -284,16 +306,14 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	if err != nil {
 		return nil, err
 	}
+	if err := services.exchanges.Load(ctx); err != nil {
+		return nil, err
+	}
+	services.queue.OnCancel(services.exchanges.Cancelled)
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
 	startRunner := func(runnerSpec jobRunner) {
-		kind, runner := runnerSpec.kind, services.queue.NewRunner(runnerSpec.kind, runnerSpec.handler)
-		if runnerSpec.retrySchedule != nil {
-			runner.WithRetrySchedule(runnerSpec.retrySchedule)
-		}
-		if runnerSpec.recordFailure != nil {
-			runner.WithFailureRecorder(runnerSpec.recordFailure)
-		}
+		kind, runner := runnerSpec.kind, services.newRunner(runnerSpec)
 		loops.Go(func() {
 			// A runner looks for due jobs each second, and at once when the queue wakes it (a new
 			// job, an unparked destination), so the tick only catches a retry coming due.
@@ -304,11 +324,22 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			}
 		})
 	}
-	for _, runnerSpec := range services.runners(artworkRetrySchedule) {
+	for _, runnerSpec := range append(services.runners(artworkRetrySchedule), services.prepareRunners()...) {
+		// A node's word on a job given to it is taken by a runner of its kind, as its handler's answer.
+		if runnerSpec.assignee != nil {
+			services.exchanges.Handle(runnerSpec.kind, runnerSpec.assignee(services.newRunner(runnerSpec)))
+		}
 		for range runnerSpec.concurrency {
 			startRunner(runnerSpec)
 		}
 	}
+	loops.Go(func() {
+		// A node says where the work it holds is at each of its status ticks; a silence is looked
+		// for each second.
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		services.exchanges.Watch(loopsContext, ticker.C)
+	})
 	prepares := &runnerPool{start: func() { startRunner(services.prepareRunners()[0]) }}
 	services.nodes.SetPrepareSlotsSink(func(prepareSlotCount int) {
 		if grown := prepares.growTo(prepareSlotCount); grown > 0 {

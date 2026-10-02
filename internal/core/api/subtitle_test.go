@@ -53,9 +53,8 @@ func (harness testHarness) extract(
 ) (nodeproto.Command, error) {
 	t.Helper()
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
-	go func() { finished <- playback.HandleExtractSubtitle(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	harness.answerSubtitle(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
@@ -274,9 +273,8 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		t.Fatalf("the subtitles offered = %+v, want the video's own track, then the Spanish file", decided.Subtitles)
 	}
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: sidecarStreamID}}
-	go func() { finished <- playback.HandleExtractSubtitle(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	sent := command.ExtractSubtitle
 	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.RootPath != "/media" ||

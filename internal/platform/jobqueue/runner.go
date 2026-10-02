@@ -107,6 +107,12 @@ func jobOf[T comparable](row Row[T]) Job[T] {
 // say what else happens. It reports false, and records nothing, for a job that is not assigned:
 // cancelled meanwhile, or failed when its time ran out.
 func (runner *Runner[T]) Resolve(ctx context.Context, id int64, answer error) (bool, error) {
+	return runner.ResolveBy(ctx, id, func(Job[T]) error { return answer })
+}
+
+// ResolveBy is Resolve with the answer decide gives the job as it was assigned: what its handler
+// would answer, knowing its attempt (Job.PreviousAttemptToolFailed and the rest).
+func (runner *Runner[T]) ResolveBy(ctx context.Context, id int64, decide func(job Job[T]) error) (bool, error) {
 	row, found, err := runner.queue.storage.TakeAssigned(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("take assigned job %d: %w", id, err)
@@ -117,7 +123,8 @@ func (runner *Runner[T]) Resolve(ctx context.Context, id int64, answer error) (b
 	if row.Kind != runner.kind {
 		return false, fmt.Errorf("job %d is a %s job, not this runner's %s", id, row.Kind, runner.kind)
 	}
-	return true, runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, answer)
+	job := jobOf(row)
+	return true, runner.finish(ctx, job, claimedRow[T]{row: row}, decide(job))
 }
 
 // failOverdueAssigned fails one assigned job of the runner's kind whose time ran out, as its own

@@ -476,6 +476,12 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
    **4c.2** artwork as one assigned command; **4c.3** the held list in the status and the squaring;
    **4c.4** commands of ended jobs dropped; **4c.5** manifests, the hello's renditions and eviction.
 
+*4c.1 built 2026-10-02:* prepares, extractions, conversions and measurements are given to their node
+(`Exchanges.Assign`), their attempts kept in `cache.db`'s `node_attempt` (version 24) and taken back
+at start (`Load`); the node's word resolves each by its kind's `Assignee`; a silence past the limit
+(`Watch`) or a restart is unanswered, the node told to stop; a cancel tells the node and the kind
+(`Queue.OnCancel`); `assigned_job_limit_hours` (24) is the backstop. Only artwork still waits (4c.2).
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global

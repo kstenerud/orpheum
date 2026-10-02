@@ -44,6 +44,15 @@ type MatchCandidate struct {
 	ProviderPosterPath *string
 }
 
+type NodeAttempt struct {
+	AttemptToken string
+	JobID        int64
+	JobKind      string
+	NodeID       int64
+	WorkJSON     string
+	SentAt       int64
+}
+
 type PreparedRendition struct {
 	ID                   int64
 	SourceFile           int64

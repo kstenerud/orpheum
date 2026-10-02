@@ -90,6 +90,16 @@ type Queue[T comparable] struct {
 	// wakeupsByKind are each kind's runners' wake-ups: one each, so a job of one kind never wakes a
 	// runner of another in its place.
 	wakeupsByKind map[Kind][]chan struct{} // guarded by mutex
+	// cancelled is told each job a cancel ended, by its id: an assigned job's machine is told to
+	// stop its work there (D234 §6). Guarded by mutex.
+	cancelled func(ctx context.Context, id int64)
+}
+
+// OnCancel has the queue tell cancelled each job a cancel ended, after it is recorded.
+func (queue *Queue[T]) OnCancel(cancelled func(ctx context.Context, id int64)) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.cancelled = cancelled
 }
 
 // New returns a queue over storage.
@@ -221,9 +231,13 @@ func (queue *Queue[T]) Cancel(ctx context.Context, id int64) error {
 	}
 	queue.mutex.Lock()
 	stop, isRunning := queue.cancelByRunningJobID[id]
+	cancelled := queue.cancelled
 	queue.mutex.Unlock()
 	if isRunning {
 		stop(ErrCancelled)
+	}
+	if cancelled != nil {
+		cancelled(ctx, id)
 	}
 	return nil
 }

@@ -895,7 +895,8 @@ reference scale, and removes a failure mode.
 > (D231 §8, D233 §6: the jobs rebuild's Phase 1); version 21 gave a job its `destination` (D231
 > §5, Phase 2); version 22 moved `subtitle_text` to `persistent.db` (the architecture map's F1, Phase 3);
 > version 23 gave a job the `assigned` state and `assigned_until`, a job whose work a node does with
-> no runner waiting for it (D234 §7, Phase 4.0).
+> no runner waiting for it (D234 §7, Phase 4.0); version 24 `node_attempt`, each job given to a node by
+> its attempt token, so its node's word resolves it after a restart too (Phase 4c).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -972,6 +973,16 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   finished_at  INTEGER,
   UNIQUE (source_file, profile)
 );
+
+CREATE TABLE node_attempt (                                -- D234 section 7: work given to a node
+  attempt_token TEXT PRIMARY KEY,        -- made for this sending; every result names it (D238 section 2)
+  job_id      INTEGER NOT NULL,          -- the assigned job it is an attempt at; resolving it forgets this
+  job_kind    TEXT NOT NULL,             -- the job's kind, whose answers resolve it
+  node_id     INTEGER NOT NULL,          -- persistent.db's node it was sent to
+  work_json   TEXT NOT NULL,             -- JSON: the work as sent, without the bytes it carried
+  sent_at     INTEGER NOT NULL
+);
+CREATE INDEX node_attempt_job ON node_attempt(job_id);
 ```
 
 A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under the node's prepared
@@ -1088,6 +1099,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `art_served` | cache.db | `internal/core/artwork` | |
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
+| `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
 | `prepared_rendition` | cache.db | `internal/core/playback` | |
 
 ## Not in Cut A, and additive

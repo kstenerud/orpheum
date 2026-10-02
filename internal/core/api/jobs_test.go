@@ -63,8 +63,8 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if command := harness.nextCommand(t); command.Type != nodeproto.CommandPrepare {
 		t.Fatalf("the node was sent %+v, want the prepare", command)
 	}
-	if running := newestPrepareJob(t, harness.listedJobs(t, admin)); running.State != "running" {
-		t.Errorf("the prepare once the node has it = %+v, want running", running)
+	if assigned := newestPrepareJob(t, harness.listedJobs(t, admin)); assigned.State != "assigned" {
+		t.Errorf("the prepare once the node has it = %+v, want assigned to it, nothing waiting (D234 §7)", assigned)
 	}
 	cancel := "/jobs/" + strconv.FormatInt(queued.ID, 10) + "/cancel"
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusNoContent {

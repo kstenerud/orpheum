@@ -31,11 +31,8 @@ func (harness testHarness) measureWith(
 ) (*nodeproto.MeasureLoudness, error) {
 	t.Helper()
 	service := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
-	go func() {
-		job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
-		finished <- service.HandleMeasureLoudness(t.Context(), job)
-	}()
+	job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
+	finished := harness.handle(t, service.HandleMeasureLoudness, job)
 	command := harness.nextCommand(t)
 	harness.answerLoudness(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
@@ -116,11 +113,8 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		t.Fatalf("prepared: %+v; want both mixes at the stereo mix's gain, capped by its peak, and none carried yet",
 			decided)
 	}
-	prepared := make(chan error, 1)
-	go func() {
-		prepared <- harness.server.dependencies.Load().Playback.HandlePrepare(t.Context(),
-			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
-	}()
+	prepared := harness.handle(t, harness.server.dependencies.Load().Playback.HandlePrepare,
+		jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	command := harness.nextCommand(t)
 	if command.Prepare == nil || len(command.Prepare.AudioTracks) != 1 ||
 		command.Prepare.AudioTracks[0].CarriedGainDB != 5.0 {
@@ -339,7 +333,9 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 	}
 	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`)
 	harness.queue.Unpark(t.Context(), jobs.RootDestination(1, "/media"))
+	answered := make(chan struct{})
 	go func() {
+		defer close(answered)
 		command, isSent := harness.commandWithin(t)
 		if !isSent {
 			return
@@ -350,6 +346,8 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	// The job is given to the node; the node's answer resolves it.
+	testutil.Receive(t, answered, "the node's answer")
 	if job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness); job.State != "failed" ||
 		job.AttemptCount != 1 {
 		t.Errorf("once the root came back, the measurement = %+v; want it run once, to FFmpeg's answer", job)

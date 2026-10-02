@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -54,6 +55,10 @@ type prepares struct {
 	maxSlotWait time.Duration
 
 	exchanges *nodes.Exchanges
+
+	waitingMutex sync.Mutex
+	// waitingSince is when the node first said each attempt waits for a slot, by its token.
+	waitingSince map[string]time.Time // guarded by waitingMutex
 }
 
 func newPrepares(parts Parts, exchanges *nodes.Exchanges) *prepares {
@@ -61,7 +66,7 @@ func newPrepares(parts Parts, exchanges *nodes.Exchanges) *prepares {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
 		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence, maxSlotWait: maxSlotWait,
-		exchanges: exchanges,
+		exchanges: exchanges, waitingSince: map[string]time.Time{},
 	}
 }
 
@@ -179,76 +184,118 @@ func (all *prepares) newRunID() (string, error) {
 // (Phase 5) replace this cap.
 const maxSlotWait = 6 * time.Hour
 
-// handle runs one prepare job: it commands the node and waits, recording the node's progress,
-// until the node says how the prepare ended, says nothing for too long, or has held it waiting for
-// a slot for too long.
+// handle runs one prepare job: it records the making begun and gives it to the node, which says
+// later how it ended (D234 §7, Assignee).
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
-	command, nodeID := order.command, order.nodeID
-	exchange, err := all.exchanges.Ask(ctx, nodeID, job,
-		nodeproto.Command{
-			Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &command},
-		}, "prepare "+command.RenditionDir)
-	if err != nil {
-		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
-	}
-	defer exchange.Close()
-	if recordErr := all.recordRunning(ctx, order.run, 0); recordErr != nil {
-		return recordErr
+	command := order.command
+	if err := all.recordRunning(ctx, order.run, 0); err != nil {
+		return err
 	}
 	languages := audioLanguagesOf(command.AudioTracks)
-	if recordErr := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); recordErr != nil {
-		return recordErr
+	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
+		return err
 	}
-	var waitingSince time.Time
-	exchange.OnProgress = func(progress nodeproto.Progress) error {
-		return all.takeProgress(ctx, job, order, progress, &waitingSince)
+	return all.exchanges.Assign(ctx, order.nodeID, job, nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &command},
+	})
+}
+
+// assignee is how a prepare given to a node is resolved: by its node's word on how it ended, by its
+// silence or restart, by its progress, and by a cancel.
+func (all *prepares) assignee(runner nodes.Resolver) nodes.Assignee {
+	return nodes.Assignee{
+		Runner: runner,
+		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
+			all.forgetWaiting(attempt.Token)
+			run, err := runOf(attempt)
+			if err != nil {
+				return jobs.MarkPermanent(err)
+			}
+			if result.Prepare == nil {
+				return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",
+					attempt.NodeID, run.dir())
+			}
+			return all.takeEnd(ctx, job, attempt.NodeID, run, *result.Prepare)
+		},
+		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
+			all.forgetWaiting(attempt.Token)
+			run, runErr := runOf(attempt)
+			if runErr != nil {
+				return jobs.MarkPermanent(runErr)
+			}
+			return unansweredOutcome(job, err, func(failure string) error { return all.failMaking(ctx, run, failure) })
+		},
+		Progress: all.takeProgress,
+		Cancelled: func(ctx context.Context, attempt nodes.Attempt) error {
+			// The rendition is not made, so a later play prepares it again rather than waiting on one
+			// no one is making.
+			all.forgetWaiting(attempt.Token)
+			run, err := runOf(attempt)
+			if err != nil {
+				return err
+			}
+			return all.failMaking(ctx, run, jobs.ErrCancelled.Error())
+		},
 	}
-	result, err := exchange.Next(ctx, all.maxSilence)
-	if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-		return all.abandon(ctx, order.run)
+}
+
+// runOf is the making an attempt at a prepare is.
+func runOf(attempt nodes.Attempt) (renditionRun, error) {
+	if attempt.Work.Prepare == nil {
+		return renditionRun{}, fmt.Errorf("%s job %d's attempt names no prepare", attempt.Kind, attempt.JobID)
 	}
-	if err != nil {
-		return unansweredOutcome(job, err, func(failure string) error {
-			return all.failMaking(ctx, order.run, failure)
-		})
-	}
-	if result.Prepare == nil {
-		return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",
-			nodeID, command.RenditionDir)
-	}
-	return all.takeEnd(ctx, job, order, *result.Prepare)
+	return parseRenditionDir(attempt.Work.Prepare.RenditionDir)
 }
 
 // takeProgress takes the node's word on where a prepare is. Waiting for a slot of its kind is a
-// word about the node, which keeps the job from being given up for silence, until the node has
-// held it waiting since waitingSince for too long in all; then the job gives up, and the
-// exchange's close tells the node to stop it.
-func (all *prepares) takeProgress(
-	ctx context.Context, job jobs.Job, order prepareOrder, progress nodeproto.Progress, waitingSince *time.Time,
-) error {
+// word about the node, which keeps the job from being given up for silence, until the node has held
+// it waiting for maxSlotWait in all; then the job gives up, and its node is told to stop it.
+func (all *prepares) takeProgress(ctx context.Context, attempt nodes.Attempt, progress nodeproto.Progress) error {
+	run, err := runOf(attempt)
+	if err != nil {
+		return err
+	}
 	switch progress.State {
 	case nodeproto.ProgressWaiting:
-		if waitingSince.IsZero() {
-			*waitingSince = all.clock.Now()
-		}
-		if waited := all.clock.Now().Sub(*waitingSince); waited >= all.maxSlotWait {
-			return fmt.Errorf("node %d held prepare %s waiting for a slot for %s", order.nodeID,
-				order.command.RenditionDir, waited)
+		if waited := all.waitedFor(attempt.Token); waited >= all.maxSlotWait {
+			return fmt.Errorf("node %d held prepare %s waiting for a slot for %s", attempt.NodeID, run.dir(), waited)
 		}
 		return nil
 	case nodeproto.ProgressRunning:
-		return all.recordProgress(ctx, job, order.run, progress.PreparedThroughMs, order.durationMs)
+		all.forgetWaiting(attempt.Token)
+		return all.recordProgress(ctx, attempt.JobID, run, progress.PreparedThroughMs,
+			attempt.Work.Prepare.SourceDurationMs)
 	}
 	return nil
+}
+
+// waitedFor is how long the node has said an attempt waits for a slot, from its first word that it
+// does.
+func (all *prepares) waitedFor(token string) time.Duration {
+	now := all.clock.Now()
+	all.waitingMutex.Lock()
+	defer all.waitingMutex.Unlock()
+	since, found := all.waitingSince[token]
+	if !found {
+		all.waitingSince[token] = now
+		return 0
+	}
+	return now.Sub(since)
+}
+
+func (all *prepares) forgetWaiting(token string) {
+	all.waitingMutex.Lock()
+	defer all.waitingMutex.Unlock()
+	delete(all.waitingSince, token)
 }
 
 // takeEnd takes the node's word on how a prepare ended, and says how the job ended. What the word
 // establishes, the making done or FFmpeg failing on its source, its recorder recorded before the
 // job heard it (recordPrepare).
 func (all *prepares) takeEnd(
-	ctx context.Context, job jobs.Job, order prepareOrder, report nodeproto.PrepareReport,
+	ctx context.Context, job jobs.Job, nodeID int64, run renditionRun, report nodeproto.PrepareReport,
 ) error {
-	nodeID, renditionDir := order.nodeID, order.command.RenditionDir
+	renditionDir := run.dir()
 	switch report.State {
 	case nodeproto.PrepareDone:
 		return nil
@@ -257,7 +304,7 @@ func (all *prepares) takeEnd(
 		return jobs.MarkPermanent(errors.New(report.Failure))
 	case nodeproto.PrepareStalled:
 		return stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
-			func(failure string) error { return all.failMaking(ctx, order.run, failure) })
+			func(failure string) error { return all.failMaking(ctx, run, failure) })
 	case nodeproto.PrepareRefused:
 		refused := refusalError(nodeID, "prepare "+renditionDir, report.Refusal, report.RefusalCode)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
@@ -279,7 +326,7 @@ func (all *prepares) takeEnd(
 // recordProgress records how far a running prepare is, on its making and, when the source's length
 // is known, on its job for the job view.
 func (all *prepares) recordProgress(
-	ctx context.Context, job jobs.Job, run renditionRun, preparedThroughMs, durationMs int64,
+	ctx context.Context, jobID int64, run renditionRun, preparedThroughMs, durationMs int64,
 ) error {
 	if err := all.recordRunning(ctx, run, preparedThroughMs); err != nil {
 		return err
@@ -287,14 +334,7 @@ func (all *prepares) recordProgress(
 	if durationMs <= 0 {
 		return nil
 	}
-	return all.queue.SetProgress(ctx, job.ID, min(float64(preparedThroughMs)/float64(durationMs), 1))
-}
-
-// abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
-// a later play prepares it again rather than waiting on one no one is making.
-func (all *prepares) abandon(ctx context.Context, run renditionRun) error {
-	finishErr := all.failMaking(context.WithoutCancel(ctx), run, jobs.ErrCancelled.Error())
-	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
+	return all.queue.SetProgress(ctx, jobID, min(float64(preparedThroughMs)/float64(durationMs), 1))
 }
 
 // recordAudio records what a making puts in the rendition's audio tracks: the gains in their
@@ -437,4 +477,9 @@ func audioLanguagesOf(tracks []nodeproto.PrepareAudio) string {
 		return "[]"
 	}
 	return string(encoded)
+}
+
+// PrepareAssignee is how a prepare given to a node is resolved.
+func (service *Service) PrepareAssignee(runner nodes.Resolver) nodes.Assignee {
+	return service.prepares.assignee(runner)
 }
