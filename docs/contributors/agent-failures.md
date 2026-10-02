@@ -49,6 +49,24 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A18 — A scan explained by the code that could start it, not by the log that said which one ran (2026-10-02)
+
+- **What happened:** the owner reset the dev loop during a scan of their media and, after a
+  restart, saw a scan running. I said it was a fresh scan of the media root, started by the
+  node's hello and thrown away because no library covered it. On that basis I recommended
+  creating the library and restarting, and promised a Phase 4e item so that a hello skips roots no
+  library covers. It was the scan of the seeded test libraries, which every fresh dev loop runs
+  and stores. The false belief came from reading `should_scan_on_node_hello` and the ingest's
+  "no library covers" warning, which showed that such a scan *could* happen, and from an earlier
+  sandbox log where it had. I never read the owner's log or asked which root the scan named; its
+  `rootPath` answered the question.
+- **Caught by:** the owner: "It was scanning the test media (which is already set up in
+  libraries at a fresh launch)".
+- **Gate:** none; no check can read an explanation. The practice: explain what a running system
+  did from its own log (here, the "a node began a scan" line's `rootPath`) or ask the owner for
+  that line before explaining. Code shows what can happen, not what did. The same move as A15,
+  explaining from the loudest lines rather than the deciding one.
+
 ### A17 — My own stray output taken as an instruction, then blamed on the tools (2026-10-01)
 
 - **What happened:** the sandbox started the session with yoloAI's "background setup complete"
