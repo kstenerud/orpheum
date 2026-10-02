@@ -5,6 +5,7 @@ package playback
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -127,6 +128,22 @@ func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreThe
 	if row := renditionRow(t, all, rendition); row.State != renditionFailed || row.Failure == nil ||
 		!strings.HasPrefix(*row.Failure, jobs.ToolFailedTwice) {
 		t.Errorf("after two tool failures the rendition is %+v; want failed, saying so", row)
+	}
+}
+
+// A prepare its node's status no longer lists was lost otherwise than by a restart (D238 §3): that
+// too is the tool's failure, tried again at no cost the first time.
+func TestHandle_APrepareTheNodesStatusNoLongerHoldsIsTriedAgainAsTheToolsFailure(t *testing.T) {
+	t.Parallel()
+	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
+	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
+	testutil.Receive(t, node.sent, "the prepare command")
+	all.exchanges.Square(t.Context(), 1, nil, nil)
+	err := testutil.Receive(t, ended, "the prepare job to end")
+	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
+		!strings.HasPrefix(err.Error(), "interrupted: ") {
+		t.Errorf("a prepare the node's status no longer holds ended %v; want it tried again as the tool's failure", err)
 	}
 }
 
