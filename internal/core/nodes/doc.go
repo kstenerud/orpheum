@@ -87,7 +87,10 @@
 //   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
 //     device as may read it, each with node_work_window_extra more; work beyond waits, parked at no
 //     cost on the slot or device that is full, brought back when one of the node's jobs there ends
-//     or the node says hello (D240 §5). TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
+//     or the node says hello (D240 §5); play-driven work is never held back for its device's
+//     readers, the node pausing background work for it (D240 §6).
+//     TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
+//     TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders,
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.

@@ -91,3 +91,27 @@ func TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority(t *testing.T
 		t.Errorf("the node was told %+v; want job 7's attempt at background priority, not play-driven", told)
 	}
 }
+
+// Play-driven work is never held back in the core for its device's readers, whatever background work
+// fills them: the node pauses the background work reading it (D240 §6).
+func TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.sender.resources = &nodes.Resources{
+		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
+		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
+		ReaderLimits: map[string]int{"zfs:tank": 1},
+	}
+	encode := prepareOf(nodeproto.ProfileH264At8M)
+	bench.assignAt(t, 1, encode)
+	bench.assignAt(t, 2, encode)
+	if _, full := bench.assignAt(t, 3, encode); full != jobs.ReaderDestination(1, "zfs:tank") {
+		t.Fatalf("a third background job reading tank waits on %q, want tank's readers", full)
+	}
+	answer := bench.exchanges.Assign(t.Context(), 1,
+		jobs.Job{ID: 4, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow}, encode)
+	if !jobqueue.IsAssigned(answer) {
+		t.Errorf("a play-driven prepare reading the full tank was answered %v, want it given to the node", answer)
+	}
+}
