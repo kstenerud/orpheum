@@ -38,6 +38,14 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "enrol the node", err)
 		return
 	}
+	if !service.speaksThisProtocol(node.ID, hello.ProtocolVersion) {
+		service.logger.WarnContext(ctx, "refused a node that speaks another version of the node protocol",
+			"nodeName", hello.Name, "nodeId", node.ID, "nodeProtocol", hello.ProtocolVersion,
+			"coreProtocol", nodeproto.ProtocolVersion, "build", hello.Build.String())
+		http.Error(writer, fmt.Sprintf("this core speaks node protocol %d, and this node %d: update it",
+			nodeproto.ProtocolVersion, hello.ProtocolVersion), http.StatusConflict)
+		return
+	}
 	scanOnHello, err := service.settings.Bool(ctx, settings.ShouldScanOnNodeHello)
 	if err != nil {
 		service.fail(ctx, writer, "read should_scan_on_node_hello", err)
@@ -94,6 +102,21 @@ func enrol(
 		return nil
 	})
 	return node, err
+}
+
+// speaksThisProtocol is whether a node said hello in this core's version of the node protocol. One
+// that did not is no longer connected, whatever it was, and needs updating; its work waits for it
+// (D233 §9).
+func (service *Service) speaksThisProtocol(nodeID int64, protocol int) bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if protocol == nodeproto.ProtocolVersion {
+		delete(service.protocolByNodeID, nodeID)
+		return true
+	}
+	service.protocolByNodeID[nodeID] = protocol
+	delete(service.connectedNodes, nodeID)
+	return false
 }
 
 // connect registers a node's channel, keeping its queue across a reconnection, with the roots

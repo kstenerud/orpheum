@@ -2178,7 +2178,7 @@ export interface components {
             build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @enum {string} */
-            connection: "connected" | "silent" | "awaiting_hello";
+            connection: "connected" | "silent" | "awaiting_hello" | "needs_update";
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegSha256?: string;
             ffmpegVersion?: string;

@@ -138,8 +138,12 @@ func (harness *fixture) post(t *testing.T, path string, nodeID int64, body io.Re
 	return httpAnswer{status: response.StatusCode, body: read}
 }
 
+// hello says a node's hello, in this build's protocol unless it names one, as a node's agent does.
 func (harness *fixture) hello(t *testing.T, hello nodeproto.Hello) nodeproto.HelloReply {
 	t.Helper()
+	if hello.ProtocolVersion == 0 {
+		hello.ProtocolVersion = nodeproto.ProtocolVersion
+	}
 	encoded, err := json.Marshal(hello)
 	if err != nil {
 		t.Fatal(err)

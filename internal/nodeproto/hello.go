@@ -26,8 +26,17 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // which takes seconds.
 const ArtworkAnswerWait = 2 * time.Minute
 
+// ProtocolVersion is the version of the node protocol this build speaks: its paths, commands,
+// records and results. It is raised with any change a node or core of another build would misread,
+// so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
+// so the two match unless a node is updated apart from its core.
+const ProtocolVersion = 1
+
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
+	// ProtocolVersion is the version of this protocol the node speaks (ProtocolVersion); a core that
+	// speaks another refuses the hello, and the node waits for an update (D233 §9).
+	ProtocolVersion int `json:"protocolVersion"`
 	// Name is the node's configured name; the core enrols a node it has not seen by it (D207).
 	Name string `json:"name"`
 	// Build is what the node's binary was built from, so the core can see a mismatch (D225).

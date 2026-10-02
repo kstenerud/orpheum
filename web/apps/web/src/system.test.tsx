@@ -188,3 +188,19 @@ it("the System page says a machine that stopped answering is silent, and when it
   });
   expect(awaiting).toContain("Not heard from since the server started.");
 });
+
+it("the System page says a machine on another version of Orpheum needs updating (D233 §9)", async () => {
+  const older = await shown({
+    name: "attic",
+    connection: "needs_update",
+    isConnected: false,
+    isServersBuild: false,
+    uid: 0,
+    gid: 0,
+    confinement: [],
+    disks: [],
+    recentPrepares: [],
+  });
+  expect(older).toContain("The media machine needs updating");
+  expect(older).not.toContain("Not heard from since the server started.");
+});

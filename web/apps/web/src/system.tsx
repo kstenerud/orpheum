@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TFunction } from "i18next";
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -115,6 +116,17 @@ export function SystemView(props: {
 }
 
 /** A connected machine's build, system, FFmpeg and user, and whether its build is the server's. */
+/** Why a node that is not connected is not, in the viewer's words. */
+function notConnectedText(t: TFunction, node: SystemNode, language: string): string {
+  if (node.connection === "needs_update") {
+    return t("system.needsUpdate");
+  }
+  if (node.connection === "silent" && node.lastHeardAt !== undefined) {
+    return t("system.silentSince", { at: dateTimeText(node.lastHeardAt, language) });
+  }
+  return t("system.awaitingHello");
+}
+
 function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
@@ -313,11 +325,7 @@ function NodeFacts(props: {
           <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>
       ) : (
-        <p>
-          {node.connection === "silent" && node.lastHeardAt !== undefined
-            ? t("system.silentSince", { at: dateTimeText(node.lastHeardAt, i18n.language) })
-            : t("system.awaitingHello")}
-        </p>
+        <p>{notConnectedText(t, node, i18n.language)}</p>
       )}
       <ConfirmButton
         label={t("system.retireNode")}

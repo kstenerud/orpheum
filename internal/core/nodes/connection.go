@@ -40,6 +40,9 @@ const (
 	Silent Connection = "silent"
 	// AwaitingHello is a node enrolled that has not said hello since the core started.
 	AwaitingHello Connection = "awaiting_hello"
+	// NeedsUpdate is a node whose last hello spoke another version of the node protocol than the
+	// core's, so it was refused (D233 §9).
+	NeedsUpdate Connection = "needs_update"
 )
 
 // NodeConnection is whether a node is connected and when it was last heard; zero when it has
@@ -49,7 +52,10 @@ func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Conne
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	node, found := service.connectedNodes[nodeID]
+	_, needsUpdate := service.protocolByNodeID[nodeID]
 	switch {
+	case needsUpdate:
+		return NeedsUpdate, time.Time{}
 	case !found:
 		return AwaitingHello, time.Time{}
 	case service.isConnectedLocked(node, silentAfter):

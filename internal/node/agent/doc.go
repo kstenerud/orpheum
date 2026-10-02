@@ -28,6 +28,9 @@
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
 //     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
+//   - A command the node cannot read, unknown or without its payload, is refused by its job's id,
+//     never ignored or crashed on, and every hello says this build's protocol version (D233 §9).
+//     TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello.
 //   - Every job's answer is a Result naming the job its command named, posted to the core's one
 //     result path; an artwork command's — the sizes the deriver made, or why none — is the
 //     artwork store's one way in (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
