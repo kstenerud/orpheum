@@ -78,7 +78,10 @@ background, never as a to-do list.
 
 - **One binary, two processes.** `orpheum run` starts the core, and the core supervises the node as
   a child ([D43](../../decisions/working-notes.md), [D44](../../decisions/working-notes.md)).
-  The systemd unit runs `orpheum run`.
+  The systemd unit runs `orpheum run`. *Revised by D233 §2 and D235 §4, built in the jobs rebuild's
+  Phase 4a (2026-10-02): `orpheum core` and `orpheum node` are two services of one image, which the
+  runtime starts and restarts; `run` and the core's supervisor are gone, and the dev loop runs the
+  two as two processes.*
 - **Two sockets, each in one direction, and each for one purpose:**
   - **The node connects to the core** on `/run/orpheum/core.sock`. Over it the node posts reports and
     long-polls for commands, so commands always travel on a connection the node opened
@@ -108,7 +111,8 @@ other debugging targets (`dev-server`, `dev-lan`, `dev-reset`, `dev-db`, `dev-lo
 `dev-debug`, `pprof`, `probe`, `test-one`, `cover`). **What the server must implement for the
 loop to work:**
 
-- **`orpheum run --config <file>`**, reading TOML with exactly the keys in
+- **`orpheum run --config <file>`** (since Phase 4a, `orpheum core` and `orpheum node`, each with
+  `--config <file>`), reading TOML with exactly the keys in
   [`deploy/dev/orpheum.dev.toml`](../../../../deploy/dev/orpheum.dev.toml); nothing defaults in code
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_seconds`,

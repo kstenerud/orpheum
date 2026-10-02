@@ -87,7 +87,7 @@ func openExistingDatabase(ctx context.Context, config Config) (*datadir.Director
 		return nil, nil, err
 	}
 	if !exists {
-		return nil, nil, fmt.Errorf("there is no database at %s yet; start the server once with `orpheum run`",
+		return nil, nil, fmt.Errorf("there is no database at %s yet; start the server once with `orpheum core`",
 			directories.LibraryDatabasePath())
 	}
 	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())

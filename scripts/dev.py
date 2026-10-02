@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: The development loop behind `make dev`: renders the dev config, seeds an empty
-# ABOUTME: database, runs the server and the Vite dev server, and restarts the server on change.
+# ABOUTME: database, runs the core, the node and the Vite dev server, and restarts both on change.
 """Run Orpheum for development, with opinionated settings that are printed, never hidden.
 
 `make dev` runs `loop`:
@@ -13,13 +13,14 @@
    exactly where data races hide. `DEV_RACE=0` turns it off.
 3. **Seed.** If `.dev/state` is empty, run `orpheum dev seed` with `deploy/dev/seed.toml`, rendered
    into `.dev/seed.toml` like the config.
-4. **Run.** Start `orpheum run` against the dev config, and the Vite dev server with hot reload,
-   which proxies the API and media to the server. Output goes to the terminal, prefixed
-   `[server]` and `[web]`; the server's is also appended to `.dev/orpheum.log`.
+4. **Run.** Start `orpheum core` and `orpheum node` against the dev config, two processes as in
+   deployment, where each is a service of its own (D233 §2, D235 §4), and the Vite dev server with
+   hot reload, which proxies the API and media to the core. Output goes to the terminal, prefixed
+   `[core]`, `[node]` and `[web]`; the core's and the node's are also appended to `.dev/orpheum.log`.
 5. **Watch.** Poll the Go sources, `go.mod` and `deploy/dev/*.toml` every second. On a change, rebuild
-   and restart the server. The web dev server reloads itself. A server that exits is reported
-   with its status, and the loop keeps watching, so a failed build is fixed and retried without
-   restarting anything.
+   and restart the core and the node. The web dev server reloads itself. A process that exits is
+   reported with its status, and the loop keeps watching, so a failed build is fixed and retried
+   without restarting anything.
 
 Ctrl-C stops everything. Stdlib only, so the loop adds no dependency.
 """
@@ -187,7 +188,8 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> 
     address = listen_address(CONFIG.read_text())
     lines = [
         "Orpheum dev loop — every setting below is a debugging choice, not a default",
-        f"  server       http://{address}   (pprof at /debug/pprof, metrics at /metrics)",
+        f"  core         http://{address}   (pprof at /debug/pprof, metrics at /metrics)",
+        "  node         its own process beside the core, as in deployment (D235 §4)",
         f"  web (Vite)   {web_url(listen, lan_ip())}   hot reload; proxies /api and /media to the server"
         if with_web else "  web          served by the server (built into the binary)",
         "  users        owner / owner (admin)      partner / partner (outsider)",
@@ -212,24 +214,28 @@ def loop(with_web: bool, race: bool, listen: str | None) -> int:
         env = {**os.environ, "ORPHEUM_DEV_SERVER": f"http://{listen_address(CONFIG.read_text())}"}
         web = start(["npm", "--prefix", "web", "--workspace", "@orpheum/web", "run", "dev", "--",
                      "--host", web_host(listen), "--port", "5173", "--strictPort"], "[web]", env=env)
-    server = None
-    reported = False
+    # The core and the node: each run of each, and whether its exit was reported.
+    running: dict[str, subprocess.Popen[str]] = {}
+    reported: set[str] = set()
     seen = snapshot(ROOT)
     rebuild = True
     try:
         while True:
             if rebuild:
-                stop(server)
-                server = None
-                reported = False
+                for proc in running.values():
+                    stop(proc)
+                running.clear()
+                reported.clear()
                 if build(race):
                     seed_if_empty()
-                    server = start([str(BINARY), "run", "--config", str(CONFIG)], "[server]", LOG)
+                    for role in ("core", "node"):
+                        running[role] = start([str(BINARY), role, "--config", str(CONFIG)], f"[{role}]", LOG)
                 rebuild = False
-            if server is not None and server.poll() is not None and not reported:
-                print(f"[dev] the server exited with status {server.returncode}; "
-                      "still watching for changes", flush=True)
-                reported = True
+            for role, proc in running.items():
+                if proc.poll() is not None and role not in reported:
+                    print(f"[dev] the {role} exited with status {proc.returncode}; "
+                          "still watching for changes", flush=True)
+                    reported.add(role)
             time.sleep(1)
             now = snapshot(ROOT)
             if now != seen:
@@ -239,7 +245,8 @@ def loop(with_web: bool, race: bool, listen: str | None) -> int:
     except KeyboardInterrupt:
         print("\n[dev] stopping", flush=True)
     finally:
-        stop(server)
+        for proc in running.values():
+            stop(proc)
         stop(web)
     return 0
 

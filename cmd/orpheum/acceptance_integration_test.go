@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/scan"
@@ -62,7 +61,7 @@ type storedFiling struct {
 // acceptanceRun serves a mixed library over root with the node start gives it, until the core
 // has identified the library, and returns every live file's filing by its path under root.
 func acceptanceRun(
-	t *testing.T, config Config, root string, start func(captured capturedLog) nodes.Starter,
+	t *testing.T, config Config, root string, start func(captured capturedLog) func(ctx context.Context) error,
 ) map[string]storedFiling {
 	t.Helper()
 	nodeID := enrolNodeWithLibrary(t, config, root,
@@ -107,15 +106,15 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	config.Node.SubtitleExtensions = []string{"srt"}
 
 	recorder := &recordingScanner{}
-	first := acceptanceRun(t, config, root, func(captured capturedLog) nodes.Starter {
-		return inProcessStarter(func(ctx context.Context) error {
+	first := acceptanceRun(t, config, root, func(captured capturedLog) func(ctx context.Context) error {
+		return func(ctx context.Context) error {
 			return runNodeWith(ctx, config, captured.logger, nodeSeams{
 				wrapScanner: func(inner agent.Scanner) agent.Scanner {
 					recorder.inner = inner
 					return recorder
 				},
 			})
-		})
+		}
 	})
 	checkFilings(t, tree, first)
 
@@ -131,8 +130,8 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	t.Cleanup(func() { _ = os.Chmod(root, 0o700) }) //nolint:errcheck,gosec // so the temporary directory can go
 	replayConfig, _ := testConfig(t)
 	replayConfig.Node = config.Node
-	second := acceptanceRun(t, replayConfig, root, func(captured capturedLog) nodes.Starter {
-		return inProcessStarter(func(ctx context.Context) error {
+	second := acceptanceRun(t, replayConfig, root, func(captured capturedLog) func(ctx context.Context) error {
+		return func(ctx context.Context) error {
 			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{}}
 			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocketName), hello,
 				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{records: recorder.records}},
@@ -140,7 +139,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
 			return node.Run(ctx, ticker.C)
-		})
+		}
 	})
 	checkSameFilings(t, first, second)
 }

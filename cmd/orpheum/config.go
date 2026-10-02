@@ -31,7 +31,7 @@ type Config struct {
 	Node     NodeConfig     `toml:"node"`
 	Log      LogConfig      `toml:"log"`
 
-	// path is the file's absolute path, which the node child is started with.
+	// path is the file's absolute path.
 	path string
 }
 

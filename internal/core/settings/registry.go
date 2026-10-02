@@ -32,8 +32,6 @@ const (
 	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
 	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
-	NodeRestartAfterSilentSeconds                  Key = "node_restart_after_silent_seconds"
-	NodeRestartAfterExitSeconds                    Key = "node_restart_after_exit_seconds"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
@@ -165,12 +163,6 @@ func Registry() []Definition {
 		sourced(durationSetting(NodeSilentAfterSeconds, time.Second, "30", 1, 24*3600,
 			"seconds without a record from a node before the core shows it as silent (cut-a §4)"),
 			"cut-a §4: silent after 30 s with no record, three status intervals"),
-		sourced(durationSetting(NodeRestartAfterSilentSeconds, time.Second, "120", 1, 24*3600,
-			"seconds of silence before the core restarts the node it supervises (cut-a §4)"),
-			"cut-a §4: the core restarts its child after 120 s"),
-		sourced(durationSetting(NodeRestartAfterExitSeconds, time.Second, "5", 1, 3600,
-			"seconds the core waits before starting its node again after it exited, so a crash cannot spin"),
-			"best guess (M1): long enough that a crash on start cannot spin"),
 		{
 			Key: ShouldScanOnNodeHello, Kind: KindBool, StartJSON: json.RawMessage("true"),
 			Description: "whether the core asks a node to scan every root it names each time it says hello",

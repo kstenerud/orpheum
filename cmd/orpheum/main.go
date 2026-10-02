@@ -63,12 +63,11 @@ type subcommand struct {
 func plannedSubcommands() []subcommand {
 	planned := []subcommand{
 		{
-			name: "run", summary: "start the core, which supervises the node as a child process",
-			implementation: commandRun,
+			name: "core", summary: "run the core: the server, its API and the node channel",
+			implementation: commandCore,
 		},
-		{name: "core", summary: "run the core alone"},
 		{
-			name: "node", summary: "run a media node: the child `run` starts, or a node alone",
+			name: "node", summary: "run a media node, a service of its own beside the core (D233 §2)",
 			implementation: commandNode,
 		},
 		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
@@ -147,9 +146,10 @@ func dispatch(
 	return write(stderr, fmt.Sprintf("orpheum: unknown subcommand %q\n\n", name)+usage(), exitUsageError)
 }
 
-// commandRun starts the server with the config file.
-func commandRun(ctx context.Context, call invocation) int {
-	config, configReport, err := call.loadConfigFromFlags("run", nil)
+// commandCore runs the core. Its nodes are services of their own (`orpheum node`), which dial its
+// socket: the core starts none (D233 §2, D235 §4).
+func commandCore(ctx context.Context, call invocation) int {
+	config, configReport, err := call.loadConfigFromFlags("core", nil)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -164,7 +164,7 @@ func commandRun(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	if err = serve(ctx, config, configReport, listener, releaseWiring(config, call.stderr), logger); err != nil {
+	if err = serve(ctx, config, configReport, listener, releaseWiring(), logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess
@@ -191,11 +191,10 @@ func usage() string {
 	return text.String()
 }
 
-// releaseWiring is what a running server reaches outside itself: its node, started as a child,
-// and the providers' real addresses, which a test replaces with its fakes.
-func releaseWiring(config Config, output io.Writer) wiring {
+// releaseWiring is what a running server reaches outside itself: the providers' real addresses,
+// which a test replaces with its fakes.
+func releaseWiring() wiring {
 	return wiring{
-		startNode: selfStarter(config, output), tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL,
-		openSubtitlesBaseURL: opensubtitles.BaseURL,
+		tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL, openSubtitlesBaseURL: opensubtitles.BaseURL,
 	}
 }

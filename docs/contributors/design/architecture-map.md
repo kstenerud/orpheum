@@ -27,7 +27,8 @@ tables:
   library/clean.go, probe ("hostile bytes stop here"). It is a real seam with its own gates
   (forbidigo `[reveal]`, `core-no-image`).
 - **PERSIST, storage custody**: store, datadir. The design treats this as a layer, not a feature.
-- **COMPOSE, composition and lifecycle**: cmd/orpheum wiring and the node supervisor.
+- **COMPOSE, composition and lifecycle**: cmd/orpheum wiring. The node supervisor went in the jobs
+  rebuild's Phase 4a: the node is a service of its own (D233 §2, D235 §4).
 - **PRIM, shared primitives**: platform/{clock,slogx,errs,ptr,randbytes,readonly}.
 
 Test support packages are listed as TEST.
@@ -108,7 +109,7 @@ is the evidence. The first column names each package by its path; the check read
 | --- | --- | --- |
 | Send a node command, wait for its answer by job id, time out, cancel | artwork, playback ×3 | **Fixed 2026-10-01 (the jobs rebuild's Phase 4.0):** `nodes.Exchanges` (nodes/exchange.go) sends, waits on the core's clock and cancels on every way out; the five handlers build the command and take the result. Was: five copies of one `select` around `nodes.AnswerRouter`, in artwork/service.go, playback/loudness.go, playback/subtitles.go, playback/fetch.go and playback/prepare.go |
 | Retry and back-off after a provider failure | jobs runner, artwork, identify | **Fixed 2026-09-30 (the jobs rebuild's Phase 2):** a host down or asking us to wait parks its destination, which the queue probes (internal/platform/jobqueue), and each host's provider service (internal/core/providers) is the one place a failure is read as the host's. Was: jobs/runner.go:138-148 doubled the wait; artwork/retry.go:21 had its own schedule and a per-host breaker (:43-78); the 429 → `RetryAtError` translation was copied (artwork/retry.go:55, identify/match.go:430). artwork keeps its retry schedule for an image's own failures |
-| Periodic sweeps and timers | cmd/orpheum ×4, jobs runner, nodes supervisor | Hand-written loops at metadata.go:146/174/199 and artwork.go:45. Each picks its own period: a setting, a constant, or a literal 24 h and 1 h |
+| Periodic sweeps and timers | cmd/orpheum ×4, jobs runner, nodes supervisor (gone in Phase 4a) | Hand-written loops at metadata.go:146/174/199 and artwork.go:45. Each picks its own period: a setting, a constant, or a literal 24 h and 1 h |
 | Doctor findings | cmd/orpheum, api | cmd/orpheum/doctor.go:25-38 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:17-28 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` (doctor.go:108) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
 | Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (cmd/orpheum/artwork.go). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
