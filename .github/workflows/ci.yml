@@ -19,13 +19,14 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    env:
-      # ./dev keeps Go's, npm's and Playwright's caches here, which the cache step below saves.
-      ORPHEUM_DEV_CACHE_DIR: ${{ runner.temp }}/dev-cache
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # ./dev keeps Go's, npm's and Playwright's caches here, which the cache step below saves. It is
+      # set by a step because a job's env cannot read the runner context.
+      - name: The development caches' directory
+        run: echo "ORPHEUM_DEV_CACHE_DIR=$RUNNER_TEMP/dev-cache" >> "$GITHUB_ENV"
       # The image is built once per change to its inputs: its tag hashes them (./dev --image-tag),
       # and a run with that tag cached loads it rather than building (the jobs rebuild's step 4a′).
       - name: The development image's tag
