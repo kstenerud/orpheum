@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { backgroundChanges } from "./polling.ts";
 import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
@@ -179,14 +180,18 @@ export function Identify(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [waitingFilter, setWaitingFilter] = useState<WaitingFilter>("ambiguous");
-  const [items, reload] = useResource(`items/${waitingFilter}`, async () => {
-    const itemsBody = dataOrThrow(
-      await api.GET("/items", {
-        params: { query: { identificationState: waitingFilter } },
-      }),
-    );
-    return itemsBody.items ?? [];
-  });
+  const [items, reload] = useResource(
+    `items/${waitingFilter}`,
+    async () => {
+      const itemsBody = dataOrThrow(
+        await api.GET("/items", {
+          params: { query: { identificationState: waitingFilter } },
+        }),
+      );
+      return itemsBody.items ?? [];
+    },
+    backgroundChanges,
+  );
   return (
     <section aria-labelledby="identify-heading">
       <h1 id="identify-heading">{t("identify.heading")}</h1>

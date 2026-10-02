@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { backgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
@@ -228,10 +229,14 @@ function useLibraryActions(reload: () => void): {
 export function Libraries(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [libraries, reload] = useResource("libraries", async () => {
-    const librariesBody = dataOrThrow(await api.GET("/libraries"));
-    return librariesBody.libraries ?? [];
-  });
+  const [libraries, reload] = useResource(
+    "libraries",
+    async () => {
+      const librariesBody = dataOrThrow(await api.GET("/libraries"));
+      return librariesBody.libraries ?? [];
+    },
+    backgroundChanges,
+  );
   const actions = useLibraryActions(reload);
   const renderCard = (library: Library): JSX.Element => (
     <LibraryCard

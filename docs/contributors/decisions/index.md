@@ -242,6 +242,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D234](working-notes.md#d234--the-core-drives-the-node-the-node-keeps-a-durable-journal-of-its-jobs-and-schedules-them-pushes-progress-and-acknowledged-results-and-the-core-checks-and-reconciles) The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 - [D235](working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser) Development and deployment run in containers: one image family, one command each, built by GoReleaser
 - [D236](working-notes.md#d236--a-scan-shows-itself-and-its-count-a-second-request-waits-for-it-and-what-it-finds-is-playable-before-it-ends) A scan shows itself and its count, a second request waits for it, and what it finds is playable before it ends
+- [D237](working-notes.md#d237--a-screen-showing-what-the-server-changes-in-the-background-asks-again-backing-off-while-nothing-changes-to-30-s) A screen showing what the server changes in the background asks again, backing off while nothing changes, to 30 s
 
 ## Archived
 

@@ -5,6 +5,7 @@ import { act, createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
+import type { Ask, Poller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { mount, refusal, servedBy } from "./test-dom.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -26,32 +27,59 @@ async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unkn
   return last;
 }
 
-/** Every state a probe polling load every few milliseconds shows while mounted for a moment. */
-async function statesWhilePolling(load: () => Promise<number>): Promise<Resource<number>[]> {
-  const seen: Resource<number>[] = [];
-  function Probe(): null {
-    const [resource] = useResource("probe", load, 5);
-    seen.push(resource);
-    return null;
+/**
+ * A poller a test runs by hand: each ask a hook starts is kept, and the test runs it and reads what
+ * it answered; polling.test.ts holds when backgroundChanges runs them (D237).
+ */
+function handPoller(): Poller & { readonly asks: Ask[] } {
+  const asks: Ask[] = [];
+  return {
+    asks,
+    start: (ask) => {
+      asks.push(ask);
+      return () => undefined;
+    },
+  };
+}
+
+/** Runs the newest poll's ask once and returns whether it said what is shown changed. */
+async function pollOnce(poller: { readonly asks: readonly Ask[] }): Promise<boolean> {
+  const ask = poller.asks.at(-1);
+  if (ask === undefined) {
+    throw new Error("nothing is polling");
   }
-  const mounted = await mount(createElement(Probe));
+  let wasChanged: boolean | undefined;
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    ask((isChanged) => {
+      wasChanged = isChanged;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  mounted.unmount();
-  return seen;
+  if (wasChanged === undefined) {
+    throw new Error("the ask never answered");
+  }
+  return wasChanged;
 }
 
 describe("useResource", () => {
-  it("asks again while polled, and keeps what it shows meanwhile", async () => {
-    let asked = 0;
-    const states = await statesWhilePolling(() => {
-      asked += 1;
-      return Promise.resolve(asked);
-    });
-    expect(asked).toBeGreaterThan(2);
-    const firstLoaded = states.findIndex((state) => state.state === "loaded");
-    expect(states.slice(firstLoaded).every((state) => state.state === "loaded")).toBe(true);
+  it("polls as its poller says, says whether each answer changed what it shows, and keeps it meanwhile", async () => {
+    const poller = handPoller();
+    const answers = [1, 1, 2, 2];
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource("probe", () => Promise.resolve(answers.shift() ?? 2), poller);
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    expect(await pollOnce(poller)).toBe(false); // 1 again: the wait doubles
+    expect(await pollOnce(poller)).toBe(true); // 2: back to 2 s
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 2 });
+    expect(await pollOnce(poller)).toBe(false);
+    const firstLoaded = seen.findIndex((state) => state.state === "loaded");
+    expect(seen.slice(firstLoaded).every((state) => state.state === "loaded")).toBe(true);
+    mounted.unmount();
   });
 
   it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {

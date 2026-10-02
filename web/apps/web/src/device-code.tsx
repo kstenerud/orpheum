@@ -17,10 +17,14 @@ import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
+import { backingOff } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 
-/** How often a page showing a code asks whether it has been used. */
-const codeCheckEveryMs = 3000;
+/**
+ * How often a page showing a code asks whether it has been used: every 3 s, with no backing off,
+ * since the person is signing the other device in now and waits for this one to notice (D237).
+ */
+const codeCheckPolling = backingOff({ firstMs: 3000, longestMs: 3000 });
 
 /** This tab's own storage, which keeps nothing where the browser refuses it. */
 function tabStorage(): StringStorage {
@@ -62,7 +66,7 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
       }
       return isWaiting;
     },
-    secret === undefined ? undefined : codeCheckEveryMs,
+    secret === undefined ? undefined : codeCheckPolling,
   );
   const checkProblem = codeCheck.state === "failed" ? problemText(t, codeCheck.cause) : undefined;
   const makeCode = (target: CodeTarget, deviceName: string): void => {

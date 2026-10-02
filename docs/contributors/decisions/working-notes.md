@@ -17447,3 +17447,24 @@ start playing the already scanned movies while it's still scanning."*
    with §2.
 
 **Status:** Decided 2026-10-01. §1 is for now; §2 and §3 are owed to the jobs rebuild's Phase 4.
+
+## D237 — A screen showing what the server changes in the background asks again, backing off while nothing changes, to 30 s
+
+**Decided** (2026-10-02), by the project owner, watching a scan of the films on devnas fill the
+library while the films list stayed as it was when opened: *"poll the server with a backoff when
+nothing new is forthcoming, max 30s. This should be the general pattern for any pages that would
+benefit from updated info."*
+
+1. **One pattern for every such screen.** A screen whose content the server changes on its own (a
+   scan, identification, artwork, jobs) asks again after 2 s, doubles the wait each time the answer
+   is unchanged, up to 30 s, and asks again after 2 s once it changes. It keeps what it shows while
+   it asks. It is the client's one way to poll (useResource, and usePages for a list read a page at
+   a time, which asks again for every page it has shown).
+2. **Which screens.** Those that show what the server changes in the background: the films and
+   series lists, a title, a series, *Needs a match*, the libraries, the System page, the job view
+   and the home page's rows. Not a form being edited, a search, the player or a sign-in, where an
+   answer arriving would change what a person is in the middle of.
+3. **Not a push channel.** The server tells no screen that something changed; a push channel can
+   replace the polling later without changing what a screen shows.
+
+**Status:** Decided 2026-10-02.

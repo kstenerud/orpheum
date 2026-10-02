@@ -12,6 +12,7 @@ import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
+import { backgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -50,7 +51,11 @@ export function byteSizeText(bytes: number): string {
 export function System(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [report, reload] = useResource("system", async () => dataOrThrow(await api.GET("/system")));
+  const [report, reload] = useResource(
+    "system",
+    async () => dataOrThrow(await api.GET("/system")),
+    backgroundChanges,
+  );
   const [problem, setProblem] = useState("");
   const retireNode = (nodeName: string): void => {
     api
