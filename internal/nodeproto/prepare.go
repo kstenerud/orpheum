@@ -81,8 +81,13 @@ const (
 	PrepareStalled PrepareState = "stalled"
 )
 
-// RefusalCode names a refusal the core acts on, rather than only shows.
+// RefusalCode names a refusal the core acts on or says apart, rather than only shows.
 type RefusalCode string
+
+// RefusedChanged is work refused because its file's payload hash is not the one named: the file
+// changed since the scan (D100). The core tries the job again on its back-off, as for any refusal,
+// and says why; the scan that sees the change ends the old file's jobs (S74).
+const RefusedChanged RefusalCode = "changed"
 
 // RefusedNoRoom is a prepare refused because the prepared directory's disk is past its limit and
 // nothing can be evicted: the core waits for the node's status to show room (D231 §5).
@@ -100,7 +105,8 @@ type PrepareReport struct {
 	// or whose payload hash changed since the scan, a disk with no room. It says nothing of the
 	// bytes, so the prepare may be asked for again.
 	Refusal string `json:"refusal,omitempty"`
-	// RefusalCode names a refusal the core acts on: RefusedNoRoom. Empty for any other.
+	// RefusalCode names a refusal the core acts on or says apart: RefusedNoRoom, RefusedChanged.
+	// Empty for any other.
 	RefusalCode RefusalCode `json:"refusalCode,omitempty"`
 	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
 	// the source's bytes the first time.

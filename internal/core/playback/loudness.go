@@ -304,7 +304,7 @@ func (service *Service) measure(
 		// A refusal says nothing of the file's bytes (a full disk, a file changed since the
 		// scan): nothing is kept, and the job is tried again on its back-off, as when the node
 		// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
-		return fmt.Errorf("node %d refused to measure file %d: %s", file.NodeID, file.ID, answer.Refusal)
+		return refusalError(file.NodeID, fmt.Sprintf("measuring file %d", file.ID), answer.Refusal, answer.RefusalCode)
 	}
 	if answer.Stall != nil {
 		return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,

@@ -312,7 +312,7 @@ func (service *Service) makeSubtitleText(
 	}
 	answer := *result.Subtitle
 	if answer.Refusal != "" {
-		return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)
+		return refusalError(nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), answer.Refusal, answer.RefusalCode)
 	}
 	if answer.Stall != nil {
 		return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,

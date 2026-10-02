@@ -141,6 +141,11 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		if answer.Refusal == "" || !strings.Contains(answer.Refusal, refusal.why) || answer.Failure != "" {
 			t.Errorf("%s: %+v, want refused: %s", refusal.what, answer, refusal.why)
 		}
+		isChanged := refusal.why == "not the one named"
+		if isChanged != (answer.RefusalCode == nodeproto.RefusedChanged) {
+			t.Errorf("%s: refused with code %q; want it named changed since the scan only for a changed file",
+				refusal.what, answer.RefusalCode)
+		}
 	}
 	failed := send(9, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: unconvertibleStreamIndex})
 	if !strings.Contains(failed.Failure, "not supported") || failed.Refusal != "" {

@@ -94,7 +94,7 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 		text, err = agent.convertSidecar(ctx, *command.Sidecar)
 	}
 	if errors.As(err, new(notTriedError)) {
-		return nodeproto.SubtitleText{Refusal: err.Error()}
+		return nodeproto.SubtitleText{Refusal: err.Error(), RefusalCode: refusalCodeOf(err)}
 	}
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.SubtitleText{Stall: stall}

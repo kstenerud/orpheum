@@ -32,7 +32,7 @@ func (agent *Agent) loudnessWork(
 // that FFmpeg could not, which is the file's, or that the node did not try.
 func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.MeasureLoudness) nodeproto.LoudnessResult {
 	refuse := func(err error) nodeproto.LoudnessResult {
-		return nodeproto.LoudnessResult{Refusal: err.Error()}
+		return nodeproto.LoudnessResult{Refusal: err.Error(), RefusalCode: refusalCodeOf(err)}
 	}
 	if agent.workers.LoudnessMeasurer == nil {
 		return refuse(errors.New("this node does not measure loudness"))

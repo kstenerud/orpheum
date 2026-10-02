@@ -83,7 +83,8 @@ func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	changed := video
 	changed.PayloadHash = strings.Repeat("0", 64)
 	refused := measure(2, changed, 1)
-	if refused.Refusal == "" || !strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" {
+	if refused.Refusal == "" || !strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" ||
+		refused.RefusalCode != nodeproto.RefusedChanged {
 		t.Errorf("measuring a changed video: %+v, want it refused, not failed (D100)", refused)
 	}
 	failed := measure(3, video, unmeasurable)

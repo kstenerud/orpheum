@@ -79,7 +79,8 @@
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //   - A prepare, subtitle or measurement the node did not try (no worker for it, a file outside
 //     its roots or changed since the scan, a disk with no room) is answered as a refusal, apart
-//     from FFmpeg failing on the bytes, so the core can try a refusal again.
+//     from FFmpeg failing on the bytes, so the core can try a refusal again; a file changed since the
+//     scan is named so (nodeproto.RefusedChanged, S74).
 //     TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
 //     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //   - A prepare, subtitle or measurement whose FFmpeg the watchdog stopped is answered as a stall,
