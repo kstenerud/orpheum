@@ -558,3 +558,23 @@ func TestHandle_GivesAJobsImagesToTheNodeInOneCommand(t *testing.T) {
 		t.Errorf("the item holds %+v, want both images stored from the one answer", rows)
 	}
 }
+
+// A node whose status no longer lists the re-encode it took lost it otherwise than by starting
+// again (D238 §3): that too is the tool's failure, tried again at no cost the first time.
+func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTheToolsFailure(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
+	bench.node.enqueued = make(chan struct{}, 1)
+	job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
+	job.ID = 41
+	ended := make(chan error, 1)
+	go func() { ended <- bench.run(t, job) }()
+	testutil.Receive(t, bench.node.enqueued, "the artwork command")
+	bench.service.exchanges.Square(t.Context(), fakeNodeID, nil, nil)
+	err := testutil.Receive(t, ended, "the artwork job to end")
+	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
+		!strings.HasPrefix(err.Error(), "interrupted: ") {
+		t.Errorf("a re-encode the node's status no longer holds ended %v; want it tried again as the tool's failure",
+			err)
+	}
+}
