@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // These tests are scenarios from docs/contributors/design/plans/scenarios.md, named by their ids.
@@ -92,7 +93,10 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 		}
 	}
 	playback := harness.server.dependencies.Load().Playback
+	// The live node's measurement is assigned to it, and ends when its answer is taken.
+	answered := make(chan struct{})
 	go func() {
+		defer close(answered)
 		command, isSent := harness.commandWithin(t)
 		if !isSent {
 			return
@@ -107,6 +111,7 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	testutil.Receive(t, answered, "the live node's answer")
 	for _, job := range harness.listedJobs(t, admin) {
 		switch job.FileID {
 		case 1:
