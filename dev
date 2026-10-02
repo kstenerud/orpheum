@@ -74,6 +74,8 @@ VITE_PORT = 5173
 CONTAINER_LISTEN = f"0.0.0.0:{SERVER_PORT}"
 DEFAULT_PUBLISH = "127.0.0.1"
 ENGINES = ("docker", "podman")
+# udev's database on the host, which says which disks are a ZFS pool's (D240 §5).
+UDEV_DATABASE = Path("/run/udev")
 # Labels: one marks every image and container this script made, one records a container's
 # configuration so a changed one is replaced.
 LABEL = "orpheum.dev"
@@ -117,8 +119,10 @@ def build_args(engine: str, tag: str, context: Path, uid: int, gid: int) -> list
             str(context)]
 
 
-def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, gitconfig: Path) -> list[str]:
-    """`<engine> run` for the background container, without the name and config labels."""
+def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, gitconfig: Path,
+             udev: Path | None = None) -> list[str]:
+    """`<engine> run` for the background container, without the name and config labels. udev is the
+    host's udev database, mounted read-only when there is one."""
     publish = env.get("ORPHEUM_DEV_PUBLISH", DEFAULT_PUBLISH)
     args = [engine, "run", "--detach", "--init", "--label", f"{LABEL}=1",
             "--mount", f"type=bind,src={root},dst={root}",
@@ -138,6 +142,8 @@ def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, 
         media_path = Path(media).resolve()
         args += ["--mount", f"type=bind,src={media_path},dst={media_path},readonly",
                  "--env", f"ORPHEUM_DEV_MEDIA={media_path}"]
+    if udev is not None and udev.is_dir():  # so the node can follow a ZFS pool to its disks (D240 §5)
+        args += ["--mount", f"type=bind,src={udev},dst={udev},readonly"]
     if dri.is_dir():
         args += ["--device", str(dri)]
         for group in dri_groups(dri):
@@ -219,7 +225,7 @@ def main(argv: list[str]) -> int:
     try:
         tag = ensure_image(engine, ROOT, uid, gid)
         ensure_container(engine, name, run_args(engine, tag, ROOT, env, Path("/dev/dri"),
-                                                 Path.home() / ".gitconfig"))
+                                                 Path.home() / ".gitconfig", UDEV_DATABASE))
     except subprocess.CalledProcessError as failed:
         print(f"dev: {' '.join(failed.cmd[:2])} failed (exit {failed.returncode}); its output is above",
               file=sys.stderr)

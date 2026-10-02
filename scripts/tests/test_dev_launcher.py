@@ -157,6 +157,15 @@ class RunArgs(unittest.TestCase):
         self.assertIn(f"type=bind,src={gitconfig},dst=/home/dev/.gitconfig,readonly",
                       pairs(self.run_args(gitconfig=gitconfig), "--mount"))
 
+    def test_the_udev_database_is_mounted_read_only_only_when_given_and_there(self):
+        self.assertFalse([m for m in pairs(self.run_args(), "--mount") if "udev" in m])
+        udev = Path(tempfile.mkdtemp())
+        mounts = pairs(launcher.run_args("docker", "orpheum-dev:abc", self.root, {}, self.none, self.none, udev),
+                       "--mount")
+        self.assertIn(f"type=bind,src={udev},dst={udev},readonly", mounts)
+        gone = launcher.run_args("docker", "orpheum-dev:abc", self.root, {}, self.none, self.none, udev / "gone")
+        self.assertFalse([m for m in pairs(gone, "--mount") if "gone" in m])
+
     def test_podman_maps_the_user_and_docker_does_not(self):
         self.assertIn("--userns=keep-id", self.run_args(engine="podman"))
         self.assertNotIn("--userns=keep-id", self.run_args())

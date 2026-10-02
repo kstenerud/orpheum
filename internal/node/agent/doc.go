@@ -16,6 +16,8 @@
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - Records reach the core in the order of their numbers, numbered on from the core's last,
 //     each as soon as it is written. TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder.
+//   - Each hello lists the devices the roots are on as found then (D240 §5).
+//     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
 //   - Each hello lists the renditions the prepared directory holds, by their manifests, and the
 //     node evicts those the reply does not keep (D238 §2).
 //     TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted.

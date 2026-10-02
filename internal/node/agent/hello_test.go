@@ -67,3 +67,23 @@ func TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicte
 			reconciled[0], reconciled[1])
 	}
 }
+
+// Each hello lists the devices the node finds then, since a disk may have come or gone since the
+// last (D240 §5).
+func TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{},
+		FindDevices: func() ([]nodeproto.Device, error) {
+			return []nodeproto.Device{{Key: "zfs:tank", Kind: nodeproto.DeviceSpinning}}, nil
+		},
+	})
+	testutil.Receive(t, core.helloHeard, "the first hello")
+	core.mutex.Lock()
+	hello := core.hellos[0]
+	core.mutex.Unlock()
+	if len(hello.Devices) != 1 || hello.Devices[0].Key != "zfs:tank" {
+		t.Errorf("the hello listed devices %+v, want the one found", hello.Devices)
+	}
+}

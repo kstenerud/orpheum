@@ -550,6 +550,12 @@ What the earlier 4d and 4e found still holds:
   checked on devnas as a verification item since no ZFS is here. Its hello lists them. Each device's concurrency limit is a core setting per node and device, starting from
   the kind: one for spinning or unknown, several for SSD; the core gives the node its limits in the
   hello's reply and again when one changes.
+  *4d.1 built 2026-10-02:* the node finds the devices of its roots and prepared directory at each
+  hello (`hardware.Devices`) and lists them; the core's reply gives each the reader limit of its
+  kind's setting (`device_readers_spinning` 1, `_ssd` 4, `_network` 2, `_unknown` 1) and logs
+  them; `./dev` mounts the host's `/run/udev` read-only. Sending them again when a setting changes comes
+  with 4d.2, where the node first uses them; a setting per device, beside its kind's, waits for the
+  System page that shows devices (Phase 6). ZFS on devnas is VQ17. Node protocol 11.
 - **4d.2 The node enforces and yields.** Every command names the device it reads. The node runs at
   most a device's limit of readers on it, beside the CPU and GPU slots (cut-a §5.3). Play-driven
   work arriving for a device pauses the background work reading it: an FFmpeg's process group

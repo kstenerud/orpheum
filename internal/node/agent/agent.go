@@ -71,6 +71,9 @@ type Workers struct {
 	// HeldResults are the results too large to post, which the byte socket serves; New makes them
 	// when nil.
 	HeldResults *HeldResults
+	// FindDevices finds what the roots and prepared directory are on, for each hello (D240 §5):
+	// hardware.Devices over them. Nil finds none.
+	FindDevices func() ([]nodeproto.Device, error)
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
@@ -191,9 +194,18 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	return context.Cause(ctx)
 }
 
-// helloNow is the node's hello with the renditions its prepared directory holds now.
+// helloNow is the node's hello with the devices its roots are on and the renditions its prepared
+// directory holds, now: a disk may have come or gone since the last.
 func (agent *Agent) helloNow(ctx context.Context) nodeproto.Hello {
 	hello := agent.hello
+	if agent.workers.FindDevices != nil {
+		devices, err := agent.workers.FindDevices()
+		if err != nil {
+			// The core counts every root as one reader's device until the next hello says more.
+			agent.logger.WarnContext(ctx, "could not find the devices the roots are on", "err", err)
+		}
+		hello.Devices = devices
+	}
 	if agent.workers.PreparedShelf == nil {
 		return hello
 	}

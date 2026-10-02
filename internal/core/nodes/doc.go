@@ -84,6 +84,9 @@
 //     and the node evicts the others; with no index, or one that cannot be squared, every one is
 //     kept, so the node evicts nothing for the core's failure (D238 §2).
 //     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
+//   - The reply to a hello gives each device it lists the reader limit of its kind's setting
+//     (device_readers_*), an unknown kind's for one the core does not know (D240 §5).
+//     TestHello_RepliesWithEachDevicesReaderLimitByItsKind.
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
