@@ -322,35 +322,51 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 	agent.postResult(ctx, nodeID, "a refusal", refused)
 }
 
-// artworkWork re-encodes an image and posts the answer — the sizes, or why there are none — to
-// the core, whose artwork store takes images from nowhere else (D212 §8).
-func (agent *Agent) artworkWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Artwork) heldWork {
+// artworkWork re-encodes an artwork job's images, each in turn, and posts one answer for all — each
+// image's sizes, or why there are none — to the core, whose artwork store takes images from nowhere
+// else (D212 §8).
+func (agent *Agent) artworkWork(
+	ctx context.Context, nodeID int64, held attempt, command nodeproto.ArtworkBatch,
+) heldWork {
 	return heldWork{slot: slotArtwork, run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, held.progress(nodeproto.ProgressRunning))
-		var result nodeproto.ArtworkResult
-		sourceHash := ""
-		if command.AbsolutePath != nil {
-			source, err := agent.readImage(*command.AbsolutePath)
-			if err == nil {
-				sum := sha256.Sum256(source)
-				command.SourceImage, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
-			} else {
-				result = nodeproto.ArtworkResult{Refusal: err.Error()}
+		results := make([]nodeproto.ArtworkResult, 0, len(command.Images))
+		for _, image := range command.Images {
+			results = append(results, agent.reEncode(jobCtx, image))
+			if jobCtx.Err() != nil {
+				break
 			}
-		}
-		if result.Refusal == "" {
-			result = agent.workers.Artworker.Derive(jobCtx, command)
-			result.SourceSha256 = sourceHash
 		}
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "an artwork re-encode was cancelled", "jobId", held.jobID)
 			return
 		}
-		if result.Refusal != "" {
-			agent.logger.WarnContext(ctx, "refused an image", "jobId", held.jobID, "refusal", result.Refusal)
+		for _, result := range results {
+			if result.Refusal != "" {
+				agent.logger.WarnContext(ctx, "refused an image", "jobId", held.jobID, "key", result.Key,
+					"refusal", result.Refusal)
+			}
 		}
-		agent.postResult(ctx, nodeID, "an artwork re-encode", held.named(nodeproto.Result{Artwork: &result}))
+		agent.postResult(ctx, nodeID, "an artwork re-encode",
+			held.named(nodeproto.Result{Artwork: &nodeproto.ArtworkBatchResult{Images: results}}))
 	}}
+}
+
+// reEncode re-encodes one image, read from beside the media when it names its path there, and
+// names the image's key in its answer.
+func (agent *Agent) reEncode(ctx context.Context, image nodeproto.Artwork) nodeproto.ArtworkResult {
+	sourceHash := ""
+	if image.AbsolutePath != nil {
+		source, err := agent.readImage(*image.AbsolutePath)
+		if err != nil {
+			return nodeproto.ArtworkResult{Key: image.Key, Refusal: err.Error()}
+		}
+		sum := sha256.Sum256(source)
+		image.SourceImage, image.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
+	}
+	result := agent.workers.Artworker.Derive(ctx, image)
+	result.Key, result.SourceSha256 = image.Key, sourceHash
+	return result
 }
 
 // maxImageBytes bounds an image beside the media the node reads: posters are megabytes.

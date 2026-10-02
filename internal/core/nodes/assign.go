@@ -80,27 +80,12 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	command.JobID, command.AttemptToken, command.Priority = job.ID, token, job.Priority
 	now := all.clock.Now()
 	attempt := Attempt{
-		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, Work: echoOf(command.Work), SentAt: now,
+		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, Work: command.WithoutBytes(), SentAt: now,
 	}
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
 	}
 	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
-}
-
-// echoOf is work as kept and as a node echoes it: without the bytes it carried.
-func echoOf(work nodeproto.Work) nodeproto.Work {
-	if work.EncodeArtwork != nil {
-		artwork := *work.EncodeArtwork
-		artwork.SourceImage = nil
-		work.EncodeArtwork = &artwork
-	}
-	if work.ExtractSubtitle != nil {
-		extract := *work.ExtractSubtitle
-		extract.FetchedSubRip = nil
-		work.ExtractSubtitle = &extract
-	}
-	return work
 }
 
 // keep records an attempt, in cache.db and in memory.

@@ -472,11 +472,12 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	core.commands <- nodeproto.Command{
 		CommandSeq: 1,
 		JobID:      12,
-		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork},
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(artwork)},
 	}
 	select {
 	case result := <-core.artwork:
-		if result.JobID != 12 || len(result.Artwork.Images) != 1 || string(result.Artwork.Images[0].WebP) != "cba" {
+		made := onlyImage(t, result)
+		if result.JobID != 12 || len(made.Images) != 1 || string(made.Images[0].WebP) != "cba" {
 			t.Errorf("the core heard %+v", result)
 		}
 	case <-t.Context().Done():
@@ -517,11 +518,11 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 	core.commands <- nodeproto.Command{
 		CommandSeq: 2,
 		JobID:      12,
-		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork},
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(artwork)},
 	}
 	select {
 	case result := <-core.artwork:
-		if result.JobID != 12 || len(result.Artwork.Images) != 1 {
+		if result.JobID != 12 || len(onlyImage(t, result).Images) != 1 {
 			t.Errorf("the core heard %+v, want job 12's image", result)
 		}
 	case <-time.After(answerTimeout):
@@ -570,7 +571,7 @@ func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
 	core.commands <- nodeproto.Command{
 		CommandSeq: 1,
 		JobID:      12,
-		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork("hold")},
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(artwork("hold"))},
 	}
 	testutil.Receive(t, artworker.holding, "job 12's re-encode starting")
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 12, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
@@ -578,14 +579,14 @@ func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
 	core.commands <- nodeproto.Command{
 		CommandSeq: 3,
 		JobID:      13,
-		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork("abc")},
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(artwork("abc"))},
 	}
 	result := testutil.Receive(t, core.artwork, "an artwork answer")
 	if result.JobID != 13 {
 		t.Errorf("the core heard job %d's answer first, want job 13's: cancelled job 12 reports nothing",
 			result.JobID)
 	}
-	if result.Artwork == nil || len(result.Artwork.Images) != 1 {
+	if result.Artwork == nil || len(onlyImage(t, result).Images) != 1 {
 		t.Errorf("job 13's answer = %+v, want its one size: the slot job 12 held is free", result.Artwork)
 	}
 }
@@ -606,17 +607,17 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 		core.commands <- nodeproto.Command{
 			CommandSeq: job,
 			JobID:      job,
-			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
+			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(&nodeproto.Artwork{
 				AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-			}},
+			})},
 		}
 		select {
 		case result := <-core.artwork:
 			if result.JobID != job {
 				t.Errorf("the core heard job %d's image, want job %d's", result.JobID, job)
 			}
-			return *result.Artwork
+			return onlyImage(t, result)
 		case <-t.Context().Done():
 			t.Fatal("no artwork answer reached the core")
 			return nodeproto.ArtworkResult{}

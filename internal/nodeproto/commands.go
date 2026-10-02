@@ -39,7 +39,7 @@ type Work struct {
 	Type CommandType `json:"type"`
 	Scan *Scan       `json:"scan,omitempty"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
-	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
+	EncodeArtwork *ArtworkBatch `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.
 	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
@@ -57,4 +57,23 @@ type Scan struct {
 // when the poll's time ran out.
 type Commands struct {
 	Commands []Command `json:"commands"`
+}
+
+// WithoutBytes is the work as a result echoes it, and the core keeps it: without the bytes it
+// carried, an image or a fetched text, which their hashes stand for.
+func (work Work) WithoutBytes() Work {
+	if work.EncodeArtwork != nil {
+		images := make([]Artwork, len(work.EncodeArtwork.Images))
+		for index, image := range work.EncodeArtwork.Images {
+			image.SourceImage = nil
+			images[index] = image
+		}
+		work.EncodeArtwork = &ArtworkBatch{Images: images}
+	}
+	if work.ExtractSubtitle != nil {
+		extract := *work.ExtractSubtitle
+		extract.FetchedSubRip = nil
+		work.ExtractSubtitle = &extract
+	}
+	return work
 }

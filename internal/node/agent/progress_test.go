@@ -23,10 +23,10 @@ func TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick(t *testing.
 		return nodeproto.Command{
 			CommandSeq: seq,
 			JobID:      seq,
-			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
+			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(&nodeproto.Artwork{
 				SourceImage: []byte("hold"), Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-			}},
+			})},
 		}
 	}
 	core.commands <- held(1)

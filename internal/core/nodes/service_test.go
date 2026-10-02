@@ -555,9 +555,9 @@ func TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {
 		return bytes.NewReader(encoded)
 	}
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	result := nodeproto.Result{JobID: 4, Artwork: &nodeproto.ArtworkResult{
+	result := nodeproto.Result{JobID: 4, Artwork: &nodeproto.ArtworkBatchResult{Images: []nodeproto.ArtworkResult{{
 		Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: []byte("RIFF")}},
-	}}
+	}}}}
 	if refused := harness.post(t, nodeproto.PathResult, reply.NodeID, resultJSON(result)); refused.status !=
 		http.StatusServiceUnavailable {
 		t.Errorf("with no result sink: %d, want 503", refused.status)
@@ -571,7 +571,7 @@ func TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {
 	taken := harness.post(t, nodeproto.PathResult, reply.NodeID, resultJSON(result))
 	if taken.status != http.StatusOK || len(sink.results) != 1 || sink.from[0] != reply.NodeID ||
 		sink.results[0].JobID != 4 || sink.results[0].Artwork == nil ||
-		string(sink.results[0].Artwork.Images[0].WebP) != "RIFF" {
+		string(sink.results[0].Artwork.Images[0].Images[0].WebP) != "RIFF" {
 		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.results)
 	}
 	if connected, found := harness.service.ConnectedNodeID(t.Context()); !found || connected != reply.NodeID {
@@ -680,7 +680,9 @@ func TestResult_AHeldResultIsFetchedWholeBeforeItIsTaken(t *testing.T) {
 	harness := newFixture(t, time.Second)
 	sink := &recordingResultSink{}
 	harness.service.SetResultSink(sink)
-	whole := nodeproto.Result{JobID: 4, AttemptToken: "a4", Artwork: &nodeproto.ArtworkResult{SourceWidth: 4000}}
+	whole := nodeproto.Result{JobID: 4, AttemptToken: "a4", Artwork: &nodeproto.ArtworkBatchResult{
+		Images: []nodeproto.ArtworkResult{{SourceWidth: 4000}},
+	}}
 	harness.service.SetHeldResultReader(heldResultReader{held: map[string]nodeproto.Result{"a4": whole}})
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	post := func(token string) int {
@@ -697,7 +699,7 @@ func TestResult_AHeldResultIsFetchedWholeBeforeItIsTaken(t *testing.T) {
 			sink.results)
 	}
 	if status := post("a4"); status != http.StatusOK || len(sink.results) != 1 || sink.results[0].Artwork == nil ||
-		sink.results[0].Artwork.SourceWidth != 4000 {
+		sink.results[0].Artwork.Images[0].SourceWidth != 4000 {
 		t.Errorf("a held result: %d, sink %+v; want the whole result taken", status, sink.results)
 	}
 }

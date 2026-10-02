@@ -193,7 +193,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		ID: 3, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID},
 		ArgsJSON: (*queue)[0].ArgsJSON,
 	}
-	if err := bench.service.Handle(t.Context(), job); err != nil {
+	if err := bench.run(t, job); err != nil {
 		t.Fatal(err)
 	}
 	cutFromBase := len(bench.node.sent) == sent+1 && string(bench.node.sent[sent].SourceImage) == string(ourWebP)

@@ -41,8 +41,10 @@
 //     never ignored or crashed on, and every hello says this build's protocol version (D233 §9).
 //     TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello.
 //   - Every job's answer is a Result naming the job its command named, posted to the core's one
-//     result path; an artwork command's — the sizes the deriver made, or why none — is the
-//     artwork store's one way in (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
+//     result path; an artwork command's — each image's sizes, or why none, re-encoded in turn and
+//     answered once for all, each naming its image's key — is the artwork store's one way in
+//     (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer,
+//     TestAgent_ReEncodesAJobsImagesAndAnswersOnceForAll.
 //   - A prepare runs only on the file the core named, a regular file under one of the node's roots
 //     whose payload hash is still the one named (D100), opened and checked by
 //     internal/node/namedfile; how far it is and how it ended are posted to the core. One

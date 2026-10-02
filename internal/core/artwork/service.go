@@ -4,7 +4,6 @@ package artwork
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -19,7 +18,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -73,14 +71,7 @@ type Parts struct {
 	Fetchers  map[string]Fetcher // by source: "tmdb"
 	Clock     clock.Clock
 	Logger    *slog.Logger
-	// AnswerWait is how long a job waits for the node's word on it; defaultAnswerWait when zero.
-	AnswerWait time.Duration
 }
-
-// defaultAnswerWait is how long a job waits for the node's word on a re-encode, whose progress it
-// hears at each status tick while it waits or runs: two minutes is far past an image's encode,
-// which takes seconds, and many ticks.
-const defaultAnswerWait = 2 * time.Minute
 
 // Service fetches, re-encodes through the node, and stores artwork.
 type Service struct {
@@ -93,9 +84,6 @@ type Service struct {
 
 // NewService returns the service.
 func NewService(parts Parts) *Service {
-	if parts.AnswerWait == 0 {
-		parts.AnswerWait = defaultAnswerWait
-	}
 	service := &Service{
 		parts: parts, exchanges: parts.Exchanges,
 		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
@@ -104,30 +92,6 @@ func NewService(parts Parts) *Service {
 		parts.Exchanges.Record(nodeproto.CommandEncodeArtwork, service.recordArtwork)
 	}
 	return service
-}
-
-// recordArtwork stores the sizes a re-encode made, as it arrives and whether or not its job still
-// waits (D238 §2): each size asked for, in WebP, under the SHA-256 of the image it is of, the
-// command's or, for an image beside the media, the node's. The item's image is its job's to
-// record.
-func (service *Service) recordArtwork(ctx context.Context, _ int64, result nodeproto.Result) error {
-	answer, command := result.Artwork, result.Work.EncodeArtwork
-	if answer == nil || command == nil {
-		return fmt.Errorf("a re-encode's result carries no images, or names no re-encode: %w", nodes.ErrMalformedResult)
-	}
-	sourceSha256Hex := cmp.Or(command.SourceSha256, answer.SourceSha256)
-	if answer.Refusal != "" || !isSha256Hex(sourceSha256Hex) {
-		return nil
-	}
-	for _, image := range answer.Images {
-		if !slices.Contains(command.SizeNames, image.SizeName) || !isWebP(image.WebP) {
-			continue
-		}
-		if err := service.writeArt(ctx, sourceSha256Hex, string(image.SizeName)+webpSuffix, image.WebP); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // isSha256Hex is whether text is a SHA-256 in hex, as art is stored under.
@@ -181,79 +145,12 @@ func (service *Service) destinationOf(source string) jobs.Destination {
 	return ""
 }
 
-// Handle runs one make_artwork_sizes job: each image it names is fetched, re-encoded by the node, and
-// stored.
-func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
-	ctx = providers.WithImportance(ctx, providers.JobImportance(job.Priority))
-	var args artworkJobArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
-		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(err))
-	}
-	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
-	if !known && args.ArtworkSource != SourceLocal {
-		return fmt.Errorf("make_artwork_sizes job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
-			args.ArtworkSource)))
-	}
-	for _, ref := range args.Refs {
-		want := wantedImage{job: job, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
-		var err error
-		if len(args.SizeNames) > 0 {
-			err = service.makeSizes(ctx, fetcher, want, args)
-		} else {
-			err = service.fetchImage(ctx, fetcher, want)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // wantedImage is one image an item's source names, and the job that fetches it.
 type wantedImage struct {
 	job    jobs.Job
 	itemID int64
 	source string
 	ref    Ref
-}
-
-func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wantedImage) error {
-	shape, known := shapeOf(want.ref.Kind)
-	if !known {
-		return nil // a kind this release does not show
-	}
-	held, err := service.isHeld(ctx, want)
-	if err != nil || held {
-		return err
-	}
-	command := nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
-	var nodeID int64
-	sourceSha256Hex := ""
-	if want.source == SourceLocal {
-		nodeID, command.AbsolutePath, err = service.localFile(ctx, want.ref.SourceRef)
-		if errors.Is(err, ErrNoImage) {
-			return service.recordRefusal(ctx, want, err.Error())
-		}
-	} else {
-		var download Unsanitised
-		download, err = service.fetch(ctx, fetcher, want.ref.SourceRef)
-		if errors.Is(err, ErrNoImage) {
-			return service.recordMissing(ctx, want, err)
-		}
-		if err == nil {
-			command.SourceImage, sourceSha256Hex = download.bytes, download.sourceSha256Hex()
-			command.SourceSha256 = sourceSha256Hex
-			nodeID, err = service.anyNode(ctx)
-		}
-	}
-	if err != nil {
-		return err
-	}
-	result, err := service.reEncode(ctx, nodeID, want.job, command)
-	if err != nil {
-		return err
-	}
-	return service.keep(ctx, want, cmp.Or(sourceSha256Hex, result.SourceSha256), result)
 }
 
 // localFile is the node that holds an image beside the media and its path there. A file gone
@@ -304,47 +201,6 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 		return false, fmt.Errorf("list item %d's artwork: %w", want.itemID, err)
 	}
 	return holds(rows, want.source, want.ref), nil
-}
-
-// reEncode sends a source to the node for job and waits for its answer. A job cancelled while
-// it waits tells the node to stop.
-func (service *Service) reEncode(
-	ctx context.Context, nodeID int64, job jobs.Job, command nodeproto.Artwork,
-) (nodeproto.ArtworkResult, error) {
-	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
-	if err != nil {
-		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_max_source_pixels: %w", err)
-	}
-	quality, err := service.parts.Settings.Int(ctx, settings.ArtworkWebPQuality)
-	if err != nil {
-		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_webp_quality: %w", err)
-	}
-	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
-	exchange, err := service.exchanges.Ask(ctx, nodeID, job,
-		nodeproto.Command{
-			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command},
-		}, "re-encoding an image")
-	if err != nil {
-		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
-	}
-	defer exchange.Close()
-	result, err := exchange.Next(ctx, service.parts.AnswerWait)
-	switch {
-	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
-		return nodeproto.ArtworkResult{}, jobs.MarkPermanent(jobs.ErrCancelled)
-	case errors.Is(err, nodes.ErrNodeRestarted) && !job.PreviousAttemptToolFailed:
-		// The node lost the work with its restart: the tool's failure, tried again at no cost
-		// (D238 §3); a second tool failure in a row fails the job, which the queue records.
-		return nodeproto.ArtworkResult{}, jobs.MarkInterrupted(err)
-	case errors.Is(err, nodes.ErrNodeRestarted):
-		return nodeproto.ArtworkResult{}, jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, err))
-	case err != nil:
-		return nodeproto.ArtworkResult{}, err
-	case result.Artwork == nil:
-		return nodeproto.ArtworkResult{}, fmt.Errorf("node %d answered re-encoding an image with something else",
-			nodeID)
-	}
-	return *result.Artwork, nil
 }
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is

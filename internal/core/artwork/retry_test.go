@@ -96,7 +96,7 @@ func TestService_AnImageServerItsProviderParksPassesTheParkingOnAndRecordsNothin
 	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{
 		err: jobs.Park(parking, fmt.Errorf("%w: status 503", outbound.ErrUnavailable)),
 	}
-	err := bench.service.Handle(t.Context(), job)
+	err := bench.run(t, job)
 	if parked, isParked := jobqueue.ParkingOf(err); !isParked || parked != parking {
 		t.Errorf("an image server its provider parked: %v; want the parking passed to the queue", err)
 	}
@@ -104,7 +104,7 @@ func TestService_AnImageServerItsProviderParksPassesTheParkingOnAndRecordsNothin
 		t.Errorf("rows %+v; a host down says nothing of the image, which must not be held as refused", rows)
 	}
 	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{err: errors.New("status 500")}
-	err = bench.service.Handle(t.Context(), job)
+	err = bench.run(t, job)
 	if _, isParked := jobqueue.ParkingOf(err); err == nil || isParked || len(bench.rows(t)) != 0 {
 		t.Errorf("a plain 500: %v; want the job's own failure, which costs an attempt (D231 §5)", err)
 	}

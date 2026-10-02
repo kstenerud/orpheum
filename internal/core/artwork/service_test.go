@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -86,15 +87,20 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 		node.mutex.Unlock()
 		return
 	}
-	node.sent = append(node.sent, *command.EncodeArtwork)
+	node.sent = append(node.sent, command.EncodeArtwork.Images...)
 	node.sentJobIDs = append(node.sentJobIDs, command.JobID)
 	node.mutex.Unlock()
 	if node.enqueued != nil {
 		node.enqueued <- struct{}{}
 	}
 	if node.answer != nil {
-		result := node.answer(*command.EncodeArtwork)
-		echoed := command.Work
+		result := nodeproto.ArtworkBatchResult{}
+		for _, image := range command.EncodeArtwork.Images {
+			made := node.answer(image)
+			made.Key = image.Key
+			result.Images = append(result.Images, made)
+		}
+		echoed := command.WithoutBytes()
 		go func() {
 			answered := nodeproto.Result{
 				JobID: command.JobID, AttemptToken: command.AttemptToken, Work: &echoed, Artwork: &result,
@@ -164,6 +170,7 @@ type bench struct {
 	itemID   int64
 	settings *settings.Service
 	clock    *clocktest.Fake
+	resolver *nodestest.Resolver
 }
 
 func newBench(t *testing.T, images fakeFetcher) *bench {
@@ -179,6 +186,7 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 		t.Fatal(err)
 	}
 	node := &fakeNode{ctx: t.Context(), isConnected: true}
+	cache := storetest.OpenCache(t)
 	art := memoryStore{}
 	config := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
@@ -186,18 +194,28 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
 		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+			Cache: cache, Settings: config, MaxSilence: time.Minute,
 		}),
-		Cache:    storetest.OpenCache(t),
+		Cache:    cache,
 		Settings: config,
 		Fetchers: map[string]Fetcher{"tmdb": images},
 		Clock:    fakeClock,
-		Logger:   slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
+		Logger:   slog.New(slog.DiscardHandler),
 	})
+	resolver := nodestest.NewResolver()
+	service.exchanges.Handle(jobs.KindMakeArtworkSizes, service.Assignee(resolver.Of(nil)))
 	node.service = service
 	return &bench{
 		service: service, database: database, node: node, art: art, itemID: itemID,
-		settings: config, clock: fakeClock,
+		settings: config, clock: fakeClock, resolver: resolver,
 	}
+}
+
+// run runs job as a runner would, and returns its answer: its handler's, or, once it gave its
+// images to the node, the answer the node's word resolves it with.
+func (bench *bench) run(t *testing.T, job jobs.Job) error {
+	t.Helper()
+	return testutil.Receive(t, bench.resolver.Start(t, bench.service.Handle, job), "the artwork job's answer")
 }
 
 func (bench *bench) job(refs ...Ref) jobs.Job {
@@ -212,7 +230,7 @@ func (bench *bench) job(refs ...Ref) jobs.Job {
 
 func (bench *bench) handle(t *testing.T, refs ...Ref) {
 	t.Helper()
-	if err := bench.service.Handle(t.Context(), bench.job(refs...)); err != nil {
+	if err := bench.run(t, bench.job(refs...)); err != nil {
 		t.Fatalf("%v: %v", refs, err)
 	}
 }
@@ -316,31 +334,28 @@ func TestService_WaitsForANode(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
 	bench.node.isConnected = false
-	err := bench.service.Handle(t.Context(), bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"}))
+	err := bench.run(t, bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"}))
 	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.DestinationAnyNode ||
 		!parking.AwaitsSignal {
 		t.Errorf("with no node: %v, want it parked until any node says hello", err)
 	}
 }
 
-// A job waits for the node's answer by its own id, and cancelled while it waits, it tells the node
-// to stop that job.
+// A job's images are given to the node by the job's own id, and cancelled while the node holds
+// them, the node is told to stop that job (S91).
 func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
 	bench.node.enqueued = make(chan struct{}, 1)
 	job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
 	job.ID = 41
-	ctx, cancel := context.WithCancelCause(t.Context())
-	ended := make(chan error, 1)
-	go func() { ended <- bench.service.Handle(ctx, job) }()
+	bench.resolver.Start(t, bench.service.Handle, job)
 	testutil.Receive(t, bench.node.enqueued, "the artwork command")
-	cancel(jobs.ErrCancelled)
-	err := testutil.Receive(t, ended, "the artwork job to end")
+	bench.service.exchanges.Cancelled(t.Context(), 41)
 	bench.node.mutex.Lock()
 	defer bench.node.mutex.Unlock()
-	if !errors.Is(err, jobs.ErrCancelled) {
-		t.Errorf("the cancelled job ended with %v, want it cancelled for good", err)
+	if rows := bench.rows(t); len(rows) != 0 {
+		t.Errorf("the cancelled job stored %+v, want nothing: the node's answer has no job to go to", rows)
 	}
 	if len(bench.node.sent) != 1 || !slices.Equal(bench.node.sentJobIDs, []int64{41}) ||
 		!slices.Equal(bench.node.cancelled, []int64{41}) {
@@ -360,7 +375,7 @@ func TestService_ANodeThatStartedAgainIsTheToolsFailureAndTwoInARowFailTheJob(t 
 		job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
 		job.ID, job.PreviousAttemptToolFailed = 41, previousAttemptToolFailed
 		ended := make(chan error, 1)
-		go func() { ended <- bench.service.Handle(t.Context(), job) }()
+		go func() { ended <- bench.run(t, job) }()
 		testutil.Receive(t, bench.node.enqueued, "the artwork command")
 		bench.service.exchanges.Interrupt(t.Context(), fakeNodeID)
 		return testutil.Receive(t, ended, "the artwork job to end")
@@ -403,7 +418,7 @@ func TestTake_QueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 		ID: 9, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID},
 		ArgsJSON: (*queue)[0].ArgsJSON,
 	}
-	if err := bench.service.Handle(t.Context(), job); err != nil {
+	if err := bench.run(t, job); err != nil {
 		t.Fatal(err)
 	}
 	rows := bench.rows(t)
@@ -440,8 +455,8 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = bench.service.Handle(t.Context(), jobs.Job{
-		ID: 5, Target: jobs.Target{ItemID: bench.itemID},
+	if err = bench.run(t, jobs.Job{
+		ID: 5, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID},
 		ArgsJSON: string(args),
 	}); err != nil {
 		t.Fatal(err)
@@ -481,16 +496,20 @@ func TestRecordArtwork_StoresTheSizesAskedForByTheSourceTheCommandNames(t *testi
 	command := nodeproto.Command{
 		JobID:        9,
 		AttemptToken: "no job waits for this",
-		Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
-			SourceSha256: sourceSha256, Shape: nodeproto.ShapePortrait,
-			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.ArtworkBatch{
+			Images: []nodeproto.Artwork{{
+				Key: "0", SourceSha256: sourceSha256, Shape: nodeproto.ShapePortrait,
+				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+			}},
 		}},
 	}
 	err := bench.service.exchanges.Deliver(t.Context(), fakeNodeID, nodeproto.Result{
 		JobID: 9, AttemptToken: command.AttemptToken, Work: &command.Work,
-		Artwork: &nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{
-			{SizeName: nodeproto.PortraitS, WebP: webp}, {SizeName: nodeproto.PortraitM, WebP: webp},
-		}},
+		Artwork: &nodeproto.ArtworkBatchResult{Images: []nodeproto.ArtworkResult{{
+			Key: "0", Images: []nodeproto.ArtImage{
+				{SizeName: nodeproto.PortraitS, WebP: webp}, {SizeName: nodeproto.PortraitM, WebP: webp},
+			},
+		}}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -509,4 +528,30 @@ func keysOf(art memoryStore) []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+// A job's images are given to the node in one command, as a scan's files are, each named by a key
+// of its own, and the node's one answer stores every image (the owner, 2026-10-02).
+func TestHandle_GivesAJobsImagesToTheNodeInOneCommand(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("p"), "/back.jpg": []byte("b")})
+	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
+		var made []nodeproto.ArtImage
+		for _, size := range command.SizeNames {
+			made = append(made, nodeproto.ArtImage{SizeName: size, WebP: ourWebP})
+		}
+		return nodeproto.ArtworkResult{Images: made}
+	}
+	bench.handle(t, Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"},
+		Ref{Kind: library.ArtBackdrop, SourceRef: "/back.jpg"})
+	bench.node.mutex.Lock()
+	sentJobs, sent := slices.Clone(bench.node.sentJobIDs), slices.Clone(bench.node.sent)
+	bench.node.mutex.Unlock()
+	if len(sentJobs) != 1 || len(sent) != 2 || sent[0].Key == sent[1].Key {
+		t.Errorf("the node was sent %d commands with %d images, keys %q and %q; want one command, both images, "+
+			"each its own key", len(sentJobs), len(sent), sent[0].Key, sent[len(sent)-1].Key)
+	}
+	if rows := bench.rows(t); len(rows) != 2 {
+		t.Errorf("the item holds %+v, want both images stored from the one answer", rows)
+	}
 }

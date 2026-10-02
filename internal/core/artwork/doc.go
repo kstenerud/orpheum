@@ -39,8 +39,11 @@
 //
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
 //
-//   - A job waits for the node's answer by its own id, and one cancelled while it waits tells the
-//     node to stop it. TestService_ACancelledJobTellsTheNodeToStopItByItsID.
+//   - A job fetches what its images need from their providers, then gives every image it still
+//     wants to one node in one command, by its own id, each image named by a key, as a scan is given
+//     a root (the owner, 2026-10-02); the node's one answer resolves it, and a job cancelled while
+//     the node holds it has the node told to stop. TestHandle_GivesAJobsImagesToTheNodeInOneCommand,
+//     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //
 //   - The cache is held to its ceiling in D212 §6's order — a removed item's images (after their
 //     grace, or sooner under pressure), sizes made on request and JPEG, other sizes, bases — least

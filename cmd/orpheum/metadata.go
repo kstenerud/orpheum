@@ -177,7 +177,7 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			jobs.KindMakeArtworkSizes, services.artwork.Handle, services.artwork.RecordFailure,
 			artworkRetrySchedule, 1,
 			[]string{sweepPasses},
-			nil,
+			services.artwork.Assignee,
 		},
 		{
 			jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, services.playback.RecordSubtitleFailure,
