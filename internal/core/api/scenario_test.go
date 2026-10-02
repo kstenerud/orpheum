@@ -52,7 +52,10 @@ func TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor(t *testing.T) {
 	}
 	harness.nodes.isAway.Store(false)
 	harness.queue.Unpark(t.Context(), jobs.NodeDestination(1)) // the node's hello
+	// The prepare is given to the node, and ends when its answer is taken.
+	answered := make(chan struct{})
 	go func() {
+		defer close(answered)
 		command, isSent := harness.commandWithin(t)
 		if !isSent {
 			return
@@ -62,6 +65,7 @@ func TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	testutil.Receive(t, answered, "the node's answer")
 	if done := newestPrepareJob(t, harness.listedJobs(t, partner)); done.State != "done" || done.AttemptCount != 1 {
 		t.Errorf("once the node said hello the prepare is %+v; want it done at its first attempt", done)
 	}
