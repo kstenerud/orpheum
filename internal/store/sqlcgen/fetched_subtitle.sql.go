@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const deleteFetchedSubtitle = `-- name: DeleteFetchedSubtitle :exec
+DELETE FROM fetched_subtitle WHERE id = ?1
+`
+
+// A fetched subtitle its node could not convert, or did not in time while its person waited: only
+// a subtitle its node converted is kept (D224 section 6). Nothing refers to it yet.
+func (q *Queries) DeleteFetchedSubtitle(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFetchedSubtitle, id)
+	return err
+}
+
 const getFetchedSubtitle = `-- name: GetFetchedSubtitle :one
 SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s

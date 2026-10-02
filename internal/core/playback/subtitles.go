@@ -344,6 +344,7 @@ func (service *Service) finishSubtitle(
 	if err != nil {
 		return fmt.Errorf("keep the text of stream index %d of %x: %w", key.StreamIndex, key.SourceHash, err)
 	}
+	service.keptTexts.wasKept(key)
 	return nil
 }
 

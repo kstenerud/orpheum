@@ -108,6 +108,9 @@ func newHarness(t *testing.T) testHarness {
 		Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService,
 	})
+	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
+	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, playbackService.HandleConvertFetchedSubtitle)
+	go func() { _ = converter.Run(t.Context(), nil) }() //nolint:errcheck // it ends with the test
 	nodes.database, nodes.clock = database, now
 	nodes.takeResult = func(nodeID int64, result nodeproto.Result) {
 		if err := exchanges.Deliver(t.Context(), nodeID, result); err != nil {

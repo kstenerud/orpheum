@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -98,9 +97,8 @@ type Service struct {
 	exchanges   *nodes.Exchanges
 	subtitler   Subtitler
 	preferences *preferences.Service
-	// fetchConversions counts the conversions a fetch asks a node for while a person waits. Each
-	// is named to the node, and its answer found, by the count's negative, which no job's id is.
-	fetchConversions atomic.Int64
+	// keptTexts tells a fetch waiting for its conversion that the text was kept.
+	keptTexts *keptTexts
 }
 
 // NewService returns the playback service.
@@ -110,7 +108,7 @@ func NewService(parts Parts) *Service {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
-		subtitler: parts.Subtitler, preferences: parts.Preferences,
+		subtitler: parts.Subtitler, preferences: parts.Preferences, keptTexts: newKeptTexts(),
 	}
 	service.recordResults(exchanges)
 	return service

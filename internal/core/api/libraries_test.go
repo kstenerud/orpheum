@@ -158,7 +158,9 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 	}
 	nodes.sentByJobID[command.JobID] = command
 	nodes.sentMutex.Unlock()
-	if extract := command.ExtractSubtitle; extract != nil && command.JobID < 0 && nodes.takeResult != nil {
+	// A fetched subtitle's conversion is answered at once, unless the test takes the node's commands.
+	if extract := command.ExtractSubtitle; extract != nil && extract.FetchedSubRip != nil &&
+		nodes.commanded == nil && nodes.takeResult != nil {
 		answer := nodeproto.SubtitleText{
 			ASS: []byte("[Script Info]"), VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
 		}

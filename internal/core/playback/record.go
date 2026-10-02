@@ -50,8 +50,7 @@ func (all *prepares) recordPrepare(ctx context.Context, nodeID int64, result nod
 }
 
 // recordSubtitle keeps a subtitle's text, or FFmpeg's word that it cannot be made, by its source.
-// A fetched subtitle converted while a person waits names no source to keep it by, and is kept by
-// the fetch.
+// A command naming no source to keep it by keeps nothing.
 func (service *Service) recordSubtitle(ctx context.Context, _ int64, result nodeproto.Result) error {
 	answer, command := result.Subtitle, result.Work.ExtractSubtitle
 	if answer == nil || command == nil {
