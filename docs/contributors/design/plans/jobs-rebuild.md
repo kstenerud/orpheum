@@ -441,6 +441,41 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
   failing after its command reached the node, is closed by the cancel on every way out.
 - Closes G4, G5, G8, S26, S27, S72, S82, S91.
 
+*As the owner accepted it (2026-10-02, "Yes, use your recommendations"):*
+
+1. A node job's handler sends its command, keeps its attempt token and node on the job row, and
+   answers Assign: nothing waits. The node's result, recorded as 4b records it, then resolves the
+   assigned job by the token on its row, with the handler's own answers; so it does after a core
+   restart. `cache.db` gains the token and node (version 24).
+2. Artwork too, as a scan is (the owner: *"the core tells it what images it already has, and the
+   node deals with any missing things"*): the core fetches what the job's images need from their
+   providers, which only it reaches, and records what is missing or refused there; one command
+   carries every image the job still wants, bytes or a path beside the media, with the sizes for
+   each; the job is assigned; the node works through them, saying where it is, and answers once for
+   all (by reference when large); the result stores the sizes, records each item's image and notes
+   what cannot be made.
+3. The node's status lists the attempts it holds, with their state, and the tokens whose results
+   are not yet acknowledged. The core squares its assigned jobs with that list at each status, not
+   by asking: there is no separate question. A node silent past `node_silent_after_seconds` parks
+   its assigned work, as now.
+4. Squaring, judging only commands the node has taken: held and assigned is adopted, progress
+   resuming (S82); assigned and not held, the node restarted, is interrupted, the tool's failure;
+   assigned and not held otherwise is a broken invariant, logged and counted per node, and sent
+   again; held and not assigned, or ended, is a broken invariant and the node is told to drop it
+   (S91, G4). The count is for the System page in Phase 6.
+5. A job that ends or is cancelled takes its commands the node has not taken out of the node's
+   queue (S27).
+6. A manifest beside each rendition: its file, payload hash, profile, run, gains, languages and
+   when it was made. The hello lists the node's renditions by their manifests; the core adopts
+   those whose source is still that file, which rebuilds the index after a `cache.db` discard, and
+   its reply names the renditions it keeps; the node evicts the rest, and a run directory with no
+   manifest, never one being written.
+7. `assigned_job_limit_hours` (a setting, 24) is the backstop past which an assigned job fails; a
+   prepare's failure marks its rendition failed (G8).
+8. The steps: **4c.1** tokens on rows, handlers that assign, results that resolve, the limit;
+   **4c.2** artwork as one assigned command; **4c.3** the held list in the status and the squaring;
+   **4c.4** commands of ended jobs dropped; **4c.5** manifests, the hello's renditions and eviction.
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global
