@@ -315,6 +315,11 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
 - The hello carries a protocol number; a node whose number the core cannot serve is parked with
   that reason; an unknown request is refused explicitly (D233 §9).
 - Closes S89.
+- *Built 2026-10-02:* a node's work runs on its own lifetime; the hello carries
+  `nodeproto.ProtocolVersion`, a node on another is refused and shown as needing an update, and a
+  command it cannot read is refused by its job's id; `orpheum core` and `orpheum node`
+  are two services, `run`, the supervisor and its two settings are gone, and the dev loop runs the
+  two as two processes.
 
 ### 4a′ — CI runs in the development image
 
