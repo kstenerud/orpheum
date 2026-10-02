@@ -67,6 +67,9 @@ type Workers struct {
 	// EndedWorkKept is how long the node remembers an attempt whose result the core acknowledged,
 	// so the same command sent again is not run again: node.ended_work_kept_hours.
 	EndedWorkKept time.Duration
+	// HeldResults are the results too large to post, which the byte socket serves; New makes them
+	// when nil.
+	HeldResults *HeldResults
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
@@ -101,6 +104,9 @@ func New(
 	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, workers Workers, clockSource clock.Clock,
 	logger *slog.Logger,
 ) *Agent {
+	if workers.HeldResults == nil {
+		workers.HeldResults = NewHeldResults()
+	}
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	hello.ProtocolVersion = nodeproto.ProtocolVersion
 	hello.RootPaths = make([]string, 0, len(roots))

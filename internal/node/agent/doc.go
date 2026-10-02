@@ -31,6 +31,9 @@
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
 //     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
+//   - A result whose JSON is larger than nodeproto.MaxPostedResultBytes is held in memory for the
+//     core to fetch from the byte socket, and posted as its job, attempt, work, size and hash; it is
+//     forgotten once acknowledged (D234 §5). TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged.
 //   - An attempt that ended is remembered, its result's content forgotten once the core
 //     acknowledged it, for node.ended_work_kept_hours after (D238 §2): the same command sent again is
 //     not run again. TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain.

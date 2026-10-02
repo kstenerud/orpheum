@@ -4,6 +4,10 @@ package agent
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,5 +97,43 @@ func TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain(t *testing.T)
 	if next := testutil.Receive(t, core.artwork, "the next answer"); next.JobID != 6 {
 		t.Errorf("the next answer was job %d's, want job 6's: job 5's attempt ended and is not run again",
 			next.JobID)
+	}
+}
+
+// A result too large to post is held for the core to fetch from the byte socket (D234 §5): the post
+// names its job, attempt, work, size and hash, the node holds its JSON until the core acknowledges
+// it, and forgets it then.
+func TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	held := NewHeldResults()
+	startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, HeldResults: held})
+	core.refuseFirstPosts(heldResult, 1)
+	core.commands <- artworkCommand(1, 5, strings.Repeat("x", nodeproto.MaxPostedResultBytes))
+	testutil.Receive(t, core.refusedPosts, "the refused post")
+	encoded, isHeld := held.Result(tokenOf(5))
+	if !isHeld {
+		t.Fatal("the node holds no result for job 5's attempt while the core has not taken it")
+	}
+	var whole nodeproto.Result
+	if err := json.Unmarshal(encoded, &whole); err != nil || whole.Artwork == nil || len(whole.Artwork.Images) != 1 {
+		t.Fatalf("the held result = %+v, %v; want job 5's whole answer", whole, err)
+	}
+	posted := testutil.Receive(t, core.held, "the post naming the held result")
+	sum := sha256.Sum256(encoded)
+	if posted.JobID != 5 || posted.Artwork != nil || posted.Work == nil || posted.Held == nil ||
+		posted.Held.SizeBytes != int64(len(encoded)) || posted.Held.Sha256 != hex.EncodeToString(sum[:]) {
+		t.Errorf("the post = %+v, want job 5's attempt and work, naming the held result's size and hash", posted)
+	}
+	// Once taken, it is forgotten, as soon as the node reads the core's answer to the post above.
+	deadline := time.Now().Add(testutil.ReceiveLimit) //nolint:forbidigo // a real request, not the fake clock
+	for {
+		if _, stillHeld := held.Result(tokenOf(5)); !stillHeld {
+			break
+		}
+		if time.Now().After(deadline) { //nolint:forbidigo // as above
+			t.Fatal("the node still holds job 5's result the core took")
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

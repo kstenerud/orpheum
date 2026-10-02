@@ -22,6 +22,9 @@
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
 //   - A rendition's file is served only by a name of a rendition's shape, from the prepared
 //     directory, read-only. Enforced by TestServeRenditionFile_ServesARenditionsFilesAndNothingElse.
+//   - A result the node holds, too large to post, is served whole by its attempt's token, and
+//     nothing for a token it does not hold (D234 §5).
+//     TestServeResult_ServesAHeldResultByItsTokenAndNothingElse.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
 //
@@ -34,5 +37,5 @@
 //
 // # Where to change
 //
-//   - byteserver.go: the file route, and the prepared route (D217 §5).
+//   - byteserver.go: the file route, the prepared route (D217 §5), and the held results' route.
 package byteserver

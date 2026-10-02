@@ -181,8 +181,7 @@ func openAndWire(
 		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
 	})
 	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
-	dependencies.NodeBytes = nodes.NewByteSocketClient(
-		opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocketName))
+	dependencies.NodeBytes = openByteSocket(opened.nodes, config)
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
@@ -191,6 +190,14 @@ func openAndWire(
 	}
 	server.Ready(dependencies)
 	return opened, nil
+}
+
+// openByteSocket is the core's client of the node's byte socket: media bytes for the API, and
+// results the node holds, too large to post, for the node channel (D234 §5).
+func openByteSocket(service *nodes.Service, config Config) *nodes.ByteSocketClient {
+	byteSocket := nodes.NewByteSocketClient(service, filepath.Join(config.Server.SocketDir, nodeSocketName))
+	service.SetHeldResultReader(byteSocket)
+	return byteSocket
 }
 
 // openAndMigrate opens persistent.db and migrates it, calling beforeStep, when it is not nil, before

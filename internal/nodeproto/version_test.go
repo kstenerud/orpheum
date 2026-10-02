@@ -17,6 +17,7 @@ import (
 // is added here with each raise of ProtocolVersion, and never changed after.
 var wireShapeByVersion = map[int]string{
 	4: "f3ad787eff46694996512e112edea5efbffbd5af6f568ca8b301a856ec5b4ffd",
+	5: "6db76ce5e79b3e0198f65281b6384627bfde1c59772dd3306749907130fd07b4",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
