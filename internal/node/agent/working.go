@@ -259,6 +259,18 @@ func (list *workList) cancel(token string) bool {
 	return true
 }
 
+// reprioritize gives a held attempt its job's new priority, play-driven or not, and starts what is
+// due: work no person waits for any more takes its place among the background work, and pauses
+// nothing more (D234 §3).
+func (list *workList) reprioritize(token string, priority int64, isPlayDriven bool) {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	if work := list.find(token); work != nil {
+		work.priority, work.isPlayDriven = priority, isPlayDriven
+		list.startDue()
+	}
+}
+
 // heldState is where an attempt the node holds is.
 type heldState struct {
 	attempt

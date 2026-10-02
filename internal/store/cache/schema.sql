@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 24
+-- cache schema version 25
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +42,9 @@ CREATE TABLE job (                                         -- the one work queue
   -- When an assigned job's time runs out, after which it is its own failure; kept while its
   -- outcome is taken, and NULL once that is written.
   assigned_until INTEGER,
+  -- Until when a person waits for play-driven work (D234 section 3, D240 section 6): each play that
+  -- asks for it moves it on; past it, the job falls to background priority. NULL for other work.
+  wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
 );

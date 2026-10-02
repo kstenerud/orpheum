@@ -89,6 +89,8 @@
 //     cost on the slot or device that is full, brought back when one of the node's jobs there ends
 //     or the node says hello (D240 §5). TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
+//   - A job no one waits for any more is told to its node at its new priority, no longer
+//     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for
 //     commands carries the reader limits the settings say then. Where a node last said a job's work
 //     is, by its progress or status, is kept for the job view (NodeWordOf).

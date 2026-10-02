@@ -176,6 +176,22 @@ func (all *Exchanges) keep(ctx context.Context, attempt Attempt) error {
 	return nil
 }
 
+// Reprioritize tells the node holding a job's attempt its new priority (D234 §3): past its "wanted
+// until", play-driven work falls to background priority on the node too, and pauses nothing more.
+func (all *Exchanges) Reprioritize(jobID, priority int64) {
+	all.mutex.Lock()
+	var held []Attempt
+	for _, attempt := range all.attempts {
+		if attempt.JobID == jobID {
+			held = append(held, attempt.Attempt)
+		}
+	}
+	all.mutex.Unlock()
+	for _, attempt := range held {
+		all.sender.Enqueue(attempt.NodeID, ReprioritizeCommand(attempt.JobID, attempt.Token, priority))
+	}
+}
+
 // NodeWordOf is where the node that holds a job's attempt last said it is, waiting for a slot or a
 // reader, running, or paused for play-driven work (D240 §6), and whether a node holds one and said.
 func (all *Exchanges) NodeWordOf(jobID int64) (nodeproto.ProgressState, bool) {

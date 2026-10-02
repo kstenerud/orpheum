@@ -204,3 +204,23 @@ func TestWorkList_ADeviceWithRoomForBothPausesNothing(t *testing.T) {
 	close(background.release)
 	close(play.release)
 }
+
+// A job the core reprioritizes takes its new place among what waits: a play-driven job that no one
+// waits for any more starts after the background work that came before it (D234 §3).
+func TestWorkList_AReprioritizedJobTakesItsNewPlaceInLine(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{})
+	blocking := newBlockingWork()
+	list.hold(t.Context(), blocking.held(1, 0))
+	testutil.Receive(t, blocking.started, "job 1's start")
+	list.hold(t.Context(), blocking.held(2, 0))
+	list.hold(t.Context(), blocking.held(3, 1000))
+	list.reprioritize(tokenOf(3), 0, false)
+	close(blocking.release)
+	if err := testutil.Receive(t, blocking.ended, "job 1's end"); err != nil {
+		t.Errorf("job 1 ended %v, want released", err)
+	}
+	if next := testutil.Receive(t, blocking.started, "the next start"); next != 2 {
+		t.Errorf("job %d started next, want 2: job 3, fallen to background, came after it", next)
+	}
+}

@@ -25,6 +25,9 @@
 //     with room for both pauses nothing (D240 §6). The status says what is paused.
 //     TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds,
 //     TestWorkList_ADeviceWithRoomForBothPausesNothing.
+//   - A reprioritize command gives the attempt it names its new priority and its place in line
+//     (D234 §3). TestWorkList_AReprioritizedJobTakesItsNewPlaceInLine,
+//     TestAgent_AReprioritizeCommandGivesTheAttemptItsNewPriority.
 //   - Each hello lists the devices the roots are on as found then (D240 §5).
 //     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
 //   - Each hello lists the renditions the prepared directory holds, by their manifests, and the

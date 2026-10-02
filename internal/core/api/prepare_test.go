@@ -307,3 +307,27 @@ func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodepr
 	}
 	return *command.Prepare
 }
+
+// A player asking for a rendition still being prepared is a person still waiting for it: its job
+// keeps its play priority for ten minutes from the last ask, and falls to background ten minutes
+// after the player stops asking (D234 §3, S87).
+func TestPrepare_APlayerAskingForTheRenditionKeepsItsPrepareWanted(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	decided := harness.play(t, user, chrome(2))
+	for range 3 { // half an hour of a player asking every nine minutes
+		harness.clock.Advance(9 * time.Minute)
+		if early := harness.getBytePath(t, decided.URL, user, true, ""); early.status != http.StatusTooEarly {
+			t.Fatalf("the playlist while preparing: %d, want 425", early.status)
+		}
+	}
+	if demoted, err := harness.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 0 {
+		t.Errorf("while the player asks, demoted %+v (%v), want none", demoted, err)
+	}
+	harness.clock.Advance(11 * time.Minute)
+	if demoted, err := harness.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 1 {
+		t.Errorf("ten minutes after the player stopped, demoted %+v (%v), want the prepare", demoted, err)
+	}
+}

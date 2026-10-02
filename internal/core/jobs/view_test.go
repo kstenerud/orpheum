@@ -96,3 +96,36 @@ func TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs(t *testing.T)
 			view.State, view.OnNode)
 	}
 }
+
+// A job a person asks for to play is wanted for play_wanted_seconds; one asked for in the
+// background never is. Past its time it falls to background priority, and one given to a node says
+// so, for its node to be told (D234 §3, S87).
+func TestDemoteUnwanted_APlaysJobFallsToBackgroundOnceNoOneWaits(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, PriorityPlayNow)
+	jobs.enqueue(t, 2, PriorityPlayNow)
+	jobs.enqueue(t, 3, 0)
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
+		return Assign(jobs.clock.Now().Add(time.Hour))
+	})
+	jobs.runDue(t, runner) // the first play's job is given to a node
+	jobs.clock.Advance(9 * time.Minute)
+	if demoted, err := jobs.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 0 {
+		t.Fatalf("within the ten minutes demoted %+v (%v), want none", demoted, err)
+	}
+	if err := jobs.queue.KeepWanted(t.Context(), KindFetchMetadata, Target{ItemID: 2}); err != nil {
+		t.Fatal(err)
+	}
+	jobs.clock.Advance(2 * time.Minute)
+	demoted, err := jobs.queue.DemoteUnwanted(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(demoted) != 1 || demoted[0].ID != jobs.job(t, 1).ID || !demoted[0].IsAssigned {
+		t.Errorf("eleven minutes on demoted %+v, want the first play's job alone, given to its node", demoted)
+	}
+	if first := jobs.job(t, 1); first.Priority != PriorityBackground {
+		t.Errorf("the first play's job is at priority %d, want background", first.Priority)
+	}
+}

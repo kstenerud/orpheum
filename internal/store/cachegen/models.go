@@ -31,6 +31,7 @@ type Job struct {
 	CreatedAt             int64
 	FinishedAt            *int64
 	AssignedUntil         *int64
+	WantedUntil           *int64
 }
 
 type MatchCandidate struct {

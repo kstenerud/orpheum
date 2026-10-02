@@ -314,3 +314,38 @@ func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *test
 		t.Errorf("an outcome after its time ran out took the prepare again: %v, %v", found, err)
 	}
 }
+
+// A job kept wanted keeps the later of the times it was given, by its kind and target; past it, it
+// falls to the priority given and forgets its time, and is returned by its id and state; a job never
+// said wanted is left (D234 §3).
+func TestJobStorage_KeepsAJobWantedAndDemotesItOncePast(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	film, show := JobTarget{RenditionID: 7}, JobTarget{RenditionID: 8}
+	storage.insert("prepare", film, 1000, jobStart)
+	storage.insert("prepare", show, 1000, jobStart)
+	storage.insert("prepare", JobTarget{RenditionID: 9}, 1000, jobStart)
+	for _, keep := range []struct {
+		target JobTarget
+		until  time.Time
+	}{{film, jobStart.Add(10 * time.Minute)}, {show, jobStart.Add(time.Hour)}, {show, jobStart.Add(time.Minute)}} {
+		if err := storage.jobs.KeepWanted(t.Context(), "prepare", keep.target, keep.until); err != nil {
+			t.Fatal(err)
+		}
+	}
+	demoted, err := storage.jobs.DemoteUnwanted(t.Context(), jobStart.Add(20*time.Minute), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(demoted) != 1 || demoted[0].State != jobqueue.StateQueued {
+		t.Fatalf("demoted %+v, want the film's job alone, queued", demoted)
+	}
+	jobs := storage.byID()
+	filmJob, showJob := jobs[demoted[0].ID], jobs[demoted[0].ID+1]
+	if filmJob.Target != film || filmJob.Priority != 0 || filmJob.WantedUntil != nil ||
+		showJob.Target != show || showJob.Priority != 1000 || showJob.WantedUntil == nil ||
+		!showJob.WantedUntil.Equal(jobStart.Add(time.Hour)) {
+		t.Errorf("the film is %+v and the show %+v; want the film fallen to 0, the show wanted for its hour",
+			filmJob, showJob)
+	}
+}

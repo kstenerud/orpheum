@@ -278,6 +278,8 @@ func (agent *Agent) pollCommands(
 					agent.logger.InfoContext(ctx, "a cancel came for an attempt this node does not hold", "jobId",
 						command.JobID, "attemptToken", command.AttemptToken)
 				}
+			case command.Type == nodeproto.CommandReprioritize:
+				agent.work.reprioritize(command.AttemptToken, command.Priority, command.IsPlayDriven)
 			case command.Type == nodeproto.CommandScan && command.Scan != nil:
 				select {
 				case scanQueue <- *command.Scan:

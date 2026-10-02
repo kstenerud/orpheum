@@ -79,6 +79,46 @@ func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
 	return err
 }
 
+const demoteUnwantedJobs = `-- name: DemoteUnwantedJobs :many
+UPDATE job SET priority = ?1, wanted_until = NULL
+WHERE wanted_until IS NOT NULL AND wanted_until < CAST(?2 AS INTEGER) AND state IN ('queued', 'running', 'assigned')
+RETURNING id, state
+`
+
+type DemoteUnwantedJobsParams struct {
+	Priority int64
+	Now      int64
+}
+
+type DemoteUnwantedJobsRow struct {
+	ID    int64
+	State string
+}
+
+// The open jobs no person waits for any more, fallen to background priority (D234 section 3).
+func (q *Queries) DemoteUnwantedJobs(ctx context.Context, arg DemoteUnwantedJobsParams) ([]DemoteUnwantedJobsRow, error) {
+	rows, err := q.db.QueryContext(ctx, demoteUnwantedJobs, arg.Priority, arg.Now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DemoteUnwantedJobsRow{}
+	for rows.Next() {
+		var i DemoteUnwantedJobsRow
+		if err := rows.Scan(&i.ID, &i.State); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishJob = `-- name: FinishJob :exec
 UPDATE job SET state = ?1, progress_fraction = ?2, last_failure = ?3,
                attempt_count = ?4, finished_at = ?5, assigned_until = NULL
@@ -156,9 +196,41 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 	return id, err
 }
 
+const keepJobWanted = `-- name: KeepJobWanted :exec
+UPDATE job SET wanted_until = MAX(COALESCE(wanted_until, 0), CAST(?1 AS INTEGER))
+WHERE kind = ?2 AND state IN ('queued', 'running', 'assigned')
+  AND item_id IS ?3 AND rendition_id IS ?4 AND stream_id IS ?5
+  AND fetched_subtitle_id IS ?6 AND file_id IS ?7
+`
+
+type KeepJobWantedParams struct {
+	Until             int64
+	Kind              string
+	ItemID            *int64
+	RenditionID       *int64
+	StreamID          *int64
+	FetchedSubtitleID *int64
+	FileID            *int64
+}
+
+// A person still waits for an open job of a kind on a target: until is when they stop, unless a
+// later play said later (D240 section 6).
+func (q *Queries) KeepJobWanted(ctx context.Context, arg KeepJobWantedParams) error {
+	_, err := q.db.ExecContext(ctx, keepJobWanted,
+		arg.Until,
+		arg.Kind,
+		arg.ItemID,
+		arg.RenditionID,
+		arg.StreamID,
+		arg.FetchedSubtitleID,
+		arg.FileID,
+	)
+	return err
+}
+
 const listEveryOpenJob = `-- name: ListEveryOpenJob :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE state IN ('queued', 'running', 'assigned')
 ORDER BY id
@@ -197,6 +269,7 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 			&i.CreatedAt,
 			&i.FinishedAt,
 			&i.AssignedUntil,
+			&i.WantedUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -213,7 +286,7 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 
 const listJobs = `-- name: ListJobs :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 ORDER BY id DESC
 LIMIT ?1
@@ -251,6 +324,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 			&i.CreatedAt,
 			&i.FinishedAt,
 			&i.AssignedUntil,
+			&i.WantedUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -267,7 +341,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 
 const listOpenJobs = `-- name: ListOpenJobs :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
   AND fetched_subtitle_id IS ?5 AND file_id IS ?6
@@ -324,6 +398,7 @@ func (q *Queries) ListOpenJobs(ctx context.Context, arg ListOpenJobsParams) ([]J
 			&i.CreatedAt,
 			&i.FinishedAt,
 			&i.AssignedUntil,
+			&i.WantedUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -432,7 +507,7 @@ UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = ?1 AND state = 'queued'
 RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
-          created_at, finished_at, assigned_until
+          created_at, finished_at, assigned_until, wanted_until
 `
 
 // A claim: the job runs, and its attempt is counted.
@@ -461,6 +536,7 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 		&i.CreatedAt,
 		&i.FinishedAt,
 		&i.AssignedUntil,
+		&i.WantedUntil,
 	)
 	return i, err
 }
@@ -470,7 +546,7 @@ UPDATE job SET state = 'running'
 WHERE id = ?1 AND state = 'assigned'
 RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
-          created_at, finished_at, assigned_until
+          created_at, finished_at, assigned_until, wanted_until
 `
 
 // An assigned job back to running, so its outcome can be written; only one of its outcome and its
@@ -500,6 +576,7 @@ func (q *Queries) TakeAssignedJob(ctx context.Context, id int64) (Job, error) {
 		&i.CreatedAt,
 		&i.FinishedAt,
 		&i.AssignedUntil,
+		&i.WantedUntil,
 	)
 	return i, err
 }
@@ -511,7 +588,7 @@ WHERE id = (SELECT overdue.id FROM job AS overdue
             ORDER BY overdue.assigned_until, overdue.id LIMIT 1)
 RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
-          created_at, finished_at, assigned_until
+          created_at, finished_at, assigned_until, wanted_until
 `
 
 type TakeOverdueAssignedJobParams struct {
@@ -545,6 +622,7 @@ func (q *Queries) TakeOverdueAssignedJob(ctx context.Context, arg TakeOverdueAss
 		&i.CreatedAt,
 		&i.FinishedAt,
 		&i.AssignedUntil,
+		&i.WantedUntil,
 	)
 	return i, err
 }

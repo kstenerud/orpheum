@@ -150,6 +150,25 @@ func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action,
 	return change.Action, nil
 }
 
+// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until
+// (D234 §3): each play that asks for the work does.
+func (queue *Queue[T]) KeepWanted(ctx context.Context, kind Kind, target T, until time.Time) error {
+	if err := queue.storage.KeepWanted(ctx, kind, target, until); err != nil {
+		return fmt.Errorf("keep a %s job wanted: %w", kind, err)
+	}
+	return nil
+}
+
+// DemoteUnwanted gives the open jobs no person waits for any more the given priority, background
+// work's (D234 §3), and returns them: a job given to another machine is that machine's to be told.
+func (queue *Queue[T]) DemoteUnwanted(ctx context.Context, priority int64) ([]Row[T], error) {
+	demoted, err := queue.storage.DemoteUnwanted(ctx, queue.clock.Now(), priority)
+	if err != nil {
+		return nil, fmt.Errorf("demote the jobs no one waits for: %w", err)
+	}
+	return demoted, nil
+}
+
 // plan is what a request does to its target's open jobs.
 func (queue *Queue[T]) plan(request Request[T], open Open[T], now time.Time) (Change, error) {
 	argsMerge := queue.argsMerge(request.Kind)

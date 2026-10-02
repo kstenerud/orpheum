@@ -76,3 +76,18 @@ func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testi
 		t.Errorf("once remux 1 ended, the exchanges brought back %v; want its slot and its device", unparked)
 	}
 }
+
+// A job no one waits for any more is told to its node at its new priority, no longer play-driven,
+// by its attempt's token (D234 §3, D240 §6).
+func TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	sent := bench.assign(t)
+	bench.exchanges.Reprioritize(7, jobs.PriorityBackground)
+	told := testutil.Receive(t, bench.sender.sent, "the reprioritize command")
+	if told.Type != nodeproto.CommandReprioritize || told.JobID != 7 || told.AttemptToken != sent.AttemptToken ||
+		told.Priority != jobs.PriorityBackground || told.IsPlayDriven {
+		t.Errorf("the node was told %+v; want job 7's attempt at background priority, not play-driven", told)
+	}
+}

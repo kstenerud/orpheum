@@ -23,6 +23,12 @@ type Queueing[T comparable] interface {
 	// Cancel ends a queued, running or assigned job as cancelled at the given time, and says whether
 	// one was open. A cancelled job stays cancelled whatever its handler records after.
 	Cancel(ctx context.Context, id int64, at time.Time) (bool, error)
+	// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until; a
+	// later time already kept stands.
+	KeepWanted(ctx context.Context, kind Kind, target T, until time.Time) error
+	// DemoteUnwanted gives every open job whose wanted time is before now the given priority, forgets
+	// its time, and returns it.
+	DemoteUnwanted(ctx context.Context, now time.Time, priority int64) ([]Row[T], error)
 }
 
 // Working is the part of Storage that runners use.

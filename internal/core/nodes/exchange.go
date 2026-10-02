@@ -204,6 +204,14 @@ func (all *Exchanges) Interrupt(ctx context.Context, nodeID int64) {
 	}, false)
 }
 
+// ReprioritizeCommand gives an attempt its job's new priority, play-driven or not.
+func ReprioritizeCommand(jobID int64, token string, priority int64) nodeproto.Command {
+	return nodeproto.Command{
+		JobID: jobID, AttemptToken: token, Priority: priority, IsPlayDriven: priority >= jobs.PriorityPlayNow,
+		Work: nodeproto.Work{Type: nodeproto.CommandReprioritize},
+	}
+}
+
 // CancelCommand tells a node to stop the attempt at a job it is working on (cut-a §5.3), named by
 // its token: Close sends it.
 func CancelCommand(jobID int64, token string) nodeproto.Command {
