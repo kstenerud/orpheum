@@ -4,6 +4,7 @@ package nodes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -270,5 +271,47 @@ func TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem(t *testi
 	commands, _ := harness.pollThroughHold(t, reply.NodeID, 0)
 	if len(commands.Commands) != 1 || commands.Commands[0].AttemptToken != "kept" {
 		t.Errorf("the node took %+v, want only the attempt that did not end", commands.Commands)
+	}
+}
+
+// fakeRenditionIndex keeps the renditions named in keeps, or fails when err is set.
+type fakeRenditionIndex struct {
+	keeps []string
+	err   error
+}
+
+func (index fakeRenditionIndex) AdoptRenditions(
+	context.Context, int64, []nodeproto.RenditionManifest,
+) ([]string, error) {
+	return index.keeps, index.err
+}
+
+// The reply to a hello names the renditions it listed that the index keeps; the node evicts the
+// others (D238 §2). With no index, or one that cannot be squared, it keeps them all: the node
+// evicts nothing for the core's failure.
+func TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay(t *testing.T) {
+	t.Parallel()
+	listed := []nodeproto.RenditionManifest{
+		{Prepare: nodeproto.Prepare{RenditionDir: "1/remux/aaaaaaaaaaaaaaaa"}},
+		{Prepare: nodeproto.Prepare{RenditionDir: "2/remux/bbbbbbbbbbbbbbbb"}},
+	}
+	all := []string{"1/remux/aaaaaaaaaaaaaaaa", "2/remux/bbbbbbbbbbbbbbbb"}
+	for _, each := range []struct {
+		name  string
+		index RenditionIndex
+		want  []string
+	}{
+		{name: "no index", want: all},
+		{name: "an index that keeps one", index: fakeRenditionIndex{keeps: all[1:]}, want: all[1:]},
+		{name: "an index that fails", index: fakeRenditionIndex{err: errors.New("cache.db is gone")}, want: all},
+	} {
+		harness := newFixture(t, time.Millisecond)
+		if each.index != nil {
+			harness.service.SetRenditionIndex(each.index)
+		}
+		reply := harness.hello(t, nodeproto.Hello{Name: "local", Renditions: listed})
+		if !slices.Equal(reply.KeptRenditionDirs, each.want) {
+			t.Errorf("with %s the reply kept %v, want %v", each.name, reply.KeptRenditionDirs, each.want)
+		}
 	}
 }

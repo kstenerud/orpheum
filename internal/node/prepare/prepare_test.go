@@ -66,6 +66,29 @@ type roomyKeeper struct{}
 func (roomyKeeper) MakeRoom() error                           { return nil }
 func (roomyKeeper) MarkWriting(string) (finishWriting func()) { return func() {} }
 
+func (roomyKeeper) Shelve(nodeproto.RenditionManifest) error { return nil }
+
+// shelvingKeeper is a prepared directory with room for every prepare, which records each manifest
+// shelved and whether its rendition was still being written then.
+type shelvingKeeper struct {
+	isWriting    bool
+	shelved      []nodeproto.RenditionManifest
+	whileWriting []bool
+}
+
+func (*shelvingKeeper) MakeRoom() error { return nil }
+
+func (keeper *shelvingKeeper) MarkWriting(string) (finishWriting func()) {
+	keeper.isWriting = true
+	return func() { keeper.isWriting = false }
+}
+
+func (keeper *shelvingKeeper) Shelve(manifest nodeproto.RenditionManifest) error {
+	keeper.shelved = append(keeper.shelved, manifest)
+	keeper.whileWriting = append(keeper.whileWriting, keeper.isWriting)
+	return nil
+}
+
 // fullKeeper is a prepared directory whose disk is past its limit with nothing to evict, and which
 // records whether anything was written.
 type fullKeeper struct{}
@@ -74,6 +97,10 @@ func (fullKeeper) MakeRoom() error { return errors.New("the disk is past its lim
 
 func (fullKeeper) MarkWriting(string) (finishWriting func()) {
 	panic("nothing is written where there is no room")
+}
+
+func (fullKeeper) Shelve(nodeproto.RenditionManifest) error {
+	panic("nothing is shelved where there is no room")
 }
 
 func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.T) {
@@ -111,6 +138,26 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	segment := filepath.Join(directory, "7", "remux", "0123456789abcdef", "video", "seg00000.m4s")
 	if _, err := os.Stat(segment); err != nil {
 		t.Errorf("the rendition is not under 7/remux: %v", err)
+	}
+}
+
+// A made rendition's manifest is shelved beside it, while it is still being written, so no eviction
+// takes it for a making that never finished (D238 §2).
+func TestPreparer_ShelvesAMadeRenditionsManifestWhileItIsStillBeingWritten(t *testing.T) {
+	t.Parallel()
+	keeper := &shelvingKeeper{}
+	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), keeper, prepare.EncoderX264)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
+	if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+		t.Fatal(err)
+	}
+	if len(keeper.shelved) != 1 || keeper.shelved[0].Prepare.RenditionDir != command.RenditionDir ||
+		keeper.shelved[0].SizeBytes != 5 || keeper.shelved[0].VideoEncoder != "copy" || !keeper.whileWriting[0] {
+		t.Errorf("shelved %+v, while being written %v; want 7/remux's manifest, 5 bytes copied, while written",
+			keeper.shelved, keeper.whileWriting)
 	}
 }
 

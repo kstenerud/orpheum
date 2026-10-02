@@ -118,3 +118,20 @@ type PrepareReport struct {
 	// done; zero when it never said.
 	RealtimeFactor float64 `json:"realtimeFactor,omitempty"`
 }
+
+// ManifestName is the file in a rendition's run directory that holds its manifest. A run directory
+// without one is a making that never finished.
+const ManifestName = "manifest.json"
+
+// RenditionManifest is what a node writes beside a rendition once it is made, so that, holding no
+// database, it knows what its disk holds after a restart (D238 §2), and the core can rebuild its
+// index from it: the command that made it, which names the source by identity, the profile, the
+// run, the segment length and the audio tracks with their gains and languages, and how it was made.
+type RenditionManifest struct {
+	Prepare Prepare `json:"prepare"`
+	// MadeAtMs is when the making ended, by the node's clock, in Unix milliseconds.
+	MadeAtMs       int64   `json:"madeAtMs"`
+	SizeBytes      int64   `json:"sizeBytes"`
+	VideoEncoder   string  `json:"videoEncoder"`
+	RealtimeFactor float64 `json:"realtimeFactor,omitempty"`
+}
