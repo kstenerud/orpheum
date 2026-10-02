@@ -61,6 +61,8 @@ type fakeNodes struct{ sent chan nodeproto.Command }
 
 func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
+func (fakeNodes) Ready(context.Context, int64) error { return nil }
+
 func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
 	node.Enqueue(nodeID, command)
 	return nil

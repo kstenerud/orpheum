@@ -83,3 +83,9 @@ func (runner *Runner) ResolveBy(ctx context.Context, id int64, decide func(job J
 // Assign is a handler's answer that its job's work was given to a node, which says later how it
 // ended: the job is assigned until then, or until until, past which it is its own failure (D234 §7).
 func Assign(until time.Time) error { return jobqueue.Assign(until) }
+
+// AssignThen is Assign, then is done once the job is recorded assigned: the work handed to its node,
+// so the node's word, however soon it comes, finds the job assigned.
+func AssignThen(until time.Time, then func(ctx context.Context)) error {
+	return jobqueue.AssignThen(until, then)
+}

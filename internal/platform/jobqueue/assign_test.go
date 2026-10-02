@@ -219,3 +219,24 @@ func TestResolveBy_DecidesFromTheJobAndACancelIsHeardByTheHook(t *testing.T) {
 		t.Error("IsAssigned does not tell Assign from another answer")
 	}
 }
+
+// A job given with AssignThen is handed over only once it is recorded assigned: what is handed, the
+// work sent to its node, finds the job assigned, however soon the node's word comes back.
+func TestAssignThen_HandsTheWorkOverOnceTheJobIsRecordedAssigned(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a"})
+	var stateWhenHanded jobqueue.State
+	handedCount := 0
+	runner := jobs.queue.NewRunner(kindFetch, func(context.Context, jobqueue.Job[target]) error {
+		return jobqueue.AssignThen(jobs.clock.Now().Add(assignFor), func(context.Context) {
+			handedCount++
+			stateWhenHanded = jobs.row(t, "a").State
+		})
+	})
+	jobs.runDue(t, runner)
+	if handedCount != 1 || stateWhenHanded != jobqueue.StateAssigned {
+		t.Errorf("the work was handed over %d times, the job then %q; want once, the job assigned",
+			handedCount, stateWhenHanded)
+	}
+}

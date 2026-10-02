@@ -61,11 +61,19 @@ func (node *fakeNode) ConnectedNodeID(context.Context) (int64, bool) {
 }
 
 // Send parks the job on a node that is not connected, as nodes.Service does.
-func (node *fakeNode) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
+func (node *fakeNode) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
+	if err := node.Ready(ctx, nodeID); err != nil {
+		return err
+	}
+	node.Enqueue(nodeID, command)
+	return nil
+}
+
+// Ready parks the job on a node that is not connected, as nodes.Service does.
+func (node *fakeNode) Ready(_ context.Context, nodeID int64) error {
 	if nodeID != fakeNodeID || !node.isConnected {
 		return jobs.ParkOnNode(nodeID, time.Time{}, errors.New("not connected"))
 	}
-	node.Enqueue(nodeID, command)
 	return nil
 }
 

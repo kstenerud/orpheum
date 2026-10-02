@@ -14,6 +14,17 @@ import (
 // node until its hello (D231 §11), or, for one that speaks another version of the node protocol,
 // until it is updated (D233 §9).
 func (service *Service) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
+	if err := service.Ready(ctx, nodeID); err != nil {
+		return err
+	}
+	service.Enqueue(nodeID, command)
+	return nil
+}
+
+// Ready is nil for a node that is connected, and otherwise parks the job on it until its hello
+// (D231 §11), or, for one that speaks another version of the node protocol, until it is updated
+// (D233 §9).
+func (service *Service) Ready(ctx context.Context, nodeID int64) error {
 	connection, lastHeard := service.NodeConnection(ctx, nodeID)
 	if connection == NeedsUpdate {
 		return jobs.ParkOnNodeNeedingUpdate(nodeID, ErrNodeSilent)
@@ -21,7 +32,6 @@ func (service *Service) Send(ctx context.Context, nodeID int64, command nodeprot
 	if connection != Connected {
 		return jobs.ParkOnNode(nodeID, lastHeard, ErrNodeSilent)
 	}
-	service.Enqueue(nodeID, command)
 	return nil
 }
 

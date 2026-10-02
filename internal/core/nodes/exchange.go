@@ -23,6 +23,8 @@ import (
 type Sender interface {
 	// Send queues work for a node, and parks its job on one that is not connected.
 	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
+	// Ready is nil for a node work can be sent to, and parks the job on one that is not connected.
+	Ready(ctx context.Context, nodeID int64) error
 	// Enqueue queues a command as it is: a cancel.
 	Enqueue(nodeID int64, command nodeproto.Command)
 	// Unanswered parks a job whose node went away while it waited, and is err otherwise.
