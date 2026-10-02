@@ -86,8 +86,14 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	}
 	if node.answer != nil {
 		result := node.answer(*command.EncodeArtwork)
-		go node.service.exchanges.Deliver(node.ctx, fakeNodeID,
-			nodeproto.Result{JobID: command.JobID, AttemptToken: command.AttemptToken, Artwork: &result})
+		echoed := command.Work
+		go func() {
+			answered := nodeproto.Result{
+				JobID: command.JobID, AttemptToken: command.AttemptToken, Work: &echoed, Artwork: &result,
+			}
+			// An answer not taken leaves nothing stored, which the test's own checks find.
+			_ = node.service.exchanges.Deliver(node.ctx, fakeNodeID, answered) //nolint:errcheck // as above
+		}()
 	}
 }
 
@@ -451,4 +457,44 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		!bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).sourceSha256()) {
 		t.Errorf("in a TMDB-only library shown %+v (%v); want TMDB's poster", shown, err)
 	}
+}
+
+// A re-encode's answer is recorded as it arrives, whether or not its job still waits (D238 §2): the
+// sizes asked for, in WebP, under the SHA-256 the command names; no other.
+func TestRecordArtwork_StoresTheSizesAskedForByTheSourceTheCommandNames(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	sourceSha256 := strings.Repeat("ab", 32)
+	webp := []byte("RIFF\x00\x00\x00\x00WEBPVP8 ")
+	command := nodeproto.Command{
+		JobID:        9,
+		AttemptToken: "no job waits for this",
+		Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
+			SourceSha256: sourceSha256, Shape: nodeproto.ShapePortrait,
+			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		}},
+	}
+	err := bench.service.exchanges.Deliver(t.Context(), fakeNodeID, nodeproto.Result{
+		JobID: 9, AttemptToken: command.AttemptToken, Work: &command.Work,
+		Artwork: &nodeproto.ArtworkResult{Images: []nodeproto.ArtImage{
+			{SizeName: nodeproto.PortraitS, WebP: webp}, {SizeName: nodeproto.PortraitM, WebP: webp},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, found := bench.art[sourceSha256+"/"+string(nodeproto.PortraitS)+webpSuffix]; !found {
+		t.Errorf("the art store holds %v, want the small portrait under the command's source", keysOf(bench.art))
+	}
+	if _, found := bench.art[sourceSha256+"/"+string(nodeproto.PortraitM)+webpSuffix]; found {
+		t.Error("the art store holds a size nobody asked for")
+	}
+}
+
+func keysOf(art memoryStore) []string {
+	keys := make([]string, 0, len(art))
+	for key := range art {
+		keys = append(keys, key)
+	}
+	return keys
 }

@@ -281,7 +281,7 @@ func (service *Service) measure(
 	patience time.Duration,
 ) error {
 	exchange, err := service.exchanges.Ask(ctx, file.NodeID, job, nodeproto.Command{
-		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
+		Work: nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
 	}, fmt.Sprintf("measuring file %d", file.ID))
 	if err != nil {
 		return fmt.Errorf("measure file %d: %w", file.ID, err)
@@ -313,11 +313,11 @@ func (service *Service) measure(
 					nodeproto.LoudnessResult{Failure: failure})
 			})
 	}
-	keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
+	// The measurement, or FFmpeg's word, is kept by its recorder (recordLoudness).
 	if answer.Failure != "" {
-		return jobs.MarkPermanent(errors.Join(errors.New(answer.Failure), keepErr))
+		return jobs.MarkPermanent(errors.New(answer.Failure))
 	}
-	return keepErr
+	return nil
 }
 
 // keepLoudness keeps a node's answer by the file's payload hash: each track's sounds, or, when

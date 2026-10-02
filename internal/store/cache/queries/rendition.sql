@@ -31,15 +31,23 @@ SET carried_gains_db_json = sqlc.arg(carried_gains_db_json), audio_languages_jso
 WHERE id = sqlc.arg(id);
 
 -- name: SetRenditionRunning :exec
-UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ? WHERE id = ?;
+-- How far a making is, by its run, while it has not ended: its end, recorded as it arrived, is never
+-- undone by its progress heard after it.
+UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ?
+WHERE source_file = ? AND profile = ? AND run_id = ? AND state IN ('queued', 'running');
 
--- name: SetRenditionComplete :exec
+-- name: SetRenditionComplete :execrows
+-- A making that ended, by its run: a rendition made again since has another run, and is not touched
+-- (G13).
 UPDATE prepared_rendition
 SET state = 'complete', size_bytes = ?, finished_at = ?, video_encoder = ?, realtime_factor = ?
-WHERE id = ?;
+WHERE source_file = ? AND profile = ? AND run_id = ?;
 
--- name: SetRenditionFailed :exec
-UPDATE prepared_rendition SET state = 'failed', failure = ?, finished_at = ? WHERE id = ?;
+-- name: SetRenditionFailed :execrows
+-- A making that failed, by its run, as SetRenditionComplete, unless the node said it was done: a
+-- job that gave up on a making the node finished does not undo it.
+UPDATE prepared_rendition SET state = 'failed', failure = ?, finished_at = ?
+WHERE source_file = ? AND profile = ? AND run_id = ? AND state <> 'complete';
 
 -- name: ListFinishedRenditions :many
 -- A node's latest finished prepares, newest first, for the System page (D225).

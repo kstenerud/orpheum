@@ -38,9 +38,21 @@ type Exchanges struct {
 	random io.Reader
 	logger *slog.Logger
 
-	mutex   sync.Mutex
-	waiting map[string]*waiter // by attempt token; guarded by mutex
+	mutex     sync.Mutex
+	waiting   map[string]*waiter                 // by attempt token; guarded by mutex
+	recorders map[nodeproto.CommandType]Recorder // guarded by mutex
 }
+
+// Recorder records what a node's result on one kind of work establishes, by the content its echoed
+// work names (Result.Work), and only if that is still current: a rendition by its run, a
+// text by its source's hash. It is the result's one recording, whether or not a job still waits
+// for it (D238 §2): a job that waits only learns how the work ended. A result whose content is no
+// longer current is not recorded, and is no error.
+type Recorder func(ctx context.Context, nodeID int64, result nodeproto.Result) error
+
+// ErrMalformedResult is a result the core cannot take as it is: it names no work, or work its
+// recorder cannot read.
+var ErrMalformedResult = errors.New("a result names the work it answers")
 
 // attemptTokenBytes is an attempt token's random bytes before hex: sixteen never repeat, across
 // restarts of the core and a cache.db discarded, which reissues job ids (D238 §2, S84).
@@ -64,7 +76,15 @@ type waiter struct {
 func NewExchanges(sender Sender, clockSource clock.Clock, random io.Reader, logger *slog.Logger) *Exchanges {
 	return &Exchanges{
 		sender: sender, clock: clockSource, random: random, logger: logger, waiting: map[string]*waiter{},
+		recorders: map[nodeproto.CommandType]Recorder{},
 	}
+}
+
+// Record names the recorder of one kind of work's results. Set each before the channel serves.
+func (all *Exchanges) Record(kind nodeproto.CommandType, recorder Recorder) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	all.recorders[kind] = recorder
 }
 
 // Ask sends a node one job's command, named by the job's id and an attempt token made for this
@@ -98,24 +118,36 @@ func (all *Exchanges) Ask(
 	return &Exchange{all: all, nodeID: nodeID, jobID: job.ID, token: token, about: about, waiter: waiting}, nil
 }
 
-// Deliver hands a node's result to the job waiting for it: the one its attempt token names, waiting
-// on that node (S83, S84). One nothing waits for, from another node or another attempt, or one that
-// finds the job's results unread, is dropped: progress is only ever the latest, and the end is sent
-// once, to a job that is reading.
-func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeproto.Result) {
+// Deliver records a node's result by what it is, then hands it to the job waiting for it: the one
+// its attempt token names, waiting on that node (S83, S84). The node's result is acknowledged once
+// Deliver returns nil, so it is recorded first, whether or not a job still waits (S81); an error
+// leaves it unacknowledged, and the node sends it again. A refusal, the node taking no part, is
+// recorded by nothing. A result no job waits for, from another node or another attempt, reaches no
+// job.
+func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeproto.Result) error {
+	if result.Work == nil {
+		return fmt.Errorf("job %d's result from node %d: %w", result.JobID, nodeID, ErrMalformedResult)
+	}
 	all.mutex.Lock()
+	record, isRecorded := all.recorders[result.Work.Type]
 	waiting, found := all.waiting[result.AttemptToken]
 	all.mutex.Unlock()
+	if isRecorded && result.Refusal == "" {
+		if err := record(ctx, nodeID, result); err != nil {
+			return fmt.Errorf("record job %d's result from node %d: %w", result.JobID, nodeID, err)
+		}
+	}
 	if !found || waiting.nodeID != nodeID {
 		all.logger.InfoContext(ctx, "a node's result came for no job waiting on it", "nodeId", nodeID,
 			"jobId", result.JobID, "attemptToken", result.AttemptToken)
-		return
+		return nil
 	}
 	select {
 	case waiting.results <- result:
 	default:
-		all.logger.DebugContext(ctx, "a node's result was dropped: its job is behind", "jobId", result.JobID)
+		all.logger.DebugContext(ctx, "a node's result was dropped: its job has one", "jobId", result.JobID)
 	}
+	return nil
 }
 
 // DeliverProgress hands a node's word on where an attempt is to the job waiting for it, by its
@@ -255,5 +287,5 @@ func (exchange *Exchange) Close() {
 // CancelCommand tells a node to stop the attempt at a job it is working on (cut-a §5.3), named by
 // its token: Close sends it.
 func CancelCommand(jobID int64, token string) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandCancel, JobID: jobID, AttemptToken: token}
+	return nodeproto.Command{JobID: jobID, AttemptToken: token, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 }

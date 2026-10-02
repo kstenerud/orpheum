@@ -278,18 +278,21 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	if stream.StreamIndex != nil {
 		command = &nodeproto.ExtractSubtitle{Video: &bytesFile, StreamIndex: int(*stream.StreamIndex)}
 	}
-	return service.makeSubtitleText(ctx, job, stream.NodeID, command, textKey(stream.PayloadHash, stream.StreamIndex))
+	return service.makeSubtitleText(ctx, job, stream.NodeID, command)
 }
 
-// makeSubtitleText has a node make one subtitle's text, waits for its answer and keeps the text where key
-// says. FFmpeg's failure is kept and not retried; a node's refusal, which says nothing of the
-// source's bytes, is not kept, and the job is tried again.
+// makeSubtitleText has a node make one subtitle's text and waits for its answer, which its recorder
+// keeps where the command's source says (recordSubtitle). FFmpeg's failure is kept and not retried; a
+// node's refusal, which says nothing of the source's bytes, is not kept, and the job is tried again.
 func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
-	key sqlcgen.GetSubtitleTextParams,
 ) error {
+	key, _, err := subtitleTextKey(*command)
+	if err != nil {
+		return jobs.MarkPermanent(err)
+	}
 	exchange, err := service.exchanges.Ask(ctx, nodeID, job, nodeproto.Command{
-		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
+		Work: nodeproto.Work{Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command},
 	}, fmt.Sprintf("%s job %d", job.Kind, job.ID))
 	if err != nil {
 		return fmt.Errorf("%s job %d: %w", job.Kind, job.ID, err)
@@ -318,10 +321,9 @@ func (service *Service) makeSubtitleText(
 			})
 	}
 	if answer.Failure != "" {
-		failure := errors.New(answer.Failure)
-		return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
+		return jobs.MarkPermanent(errors.New(answer.Failure))
 	}
-	return service.finishSubtitle(ctx, key, answer)
+	return nil
 }
 
 // finishSubtitle keeps a node's answer in persistent.db: the text, or why there is none.

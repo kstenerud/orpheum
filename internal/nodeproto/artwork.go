@@ -85,6 +85,10 @@ const CommandEncodeArtwork CommandType = "encode_artwork"
 // FFmpeg's confinement.
 type Artwork struct {
 	SourceImage []byte `json:"sourceImage,omitempty"`
+	// SourceSha256 is, with SourceImage, the hex SHA-256 of the image the sizes are of, as the core
+	// stores them: its source's, also when SourceImage is a size already made of it (D212 §2). It is
+	// what an answer echoes in SourceImage's place (Result.Command), and the sizes are recorded under.
+	SourceSha256 string `json:"sourceSha256,omitempty"`
 	// AbsolutePath, in place of SourceImage, names an image beside the media for the node to read
 	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
 	// Path on the wire it is absolute: the node finds the root it is under.

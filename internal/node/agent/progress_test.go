@@ -3,6 +3,8 @@
 package agent
 
 import (
+	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -19,10 +21,12 @@ func TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick(t *testing.
 	_, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: artworker})
 	held := func(seq int64) nodeproto.Command {
 		return nodeproto.Command{
-			CommandSeq: seq, Type: nodeproto.CommandEncodeArtwork, JobID: seq, EncodeArtwork: &nodeproto.Artwork{
+			CommandSeq: seq,
+			JobID:      seq,
+			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
 				SourceImage: []byte("hold"), Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-			},
+			}},
 		}
 	}
 	core.commands <- held(1)
@@ -43,5 +47,25 @@ func TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick(t *testing.
 	}
 	if heard[1] != nodeproto.ProgressRunning || heard[2] != nodeproto.ProgressWaiting {
 		t.Errorf("at the tick the core heard %v, want job 1 running and job 2 waiting", heard)
+	}
+}
+
+// receiveProgress hands the test the node's words on where its attempts are, dropping one the test
+// has no room for: progress is best effort, as the core's is.
+func (core *fakeCore) receiveProgress(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var progress nodeproto.Progress
+		if err := json.NewDecoder(request.Body).Decode(&progress); err != nil {
+			if isMalformed(err) {
+				t.Error(err)
+			}
+			return
+		}
+		select {
+		case core.progress <- progress:
+		default:
+		}
+		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
 }

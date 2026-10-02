@@ -12,6 +12,10 @@ type Result struct {
 	JobID int64 `json:"jobId"`
 	// AttemptToken is the command's (Command.AttemptToken), echoed: the attempt this answers.
 	AttemptToken string `json:"attemptToken"`
+	// Work is the work this answers, as the node holds it, without the bytes it carried (an image, a
+	// fetched text): what the core records the result by, whether or not a job still waits for it
+	// (D238 §2, S81, S84).
+	Work *Work `json:"work"`
 	// Refusal says why the node took no part of the command: a command it does not know, from a
 	// core of another build, which the core reads as the node needing an update (D233 §9).
 	Refusal  string          `json:"refusal,omitempty"`

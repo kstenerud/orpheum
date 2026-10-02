@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -97,7 +98,21 @@ func (bench exchangeBench) wantToldToStop(t *testing.T, exchange *nodes.Exchange
 	}
 }
 
-var prepareCommand = nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{}}
+var prepareCommand = nodeproto.Command{
+	Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{}},
+}
+
+// deliver hands exchanges node nodeID's result, naming the prepare command unless it names another,
+// as a node's results do, and fails the test if it is not taken.
+func deliver(t *testing.T, exchanges *nodes.Exchanges, nodeID int64, result nodeproto.Result) {
+	t.Helper()
+	if result.Work == nil {
+		result.Work = &prepareCommand.Work
+	}
+	if err := exchanges.Deliver(t.Context(), nodeID, result); err != nil {
+		t.Errorf("the result was not taken: %v", err)
+	}
+}
 
 // A result reaches the job that asked by its attempt's token, from the node it asked, never by the
 // job's id alone (S83, S84); and once the node said how the work ended, closing the exchange sends
@@ -119,14 +134,14 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	}
 	// Another job's, an earlier attempt's at job 7, and job 7's attempt's from another node: none is
 	// this attempt's.
-	exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 8, Prepare: report(nodeproto.PrepareFailed)})
-	exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+	deliver(t, exchanges, 1, nodeproto.Result{JobID: 8, Prepare: report(nodeproto.PrepareFailed)})
+	deliver(t, exchanges, 1, nodeproto.Result{
 		JobID: 7, AttemptToken: "0123456789abcdef0123456789abcdef", Prepare: report(nodeproto.PrepareFailed),
 	})
-	exchanges.Deliver(t.Context(), 2, nodeproto.Result{
+	deliver(t, exchanges, 2, nodeproto.Result{
 		JobID: 7, AttemptToken: sent.AttemptToken, Prepare: report(nodeproto.PrepareFailed),
 	})
-	exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+	deliver(t, exchanges, 1, nodeproto.Result{
 		JobID: 7, AttemptToken: sent.AttemptToken, Prepare: report(nodeproto.PrepareDone),
 	})
 	got, err := exchange.Next(t.Context(), time.Minute)
@@ -183,7 +198,7 @@ func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	exchanges, logged := bench.exchanges, bench.logged
-	exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 42, Prepare: &nodeproto.PrepareReport{}})
+	deliver(t, exchanges, 1, nodeproto.Result{JobID: 42, Prepare: &nodeproto.PrepareReport{}})
 	if !strings.Contains(logged.String(), `"jobId":42`) || !strings.Contains(logged.String(), `"nodeId":1`) {
 		t.Errorf("the log = %s, want the job named as jobId and the node as nodeId", logged.String())
 	}
@@ -201,7 +216,7 @@ func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *tes
 	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
 	refusal := `this node cannot read the command "prepare"`
 	refused := nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, Refusal: refusal}
-	bench.exchanges.Deliver(t.Context(), 1, refused)
+	deliver(t, bench.exchanges, 1, refused)
 	_, err = exchange.Next(t.Context(), time.Minute)
 	parking, isParked := jobqueue.ParkingOf(err)
 	if !isParked || parking.Destination != jobs.NodeDestination(1) || parking.Reason != jobs.ReasonNeedsUpdate ||
@@ -233,7 +248,7 @@ func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
 		t.Errorf("job 7's wait ended with %v, want ErrNodeRestarted", ended)
 	}
 	exchange.Close()
-	bench.exchanges.Deliver(t.Context(), 2, nodeproto.Result{
+	deliver(t, bench.exchanges, 2, nodeproto.Result{
 		JobID: 8, AttemptToken: sentElsewhere.AttemptToken,
 		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone},
 	})
@@ -302,4 +317,61 @@ func TestExchange_ProgressKeepsTheWaitAliveAndOnlyItsOwnReachesTheJob(t *testing
 		t.Errorf("the wait ended %v, want OnProgress's error", err)
 	}
 	bench.wantToldToStop(t, exchange)
+}
+
+// A result is recorded by its kind's recorder as it arrives, before any job hears it and whether or
+// not a job still waits (S81): the node's acknowledgement waits on it, and a recorder's error leaves
+// the result unacknowledged, for the node to send again, with no job told. A refusal is recorded by
+// nothing, and a result naming no command is malformed.
+func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	var recorded []int64
+	var refusal error
+	bench.exchanges.Record(nodeproto.CommandPrepare, func(_ context.Context, _ int64, result nodeproto.Result) error {
+		if refusal != nil {
+			return refusal
+		}
+		recorded = append(recorded, result.JobID)
+		return nil
+	})
+	done := &nodeproto.PrepareReport{State: nodeproto.PrepareDone}
+	// No job waits for job 41's: it is recorded all the same.
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 41, AttemptToken: "gone", Prepare: done})
+	exchange, err := bench.exchanges.Ask(t.Context(), 1, jobs.Job{ID: 7}, prepareCommand, "prepare 7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer exchange.Close()
+	token := testutil.Receive(t, bench.sender.sent, "the prepare command").AttemptToken
+	waited := make(chan error, 1)
+	go func() {
+		_, nextErr := exchange.Next(t.Context(), time.Minute)
+		waited <- nextErr
+	}()
+	refusal = errors.New("cache.db is busy")
+	err = bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+		JobID: 7, AttemptToken: token, Work: &prepareCommand.Work, Prepare: done,
+	})
+	if err == nil || !strings.Contains(err.Error(), "busy") {
+		t.Errorf("a result its recorder could not record was taken: %v", err)
+	}
+	select {
+	case ended := <-waited:
+		t.Fatalf("job 7 heard a result that was not recorded: %v", ended)
+	default:
+	}
+	refusal = nil
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 7, AttemptToken: token, Prepare: done})
+	if ended := testutil.Receive(t, waited, "job 7's result"); ended != nil {
+		t.Errorf("job 7's wait ended %v, want its result", ended)
+	}
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 43, AttemptToken: "x", Refusal: "unknown command"})
+	if !slices.Equal(recorded, []int64{41, 7}) {
+		t.Errorf("recorded jobs %v, want 41's and 7's once recorded, and no refusal", recorded)
+	}
+	malformed := bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 44, Prepare: done})
+	if !errors.Is(malformed, nodes.ErrMalformedResult) {
+		t.Errorf("a result naming no command: %v, want ErrMalformedResult", malformed)
+	}
 }

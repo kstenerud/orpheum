@@ -12,25 +12,36 @@
 //
 // # Invariants
 //
+//   - A node's re-encode is recorded as it arrives, whether or not its job still waits (D238 §2):
+//     each size asked for, in WebP, under the SHA-256 of the image it is of. The item's image is
+//     its job's to record. TestRecordArtwork_StoresTheSizesAskedForByTheSourceTheCommandNames.
+//
 //   - This package writes the artwork table and nothing else does; it imports no identify, which
 //     reaches it only through the server's wiring. TestArch_EachTableHasOneWritingPackage; the
 //     import, review.
+//
 //   - Of the images a pass or a match found, what an item holds, stored or refused, is not asked
 //     for again; a rematch retires the earlier work's images and a pass the images no longer
 //     beside the media, never a person's choice (D212, D215 §1, D223 §9).
 //     TestTake_QueuesOnlyTheImagesTheItemDoesNotHold, TestTake_QueuesOneJobPerItemThatFetchesWhatItNames,
 //     TestTake_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks,
 //     TestTake_AnImageNoLongerBesideTheMediaIsRetired.
+//
 //   - The artwork store takes bytes from one place: the node's answer to an artwork command
 //     (D212 §8). A download is an Unsanitised value whose bytes only the node command reads.
 //     TestService_StoresOnlyTheNodesAnswer.
+//
 //   - What the node answers is checked before it is stored: a size that was asked for, in
 //     WebP. TestService_StoresOnlyTheNodesAnswer.
+//
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
+//
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
+//
 //   - A job waits for the node's answer by its own id, and one cancelled while it waits tells the
 //     node to stop it. TestService_ACancelledJobTellsTheNodeToStopItByItsID.
+//
 //   - The cache is held to its ceiling in D212 §6's order — a removed item's images (after their
 //     grace, or sooner under pressure), sizes made on request and JPEG, other sizes, bases — least
 //     recently served first, down to 90% of it; a live item's poster-wall size and the smallest
@@ -38,35 +49,44 @@
 //     the ceiling to set (D212 §7). TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize,
 //     TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace,
 //     TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling.
+//
 //   - When an image was served is kept to the day, in memory, and written in a batch, never on
 //     the request path. TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack.
+//
 //   - An evicted size is cut again by the node from the image's base, our own WebP, without
 //     fetching; only a size larger than the base, or an image with nothing held, is fetched
 //     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
+//
 //   - An image beside the media is read and re-encoded by the node that holds it, sent its path
 //     and never its bytes, and stored under the hash that node read; a person's choice shows
 //     first, then the source the library prefers (D215).
 //     TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders.
+//
 //   - A missing image is looked into once: its record is refreshed after the CDN stops answering
 //     from its cached 404, and a second miss gives it up (D213 §1). The recheck is derived from
 //     its refusal, which DueRechecks reads for the refresh sweep, never held as a job (D231 §3).
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
+//
 //   - An image that could not be stored keeps why and when, the item's own failure (D231 §4); a
 //     job that gave up records each image it named that its item does not hold that way (§10).
 //     TestRecordFailure_AnArtworkJobThatGaveUpHoldsItsImagesAsRefusedWithWhy.
+//
 //   - A refused image beside the media is owed again once a scan has seen its file since: a disk
 //     that was away brings its images back (G9).
 //     TestTake_ARefusedImageBesideTheMediaIsOwedAgainOnceAScanHasSeenItsFile.
+//
 //   - Where the library shows the images beside the media first, a provider's image of a kind
 //     beside an item's media is not owed, after a pass or a match; in a TMDB-only library it is,
 //     to replace it (D215 §1).
 //     TestTake_InALibraryThatShowsTheMediasOwnImagesAProvidersOfAKindBesideItIsNotOwed.
+//
 //   - An image server its provider service finds down or asking us to wait parks the job on it,
 //     at no cost of an attempt, and holds nothing of the image; the queue probes the host
 //     (D231 §5, §6, which replace D213 §5's breaker). A plain 500 is the image's own failure,
 //     retried on RetrySchedule.
 //     TestService_AnImageServerItsProviderParksPassesTheParkingOnAndRecordsNothing. With no node
 //     connected, a download waits for any node's hello. TestService_WaitsForANode.
+//
 //   - The node is never on the request path: a size not made is answered with the nearest one
 //     there, and only a size made on request, whose source may be large enough, is queued; one
 //     the source cannot make, or a source that is gone or changed, is noted and never queued
@@ -74,6 +94,7 @@
 //     TestServe_NothingIsQueuedForASizeTheSourceCannotMake,
 //     TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade,
 //     TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash.
+//
 //   - The core decodes only its own WebP, under the pixel limit, to cut JPEG, and keeps what it
 //     cut. TestServe_AJPEGIsCutFromTheWebPOfItsSizeAndKept (integration tier).
 //

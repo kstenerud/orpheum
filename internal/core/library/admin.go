@@ -105,8 +105,7 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 	}
 	for _, root := range library.Roots {
 		admin.nodes.Enqueue(nodeID, nodeproto.Command{
-			Type: nodeproto.CommandScan,
-			Scan: &nodeproto.Scan{RootPath: root},
+			Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}},
 		})
 	}
 	return id, nil
@@ -340,8 +339,7 @@ func (admin *Admin) rescan(ctx context.Context, root sqlcgen.ListLibraryRootStat
 		return false
 	}
 	admin.nodes.Enqueue(nodeID, nodeproto.Command{
-		Type: nodeproto.CommandScan,
-		Scan: &nodeproto.Scan{RootPath: root.RootPath},
+		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.RootPath}},
 	})
 	return true
 }

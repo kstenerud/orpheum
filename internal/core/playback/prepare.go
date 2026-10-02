@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -184,12 +185,14 @@ const maxSlotWait = 6 * time.Hour
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
 	exchange, err := all.exchanges.Ask(ctx, nodeID, job,
-		nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command}, "prepare "+command.RenditionDir)
+		nodeproto.Command{
+			Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &command},
+		}, "prepare "+command.RenditionDir)
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
 	defer exchange.Close()
-	if recordErr := all.recordRunning(ctx, job.RenditionID, 0); recordErr != nil {
+	if recordErr := all.recordRunning(ctx, order.run, 0); recordErr != nil {
 		return recordErr
 	}
 	languages := audioLanguagesOf(command.AudioTracks)
@@ -202,11 +205,11 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	}
 	result, err := exchange.Next(ctx, all.maxSilence)
 	if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-		return all.abandon(ctx, job)
+		return all.abandon(ctx, order.run)
 	}
 	if err != nil {
 		return unansweredOutcome(job, err, func(failure string) error {
-			return all.finish(ctx, job.RenditionID, nil, failure)
+			return all.failMaking(ctx, order.run, failure)
 		})
 	}
 	if result.Prepare == nil {
@@ -234,26 +237,27 @@ func (all *prepares) takeProgress(
 		}
 		return nil
 	case nodeproto.ProgressRunning:
-		return all.recordProgress(ctx, job, progress.PreparedThroughMs, order.durationMs)
+		return all.recordProgress(ctx, job, order.run, progress.PreparedThroughMs, order.durationMs)
 	}
 	return nil
 }
 
-// takeEnd takes the node's word on how a prepare ended, and says how the job ended.
+// takeEnd takes the node's word on how a prepare ended, and says how the job ended. What the word
+// establishes, the making done or FFmpeg failing on its source, its recorder recorded before the
+// job heard it (recordPrepare).
 func (all *prepares) takeEnd(
 	ctx context.Context, job jobs.Job, order prepareOrder, report nodeproto.PrepareReport,
 ) error {
 	nodeID, renditionDir := order.nodeID, order.command.RenditionDir
 	switch report.State {
 	case nodeproto.PrepareDone:
-		return all.finish(ctx, job.RenditionID, &report, "")
+		return nil
 	case nodeproto.PrepareFailed:
 		// FFmpeg failing on a file fails again on it: this is not retried.
-		failure := errors.New(report.Failure)
-		return jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
+		return jobs.MarkPermanent(errors.New(report.Failure))
 	case nodeproto.PrepareStalled:
 		return stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
-			func(failure string) error { return all.finish(ctx, job.RenditionID, nil, failure) })
+			func(failure string) error { return all.failMaking(ctx, order.run, failure) })
 	case nodeproto.PrepareRefused:
 		refused := fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
@@ -272,10 +276,12 @@ func (all *prepares) takeEnd(
 		report.State)
 }
 
-// recordProgress records how far a running prepare is, on its rendition and, when the source's length
+// recordProgress records how far a running prepare is, on its making and, when the source's length
 // is known, on its job for the job view.
-func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedThroughMs, durationMs int64) error {
-	if err := all.recordRunning(ctx, job.RenditionID, preparedThroughMs); err != nil {
+func (all *prepares) recordProgress(
+	ctx context.Context, job jobs.Job, run renditionRun, preparedThroughMs, durationMs int64,
+) error {
+	if err := all.recordRunning(ctx, run, preparedThroughMs); err != nil {
 		return err
 	}
 	if durationMs <= 0 {
@@ -286,8 +292,8 @@ func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedT
 
 // abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
 // a later play prepares it again rather than waiting on one no one is making.
-func (all *prepares) abandon(ctx context.Context, job jobs.Job) error {
-	finishErr := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
+func (all *prepares) abandon(ctx context.Context, run renditionRun) error {
+	finishErr := all.failMaking(context.WithoutCancel(ctx), run, jobs.ErrCancelled.Error())
 	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
 }
 
@@ -306,24 +312,54 @@ func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gainsJS
 	return nil
 }
 
-func (all *prepares) recordRunning(ctx context.Context, renditionID, preparedThroughMs int64) error {
+// recordRunning records how far a making is while it has not ended.
+func (all *prepares) recordRunning(ctx context.Context, run renditionRun, preparedThroughMs int64) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedThroughMs, ID: renditionID}
-		return queries.SetRenditionRunning(ctx, progress)
+		return queries.SetRenditionRunning(ctx, cachegen.SetRenditionRunningParams{
+			PreparedThroughMs: preparedThroughMs, SourceFile: run.fileID, Profile: run.profile, RunID: run.runID,
+		})
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d running: %w", renditionID, err)
+		return fmt.Errorf("record rendition %s running: %w", run.dir(), err)
 	}
 	return nil
 }
 
-// finish records a rendition complete with its size, what made its video and how fast, or
-// failed with why.
+// renditionRun is one making of a rendition, as its directory on the node names it,
+// <file_id>/<profile>/<run_id> (nodeproto.Prepare.RenditionDir): what a node's answer on a prepare
+// is recorded by, so a rendition made again since, under another run, is never taken for it (G13).
+type renditionRun struct {
+	fileID  int64
+	profile string
+	runID   string
+}
+
+func (run renditionRun) dir() string {
+	return strconv.FormatInt(run.fileID, 10) + "/" + run.profile + "/" + run.runID
+}
+
+// parseRenditionDir is the making a rendition directory names.
+func parseRenditionDir(dir string) (renditionRun, error) {
+	parts := strings.Split(dir, "/")
+	if len(parts) == 3 {
+		fileID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err == nil && parts[1] != "" && parts[2] != "" {
+			return renditionRun{fileID: fileID, profile: parts[1], runID: parts[2]}, nil
+		}
+	}
+	return renditionRun{}, fmt.Errorf("%q names no making of a rendition, <file_id>/<profile>/<run_id>", dir)
+}
+
+// finish records a making of a rendition complete with its size, what made its video and how fast,
+// or failed with why. A rendition made again since, under another run, is not touched, and
+// isCurrent says so.
 func (all *prepares) finish(
-	ctx context.Context, renditionID int64, doneReport *nodeproto.PrepareReport, failure string,
-) error {
+	ctx context.Context, run renditionRun, doneReport *nodeproto.PrepareReport, failure string,
+) (isCurrent bool, err error) {
 	now := all.clock.Now().UnixMilli()
-	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	var touched int64
+	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		var writeErr error
 		if doneReport != nil {
 			// What made it and how fast, for the System page (D225 §3); a node that did not say
 			// leaves them empty.
@@ -335,20 +371,28 @@ func (all *prepares) finish(
 			if doneReport.RealtimeFactor > 0 {
 				realtimeFactor = &doneReport.RealtimeFactor
 			}
-			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
+			touched, writeErr = queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
 				SizeBytes: &doneReport.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder,
 				RealtimeFactor: realtimeFactor,
-				ID:             renditionID,
+				SourceFile:     run.fileID, Profile: run.profile, RunID: run.runID,
 			})
+			return writeErr
 		}
-		return queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{
-			Failure: &failure, FinishedAt: &now, ID: renditionID,
+		touched, writeErr = queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{
+			Failure: &failure, FinishedAt: &now, SourceFile: run.fileID, Profile: run.profile, RunID: run.runID,
 		})
+		return writeErr
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d finished: %w", renditionID, err)
+		return false, fmt.Errorf("record rendition %s finished: %w", run.dir(), err)
 	}
-	return nil
+	return touched > 0, nil
+}
+
+// failMaking records a making of a rendition failed, for a handler whose job ends with it.
+func (all *prepares) failMaking(ctx context.Context, run renditionRun, failure string) error {
+	_, err := all.finish(ctx, run, nil, failure)
+	return err
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
@@ -358,7 +402,7 @@ func prepareCommand(
 ) nodeproto.Prepare {
 	command := nodeproto.Prepare{
 		Video: source, Profile: profile,
-		RenditionDir:     strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
+		RenditionDir:     renditionRun{fileID: fileID, profile: string(profile), runID: runID}.dir(),
 		SourceDurationMs: probe.Format.DurationMs,
 	}
 	if picture, found := decide.MainVideo(probe); found {

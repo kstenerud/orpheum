@@ -7,19 +7,30 @@
 //
 // # Invariants
 //
+//   - A node's result on a prepare, an extraction or a measurement is recorded as it arrives, by
+//     what its echoed work names, whether or not its job still waits (D238 §2, S81): a making of a
+//     rendition by its run, so a rendition made again since is never completed by an earlier one
+//     and nothing heard after an end undoes it (G13); a text by its source's hash; a measurement
+//     by the file's. The job only learns how the work ended.
+//     TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits.
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
+//
 //   - Opens no file and walks no directory; files are internal/core/datadir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
+//
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
+//
 //   - Play state records against the source file, never a prepared rendition, and a position moves
 //     only for a report about a later moment of watching, anchored from the device's monotonic
 //     clock, so two devices reporting out of order never rewind it; a report sent again changes
 //     nothing (D217 §7, D165). Enforced by
 //     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
+//
 //   - A playback starts with the subtitle and audio tracks internal/core/preferences works out
 //     from the file's tracks as they are now, and a play report keeps what it started with as what
 //     the started file used (D230). Enforced by
@@ -30,44 +41,57 @@
 //     kept only for a file, and among tracks, the transaction that keeps it reads, so it never
 //     decides on what that transaction does not see. Enforced by
 //     TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved.
+//
 //   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
+//
 //   - A cancelled prepare or subtitle extraction tells its node to stop, and a cancelled
 //     rendition is recorded failed, so the next play prepares it again rather than waiting on it
 //     (cut-a §5.3). Enforced by
 //     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain.
+//
 //   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
 //     Enforced by TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile.
+//
 //   - A playback starts where the person left the file, unless that is before resume_min_percent
 //     or after finished_after_percent of a known length; an unknown length is never read as
 //     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
+//
 //   - A media token grants nothing alone: its bytes are served only to the person and session
 //     that started the playback, and only until it has been idle for media_token_idle_expiry_hours (D217
 //     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
+//
 //   - A direct playback's bytes come from the file's node, named by root, path and payload
 //     hash; the core never opens the file (D193 §1). Enforced by
 //     TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore.
+//
 //   - A prepared playback's files are relayed from its node, and one not written yet is 425 with
 //     Retry-After while its rendition is being made, never a 404 the player gives up on.
 //     Enforced by TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists.
+//
 //   - A complete rendition whose node no longer has its playlist is prepared again, and the player
 //     waits as for a new one (D217 §5). Enforced by
 //     TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain.
+//
 //   - Each making of a copy writes into a run directory of its own, so no request reaches an
 //     earlier making's files. Enforced by TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
+//
 //   - A copy is made with hls_segment_length_seconds's segment length, and one made with another length is
 //     made again when next played. Enforced by
 //     TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
+//
 //   - A copy records the language each audio track was tagged with, and one whose tracks the file's
 //     probe now tags otherwise, as a relabel that keeps the payload hash does (D179), is made again
 //     when next played. Enforced by TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain.
+//
 //   - A prepare job names its source by root, path and payload hash with every audio track, and
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried, and
 //     a node's refusal (a full disk, a file changed since the scan) is tried again, the playback
 //     waiting. Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete,
 //     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried and
 //     TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting.
+//
 //   - A prepare, an extraction or a measurement for a node that is not connected, or that went
 //     away while its job waited, parks the job on the node at no cost of an attempt (D231 §11); a
 //     prepare the node refuses for want of room parks on its prepared directory until its status
@@ -77,6 +101,7 @@
 //     TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRoom and
 //     TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot
 //     (internal/core/api).
+//
 //   - A node's word that FFmpeg stalled on a prepare, an extraction or a measurement costs its job
 //     no attempt, and two in a row are the target's failure. Enforced by
 //     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure,
@@ -84,12 +109,15 @@
 //     TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure. So does its node starting
 //     again while it held the work, which it lost (D238 §3).
 //     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
+//
 //   - A prepare the node holds waiting for a slot outlives the silence limit, but not maxSlotWait
 //     in all: then the job gives up and the node is told to stop it. Enforced by
 //     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit and
 //     TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopIt.
+//
 //   - A prepare carries its source's length, from which the node sets its deadline. Enforced by
 //     TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline.
+//
 //   - Every text subtitle track of a played video, its own and its subtitle files', is extracted,
 //     whatever the decision, once per payload hash of the file it is in; a track not yet extracted
 //     is 425 with Retry-After, a failed one is prepare_failed and tried again when next played, a
@@ -100,16 +128,20 @@
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
+//
 //   - The text a node made of a track, or why it could not, is kept in persistent.db, not cache.db:
 //     making it again reads a whole video (the architecture map's F1, D231 §3).
 //     TestSubtitles_ExtractedTextIsKeptInPersistentDBWhichOutlivesCacheDB.
+//
 //   - A measurement, an extraction or a conversion whose job fails is kept as its item's own
 //     failure, by payload hash as FFmpeg's is (D231 §4, §10): the loudness sweep does not ask
 //     again, and a subtitle shows it failed until the next play asks again.
 //     TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAgain,
 //     TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain.
+//
 //   - A rendition the node finished records what made its video and how fast, as the node said
 //     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
+//
 //   - A subtitle fetched on request is found by the work's ids or the series' and place, and the
 //     file's moviehash, with a candidate whose hash matches listed first; is fetched by anyone
 //     signed in; is kept gzipped in persistent.db; becomes the person's choice; and is offered as a
@@ -118,11 +150,13 @@
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
 //     TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem,
 //     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
+//
 //   - A fetched subtitle is converted by the video's node while the person waits, and kept and
 //     made their choice only once converted: nothing unparsed becomes a choice, one the node
 //     cannot read is kept nowhere, and a node that is away is found before a download is spent
 //     (D224 §5). TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen
 //     (internal/core/api).
+//
 //   - Each live video with sound is measured once per payload hash, by a job behind anything a
 //     person waits on; one FFmpeg cannot measure is not asked again, and one its node would not
 //     try is (D226 §2): its job is tried again on its back-off, and once it gives up the next
@@ -131,6 +165,7 @@
 //     TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff (internal/core/api), and
 //     end to end by
 //     TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled (cmd/orpheum).
+//
 //   - A playback says the gain that levels its sound: towards loudness_target_lufs (-23 to start)
 //     both ways, never lifting the true peak above -1 dBTP nor raising more than
 //     loudness_max_raise_db (20 to start), silence left as it is; a prepared one levels each mix as
@@ -138,6 +173,7 @@
 //     put in (D226 §3, §4). Enforced by TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits,
 //     TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay and
 //     TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain.
+//
 //   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.
 //

@@ -70,8 +70,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	if scanOnHello {
 		for _, root := range hello.RootPaths {
 			service.Enqueue(node.ID, nodeproto.Command{
-				Type: nodeproto.CommandScan,
-				Scan: &nodeproto.Scan{RootPath: root},
+				Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}},
 			})
 		}
 	}

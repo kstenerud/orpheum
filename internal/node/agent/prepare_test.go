@@ -85,9 +85,11 @@ func preparableFilm(t *testing.T, root *confine.MediaRoot) nodeproto.BytesFile {
 // sendPrepare commands a remux of source into renditionDir as job.
 func (core *fakeCore) sendPrepare(job int64, source nodeproto.BytesFile, renditionDir string) {
 	core.commands <- nodeproto.Command{
-		CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: &nodeproto.Prepare{
+		CommandSeq: job,
+		JobID:      job,
+		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: renditionDir,
-		},
+		}},
 	}
 }
 
@@ -170,12 +172,14 @@ func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testi
 		t.Fatal(err)
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandPrepare, JobID: 1, Prepare: &nodeproto.Prepare{
+		CommandSeq: 1,
+		JobID:      1,
+		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 			Video: nodeproto.BytesFile{
 				RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 			},
-		},
+		}},
 	}
 	if done := finalPrepareReport(t, core); done.State != nodeproto.PrepareDone {
 		t.Fatalf("the prepare ended %+v, want done", done)
@@ -199,7 +203,11 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
 		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir}
-		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: payload}
+		return nodeproto.Command{
+			CommandSeq: job,
+			JobID:      job,
+			Work:       nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: payload},
+		}
 	}
 	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
 	core.commands <- commandFor(1, "3/remux/slow")
@@ -209,7 +217,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1}
+	core.commands <- nodeproto.Command{CommandSeq: 3, JobID: 1, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
 	if next := finalPrepareReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
@@ -228,7 +236,11 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
 		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir}
-		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, JobID: job, Prepare: payload}
+		return nodeproto.Command{
+			CommandSeq: job,
+			JobID:      job,
+			Work:       nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: payload},
+		}
 	}
 	// One encode slot: the first encode runs, the second waits for it.
 	core.commands <- encode(1, "3/h264-8m/slow")
@@ -243,7 +255,7 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	if again := nextProgress(t, core); again.JobID != 2 || again.State != nodeproto.ProgressWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1}
+	core.commands <- nodeproto.Command{CommandSeq: 3, JobID: 1, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 	if done := finalPrepareReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}
@@ -286,7 +298,8 @@ func TestAgent_APrepareRunsWhileAScanIsStillGoing(t *testing.T) {
 		Scanner: scanner, Artworker: fakeArtworker{}, Preparer: fakePreparer{},
 	})
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()},
+		CommandSeq: 1,
+		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()}},
 	}
 	testutil.Receive(t, scanner.scanning, "the scan beginning")
 	core.sendPrepare(2, preparableFilm(t, root), "3/remux/0123456789abcdef")
@@ -306,7 +319,10 @@ func TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt(t *testing.T) {
 	attemptAt := func(seq, job int64, token, dir string) nodeproto.Command {
 		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir}
 		return nodeproto.Command{
-			CommandSeq: seq, Type: nodeproto.CommandPrepare, JobID: job, AttemptToken: token, Prepare: payload,
+			CommandSeq:   seq,
+			JobID:        job,
+			AttemptToken: token,
+			Work:         nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: payload},
 		}
 	}
 	// Two slow attempts at job 1 fill both remux slots.
@@ -323,7 +339,12 @@ func TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt(t *testing.T) {
 	if !started["old"] || !started["new"] {
 		t.Fatalf("the running reports named attempts %v, want old and new, each its own", started)
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1, AttemptToken: "old"}
+	core.commands <- nodeproto.Command{
+		CommandSeq:   3,
+		JobID:        1,
+		AttemptToken: "old",
+		Work:         nodeproto.Work{Type: nodeproto.CommandCancel},
+	}
 	core.commands <- attemptAt(4, 4, "only", "5/remux/0123456789abcdef")
 	if next := finalPrepareReport(t, core); next.JobID != 4 || next.AttemptToken != "only" ||
 		next.State != nodeproto.PrepareDone {

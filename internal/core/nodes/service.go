@@ -37,7 +37,9 @@ type Sink interface {
 // one way a node's results reach the core; an artwork result, the artwork store's one way in
 // (D212 §8).
 type ResultSink interface {
-	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result)
+	// Deliver records a result and hands it to the job waiting for it; an error leaves it
+	// unacknowledged.
+	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result) error
 	// DeliverProgress hands a node's word on where an attempt is to the job waiting for it.
 	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
 	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.

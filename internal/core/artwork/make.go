@@ -33,7 +33,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 			if nodeErr != nil {
 				return nodeErr
 			}
-			command.SourceImage = stored
+			command.SourceImage, command.SourceSha256 = stored, args.SourceSha256
 			return service.cutFrom(ctx, nodeID, want.job, command, args, false)
 		}
 	}
@@ -61,7 +61,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 	if err != nil {
 		return err
 	}
-	command.SourceImage = download.bytes
+	command.SourceImage, command.SourceSha256 = download.bytes, args.SourceSha256
 	return service.cutFrom(ctx, nodeID, want.job, command, args, true)
 }
 
