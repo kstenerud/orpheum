@@ -65,6 +65,7 @@ type Service struct {
 	pollHold     time.Duration
 
 	resultSink       ResultSink
+	heldResults      HeldResultReader
 	prepareSlotsSink PrepareSlotsSink
 
 	mutex          sync.Mutex
@@ -72,6 +73,18 @@ type Service struct {
 	// protocolByNodeID is the protocol version each node that needs updating last said hello in:
 	// another than this core's, so it was refused (D233 §9). Guarded by mutex.
 	protocolByNodeID map[int64]int
+}
+
+// HeldResultReader fetches a result a node holds, too large to post, from its byte socket:
+// ByteSocketClient.
+type HeldResultReader interface {
+	ReadHeldResult(ctx context.Context, nodeID int64, posted nodeproto.Result) (nodeproto.Result, error)
+}
+
+// SetHeldResultReader names how a result a node holds is fetched. Set it before the channel serves;
+// a held result that arrives with none set is refused.
+func (service *Service) SetHeldResultReader(reader HeldResultReader) {
+	service.heldResults = reader
 }
 
 // SetResultSink names where the nodes' results go. Set it before the channel serves; a result that

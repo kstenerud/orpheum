@@ -27,6 +27,8 @@ type Server struct {
 	renditionServedHook func(renditionDir string)
 	// payloadHashes remembers each file's payload hash, so a player's range requests hash it once.
 	payloadHashes *namedfile.Hashes
+	// results are the results the node holds, too large to post; nil serves none.
+	results Results
 }
 
 // New returns a server over the node's roots and its prepared directory, which may be nil.
@@ -36,6 +38,18 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 		byPath[root.Path()] = root
 	}
 	return &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
+}
+
+// Results are the results a node holds, too large to post, by their attempt's token:
+// agent.HeldResults.
+type Results interface {
+	Result(token string) ([]byte, bool)
+}
+
+// ServingResults has the server serve the results the node holds (nodeproto.PathBytesResult).
+func (server *Server) ServingResults(results Results) *Server {
+	server.results = results
+	return server
 }
 
 // OnRenditionServed has the server tell served each time it serves one of a rendition's files,
@@ -51,7 +65,25 @@ func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+nodeproto.PathBytesFile, server.serveFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesPrepared+"{name...}", server.serveRenditionFile)
+	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
 	return mux
+}
+
+// serveResult serves a result the node holds, too large to post, by its attempt's token, as the
+// node encoded it: JSON, which the core checks against the size and hash the post named.
+func (server *Server) serveResult(writer http.ResponseWriter, request *http.Request) {
+	var encoded []byte
+	isHeld := false
+	if server.results != nil {
+		encoded, isHeld = server.results.Result(request.PathValue("token"))
+	}
+	if !isHeld {
+		http.Error(writer, "no result is held for this attempt", http.StatusNotFound)
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	// The node's own JSON, on its private socket, to the core: no page renders it.
+	_, _ = writer.Write(encoded) //nolint:errcheck,gosec // a core that hung up asks again; as above
 }
 
 // serveFile serves nodeproto.PathBytesFile: a file's bytes, honouring Range and If-Range, once its

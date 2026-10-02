@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -97,12 +98,13 @@ func (agent *Agent) postResult(ctx context.Context, nodeID int64, jobKind string
 
 func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, jobKind string, result nodeproto.Result) {
 	token := result.AttemptToken
-	encoded, err := json.Marshal(result)
+	encoded, err := agent.encodeToPost(result)
 	if err != nil {
 		agent.logger.ErrorContext(ctx, "could not encode a job's answer", "jobKind", jobKind, "jobId", result.JobID,
 			"err", err)
 		return
 	}
+	defer agent.workers.HeldResults.forget(token)
 	wait := agent.answerRetry.firstWait
 	for {
 		var accepted struct{}
@@ -121,6 +123,27 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 		}
 		wait = min(2*wait, agent.answerRetry.longestWait)
 	}
+}
+
+// encodeToPost is a result as it is posted: whole, or, when its JSON is larger than
+// nodeproto.MaxPostedResultBytes, held for the core to fetch from the byte socket and posted as its
+// job, attempt and work alone, naming what is held.
+func (agent *Agent) encodeToPost(result nodeproto.Result) ([]byte, error) {
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("encode the result: %w", err)
+	}
+	if len(encoded) <= nodeproto.MaxPostedResultBytes {
+		return encoded, nil
+	}
+	held := agent.workers.HeldResults.hold(result.AttemptToken, encoded)
+	posted, err := json.Marshal(nodeproto.Result{
+		JobID: result.JobID, AttemptToken: result.AttemptToken, Work: result.Work, Held: &held,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("encode the held result's name: %w", err)
+	}
+	return posted, nil
 }
 
 // sleepUntilHelloOrDone waits for wait, or until the next hello, and reports false when ctx ended

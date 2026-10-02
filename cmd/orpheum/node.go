@@ -160,7 +160,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
 		}
 	}
-	stopBytes, err := serveBytes(ctx, config, roots, directory, logger)
+	heldResults := agent.NewHeldResults()
+	stopBytes, err := serveBytes(ctx, config, roots, directory, heldResults, logger)
 	if err != nil {
 		return err
 	}
@@ -181,6 +182,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		PreparedShelf:    preparedShelf,
 	}
 	workers.ProgressEvery, workers.EndedWorkKept = workPacing(config)
+	workers.HeldResults = heldResults
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
@@ -237,13 +239,14 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 
 // serveBytes serves the node's byte socket until the returned stop is called.
 func serveBytes(
-	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory, logger *slog.Logger,
+	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory,
+	heldResults *agent.HeldResults, logger *slog.Logger,
 ) (func(), error) {
 	listener, err := unixsocket.Listen(config.Server.SocketDir, nodeSocketName)
 	if err != nil {
 		return nil, err
 	}
-	server := byteserver.New(roots, directory.root)
+	server := byteserver.New(roots, directory.root).ServingResults(heldResults)
 	if directory.shelf != nil {
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}

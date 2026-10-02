@@ -409,6 +409,11 @@ as it arrives, by content, whether or not its job waits, before the node is answ
 a making by its run, which a later run's or a late word never undoes (G13). The node remembers an
 ended attempt for `node.ended_work_kept_hours`. Node protocol 4.
 
+*4b.3 built 2026-10-02:* a result whose JSON is over 1 MiB (`nodeproto.MaxPostedResultBytes`) is
+held by the node, served on the byte socket by its attempt's token, and posted as its job, attempt,
+work, size and SHA-256; the core fetches it and takes it only whole, then records it as any other.
+Node protocol 5.
+
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's

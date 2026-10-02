@@ -44,6 +44,7 @@ type fakeCore struct {
 	subtitles     chan nodeproto.Result
 	loudness      chan nodeproto.Result
 	refusals      chan nodeproto.Result
+	held          chan nodeproto.Result
 	reportsToDrop int                // the first reports it ends at once, as a core that went away would
 	postsToRefuse map[resultKind]int // by kind, the first results it refuses, as a busy core would
 	refusedPosts  chan struct{}      // sent on, while it has room, at each result it refuses
@@ -92,8 +93,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
-		refusals: make(chan nodeproto.Result, 4),
-		stopped:  make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
+		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
+		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -218,6 +219,8 @@ const (
 	loudnessResult resultKind = "loudness"
 	// A refusal of a command the node could not read carries no payload.
 	refusalResult resultKind = "refusal"
+	// A result the node holds, too large to post, is named by the post.
+	heldResult resultKind = "held"
 )
 
 // kindOf is the one payload a result carries, or a refusal and none; a result with neither, or
@@ -227,7 +230,7 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 	for kind, isSet := range map[resultKind]bool{
 		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
 		subtitleResult: result.Subtitle != nil, loudnessResult: result.Loudness != nil,
-		refusalResult: result.Refusal != "",
+		refusalResult: result.Refusal != "", heldResult: result.Held != nil,
 	} {
 		if isSet {
 			kinds = append(kinds, kind)
@@ -268,6 +271,7 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		into := map[resultKind]chan nodeproto.Result{
 			artworkResult: core.artwork, prepareResult: core.prepareReports,
 			subtitleResult: core.subtitles, loudnessResult: core.loudness, refusalResult: core.refusals,
+			heldResult: core.held,
 		}[kind]
 		if !handOn(core, into, result) {
 			return

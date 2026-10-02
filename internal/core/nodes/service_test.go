@@ -5,6 +5,8 @@ package nodes
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
@@ -26,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/host"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -651,5 +655,119 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	}
 	if facts.Status == nil || len(facts.Status.Disks) != 1 || facts.Status.Disks[0] != disk {
 		t.Errorf("the facts' status is %+v; want the disks the status said (D225)", facts.Status)
+	}
+}
+
+// heldResultReader is a node's byte socket holding results, by token.
+type heldResultReader struct {
+	held map[string]nodeproto.Result
+}
+
+func (reader heldResultReader) ReadHeldResult(
+	_ context.Context, _ int64, posted nodeproto.Result,
+) (nodeproto.Result, error) {
+	result, found := reader.held[posted.AttemptToken]
+	if !found {
+		return nodeproto.Result{}, errors.New("the node answered 404 Not Found")
+	}
+	return result, nil
+}
+
+// A post naming a result the node holds, too large to post, is taken as the whole result it
+// fetches: the sink records that; a held result it cannot fetch leaves the post unacknowledged.
+func TestResult_AHeldResultIsFetchedWholeBeforeItIsTaken(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	whole := nodeproto.Result{JobID: 4, AttemptToken: "a4", Artwork: &nodeproto.ArtworkResult{SourceWidth: 4000}}
+	harness.service.SetHeldResultReader(heldResultReader{held: map[string]nodeproto.Result{"a4": whole}})
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	post := func(token string) int {
+		encoded, err := json.Marshal(nodeproto.Result{
+			JobID: 4, AttemptToken: token, Held: &nodeproto.HeldResult{SizeBytes: 5 << 20, Sha256: "ab"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return harness.post(t, nodeproto.PathResult, reply.NodeID, bytes.NewReader(encoded)).status
+	}
+	if status := post("a5"); status != http.StatusInternalServerError || len(sink.results) != 0 {
+		t.Errorf("a held result the node could not serve: %d, sink %+v; want 500 and nothing taken", status,
+			sink.results)
+	}
+	if status := post("a4"); status != http.StatusOK || len(sink.results) != 1 || sink.results[0].Artwork == nil ||
+		sink.results[0].Artwork.SourceWidth != 4000 {
+		t.Errorf("a held result: %d, sink %+v; want the whole result taken", status, sink.results)
+	}
+}
+
+// A held result's bytes are taken only at the size and hash its post named, for the same job and
+// attempt.
+func TestTakeHeld_TakesOnlyTheBytesThePostNamedForItsAttempt(t *testing.T) {
+	t.Parallel()
+	encode := func(result nodeproto.Result) []byte {
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return encoded
+	}
+	named := func(encoded []byte) nodeproto.Result {
+		sum := sha256.Sum256(encoded)
+		return nodeproto.Result{JobID: 4, AttemptToken: "a4", Held: &nodeproto.HeldResult{
+			SizeBytes: int64(len(encoded)), Sha256: hex.EncodeToString(sum[:]),
+		}}
+	}
+	own := encode(nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}})
+	if taken, err := takeHeld(named(own), own); err != nil || taken.Loudness == nil {
+		t.Errorf("its own bytes: %+v, %v; want the result", taken, err)
+	}
+	if _, err := takeHeld(named(own), append(own, ' ')); !errors.Is(err, ErrMalformedResult) {
+		t.Errorf("bytes of another size: %v, want ErrMalformedResult", err)
+	}
+	altered := bytes.Replace(own, []byte(`"a4"`), []byte(`"b4"`), 1)
+	if _, err := takeHeld(named(own), altered); !errors.Is(err, ErrMalformedResult) {
+		t.Errorf("bytes of another hash: %v, want ErrMalformedResult", err)
+	}
+	if _, err := takeHeld(named(altered), altered); !errors.Is(err, ErrMalformedResult) {
+		t.Errorf("another attempt's result: %v, want ErrMalformedResult", err)
+	}
+}
+
+// The core fetches a held result from the node's byte socket by its attempt's token, and takes it
+// as the bytes its post named.
+func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	encoded, err := json.Marshal(nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	socketDir := filepath.Join(t.TempDir(), "run")
+	listener, err := unixsocket.Listen(socketDir, "node.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"a4", func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write(encoded) //nolint:errcheck // the test reads what arrives
+	})
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
+	go func() { _ = server.Serve(listener) }() //nolint:errcheck // closed at cleanup
+	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // as above
+	sum := sha256.Sum256(encoded)
+	posted := nodeproto.Result{JobID: 4, AttemptToken: "a4", Held: &nodeproto.HeldResult{
+		SizeBytes: int64(len(encoded)), Sha256: hex.EncodeToString(sum[:]),
+	}}
+	client := NewByteSocketClient(harness.service, filepath.Join(socketDir, "node.sock"))
+	result, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted)
+	if err != nil || result.Loudness == nil || result.JobID != 4 {
+		t.Errorf("the held result = %+v, %v; want job 4's measurement", result, err)
+	}
+	posted.AttemptToken = "a5"
+	if _, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted); err == nil {
+		t.Error("a result the node does not hold was taken")
 	}
 }

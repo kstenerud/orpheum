@@ -135,7 +135,13 @@ func (service *Service) takeResult(writer http.ResponseWriter, request *http.Req
 	if !ok {
 		return
 	}
-	err := service.resultSink.Deliver(request.Context(), nodeID, result)
+	var err error
+	if result.Held != nil {
+		result, err = service.readHeld(request.Context(), nodeID, result)
+	}
+	if err == nil {
+		err = service.resultSink.Deliver(request.Context(), nodeID, result)
+	}
 	switch {
 	case errors.Is(err, ErrMalformedResult):
 		http.Error(writer, err.Error(), http.StatusBadRequest)
@@ -144,6 +150,18 @@ func (service *Service) takeResult(writer http.ResponseWriter, request *http.Req
 	default:
 		writeJSON(writer, struct{}{}) // the node reads a JSON answer
 	}
+}
+
+// readHeld fetches a result the node holds, too large to post, which its post named.
+func (service *Service) readHeld(ctx context.Context, nodeID int64, posted nodeproto.Result) (nodeproto.Result, error) {
+	if service.heldResults == nil {
+		return nodeproto.Result{}, errors.New("this core cannot fetch a held result")
+	}
+	result, err := service.heldResults.ReadHeldResult(ctx, nodeID, posted)
+	if err != nil {
+		return nodeproto.Result{}, fmt.Errorf("take node %d's held result: %w", nodeID, err)
+	}
+	return result, nil
 }
 
 // maxProgressBytes bounds a progress post: a few numbers.

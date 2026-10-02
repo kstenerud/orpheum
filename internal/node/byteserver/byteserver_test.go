@@ -264,3 +264,33 @@ func TestServeRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
 		t.Errorf("served %v, want only the segment's rendition, its last use (D217 §5)", served)
 	}
 }
+
+// heldResults holds results by token, as agent.HeldResults does.
+type heldResults map[string][]byte
+
+func (held heldResults) Result(token string) ([]byte, bool) {
+	encoded, found := held[token]
+	return encoded, found
+}
+
+// A result the node holds, too large to post, is served whole by its attempt's token, and nothing
+// is for a token it does not hold (D234 §5).
+func TestServeResult_ServesAHeldResultByItsTokenAndNothingElse(t *testing.T) {
+	t.Parallel()
+	held := heldResults{"a5": []byte(`{"jobId":5}`)}
+	handler := byteserver.New(nil, nil).ServingResults(held).Handler()
+	served := request(t, handler, http.MethodGet, nodeproto.PathBytesResult+"a5", nil)
+	if served.Code != http.StatusOK || served.Body.String() != `{"jobId":5}` ||
+		served.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("the held result: %d %q, want it whole as JSON", served.Code, served.Body.String())
+	}
+	if unknown := request(t, handler, http.MethodGet, nodeproto.PathBytesResult+"a6", nil); unknown.Code !=
+		http.StatusNotFound {
+		t.Errorf("a token held nothing for: %d, want 404", unknown.Code)
+	}
+	servingNone := byteserver.New(nil, nil).Handler()
+	if none := request(t, servingNone, http.MethodGet, nodeproto.PathBytesResult+"a5", nil); none.Code !=
+		http.StatusNotFound {
+		t.Errorf("a server serving no results: %d, want 404", none.Code)
+	}
+}
