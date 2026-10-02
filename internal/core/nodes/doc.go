@@ -60,6 +60,10 @@
 //     TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken,
 //     TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard,
 //     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode.
+//   - A job that ends while its command waits for the node's next poll has the command withdrawn,
+//     its work and its cancel, and never sent (S27, G4); a stop of work the node never took sends
+//     nothing. TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem,
+//     TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing.
 //   - Each status is squared with what the node was given (D234 §6), judging no attempt whose command
 //     the node had not taken: one held is adopted, heard of (S82); one not held is lost, a broken
 //     invariant logged and counted, its job resolved as the tool's failure (ErrWorkLost); work held

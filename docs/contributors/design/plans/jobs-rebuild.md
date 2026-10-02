@@ -495,6 +495,9 @@ none whose command is on its way: held is adopted, lost is a broken invariant re
 failure (`ErrWorkLost`), stray work is a broken invariant and dropped; counts per node for Phase 6
 (`BrokenInvariants`). Node protocol 9.
 
+*4c.4 built 2026-10-02:* a job that ends or is cancelled before its node took its command has the
+command withdrawn from the node's queue (`Service.Withdraw`), never sent, and nothing sent to stop it.
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global

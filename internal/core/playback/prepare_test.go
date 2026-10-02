@@ -63,6 +63,8 @@ func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <-
 
 func (fakeNodes) Ready(context.Context, int64) error { return nil }
 
+func (fakeNodes) Withdraw(int64, string) bool { return false }
+
 func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
 	node.Enqueue(nodeID, command)
 	return nil

@@ -117,6 +117,9 @@ func (nodes *fakeNodes) Ready(ctx context.Context, nodeID int64) error {
 	return nil
 }
 
+// Withdraw withdraws nothing: the fake node takes each command at once.
+func (*fakeNodes) Withdraw(int64, string) bool { return false }
+
 func (*fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 // SlowestReadBytesPerSecond is node 1's: a busy disk, unless its hello did not say.
