@@ -44,6 +44,9 @@ type ResultSink interface {
 	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
 	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.
 	Interrupt(ctx context.Context, nodeID int64)
+	// Square squares the jobs given to a node with the attempts its status says it holds, but for
+	// those whose command, onTheirWay, it has not taken yet (D234 §6).
+	Square(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)
 }
 
 // Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back

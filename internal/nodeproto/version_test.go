@@ -21,6 +21,7 @@ var wireShapeByVersion = map[int]string{
 	6: "01f8607683c4c01ccda9f92659d65429e79b898e321847dcbaa353fd5ddfba12",
 	7: "e45e4d83b8896df59a1e8d76782b1fd047513641876688e9a2fe14e44c0e0a1f",
 	8: "45d351f69b783bd84c637d2cd83a55d231d2ef3f1f430b5188c6546e7ec710c4",
+	9: "d39d0c7c40958ec5b027fe17884514971ad2d8bc71de79ed4bc76cd1188100d5",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

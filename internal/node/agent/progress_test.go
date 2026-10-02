@@ -69,3 +69,32 @@ func (core *fakeCore) receiveProgress(t *testing.T) http.HandlerFunc {
 		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
 }
+
+// The status lists every attempt the node holds, by job and token, and the last command it took, so
+// the core can square what it gave the node with what the node has (D234 §6).
+func TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	artworker := blockingArtworker{holding: make(chan struct{}, 1), stopped: make(chan struct{}, 1)}
+	_, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: artworker})
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
+		Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: oneImage(&nodeproto.Artwork{
+			SourceImage: []byte("hold"), Shape: nodeproto.ShapePortrait,
+			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		}),
+	}}
+	testutil.Receive(t, artworker.holding, "job 1's re-encode starting")
+	tick <- time.Time{}
+	for {
+		record := testutil.Receive(t, core.records, "a status record")
+		if record.Type != nodeproto.RecordStatus {
+			continue
+		}
+		status := record.Status
+		if status.TakenCommandSeq != 1 || len(status.Held) != 1 || status.Held[0].JobID != 1 ||
+			status.Held[0].AttemptToken != tokenOf(1) || status.Held[0].State != nodeproto.HeldRunning {
+			t.Errorf("the status = %+v, want job 1's attempt running, and command 1 the last taken", status)
+		}
+		return
+	}
+}

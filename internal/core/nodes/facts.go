@@ -73,11 +73,22 @@ func (service *Service) Facts(name string) (Facts, bool) {
 // of room (D231 §5).
 func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
+	onTheirWay := map[string]bool{}
 	if existing, found := service.connectedNodes[nodeID]; found {
 		kept := *status
 		existing.status = &kept
+		for token, seq := range existing.seqByToken {
+			if seq > status.TakenCommandSeq {
+				onTheirWay[token] = true
+			} else {
+				delete(existing.seqByToken, token)
+			}
+		}
 	}
 	service.mutex.Unlock()
+	if service.resultSink != nil {
+		service.resultSink.Square(ctx, nodeID, status.Held, onTheirWay)
+	}
 	if usage := status.PreparedUsage; usage != nil && usage.DiskUsedPercent <= usage.DiskUsedLimitPercent &&
 		usage.DiskAvailableBytes >= usage.DiskMinFreeBytes {
 		service.destinations.Unpark(ctx, jobs.PreparedDirectoryDestination(nodeID))

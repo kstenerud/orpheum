@@ -30,7 +30,7 @@ func defaultAnswerRetry() answerRetry {
 // (D238 §3).
 type endedAttempts struct {
 	mutex          sync.Mutex
-	unacknowledged map[string]bool      // guarded by mutex
+	unacknowledged map[string]int64     // guarded by mutex: each one's job, by token
 	acknowledgedAt map[string]time.Time // guarded by mutex
 	// helloSaid is closed at each hello, when every unacknowledged result is sent again at once.
 	helloSaid chan struct{} // guarded by mutex
@@ -38,7 +38,7 @@ type endedAttempts struct {
 
 func newEndedAttempts() *endedAttempts {
 	return &endedAttempts{
-		unacknowledged: map[string]bool{}, acknowledgedAt: map[string]time.Time{}, helloSaid: make(chan struct{}),
+		unacknowledged: map[string]int64{}, acknowledgedAt: map[string]time.Time{}, helloSaid: make(chan struct{}),
 	}
 }
 
@@ -47,14 +47,26 @@ func (ended *endedAttempts) hasEnded(token string) bool {
 	ended.mutex.Lock()
 	defer ended.mutex.Unlock()
 	_, isAcknowledged := ended.acknowledgedAt[token]
-	return ended.unacknowledged[token] || isAcknowledged
+	_, isUnacknowledged := ended.unacknowledged[token]
+	return isUnacknowledged || isAcknowledged
 }
 
 // awaitAcknowledgement notes an attempt whose result is not yet acknowledged.
-func (ended *endedAttempts) awaitAcknowledgement(token string) {
+func (ended *endedAttempts) awaitAcknowledgement(held attempt) {
 	ended.mutex.Lock()
 	defer ended.mutex.Unlock()
-	ended.unacknowledged[token] = true
+	ended.unacknowledged[held.token] = held.jobID
+}
+
+// awaitingAcknowledgement are the attempts whose results the core has not yet acknowledged.
+func (ended *endedAttempts) awaitingAcknowledgement() []nodeproto.HeldAttempt {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	held := make([]nodeproto.HeldAttempt, 0, len(ended.unacknowledged))
+	for token, jobID := range ended.unacknowledged {
+		held = append(held, nodeproto.HeldAttempt{JobID: jobID, AttemptToken: token, State: nodeproto.HeldEnded})
+	}
+	return held
 }
 
 // acknowledge notes that the core acknowledged an attempt's result at now, and forgets the
@@ -92,7 +104,7 @@ func (ended *endedAttempts) saidHello() {
 // node's next hello, for as long as the node runs. It holds no slot, and never ends the session,
 // whose running work it would stop.
 func (agent *Agent) postResult(ctx context.Context, nodeID int64, jobKind string, result nodeproto.Result) {
-	agent.ended.awaitAcknowledgement(result.AttemptToken)
+	agent.ended.awaitAcknowledgement(attempt{jobID: result.JobID, token: result.AttemptToken})
 	go agent.postUntilAcknowledged(ctx, nodeID, jobKind, result)
 }
 

@@ -50,6 +50,8 @@ type Exchanges struct {
 	// attempts are the jobs assigned to nodes, by attempt token, mirroring cache.db's (Assign).
 	attempts  map[string]*heldAttempt // guarded by mutex
 	assignees map[jobs.Kind]Assignee  // guarded by mutex
+	// brokenInvariants counts, by node, the differences squared between what it was given and held.
+	brokenInvariants map[int64]int // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
@@ -82,9 +84,13 @@ var ErrMalformedResult = errors.New("a result names the work it answers")
 // restarts of the core and a cache.db discarded, which reissues job ids (D238 §2, S84).
 const attemptTokenBytes = 16
 
+// ErrWorkLost is a node that no longer holds work the core gave it: it started again, or lost it
+// otherwise. The tool's failure, not the work's (D233 §6, D238 §3).
+var ErrWorkLost = errors.New("the node no longer holds the work it was given")
+
 // ErrNodeRestarted is a node that started again while it held a job's work, which it held in
 // memory and has lost (D238 §3).
-var ErrNodeRestarted = errors.New("the node started again and lost the work it held")
+var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)
 
 // NewExchanges returns the exchanges with nodes.
 func NewExchanges(parts ExchangeParts) *Exchanges {
@@ -93,6 +99,7 @@ func NewExchanges(parts ExchangeParts) *Exchanges {
 		settings: parts.Settings, maxSilence: parts.MaxSilence,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
+		brokenInvariants: map[int64]int{},
 	}
 }
 

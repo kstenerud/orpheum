@@ -92,6 +92,10 @@
 //   - A prepare that ends brings the prepared directory back within its budget then, not only
 //     when the next prepare makes room (D217 §5).
 //     TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget.
+//   - The status lists every attempt the node holds, waiting or running, and every one whose result
+//     the core has not acknowledged, with the last command the node took, for the core to square
+//     (D234 §6). TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook,
+//     TestEndedAttempts_ListTheResultsNotYetAcknowledged.
 //   - The status carries the disk of each root and of the prepared directory, or why one could
 //     not be measured (D225). TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory.
 //

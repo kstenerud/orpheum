@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -90,9 +91,11 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	work        *workList
-	ended       *endedAttempts
-	answerRetry answerRetry
+	work  *workList
+	ended *endedAttempts
+	// takenCommandSeq is the last command this session took, which the status says.
+	takenCommandSeq atomic.Int64
+	answerRetry     answerRetry
 
 	mutex    sync.Mutex
 	activity string
@@ -198,6 +201,7 @@ func (agent *Agent) pollCommands(
 	ctx, nodeCtx context.Context, nodeID int64, scanQueue chan<- nodeproto.Scan,
 ) error {
 	var lastTakenCommandSeq int64
+	agent.takenCommandSeq.Store(0)
 	for {
 		var answer nodeproto.Commands
 		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=" +
@@ -222,6 +226,7 @@ func (agent *Agent) pollCommands(
 				agent.holdCommand(ctx, nodeCtx, nodeID, command)
 			}
 			lastTakenCommandSeq = command.CommandSeq
+			agent.takenCommandSeq.Store(lastTakenCommandSeq)
 		}
 	}
 }
@@ -404,7 +409,10 @@ func (agent *Agent) status() nodeproto.Record {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	status := &nodeproto.Status{SentAt: agent.clock.Now().UnixMilli(), Activity: agent.activity, Disks: disks}
+	status := &nodeproto.Status{
+		SentAt: agent.clock.Now().UnixMilli(), Activity: agent.activity, Disks: disks, Held: agent.held(),
+		TakenCommandSeq: agent.takenCommandSeq.Load(),
+	}
 	if agent.workers.PreparedShelf != nil {
 		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
 			status.PreparedUsage = &nodeproto.PreparedUsage{
@@ -415,6 +423,21 @@ func (agent *Agent) status() nodeproto.Record {
 		}
 	}
 	return nodeproto.Record{Type: nodeproto.RecordStatus, Status: status}
+}
+
+// held is every attempt the node holds, and every one whose result the core has not acknowledged,
+// for the core to square with what it gave the node (D234 §6).
+func (agent *Agent) held() []nodeproto.HeldAttempt {
+	states := agent.work.states()
+	held := make([]nodeproto.HeldAttempt, 0, len(states))
+	for _, each := range states {
+		state := nodeproto.HeldWaiting
+		if each.isRunning {
+			state = nodeproto.HeldRunning
+		}
+		held = append(held, nodeproto.HeldAttempt{JobID: each.jobID, AttemptToken: each.token, State: state})
+	}
+	return append(held, agent.ended.awaitingAcknowledgement()...)
 }
 
 // disks are the filesystems the node's roots and prepared directory are on, each measured now

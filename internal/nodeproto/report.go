@@ -84,6 +84,31 @@ type Status struct {
 	PreparedUsage *PreparedUsage `json:"preparedUsage,omitempty"`
 	// Disks are the filesystems the node's roots and prepared directory are on (D225 §3).
 	Disks []Disk `json:"disks,omitempty"`
+	// Held is every attempt the node holds, waiting or running, and every one whose result the core
+	// has not yet acknowledged, which the core squares with the jobs it gave the node (D234 §6).
+	Held []HeldAttempt `json:"held,omitempty"`
+	// TakenCommandSeq is the last command the node had taken when it made the list: the core judges
+	// only the attempts it sent up to it, so one still on its way is not taken for lost.
+	TakenCommandSeq int64 `json:"takenCommandSeq"`
+}
+
+// HeldState is where an attempt the node holds is.
+type HeldState string
+
+// The states an attempt the node holds is in.
+const (
+	HeldWaiting HeldState = "waiting"
+	HeldRunning HeldState = "running"
+	// HeldEnded is an attempt whose work ended, its result not yet acknowledged: sent again until it
+	// is.
+	HeldEnded HeldState = "ended"
+)
+
+// HeldAttempt is one attempt the node holds, by its job and token.
+type HeldAttempt struct {
+	JobID        int64     `json:"jobId"`
+	AttemptToken string    `json:"attemptToken"`
+	State        HeldState `json:"state"`
 }
 
 // Disk is one filesystem a node uses, named by a directory on it.

@@ -204,9 +204,9 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 		Answer: service.takeAnswer,
 		Unanswered: func(_ context.Context, job jobs.Job, _ nodes.Attempt, err error) error {
 			switch {
-			case errors.Is(err, nodes.ErrNodeRestarted) && !job.PreviousAttemptToolFailed:
+			case errors.Is(err, nodes.ErrWorkLost) && !job.PreviousAttemptToolFailed:
 				return jobs.MarkInterrupted(err)
-			case errors.Is(err, nodes.ErrNodeRestarted):
+			case errors.Is(err, nodes.ErrWorkLost):
 				return jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, err))
 			}
 			return err

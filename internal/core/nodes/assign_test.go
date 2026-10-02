@@ -198,3 +198,55 @@ func TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode(t *testing.T) {
 		t.Errorf("a node that started again resolved job 7 with %v, want ErrNodeRestarted", answer)
 	}
 }
+
+// The core squares what it gave a node with what the node's status says it holds (D234 §6): an
+// attempt held is heard of, its job adopted; one not held, whose command the node took, is lost, a
+// broken invariant counted, its job resolved as the tool's failure; one still on its way is not
+// judged; work held that no job was given is a broken invariant too, and the node told to drop it;
+// work whose result is on its way is left to it.
+func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	resolved := make(answers, 2)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	sent := bench.assign(t)
+	running := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldRunning}}
+	tick := make(chan time.Time)
+	go bench.exchanges.Watch(t.Context(), tick)
+	for range 3 {
+		bench.now.Advance(40 * time.Second)
+		bench.exchanges.Square(t.Context(), 1, running, nil)
+		tick <- time.Time{}
+	}
+	select {
+	case answer := <-resolved:
+		t.Fatalf("job 7, held by its node, was resolved with %v; want it adopted, heard of by each status", answer)
+	default:
+	}
+	bench.exchanges.Square(t.Context(), 1, nil, map[string]bool{sent.AttemptToken: true})
+	select {
+	case answer := <-resolved:
+		t.Fatalf("job 7, its command on its way, was resolved with %v; want it not judged", answer)
+	default:
+	}
+	if count := bench.exchanges.BrokenInvariants(1); count != 0 {
+		t.Fatalf("%d broken invariants before any, want none", count)
+	}
+	bench.exchanges.Square(t.Context(), 1, nil, nil)
+	if answer := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(answer, nodes.ErrWorkLost) {
+		t.Errorf("job 7, its node not holding it, was resolved with %v, want ErrWorkLost", answer)
+	}
+	stray := []nodeproto.HeldAttempt{
+		{JobID: 9, AttemptToken: "stray", State: nodeproto.HeldRunning},
+		{JobID: 10, AttemptToken: "ended", State: nodeproto.HeldEnded},
+	}
+	bench.exchanges.Square(t.Context(), 1, stray, nil)
+	if stop := testutil.Receive(t, bench.sender.sent, "the cancel"); stop.Type != nodeproto.CommandCancel ||
+		stop.AttemptToken != "stray" {
+		t.Errorf("the node was sent %+v, want told to drop the work no job was given", stop)
+	}
+	bench.wantNothingSent(t, "work whose result is on its way is left to the node")
+	if count := bench.exchanges.BrokenInvariants(1); count != 2 {
+		t.Errorf("%d broken invariants counted, want 2: the lost job and the stray work", count)
+	}
+}

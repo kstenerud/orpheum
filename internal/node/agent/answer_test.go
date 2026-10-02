@@ -187,3 +187,20 @@ func TestAgent_ReEncodesAJobsImagesAndAnswersOnceForAll(t *testing.T) {
 		t.Errorf("the second image's answer = %+v, want key 1, refused: it is under none of the node's roots", refused)
 	}
 }
+
+// An attempt whose result the core has not acknowledged is listed as ended, for the status, until
+// it is; then it is no longer listed.
+func TestEndedAttempts_ListTheResultsNotYetAcknowledged(t *testing.T) {
+	t.Parallel()
+	ended := newEndedAttempts()
+	ended.awaitAcknowledgement(attempt{jobID: 5, token: "a5"})
+	listed := ended.awaitingAcknowledgement()
+	if len(listed) != 1 || listed[0].JobID != 5 || listed[0].AttemptToken != "a5" ||
+		listed[0].State != nodeproto.HeldEnded {
+		t.Errorf("listed %+v, want job 5's attempt, ended", listed)
+	}
+	ended.acknowledge("a5", time.Time{}, time.Hour)
+	if listed := ended.awaitingAcknowledgement(); len(listed) != 0 {
+		t.Errorf("listed %+v once acknowledged, want nothing", listed)
+	}
+}

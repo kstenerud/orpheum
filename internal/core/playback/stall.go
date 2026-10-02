@@ -32,13 +32,14 @@ func stallOutcome(
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }
 
-// unansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that
-// started again, losing the work (nodes.ErrNodeRestarted), is the tool's failure, as a stall is:
+// unansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that no
+// longer holds the work, having started again or lost it otherwise (nodes.ErrWorkLost), is the
+// tool's failure, as a stall is:
 // tried again at no cost of an attempt (jobs.MarkInterrupted), and the target's failure, kept by
 // keepFailure, when its last attempt's tool failed too (D238 §3, D233 §6). Any other err is as it
 // is.
 func unansweredOutcome(job jobs.Job, err error, keepFailure func(failure string) error) error {
-	if !errors.Is(err, nodes.ErrNodeRestarted) {
+	if !errors.Is(err, nodes.ErrWorkLost) {
 		return err
 	}
 	if !job.PreviousAttemptToolFailed {

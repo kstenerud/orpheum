@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package nodes
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
+)
+
+// Square squares the jobs given to a node with what its status says it holds (D234 §6), judging no
+// attempt whose command, onTheirWay, the node has not taken yet. An attempt it holds is heard of, its
+// job adopted (S82). One it does not hold, waiting, running or with its result on its way, is lost: a
+// broken invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
+// it holds that the core did not give it, or no longer wants, is a broken invariant too, and the
+// node is told to drop it (S91, G4); one whose result is on its way is left to it.
+func (all *Exchanges) Square(
+	ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
+) {
+	heldByToken := make(map[string]nodeproto.HeldAttempt, len(held))
+	for _, each := range held {
+		heldByToken[each.AttemptToken] = each
+	}
+	now := all.clock.Now()
+	all.mutex.Lock()
+	var unknown []nodeproto.HeldAttempt
+	for _, each := range held {
+		if _, isGiven := all.attempts[each.AttemptToken]; !isGiven && each.State != nodeproto.HeldEnded &&
+			!onTheirWay[each.AttemptToken] {
+			unknown = append(unknown, each)
+		}
+	}
+	for token, attempt := range all.attempts {
+		if _, isHeld := heldByToken[token]; isHeld && attempt.NodeID == nodeID {
+			attempt.lastHeard = now
+		}
+	}
+	all.mutex.Unlock()
+	all.unanswered(ctx, func(attempt heldAttempt) bool {
+		_, isHeld := heldByToken[attempt.Token]
+		return attempt.NodeID == nodeID && !isHeld && !onTheirWay[attempt.Token]
+	}, func(attempt Attempt) error {
+		all.brokeAnInvariant(ctx, nodeID, "a node does not hold work given to it", attempt.JobID, attempt.Token)
+		return fmt.Errorf("node %d does not hold %s job %d: %w", nodeID, attempt.Kind, attempt.JobID, ErrWorkLost)
+	}, false)
+	for _, each := range unknown {
+		all.brokeAnInvariant(ctx, nodeID, "a node holds work no job was given, or no job wants", each.JobID,
+			each.AttemptToken)
+		all.sender.Enqueue(nodeID, CancelCommand(each.JobID, each.AttemptToken))
+	}
+}
+
+// brokeAnInvariant logs and counts a difference between what the core gave a node and what it holds,
+// which is squared, never silently (D234 §4).
+func (all *Exchanges) brokeAnInvariant(ctx context.Context, nodeID int64, what string, jobID int64, token string) {
+	all.mutex.Lock()
+	all.brokenInvariants[nodeID]++
+	all.mutex.Unlock()
+	all.logger.WarnContext(ctx, "a broken invariant", "invariant", what, "nodeId", nodeID, "jobId", jobID,
+		"attemptToken", token)
+}
+
+// BrokenInvariants is how many differences between what the core gave a node and what it held this
+// core has squared, for the System page (Phase 6).
+func (all *Exchanges) BrokenInvariants(nodeID int64) int {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	return all.brokenInvariants[nodeID]
+}

@@ -489,6 +489,12 @@ the node re-encodes each in turn and answers once for all; the answer stores eac
 Images beside the media on another node than the first's are left for the next pass. The core
 waits on no node now. Node protocol 8.
 
+*4c.3 built 2026-10-02:* the status lists the attempts the node holds and those whose results wait
+for acknowledgement, with the last command it took; the core squares them at each status, judging
+none whose command is on its way: held is adopted, lost is a broken invariant resolved as the tool's
+failure (`ErrWorkLost`), stray work is a broken invariant and dropped; counts per node for Phase 6
+(`BrokenInvariants`). Node protocol 9.
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global

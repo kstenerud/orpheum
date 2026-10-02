@@ -479,6 +479,20 @@ type recordingResultSink struct {
 	interrupted []int64
 	// refusal, when set, is Deliver's error: a result the sink could not record.
 	refusal error
+	// squared are the calls to square what a node holds, in order.
+	squared []squaring
+}
+
+func (sink *recordingResultSink) Square(
+	_ context.Context, _ int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
+) {
+	sink.squared = append(sink.squared, squaring{held: held, onTheirWay: onTheirWay})
+}
+
+// squaring is one call to square what a node holds.
+type squaring struct {
+	held       []nodeproto.HeldAttempt
+	onTheirWay map[string]bool
 }
 
 func (sink *recordingResultSink) DeliverProgress(_ context.Context, _ int64, progress nodeproto.Progress) {
