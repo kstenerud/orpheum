@@ -133,7 +133,8 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	}
 	order, err := service.prepareOrderFor(ctx, rendition)
 	if errors.Is(err, ErrNoFile) {
-		return jobs.MarkPermanent(errors.Join(err, service.prepares.finish(ctx, rendition.ID, nil, err.Error())))
+		run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
+		return jobs.MarkPermanent(errors.Join(err, service.prepares.failMaking(ctx, run, err.Error())))
 	}
 	if err != nil {
 		return err
@@ -144,6 +145,8 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 // prepareOrder is a rendition to have made: the node's command, the node that holds the source, and
 // the source's length in milliseconds, or 0 when its probe did not say.
 type prepareOrder struct {
+	// run is the making the command is for, which its answer is recorded by.
+	run        renditionRun
 	command    nodeproto.Prepare
 	nodeID     int64
 	durationMs int64
@@ -171,6 +174,7 @@ func (service *Service) prepareOrderFor(
 	if err != nil {
 		return prepareOrder{}, err
 	}
+	run := renditionRun{fileID: file.ID, profile: rendition.Profile, runID: rendition.RunID}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
 	command.SegmentLengthSeconds = int(rendition.SegmentLengthSeconds)
 	levels, err := service.levellings(ctx, file.PayloadHash)
@@ -179,6 +183,6 @@ func (service *Service) prepareOrderFor(
 	}
 	gains := levelPrepare(&command, levels, probe)
 	return prepareOrder{
-		command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
+		run: run, command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
 	}, nil
 }

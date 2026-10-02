@@ -276,26 +276,6 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 	}
 }
 
-// receiveProgress hands the test the node's words on where its attempts are, dropping one the test
-// has no room for: progress is best effort, as the core's is.
-func (core *fakeCore) receiveProgress(t *testing.T) http.HandlerFunc {
-	t.Helper()
-	return func(writer http.ResponseWriter, request *http.Request) {
-		var progress nodeproto.Progress
-		if err := json.NewDecoder(request.Body).Decode(&progress); err != nil {
-			if isMalformed(err) {
-				t.Error(err)
-			}
-			return
-		}
-		select {
-		case core.progress <- progress:
-		default:
-		}
-		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
-	}
-}
-
 // refuseFirstPosts has the core refuse the next count results of kind.
 func (core *fakeCore) refuseFirstPosts(kind resultKind, count int) {
 	core.mutex.Lock()
@@ -412,8 +392,8 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 	root, tick := startAgent(t, socket)
 
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandScan,
-		Scan: &nodeproto.Scan{RootPath: root.Path()},
+		CommandSeq: 1,
+		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()}},
 	}
 	begin, complete := receiveRecord(t, core), receiveRecord(t, core)
 	if begin.Type != nodeproto.RecordScanBegin || begin.ReportSeq != 41 ||
@@ -442,8 +422,8 @@ func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
 	core, socket := startFakeCore(t)
 	_, tick := startAgent(t, socket)
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandScan,
-		Scan: &nodeproto.Scan{RootPath: "/etc"},
+		CommandSeq: 1,
+		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/etc"}},
 	}
 	tick <- time.Time{}
 	if record := receiveRecord(t, core); record.Type != nodeproto.RecordStatus {
@@ -486,7 +466,9 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+		CommandSeq: 1,
+		JobID:      12,
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork},
 	}
 	select {
 	case result := <-core.artwork:
@@ -529,7 +511,9 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+		CommandSeq: 2,
+		JobID:      12,
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork},
 	}
 	select {
 	case result := <-core.artwork:
@@ -580,13 +564,17 @@ func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
 		}
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork("hold"),
+		CommandSeq: 1,
+		JobID:      12,
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork("hold")},
 	}
 	testutil.Receive(t, artworker.holding, "job 12's re-encode starting")
-	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandCancel, JobID: 12}
+	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 12, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 	testutil.Receive(t, artworker.stopped, "job 12's re-encode stopped by the cancel")
 	core.commands <- nodeproto.Command{
-		CommandSeq: 3, Type: nodeproto.CommandEncodeArtwork, JobID: 13, EncodeArtwork: artwork("abc"),
+		CommandSeq: 3,
+		JobID:      13,
+		Work:       nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork("abc")},
 	}
 	result := testutil.Receive(t, core.artwork, "an artwork answer")
 	if result.JobID != 13 {
@@ -612,11 +600,12 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
 		core.commands <- nodeproto.Command{
-			CommandSeq: job, Type: nodeproto.CommandEncodeArtwork, JobID: job,
-			EncodeArtwork: &nodeproto.Artwork{
+			CommandSeq: job,
+			JobID:      job,
+			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
 				AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-			},
+			}},
 		}
 		select {
 		case result := <-core.artwork:
@@ -734,7 +723,11 @@ func TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession(t *t
 	payload := &nodeproto.Prepare{
 		Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 	}
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandPrepare, JobID: 9, Prepare: payload}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1,
+		JobID:      9,
+		Work:       nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: payload},
+	}
 	testutil.Receive(t, preparer.started, "the prepare to start")
 	select {
 	case core.endSession <- struct{}{}: // the open long-poll answers 503, which ends the session
@@ -771,8 +764,12 @@ func TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello(t *testin
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	startAgent(t, socket)
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: "transcode_to_av2", JobID: 31}
-	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandScan, JobID: 32} // no payload
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 31, Work: nodeproto.Work{Type: "transcode_to_av2"}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 2,
+		JobID:      32,
+		Work:       nodeproto.Work{Type: nodeproto.CommandScan},
+	} // no payload
 	// Each refusal is posted beside the node's other work, so they may arrive in either order.
 	var refusedJobIDs []int64
 	for range 2 {

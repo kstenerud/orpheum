@@ -110,7 +110,9 @@ func newHarness(t *testing.T) testHarness {
 	})
 	nodes.database, nodes.clock = database, now
 	nodes.takeResult = func(nodeID int64, result nodeproto.Result) {
-		exchanges.Deliver(t.Context(), nodeID, result)
+		if err := exchanges.Deliver(t.Context(), nodeID, result); err != nil {
+			t.Errorf("node %d's result was not taken: %v", nodeID, err)
+		}
 	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
@@ -154,28 +156,33 @@ func newHarness(t *testing.T) testHarness {
 	}
 }
 
+// deliver hands node 1's result on the last command sent for job to its recorder and the job, naming
+// that command as the node's do, and fails the test if it is not taken.
+func (harness testHarness) deliver(t *testing.T, jobID int64, result nodeproto.Result) {
+	t.Helper()
+	command := harness.nodes.lastSentFor(jobID)
+	result.JobID, result.AttemptToken, result.Work = jobID, command.AttemptToken, &command.Work
+	if err := harness.exchanges.Deliver(t.Context(), 1, result); err != nil {
+		t.Errorf("job %d's result was not taken: %v", jobID, err)
+	}
+}
+
 // answerPrepare hands node 1's report on prepare job jobID to the job, as the node channel does.
 func (harness testHarness) answerPrepare(t *testing.T, jobID int64, report nodeproto.PrepareReport) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
-		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Prepare: &report,
-	})
+	harness.deliver(t, jobID, nodeproto.Result{Prepare: &report})
 }
 
 // answerLoudness hands node 1's measurement for job jobID to the job.
 func (harness testHarness) answerLoudness(t *testing.T, jobID int64, answer nodeproto.LoudnessResult) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
-		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Loudness: &answer,
-	})
+	harness.deliver(t, jobID, nodeproto.Result{Loudness: &answer})
 }
 
 // answerSubtitle hands node 1's subtitle text for job jobID to the job.
 func (harness testHarness) answerSubtitle(t *testing.T, jobID int64, answer nodeproto.SubtitleText) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
-		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Subtitle: &answer,
-	})
+	harness.deliver(t, jobID, nodeproto.Result{Subtitle: &answer})
 }
 
 type response struct {

@@ -37,11 +37,32 @@ func slotCounts(capacity nodeproto.Capacity) map[slotKind]int {
 type attempt struct {
 	jobID int64
 	token string
+	// work is the work the command asked for, without the bytes it carried, which every result
+	// echoes.
+	work nodeproto.Work
 }
 
-// named is result naming the attempt it answers.
+// attemptOf is the attempt a command names.
+func attemptOf(command nodeproto.Command) attempt {
+	echoed := command.Work
+	if echoed.EncodeArtwork != nil {
+		artwork := *echoed.EncodeArtwork
+		artwork.SourceImage = nil
+		echoed.EncodeArtwork = &artwork
+	}
+	if echoed.ExtractSubtitle != nil {
+		extract := *echoed.ExtractSubtitle
+		extract.FetchedSubRip = nil
+		echoed.ExtractSubtitle = &extract
+	}
+	return attempt{jobID: command.JobID, token: command.AttemptToken, work: echoed}
+}
+
+// named is result naming the attempt it answers, and echoing its work.
 func (held attempt) named(result nodeproto.Result) nodeproto.Result {
 	result.JobID, result.AttemptToken = held.jobID, held.token
+	work := held.work
+	result.Work = &work
 	return result
 }
 

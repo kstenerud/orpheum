@@ -15,11 +15,11 @@ const (
 	CommandCancel CommandType = "cancel"
 )
 
-// Command is one instruction from the core, delivered by the long-poll. CommandSeq increases by one per
-// command for a node; the node asks for commands after the last one it took.
+// Command is one instruction from the core, delivered by the long-poll: an envelope, naming the job
+// and the attempt, around the work it asks for. CommandSeq increases by one per command for a node;
+// the node asks for commands after the last one it took.
 type Command struct {
-	CommandSeq int64       `json:"commandSeq"`
-	Type       CommandType `json:"type"`
+	CommandSeq int64 `json:"commandSeq"`
 	// JobID is the core's job the command is for: the work a node answers with a Result of the same
 	// id, or the job a cancel stops. Zero for a scan.
 	JobID int64 `json:"jobId,omitempty"`
@@ -30,7 +30,14 @@ type Command struct {
 	// Priority is the job's: the node starts what waits for a slot, the highest first and, at one
 	// priority, the first to come (D234 §3). Zero for a scan and a cancel.
 	Priority int64 `json:"priority,omitempty"`
-	Scan     *Scan `json:"scan,omitempty"`
+	Work
+}
+
+// Work is what a command asks for: its type, and the payload of that type, which a result echoes
+// (Result.Work). It names no job: the envelope does.
+type Work struct {
+	Type CommandType `json:"type"`
+	Scan *Scan       `json:"scan,omitempty"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.

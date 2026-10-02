@@ -5,6 +5,7 @@ package playback
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -233,8 +234,9 @@ func (service *Service) convertFetched(
 	conversionID := -service.fetchConversions.Add(1)
 	conversion := jobs.Job{ID: conversionID, Priority: jobs.PriorityPlayNow}
 	exchange, err := service.exchanges.Ask(ctx, nodeID, conversion, nodeproto.Command{
-		Type:            nodeproto.CommandExtractSubtitle,
-		ExtractSubtitle: &nodeproto.ExtractSubtitle{FetchedSubRip: text},
+		Work: nodeproto.Work{
+			Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &nodeproto.ExtractSubtitle{FetchedSubRip: text},
+		},
 	}, "a fetched subtitle")
 	if err != nil {
 		return nodeproto.SubtitleText{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", nodeID, err)
@@ -288,6 +290,8 @@ func (service *Service) HandleConvertFetchedSubtitle(ctx context.Context, job jo
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command := &nodeproto.ExtractSubtitle{FetchedSubRip: text}
-	return service.makeSubtitleText(ctx, job, fetched.NodeID, command, fetchedKey(fetched.BodyGzip))
+	command := &nodeproto.ExtractSubtitle{
+		FetchedSubRip: text, FetchedSha256: hex.EncodeToString(fetchedKey(fetched.BodyGzip).SourceHash),
+	}
+	return service.makeSubtitleText(ctx, job, fetched.NodeID, command)
 }

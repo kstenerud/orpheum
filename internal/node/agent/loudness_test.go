@@ -68,8 +68,9 @@ func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 			Video: named, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
 		}
 		core.commands <- nodeproto.Command{
-			CommandSeq: job, Type: nodeproto.CommandMeasureLoudness, JobID: job,
-			MeasureLoudness: &command,
+			CommandSeq: job,
+			JobID:      job,
+			Work:       nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
 		}
 		return receiveLoudness(t, core)
 	}

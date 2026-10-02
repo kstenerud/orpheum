@@ -400,6 +400,15 @@ waits. Every hello names its start (`startId`); a hello from another start ends 
 jobs on that node at once, the tool's failure (`jobs.MarkInterrupted`), and the target's on a
 second in a row. Node protocol 2.
 
+*4b.2 built 2026-10-02:* every sending carries a random attempt token, which the node holds the
+work by, a cancel names and every result echoes, and a job's wait takes only its own, from the node
+it asked (S83, S84); progress has its own path, best effort, and every kind says waiting and running
+(`node.progress_every_seconds`); a result names the work it answers (`Result.Work`; a command is an
+envelope around its `Work`), is posted until acknowledged, and is recorded by its kind's recorder
+as it arrives, by content, whether or not its job waits, before the node is answered (S81, S85):
+a making by its run, which a later run's or a late word never undoes (G13). The node remembers an
+ended attempt for `node.ended_work_kept_hours`. Node protocol 4.
+
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's

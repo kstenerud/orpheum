@@ -224,7 +224,7 @@ func (agent *Agent) pollCommands(
 // node's lifetime: a session that ends, the core gone or restarting, stops no work (D233 §2), and
 // each posts its result when a core takes it. A command the node cannot read is refused.
 func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, command nodeproto.Command) {
-	held := attempt{jobID: command.JobID, token: command.AttemptToken}
+	held := attemptOf(command)
 	work, isKnown := agent.workFor(nodeCtx, nodeID, held, command)
 	if !isKnown || held.token == "" {
 		agent.refuseUnknown(ctx, nodeID, command)
@@ -312,7 +312,7 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 	}
 	refusal := fmt.Sprintf("this node cannot read the command %q, unknown or without its payload; "+
 		"it speaks node protocol %d", command.Type, nodeproto.ProtocolVersion)
-	refused := attempt{jobID: command.JobID, token: command.AttemptToken}.named(nodeproto.Result{Refusal: refusal})
+	refused := attemptOf(command).named(nodeproto.Result{Refusal: refusal})
 	agent.postResult(ctx, nodeID, "a refusal", refused)
 }
 

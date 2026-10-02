@@ -22,12 +22,15 @@ import (
 // which never gives up for silence within a test.
 func preparesOnAFakeNode(t *testing.T, node fakeNodes, clockSource *clocktest.Fake) *prepares {
 	t.Helper()
-	return &prepares{
+	all := &prepares{
 		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		// The silence limit outlasts the slot cap, which these tests move the clock past at once.
 		clock: clockSource, maxSilence: 2 * maxSlotWait, maxSlotWait: maxSlotWait,
 		exchanges: nodes.NewExchanges(node, clockSource, rand.Reader, slog.New(slog.DiscardHandler)),
+		logger:    slog.New(slog.DiscardHandler),
 	}
+	all.exchanges.Record(nodeproto.CommandPrepare, all.recordPrepare)
+	return all
 }
 
 // insertRendition records a rendition being made, and returns its id.
@@ -59,9 +62,9 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptStalled,
 		}
 		ended := make(chan error, 1)
-		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
+		go func() { ended <- all.handle(t.Context(), job, testOrder) }()
 		command := testutil.Receive(t, node.sent, "the prepare command")
-		all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
+		all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
@@ -92,7 +95,7 @@ func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreThe
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
 		ended := make(chan error, 1)
-		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
+		go func() { ended <- all.handle(t.Context(), job, testOrder) }()
 		testutil.Receive(t, node.sent, "the prepare command")
 		all.exchanges.Interrupt(t.Context(), 1)
 		return testutil.Receive(t, ended, "the prepare job to end")
@@ -137,7 +140,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	all := preparesOnAFakeNode(t, node, clockSource)
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
 	ended := make(chan error, 1)
-	go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
+	go func() { ended <- all.handle(t.Context(), job, testOrder) }()
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
@@ -158,4 +161,44 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 		clockSource.Advance(maxSlotWait)
 	}
 	t.Fatal("a prepare the node held waiting for ten times the cap was never given up")
+}
+
+// A node's word that a making is done is recorded by its run as it arrives, with no job waiting for
+// it any more (S81), and nothing heard after undoes it; a making the rendition no longer is, made
+// again since under another run, is not recorded over it (G13).
+func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.T) {
+	t.Parallel()
+	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
+	all := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
+	rendition := insertRendition(t, all)
+	doneBy := func(run renditionRun) {
+		t.Helper()
+		command := nodeproto.Command{
+			JobID:        7,
+			AttemptToken: "an attempt no job waits for",
+			Work: nodeproto.Work{
+				Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{RenditionDir: run.dir()},
+			},
+		}
+		all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+	}
+	earlier := renditionRun{fileID: testRun.fileID, profile: testRun.profile, runID: "fedcba9876543210"}
+	doneBy(earlier)
+	if row := renditionRow(t, all, rendition); row.State == "complete" {
+		t.Errorf("an earlier making's end completed the rendition: %+v; want it left to its own run", row)
+	}
+	doneBy(testRun)
+	if row := renditionRow(t, all, rendition); row.State != "complete" || row.SizeBytes == nil || *row.SizeBytes != 10 {
+		t.Errorf("the making's end, with no job waiting, left the rendition %+v; want it complete, 10 bytes", row)
+	}
+	// Progress heard after the end, and a job that gave up on the making, do not undo it.
+	if err := all.recordRunning(t.Context(), testRun, 5000); err != nil {
+		t.Fatal(err)
+	}
+	if err := all.failMaking(t.Context(), testRun, "cancelled"); err != nil {
+		t.Fatal(err)
+	}
+	if row := renditionRow(t, all, rendition); row.State != "complete" {
+		t.Errorf("after late progress and a job giving up, the rendition is %+v; want it still complete", row)
+	}
 }

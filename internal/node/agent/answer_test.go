@@ -14,10 +14,12 @@ import (
 // artworkCommand is a re-encode of source as job's one attempt.
 func artworkCommand(seq, job int64, source string) nodeproto.Command {
 	return nodeproto.Command{
-		CommandSeq: seq, Type: nodeproto.CommandEncodeArtwork, JobID: job, EncodeArtwork: &nodeproto.Artwork{
+		CommandSeq: seq,
+		JobID:      job,
+		Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &nodeproto.Artwork{
 			SourceImage: []byte(source), Shape: nodeproto.ShapePortrait,
 			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-		},
+		}},
 	}
 }
 
@@ -32,8 +34,16 @@ func TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt(t *testing.T) {
 		})
 	core.refuseFirstPosts(artworkResult, 600)
 	core.commands <- artworkCommand(1, 5, "abc")
-	if result := testutil.Receive(t, core.artwork, "the answer, once taken"); result.JobID != 5 {
+	result := testutil.Receive(t, core.artwork, "the answer, once taken")
+	if result.JobID != 5 {
 		t.Errorf("the core took job %d's answer, want job 5's", result.JobID)
+	}
+	// The answer names its work, as the node holds it, without the image it carried: what the
+	// core records it by when no job waits for it any more.
+	if echoed := result.Work; echoed == nil || echoed.Type != nodeproto.CommandEncodeArtwork ||
+		echoed.EncodeArtwork == nil || echoed.EncodeArtwork.Shape != nodeproto.ShapePortrait ||
+		echoed.EncodeArtwork.SourceImage != nil {
+		t.Errorf("the answer echoed %+v, want job 5's work without its image", echoed)
 	}
 }
 

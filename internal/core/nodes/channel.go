@@ -127,10 +127,21 @@ func (service *Service) serveReport(writer http.ResponseWriter, request *http.Re
 const maxResultBytes = 64 << 20
 
 // takeResult reads a known node's word on how a job ended, at most maxResultBytes of JSON, and hands
-// it to the job waiting for it; with nowhere to hand it, the result is refused.
+// it to the result sink, which records it; its answer is the node's acknowledgement (D234 §5).
+// With nowhere to hand it, or a sink that could not record it, the result is refused, and the node
+// sends it again.
 func (service *Service) takeResult(writer http.ResponseWriter, request *http.Request) {
-	if nodeID, result, ok := readPost[nodeproto.Result](service, writer, request, maxResultBytes); ok {
-		service.resultSink.Deliver(request.Context(), nodeID, result)
+	nodeID, result, ok := readPost[nodeproto.Result](service, writer, request, maxResultBytes)
+	if !ok {
+		return
+	}
+	err := service.resultSink.Deliver(request.Context(), nodeID, result)
+	switch {
+	case errors.Is(err, ErrMalformedResult):
+		http.Error(writer, err.Error(), http.StatusBadRequest)
+	case err != nil:
+		service.fail(request.Context(), writer, "record a node's result", err)
+	default:
 		writeJSON(writer, struct{}{}) // the node reads a JSON answer
 	}
 }

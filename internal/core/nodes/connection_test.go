@@ -72,7 +72,9 @@ func TestSend_ACommandToANodeNotConnectedParksItsJobAndSendsNothing(t *testing.T
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	ctx := t.Context()
-	scan := nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}}
+	scan := nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}},
+	}
 	err := harness.service.Send(ctx, 7, scan)
 	parking, isParked := jobqueue.ParkingOf(err)
 	if !isParked || parking.Destination != jobs.NodeDestination(7) || !parking.AwaitsSignal ||
@@ -198,7 +200,9 @@ func TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated(t 
 	if connection, _ := harness.service.NodeConnection(ctx, connected.NodeID); connection != NeedsUpdate {
 		t.Errorf("the refused node is %s, want %s", connection, NeedsUpdate)
 	}
-	scan := nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}}
+	scan := nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}},
+	}
 	parking, isParked := jobqueue.ParkingOf(harness.service.Send(ctx, connected.NodeID, scan))
 	if !isParked || parking.Destination != jobs.NodeDestination(connected.NodeID) ||
 		parking.Reason != jobs.ReasonNeedsUpdate || !parking.AwaitsSignal {

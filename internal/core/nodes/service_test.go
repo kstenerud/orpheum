@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -267,7 +268,7 @@ func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 }
 
 func scanOf(root string) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}}
+	return nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}}}
 }
 
 func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *testing.T) {
@@ -435,6 +436,36 @@ func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	}
 }
 
+// The answer to a result is the node's acknowledgement (D234 §5): a result the sink could not record
+// is refused, and the node sends it again; one it cannot take as it is, as the node's mistake.
+func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	post := func() int {
+		result := nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}}
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return harness.post(t, nodeproto.PathResult, reply.NodeID, bytes.NewReader(encoded)).status
+	}
+	sink.refusal = errors.New("cache.db is busy")
+	if status := post(); status != http.StatusInternalServerError {
+		t.Errorf("a result the sink could not record: %d, want 500", status)
+	}
+	sink.refusal = ErrMalformedResult
+	if status := post(); status != http.StatusBadRequest {
+		t.Errorf("a result the sink cannot take as it is: %d, want 400", status)
+	}
+	sink.refusal = nil
+	if status := post(); status != http.StatusOK || len(sink.results) != 1 {
+		t.Errorf("a result the sink recorded: %d, sink %+v; want 200 and the result", status, sink.results)
+	}
+}
+
 // recordingResultSink records the results and progress it is handed, and the nodes it is told
 // started again.
 type recordingResultSink struct {
@@ -442,6 +473,8 @@ type recordingResultSink struct {
 	from        []int64
 	progress    []nodeproto.Progress
 	interrupted []int64
+	// refusal, when set, is Deliver's error: a result the sink could not record.
+	refusal error
 }
 
 func (sink *recordingResultSink) DeliverProgress(_ context.Context, _ int64, progress nodeproto.Progress) {
@@ -498,9 +531,13 @@ func TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt(t *testing.T) {
 	}
 }
 
-func (sink *recordingResultSink) Deliver(_ context.Context, nodeID int64, result nodeproto.Result) {
+func (sink *recordingResultSink) Deliver(_ context.Context, nodeID int64, result nodeproto.Result) error {
+	if sink.refusal != nil {
+		return sink.refusal
+	}
 	sink.results = append(sink.results, result)
 	sink.from = append(sink.from, nodeID)
+	return nil
 }
 
 func TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {

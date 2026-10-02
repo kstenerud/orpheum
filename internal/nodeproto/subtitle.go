@@ -20,6 +20,10 @@ type ExtractSubtitle struct {
 	// FetchedSubRip is the text of a subtitle fetched on request, SubRip as the provider gave it,
 	// converted here because hostile input is parsed on the node (D224 §5).
 	FetchedSubRip []byte `json:"fetchedSubRip,omitempty"`
+	// FetchedSha256 is, with FetchedSubRip, the hex SHA-256 of the fetched subtitle's body as the
+	// core keeps it, by which the core keeps its text: what an answer echoes in FetchedSubRip's
+	// place (Result.Command).
+	FetchedSha256 string `json:"fetchedSha256,omitempty"`
 }
 
 // SubtitleText is the node's answer: the subtitle as ASS, for JASSUB, and as WebVTT, for the

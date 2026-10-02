@@ -106,12 +106,14 @@ type Service struct {
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
 	exchanges := parts.Exchanges
-	return &Service{
+	service := &Service{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
 		subtitler: parts.Subtitler, preferences: parts.Preferences,
 	}
+	service.recordResults(exchanges)
+	return service
 }
 
 // Request is what a client asks to play, and what it can play (D21, D217 §1).

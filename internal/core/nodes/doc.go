@@ -23,7 +23,11 @@
 //   - A node's word on how a job ended, bounded, is one Result posted to one path, whichever the
 //     work: it goes to the result sink (Exchanges) and nowhere else, and one from a node that has
 //     not said hello is refused. An artwork result is the artwork store's one way in (D212 §8).
-//     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly. Its word on where a job is, its
+//     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly. Acknowledged means recorded (D234
+//     §5, D238 §2): each result is recorded by its kind's Recorder, by the content its echoed work
+//     names, as it arrives and whether or not a job still waits (S81), before any job hears it and
+//     before the node is answered; a result not recorded is refused, and the node sends it again.
+//     TestExchanges_RecordEveryResultBeforeAnyJobHearsIt. Its word on where a job is, its
 //     progress, has a path of its own, best effort: it starts the job's silence again and reaches the
 //     job's OnProgress, its own attempt's only (D234 §5).
 //     TestProgress_ReachesTheResultSinkFromAKnownNodeOnly,

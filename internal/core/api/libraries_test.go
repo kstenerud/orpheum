@@ -54,17 +54,17 @@ type fakeNodes struct {
 	// takeResult is where the node's answers to a fetch's conversion go, which it answers at
 	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
 	takeResult func(nodeID int64, result nodeproto.Result)
-	// tokenMutex guards tokenByJobID: the attempt token of the last command sent for each job, which
-	// a test's answer names as the node's does.
-	tokenMutex   sync.Mutex
-	tokenByJobID map[int64]string
+	// sentMutex guards sentByJobID: the last command sent for each job, which a test's answer names
+	// as the node's does.
+	sentMutex   sync.Mutex
+	sentByJobID map[int64]nodeproto.Command
 }
 
-// attemptTokenOf is the attempt token of the last command sent for job.
-func (nodes *fakeNodes) attemptTokenOf(job int64) string {
-	nodes.tokenMutex.Lock()
-	defer nodes.tokenMutex.Unlock()
-	return nodes.tokenByJobID[job]
+// lastSentFor is the last command sent for job.
+func (nodes *fakeNodes) lastSentFor(job int64) nodeproto.Command {
+	nodes.sentMutex.Lock()
+	defer nodes.sentMutex.Unlock()
+	return nodes.sentByJobID[job]
 }
 
 // RemoveNode removes a node an admin retired, as the node service does; node 1 is away from then
@@ -152,12 +152,12 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
-	nodes.tokenMutex.Lock()
-	if nodes.tokenByJobID == nil {
-		nodes.tokenByJobID = map[int64]string{}
+	nodes.sentMutex.Lock()
+	if nodes.sentByJobID == nil {
+		nodes.sentByJobID = map[int64]nodeproto.Command{}
 	}
-	nodes.tokenByJobID[command.JobID] = command.AttemptToken
-	nodes.tokenMutex.Unlock()
+	nodes.sentByJobID[command.JobID] = command
+	nodes.sentMutex.Unlock()
 	if extract := command.ExtractSubtitle; extract != nil && command.JobID < 0 && nodes.takeResult != nil {
 		answer := nodeproto.SubtitleText{
 			ASS: []byte("[Script Info]"), VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
@@ -165,7 +165,9 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 		if string(extract.FetchedSubRip) == unreadableText {
 			answer = nodeproto.SubtitleText{Failure: "Invalid data found when processing input"}
 		}
-		answered := nodeproto.Result{JobID: command.JobID, AttemptToken: command.AttemptToken, Subtitle: &answer}
+		answered := nodeproto.Result{
+			JobID: command.JobID, AttemptToken: command.AttemptToken, Work: &command.Work, Subtitle: &answer,
+		}
 		nodes.takeResult(1, answered)
 		return
 	}

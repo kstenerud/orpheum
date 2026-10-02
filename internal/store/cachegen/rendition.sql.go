@@ -215,10 +215,10 @@ func (q *Queries) SetRenditionAudio(ctx context.Context, arg SetRenditionAudioPa
 	return err
 }
 
-const setRenditionComplete = `-- name: SetRenditionComplete :exec
+const setRenditionComplete = `-- name: SetRenditionComplete :execrows
 UPDATE prepared_rendition
 SET state = 'complete', size_bytes = ?, finished_at = ?, video_encoder = ?, realtime_factor = ?
-WHERE id = ?
+WHERE source_file = ? AND profile = ? AND run_id = ?
 `
 
 type SetRenditionCompleteParams struct {
@@ -226,45 +226,78 @@ type SetRenditionCompleteParams struct {
 	FinishedAt     *int64
 	VideoEncoder   *string
 	RealtimeFactor *float64
-	ID             int64
+	SourceFile     int64
+	Profile        string
+	RunID          string
 }
 
-func (q *Queries) SetRenditionComplete(ctx context.Context, arg SetRenditionCompleteParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionComplete,
+// A making that ended, by its run: a rendition made again since has another run, and is not touched
+// (G13).
+func (q *Queries) SetRenditionComplete(ctx context.Context, arg SetRenditionCompleteParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setRenditionComplete,
 		arg.SizeBytes,
 		arg.FinishedAt,
 		arg.VideoEncoder,
 		arg.RealtimeFactor,
-		arg.ID,
+		arg.SourceFile,
+		arg.Profile,
+		arg.RunID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
-const setRenditionFailed = `-- name: SetRenditionFailed :exec
-UPDATE prepared_rendition SET state = 'failed', failure = ?, finished_at = ? WHERE id = ?
+const setRenditionFailed = `-- name: SetRenditionFailed :execrows
+UPDATE prepared_rendition SET state = 'failed', failure = ?, finished_at = ?
+WHERE source_file = ? AND profile = ? AND run_id = ? AND state <> 'complete'
 `
 
 type SetRenditionFailedParams struct {
 	Failure    *string
 	FinishedAt *int64
-	ID         int64
+	SourceFile int64
+	Profile    string
+	RunID      string
 }
 
-func (q *Queries) SetRenditionFailed(ctx context.Context, arg SetRenditionFailedParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionFailed, arg.Failure, arg.FinishedAt, arg.ID)
-	return err
+// A making that failed, by its run, as SetRenditionComplete, unless the node said it was done: a
+// job that gave up on a making the node finished does not undo it.
+func (q *Queries) SetRenditionFailed(ctx context.Context, arg SetRenditionFailedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setRenditionFailed,
+		arg.Failure,
+		arg.FinishedAt,
+		arg.SourceFile,
+		arg.Profile,
+		arg.RunID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setRenditionRunning = `-- name: SetRenditionRunning :exec
-UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ? WHERE id = ?
+UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ?
+WHERE source_file = ? AND profile = ? AND run_id = ? AND state IN ('queued', 'running')
 `
 
 type SetRenditionRunningParams struct {
 	PreparedThroughMs int64
-	ID                int64
+	SourceFile        int64
+	Profile           string
+	RunID             string
 }
 
+// How far a making is, by its run, while it has not ended: its end, recorded as it arrived, is never
+// undone by its progress heard after it.
 func (q *Queries) SetRenditionRunning(ctx context.Context, arg SetRenditionRunningParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionRunning, arg.PreparedThroughMs, arg.ID)
+	_, err := q.db.ExecContext(ctx, setRenditionRunning,
+		arg.PreparedThroughMs,
+		arg.SourceFile,
+		arg.Profile,
+		arg.RunID,
+	)
 	return err
 }

@@ -86,8 +86,9 @@ func startExtractionAgent(t *testing.T) (video, sidecar nodeproto.BytesFile, cor
 // queueExtraction sends an extraction as job, without waiting for the answer.
 func (core *fakeCore) queueExtraction(job int64, extract nodeproto.ExtractSubtitle) {
 	core.commands <- nodeproto.Command{
-		CommandSeq: job, Type: nodeproto.CommandExtractSubtitle, JobID: job,
-		ExtractSubtitle: &extract,
+		CommandSeq: job,
+		JobID:      job,
+		Work:       nodeproto.Work{Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &extract},
 	}
 }
 
@@ -152,7 +153,7 @@ func TestAgent_ACancelStopsARunningExtractionAndNothingIsReportedForIt(t *testin
 	video, _, core := startExtractionAgent(t)
 	// One extraction runs at a time, so the next runs only once the cancel frees the slot.
 	core.queueExtraction(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: slowStreamIndex})
-	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandCancel, JobID: 1}
+	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 1, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 	core.queueExtraction(3, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
 	if next := receiveSubtitle(t, core); next.JobID != 3 || next.Refusal != "" {
 		t.Errorf("the first answer = %+v, want job 3's text and nothing for the cancelled job 1", next)

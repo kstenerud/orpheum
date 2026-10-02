@@ -56,7 +56,9 @@ func TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed(t *test
 		Video: video, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: stallingStreamIndex, ChannelCount: 2}},
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 1, Type: nodeproto.CommandMeasureLoudness, JobID: 1, MeasureLoudness: &command,
+		CommandSeq: 1,
+		JobID:      1,
+		Work:       nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
 	}
 	measured := receiveLoudness(t, core)
 	if measured.Failure != "" || measured.Refusal != "" {

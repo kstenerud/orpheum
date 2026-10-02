@@ -96,10 +96,44 @@ func NewService(parts Parts) *Service {
 	if parts.AnswerWait == 0 {
 		parts.AnswerWait = defaultAnswerWait
 	}
-	return &Service{
+	service := &Service{
 		parts: parts, exchanges: parts.Exchanges,
 		holdings: newHoldings(), beside: &besideTheMedia{kindsByItemByLibrary: map[int64]map[int64][]string{}},
 	}
+	if parts.Exchanges != nil {
+		parts.Exchanges.Record(nodeproto.CommandEncodeArtwork, service.recordArtwork)
+	}
+	return service
+}
+
+// recordArtwork stores the sizes a re-encode made, as it arrives and whether or not its job still
+// waits (D238 §2): each size asked for, in WebP, under the SHA-256 of the image it is of, the
+// command's or, for an image beside the media, the node's. The item's image is its job's to
+// record.
+func (service *Service) recordArtwork(ctx context.Context, _ int64, result nodeproto.Result) error {
+	answer, command := result.Artwork, result.Work.EncodeArtwork
+	if answer == nil || command == nil {
+		return fmt.Errorf("a re-encode's result carries no images, or names no re-encode: %w", nodes.ErrMalformedResult)
+	}
+	sourceSha256Hex := cmp.Or(command.SourceSha256, answer.SourceSha256)
+	if answer.Refusal != "" || !isSha256Hex(sourceSha256Hex) {
+		return nil
+	}
+	for _, image := range answer.Images {
+		if !slices.Contains(command.SizeNames, image.SizeName) || !isWebP(image.WebP) {
+			continue
+		}
+		if err := service.writeArt(ctx, sourceSha256Hex, string(image.SizeName)+webpSuffix, image.WebP); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// isSha256Hex is whether text is a SHA-256 in hex, as art is stored under.
+func isSha256Hex(text string) bool {
+	decoded, err := hex.DecodeString(text)
+	return err == nil && len(decoded) == sha256.Size
 }
 
 // artworkJobArgs is a make_artwork_sizes job's arguments: the images one item's source names that are not stored.
@@ -208,6 +242,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 		}
 		if err == nil {
 			command.SourceImage, sourceSha256Hex = download.bytes, download.sourceSha256Hex()
+			command.SourceSha256 = sourceSha256Hex
 			nodeID, err = service.anyNode(ctx)
 		}
 	}
@@ -286,7 +321,9 @@ func (service *Service) reEncode(
 	}
 	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
 	exchange, err := service.exchanges.Ask(ctx, nodeID, job,
-		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command}, "re-encoding an image")
+		nodeproto.Command{
+			Work: nodeproto.Work{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command},
+		}, "re-encoding an image")
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
 	}
