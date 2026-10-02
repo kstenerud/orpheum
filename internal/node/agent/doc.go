@@ -21,8 +21,10 @@
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, the report
 //     stream and the command poll, end it: a job's answer the core did not take is posted again
-//     with a doubling wait for about two minutes while the session lasts, then logged and given
-//     up, and never stops the session or the work running beside it.
+//     with a doubling wait for about two minutes, then logged and given up, and never stops the
+//     session or the work running beside it. A session that ends stops none of the node's work: a
+//     prepare, extraction, measurement or re-encode runs on the node's lifetime and posts its result
+//     to the next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession.
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
 //     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
