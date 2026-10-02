@@ -91,3 +91,28 @@ func TestOpenCache_HoldsNoSubtitleTextWhichPersistentDBKeeps(t *testing.T) {
 		t.Errorf("persistent.db has %v, want subtitle_text", rows)
 	}
 }
+
+// cache.db keeps each job given to a node by its attempt token, so the node's word resolves it after
+// a restart, and forgets it once resolved (D234 §7).
+func TestOpenCache_KeepsTheAttemptsGivenToNodesUntilForgotten(t *testing.T) {
+	t.Parallel()
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
+			AttemptToken: "a7", JobID: 7, JobKind: "prepare", NodeID: 1, WorkJSON: `{"type":"prepare"}`, SentAt: 5,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, err := cache.Read().ListNodeAttempts(t.Context())
+	if err != nil || len(kept) != 1 || kept[0].AttemptToken != "a7" || kept[0].JobID != 7 || kept[0].NodeID != 1 {
+		t.Fatalf("cache.db keeps %+v, %v; want job 7's attempt on node 1", kept, err)
+	}
+	err = cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		return queries.DeleteNodeAttempt(t.Context(), "a7")
+	})
+	if kept, listErr := cache.Read().ListNodeAttempts(t.Context()); err != nil || listErr != nil || len(kept) != 0 {
+		t.Errorf("after forgetting it cache.db keeps %+v, %v %v; want nothing", kept, err, listErr)
+	}
+}
