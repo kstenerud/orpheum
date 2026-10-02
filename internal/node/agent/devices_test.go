@@ -86,3 +86,47 @@ func TestAgent_APausedPrepareIsSaidPausedAtEachTick(t *testing.T) {
 	}
 	close(blocking.release)
 }
+
+// A reprioritize command gives the attempt it names its new priority, play-driven no more (D234 §3).
+func TestAgent_AReprioritizeCommandGivesTheAttemptItsNewPriority(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	preparer := releasedPreparer{started: make(chan struct{}), release: make(chan struct{}), stopped: &atomic.Bool{}}
+	var node *Agent
+	root, _ := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Preparer: preparer},
+		func(started *Agent) { node = started })
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, JobID: 5, Priority: 1000, IsPlayDriven: true,
+		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+			Video: nodeproto.BytesFile{
+				RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+			},
+			Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+		}},
+	}
+	testutil.Receive(t, preparer.started, "the prepare's start")
+	core.commands <- nodeproto.Command{
+		CommandSeq: 2, JobID: 5, Work: nodeproto.Work{Type: nodeproto.CommandReprioritize},
+	}
+	var priority int64 = 1000
+	isPlayDriven := true
+	for range 100 {
+		node.work.mutex.Lock()
+		if work := node.work.find(tokenOf(5)); work != nil {
+			priority, isPlayDriven = work.priority, work.isPlayDriven
+		}
+		node.work.mutex.Unlock()
+		if !isPlayDriven {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if priority != 0 || isPlayDriven {
+		t.Errorf("after the reprioritize the prepare is at %d, play-driven %v; want 0, not play-driven",
+			priority, isPlayDriven)
+	}
+	close(preparer.release)
+}

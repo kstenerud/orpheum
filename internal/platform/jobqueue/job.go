@@ -86,6 +86,9 @@ type Row[T comparable] struct {
 	// AssignedUntil is when an assigned job's time runs out, kept while its outcome is taken; nil
 	// once that is written, and for a job never assigned.
 	AssignedUntil *time.Time
+	// WantedUntil is until when a person waits for it, play-driven work; nil for other work, and once
+	// past (Queue.DemoteUnwanted).
+	WantedUntil *time.Time
 	// ProgressFraction is how far a running job is, 0 to 1, or nil when not known.
 	ProgressFraction *float64
 	Reason           string

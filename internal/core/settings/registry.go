@@ -40,6 +40,7 @@ const (
 	DeviceReadersNetwork                           Key = "device_readers_network"
 	DeviceReadersUnknown                           Key = "device_readers_unknown"
 	NodeWorkWindowExtra                            Key = "node_work_window_extra"
+	PlayWantedSeconds                              Key = "play_wanted_seconds"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
 	JobAttemptLimit                                Key = "job_attempt_limit"
@@ -193,6 +194,10 @@ func Registry() []Definition {
 // than it can start the core gives a node (D240 §5).
 func deviceDefinitions() []Definition {
 	return []Definition{
+		sourced(durationSetting(PlayWantedSeconds, time.Second, "600", 10, 24*3600,
+			"seconds after a play last asked for its work that it keeps play priority; past them, it is "+
+				"background work and pauses nothing (D234 §3)"),
+			"the owner, 2026-10-01: question C, ten minutes"),
 		sourced(integerSetting(NodeWorkWindowExtra, "1", 0, 64,
 			"how many more jobs than its free slots and readers allow the core gives a node of each kind, "+
 				"so the next starts without waiting for the core (D240 §5)"),

@@ -14,6 +14,9 @@
 //
 // # Invariants
 //
+//   - A job kept wanted keeps the later of the times it was given; past it, DemoteUnwanted gives it
+//     the priority asked for, forgets its time and returns it; a job never kept wanted is left
+//     (D234 §3). TestDemoteUnwanted_GivesTheJobsNoOneWaitsForAnyMoreTheirNewPriority.
 //   - A claim takes the highest priority whose time has come, then the earliest time, then the
 //     oldest, and only of its runner's kind.
 //     TestClaim_TakesTheHighestPriorityThenTheEarliestThenTheOldest.

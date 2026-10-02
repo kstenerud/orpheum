@@ -587,6 +587,14 @@ What the earlier 4d and 4e found still holds:
   background priority, in the core's queue and on the node, where it pauses nothing.
 - Closes S87, S88.
 
+*4d.4 built 2026-10-02:* a job a person asks for to play is wanted for `play_wanted_seconds` (600)
+from the last ask: a play's request, and each request a player makes for a rendition still being
+prepared (`KeepWanted`, `cache.db`'s `wanted_until`, version 25). Every 30 seconds the jobs past it
+fall to background priority (`DemoteUnwanted`), and the node holding one is told
+(`CommandReprioritize`), where it takes its place in line and pauses nothing more. Work a demoted
+job had already paused continues as room allows: nothing is preempted. Node protocol 13. *4d is
+built.*
+
 #### 4e — a scan is a listing the core compares
 
 - **4e.1 The listing.** The node lists under a path, within its roots, to a depth: each entry's raw

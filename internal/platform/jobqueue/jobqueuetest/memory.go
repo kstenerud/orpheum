@@ -111,6 +111,35 @@ func (memory *Memory[T]) Cancel(_ context.Context, id int64, cancelledAt time.Ti
 	return true, nil
 }
 
+// KeepWanted is jobqueue.Storage's.
+func (memory *Memory[T]) KeepWanted(_ context.Context, kind jobqueue.Kind, target T, until time.Time) error {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.Kind == kind && row.Target == target && isOpen(row.State) &&
+			(row.WantedUntil == nil || row.WantedUntil.Before(until)) {
+			row.WantedUntil = &until
+		}
+	}
+	return nil
+}
+
+// DemoteUnwanted is jobqueue.Storage's.
+func (memory *Memory[T]) DemoteUnwanted(_ context.Context, now time.Time, priority int64) ([]jobqueue.Row[T], error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	var demoted []jobqueue.Row[T]
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.WantedUntil != nil && row.WantedUntil.Before(now) && isOpen(row.State) {
+			row.Priority, row.WantedUntil = priority, nil
+			demoted = append(demoted, *row)
+		}
+	}
+	return demoted, nil
+}
+
 // Claim marks the next due job of the claim's kind that no parked destination holds running and
 // counts its attempt.
 func (memory *Memory[T]) Claim(_ context.Context, claim jobqueue.Claim) (jobqueue.Row[T], bool, error) {

@@ -120,6 +120,42 @@ func (jobStorage *JobStorage) Cancel(ctx context.Context, id int64, at time.Time
 	return cancelledCount > 0, nil
 }
 
+// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until.
+func (jobStorage *JobStorage) KeepWanted(
+	ctx context.Context, kind jobqueue.Kind, target JobTarget, until time.Time,
+) error {
+	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		columns := target.columns()
+		return queries.KeepJobWanted(ctx, cachegen.KeepJobWantedParams{
+			Until: until.UnixMilli(), Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition,
+			StreamID: columns.stream, FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
+		})
+	})
+}
+
+// DemoteUnwanted gives every open job whose wanted time is before now the priority, and returns
+// each, by its id and state.
+func (jobStorage *JobStorage) DemoteUnwanted(
+	ctx context.Context, now time.Time, priority int64,
+) ([]jobqueue.Row[JobTarget], error) {
+	var demoted []jobqueue.Row[JobTarget]
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		rows, err := queries.DemoteUnwantedJobs(ctx, cachegen.DemoteUnwantedJobsParams{
+			Priority: priority, Now: now.UnixMilli(),
+		})
+		if err != nil {
+			return fmt.Errorf("demote the jobs no one waits for: %w", err)
+		}
+		for _, row := range rows {
+			demoted = append(demoted, jobqueue.Row[JobTarget]{
+				ID: row.ID, State: jobqueue.State(row.State), Priority: priority,
+			})
+		}
+		return nil
+	})
+	return demoted, err
+}
+
 // Claim marks the next due job of the claim's kind running, counts its attempt, and returns it.
 func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (jobqueue.Row[JobTarget], bool, error) {
 	var claimed jobqueue.Row[JobTarget]
@@ -314,6 +350,9 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 	}
 	if row.AssignedUntil != nil {
 		converted.AssignedUntil = new(time.UnixMilli(*row.AssignedUntil))
+	}
+	if row.WantedUntil != nil {
+		converted.WantedUntil = new(time.UnixMilli(*row.WantedUntil))
 	}
 	return converted
 }

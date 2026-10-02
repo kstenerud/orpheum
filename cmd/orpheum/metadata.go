@@ -343,8 +343,45 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		services.queue.Sweeping(loopsContext, ticker.C)
 	})
+	loops.Go(func() {
+		ticker := time.NewTicker(demoteUnwantedEvery)
+		defer ticker.Stop()
+		demoteUnwanted(loopsContext, services.queue, services.exchanges, ticker.C, logger)
+	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
 	return func() { cancel(); loops.Wait() }, nil
+}
+
+// demoteUnwantedEvery is how often the jobs no person waits for any more are looked for: a bound
+// on how late, past its "wanted until", play-driven work falls to background priority.
+const demoteUnwantedEvery = 30 * time.Second
+
+// demoteUnwanted gives the jobs no person waits for any more background priority at each tick, and
+// tells the node holding each one given to it (D234 §3, S87), until ctx ends.
+func demoteUnwanted(
+	ctx context.Context, queue *jobs.Queue, exchanges *nodes.Exchanges, tick <-chan time.Time, logger *slog.Logger,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+		}
+		demoted, err := queue.DemoteUnwanted(ctx)
+		if err != nil {
+			logger.WarnContext(ctx, "could not demote the jobs no one waits for; trying again", "err", err)
+			continue
+		}
+		for _, job := range demoted {
+			if job.IsAssigned {
+				exchanges.Reprioritize(job.ID, jobs.PriorityBackground)
+			}
+		}
+		if len(demoted) > 0 {
+			logger.InfoContext(ctx, "jobs no one waits for any more fell to background priority",
+				"jobCount", len(demoted))
+		}
+	}
 }
 
 // nodeWordsOf has the job view say where the node holding each assigned job's work last said it is

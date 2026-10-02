@@ -23,6 +23,8 @@ type progressQueue struct {
 
 func (queue *progressQueue) Enqueue(context.Context, jobs.Request) (bool, error) { return true, nil }
 
+func (*progressQueue) KeepWanted(context.Context, jobs.Kind, jobs.Target) error { return nil }
+
 func (queue *progressQueue) SetProgress(_ context.Context, id int64, fraction float64) error {
 	queue.progress[id] = fraction
 	return nil

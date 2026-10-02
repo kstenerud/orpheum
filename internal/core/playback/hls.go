@@ -92,6 +92,13 @@ func (service *Service) HLSSourceOf(
 	case renditionFailed:
 		readiness = Failed
 	}
+	if readiness == Preparing {
+		// The player asking for it is a person still waiting for it (D234 §3).
+		err = service.queue.KeepWanted(ctx, jobs.KindPrepare, jobs.Target{RenditionID: rendition.ID})
+		if err != nil {
+			return HLSSource{}, err
+		}
+	}
 	target := nodeproto.PathBytesPrepared + strconv.FormatInt(playback.fileID, 10) + "/" +
 		string(playback.profile) + "/" + rendition.RunID + "/" + name
 	return HLSSource{

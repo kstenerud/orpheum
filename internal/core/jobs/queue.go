@@ -95,7 +95,10 @@ type Job struct {
 // (cut-a §5.3); one a person asked for, such as a refresh, comes before the queue's own work, and
 // looks at its destination at once if it is parked (D231 §6).
 const (
-	PriorityPlayNow        int64 = 1000
+	PriorityPlayNow int64 = 1000
+	// PriorityBackground is work no person waits for: a sweep's, and play-driven work past its
+	// "wanted until".
+	PriorityBackground     int64 = 0
 	PriorityPersonsRequest int64 = 20
 )
 
@@ -141,7 +144,9 @@ type QueueParts struct {
 // Queue is the one work queue in cache.db (schema.md, cache.db): internal/platform/jobqueue
 // over the job table, with Orpheum's kinds and targets.
 type Queue struct {
-	queue *jobqueue.Queue[Target]
+	queue    *jobqueue.Queue[Target]
+	clock    clock.Clock
+	settings Settings
 
 	nodeWordsMutex sync.Mutex
 	nodeWords      NodeWords // guarded by nodeWordsMutex: nil until set
@@ -156,12 +161,13 @@ func NewQueue(parts QueueParts) *Queue {
 
 // newQueue is the queue over storage: cache.db's job table, or a test's.
 func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
-	return &Queue{queue: jobqueue.New(storage, parts.Clock, jobqueue.Config{
+	queue := jobqueue.New(storage, parts.Clock, jobqueue.Config{
 		Policy: settingsPolicy{settings: parts.Settings}, Probes: settingsPolicy{settings: parts.Settings},
 		Random: parts.Random, Logger: parts.Logger, ArgsMerges: parts.ArgsMerges,
 		PersonsRequestPriority: PriorityPersonsRequest,
 		StorageDestination:     DestinationCoreStorage, IsStorageFailure: store.IsStorageFailure,
-	})}
+	})
+	return &Queue{clock: parts.Clock, settings: parts.Settings, queue: queue}
 }
 
 // Enqueue queues a job, or folds it into the one already open for its kind and target
@@ -177,7 +183,43 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("enqueue: %w", err)
 	}
+	if job.Priority >= PriorityPlayNow {
+		if err := queue.KeepWanted(ctx, job.Kind, job.Target); err != nil {
+			return false, err
+		}
+	}
 	return action == jobqueue.ActionInsert, nil
+}
+
+// KeepWanted says a person still waits for kind's open job on target: it keeps its play priority
+// for play_wanted_seconds more (D234 §3). A play asks again each time it looks for the work.
+func (queue *Queue) KeepWanted(ctx context.Context, kind Kind, target Target) error {
+	wanted, err := queue.settings.Duration(ctx, settings.PlayWantedSeconds)
+	if err != nil {
+		return fmt.Errorf("read play_wanted_seconds: %w", err)
+	}
+	return queue.queue.KeepWanted(ctx, kind, target, queue.clock.Now().Add(wanted))
+}
+
+// Demoted is a job no person waits for any more, fallen to background priority.
+type Demoted struct {
+	ID int64
+	// IsAssigned is a job given to a node, which is told its new priority.
+	IsAssigned bool
+}
+
+// DemoteUnwanted gives the open jobs no person waits for any more background priority (D234 §3,
+// S87), and returns them.
+func (queue *Queue) DemoteUnwanted(ctx context.Context) ([]Demoted, error) {
+	rows, err := queue.queue.DemoteUnwanted(ctx, PriorityBackground)
+	if err != nil {
+		return nil, err
+	}
+	demoted := make([]Demoted, 0, len(rows))
+	for _, row := range rows {
+		demoted = append(demoted, Demoted{ID: row.ID, IsAssigned: row.State == jobqueue.StateAssigned})
+	}
+	return demoted, nil
 }
 
 // RequeueRunning returns the jobs a stop left running to the queue: their output is a cache, so

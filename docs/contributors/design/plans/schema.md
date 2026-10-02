@@ -896,7 +896,9 @@ reference scale, and removes a failure mode.
 > §5, Phase 2); version 22 moved `subtitle_text` to `persistent.db` (the architecture map's F1, Phase 3);
 > version 23 gave a job the `assigned` state and `assigned_until`, a job whose work a node does with
 > no runner waiting for it (D234 §7, Phase 4.0); version 24 `node_attempt`, each job given to a node by
-> its attempt token, so its node's word resolves it after a restart too (Phase 4c).
+> its attempt token, so its node's word resolves it after a restart too (Phase 4c); version 25 a job's
+`wanted_until`, past which play-driven work no person waits for falls to background priority (D234
+§3, Phase 4d).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -936,6 +938,9 @@ CREATE TABLE job (                                         -- the one work queue
   -- When an assigned job's time runs out, after which it is its own failure; kept while its
   -- outcome is taken, and NULL once that is written.
   assigned_until INTEGER,
+  -- Until when a person waits for play-driven work (D234 section 3, D240 section 6): each play that
+  -- asks for it moves it on; past it, the job falls to background priority. NULL for other work.
+  wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
 );

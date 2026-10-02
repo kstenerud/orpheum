@@ -13,6 +13,10 @@ const (
 	// CommandCancel stops the attempt the command names (Command.AttemptToken) that the node is
 	// working on: its FFmpeg is stopped, and nothing more is reported for it (cut-a §5.3).
 	CommandCancel CommandType = "cancel"
+	// CommandReprioritize gives the attempt the command names its new priority, and says whether it is
+	// still play-driven (Command.Priority, Command.IsPlayDriven): work no person waits for any more
+	// falls to background priority, and pauses nothing more (D234 §3, D240 §6).
+	CommandReprioritize CommandType = "reprioritize"
 )
 
 // Command is one instruction from the core, delivered by the long-poll: an envelope, naming the job

@@ -56,6 +56,9 @@ type Nodes interface {
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 	SetProgress(ctx context.Context, id int64, fraction float64) error
+	// KeepWanted says a person still waits for a job's work: a player asking for a rendition being
+	// prepared (D234 §3).
+	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 }
 
 // Parts are what the playback service is built from.

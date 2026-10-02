@@ -15,6 +15,10 @@
 //     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain
 //     (internal/core/api).
 //
+//   - A player asking for a rendition still being prepared keeps its prepare wanted (D234 §3), so
+//     it falls to background priority only ten minutes after the player stops asking (S87).
+//     TestPrepare_APlayerAskingForTheRenditionKeepsItsPrepareWanted (internal/core/api).
+//
 //   - A prepare that waits, for its node or for room on it, has not begun its making: its rendition
 //     is recorded running only once the node is given it.
 //     TestHandle_APrepareThatWaitsHasNotBegunItsMaking.
