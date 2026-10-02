@@ -3,6 +3,7 @@
 package jobqueue
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -42,13 +43,30 @@ func ParkingOf(answer error) (Parking, bool) {
 // has run out, and that is its own failure.
 func Assign(until time.Time) error { return &assigned{until: until} }
 
+// AssignThen is Assign, with what to do once the job is recorded assigned: hand the work over, so the
+// machine's word, however soon it comes, finds the job assigned (Hand).
+func AssignThen(until time.Time, then func(ctx context.Context)) error {
+	return &assigned{until: until, then: then}
+}
+
+// Hand does what an AssignThen answer does once its job is recorded assigned; any other answer does
+// nothing. The runner calls it, and so does a test that runs a handler by itself.
+func Hand(ctx context.Context, answer error) {
+	if handOff, isAssigned := errors.AsType[*assigned](answer); isAssigned && handOff.then != nil {
+		handOff.then(ctx)
+	}
+}
+
 // IsAssigned is whether a handler's answer is Assign: its job given to another machine.
 func IsAssigned(answer error) bool {
 	var handOff *assigned
 	return errors.As(answer, &handOff)
 }
 
-type assigned struct{ until time.Time }
+type assigned struct {
+	until time.Time
+	then  func(ctx context.Context)
+}
 
 func (handOff *assigned) Error() string {
 	return "assigned to another machine until " + handOff.until.UTC().Format(time.RFC3339)

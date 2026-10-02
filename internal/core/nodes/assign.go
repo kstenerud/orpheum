@@ -62,13 +62,16 @@ func (all *Exchanges) Handle(kind jobs.Kind, assignee Assignee) {
 
 // Assign gives a job's work to a node, which says later how it ended, and is the handler's answer:
 // the job is assigned until then, or until assigned_job_limit_hours have passed (D234 §7). The work
-// is named to the node by an attempt token, kept with the job's id in cache.db before it is sent, so
-// the node's word resolves the job however soon it comes, and after a restart. A node that is not
-// connected parks the job, and nothing is sent.
+// is named to the node by an attempt token, kept with the job's id in cache.db, and sent once the
+// job is recorded assigned, so the node's word resolves the job however soon it comes, and after a
+// restart. A node that is not connected parks the job, and nothing is sent.
 func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, command nodeproto.Command) error {
 	limit, err := all.settings.Duration(ctx, settings.AssignedJobLimitHours)
 	if err != nil {
 		return fmt.Errorf("read assigned_job_limit_hours: %w", err)
+	}
+	if notReady := all.sender.Ready(ctx, nodeID); notReady != nil {
+		return notReady
 	}
 	token, err := all.newToken()
 	if err != nil {
@@ -82,10 +85,7 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
 	}
-	if err := all.sender.Send(ctx, nodeID, command); err != nil {
-		return errors.Join(err, all.forgetAttempt(context.WithoutCancel(ctx), token))
-	}
-	return jobs.Assign(now.Add(limit))
+	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
 }
 
 // echoOf is work as kept and as a node echoes it: without the bytes it carried.

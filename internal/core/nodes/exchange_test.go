@@ -34,6 +34,8 @@ type recordingSender struct {
 
 var errParked = errors.New("parked on the node")
 
+func (*recordingSender) Ready(context.Context, int64) error { return nil }
+
 func (sender *recordingSender) Send(_ context.Context, _ int64, command nodeproto.Command) error {
 	sender.sent <- command
 	return nil

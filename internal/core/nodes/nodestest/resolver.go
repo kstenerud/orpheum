@@ -60,12 +60,14 @@ func (resolver *Resolver) Start(t *testing.T, handler jobs.Handler, job jobs.Job
 	resolver.mutex.Unlock()
 	go func() {
 		err := handler(t.Context(), job)
-		if !jobqueue.IsAssigned(err) {
-			resolver.mutex.Lock()
-			delete(resolver.started, job.ID)
-			resolver.mutex.Unlock()
-			answer <- err
+		if jobqueue.IsAssigned(err) {
+			jobqueue.Hand(t.Context(), err) // as a runner does, once it recorded the job assigned
+			return
 		}
+		resolver.mutex.Lock()
+		delete(resolver.started, job.ID)
+		resolver.mutex.Unlock()
+		answer <- err
 	}()
 	return answer
 }

@@ -59,6 +59,10 @@ func (bench exchangeBench) assign(t *testing.T) nodeproto.Command {
 	if !jobqueue.IsAssigned(err) {
 		t.Fatalf("Assign answered %v, want the job assigned", err)
 	}
+	if len(bench.sender.sent) != 0 {
+		t.Fatal("the node was sent the work before its job was recorded assigned")
+	}
+	jobqueue.Hand(t.Context(), err) // as the runner does, once it recorded the job assigned
 	return testutil.Receive(t, bench.sender.sent, "the prepare command")
 }
 

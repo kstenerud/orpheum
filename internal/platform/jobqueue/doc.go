@@ -69,7 +69,9 @@
 //     its time is its own failure, retried or failed at its limit, and a late outcome is dropped.
 //     An assigned job counts as running for a request and a cancel, and a restart leaves it with
 //     its node (D234 §7). ResolveBy decides the outcome from the job as assigned, and a cancel is
-//     told to the queue's cancel hook (OnCancel), so the node can be told to stop.
+//     told to the queue's cancel hook (OnCancel), so the node can be told to stop. Work given with
+//     AssignThen is handed over only once its job is recorded assigned, so the node's word, however
+//     soon, finds it assigned. TestAssignThen_HandsTheWorkOverOnceTheJobIsRecordedAssigned,
 //     TestResolveBy_DecidesFromTheJobAndACancelIsHeardByTheHook,
 //     TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce,
 //     TestResolve_TakesTheNodesOutcomeAsAHandlersAnswer,

@@ -333,9 +333,13 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 		return runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
 	}
 	if handOff, isAssigned := errors.AsType[*assigned](answer); isAssigned {
-		return runner.record(ctx, Outcome{
+		err := runner.record(ctx, Outcome{
 			ID: job.ID, State: StateAssigned, At: handOff.until, AttemptCount: job.AttemptNumber,
 		})
+		if err == nil {
+			Hand(ctx, answer)
+		}
+		return err
 	}
 	given := job.AttemptNumber - 1 // the attempt's count, given back
 	if parking, isParked := ParkingOf(answer); isParked {
