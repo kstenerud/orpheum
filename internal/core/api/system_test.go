@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -240,5 +241,30 @@ func TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline(t *testing.T) {
 	if !slices.Equal(system.Body.Offline, want) {
 		t.Errorf("offline = %+v, want the disk since 3000 and the root since its first missing scan, 5000 (D41)",
 			system.Body.Offline)
+	}
+}
+
+// The API document names every connection a node can have, so a client can say each: needs_update
+// among them, a node on another version of the node protocol (D233 §9).
+func TestSystemNode_TheDocumentNamesEveryConnectionANodeCanHave(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	served := harness.do(t, http.MethodGet, "/openapi.json", "", nil)
+	var document struct {
+		Components struct {
+			Schemas map[string]documentedSchema `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal([]byte(served.body), &document); err != nil {
+		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
+	}
+	named := document.Components.Schemas["SystemNodeBody"].Properties["connection"].Enum
+	slices.Sort(named)
+	every := []string{
+		string(corenodes.AwaitingHello), string(corenodes.Connected), string(corenodes.NeedsUpdate),
+		string(corenodes.Silent),
+	}
+	if !slices.Equal(named, every) {
+		t.Errorf("the document names the connections %v, want every one a node can have: %v", named, every)
 	}
 }

@@ -175,6 +175,15 @@ def stop(proc: subprocess.Popen[str] | None) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
 
 
+# The roles the loop runs, each a process of its own as in deployment (D233 §2, D235 §4).
+ROLES = ("core", "node")
+
+
+def role_commands(binary: Path, config: Path) -> dict[str, list[str]]:
+    """The command that runs each role on the dev config: `orpheum core` and `orpheum node`."""
+    return {role: [str(binary), role, "--config", str(config)] for role in ROLES}
+
+
 def seed_if_empty() -> None:
     state = DEV / "state"
     if state.exists() and any(state.iterdir()):
@@ -228,8 +237,8 @@ def loop(with_web: bool, race: bool, listen: str | None) -> int:
                 reported.clear()
                 if build(race):
                     seed_if_empty()
-                    for role in ("core", "node"):
-                        running[role] = start([str(BINARY), role, "--config", str(CONFIG)], f"[{role}]", LOG)
+                    for role, command in role_commands(BINARY, CONFIG).items():
+                        running[role] = start(command, f"[{role}]", LOG)
                 rebuild = False
             for role, proc in running.items():
                 if proc.poll() is not None and role not in reported:
