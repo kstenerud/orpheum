@@ -58,29 +58,17 @@ type jobPrepareReport struct {
 	nodeproto.PrepareReport
 }
 
-// nextPrepareReport is the core's next report from a prepare.
-func nextPrepareReport(t *testing.T, core *fakeCore) jobPrepareReport {
-	t.Helper()
-	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
-	defer stop()
-	select {
-	case result := <-core.prepareReports:
-		return jobPrepareReport{JobID: result.JobID, AttemptToken: result.AttemptToken, PrepareReport: *result.Prepare}
-	case <-ctx.Done():
-		t.Fatal("no prepare report reached the core")
-	}
-	return jobPrepareReport{}
-}
-
-// finalPrepareReport is the core's last word from a prepare: done, failed or refused, past any waiting or running.
+// finalPrepareReport is the core's next word on how a prepare ended.
 func finalPrepareReport(t *testing.T, core *fakeCore) jobPrepareReport {
 	t.Helper()
-	for {
-		report := nextPrepareReport(t, core)
-		if report.State != nodeproto.PrepareRunning && report.State != nodeproto.PrepareWaiting {
-			return report
-		}
-	}
+	result := testutil.Receive(t, core.prepareReports, "how a prepare ended")
+	return jobPrepareReport{JobID: result.JobID, AttemptToken: result.AttemptToken, PrepareReport: *result.Prepare}
+}
+
+// nextProgress is the core's next word on where an attempt is.
+func nextProgress(t *testing.T, core *fakeCore) nodeproto.Progress {
+	t.Helper()
+	return testutil.Receive(t, core.progress, "a job's progress")
 }
 
 // preparableFilm writes film.mkv under root and returns it named by root, path and payload hash.
@@ -217,7 +205,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	core.commands <- commandFor(1, "3/remux/slow")
 	core.commands <- commandFor(2, "4/remux/slow")
 	for range 2 {
-		if started := nextPrepareReport(t, core); started.State != nodeproto.PrepareRunning {
+		if started := nextProgress(t, core); started.State != nodeproto.ProgressRunning {
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
@@ -244,15 +232,15 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	}
 	// One encode slot: the first encode runs, the second waits for it.
 	core.commands <- encode(1, "3/h264-8m/slow")
-	if first := nextPrepareReport(t, core); first.JobID != 1 || first.State != nodeproto.PrepareRunning {
+	if first := nextProgress(t, core); first.JobID != 1 || first.State != nodeproto.ProgressRunning {
 		t.Fatalf("the first encode's report = %+v, want running", first)
 	}
 	core.commands <- encode(2, "4/h264-8m/0123456789abcdef")
-	if waiting := nextPrepareReport(t, core); waiting.JobID != 2 || waiting.State != nodeproto.PrepareWaiting {
+	if waiting := nextProgress(t, core); waiting.JobID != 2 || waiting.State != nodeproto.ProgressWaiting {
 		t.Fatalf("the second encode's report = %+v, want waiting, at once", waiting)
 	}
 	tick <- time.Time{}
-	if again := nextPrepareReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
+	if again := nextProgress(t, core); again.JobID != 2 || again.State != nodeproto.ProgressWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1}
@@ -326,8 +314,8 @@ func TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt(t *testing.T) {
 	core.commands <- attemptAt(2, 1, "new", "3/remux/slow")
 	started := map[string]bool{}
 	for range 2 {
-		report := nextPrepareReport(t, core)
-		if report.JobID != 1 || report.State != nodeproto.PrepareRunning {
+		report := nextProgress(t, core)
+		if report.JobID != 1 || report.State != nodeproto.ProgressRunning {
 			t.Fatalf("a slow attempt's first report = %+v, want job 1 running", report)
 		}
 		started[report.AttemptToken] = true

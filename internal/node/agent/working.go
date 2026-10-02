@@ -51,8 +51,8 @@ type heldWork struct {
 	attempt
 	priority int64
 	slot     slotKind
-	// saysWaiting is a prepare, which tells the core while it waits for a slot (sayWaiting).
-	saysWaiting bool
+	// saysHowFar is a prepare, which says how far it is while it runs, as FFmpeg moves on.
+	saysHowFar bool
 	// run does the work to its end and says how it ended to the core, on a context a cancel ends.
 	run func(ctx context.Context)
 
@@ -154,17 +154,23 @@ func (list *workList) cancel(token string) bool {
 	return true
 }
 
-// waitingPrepares are the prepares waiting for a slot, in no order.
-func (list *workList) waitingPrepares() []attempt {
+// heldState is where an attempt the node holds is.
+type heldState struct {
+	attempt
+	isRunning, saysHowFar bool
+}
+
+// states are where the attempts the node holds are, in no order.
+func (list *workList) states() []heldState {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
-	var waiting []attempt
+	states := make([]heldState, 0, len(list.held))
 	for _, work := range list.held {
-		if work.saysWaiting && !work.isRunning() {
-			waiting = append(waiting, work.attempt)
-		}
+		states = append(states, heldState{
+			attempt: work.attempt, isRunning: work.isRunning(), saysHowFar: work.saysHowFar,
+		})
 	}
-	return waiting
+	return states
 }
 
 // find is the held attempt of a token, or nil. The caller holds the mutex.

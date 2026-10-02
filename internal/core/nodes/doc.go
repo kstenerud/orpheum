@@ -20,10 +20,14 @@
 //   - A node silent for node_silent_after_seconds is reported as silent; restarting a node that
 //     hangs or exits is its service manager's (D234 §4).
 //     TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
-//   - A node's word on a job, bounded, is one Result posted to one path, whichever the work: it
-//     goes to the result sink (Exchanges) and nowhere else, and one from a node that has not said
-//     hello is refused. An artwork result is the artwork store's one way in (D212 §8).
-//     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly.
+//   - A node's word on how a job ended, bounded, is one Result posted to one path, whichever the
+//     work: it goes to the result sink (Exchanges) and nowhere else, and one from a node that has
+//     not said hello is refused. An artwork result is the artwork store's one way in (D212 §8).
+//     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly. Its word on where a job is, its
+//     progress, has a path of its own, best effort: it starts the job's silence again and reaches the
+//     job's OnProgress, its own attempt's only (D234 §5).
+//     TestProgress_ReachesTheResultSinkFromAKnownNodeOnly,
+//     TestExchange_ProgressKeepsTheWaitAliveAndOnlyItsOwnReachesTheJob.
 //   - A job asks a node for work through Exchanges, the one way it is done: the command sent,
 //     named by an attempt token made for that sending, the node's results handed to the job by
 //     that token and only from the node it asked, never by the job's id alone, which an earlier

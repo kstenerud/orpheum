@@ -178,9 +178,9 @@ func (all *prepares) newRunID() (string, error) {
 // (Phase 5) replace this cap.
 const maxSlotWait = 6 * time.Hour
 
-// handle runs one prepare job: it commands the node and waits for its reports, recording each,
-// until the node says the rendition is done, failed or stalled, says nothing for too long, or
-// has held it waiting for a slot for too long.
+// handle runs one prepare job: it commands the node and waits, recording the node's progress,
+// until the node says how the prepare ended, says nothing for too long, or has held it waiting for
+// a slot for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
 	exchange, err := all.exchanges.Ask(ctx, nodeID, job,
@@ -189,83 +189,87 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
 	defer exchange.Close()
-	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
-		return err
+	if recordErr := all.recordRunning(ctx, job.RenditionID, 0); recordErr != nil {
+		return recordErr
 	}
 	languages := audioLanguagesOf(command.AudioTracks)
-	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
-		return err
+	if recordErr := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); recordErr != nil {
+		return recordErr
 	}
 	var waitingSince time.Time
-	for {
-		result, err := exchange.Next(ctx, all.maxSilence)
-		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-			return all.abandon(ctx, job)
-		}
-		if err != nil {
-			return unansweredOutcome(job, err, func(failure string) error {
-				return all.finish(ctx, job.RenditionID, nil, failure)
-			})
-		}
-		if result.Prepare == nil {
-			return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",
-				nodeID, command.RenditionDir)
-		}
-		if result.Prepare.State.IsEnd() {
-			exchange.MarkEndedByNode()
-		}
-		isOver, err := all.takeReport(ctx, job, order, *result.Prepare, &waitingSince)
-		if isOver {
-			return err
-		}
+	exchange.OnProgress = func(progress nodeproto.Progress) error {
+		return all.takeProgress(ctx, job, order, progress, &waitingSince)
 	}
+	result, err := exchange.Next(ctx, all.maxSilence)
+	if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+		return all.abandon(ctx, job)
+	}
+	if err != nil {
+		return unansweredOutcome(job, err, func(failure string) error {
+			return all.finish(ctx, job.RenditionID, nil, failure)
+		})
+	}
+	if result.Prepare == nil {
+		return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",
+			nodeID, command.RenditionDir)
+	}
+	return all.takeEnd(ctx, job, order, *result.Prepare)
 }
 
-// takeReport takes one of the node's reports on a prepare, and says whether the job is over and how it
-// ended. The node first said it holds the prepare waiting for a slot at waitingSince.
-func (all *prepares) takeReport(
-	ctx context.Context, job jobs.Job, order prepareOrder, report nodeproto.PrepareReport, waitingSince *time.Time,
-) (isOver bool, err error) {
-	nodeID, renditionDir := order.nodeID, order.command.RenditionDir
-	switch report.State {
-	case nodeproto.PrepareWaiting:
-		// The node holds it, waiting for a slot of its kind: a word about the node, which keeps
-		// the job from being given up for silence, until it has waited too long in all.
+// takeProgress takes the node's word on where a prepare is. Waiting for a slot of its kind is a
+// word about the node, which keeps the job from being given up for silence, until the node has
+// held it waiting since waitingSince for too long in all; then the job gives up, and the
+// exchange's close tells the node to stop it.
+func (all *prepares) takeProgress(
+	ctx context.Context, job jobs.Job, order prepareOrder, progress nodeproto.Progress, waitingSince *time.Time,
+) error {
+	switch progress.State {
+	case nodeproto.ProgressWaiting:
 		if waitingSince.IsZero() {
 			*waitingSince = all.clock.Now()
 		}
 		if waited := all.clock.Now().Sub(*waitingSince); waited >= all.maxSlotWait {
-			// The exchange's close tells the node to stop it.
-			return true, fmt.Errorf("node %d held prepare %s waiting for a slot for %s", nodeID, renditionDir, waited)
+			return fmt.Errorf("node %d held prepare %s waiting for a slot for %s", order.nodeID,
+				order.command.RenditionDir, waited)
 		}
-		return false, nil
-	case nodeproto.PrepareRunning:
-		err = all.recordProgress(ctx, job, report.PreparedThroughMs, order.durationMs)
-		return err != nil, err
+		return nil
+	case nodeproto.ProgressRunning:
+		return all.recordProgress(ctx, job, progress.PreparedThroughMs, order.durationMs)
+	}
+	return nil
+}
+
+// takeEnd takes the node's word on how a prepare ended, and says how the job ended.
+func (all *prepares) takeEnd(
+	ctx context.Context, job jobs.Job, order prepareOrder, report nodeproto.PrepareReport,
+) error {
+	nodeID, renditionDir := order.nodeID, order.command.RenditionDir
+	switch report.State {
 	case nodeproto.PrepareDone:
-		return true, all.finish(ctx, job.RenditionID, &report, "")
+		return all.finish(ctx, job.RenditionID, &report, "")
 	case nodeproto.PrepareFailed:
 		// FFmpeg failing on a file fails again on it: this is not retried.
 		failure := errors.New(report.Failure)
-		return true, jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
+		return jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
 	case nodeproto.PrepareStalled:
-		return true, stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
+		return stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
 			func(failure string) error { return all.finish(ctx, job.RenditionID, nil, failure) })
 	case nodeproto.PrepareRefused:
 		refused := fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
 			// Its prepared directory's disk is full: the node's prepares wait until its status
 			// shows room (D231 §5).
-			return true, jobs.Park(jobs.Parking{
+			return jobs.Park(jobs.Parking{
 				Destination: jobs.PreparedDirectoryDestination(nodeID), Reason: "its disk has no room",
 				AwaitsSignal: true,
 			}, refused)
 		}
 		// Any other refusal says nothing of the source's bytes (a file changed since the scan):
 		// the job is tried again, as when the node says nothing.
-		return true, refused
+		return refused
 	}
-	return false, nil
+	return fmt.Errorf("node %d ended prepare %s in a state this core does not know: %q", nodeID, renditionDir,
+		report.State)
 }
 
 // recordProgress records how far a running prepare is, on its rendition and, when the source's length

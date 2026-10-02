@@ -3,12 +3,9 @@
 package agent
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
@@ -26,9 +23,6 @@ type Preparer interface {
 	) (prepare.Made, error)
 }
 
-// progressEvery is how often a running prepare tells the core how far it is.
-const progressEvery = 2 * time.Second
-
 // slotForProfile is the slot a prepare runs in: a remux's, or an encode's.
 func slotForProfile(profile nodeproto.PrepareProfile) slotKind {
 	if profile == nodeproto.ProfileRemux {
@@ -42,7 +36,7 @@ func slotForProfile(profile nodeproto.PrepareProfile) slotKind {
 // (D100).
 func (agent *Agent) prepareWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Prepare) heldWork {
 	jobID := held.jobID
-	return heldWork{slot: slotForProfile(command.Profile), saysWaiting: true, run: func(jobCtx context.Context) {
+	return heldWork{slot: slotForProfile(command.Profile), saysHowFar: true, run: func(jobCtx context.Context) {
 		outcome := agent.runPrepare(jobCtx, nodeID, held, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", jobID)
@@ -58,7 +52,7 @@ func (agent *Agent) prepareWork(ctx context.Context, nodeID int64, held attempt,
 		case nodeproto.PrepareStalled:
 			agent.logger.WarnContext(ctx, "a prepare stalled and was stopped",
 				"jobId", jobID, "renditionDir", command.RenditionDir, "stall", outcome.Stall.Detail)
-		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
+		case nodeproto.PrepareDone:
 		}
 		agent.postResult(ctx, nodeID, "a prepare", held.named(nodeproto.Result{Prepare: &outcome}))
 		agent.evict(ctx)
@@ -72,14 +66,6 @@ func (agent *Agent) evict(ctx context.Context) {
 	}
 	if _, err := agent.workers.PreparedShelf.Evict(); err != nil {
 		agent.logger.WarnContext(ctx, "could not keep the prepared directory within its budget", "err", err)
-	}
-}
-
-// sayWaiting tells the core a prepare is waiting for a slot.
-func (agent *Agent) sayWaiting(ctx context.Context, nodeID int64, held attempt) {
-	waiting := nodeproto.PrepareReport{State: nodeproto.PrepareWaiting}
-	if err := agent.sendPrepareReport(ctx, nodeID, held, waiting); err != nil && ctx.Err() == nil {
-		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "jobId", held.jobID, "err", err)
 	}
 }
 
@@ -100,15 +86,11 @@ func (agent *Agent) runPrepare(
 	}
 	var lastProgressSentAt time.Time
 	onProgress := func(preparedThroughMs int64) {
-		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= progressEvery {
+		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= agent.workers.ProgressEvery {
 			lastProgressSentAt = now
-			running := nodeproto.PrepareReport{
-				State: nodeproto.PrepareRunning, PreparedThroughMs: preparedThroughMs,
-			}
-			if sendErr := agent.sendPrepareReport(ctx, nodeID, held, running); sendErr != nil && ctx.Err() == nil {
-				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
-					"jobId", held.jobID, "err", sendErr)
-			}
+			running := held.progress(nodeproto.ProgressRunning)
+			running.PreparedThroughMs = preparedThroughMs
+			agent.sayProgress(ctx, nodeID, running)
 		}
 	}
 	made, err := agent.workers.Preparer.Prepare(ctx, sourcePath, command, onProgress)
@@ -148,17 +130,4 @@ func (agent *Agent) openNamed(named nodeproto.BytesFile) (*os.File, error) {
 		return nil, fmt.Errorf("open the file named: %w", err)
 	}
 	return file, nil
-}
-
-// sendPrepareReport posts a prepare's progress, or that it waits for a slot, once: the newest
-// supersedes it, so a lost one is not tried again.
-func (agent *Agent) sendPrepareReport(
-	ctx context.Context, nodeID int64, held attempt, report nodeproto.PrepareReport,
-) error {
-	encoded, err := json.Marshal(held.named(nodeproto.Result{Prepare: &report}))
-	if err != nil {
-		return fmt.Errorf("encode a prepare report: %w", err)
-	}
-	var accepted struct{}
-	return agent.exchange(ctx, http.MethodPost, nodeproto.PathResult, nodeID, bytes.NewReader(encoded), &accepted)
 }

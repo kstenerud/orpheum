@@ -39,12 +39,14 @@ type fakeCore struct {
 	// The node's results, each on its kind's channel: a Result carrying its job id and one payload.
 	artwork        chan nodeproto.Result
 	prepareReports chan nodeproto.Result
-	subtitles      chan nodeproto.Result
-	loudness       chan nodeproto.Result
-	refusals       chan nodeproto.Result
-	reportsToDrop  int                // the first reports it ends at once, as a core that went away would
-	postsToRefuse  map[resultKind]int // by kind, the first results it refuses, as a busy core would
-	stopped        chan struct{}      // closed at teardown: a handler stops handing on what it heard
+	// progress is the node's words on where its attempts are, dropped when the test reads none.
+	progress      chan nodeproto.Progress
+	subtitles     chan nodeproto.Result
+	loudness      chan nodeproto.Result
+	refusals      chan nodeproto.Result
+	reportsToDrop int                // the first reports it ends at once, as a core that went away would
+	postsToRefuse map[resultKind]int // by kind, the first results it refuses, as a busy core would
+	stopped       chan struct{}      // closed at teardown: a handler stops handing on what it heard
 	// endSession, sent on, ends the session it reaches: the open long-poll answers 503, as a core
 	// that went away does.
 	endSession chan struct{}
@@ -87,6 +89,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
+		progress:  make(chan nodeproto.Progress, 64),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4),
 		stopped:  make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
@@ -134,6 +137,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	})
 	mux.HandleFunc("POST "+nodeproto.PathReport, core.receiveReport(t))
 	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
+	mux.HandleFunc("POST "+nodeproto.PathProgress, core.receiveProgress(t))
 	socket := core.serve(t, mux)
 	return core, socket
 }
@@ -262,6 +266,26 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		}[kind]
 		if !handOn(core, into, result) {
 			return
+		}
+		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
+	}
+}
+
+// receiveProgress hands the test the node's words on where its attempts are, dropping one the test
+// has no room for: progress is best effort, as the core's is.
+func (core *fakeCore) receiveProgress(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var progress nodeproto.Progress
+		if err := json.NewDecoder(request.Body).Decode(&progress); err != nil {
+			if isMalformed(err) {
+				t.Error(err)
+			}
+			return
+		}
+		select {
+		case core.progress <- progress:
+		default:
 		}
 		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
@@ -488,7 +512,7 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer,
 	})
 	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
-	if running := nextPrepareReport(t, core); running.State != nodeproto.PrepareRunning {
+	if running := nextProgress(t, core); running.State != nodeproto.ProgressRunning {
 		t.Fatalf("the prepare's first report = %+v, want running", running)
 	}
 	core.refuseFirstPosts(artworkResult, 1)

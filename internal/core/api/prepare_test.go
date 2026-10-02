@@ -91,8 +91,9 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 		sent.Video.PayloadHash != "0c0d" || len(sent.AudioTracks) != 1 || sent.AudioTracks[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
-	running := nodeproto.PrepareReport{State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
-	harness.answerPrepare(t, 77, running)
+	harness.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+		JobID: 77, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning, PreparedThroughMs: 4000,
+	})
 	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 1234}
 	harness.answerPrepare(t, 77, done)
 	if err := testutil.Receive(t, finished, "the prepare job to end"); err != nil {

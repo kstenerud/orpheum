@@ -302,7 +302,6 @@ func (service *Service) reEncode(
 		return nodeproto.ArtworkResult{}, fmt.Errorf("node %d answered re-encoding an image with something else",
 			nodeID)
 	}
-	exchange.MarkEndedByNode()
 	return *result.Artwork, nil
 }
 

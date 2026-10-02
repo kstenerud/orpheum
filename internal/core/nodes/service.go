@@ -38,6 +38,8 @@ type Sink interface {
 // (D212 §8).
 type ResultSink interface {
 	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result)
+	// DeliverProgress hands a node's word on where an attempt is to the job waiting for it.
+	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
 	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.
 	Interrupt(ctx context.Context, nodeID int64)
 }
@@ -106,6 +108,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+nodeproto.PathReport, service.serveReport)
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
 	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
+	mux.HandleFunc("POST "+nodeproto.PathProgress, service.takeProgress)
 	return mux
 }
 

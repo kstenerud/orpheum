@@ -141,7 +141,7 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
-		all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
+		all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
 		select {
 		case err := <-ended:
 			if err == nil || !strings.Contains(err.Error(), "waiting for a slot") ||
