@@ -28,11 +28,16 @@ import (
 type recordingSender struct {
 	sent   chan nodeproto.Command
 	isGone bool
+	// isQueued is a node that has not taken the work it was sent, which a stop withdraws.
+	isQueued bool
 }
 
 var errParked = errors.New("parked on the node")
 
 func (*recordingSender) Ready(context.Context, int64) error { return nil }
+
+// Withdraw says the work is still queued when the test made it so: the node has not taken it.
+func (sender *recordingSender) Withdraw(int64, string) bool { return sender.isQueued }
 
 func (sender *recordingSender) Send(_ context.Context, _ int64, command nodeproto.Command) error {
 	sender.sent <- command
@@ -345,4 +350,16 @@ func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
 	if !errors.Is(malformed, nodes.ErrMalformedResult) {
 		t.Errorf("a result naming no work: %v, want ErrMalformedResult", malformed)
 	}
+}
+
+// A job cancelled before its node took its command has the command withdrawn, and nothing sent to
+// stop work the node never had (S27).
+func TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), make(chan nodes.Attempt, 1)))
+	bench.assign(t)
+	bench.sender.isQueued = true
+	bench.exchanges.Cancelled(t.Context(), 7)
+	bench.wantNothingSent(t, "the node never took the work, which was withdrawn")
 }

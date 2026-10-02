@@ -223,8 +223,12 @@ func (all *Exchanges) takeProgress(ctx context.Context, nodeID int64, progress n
 	return true
 }
 
-// stop tells an attempt's node to stop its work.
+// stop tells an attempt's node to stop its work, or, when the node has not taken it yet, withdraws
+// it, so it is never sent (S27).
 func (all *Exchanges) stop(_ context.Context, attempt Attempt) {
+	if all.sender.Withdraw(attempt.NodeID, attempt.Token) {
+		return
+	}
 	all.sender.Enqueue(attempt.NodeID, CancelCommand(attempt.JobID, attempt.Token))
 }
 

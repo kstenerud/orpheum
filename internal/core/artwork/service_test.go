@@ -78,6 +78,9 @@ func (node *fakeNode) Ready(_ context.Context, nodeID int64) error {
 	return nil
 }
 
+// Withdraw withdraws nothing: the fake node takes each command at once.
+func (*fakeNode) Withdraw(int64, string) bool { return false }
+
 func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {

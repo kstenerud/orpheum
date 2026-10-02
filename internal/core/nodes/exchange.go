@@ -27,6 +27,9 @@ type Sender interface {
 	Ready(ctx context.Context, nodeID int64) error
 	// Enqueue queues a command as it is: a cancel.
 	Enqueue(nodeID int64, command nodeproto.Command)
+	// Withdraw takes an attempt's commands the node has not taken out of its queue, and says whether
+	// its work was among them: then the node never had it (S27).
+	Withdraw(nodeID int64, token string) bool
 	// Unanswered parks a job whose node went away while it waited, and is err otherwise.
 	Unanswered(ctx context.Context, nodeID int64, err error) error
 }

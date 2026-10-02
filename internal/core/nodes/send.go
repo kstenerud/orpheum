@@ -4,6 +4,7 @@ package nodes
 
 import (
 	"context"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -46,6 +47,27 @@ func (service *Service) Unanswered(ctx context.Context, nodeID int64, err error)
 		return jobs.ParkOnNode(nodeID, lastHeard, err)
 	}
 	return err
+}
+
+// Withdraw takes an attempt's commands a node has not taken, its work and its cancel, out of the
+// node's queue, so the commands of a job that ended are never sent (S27). It says whether the work
+// was among them: the node never had it, and has nothing to stop.
+func (service *Service) Withdraw(nodeID int64, token string) bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.connectedNodes[nodeID]
+	if !found {
+		return false
+	}
+	wasWorkQueued := false
+	node.commands = slices.DeleteFunc(node.commands, func(command nodeproto.Command) bool {
+		isTheAttempts := command.AttemptToken == token
+		if isTheAttempts && command.Type != nodeproto.CommandCancel {
+			wasWorkQueued = true
+		}
+		return isTheAttempts
+	})
+	return wasWorkQueued
 }
 
 // Enqueue queues a command for a node that has said hello, numbering it, and wakes a waiting

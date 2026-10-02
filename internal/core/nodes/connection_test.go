@@ -249,3 +249,26 @@ func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *test
 			sink.squared)
 	}
 }
+
+// An attempt's commands the node has not taken are withdrawn when its job ends, its work and its
+// cancel, and never sent (S27); withdrawing says whether the work was still queued.
+func TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	work := func(token string) nodeproto.Command {
+		return nodeproto.Command{JobID: 7, AttemptToken: token, Work: nodeproto.Work{Type: nodeproto.CommandPrepare}}
+	}
+	harness.service.Enqueue(reply.NodeID, work("ended"))
+	harness.service.Enqueue(reply.NodeID, work("kept"))
+	if !harness.service.Withdraw(reply.NodeID, "ended") {
+		t.Error("withdrawing an attempt whose work was queued said it was not")
+	}
+	if harness.service.Withdraw(reply.NodeID, "never sent") {
+		t.Error("withdrawing an attempt with nothing queued said its work was")
+	}
+	commands, _ := harness.pollThroughHold(t, reply.NodeID, 0)
+	if len(commands.Commands) != 1 || commands.Commands[0].AttemptToken != "kept" {
+		t.Errorf("the node took %+v, want only the attempt that did not end", commands.Commands)
+	}
+}
