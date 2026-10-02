@@ -123,13 +123,23 @@ func TestUnanswered_ParksOnANodeThatWentAwayAndIsTheJobsOwnFailureOtherwise(t *t
 	}
 }
 
+// A hello brings back the work parked on the node and on any node (D231 §6: a node's hello is its
+// probe), and the work waiting for room on its slots and devices, of which it may say more than
+// before (D240 §5).
 func TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	want := []jobs.Destination{jobs.NodeDestination(reply.NodeID), jobs.DestinationAnyNode}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: nodeproto.Devices{{Key: "zfs:tank"}}})
+	node := reply.NodeID
+	want := []jobs.Destination{
+		jobs.NodeDestination(node), jobs.DestinationAnyNode,
+		jobs.SlotDestination(node, "encode"), jobs.SlotDestination(node, "remux"),
+		jobs.SlotDestination(node, "extract"), jobs.SlotDestination(node, "measure"),
+		jobs.SlotDestination(node, "artwork"),
+		jobs.ReaderDestination(node, "zfs:tank"),
+	}
 	if unparked := harness.destinations.all(); !slices.Equal(unparked, want) {
-		t.Errorf("a hello unparked %q, want %q (D231 §6: a node's hello is its probe)", unparked, want)
+		t.Errorf("a hello unparked %q, want %q", unparked, want)
 	}
 }
 
@@ -348,5 +358,38 @@ func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T
 	if status != http.StatusOK || commands.DeviceReaderLimits["zfs:tank"] != 2 {
 		t.Errorf("the poll answered %d with limits %v; want zfs:tank's raised to 2", status,
 			commands.DeviceReaderLimits)
+	}
+}
+
+// What a node's machine can do is its config's, said in its hello: the core knows each node's slots
+// as its last hello said, which it holds the node's work to (D240 §5), and how fast each reads.
+func TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	local := harness.hello(t, nodeproto.Hello{Name: "local", Capacity: nodeproto.Capacity{
+		EncodeSlotCount: 1, RemuxSlotCount: 2, SlowestReadBytesPerSecond: 20 << 20,
+	}})
+	attic := harness.hello(t, nodeproto.Hello{Name: "attic", Capacity: nodeproto.Capacity{
+		EncodeSlotCount: 2, RemuxSlotCount: 4, SlowestReadBytesPerSecond: 5 << 20,
+	}})
+	harness.hello(t, nodeproto.Hello{Name: "local", Capacity: nodeproto.Capacity{
+		EncodeSlotCount: 1, RemuxSlotCount: 3, SlowestReadBytesPerSecond: 40 << 20,
+	}})
+	for _, node := range []struct {
+		id               int64
+		encodes, remuxes int
+	}{{local.NodeID, 1, 3}, {attic.NodeID, 2, 4}} {
+		resources, isConnected, err := harness.service.Resources(t.Context(), node.id)
+		if err != nil || !isConnected || resources.Capacity.EncodeSlotCount != node.encodes ||
+			resources.Capacity.RemuxSlotCount != node.remuxes {
+			t.Errorf("node %d's resources are %+v (%v, %v), want %d encodes and %d remuxes, as its last hello said",
+				node.id, resources, isConnected, err, node.encodes, node.remuxes)
+		}
+	}
+	if rate := harness.service.SlowestReadBytesPerSecond(local.NodeID); rate != 40<<20 {
+		t.Errorf("local reads at %d bytes a second, want its last hello's 40 MiB", rate)
+	}
+	if rate := harness.service.SlowestReadBytesPerSecond(99); rate != 0 {
+		t.Errorf("a node that has not said hello reads at %d, want 0: not known", rate)
 	}
 }

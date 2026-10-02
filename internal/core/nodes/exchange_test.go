@@ -8,7 +8,9 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,6 +32,15 @@ type recordingSender struct {
 	isGone bool
 	// isQueued is a node that has not taken the work it was sent, which a stop withdraws.
 	isQueued bool
+	// resources are what the node can run at once; nil is a node whose resources are not known.
+	resources *nodes.Resources
+}
+
+func (sender *recordingSender) Resources(context.Context, int64) (nodes.Resources, bool, error) {
+	if sender.resources == nil {
+		return nodes.Resources{}, false, nil
+	}
+	return *sender.resources, true, nil
 }
 
 var errParked = errors.New("parked on the node")
@@ -60,6 +71,26 @@ type exchangeBench struct {
 	sender    *recordingSender
 	now       *clocktest.Fake
 	logged    *bytes.Buffer
+	// unparked are the destinations the exchanges brought back, in order.
+	unparked *unparkedDestinations
+}
+
+// unparkedDestinations records each destination brought back.
+type unparkedDestinations struct {
+	mutex sync.Mutex
+	all   []jobs.Destination
+}
+
+func (unparked *unparkedDestinations) Unpark(_ context.Context, destination jobs.Destination) {
+	unparked.mutex.Lock()
+	defer unparked.mutex.Unlock()
+	unparked.all = append(unparked.all, destination)
+}
+
+func (unparked *unparkedDestinations) list() []jobs.Destination {
+	unparked.mutex.Lock()
+	defer unparked.mutex.Unlock()
+	return slices.Clone(unparked.all)
 }
 
 func newExchanges(t *testing.T) exchangeBench {
@@ -67,14 +98,14 @@ func newExchanges(t *testing.T) exchangeBench {
 	bench := exchangeBench{
 		sender: &recordingSender{sent: make(chan nodeproto.Command, 4)},
 		now:    clocktest.NewFake(time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)),
-		logged: &bytes.Buffer{},
+		logged: &bytes.Buffer{}, unparked: &unparkedDestinations{},
 	}
 	logger := slog.New(slog.NewJSONHandler(bench.logged, nil))
 	database := storetest.OpenMigrated(t)
 	bench.cache = storetest.OpenCache(t)
 	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
 		Sender: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger, Cache: bench.cache,
-		Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
+		Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute, Destinations: bench.unparked,
 	})
 	return bench
 }

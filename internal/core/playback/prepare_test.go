@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -57,11 +58,15 @@ func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 }
 
 // fakeNodes is a node that takes commands and does nothing with them.
-type fakeNodes struct{ sent chan nodeproto.Command }
+type fakeNodes struct {
+	sent chan nodeproto.Command
+	// notReady is what Ready answers: nil for a node work can be sent to, a parking for one away.
+	notReady error
+}
 
 func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
-func (fakeNodes) Ready(context.Context, int64) error { return nil }
+func (node fakeNodes) Ready(context.Context, int64) error { return node.notReady }
 
 func (fakeNodes) Withdraw(int64, string) bool { return false }
 
@@ -73,6 +78,10 @@ func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Co
 func (fakeNodes) IsConnected(context.Context, int64) bool { return true }
 
 func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
+
+func (fakeNodes) Resources(context.Context, int64) (nodes.Resources, bool, error) {
+	return nodes.Resources{}, false, nil
+}
 
 func (fakeNodes) SlowestReadBytesPerSecond(int64) int64 { return 20 << 20 }
 

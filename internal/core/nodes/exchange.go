@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path"
 	"sync"
 	"time"
 
@@ -32,6 +33,34 @@ type Sender interface {
 	Withdraw(nodeID int64, token string) bool
 	// Unanswered parks a job whose node went away while it waited, and is err otherwise.
 	Unanswered(ctx context.Context, nodeID int64, err error) error
+	// Resources are what a connected node can run at once, and false for one not connected.
+	Resources(ctx context.Context, nodeID int64) (Resources, bool, error)
+}
+
+// Resources are what a node can run at once (D240 §5): its slots, the devices its roots are on, and
+// how many may read each.
+type Resources struct {
+	Capacity     nodeproto.Capacity
+	Devices      nodeproto.Devices
+	ReaderLimits map[string]int
+}
+
+// readerLimit is how many may read a device at once: one for a device the core named no limit for.
+func (resources Resources) readerLimit(device string) int {
+	if limit, isNamed := resources.ReaderLimits[device]; isNamed {
+		return limit
+	}
+	return 1
+}
+
+// deviceOf is the key of the device a piece of work reads, or "" for work that reads none of the
+// node's media, or a node whose devices are not known.
+func (resources Resources) deviceOf(work nodeproto.Work) string {
+	file, isMedia := work.MediaFile()
+	if !isMedia {
+		return ""
+	}
+	return resources.Devices.KeyOf(path.Join(file.RootPath, string(file.Path)))
 }
 
 // Exchanges are the core's one way to give a node work and take its word on it (cut-a §5.3, D234
@@ -40,13 +69,14 @@ type Sender interface {
 // the core's clock, and the node told to stop on every way out that leaves it working
 // (audit-2026-09-30 §3).
 type Exchanges struct {
-	sender     Sender
-	clock      clock.Clock
-	random     io.Reader
-	logger     *slog.Logger
-	cache      *store.Cache
-	settings   Settings
-	maxSilence time.Duration
+	sender       Sender
+	destinations Destinations
+	clock        clock.Clock
+	random       io.Reader
+	logger       *slog.Logger
+	cache        *store.Cache
+	settings     Settings
+	maxSilence   time.Duration
 
 	mutex     sync.Mutex
 	recorders map[nodeproto.CommandType]Recorder // guarded by mutex
@@ -70,6 +100,9 @@ type ExchangeParts struct {
 	Settings Settings
 	// MaxSilence is how long an assigned job's node may say nothing of it before it is unanswered.
 	MaxSilence time.Duration
+	// Destinations are the job queue's parked destinations: a job beyond a node's window waits on
+	// the slot or device that is full, which one of its jobs ending brings back (D240 §5).
+	Destinations Destinations
 }
 
 // Recorder records what a node's result on one kind of work establishes, by the content its echoed
@@ -99,7 +132,7 @@ var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)
 func NewExchanges(parts ExchangeParts) *Exchanges {
 	return &Exchanges{
 		sender: parts.Sender, clock: parts.Clock, random: parts.Random, logger: parts.Logger, cache: parts.Cache,
-		settings: parts.Settings, maxSilence: parts.MaxSilence,
+		settings: parts.Settings, maxSilence: parts.MaxSilence, destinations: parts.Destinations,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
 		brokenInvariants: map[int64]int{},

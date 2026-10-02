@@ -32,7 +32,7 @@ func TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackgro
 		slog.New(slog.DiscardHandler))
 	node.devices = []nodeproto.Device{{Key: "zfs:tank", MountPaths: []string{root.Path()}}}
 	background := newBlockingWork()
-	node.work.hold(t.Context(), background.onDevice(1, slotMeasure, "zfs:tank", false))
+	node.work.hold(t.Context(), background.onDevice(1, nodeproto.SlotMeasure, "zfs:tank", false))
 	testutil.Receive(t, background.started, "the measurement's start")
 
 	node.holdCommand(t.Context(), t.Context(), 7, nodeproto.Command{
@@ -72,7 +72,7 @@ func TestAgent_APausedPrepareIsSaidPausedAtEachTick(t *testing.T) {
 	node := New(socket, nodeproto.Hello{Name: "local", Capacity: testCapacity}, nil, Workers{},
 		clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	blocking := newBlockingWork()
-	prepare := blocking.onDevice(4, slotRemux, "zfs:tank", false)
+	prepare := blocking.onDevice(4, nodeproto.SlotRemux, "zfs:tank", false)
 	prepare.saysHowFar = true
 	node.work.hold(t.Context(), prepare)
 	testutil.Receive(t, blocking.started, "the prepare's start")

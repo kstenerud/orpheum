@@ -162,10 +162,10 @@ type jobRunner struct {
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
-// runners are the kinds of job the server works one at a time, the artwork retry schedule read by
-// the caller: one fetch per provider, and each node job its node's one slot of that kind (cut-a
-// §5.3). Prepares are not among them: they run as many at once as the nodes have slots
-// (prepareRunners, runnerPool).
+// runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
+// by the caller: one fetch per provider; a node's job is given to its node and answered at once,
+// the core holding each node to its slots and devices (D234 §7, D240 §5). A prepare records no
+// failure of its own: the next play asks again.
 func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
 	return jobRunners{
 		{
@@ -193,17 +193,11 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			[]string{sweepLoudness},
 			services.playback.LoudnessAssignee,
 		},
+		{
+			jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 1, derivedByAPlay(),
+			services.playback.PrepareAssignee,
+		},
 	}
-}
-
-// prepareRunners is the prepare runner the pool starts copies of, one for each slot the nodes have.
-// A prepare records no failure of its own: the next play asks again (its rendition's state is
-// Phase 4's, G8).
-func (services jobServices) prepareRunners() jobRunners {
-	return jobRunners{{
-		jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 0, derivedByAPlay(),
-		services.playback.PrepareAssignee,
-	}}
 }
 
 // The sweeps, by what they derive (D231 §3): the first match of each film and series with no
@@ -325,7 +319,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 			}
 		})
 	}
-	for _, runnerSpec := range append(services.runners(artworkRetrySchedule), services.prepareRunners()...) {
+	for _, runnerSpec := range services.runners(artworkRetrySchedule) {
 		// A node's word on a job given to it is taken by a runner of its kind, as its handler's answer.
 		if runnerSpec.assignee != nil {
 			services.exchanges.Handle(runnerSpec.kind, runnerSpec.assignee(services.newRunner(runnerSpec)))
@@ -341,13 +335,6 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		services.exchanges.Watch(loopsContext, ticker.C)
 	})
-	prepares := &runnerPool{start: func() { startRunner(services.prepareRunners()[0]) }}
-	services.nodes.SetPrepareSlotsSink(func(prepareSlotCount int) {
-		if grown := prepares.growTo(prepareSlotCount); grown > 0 {
-			logger.InfoContext(ctx, "runs more prepares at once, as the nodes have slots",
-				"prepareRunnerCount", prepareSlotCount)
-		}
-	})
 	for _, sweep := range services.sweeps(logger) {
 		services.queue.AddSweep(sweep)
 	}
@@ -357,7 +344,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		services.queue.Sweeping(loopsContext, ticker.C)
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
-	return func() { prepares.stop(); cancel(); loops.Wait() }, nil
+	return func() { cancel(); loops.Wait() }, nil
 }
 
 // nodeWordsOf has the job view say where the node holding each assigned job's work last said it is
@@ -367,37 +354,6 @@ func nodeWordsOf(exchanges *nodes.Exchanges) jobs.NodeWords {
 		word, isSaid := exchanges.NodeWordOf(jobID)
 		return string(word), isSaid
 	}
-}
-
-// runnerPool is the prepare runners: as many as the nodes that said hello have encode and remux
-// slots in all, so a second person's copy is not held behind the first's (cut-a §5.3, with the
-// slots each node's config, as plan-deviations P36 records). It grows when a hello reports more,
-// and never shrinks: a runner with no free slot on its node waits there, as the node holds it.
-type runnerPool struct {
-	mutex     sync.Mutex
-	start     func()
-	running   int
-	isStopped bool
-}
-
-// growTo starts runners until count run, unless the pool has stopped, and says how many it
-// started.
-func (pool *runnerPool) growTo(count int) int {
-	pool.mutex.Lock()
-	defer pool.mutex.Unlock()
-	started := 0
-	for ; !pool.isStopped && pool.running < count; pool.running++ {
-		pool.start()
-		started++
-	}
-	return started
-}
-
-// stop starts no more runners: the loops are ending.
-func (pool *runnerPool) stop() {
-	pool.mutex.Lock()
-	defer pool.mutex.Unlock()
-	pool.isStopped = true
 }
 
 // keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's

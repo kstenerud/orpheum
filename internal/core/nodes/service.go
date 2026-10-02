@@ -74,10 +74,9 @@ type Service struct {
 	logger       *slog.Logger
 	pollHold     time.Duration
 
-	resultSink       ResultSink
-	heldResults      HeldResultReader
-	prepareSlotsSink PrepareSlotsSink
-	renditionIndex   RenditionIndex
+	resultSink     ResultSink
+	heldResults    HeldResultReader
+	renditionIndex RenditionIndex
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode

@@ -35,6 +35,8 @@ func TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt(t *testing.T) {
 			DestinationParts{NodeID: 4, IsPreparedDirectory: true},
 			"the prepared directory on node node-4",
 		},
+		{SlotDestination(5, "remux"), DestinationParts{NodeID: 5, IsSlot: true}, "a free slot on node node-5"},
+		{ReaderDestination(5, "zfs:tank"), DestinationParts{NodeID: 5, IsSlot: true}, "a free slot on node node-5"},
 	} {
 		if parts := PartsOf(check.destination); parts != check.parts {
 			t.Errorf("%q reads as %+v, want %+v", check.destination, parts, check.parts)

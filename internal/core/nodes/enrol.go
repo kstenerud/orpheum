@@ -62,12 +62,17 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
 		"confinement", hello.Confinement, "capacity", hello.Capacity, "devices", hello.Devices)
-	if service.prepareSlotsSink != nil {
-		service.prepareSlotsSink(service.prepareSlotCount())
-	}
 	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
 	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
 	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
+	// Its slots and devices may be more than its last hello said, or its limits since raised: the work
+	// waiting for room on it is looked at again (D240 §5).
+	for _, slot := range hello.Capacity.Slots() {
+		service.destinations.Unpark(ctx, jobs.SlotDestination(node.ID, string(slot)))
+	}
+	for _, device := range hello.Devices {
+		service.destinations.Unpark(ctx, jobs.ReaderDestination(node.ID, device.Key))
+	}
 	if scanOnHello {
 		roots, rootsErr := service.coveredRoots(ctx, node.ID, hello.RootPaths)
 		if rootsErr != nil {
@@ -104,6 +109,26 @@ func readerSetting(kind nodeproto.DeviceKind) settings.Key {
 	case nodeproto.DeviceUnknown:
 	}
 	return settings.DeviceReadersUnknown
+}
+
+// Resources are what a connected node can run at once, as its last hello said and the settings say
+// now (D240 §5), and false for a node not connected.
+func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources, bool, error) {
+	service.mutex.Lock()
+	node, isConnected := service.connectedNodes[nodeID]
+	var hello nodeproto.Hello
+	if isConnected {
+		hello = node.hello
+	}
+	service.mutex.Unlock()
+	if !isConnected {
+		return Resources{}, false, nil
+	}
+	limits, err := service.readerLimits(ctx, hello.Devices)
+	if err != nil {
+		return Resources{}, false, err
+	}
+	return Resources{Capacity: hello.Capacity, Devices: hello.Devices, ReaderLimits: limits}, true, nil
 }
 
 // devicesOf are the devices a connected node's last hello listed.

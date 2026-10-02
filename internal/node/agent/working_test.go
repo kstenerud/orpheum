@@ -26,7 +26,7 @@ func newBlockingWork() blockingWork {
 
 func (blocking blockingWork) held(jobID, priority int64) heldWork {
 	held := attempt{jobID: jobID, token: tokenOf(jobID)}
-	return heldWork{attempt: held, priority: priority, slot: slotArtwork, run: func(ctx context.Context) {
+	return heldWork{attempt: held, priority: priority, slot: nodeproto.SlotArtwork, run: func(ctx context.Context) {
 		blocking.started <- jobID
 		select {
 		case <-blocking.release:
@@ -107,7 +107,7 @@ func TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce(t *testin
 }
 
 // onDevice is blocking work in slot that reads device, play-driven or not.
-func (blocking blockingWork) onDevice(jobID int64, slot slotKind, device string, isPlayDriven bool) heldWork {
+func (blocking blockingWork) onDevice(jobID int64, slot nodeproto.Slot, device string, isPlayDriven bool) heldWork {
 	work := blocking.held(jobID, 0)
 	work.slot, work.device, work.isPlayDriven = slot, device, isPlayDriven
 	if isPlayDriven {
@@ -139,10 +139,10 @@ func TestWorkList_ADevicesReadersAreBoundedByItsLimit(t *testing.T) {
 	t.Parallel()
 	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
 	blocking := newBlockingWork()
-	list.hold(t.Context(), blocking.onDevice(1, slotMeasure, "zfs:tank", false))
+	list.hold(t.Context(), blocking.onDevice(1, nodeproto.SlotMeasure, "zfs:tank", false))
 	testutil.Receive(t, blocking.started, "job 1's start")
-	list.hold(t.Context(), blocking.onDevice(2, slotExtract, "zfs:tank", false))
-	list.hold(t.Context(), blocking.onDevice(3, slotRemux, "disk:sda", false))
+	list.hold(t.Context(), blocking.onDevice(2, nodeproto.SlotExtract, "zfs:tank", false))
+	list.hold(t.Context(), blocking.onDevice(3, nodeproto.SlotRemux, "disk:sda", false))
 	testutil.Receive(t, blocking.started, "job 3's start")
 	if got := []string{stateOf(list, 1), stateOf(list, 2), stateOf(list, 3)}; got[0] != "running" ||
 		got[1] != "waiting" || got[2] != "running" {
@@ -160,9 +160,9 @@ func TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds(t *te
 	t.Parallel()
 	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
 	background, play := newBlockingWork(), newBlockingWork()
-	list.hold(t.Context(), background.onDevice(1, slotMeasure, "zfs:tank", false))
+	list.hold(t.Context(), background.onDevice(1, nodeproto.SlotMeasure, "zfs:tank", false))
 	testutil.Receive(t, background.started, "the measurement's start")
-	list.hold(t.Context(), play.onDevice(2, slotRemux, "zfs:tank", true))
+	list.hold(t.Context(), play.onDevice(2, nodeproto.SlotRemux, "zfs:tank", true))
 	testutil.Receive(t, play.started, "the play-driven prepare's start")
 	if stateOf(list, 1) != "paused" {
 		t.Errorf("the measurement on the play's device is %s, want paused", stateOf(list, 1))
@@ -194,9 +194,9 @@ func TestWorkList_ADeviceWithRoomForBothPausesNothing(t *testing.T) {
 	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
 	list.setReaderLimits(map[string]int{"disk:sdb": 2})
 	background, play := newBlockingWork(), newBlockingWork()
-	list.hold(t.Context(), background.onDevice(1, slotMeasure, "disk:sdb", false))
+	list.hold(t.Context(), background.onDevice(1, nodeproto.SlotMeasure, "disk:sdb", false))
 	testutil.Receive(t, background.started, "the measurement's start")
-	list.hold(t.Context(), play.onDevice(2, slotRemux, "disk:sdb", true))
+	list.hold(t.Context(), play.onDevice(2, nodeproto.SlotRemux, "disk:sdb", true))
 	testutil.Receive(t, play.started, "the play-driven prepare's start")
 	if state := stateOf(list, 1); state != "running" {
 		t.Errorf("with room for two, the measurement is %s, want running", state)

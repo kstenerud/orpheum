@@ -15,6 +15,10 @@
 //     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain
 //     (internal/core/api).
 //
+//   - A prepare that waits, for its node or for room on it, has not begun its making: its rendition
+//     is recorded running only once the node is given it.
+//     TestHandle_APrepareThatWaitsHasNotBegunItsMaking.
+//
 //   - A node's result on a prepare, an extraction or a measurement is recorded as it arrives, by
 //     what its echoed work names, whether or not its job still waits (D238 §2, S81): a making of a
 //     rendition by its run, so a rendition made again since is never completed by an earlier one

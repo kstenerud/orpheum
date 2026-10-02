@@ -39,6 +39,7 @@ const (
 	DeviceReadersSSD                               Key = "device_readers_ssd"
 	DeviceReadersNetwork                           Key = "device_readers_network"
 	DeviceReadersUnknown                           Key = "device_readers_unknown"
+	NodeWorkWindowExtra                            Key = "node_work_window_extra"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
 	JobAttemptLimit                                Key = "job_attempt_limit"
@@ -188,9 +189,14 @@ func Registry() []Definition {
 	}, slices.Concat(jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions())...)
 }
 
-// deviceDefinitions are how many may read a node's device of each kind at once (D240 §5).
+// deviceDefinitions are how many may read a node's device of each kind at once, and how much more
+// than it can start the core gives a node (D240 §5).
 func deviceDefinitions() []Definition {
 	return []Definition{
+		sourced(integerSetting(NodeWorkWindowExtra, "1", 0, 64,
+			"how many more jobs than its free slots and readers allow the core gives a node of each kind, "+
+				"so the next starts without waiting for the core (D240 §5)"),
+			"D234 §3: a window a little beyond its free slots"),
 		sourced(integerSetting(DeviceReadersSpinning, "1", 1, 64,
 			"how many may read a spinning disk at once, or a pool or array with one among its disks (D240 §5)"),
 			"D240 §5: a second reader makes a spinning disk seek between them"),

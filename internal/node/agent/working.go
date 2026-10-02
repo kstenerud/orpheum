@@ -14,27 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// slotKind names the slots a kind of work runs in (cut-a §5.3): the encodes and remuxes the node's
-// config says (nodeproto.Capacity), and one each of subtitle extraction and loudness measurement,
-// each of which reads a whole video, and of artwork re-encoding.
-type slotKind string
-
-const (
-	slotEncode  slotKind = "encode"
-	slotRemux   slotKind = "remux"
-	slotExtract slotKind = "extract"
-	slotMeasure slotKind = "measure"
-	slotArtwork slotKind = "artwork"
-)
-
-// slotCounts is how many of each kind of work run at once on a node of capacity.
-func slotCounts(capacity nodeproto.Capacity) map[slotKind]int {
-	return map[slotKind]int{
-		slotEncode: capacity.EncodeSlotCount, slotRemux: capacity.RemuxSlotCount,
-		slotExtract: 1, slotMeasure: 1, slotArtwork: 1,
-	}
-}
-
 // attempt is the core's attempt at a job that the node holds: the job's id, and the token the core
 // made for this sending of it, by which the node holds it and every result names it (D238 §2).
 type attempt struct {
@@ -63,7 +42,7 @@ func (held attempt) named(result nodeproto.Result) nodeproto.Result {
 type heldWork struct {
 	attempt
 	priority int64
-	slot     slotKind
+	slot     nodeproto.Slot
 	// device is the key of the device its run reads, or "" for work that reads none of the media.
 	device string
 	// isPlayDriven is work a person waits for, to play: it pauses background work on its device to
@@ -94,10 +73,10 @@ func (work *heldWork) isReading() bool { return work.isRunning() && !work.pausin
 // again (D240 §6). A cancel stops a running job, or drops a waiting one before it starts.
 type workList struct {
 	mutex    sync.Mutex
-	slots    map[slotKind]int // how many of each kind run at once
-	running  map[slotKind]int // guarded by mutex: running and paused alike hold their slot
-	held     []*heldWork      // guarded by mutex: waiting and running
-	arrivals int64            // guarded by mutex
+	capacity nodeproto.Capacity     // how many of each kind run at once
+	running  map[nodeproto.Slot]int // guarded by mutex: running and paused alike hold their slot
+	held     []*heldWork            // guarded by mutex: waiting and running
+	arrivals int64                  // guarded by mutex
 	// readerLimits are how many may read each device at once, by its key; a device not named has
 	// one. Guarded by mutex.
 	readerLimits map[string]int
@@ -108,7 +87,7 @@ type workList struct {
 
 func newWorkList(capacity nodeproto.Capacity) *workList {
 	return &workList{
-		slots: slotCounts(capacity), running: map[slotKind]int{}, readerLimits: map[string]int{},
+		capacity: capacity, running: map[nodeproto.Slot]int{}, readerLimits: map[string]int{},
 		changed: make(chan struct{}),
 	}
 }
@@ -195,7 +174,7 @@ func (list *workList) continuePaused(ordered []*heldWork) {
 
 // hasSlot is whether a slot of the work's kind is free. The caller holds the mutex.
 func (list *workList) hasSlot(work *heldWork) bool {
-	return list.running[work.slot] < list.slots[work.slot]
+	return list.running[work.slot] < list.capacity.SlotCount(work.slot)
 }
 
 // hasReader is whether a device has a reader free: always, for work that reads none. The caller

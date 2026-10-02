@@ -245,33 +245,6 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 	}
 }
 
-// What a node's machine can do is its config's, said in its hello: the core adds up the prepare
-// slots of the nodes that said hello, and knows how fast each reads.
-func TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads(t *testing.T) {
-	t.Parallel()
-	harness := newFixture(t, time.Millisecond)
-	var told []int
-	harness.service.SetPrepareSlotsSink(func(prepareSlotCount int) { told = append(told, prepareSlotCount) })
-	local := harness.hello(t, nodeproto.Hello{Name: "local", Capacity: nodeproto.Capacity{
-		EncodeSlotCount: 1, RemuxSlotCount: 2, SlowestReadBytesPerSecond: 20 << 20,
-	}})
-	harness.hello(t, nodeproto.Hello{Name: "attic", Capacity: nodeproto.Capacity{
-		EncodeSlotCount: 2, RemuxSlotCount: 4, SlowestReadBytesPerSecond: 5 << 20,
-	}})
-	harness.hello(t, nodeproto.Hello{Name: "local", Capacity: nodeproto.Capacity{
-		EncodeSlotCount: 1, RemuxSlotCount: 3, SlowestReadBytesPerSecond: 40 << 20,
-	}})
-	if !slices.Equal(told, []int{3, 9, 10}) {
-		t.Errorf("the prepare slots told after each hello: %v, want 3, 9, then 10 when local came back with more", told)
-	}
-	if rate := harness.service.SlowestReadBytesPerSecond(local.NodeID); rate != 40<<20 {
-		t.Errorf("local reads at %d bytes a second, want its last hello's 40 MiB", rate)
-	}
-	if rate := harness.service.SlowestReadBytesPerSecond(99); rate != 0 {
-		t.Errorf("a node that has not said hello reads at %d, want 0: not known", rate)
-	}
-}
-
 func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)

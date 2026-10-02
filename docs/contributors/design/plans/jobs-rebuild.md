@@ -575,6 +575,13 @@ What the earlier 4d and 4e found still holds:
   more of each (`node_work_window_extra`, 1), by global priority; a job beyond it waits, parked:
   *"Waiting for a free slot on <node>"*, back when one of that node's attempts of its device or
   slot ends. One runner per kind; `runnerPool` and the hello's prepare slots go.
+  *4d.3 built 2026-10-02:* `Exchanges.Assign` gives a node only as many jobs of a slot as it runs,
+  and as many reading a device as may read it, each with `node_work_window_extra` (1) more; work
+  beyond parks at no cost on the slot or device that is full (`SlotDestination`,
+  `ReaderDestination`, *"Waiting for a free slot on node …"*), back when one of the node's jobs
+  there ends or it says hello. The slots are `nodeproto.Slot`, the node's and the core's one list.
+  One runner per kind: `runnerPool` and the hello's prepare slots are gone. A prepare records its
+  making running only once it is given to the node.
 - **4d.4 Wanted until (S87).** Each time a play asks for its prepare, subtitle or fetch, the job's
   "wanted until" moves to ten minutes on (question C, a setting); past it, the job falls to
   background priority, in the core's queue and on the node, where it pauses nothing.

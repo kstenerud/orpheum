@@ -39,6 +39,8 @@ const (
 	nodePrefix     = "node:"
 	rootPrefix     = "root:"
 	preparedPrefix = "prepared:"
+	slotPrefix     = "slot:"
+	readerPrefix   = "reader:"
 )
 
 // NodeDestination is a node: down while it is not connected or silent; its hello brings it back.
@@ -58,6 +60,18 @@ func PreparedDirectoryDestination(nodeID int64) Destination {
 	return Destination(preparedPrefix + strconv.FormatInt(nodeID, 10))
 }
 
+// SlotDestination is a kind of slot on a node, holding as many jobs as the core gives it (D240 §5):
+// full while it does, until one of them ends.
+func SlotDestination(nodeID int64, slot string) Destination {
+	return Destination(slotPrefix + strconv.FormatInt(nodeID, 10) + ":" + slot)
+}
+
+// ReaderDestination is a device of a node's, read by as many jobs as the core gives it (D240 §5):
+// full while it is, until one of them ends.
+func ReaderDestination(nodeID int64, device string) Destination {
+	return Destination(readerPrefix + strconv.FormatInt(nodeID, 10) + ":" + device)
+}
+
 // DestinationParts are what a destination's name says: which outside host or node it is.
 type DestinationParts struct {
 	// NodeID is the node a node's, a root's or a prepared directory's destination is on; 0 for
@@ -65,10 +79,12 @@ type DestinationParts struct {
 	NodeID int64
 	// Path is a root's or a mount's path on its node.
 	Path string
-	// IsNode, IsRoot and IsPreparedDirectory say which of a node's destinations it is.
+	// IsNode, IsRoot, IsPreparedDirectory and IsSlot say which of a node's destinations it is; a
+	// device's readers are a slot too, to a person.
 	IsNode              bool
 	IsRoot              bool
 	IsPreparedDirectory bool
+	IsSlot              bool
 }
 
 // PartsOf reads a destination's name.
@@ -81,6 +97,11 @@ func PartsOf(destination Destination) DestinationParts {
 	case strings.HasPrefix(name, preparedPrefix):
 		id, _ := strconv.ParseInt(strings.TrimPrefix(name, preparedPrefix), 10, 64) //nolint:errcheck // 0 if not
 		return DestinationParts{NodeID: id, IsPreparedDirectory: true}
+	case strings.HasPrefix(name, slotPrefix), strings.HasPrefix(name, readerPrefix):
+		_, rest, _ := strings.Cut(name, ":")
+		idText, _, _ := strings.Cut(rest, ":")
+		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
+		return DestinationParts{NodeID: id, IsSlot: true}
 	case strings.HasPrefix(name, rootPrefix):
 		idText, path, _ := strings.Cut(strings.TrimPrefix(name, rootPrefix), ":")
 		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
@@ -112,6 +133,8 @@ func DescribeDestination(destination Destination, nodeName func(nodeID int64) st
 		return parts.Path + " on node " + nodeName(parts.NodeID)
 	case parts.IsPreparedDirectory:
 		return "the prepared directory on node " + nodeName(parts.NodeID)
+	case parts.IsSlot:
+		return "a free slot on node " + nodeName(parts.NodeID)
 	}
 	return string(destination)
 }
