@@ -512,39 +512,76 @@ as before (`PrepareAgain`). Node protocol 10.
 its runner returns. A test that answers from a goroutine waits for that answer before it checks the
 job: S76 and S29 did not, and failed under the gates' load.
 
-### 4d — windows, slots and priority
+### 4d and 4e, re-cut by D240 (2026-10-02)
 
-- The core gives each node a window of work a little beyond its free slots and keeps global
-  priority; the node schedules within it (D234 §3), replacing `runnerPool`.
-- A play-now prepare pauses background reads on its node; play-driven work carries "wanted
-  until" and falls to background priority past it (question C).
-- *Seen on devnas (2026-10-02):* the node runs its commands one at a time and a scan in line with
-  them, so a prepare a person asked for waited behind a 55-second scan of 329 films: the player's
-  playlist answered "being prepared" from 05:19:05 until the scan ended at 05:19:38. Play-driven
-  work must not queue behind a scan or background work on the node.
-- Closes S87, S88.
+The owner stepped back before 4d was built: *"we're best off keeping most of the smarts in the
+core"*. D240 records the design: the node knows no library; a scan is a listing the core compares;
+the work it implies names operations, one folder per command, answered file by file; the core
+schedules by global priority over each node's devices and slots; the node enforces each device's
+limit and pauses background work for play. Until it is in use, the protocol and both databases
+change freely (the owner: *"I don't care about protocol changes or format changes [...] at this
+point"*). The steps below replace 4d's window, in which the node scheduled (D234 §3), and 4e's
+scan as the node's walk.
 
-### 4e — a scan is a job
+What the earlier 4d and 4e found still holds:
 
-- A scan's result is a record stream the core reads from an offset, which retires the report
-  stream (D234 §8).
-- Its pushed progress shows beside the root: *"Scanning… N files found so far"* (D236 §2); a
-  scan asked for while one runs schedules one rescan after it, and the button says *"Scan again
-  when this one ends"* (D236 §3, D38).
-- A node's hello asks for no scan of a root no library covers: on devnas (2026-10-02), the dev
-  loop's start read all 329 films of a root no library covered yet, for 58 seconds, and stored
-  nothing ("a node scanned a root no library covers; what it saw is not stored").
-  *Built 2026-10-02, ahead of 4e:* after a fresh start on devnas the films page stayed empty for two
-  minutes while that root was read ahead of the dev library's own. The owner: *"Just because a
-  potential root is available to orpheum does not mean it should scan it. Only when a path is
-  added to a library and its type (film, show, home video, etc) is defined should it be scanned."*
+- *Seen on devnas (2026-10-02):* a prepare a person asked for waited behind a 55-second scan of 329
+  films. Since 4b the node runs scans apart from the work it holds, so a prepare no longer queues
+  behind one; they still share the disk, which 4d.2's pausing settles.
+- Since 4c.1 nothing bounds what the core hands a node: a runner gives every due job of its kind at
+  once, so a loudness sweep puts all of a library's measurements in the node's memory, where the
+  24-hour limit and a restart's interruption reach all of them. 4d.3 bounds it.
+- A node's hello asks for no scan of a root no library covers. *Built 2026-10-02, ahead of 4e:*
+  after a fresh start on devnas the films page stayed empty for two minutes while that root was read
+  ahead of the dev library's own. The owner: *"Just because a potential root is available to
+  orpheum does not mean it should scan it. Only when a path is added to a library and its type
+  (film, show, home video, etc) is defined should it be scanned."*
 - *Seen in 4b's branch gates (2026-10-02), once in sixteen runs:*
   `TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath` filed two specials
   (`S00E01`) differently in the replayed scan than in the live one, under the load of the gates'
-  parallel steps. The replay sends the same records in the same order, so where a record lands in
-  the ingest's batches looks to decide a special's filing. To be found when the report stream
-  becomes a record stream here.
-- Last, because it moves the oldest path, the report stream, onto everything 4b–4d built.
+  parallel steps: where a record landed in the ingest's batches decided a special's filing. Filing
+  from what the core holds, once the answers are in (4e.3), ends it.
+
+#### 4d — the node's devices, their limits, and the core's scheduling
+
+- **4d.1 Devices.** The node finds the device of each root and of each mount inside one, and what
+  kind it is (spinning, SSD, network, or unknown: a ZFS pool's device names no disk), and its hello
+  lists them. Each device's concurrency limit is a core setting per node and device, starting from
+  the kind: one for spinning or unknown, several for SSD; the core gives the node its limits in the
+  hello's reply and again when one changes.
+- **4d.2 The node enforces and yields.** Every command names the device it reads. The node runs at
+  most a device's limit of readers on it, beside the CPU and GPU slots (cut-a §5.3). Play-driven
+  work arriving for a device pauses the background work reading it: an FFmpeg's process group
+  stopped with `SIGSTOP` and continued with `SIGCONT` when the play-driven work there ends, a hash
+  at its next chunk. Paused time is neither a stall nor spent deadline. The status says what is
+  paused, and the job shows *"Paused while a film is prepared"*.
+- **4d.3 The core schedules.** The core hands a node only what its limits can start now, plus one
+  more of each (`node_work_window_extra`, 1), by global priority; a job beyond it waits, parked:
+  *"Waiting for a free slot on <node>"*, back when one of that node's attempts of its device or
+  slot ends. One runner per kind; `runnerPool` and the hello's prepare slots go.
+- **4d.4 Wanted until (S87).** Each time a play asks for its prepare, subtitle or fetch, the job's
+  "wanted until" moves to ten minutes on (question C, a setting); past it, the job falls to
+  background priority, in the core's queue and on the node, where it pauses nothing.
+- Closes S87, S88.
+
+#### 4e — a scan is a listing the core compares
+
+- **4e.1 The listing.** The node lists under a path, within its roots, to a depth: each entry's raw
+  path, kind, size, modified time, device and inode, or its error, with the root's filesystem facts;
+  a large tree in pages. The core can ask for its roots again. It serves the library folder picker
+  when that comes.
+- **4e.2 The comparison.** A scan lists a library's root and compares: unchanged needs nothing;
+  new or changed is examined; a move (device, inode and size at a new path) is kept; a removal
+  follows D208. The skip rules (D40) move to the core. `persistent.db`'s file gains its device and
+  inode.
+- **4e.3 Examining, one folder at a time.** The core sends a folder's work, bounded in files: probe
+  and hash each video, read each NFO, hash each subtitle. The node answers each file as it is done;
+  the core acknowledges and ingests each answer, and asks again for the files of a folder a node lost.
+  Identification runs as answers arrive. Progress shows beside the root: *"Scanning… N files found
+  so far"*, then the files examined (D236 §2); a scan asked for while one runs schedules one rescan
+  after it, *"Scan again when this one ends"* (D236 §3, D38).
+- **4e.4 The report stream goes.** The status becomes a post of its own, and the walk, its records
+  and the ingest's batch path are removed (D234 §8).
 
 S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
 

@@ -17378,7 +17378,7 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
     own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
 
 **Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4. Since 2026-10-02, §3, §4 and §5
-are revised by D238: the node keeps no database.
+are revised by D238: the node keeps no database; and §3's window by D240: the core schedules.
 
 ## D235 — Development and deployment run in containers: one image family, one command each, built by GoReleaser
 
@@ -17528,3 +17528,59 @@ alone."*
    specification.
 
 **Status:** Decided 2026-10-02.
+
+## D240 — The core keeps the smarts: a scan is a listing the core compares, the work it implies is the core's to schedule, and the node enforces its devices' limits and pauses background work for play
+
+**Decided** (2026-10-02), by the project owner, on the proposal for the jobs rebuild's 4d: *"Let's
+step back and think about how we're doing jobs. [...] it seems to me that we're best off keeping
+most of the smarts in the core."* Then, on the proposal below: *"yes, all of that makes sense"*,
+*"Is there any way to put a task to sleep?"*, and *"ok, all of that sounds good"*. It revises D234
+§3, D207's scan as the node's walk with its report stream, and the jobs rebuild's 4d and 4e.
+
+1. **The node knows no library.** It knows the roots it is configured with (D107), which its hello
+   names, and the core may ask for them again. A scan of a root no library covers is never asked
+   for: a path is scanned only once it is a library's root, whose kind says what it holds (the
+   owner, 2026-10-02).
+2. **A listing, not a walk that reads.** The core asks a node to list under a path to a depth: one
+   level for a person choosing a library's folder, the whole tree for a scan. Each entry is its raw
+   path (D49, D211), its kind, size, modified time, device and inode, or the error that kept it
+   from being read (D163); the root's filesystem facts come with it, so an unplugged disk is still
+   told from an empty folder (D41, D208). A large tree arrives in pages, which the core compares as
+   they come.
+3. **The core compares; only the new and changed cost work.** A file whose size and modified time
+   are as stored needs nothing. A new or changed one is examined. One at a new path with the same
+   device, inode and size is a move, kept without reading it again. One gone is a removal, under
+   D208's rules. The skip rules (D40) are the core's, which knows the library's kind. With the
+   smarts in the core it can also ask again for what an older probe or rule left, without a scan.
+4. **Work names operations, not library kinds.** The node probes and hashes a video (D179), reads an
+   NFO's bytes (D182), hashes a subtitle; which of them a file needs is the core's choice from the
+   library's kind. **One folder per command**, a title's video with its sidecars, bounded in files:
+   the node answers each file as it is done, the core acknowledges each answer, and a node that goes
+   down costs only the files of that folder not yet answered, which the core asks for again. That
+   is neither a command per file, too chatty, nor one per root, too costly to redo.
+5. **The core schedules.** It decides what each node does, in which order and how much it holds,
+   by global priority, as D234 §3's window gave the node to decide within. A node's resources are
+   its devices, not its roots, since several roots can share a disk, and its CPU and GPU slots
+   (cut-a §5.3); a job needs a device, and some a slot too. Each device has a concurrency limit:
+   one reader on a spinning disk, in path order, several on an SSD, its own on a network mount. The
+   limit is a setting per device, whose starting value is what the node detects, one where it
+   cannot tell: a ZFS pool's device names no disk (devnas's `/tank`). A smarter scheduler for SSDs
+   has room to come.
+6. **The node enforces the limits and yields to play at once.** What a round trip to the core
+   cannot do in time is the node's: when play-driven work arrives for a device, the node pauses the
+   background work reading it (the owner: *"if a background task is allowed to finish first, that
+   can take awhile"*), each FFmpeg's process group stopped with `SIGSTOP` and continued with
+   `SIGCONT` when the play-driven work on that device ends, a hash in the node's own process at its
+   next chunk. Paused time is neither a stall nor spent deadline (D233 §5). The node says what it
+   paused, and the core shows it. Running both is a device's limit of two, for those who want it.
+   Past its "wanted until" (D234 §3), play-driven work is background and pauses nothing.
+7. **What it revises.** D234 §3's window within which the node schedules becomes the core's
+   scheduling; the node keeps D238's memory of what it was given and the limits of §6. D207's scan,
+   the node walking a root and reading every file into the report stream, becomes the listing and
+   the examining (§2–§4). D234 §8's record stream is the listing's and the answers'. D233 and D234's
+   other sections, and D238, stand.
+
+**Status:** Decided 2026-10-02; to be built as the jobs rebuild's re-cut 4d and 4e. Until it is
+in use the protocol and both databases change freely: their one user is the owner, testing (the
+owner, 2026-10-02: *"I don't care about protocol changes or format changes or anything that causes
+incompatibilities or requires migrations at this point"*).
