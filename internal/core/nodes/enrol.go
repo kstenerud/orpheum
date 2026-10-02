@@ -61,7 +61,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
-		"confinement", hello.Confinement, "capacity", hello.Capacity)
+		"confinement", hello.Confinement, "capacity", hello.Capacity, "devices", hello.Devices)
 	if service.prepareSlotsSink != nil {
 		service.prepareSlotsSink(service.prepareSlotCount())
 	}
@@ -69,9 +69,9 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
 	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
 	if scanOnHello {
-		roots, err := service.coveredRoots(ctx, node.ID, hello.RootPaths)
-		if err != nil {
-			service.fail(ctx, writer, "read the libraries' roots", err)
+		roots, rootsErr := service.coveredRoots(ctx, node.ID, hello.RootPaths)
+		if rootsErr != nil {
+			service.fail(ctx, writer, "read the libraries' roots", rootsErr)
 			return
 		}
 		for _, root := range roots {
@@ -80,10 +80,45 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 			})
 		}
 	}
+	limits, err := service.readerLimits(ctx, hello.Devices)
+	if err != nil {
+		service.fail(ctx, writer, "read the devices' reader limits", err)
+		return
+	}
 	writeJSON(writer, nodeproto.HelloReply{
 		NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq,
-		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
+		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions), DeviceReaderLimits: limits,
 	})
+}
+
+// readerSetting is the setting that says how many may read a device of a kind at once: an unknown
+// device's for a kind this core does not know.
+func readerSetting(kind nodeproto.DeviceKind) settings.Key {
+	switch kind {
+	case nodeproto.DeviceSpinning:
+		return settings.DeviceReadersSpinning
+	case nodeproto.DeviceSSD:
+		return settings.DeviceReadersSSD
+	case nodeproto.DeviceNetwork:
+		return settings.DeviceReadersNetwork
+	case nodeproto.DeviceUnknown:
+	}
+	return settings.DeviceReadersUnknown
+}
+
+// readerLimits are how many may read each of a hello's devices at once, by its key: the setting
+// for its kind, and an unknown device's for a kind this core does not know (D240 §5).
+func (service *Service) readerLimits(ctx context.Context, devices []nodeproto.Device) (map[string]int, error) {
+	limits := make(map[string]int, len(devices))
+	for _, device := range devices {
+		key := readerSetting(device.Kind)
+		limit, err := service.settings.Int(ctx, key)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", key, err)
+		}
+		limits[device.Key] = int(limit)
+	}
+	return limits, nil
 }
 
 // coveredRoots are the roots, of those a node's hello names, that a live library covers on it: a

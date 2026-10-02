@@ -22,7 +22,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 10
+const ProtocolVersion = 11
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -55,6 +55,8 @@ type Hello struct {
 	Hardware Hardware `json:"hardware"`
 	// Capacity is how much work the node takes on at once, and how fast it reads, from its config.
 	Capacity Capacity `json:"capacity"`
+	// Devices are what its roots and prepared directory are on, and of what kind (D240 §5).
+	Devices []Device `json:"devices,omitempty"`
 	// Renditions are the renditions in the node's prepared directory, by their manifests, read from
 	// its disk as it says hello: the core adopts those it does not know into its index, and its
 	// reply names the ones it keeps (D238 §2).
@@ -125,4 +127,41 @@ type HelloReply struct {
 	// renditions the core's index keeps: the node evicts the others it listed, which the core knows
 	// nothing of or has made again since (D238 §2).
 	KeptRenditionDirs []string `json:"keptRenditionDirs"`
+	// DeviceReaderLimits are how many may read each of the hello's devices at once, by its key: the
+	// core's settings for its kind (D240 §5).
+	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
+}
+
+// DeviceKind is how a device reads, which sets how many may read it at once (D240 §5).
+type DeviceKind string
+
+// The device kinds.
+const (
+	// DeviceSpinning is a spinning disk, or a pool, array or volume with one among its data disks:
+	// a second reader makes it seek between them.
+	DeviceSpinning DeviceKind = "spinning"
+	// DeviceSSD is a solid-state disk, or a pool, array or volume of them only.
+	DeviceSSD DeviceKind = "ssd"
+	// DeviceNetwork is a filesystem mounted over the network.
+	DeviceNetwork DeviceKind = "network"
+	// DeviceUnknown is one whose disks the node cannot see.
+	DeviceUnknown DeviceKind = "unknown"
+)
+
+// Device is one thing the node reads its roots and prepared directory from, as the scheduling
+// counts readers (D240 §5): a disk, or the pool, array or volume that spreads them over several,
+// so that two roots on one disk share it.
+type Device struct {
+	// Key names it on this node, the same across hellos: "zfs:<pool>", "disk:<disk>[+<disk>…]",
+	// "network:<source>", or "unknown:<major>:<minor>".
+	Key  string     `json:"key"`
+	Kind DeviceKind `json:"kind"`
+	// Filesystem is its filesystem's type, as the mount table names it.
+	Filesystem string `json:"filesystem"`
+	// Disks are the whole disks it reads from, by their kernel names; none when the node cannot see
+	// them.
+	Disks []string `json:"disks,omitempty"`
+	// MountPaths are where it is mounted at or inside the node's roots and prepared directory: a
+	// path is on the device of the longest of every device's mount paths it is under.
+	MountPaths []string `json:"mountPaths"`
 }

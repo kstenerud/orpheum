@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"slices"
 	"testing"
@@ -313,5 +314,23 @@ func TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay(t
 		if !slices.Equal(reply.KeptRenditionDirs, each.want) {
 			t.Errorf("with %s the reply kept %v, want %v", each.name, reply.KeptRenditionDirs, each.want)
 		}
+	}
+}
+
+// The reply to a hello gives each of its devices the reader limit its kind's setting says, and a
+// kind the core does not know the unknown kind's (D240 §5).
+func TestHello_RepliesWithEachDevicesReaderLimitByItsKind(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	settingstest.Set(t, harness.settings, settings.DeviceReadersSSD, "6")
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: []nodeproto.Device{
+		{Key: "zfs:tank", Kind: nodeproto.DeviceSpinning},
+		{Key: "disk:sda", Kind: nodeproto.DeviceSSD},
+		{Key: "network:nas:/films", Kind: nodeproto.DeviceNetwork},
+		{Key: "unknown:0:30", Kind: "tape"},
+	}})
+	want := map[string]int{"zfs:tank": 1, "disk:sda": 6, "network:nas:/films": 2, "unknown:0:30": 1}
+	if !maps.Equal(reply.DeviceReaderLimits, want) {
+		t.Errorf("the reply's reader limits are %v, want %v", reply.DeviceReaderLimits, want)
 	}
 }

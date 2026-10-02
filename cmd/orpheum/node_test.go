@@ -37,6 +37,8 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"msg":"said hello to the core"`,
 		`"msg":"a node said hello"`,
 		`"ffmpegVersion":"{\"format\"`,
+		// What the root is on: some device, of a kind, mounted at or above it (D240 §5).
+		`"devices":[{"key":`,
 		`"msg":"a node finished a scan"`,
 		`"observedCount":1,"sidecarCount":0,"skippedCount":1,"errorCount":0`,
 		`"msg":"identified a library"`,

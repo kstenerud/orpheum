@@ -149,3 +149,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   and have never been built or run
   ([D235](decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)
   §3). (`./dev`, `deploy/dev.Containerfile`)
+
+- [ ] **VQ17** — On devnas, after `./dev --stop` and `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make dev`
+  with `ORPHEUM_DEV_MEDIA` on `/tank`: the core's log line `a node said hello` lists its
+  `devices`. Passes when the media root's device is `zfs:tank`, its `disks` are the pool's data
+  disks, and its `kind` is `spinning` (or `ssd` when every disk of the pool is one), and the
+  `.dev` directories' device is the disk the clone is on. The pool is followed to its disks through
+  the host's `/run/udev`, which `./dev` mounts read-only into the container; no ZFS was at hand
+  where this was written ([D240](decisions/working-notes.md#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play) §5).
+  (`internal/node/hardware/storage.go`, `./dev`)

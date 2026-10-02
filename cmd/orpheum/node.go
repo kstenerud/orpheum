@@ -186,8 +186,21 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
+	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
 	coreSocketPath := filepath.Join(config.Server.SocketDir, coreSocketName)
 	return agent.New(coreSocketPath, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+}
+
+// devicesOf finds what the roots and the prepared directory, when there is one, are on (D240 §5).
+func devicesOf(roots []*confine.MediaRoot, preparedDirectory string) func() ([]nodeproto.Device, error) {
+	paths := make([]string, 0, len(roots)+1)
+	for _, root := range roots {
+		paths = append(paths, root.Path())
+	}
+	if preparedDirectory != "" {
+		paths = append(paths, preparedDirectory)
+	}
+	return func() ([]nodeproto.Device, error) { return hardware.Devices(paths) }
 }
 
 // workPacing is how often, at most, a running prepare tells the core how far it is, and how long the

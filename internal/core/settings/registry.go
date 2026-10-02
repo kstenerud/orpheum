@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
@@ -34,6 +35,10 @@ const (
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
+	DeviceReadersSpinning                          Key = "device_readers_spinning"
+	DeviceReadersSSD                               Key = "device_readers_ssd"
+	DeviceReadersNetwork                           Key = "device_readers_network"
+	DeviceReadersUnknown                           Key = "device_readers_unknown"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
 	JobAttemptLimit                                Key = "job_attempt_limit"
@@ -180,7 +185,25 @@ func Registry() []Definition {
 		sourced(integerSetting(ScanWithholdRemovalsOverFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
 			"D208 §3: the owner's twenty, 2026-09-24"),
-	}, append(jobMetadataAndPlaybackDefinitions(), upkeepAndDisplayDefinitions()...)...)
+	}, slices.Concat(jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions())...)
+}
+
+// deviceDefinitions are how many may read a node's device of each kind at once (D240 §5).
+func deviceDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(DeviceReadersSpinning, "1", 1, 64,
+			"how many may read a spinning disk at once, or a pool or array with one among its disks (D240 §5)"),
+			"D240 §5: a second reader makes a spinning disk seek between them"),
+		sourced(integerSetting(DeviceReadersSSD, "4", 1, 64,
+			"how many may read a solid-state disk at once, or a pool or array of them only (D240 §5)"),
+			"best guess (D240 §5): an SSD serves several readers without seeking"),
+		sourced(integerSetting(DeviceReadersNetwork, "2", 1, 64,
+			"how many may read a filesystem mounted over the network at once (D240 §5)"),
+			"best guess (D240 §5): one reading while another waits on the network"),
+		sourced(integerSetting(DeviceReadersUnknown, "1", 1, 64,
+			"how many may read a device whose disks the node cannot see at once (D240 §5)"),
+			"D240 §5: as for a spinning disk, which it may be"),
+	}
 }
 
 // jobMetadataAndPlaybackDefinitions are the rest of Registry: jobs, fetching metadata and
