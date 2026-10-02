@@ -141,12 +141,15 @@ func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testin
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	harness.nextCommand(t)
-	refused := nodeproto.PrepareReport{State: nodeproto.PrepareRefused, Refusal: "the disk has no room"}
+	refused := nodeproto.PrepareReport{
+		State: nodeproto.PrepareRefused, Refusal: "not the one named", RefusalCode: nodeproto.RefusedChanged,
+	}
 	harness.answerPrepare(t, 79, refused)
 	select {
 	case err := <-finished:
-		if err == nil || !strings.Contains(err.Error(), "the disk has no room") {
-			t.Errorf("the job ended %v, want the node's refusal, to be tried again", err)
+		if err == nil || !strings.Contains(err.Error(), "not the one named") ||
+			!strings.Contains(err.Error(), "changed since the scan") {
+			t.Errorf("the job ended %v, want the node's refusal for a changed file, said so, to be tried again", err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the job did not end at the node's refusal")
