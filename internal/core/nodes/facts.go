@@ -69,7 +69,8 @@ func (service *Service) Facts(name string) (Facts, bool) {
 }
 
 // keepStatus keeps what a node's status says about it. A prepared directory whose disk is within
-// its limit again brings back the prepares parked on it for want of room (D231 §5).
+// its limit, and keeps its floor of free space, again brings back the prepares parked on it for want
+// of room (D231 §5).
 func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
 	if existing, found := service.connectedNodes[nodeID]; found {
@@ -77,7 +78,8 @@ func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *no
 		existing.status = &kept
 	}
 	service.mutex.Unlock()
-	if usage := status.PreparedUsage; usage != nil && usage.DiskUsedPercent <= usage.DiskUsedLimitPercent {
+	if usage := status.PreparedUsage; usage != nil && usage.DiskUsedPercent <= usage.DiskUsedLimitPercent &&
+		usage.DiskAvailableBytes >= usage.DiskMinFreeBytes {
 		service.destinations.Unpark(ctx, jobs.PreparedDirectoryDestination(nodeID))
 	}
 }

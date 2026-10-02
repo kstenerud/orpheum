@@ -378,3 +378,15 @@ func TestWorkPacing_IsTheNodesConfig(t *testing.T) {
 			progressEvery, endedWorkKept)
 	}
 }
+
+func TestPreparedBudget_IsTheNodesConfig(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.Node.PreparedBudgetGiB, config.Node.PreparedKeptAfterPlayHours = 2, 3
+	config.Node.PreparedDiskUsedLimitPercent, config.Node.MinFreeMiB = 90, 100
+	budget := preparedBudget(config)
+	if budget.MaxBytes != 2<<30 || budget.KeptAfterLastPlay != 3*time.Hour || budget.DiskUsedLimitPercent != 90 ||
+		budget.MinFreeBytes != 100<<20 {
+		t.Errorf("the prepared budget = %+v; want 2 GiB, kept 3 h, 90%% full at most and 100 MiB kept free", budget)
+	}
+}

@@ -135,9 +135,12 @@ func TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory(t *
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	report := func(seq int64, diskUsedPercent int) {
+	report := func(seq int64, diskUsedPercent int, availableMiB int64) {
 		t.Helper()
-		usage := nodeproto.PreparedUsage{DiskUsedPercent: diskUsedPercent, DiskUsedLimitPercent: 90}
+		usage := nodeproto.PreparedUsage{
+			DiskUsedPercent: diskUsedPercent, DiskUsedLimitPercent: 90,
+			DiskAvailableBytes: availableMiB << 20, DiskMinFreeBytes: 100 << 20,
+		}
 		status := []nodeproto.Record{{
 			ReportSeq: seq, Type: nodeproto.RecordStatus,
 			Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
@@ -148,11 +151,15 @@ func TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory(t *
 		}
 	}
 	prepared := jobs.PreparedDirectoryDestination(reply.NodeID)
-	report(1, 95)
+	report(1, 95, 500)
 	if slices.Contains(harness.destinations.all(), prepared) {
 		t.Error("a status past the disk's limit unparked the prepared directory")
 	}
-	report(2, 80)
+	report(2, 80, 50)
+	if slices.Contains(harness.destinations.all(), prepared) {
+		t.Error("a status below the disk's floor of free space unparked the prepared directory")
+	}
+	report(3, 80, 500)
 	if !slices.Contains(harness.destinations.all(), prepared) {
 		t.Error("a status with room did not unpark the prepared directory (D231 §5)")
 	}

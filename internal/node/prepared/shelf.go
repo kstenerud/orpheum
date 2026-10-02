@@ -25,6 +25,9 @@ type Budget struct {
 	// DiskUsedLimitPercent is how full the directory's filesystem may be, whatever MaxBytes says: a
 	// fixed budget cannot know what else shares the disk.
 	DiskUsedLimitPercent int
+	// MinFreeBytes is the least the directory's filesystem keeps free, whatever the rest says: on a
+	// large disk a percentage leaves too little, on a small one too much (node.min_free_mib).
+	MinFreeBytes int64
 }
 
 // Usage is what the prepared directory holds, against its budget, for the node's report.
@@ -33,9 +36,17 @@ type Usage struct {
 	BudgetBytes          int64
 	DiskUsedPercent      int
 	DiskUsedLimitPercent int
+	DiskAvailableBytes   int64
+	DiskMinFreeBytes     int64
 }
 
-// ErrNoRoom is a prepare refused because the disk is past its limit and nothing can be evicted.
+// isDiskWithin is whether the directory's filesystem is within its limit and keeps its floor free.
+func (usage Usage) isDiskWithin() bool {
+	return usage.DiskUsedPercent <= usage.DiskUsedLimitPercent && usage.DiskAvailableBytes >= usage.DiskMinFreeBytes
+}
+
+// ErrNoRoom is a prepare refused because the disk is past its limit, or below its floor of free
+// space, and nothing can be evicted.
 var ErrNoRoom = errors.New("the prepared directory's disk is past its limit, and nothing can be evicted")
 
 // Shelf is the node's prepared directory and its budget.
@@ -43,8 +54,10 @@ type Shelf struct {
 	directory string
 	budget    Budget
 	clock     clock.Clock
-	// diskUsedPercent says how full the filesystem at a path is; a test's stands in for statfs.
-	diskUsedPercent func(path string) (int, error)
+	// diskUsedPercent says how full the filesystem at a path is, and diskAvailableBytes how much of
+	// it is free; a test's stand in for statfs.
+	diskUsedPercent    func(path string) (int, error)
+	diskAvailableBytes func(path string) (int64, error)
 
 	mutex                 sync.Mutex
 	writersByRenditionDir map[string]int // guarded by mutex: run directories a prepare is writing, and how many
@@ -63,6 +76,7 @@ func (shelf *Shelf) LastUsage() (Usage, bool) {
 func New(directory string, budget Budget, clockSource clock.Clock) *Shelf {
 	return &Shelf{
 		directory: directory, budget: budget, clock: clockSource, diskUsedPercent: filesystemUsedPercent,
+		diskAvailableBytes:    filesystemAvailableBytes,
 		writersByRenditionDir: map[string]int{},
 	}
 }
@@ -92,15 +106,15 @@ func (shelf *Shelf) MarkWriting(renditionDir string) (finishWriting func()) {
 }
 
 // MakeRoom makes room for a prepare: it evicts what the budget and the disk need, and refuses when
-// the disk is still past its limit (D217 §5).
+// the disk is still past its limit, or below its floor of free space (D217 §5).
 func (shelf *Shelf) MakeRoom() error {
 	usage, err := shelf.Evict()
 	if err != nil {
 		return err
 	}
-	if usage.DiskUsedPercent > shelf.budget.DiskUsedLimitPercent {
-		return fmt.Errorf("%w (%d%% full, the limit %d%%)", ErrNoRoom, usage.DiskUsedPercent,
-			shelf.budget.DiskUsedLimitPercent)
+	if !usage.isDiskWithin() {
+		return fmt.Errorf("%w (%d%% full, the limit %d%%; %d MiB free, the floor %d MiB)", ErrNoRoom,
+			usage.DiskUsedPercent, usage.DiskUsedLimitPercent, usage.DiskAvailableBytes>>20, usage.DiskMinFreeBytes>>20)
 	}
 	return nil
 }
@@ -124,7 +138,7 @@ func (shelf *Shelf) Evict() (Usage, error) {
 	for _, each := range runs {
 		total += each.sizeBytes
 	}
-	usedPercent, err := shelf.diskUsedPercent(shelf.directory)
+	usage, err := shelf.measure(total)
 	if err != nil {
 		return Usage{}, err
 	}
@@ -141,7 +155,7 @@ func (shelf *Shelf) Evict() (Usage, error) {
 		return one.lastUse.Compare(other.lastUse)
 	})
 	for _, each := range runs {
-		if total <= shelf.budget.MaxBytes && usedPercent <= shelf.budget.DiskUsedLimitPercent {
+		if usage.UsedBytes <= shelf.budget.MaxBytes && usage.isDiskWithin() {
 			break
 		}
 		if shelf.isWriting(each.renditionDir) {
@@ -151,18 +165,31 @@ func (shelf *Shelf) Evict() (Usage, error) {
 			return Usage{}, removeErr
 		}
 		total -= each.sizeBytes
-		if usedPercent, err = shelf.diskUsedPercent(shelf.directory); err != nil {
+		if usage, err = shelf.measure(total); err != nil {
 			return Usage{}, err
 		}
-	}
-	usage := Usage{
-		UsedBytes: total, BudgetBytes: shelf.budget.MaxBytes, DiskUsedPercent: usedPercent,
-		DiskUsedLimitPercent: shelf.budget.DiskUsedLimitPercent,
 	}
 	shelf.mutex.Lock()
 	shelf.lastUsage = usage
 	shelf.mutex.Unlock()
 	return usage, nil
+}
+
+// measure is what the directory holds, total, against its budget, and its filesystem now.
+func (shelf *Shelf) measure(total int64) (Usage, error) {
+	usedPercent, err := shelf.diskUsedPercent(shelf.directory)
+	if err != nil {
+		return Usage{}, err
+	}
+	availableBytes, err := shelf.diskAvailableBytes(shelf.directory)
+	if err != nil {
+		return Usage{}, err
+	}
+	return Usage{
+		UsedBytes: total, BudgetBytes: shelf.budget.MaxBytes, DiskUsedPercent: usedPercent,
+		DiskUsedLimitPercent: shelf.budget.DiskUsedLimitPercent, DiskAvailableBytes: availableBytes,
+		DiskMinFreeBytes: shelf.budget.MinFreeBytes,
+	}, nil
 }
 
 func (shelf *Shelf) isWriting(dir string) bool {
@@ -216,6 +243,15 @@ func (shelf *Shelf) removeEmptyFolders(folder string) {
 			return
 		}
 	}
+}
+
+// filesystemAvailableBytes is how much of the filesystem holding path is free to this process.
+func filesystemAvailableBytes(path string) (int64, error) {
+	space, err := diskspace.Measure(path)
+	if err != nil {
+		return 0, err
+	}
+	return space.AvailableBytes, nil
 }
 
 // filesystemUsedPercent is how full, as a whole percent, the filesystem holding path is.

@@ -216,6 +216,16 @@ type preparedDirectory struct {
 	shelf    *prepared.Shelf
 }
 
+// preparedBudget is what the node's config says its prepared directory may hold (D217 §5).
+func preparedBudget(config Config) prepared.Budget {
+	return prepared.Budget{
+		MaxBytes:             config.Node.PreparedBudgetGiB * diskspace.BytesPerGiB,
+		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayHours) * time.Hour,
+		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
+		MinFreeBytes:         config.Node.MinFreeMiB << 20,
+	}
+}
+
 // openPreparedDirectory makes the node's prepared directory if it is missing, and opens it.
 func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
 	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
@@ -225,11 +235,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	if err != nil {
 		return preparedDirectory{}, err
 	}
-	shelf := prepared.New(root.Path(), prepared.Budget{
-		MaxBytes:             config.Node.PreparedBudgetGiB * diskspace.BytesPerGiB,
-		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayHours) * time.Hour,
-		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
-	}, clock.System{})
+	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
 	if err != nil {
 		return preparedDirectory{}, errors.Join(err, root.Close())

@@ -70,6 +70,8 @@ type NodeConfig struct {
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
 	PreparedKeptAfterPlayHours   int64 `toml:"prepared_kept_after_play_hours"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
+	// MinFreeMiB is the least the prepared directory's disk keeps free, whatever its percentage.
+	MinFreeMiB int64 `toml:"min_free_mib"`
 	// EncodeSlotCount, RemuxSlotCount and SlowestReadMiBPerSecond are what this machine can do,
 	// which the node tells the core in its hello (nodeproto.Capacity).
 	EncodeSlotCount         int64 `toml:"encode_slot_count"`
@@ -178,6 +180,11 @@ func nodeConfigKeys() []configKey {
 			tableNode, "prepared_disk_used_limit_percent", "95",
 			"how full the prepared directory's disk may be, whatever the budget; past it, renditions are " +
 				"evicted, and a prepare with nothing to evict is refused (D217 §5)",
+		},
+		{
+			tableNode, "min_free_mib", "100",
+			"MiB the prepared directory's disk keeps free, whatever its fullness limit; below it, renditions are " +
+				"evicted, and a prepare with nothing to evict is refused",
 		},
 		{
 			tableNode, "encode_slot_count", "1",
@@ -325,6 +332,7 @@ func (config *Config) check() error {
 		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
 		"node.progress_every_seconds":             config.Node.ProgressEverySeconds,
 		"node.ended_work_kept_hours":              config.Node.EndedWorkKeptHours,
+		"node.min_free_mib":                       config.Node.MinFreeMiB,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
 		"node.encode_slot_count":                  config.Node.EncodeSlotCount,
