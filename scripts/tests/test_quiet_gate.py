@@ -48,7 +48,12 @@ class Summary(unittest.TestCase):
 
 class Running(unittest.TestCase):
     def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None) -> tuple[int, str, Path]:
-        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_") and k != "VERBOSE"}
+        # A make the tests run under (CI's `make check`) passes its jobserver down in MAKEFLAGS; this
+        # gate's own make, a top-level one, would warn that the jobserver is unavailable after the
+        # gate's last line, which is the line a pass prints.
+        parents_make = {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKE_TERMOUT", "MAKE_TERMERR"}
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith("GIT_") and k != "VERBOSE" and k not in parents_make}
         if root is None:
             root = Path(tempfile.mkdtemp(prefix="quiet-gate-"))
             subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
