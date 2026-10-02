@@ -211,6 +211,8 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 	}
 }
 
+// A fetch waits for the job that converts what it fetched, at play priority, on the node that holds
+// the file (D224 §5, D238): kept, chosen, and its text ready at once.
 func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -218,15 +220,17 @@ func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testin
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	fetchedID := fetchGerman(t, harness, user)
+	fetched := make(chan int64, 1)
+	go func() { fetched <- fetchGerman(t, harness, user) }()
+	answerConversion(t, harness)
+	fetchedID := testutil.Receive(t, fetched, "the fetch, once its conversion is done")
 	checkKeptGzipped(t, harness, fetchedID)
 
-	// The next playback offers it, chosen, and has it converted.
+	// The next playback offers it, chosen, its text made.
 	track := offeredFetched(t, harness.play(t, user, chrome(2)), fetchedID)
 	if choice := harness.startIn(t, user, 2).subtitle; choice != fmt.Sprintf("fetched %d", fetchedID) {
 		t.Errorf("the file's choice is %s, want the fetched track (D224 §4)", choice)
 	}
-	convertFetched(t, harness, fetchedID)
 	if served := harness.getBytePath(t, track.VTTURL, user, true, ""); served.status != http.StatusOK ||
 		!strings.Contains(served.body, "Hallo") {
 		t.Errorf("the fetched track: %d %q, want its converted text", served.status, served.body)
@@ -337,21 +341,19 @@ func offeredFetched(t *testing.T, decided decision, fetchedID int64) subtitleTra
 	return subtitleTrack{}
 }
 
-// convertFetched runs the job that converts a fetched subtitle, answering as the node would.
-func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
+// answerConversion answers, as the node would, the command of the job that converts a fetched
+// subtitle, which the harness's runner runs.
+func answerConversion(t *testing.T, harness testHarness) {
 	t.Helper()
-	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
-	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Target: jobs.Target{FetchedSubtitleID: fetchedID}}
-	go func() { finished <- playback.HandleConvertFetchedSubtitle(t.Context(), job) }()
 	command := harness.nextCommand(t)
 	if sent := command.ExtractSubtitle; sent == nil || string(sent.FetchedSubRip) != fetchedText || sent.Video != nil {
 		t.Fatalf("the node was sent %+v, want the fetched text to convert (D224 §5)", command)
 	}
-	harness.answerSubtitle(t, 95, nodeproto.SubtitleText{VTT: []byte("WEBVTT\n\nHallo")})
-	if err := testutil.Receive(t, finished, "the conversion job to end"); err != nil {
-		t.Fatalf("the conversion ended %v, want done", err)
+	if command.Priority != jobs.PriorityPlayNow {
+		t.Fatalf("the conversion runs at priority %d, want %d: a person waits for it", command.Priority,
+			jobs.PriorityPlayNow)
 	}
+	harness.answerSubtitle(t, command.JobID, nodeproto.SubtitleText{VTT: []byte("WEBVTT\n\nHallo")})
 }
 
 // checkKeptGzipped fails unless the fetched subtitle is kept in persistent.db, gzipped (D224 §6).
@@ -381,5 +383,35 @@ func TestSubtitleCandidates_TheLanguagePatternIsLangtags(t *testing.T) {
 	}
 	if pattern := field.Tag.Get("pattern"); pattern != langtag.WellFormedPattern {
 		t.Errorf("the search's language pattern is %s, want langtag's %s", pattern, langtag.WellFormedPattern)
+	}
+}
+
+// A fetch whose conversion the node did not finish within the core's silence limit says the node is
+// not answering, and keeps nothing: only a subtitle its node converted is kept (D224 §6).
+func TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.identifyFilm(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	answered := make(chan response, 1)
+	go func() {
+		answered <- harness.do(t, http.MethodPost, "/files/2/subtitles", user,
+			map[string]any{"providerFileId": 7, "language": "de"})
+	}()
+	harness.nextCommand(t) // the node takes the conversion, and says nothing
+	var answer response
+	for waiting := true; waiting; {
+		harness.clock.Advance(time.Minute)
+		select {
+		case answer = <-answered:
+			waiting = false
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	wantError(t, answer, http.StatusServiceUnavailable, CodeNodeSilent)
+	if kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2); err != nil || len(kept) != 0 {
+		t.Errorf("kept %+v, %v after a conversion that never came; want nothing kept", kept, err)
 	}
 }

@@ -22,3 +22,8 @@ SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s
 JOIN file f ON f.id = s.video_file AND f.removed_at IS NULL
 WHERE s.id = sqlc.arg(id);
+
+-- name: DeleteFetchedSubtitle :exec
+-- A fetched subtitle its node could not convert, or did not in time while its person waited: only
+-- a subtitle its node converted is kept (D224 section 6). Nothing refers to it yet.
+DELETE FROM fetched_subtitle WHERE id = sqlc.arg(id);
