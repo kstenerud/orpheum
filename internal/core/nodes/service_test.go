@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -207,10 +208,20 @@ func (harness *fixture) pollThroughHold(t *testing.T, nodeID, after int64) (node
 	return got.commands, got.status
 }
 
-func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
+// A hello scans each of the node's roots a library covers, and no other: a folder the node can
+// read is scanned only once it is in a library, which says what kind of thing it holds (the owner,
+// 2026-10-02).
+func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	first := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+	first := harness.hello(t, nodeproto.Hello{
+		Name: "local", RootPaths: []string{"/media/films", "/media/everything", "/media/shows"},
+	})
 	again := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
 	other := harness.hello(t, nodeproto.Hello{Name: "attic", RootPaths: nil})
 	if first.NodeID == 0 || again.NodeID != first.NodeID || other.NodeID == first.NodeID {
@@ -227,7 +238,7 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 		roots = append(roots, command.Scan.RootPath)
 	}
 	if status != http.StatusOK || strings.Join(roots, ",") != "/media/films,/media/shows,/media/films" {
-		t.Errorf("status %d, scans of %q; want one scan per root named in each hello", status, roots)
+		t.Errorf("status %d, scans of %q; want one scan per root a library covers in each hello", status, roots)
 	}
 	if seqs := []int64{commands.Commands[0].CommandSeq, commands.Commands[2].CommandSeq}; seqs[0] != 1 || seqs[1] != 3 {
 		t.Errorf("command numbers %v, want 1 then 3", seqs)

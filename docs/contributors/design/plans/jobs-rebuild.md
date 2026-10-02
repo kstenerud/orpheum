@@ -530,6 +530,10 @@ as before (`PrepareAgain`). Node protocol 10.
 - A node's hello asks for no scan of a root no library covers: on devnas (2026-10-02), the dev
   loop's start read all 329 films of a root no library covered yet, for 58 seconds, and stored
   nothing ("a node scanned a root no library covers; what it saw is not stored").
+  *Built 2026-10-02, ahead of 4e:* after a fresh start on devnas the films page stayed empty for two
+  minutes while that root was read ahead of the dev library's own. The owner: *"Just because a
+  potential root is available to orpheum does not mean it should scan it. Only when a path is
+  added to a library and its type (film, show, home video, etc) is defined should it be scanned."*
 - *Seen in 4b's branch gates (2026-10-02), once in sixteen runs:*
   `TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath` filed two specials
   (`S00E01`) differently in the replayed scan than in the live one, under the load of the gates'

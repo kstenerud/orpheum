@@ -9,7 +9,10 @@
 //
 //   - The core never reaches os/exec, and starts no process. Enforced by the depguard rule
 //     core-boundary and TestArch_CoreNeverExecs.
-//   - A node is enrolled once per name (D207). TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot.
+//   - A node is enrolled once per name (D207), and its hello scans each of its roots a library
+//     covers, and no other: a folder is scanned only once it is in a library, which says what kind
+//     of thing it holds (the owner, 2026-10-02).
+//     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the
 //     prepare slots of every node that said one are added up for whoever runs prepares, and each
 //     node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
