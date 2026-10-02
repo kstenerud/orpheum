@@ -210,7 +210,10 @@ async function waitForHealth(
   throw new Error(`the server did not answer /health within 60 s:\n${readLog()}`);
 }
 
-/** Makes the library, starts the server, and returns what stops it and removes everything. */
+/**
+ * Makes the library, starts the server — the core, then the node beside it, two services as in
+ * deployment (D235 §4) — and returns what stops both and removes everything.
+ */
 export default async function globalSetup(): Promise<() => Promise<void>> {
   const binary = requiredEnv("ORPHEUM_TEST_BINARY");
   const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
@@ -242,30 +245,42 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   execFileSync(binary, ["dev", "seed", "--config", configPath, "--seed", seedPath]);
 
   let log = "";
-  const server = spawn(binary, ["run", "--config", configPath], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
   const appendToLog = (chunk: Buffer): void => {
     log += chunk.toString();
   };
-  server.stdout.on("data", appendToLog);
-  server.stderr.on("data", appendToLog);
+  const startRole = (role: "core" | "node"): ChildProcess => {
+    const started = spawn(binary, [role, "--config", configPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    started.stdout.on("data", appendToLog);
+    started.stderr.on("data", appendToLog);
+    return started;
+  };
+  const server = startRole("core");
   const url = `http://127.0.0.1:${String(port)}`;
   // The spec reads the address from here: Playwright hands a global setup's environment to its
   // workers.
   process.env[serverAddressEnvVariable] = url;
   await waitForHealth(url, server, () => log);
+  // The node dials the core's socket, which exists once the core answers: started now, its first
+  // hello does not wait for a status tick.
+  const node = startRole("node");
   // A key the server does not read is a key this config names wrongly, as after a rename (D227):
   // the tests would run on its starting value, not the one written here.
   const unread = log.split("\n").filter((line) => line.includes("nothing reads it"));
   if (unread.length > 0) {
+    node.kill("SIGTERM");
     server.kill("SIGTERM");
     throw new Error(`the test config names keys the server does not read:\n${unread.join("\n")}`);
   }
 
   return async () => {
+    const exited = [node, server].map(
+      (started) => new Promise((resolve) => started.once("exit", resolve)),
+    );
+    node.kill("SIGTERM");
     server.kill("SIGTERM");
-    await new Promise((resolve) => server.once("exit", resolve));
+    await Promise.all(exited);
     rmSync(root, { recursive: true, force: true });
   };
 }
