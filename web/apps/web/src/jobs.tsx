@@ -113,6 +113,9 @@ export function JobList(props: {
             {job.waitingFor === undefined ? null : (
               <span className="jobs__waiting">{waitingText(t, job.waitingFor, i18n.language)}</span>
             )}
+            {job.onNode === "waiting" || job.onNode === "paused" ? (
+              <span className="jobs__waiting">{t(`jobs.onNode.${job.onNode}`)}</span>
+            ) : null}
             {job.lastFailure === undefined ? null : (
               <span className="jobs__failure">
                 {t("jobs.lastFailure", { failure: job.lastFailure })}

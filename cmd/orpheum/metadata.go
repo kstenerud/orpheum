@@ -310,6 +310,10 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		return nil, err
 	}
 	services.queue.OnCancel(services.exchanges.Cancelled)
+	services.queue.SetNodeWords(func(jobID int64) (string, bool) {
+		word, isSaid := services.exchanges.NodeWordOf(jobID)
+		return string(word), isSaid
+	})
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
 	startRunner := func(runnerSpec jobRunner) {

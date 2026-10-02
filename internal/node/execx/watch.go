@@ -134,6 +134,7 @@ type watchdog struct {
 	furthest      Progress  // guarded by mutex: the furthest position and frame count seen
 	hasMoved      bool      // guarded by mutex
 	lastAdvanceAt time.Time // guarded by mutex: when the position or frame count last grew
+	pausedAt      time.Time // guarded by mutex: when the run was paused; zero while it is not
 }
 
 func newWatchdog(clockSource clock.Clock, watch Watch) *watchdog {
@@ -159,6 +160,9 @@ func (dog *watchdog) verdict(tool Tool) *StalledError {
 	now := dog.clock.Now()
 	dog.mutex.Lock()
 	defer dog.mutex.Unlock()
+	if !dog.pausedAt.IsZero() {
+		return nil
+	}
 	stalled := &StalledError{
 		Tool: tool, LastPosition: dog.furthest.Position, WithoutAdvance: now.Sub(dog.lastAdvanceAt),
 	}

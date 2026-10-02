@@ -562,6 +562,15 @@ What the earlier 4d and 4e found still holds:
   stopped with `SIGSTOP` and continued with `SIGCONT` when the play-driven work there ends, a hash
   at its next chunk. Paused time is neither a stall nor spent deadline. The status says what is
   paused, and the job shows *"Paused while a film is prepared"*.
+  *4d.2 built 2026-10-02:* each command's work reads the device its file is on (`Work.MediaFile`,
+  `Devices.KeyOf`) and runs only with a reader of it free; a play-driven command (play priority) that
+  finds its device's readers taken pauses the background work there (`execx.Pausing`, `SIGSTOP`
+  and `SIGCONT` to the process group, the watchdog's clock moved on by the paused time), which
+  continues when it ends; a scan waits between files meanwhile. The status and progress say
+  `paused`; the job view shows a job given to a node as running, with *"Waiting for a free slot on
+  the media machine"* or *"Paused while a film is prepared"*, where it showed the raw `assigned`
+  since 4c.1. Each poll's answer carries the reader limits as the settings say then. Slots are not
+  taken from a running job: only readers. Node protocol 12.
 - **4d.3 The core schedules.** The core hands a node only what its limits can start now, plus one
   more of each (`node_work_window_extra`, 1), by global priority; a job beyond it waits, parked:
   *"Waiting for a free slot on <node>"*, back when one of that node's attempts of its device or

@@ -6,6 +6,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -103,4 +104,103 @@ func TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce(t *testin
 	if len(order) != len(want) || order[0] != 3 || order[1] != 5 || order[2] != 4 || order[3] != 2 {
 		t.Errorf("the waiting jobs started in the order %v, want %v", order, want)
 	}
+}
+
+// onDevice is blocking work in slot that reads device, play-driven or not.
+func (blocking blockingWork) onDevice(jobID int64, slot slotKind, device string, isPlayDriven bool) heldWork {
+	work := blocking.held(jobID, 0)
+	work.slot, work.device, work.isPlayDriven = slot, device, isPlayDriven
+	if isPlayDriven {
+		work.priority = 1000
+	}
+	return work
+}
+
+// stateOf is where the attempt of job jobID is in the list: "waiting", "running" or "paused".
+func stateOf(list *workList, jobID int64) string {
+	for _, state := range list.states() {
+		if state.jobID != jobID {
+			continue
+		}
+		switch {
+		case state.isPaused:
+			return "paused"
+		case state.isRunning:
+			return "running"
+		}
+		return "waiting"
+	}
+	return "gone"
+}
+
+// A device's readers are bounded by its limit, one when the core named none: background work on a
+// taken device waits, while work on another device or reading none runs (D240 §5).
+func TestWorkList_ADevicesReadersAreBoundedByItsLimit(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
+	blocking := newBlockingWork()
+	list.hold(t.Context(), blocking.onDevice(1, slotMeasure, "zfs:tank", false))
+	testutil.Receive(t, blocking.started, "job 1's start")
+	list.hold(t.Context(), blocking.onDevice(2, slotExtract, "zfs:tank", false))
+	list.hold(t.Context(), blocking.onDevice(3, slotRemux, "disk:sda", false))
+	testutil.Receive(t, blocking.started, "job 3's start")
+	if got := []string{stateOf(list, 1), stateOf(list, 2), stateOf(list, 3)}; got[0] != "running" ||
+		got[1] != "waiting" || got[2] != "running" {
+		t.Errorf("jobs 1 and 2 on zfs:tank, 3 on disk:sda are %v; want 2 waiting for tank's one reader", got)
+	}
+	list.setReaderLimits(map[string]int{"zfs:tank": 2})
+	testutil.Receive(t, blocking.started, "job 2's start, once tank has two readers")
+	close(blocking.release)
+}
+
+// Play-driven work that finds its device's readers taken pauses the background work reading it, and
+// starts; once it ends, the paused work continues. A scan on the device waits for it meanwhile
+// (D240 §6).
+func TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
+	background, play := newBlockingWork(), newBlockingWork()
+	list.hold(t.Context(), background.onDevice(1, slotMeasure, "zfs:tank", false))
+	testutil.Receive(t, background.started, "the measurement's start")
+	list.hold(t.Context(), play.onDevice(2, slotRemux, "zfs:tank", true))
+	testutil.Receive(t, play.started, "the play-driven prepare's start")
+	if stateOf(list, 1) != "paused" {
+		t.Errorf("the measurement on the play's device is %s, want paused", stateOf(list, 1))
+	}
+	scanned := make(chan error, 1)
+	go func() { scanned <- list.waitForPlayOn(t.Context(), "zfs:tank") }()
+	select {
+	case err := <-scanned:
+		t.Errorf("a scan of the play's device went on (%v) while the play-driven work ran", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(play.release)
+	if err := testutil.Receive(t, play.ended, "the play-driven prepare's end"); err != nil {
+		t.Errorf("the play-driven prepare ended %v, want released", err)
+	}
+	if err := testutil.Receive(t, scanned, "the scan going on"); err != nil {
+		t.Errorf("the scan's wait ended %v, want it to go on", err)
+	}
+	if state := stateOf(list, 1); state != "running" {
+		t.Errorf("once the play-driven work ended the measurement is %s, want running again", state)
+	}
+	close(background.release)
+}
+
+// A device whose limit lets two read runs play-driven and background work side by side, pausing
+// nothing (D240 §6: "Running both is a device's limit of two").
+func TestWorkList_ADeviceWithRoomForBothPausesNothing(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
+	list.setReaderLimits(map[string]int{"disk:sdb": 2})
+	background, play := newBlockingWork(), newBlockingWork()
+	list.hold(t.Context(), background.onDevice(1, slotMeasure, "disk:sdb", false))
+	testutil.Receive(t, background.started, "the measurement's start")
+	list.hold(t.Context(), play.onDevice(2, slotRemux, "disk:sdb", true))
+	testutil.Receive(t, play.started, "the play-driven prepare's start")
+	if state := stateOf(list, 1); state != "running" {
+		t.Errorf("with room for two, the measurement is %s, want running", state)
+	}
+	close(background.release)
+	close(play.release)
 }

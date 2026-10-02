@@ -106,6 +106,16 @@ func readerSetting(kind nodeproto.DeviceKind) settings.Key {
 	return settings.DeviceReadersUnknown
 }
 
+// devicesOf are the devices a connected node's last hello listed.
+func (service *Service) devicesOf(nodeID int64) []nodeproto.Device {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, isConnected := service.connectedNodes[nodeID]; isConnected {
+		return node.hello.Devices
+	}
+	return nil
+}
+
 // readerLimits are how many may read each of a hello's devices at once, by its key: the setting
 // for its kind, and an unknown device's for a kind this core does not know (D240 §5).
 func (service *Service) readerLimits(ctx context.Context, devices []nodeproto.Device) (map[string]int, error) {

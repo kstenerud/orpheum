@@ -185,7 +185,10 @@ type Ran struct {
 // process group. A run it stopped returns a *StalledError. Cancelling ctx kills the tool and
 // every process it started at once.
 func (runner *Runner) RunWatched(ctx context.Context, run WatchedRun) (Ran, error) {
-	streams := pipes{stdin: run.Input, stdout: io.Discard, stderrTailLimitBytes: stderrTailBytes, watch: &run.Watch}
+	streams := pipes{
+		stdin: run.Input, stdout: io.Discard, stderrTailLimitBytes: stderrTailBytes, watch: &run.Watch,
+		pausing: pausingOf(ctx),
+	}
 	var stdout *limitedBuffer
 	if run.StdoutLimitBytes > 0 {
 		stdout = &limitedBuffer{limitBytes: run.StdoutLimitBytes}
@@ -229,6 +232,7 @@ type pipes struct {
 	stdout               io.Writer
 	stderrTailLimitBytes int
 	watch                *Watch
+	pausing              *Pausing
 }
 
 // runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
@@ -269,6 +273,10 @@ func (runner *Runner) runToExit(
 	}
 	if progress != nil {
 		dog := newWatchdog(runner.clock, *streams.watch)
+		if streams.pausing != nil {
+			streams.pausing.attach(command.Process.Pid, dog)
+			defer streams.pausing.detach()
+		}
 		progress.startReading(dog)
 		go runner.watchUntil(exited, dog, tool, stopRun)
 	}

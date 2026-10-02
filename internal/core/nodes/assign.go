@@ -51,6 +51,8 @@ type Assignee struct {
 type heldAttempt struct {
 	Attempt
 	lastHeard time.Time
+	// lastWord is where its node last said it is: waiting, running or paused; empty before it said.
+	lastWord nodeproto.ProgressState
 }
 
 // Handle names how one kind of job given to a node is resolved. Set each before the channel serves.
@@ -78,6 +80,8 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 		return err
 	}
 	command.JobID, command.AttemptToken, command.Priority = job.ID, token, job.Priority
+	// Play-driven work pauses background work on its device (D240 §6).
+	command.IsPlayDriven = job.Priority >= jobs.PriorityPlayNow
 	now := all.clock.Now()
 	attempt := Attempt{
 		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, Work: command.WithoutBytes(), SentAt: now,
@@ -107,6 +111,19 @@ func (all *Exchanges) keep(ctx context.Context, attempt Attempt) error {
 	defer all.mutex.Unlock()
 	all.attempts[attempt.Token] = &heldAttempt{Attempt: attempt, lastHeard: attempt.SentAt}
 	return nil
+}
+
+// NodeWordOf is where the node that holds a job's attempt last said it is, waiting for a slot or a
+// reader, running, or paused for play-driven work (D240 §6), and whether a node holds one and said.
+func (all *Exchanges) NodeWordOf(jobID int64) (nodeproto.ProgressState, bool) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	for _, held := range all.attempts {
+		if held.JobID == jobID && held.lastWord != "" {
+			return held.lastWord, true
+		}
+	}
+	return "", false
 }
 
 // forgetAttempt drops an attempt, resolved or given up.
@@ -208,7 +225,7 @@ func (all *Exchanges) takeProgress(ctx context.Context, nodeID int64, progress n
 	attempt, assignee := held.Attempt, held.assignee
 	all.mutex.Lock()
 	if held, isHeld := all.attempts[attempt.Token]; isHeld {
-		held.lastHeard = all.clock.Now()
+		held.lastHeard, held.lastWord = all.clock.Now(), progress.State
 	}
 	all.mutex.Unlock()
 	if assignee.Progress == nil {

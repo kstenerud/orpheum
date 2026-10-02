@@ -44,16 +44,26 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 	defer service.notePoll(nodeID, -1)
 	hold := service.clock.NewTimer(service.pollHold)
 	defer hold.Stop()
+	answer := func(ctx context.Context, pending []nodeproto.Command) {
+		// Each answer carries the reader limits as the settings say now, so a change reaches the
+		// node within a poll's hold (D240 §5).
+		limits, err := service.readerLimits(ctx, service.devicesOf(nodeID))
+		if err != nil {
+			service.logger.WarnContext(ctx, "could not read the devices' reader limits; the node keeps its last",
+				"nodeId", nodeID, "err", err)
+		}
+		writeJSON(writer, nodeproto.Commands{Commands: pending, DeviceReaderLimits: limits})
+	}
 	for {
 		pending, wake := service.dropAckedAndListPending(nodeID, ackedSeq)
 		if len(pending) > 0 {
-			writeJSON(writer, nodeproto.Commands{Commands: pending})
+			answer(request.Context(), pending)
 			return
 		}
 		select {
 		case <-wake:
 		case <-hold.C():
-			writeJSON(writer, nodeproto.Commands{Commands: []nodeproto.Command{}})
+			answer(request.Context(), []nodeproto.Command{})
 			return
 		case <-request.Context().Done():
 			return

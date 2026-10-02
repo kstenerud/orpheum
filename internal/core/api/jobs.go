@@ -36,12 +36,14 @@ type JobBody struct {
 	// What it works on, one field by kind (D227 §2): an item for fetch_metadata and
 	// make_artwork_sizes, a rendition for prepare, a stream for extract_subtitle, a fetched subtitle
 	// for convert_fetched_subtitle, a file for measure_loudness.
-	ItemID            int64  `json:"itemId,omitempty"`
-	RenditionID       int64  `json:"renditionId,omitempty"`
-	StreamID          int64  `json:"streamId,omitempty"`
-	FetchedSubtitleID int64  `json:"fetchedSubtitleId,omitempty"`
-	FileID            int64  `json:"fileId,omitempty"`
-	State             string `enum:"queued,running,done,failed,cancelled" json:"state"`
+	ItemID            int64 `json:"itemId,omitempty"`
+	RenditionID       int64 `json:"renditionId,omitempty"`
+	StreamID          int64 `json:"streamId,omitempty"`
+	FetchedSubtitleID int64 `json:"fetchedSubtitleId,omitempty"`
+	FileID            int64 `json:"fileId,omitempty"`
+	// State is a job given to a node (assigned) as running: to a person, its work runs on the
+	// node, and OnNode says where it is there.
+	State string `enum:"queued,running,done,failed,cancelled" json:"state"`
 	// ProgressFraction is how far it is, 0 to 1, absent when not known.
 	ProgressFraction *float64 `json:"progressFraction,omitempty"`
 	Reason           string   `doc:"Why it exists" json:"reason"`
@@ -54,6 +56,9 @@ type JobBody struct {
 	// WaitingFor is that destination while the job waits on it, down: the job view says "waiting
 	// for TMDB — unreachable since 14:02, next check 14:10" (D231 §12).
 	WaitingFor *DestinationBody `json:"waitingFor,omitempty"`
+	// OnNode is where the node running it last said it is: waiting for a free slot, running, or
+	// paused while play-driven work reads its disk (D240 §6); absent for work no node holds.
+	OnNode string `enum:"waiting,running,paused" json:"onNode,omitempty"`
 }
 
 // JobsOutput is the job view: the newest jobs first.
@@ -102,7 +107,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 		body := JobBody{
 			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
-			State: view.State, ProgressFraction: view.ProgressFraction,
+			State: view.State, OnNode: view.OnNode, ProgressFraction: view.ProgressFraction,
 			Reason: view.Reason, LastFailure: view.LastFailure, AttemptCount: view.AttemptCount,
 			CreatedAt: view.CreatedAt.UnixMilli(), Destination: string(view.Destination),
 		}

@@ -1658,6 +1658,8 @@ export interface components {
             /** @enum {string} */
             kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
             lastFailure?: string;
+            /** @enum {string} */
+            onNode?: "waiting" | "running" | "paused";
             /** Format: double */
             progressFraction?: number;
             /** @description Why it exists */

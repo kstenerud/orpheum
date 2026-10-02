@@ -3,6 +3,8 @@
 package nodeproto
 
 import (
+	"strings"
+
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 )
@@ -22,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 11
+const ProtocolVersion = 12
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -56,7 +58,7 @@ type Hello struct {
 	// Capacity is how much work the node takes on at once, and how fast it reads, from its config.
 	Capacity Capacity `json:"capacity"`
 	// Devices are what its roots and prepared directory are on, and of what kind (D240 §5).
-	Devices []Device `json:"devices,omitempty"`
+	Devices Devices `json:"devices,omitempty"`
 	// Renditions are the renditions in the node's prepared directory, by their manifests, read from
 	// its disk as it says hello: the core adopts those it does not know into its index, and its
 	// reply names the ones it keeps (D238 §2).
@@ -164,4 +166,22 @@ type Device struct {
 	// MountPaths are where it is mounted at or inside the node's roots and prepared directory: a
 	// path is on the device of the longest of every device's mount paths it is under.
 	MountPaths []string `json:"mountPaths"`
+}
+
+// Devices are the devices a node's roots and prepared directory are on.
+type Devices []Device
+
+// KeyOf is the key of the device an absolute path is on: the one with the longest of the mount
+// paths it is under, or "" when it is under none.
+func (devices Devices) KeyOf(path string) string {
+	key, longest := "", -1
+	for _, device := range devices {
+		for _, mountPath := range device.MountPaths {
+			isUnder := path == mountPath || mountPath == "/" || strings.HasPrefix(path, mountPath+"/")
+			if isUnder && len(mountPath) > longest {
+				key, longest = device.Key, len(mountPath)
+			}
+		}
+	}
+	return key
 }

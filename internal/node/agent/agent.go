@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -106,6 +107,8 @@ type Agent struct {
 
 	mutex    sync.Mutex
 	activity string
+	// devices are what the roots are on, as the last hello found them. Guarded by mutex.
+	devices nodeproto.Devices
 }
 
 // New returns an agent that talks to the core at socketPath. The hello is sent as given, with
@@ -164,6 +167,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastIngestedReportSeq",
 		reply.LastIngestedReportSeq)
 	agent.evictUnkept(ctx, hello.Renditions, reply.KeptRenditionDirs)
+	agent.work.setReaderLimits(reply.DeviceReaderLimits)
 	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -205,6 +209,9 @@ func (agent *Agent) helloNow(ctx context.Context) nodeproto.Hello {
 			agent.logger.WarnContext(ctx, "could not find the devices the roots are on", "err", err)
 		}
 		hello.Devices = devices
+		agent.mutex.Lock()
+		agent.devices = devices
+		agent.mutex.Unlock()
 	}
 	if agent.workers.PreparedShelf == nil {
 		return hello
@@ -261,6 +268,9 @@ func (agent *Agent) pollCommands(
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
+		if answer.DeviceReaderLimits != nil {
+			agent.work.setReaderLimits(answer.DeviceReaderLimits)
+		}
 		for _, command := range answer.Commands {
 			switch {
 			case command.Type == nodeproto.CommandCancel:
@@ -293,7 +303,10 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 		agent.refuseUnknown(ctx, nodeID, command)
 		return
 	}
-	work.attempt, work.priority = held, command.Priority
+	work.attempt, work.priority, work.isPlayDriven = held, command.Priority, command.IsPlayDriven
+	if file, isMedia := command.MediaFile(); isMedia {
+		work.device = agent.deviceOf(filepath.Join(file.RootPath, string(file.Path)))
+	}
 	if agent.ended.hasEnded(held.token) {
 		agent.logger.InfoContext(ctx, "the core sent again an attempt that ended here; it is not run again",
 			"jobId", held.jobID, "attemptToken", held.token)
@@ -308,6 +321,14 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 	if isWaiting {
 		go agent.sayProgress(nodeCtx, nodeID, held.progress(nodeproto.ProgressWaiting))
 	}
+}
+
+// deviceOf is the key of the device an absolute path is on, as the last hello found them, or ""
+// when it is on none of them.
+func (agent *Agent) deviceOf(path string) string {
+	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
+	return agent.devices.KeyOf(path)
 }
 
 // workFor is the work a command asks for, and false for one this node cannot read: unknown, or
@@ -350,13 +371,18 @@ func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream 
 	}
 	agent.setActivity("scanning " + root.Path())
 	defer agent.setActivity("idle")
+	device := agent.deviceOf(root.Path())
 	emit := func(record nodeproto.Record) error {
 		// Once a scan says it is complete, the node is idle: a status record sent after the
 		// completion must not still say it is scanning.
 		if record.Type == nodeproto.RecordScanComplete {
 			agent.setActivity("idle")
 		}
-		return stream.emit(ctx, record)
+		if err := stream.emit(ctx, record); err != nil {
+			return err
+		}
+		// Between one file and the next, the scan gives its device to play-driven work (D240 §6).
+		return agent.work.waitForPlayOn(ctx, device)
 	}
 	err := agent.workers.Scanner.Scan(ctx, root, emit)
 	if err != nil && ctx.Err() == nil {
@@ -484,7 +510,10 @@ func (agent *Agent) held() []nodeproto.HeldAttempt {
 	held := make([]nodeproto.HeldAttempt, 0, len(states))
 	for _, each := range states {
 		state := nodeproto.HeldWaiting
-		if each.isRunning {
+		switch {
+		case each.isPaused:
+			state = nodeproto.HeldPaused
+		case each.isRunning:
 			state = nodeproto.HeldRunning
 		}
 		held = append(held, nodeproto.HeldAttempt{JobID: each.jobID, AttemptToken: each.token, State: state})

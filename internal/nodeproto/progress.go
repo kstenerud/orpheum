@@ -16,6 +16,9 @@ const (
 	ProgressWaiting ProgressState = "waiting"
 	// ProgressRunning is an attempt whose work runs.
 	ProgressRunning ProgressState = "running"
+	// ProgressPaused is an attempt whose run the node paused for play-driven work on its device
+	// (D240 §6), said at each status tick, since a paused run says nothing of itself.
+	ProgressPaused ProgressState = "paused"
 )
 
 // Progress is the node's word on where an attempt it holds is, said when it starts to wait or to
