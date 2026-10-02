@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,6 +54,17 @@ type fakeNodes struct {
 	// takeResult is where the node's answers to a fetch's conversion go, which it answers at
 	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
 	takeResult func(nodeID int64, result nodeproto.Result)
+	// tokenMutex guards tokenByJobID: the attempt token of the last command sent for each job, which
+	// a test's answer names as the node's does.
+	tokenMutex   sync.Mutex
+	tokenByJobID map[int64]string
+}
+
+// attemptTokenOf is the attempt token of the last command sent for job.
+func (nodes *fakeNodes) attemptTokenOf(job int64) string {
+	nodes.tokenMutex.Lock()
+	defer nodes.tokenMutex.Unlock()
+	return nodes.tokenByJobID[job]
 }
 
 // RemoveNode removes a node an admin retired, as the node service does; node 1 is away from then
@@ -140,6 +152,12 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
+	nodes.tokenMutex.Lock()
+	if nodes.tokenByJobID == nil {
+		nodes.tokenByJobID = map[int64]string{}
+	}
+	nodes.tokenByJobID[command.JobID] = command.AttemptToken
+	nodes.tokenMutex.Unlock()
 	if extract := command.ExtractSubtitle; extract != nil && command.JobID < 0 && nodes.takeResult != nil {
 		answer := nodeproto.SubtitleText{
 			ASS: []byte("[Script Info]"), VTT: append([]byte("WEBVTT\n\n"), extract.FetchedSubRip...),
@@ -147,7 +165,8 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 		if string(extract.FetchedSubRip) == unreadableText {
 			answer = nodeproto.SubtitleText{Failure: "Invalid data found when processing input"}
 		}
-		nodes.takeResult(1, nodeproto.Result{JobID: command.JobID, Subtitle: &answer})
+		answered := nodeproto.Result{JobID: command.JobID, AttemptToken: command.AttemptToken, Subtitle: &answer}
+		nodes.takeResult(1, answered)
 		return
 	}
 	if nodes.commanded != nil {

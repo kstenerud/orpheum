@@ -52,11 +52,14 @@
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt,
 //     TestAgent_AnArtworkJobTheCoreCancelledIsStopped,
 //     TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops.
-//   - The work the node holds is in memory, never on disk (D238 §3), and held beside its scans,
-//     never queued behind one. What waits for a slot of its kind starts the highest priority
-//     first, the command's, and at one priority the first to come (D234 §3); a job the core sends
-//     again while it is held is held once. TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
-//     TestAgent_APrepareRunsWhileAScanIsStillGoing.
+//   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
+//     which a cancel and every result name, and a command without one is refused; and it is held
+//     beside its scans, never queued behind one. What waits for a slot of its kind starts the
+//     highest priority first, the command's, and at one priority the first to come (D234 §3); an
+//     attempt the core sends again while it is held is held once.
+//     TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
+//     TestAgent_APrepareRunsWhileAScanIsStillGoing,
+//     TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt.
 //   - A finished prepare's report says what made its video and how fast (D225 §3).
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //   - A prepare, subtitle or measurement the node did not try (no worker for it, a file outside

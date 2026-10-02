@@ -32,10 +32,23 @@ func slotCounts(capacity nodeproto.Capacity) map[slotKind]int {
 	}
 }
 
-// heldWork is one job the node holds, by the core's job id: waiting for a slot of its kind, then
+// attempt is the core's attempt at a job that the node holds: the job's id, and the token the core
+// made for this sending of it, by which the node holds it and every result names it (D238 §2).
+type attempt struct {
+	jobID int64
+	token string
+}
+
+// named is result naming the attempt it answers.
+func (held attempt) named(result nodeproto.Result) nodeproto.Result {
+	result.JobID, result.AttemptToken = held.jobID, held.token
+	return result
+}
+
+// heldWork is one attempt the node holds, by its token: waiting for a slot of its kind, then
 // running.
 type heldWork struct {
-	jobID    int64
+	attempt
 	priority int64
 	slot     slotKind
 	// saysWaiting is a prepare, which tells the core while it waits for a slot (sayWaiting).
@@ -67,12 +80,13 @@ func newWorkList(capacity nodeproto.Capacity) *workList {
 	return &workList{slots: slotCounts(capacity), running: map[slotKind]int{}}
 }
 
-// hold takes a job and starts what is due. It reports false, holding nothing, for a job it holds
-// already: a command the core sent again. isWaiting says the job waits for a slot.
+// hold takes a job and starts what is due. It reports false, holding nothing, for an attempt it
+// holds already: a command the core sent again. It says, as isWaiting, whether the job waits for a
+// slot.
 func (list *workList) hold(ctx context.Context, work heldWork) (isHeld, isWaiting bool) {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
-	if list.find(work.jobID) != nil {
+	if list.find(work.token) != nil {
 		return false, false
 	}
 	list.arrivals++
@@ -119,51 +133,51 @@ func (list *workList) finish(work *heldWork) {
 	// stop is set under the mutex once the run has begun, which may end before then.
 	work.stop()
 	list.running[work.slot]--
-	list.remove(work.jobID)
+	list.remove(work.token)
 	list.startDue()
 }
 
-// cancel stops a running job, or drops a waiting one before it starts. It reports whether the job
-// was held.
-func (list *workList) cancel(jobID int64) bool {
+// cancel stops a running attempt, or drops a waiting one before it starts. It reports whether the
+// attempt was held.
+func (list *workList) cancel(token string) bool {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
-	work := list.find(jobID)
+	work := list.find(token)
 	if work == nil {
 		return false
 	}
 	if work.isRunning() {
 		work.stop()
 	} else {
-		list.remove(jobID)
+		list.remove(token)
 	}
 	return true
 }
 
-// waitingPrepareJobIDs are the prepares waiting for a slot, in no order.
-func (list *workList) waitingPrepareJobIDs() []int64 {
+// waitingPrepares are the prepares waiting for a slot, in no order.
+func (list *workList) waitingPrepares() []attempt {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
-	var jobIDs []int64
+	var waiting []attempt
 	for _, work := range list.held {
 		if work.saysWaiting && !work.isRunning() {
-			jobIDs = append(jobIDs, work.jobID)
+			waiting = append(waiting, work.attempt)
 		}
 	}
-	return jobIDs
+	return waiting
 }
 
-// find is the held job of an id, or nil. The caller holds the mutex.
-func (list *workList) find(jobID int64) *heldWork {
+// find is the held attempt of a token, or nil. The caller holds the mutex.
+func (list *workList) find(token string) *heldWork {
 	for _, work := range list.held {
-		if work.jobID == jobID {
+		if work.token == token {
 			return work
 		}
 	}
 	return nil
 }
 
-// remove forgets a held job. The caller holds the mutex.
-func (list *workList) remove(jobID int64) {
-	list.held = slices.DeleteFunc(list.held, func(work *heldWork) bool { return work.jobID == jobID })
+// remove forgets a held attempt. The caller holds the mutex.
+func (list *workList) remove(token string) {
+	list.held = slices.DeleteFunc(list.held, func(work *heldWork) bool { return work.token == token })
 }

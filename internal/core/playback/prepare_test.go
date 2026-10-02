@@ -4,6 +4,7 @@ package playback
 
 import (
 	"context"
+	"crypto/rand"
 	"log/slog"
 	"testing"
 	"time"
@@ -73,9 +74,13 @@ func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { retur
 
 func (fakeNodes) SlowestReadBytesPerSecond(int64) int64 { return 20 << 20 }
 
-// reported hands node 1's report on job 7 to the job waiting for it, as the node channel does.
-func (all *prepares) reported(ctx context.Context, report nodeproto.PrepareReport) {
-	all.exchanges.Deliver(ctx, 1, nodeproto.Result{JobID: 7, Prepare: &report})
+// reported hands node 1's report on the attempt command made to the job waiting for it, as the node
+// channel does.
+func (all *prepares) reported(ctx context.Context, command nodeproto.Command, report nodeproto.PrepareReport) {
+	all.exchanges.Deliver(ctx, 1, nodeproto.Result{
+		JobID: command.JobID, AttemptToken: command.AttemptToken,
+		Prepare: &report,
+	})
 }
 
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
@@ -86,18 +91,18 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	all := &prepares{
 		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		clock: clockSource, maxSilence: silence, maxSlotWait: maxSlotWait,
-		exchanges: nodes.NewExchanges(node, clockSource, slog.New(slog.DiscardHandler)),
+		exchanges: nodes.NewExchanges(node, clockSource, rand.Reader, slog.New(slog.DiscardHandler)),
 	}
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: 1}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, prepareOrder{command: nodeproto.Prepare{}, nodeID: 1}) }()
-	testutil.Receive(t, node.sent, "the prepare command")
+	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		clockSource.Advance(silence / 2)
-		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
 	}
-	all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+	all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}

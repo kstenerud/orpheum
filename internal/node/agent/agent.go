@@ -159,8 +159,8 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 					cancel(err)
 					return
 				}
-				for _, jobID := range agent.work.waitingPrepareJobIDs() {
-					agent.sayWaiting(ctx, reply.NodeID, jobID)
+				for _, waiting := range agent.work.waitingPrepares() {
+					agent.sayWaiting(ctx, reply.NodeID, waiting)
 				}
 			}
 		}
@@ -195,9 +195,9 @@ func (agent *Agent) pollCommands(
 		for _, command := range answer.Commands {
 			switch {
 			case command.Type == nodeproto.CommandCancel:
-				if !agent.work.cancel(command.JobID) {
-					agent.logger.InfoContext(ctx, "a cancel came for a job this node does not hold", "jobId",
-						command.JobID)
+				if !agent.work.cancel(command.AttemptToken) {
+					agent.logger.InfoContext(ctx, "a cancel came for an attempt this node does not hold", "jobId",
+						command.JobID, "attemptToken", command.AttemptToken)
 				}
 			case command.Type == nodeproto.CommandScan && command.Scan != nil:
 				select {
@@ -217,34 +217,38 @@ func (agent *Agent) pollCommands(
 // node's lifetime: a session that ends, the core gone or restarting, stops no work (D233 §2), and
 // each posts its result when a core takes it. A command the node cannot read is refused.
 func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, command nodeproto.Command) {
-	work, isKnown := agent.workFor(nodeCtx, nodeID, command)
-	if !isKnown {
+	held := attempt{jobID: command.JobID, token: command.AttemptToken}
+	work, isKnown := agent.workFor(nodeCtx, nodeID, held, command)
+	if !isKnown || held.token == "" {
 		agent.refuseUnknown(ctx, nodeID, command)
 		return
 	}
-	work.jobID, work.priority = command.JobID, command.Priority
+	work.attempt, work.priority = held, command.Priority
 	isHeld, isWaiting := agent.work.hold(nodeCtx, work)
 	if !isHeld {
-		agent.logger.InfoContext(ctx, "the core sent again a job this node holds", "jobId", command.JobID)
+		agent.logger.InfoContext(ctx, "the core sent again an attempt this node holds", "jobId", held.jobID,
+			"attemptToken", held.token)
 		return
 	}
 	if isWaiting && work.saysWaiting {
-		go agent.sayWaiting(nodeCtx, nodeID, command.JobID)
+		go agent.sayWaiting(nodeCtx, nodeID, held)
 	}
 }
 
 // workFor is the work a command asks for, and false for one this node cannot read: unknown, or
-// without its payload.
-func (agent *Agent) workFor(nodeCtx context.Context, nodeID int64, command nodeproto.Command) (heldWork, bool) {
+// without its payload. One without an attempt token is refused too, by holdCommand.
+func (agent *Agent) workFor(
+	nodeCtx context.Context, nodeID int64, held attempt, command nodeproto.Command,
+) (heldWork, bool) {
 	switch {
 	case command.Type == nodeproto.CommandPrepare && command.Prepare != nil:
-		return agent.prepareWork(nodeCtx, nodeID, command.JobID, *command.Prepare), true
+		return agent.prepareWork(nodeCtx, nodeID, held, *command.Prepare), true
 	case command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil:
-		return agent.subtitleWork(nodeCtx, nodeID, command.JobID, *command.ExtractSubtitle), true
+		return agent.subtitleWork(nodeCtx, nodeID, held, *command.ExtractSubtitle), true
 	case command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil:
-		return agent.loudnessWork(nodeCtx, nodeID, command.JobID, *command.MeasureLoudness), true
+		return agent.loudnessWork(nodeCtx, nodeID, held, *command.MeasureLoudness), true
 	case command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil:
-		return agent.artworkWork(nodeCtx, nodeID, command.JobID, *command.EncodeArtwork), true
+		return agent.artworkWork(nodeCtx, nodeID, held, *command.EncodeArtwork), true
 	}
 	return heldWork{}, false
 }
@@ -285,8 +289,8 @@ func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream 
 	}
 }
 
-// refuseUnknown answers a command this node does not know, or whose payload is missing, from a core
-// of another build: the job it is for is refused, so the core sees the node needs updating rather
+// refuseUnknown answers a command this node does not know, or whose payload or attempt token is
+// missing, from a core of another build: the job it is for is refused, so the core sees the node needs updating rather
 // than waiting on silence (D233 §9). A command for no job is logged.
 func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nodeproto.Command) {
 	agent.logger.WarnContext(ctx, "refused a command this node does not know", "commandType", command.Type,
@@ -296,12 +300,13 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 	}
 	refusal := fmt.Sprintf("this node cannot read the command %q, unknown or without its payload; "+
 		"it speaks node protocol %d", command.Type, nodeproto.ProtocolVersion)
-	go agent.postResult(ctx, nodeID, "a refusal", nodeproto.Result{JobID: command.JobID, Refusal: refusal})
+	refused := attempt{jobID: command.JobID, token: command.AttemptToken}.named(nodeproto.Result{Refusal: refusal})
+	go agent.postResult(ctx, nodeID, "a refusal", refused)
 }
 
 // artworkWork re-encodes an image and posts the answer — the sizes, or why there are none — to
 // the core, whose artwork store takes images from nowhere else (D212 §8).
-func (agent *Agent) artworkWork(ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork) heldWork {
+func (agent *Agent) artworkWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Artwork) heldWork {
 	return heldWork{slot: slotArtwork, run: func(jobCtx context.Context) {
 		var result nodeproto.ArtworkResult
 		sourceHash := ""
@@ -319,13 +324,13 @@ func (agent *Agent) artworkWork(ctx context.Context, nodeID, jobID int64, comman
 			result.SourceSha256 = sourceHash
 		}
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "an artwork re-encode was cancelled", "jobId", jobID)
+			agent.logger.InfoContext(ctx, "an artwork re-encode was cancelled", "jobId", held.jobID)
 			return
 		}
 		if result.Refusal != "" {
-			agent.logger.WarnContext(ctx, "refused an image", "jobId", jobID, "refusal", result.Refusal)
+			agent.logger.WarnContext(ctx, "refused an image", "jobId", held.jobID, "refusal", result.Refusal)
 		}
-		agent.postResult(ctx, nodeID, "an artwork re-encode", nodeproto.Result{JobID: jobID, Artwork: &result})
+		agent.postResult(ctx, nodeID, "an artwork re-encode", held.named(nodeproto.Result{Artwork: &result}))
 	}}
 }
 

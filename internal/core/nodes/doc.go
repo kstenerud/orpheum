@@ -25,8 +25,10 @@
 //     hello is refused. An artwork result is the artwork store's one way in (D212 §8).
 //     TestResult_AResultReachesTheResultSinkFromAKnownNodeOnly.
 //   - A job asks a node for work through Exchanges, the one way it is done: the command sent,
-//     the node's results handed to the job by its id, the wait bounded by the core's clock, and
-//     the node sent CancelCommand on every way out that leaves it working — a cancel, a silence,
+//     named by an attempt token made for that sending, the node's results handed to the job by
+//     that token and only from the node it asked, never by the job's id alone, which an earlier
+//     attempt and a discarded cache.db share (S83, S84), the wait bounded by the core's clock, and
+//     the node sent CancelCommand, naming the attempt, on every way out that leaves it working — a cancel, a silence,
 //     a failure after the send (audit-2026-09-30 §3). Playback and artwork both ask this way.
 //     TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled,
 //     TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway,

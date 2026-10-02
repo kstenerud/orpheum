@@ -50,6 +50,18 @@ type fakeCore struct {
 	endSession chan struct{}
 	// helloHeard is sent on at each hello, while it has room: a test waits on it for a session to begin.
 	helloHeard chan struct{}
+	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
+	tokenlessJobIDs map[int64]bool
+}
+
+// sendsTokenless has the core send job's commands naming no attempt.
+func (core *fakeCore) sendsTokenless(job int64) {
+	core.mutex.Lock()
+	defer core.mutex.Unlock()
+	if core.tokenlessJobIDs == nil {
+		core.tokenlessJobIDs = map[int64]bool{}
+	}
+	core.tokenlessJobIDs[job] = true
 }
 
 // isMalformed says the node posted something that is not the JSON it should be; a body cut short
@@ -102,6 +114,14 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	mux.HandleFunc("GET "+nodeproto.PathCommands, func(writer http.ResponseWriter, request *http.Request) {
 		select {
 		case command := <-core.commands:
+			// Work and its cancel name an attempt, as the core's do: job N's one attempt, unless the
+			// test named another.
+			core.mutex.Lock()
+			isTokenless := core.tokenlessJobIDs[command.JobID]
+			core.mutex.Unlock()
+			if command.AttemptToken == "" && command.Type != nodeproto.CommandScan && !isTokenless {
+				command.AttemptToken = tokenOf(command.JobID)
+			}
 			answer := nodeproto.Commands{Commands: []nodeproto.Command{command}}
 			if err := json.NewEncoder(writer).Encode(answer); err != nil {
 				t.Error(err)

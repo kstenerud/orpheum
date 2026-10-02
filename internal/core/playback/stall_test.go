@@ -3,6 +3,7 @@
 package playback
 
 import (
+	"crypto/rand"
 	"log/slog"
 	"strings"
 	"testing"
@@ -25,7 +26,7 @@ func preparesOnAFakeNode(t *testing.T, node fakeNodes, clockSource *clocktest.Fa
 		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		// The silence limit outlasts the slot cap, which these tests move the clock past at once.
 		clock: clockSource, maxSilence: 2 * maxSlotWait, maxSlotWait: maxSlotWait,
-		exchanges: nodes.NewExchanges(node, clockSource, slog.New(slog.DiscardHandler)),
+		exchanges: nodes.NewExchanges(node, clockSource, rand.Reader, slog.New(slog.DiscardHandler)),
 	}
 }
 
@@ -59,8 +60,8 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		}
 		ended := make(chan error, 1)
 		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
-		testutil.Receive(t, node.sent, "the prepare command")
-		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
+		command := testutil.Receive(t, node.sent, "the prepare command")
+		all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
@@ -137,10 +138,10 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
-	testutil.Receive(t, node.sent, "the prepare command")
+	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node says it is waiting at each tick; the clock moves on by the cap between them.
 	for range 10 {
-		all.reported(t.Context(), nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), command, nodeproto.PrepareReport{State: nodeproto.PrepareWaiting})
 		select {
 		case err := <-ended:
 			if err == nil || !strings.Contains(err.Error(), "waiting for a slot") ||

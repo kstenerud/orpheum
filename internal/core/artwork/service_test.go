@@ -5,6 +5,7 @@ package artwork
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -86,7 +87,7 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	if node.answer != nil {
 		result := node.answer(*command.EncodeArtwork)
 		go node.service.exchanges.Deliver(node.ctx, fakeNodeID,
-			nodeproto.Result{JobID: command.JobID, Artwork: &result})
+			nodeproto.Result{JobID: command.JobID, AttemptToken: command.AttemptToken, Artwork: &result})
 	}
 }
 
@@ -169,7 +170,7 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
-		Exchanges: nodes.NewExchanges(node, fakeClock, slog.New(slog.DiscardHandler)),
+		Exchanges: nodes.NewExchanges(node, fakeClock, rand.Reader, slog.New(slog.DiscardHandler)),
 		Cache:     storetest.OpenCache(t),
 		Settings:  config,
 		Fetchers:  map[string]Fetcher{"tmdb": images},

@@ -102,7 +102,7 @@ func newHarness(t *testing.T) testHarness {
 		Logger: slog.New(slog.DiscardHandler),
 	})
 	preferencesService := preferences.NewService(database, now)
-	exchanges := corenodes.NewExchanges(nodes, now, slog.New(slog.DiscardHandler))
+	exchanges := corenodes.NewExchanges(nodes, now, rand.Reader, slog.New(slog.DiscardHandler))
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges,
 		Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
@@ -157,19 +157,25 @@ func newHarness(t *testing.T) testHarness {
 // answerPrepare hands node 1's report on prepare job jobID to the job, as the node channel does.
 func (harness testHarness) answerPrepare(t *testing.T, jobID int64, report nodeproto.PrepareReport) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Prepare: &report})
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Prepare: &report,
+	})
 }
 
 // answerLoudness hands node 1's measurement for job jobID to the job.
 func (harness testHarness) answerLoudness(t *testing.T, jobID int64, answer nodeproto.LoudnessResult) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Loudness: &answer})
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Loudness: &answer,
+	})
 }
 
 // answerSubtitle hands node 1's subtitle text for job jobID to the job.
 func (harness testHarness) answerSubtitle(t *testing.T, jobID int64, answer nodeproto.SubtitleText) {
 	t.Helper()
-	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: jobID, Subtitle: &answer})
+	harness.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+		JobID: jobID, AttemptToken: harness.nodes.attemptTokenOf(jobID), Subtitle: &answer,
+	})
 }
 
 type response struct {
