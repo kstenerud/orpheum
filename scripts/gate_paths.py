@@ -51,7 +51,7 @@ MIGRATIONS_DIR = "internal/store/migrations/"
 MIGRATIONS_LIVE_MARKER = MIGRATIONS_DIR + "LIVE"
 # The line that marks a step as the baseline (internal/store/steps.go).
 BASELINE_DIRECTIVE = "-- orpheum:baseline folds"
-# library.db's schema goldens: the baseline's and the current version's (D228).
+# persistent.db's schema goldens: the baseline's and the current version's (D228).
 SCHEMA_GOLDENS_DIR = "internal/store/testdata/golden/"
 
 _GATE = [re.compile(p) for p in GATE_PATTERNS]

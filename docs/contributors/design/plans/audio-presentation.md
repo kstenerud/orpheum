@@ -64,7 +64,7 @@ at full volume brought it in.
   2026-09-28: 21 s for an 81-minute film).
 - **Each track, and its stereo mix:** a track with more than two channels is also measured as
   the standard stereo mix of §2, whose renormalised gains play it 7 to 8 dB quieter than the
-  original. Kept in library.db by payload hash and stream index.
+  original. Kept in persistent.db by payload hash and stream index.
 - **The gain** goes towards -23 LUFS, both ways, and never lifts the true peak above -1 dBTP nor
   raises a track more than 20 dB. The boosted mix plays with the standard mix's gain.
 - **The player applies it after its volume**, through Web Audio, so the volume control still runs

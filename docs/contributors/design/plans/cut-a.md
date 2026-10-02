@@ -73,7 +73,7 @@ background, never as a to-do list.
 │         · probe, payload hash, subtitle extraction · prepare jobs         │
 │         · every FFmpeg run confined per invocation (§7)                   │
 └───────────────────────────────────────────────────────────────────────────┘
-   /media (ro)      /var/lib/orpheum (library.db — backed up)      /var/cache/orpheum (cache.db, prepared/, art/)
+   /media (ro)      /var/lib/orpheum (persistent.db — backed up)      /var/cache/orpheum (cache.db, prepared/, art/)
 ```
 
 - **One binary, two processes.** `orpheum run` starts the core, and the core supervises the node as

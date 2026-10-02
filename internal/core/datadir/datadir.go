@@ -18,17 +18,17 @@ import (
 // The names of the files and directories this package owns under the state and cache
 // directories, and the modes it makes them with.
 const (
-	libraryDatabaseName = "library.db"
-	cacheDatabaseName   = "cache.db"
-	backupDirectoryName = "backups"
-	directoryMode       = 0o700
-	fileMode            = 0o600
+	persistentDatabaseName = "persistent.db"
+	cacheDatabaseName      = "cache.db"
+	backupDirectoryName    = "backups"
+	directoryMode          = 0o700
+	fileMode               = 0o600
 )
 
 // ErrNotFound is returned when a state file or a stored artwork file does not exist.
 var ErrNotFound = errors.New("state file not found")
 
-// Directories are the server's state directory (library.db, secret.key, backups) and cache
+// Directories are the server's state directory (persistent.db, secret.key, backups) and cache
 // directory. Both are created on first use with mode 0700.
 type Directories struct {
 	stateDirectory string
@@ -55,9 +55,9 @@ func Prepare(stateDirectory, cacheDirectory string) (*Directories, error) {
 	return &Directories{stateDirectory: stateDirectory, cacheDirectory: cacheDirectory}, nil
 }
 
-// LibraryDatabasePath is the path of library.db.
-func (directories *Directories) LibraryDatabasePath() string {
-	return filepath.Join(directories.stateDirectory, libraryDatabaseName)
+// PersistentDatabasePath is the path of persistent.db.
+func (directories *Directories) PersistentDatabasePath() string {
+	return filepath.Join(directories.stateDirectory, persistentDatabaseName)
 }
 
 // CacheDatabasePath is the path of cache.db.
@@ -87,16 +87,16 @@ func (directories *Directories) BackupDirectory() string {
 	return filepath.Join(directories.stateDirectory, backupDirectoryName)
 }
 
-// LibraryDatabaseExists reports whether library.db is there.
-func (directories *Directories) LibraryDatabaseExists() (bool, error) {
-	_, err := os.Stat(directories.LibraryDatabasePath())
+// PersistentDatabaseExists reports whether persistent.db is there.
+func (directories *Directories) PersistentDatabaseExists() (bool, error) {
+	_, err := os.Stat(directories.PersistentDatabasePath())
 	switch {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, os.ErrNotExist):
 		return false, nil
 	}
-	return false, fmt.Errorf("look for %s: %w", directories.LibraryDatabasePath(), err)
+	return false, fmt.Errorf("look for %s: %w", directories.PersistentDatabasePath(), err)
 }
 
 // ReadStateFile reads a file this package keeps directly in the state directory.
@@ -191,11 +191,11 @@ func (directories *Directories) ListBackups() ([]BackupFile, error) {
 	return files, nil
 }
 
-// ReplaceLibraryDatabase moves a restored copy, already written into the state directory under
-// the name restoredName, into place as library.db. The old database's WAL and shared-memory files
+// ReplacePersistentDatabase moves a restored copy, already written into the state directory under
+// the name restoredName, into place as persistent.db. The old database's WAL and shared-memory files
 // are removed first: a stale WAL beside a different database is replayed into it. The caller
 // has already snapshotted the old database.
-func (directories *Directories) ReplaceLibraryDatabase(restoredName string) (err error) {
+func (directories *Directories) ReplacePersistentDatabase(restoredName string) (err error) {
 	if nameErr := checkPlainFileName(restoredName); nameErr != nil {
 		return nameErr
 	}
@@ -204,12 +204,12 @@ func (directories *Directories) ReplaceLibraryDatabase(restoredName string) (err
 		return err
 	}
 	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
-	for _, walFile := range []string{libraryDatabaseName + "-wal", libraryDatabaseName + "-shm"} {
+	for _, walFile := range []string{persistentDatabaseName + "-wal", persistentDatabaseName + "-shm"} {
 		if err = ignoreMissing(root.Remove(walFile)); err != nil {
 			return fmt.Errorf("remove %s: %w", walFile, err)
 		}
 	}
-	if err = root.Rename(restoredName, libraryDatabaseName); err != nil {
+	if err = root.Rename(restoredName, persistentDatabaseName); err != nil {
 		return fmt.Errorf("move %s into place: %w", restoredName, err)
 	}
 	return syncRoot(root)

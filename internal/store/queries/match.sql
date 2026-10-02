@@ -1,6 +1,6 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- Matching a title to its provider (identification.md; D170, D172): the fetch_metadata job's reads and
--- writes in library.db. The kept search results are cache.db's.
+-- writes in persistent.db. The kept search results are cache.db's.
 
 -- name: GetTitleForMatch :one
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,

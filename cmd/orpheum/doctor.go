@@ -141,7 +141,7 @@ func checkSecretKey(directories *datadir.Directories) (*secrets.Key, finding) {
 	return &key, finding{verdictOK, "secret.key is present", ""}
 }
 
-// checkDatabase checks library.db and returns, from its settings, the age at which a backup is
+// checkDatabase checks persistent.db and returns, from its settings, the age at which a backup is
 // old; nil when the settings cannot be read.
 func checkDatabase(
 	ctx context.Context, directories *datadir.Directories, key *secrets.Key, options store.OpenOptions,
@@ -149,16 +149,16 @@ func checkDatabase(
 ) (
 	[]finding, *time.Duration,
 ) {
-	exists, err := directories.LibraryDatabaseExists()
+	exists, err := directories.PersistentDatabaseExists()
 	if err != nil {
-		return []finding{{verdictFailure, "library.db", err.Error()}}, nil
+		return []finding{{verdictFailure, "persistent.db", err.Error()}}, nil
 	}
 	if !exists {
-		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum core`"}}, nil
+		return []finding{{verdictWarning, "there is no persistent.db yet", "start the server with `orpheum core`"}}, nil
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabasePath(), options)
+	database, err := store.Open(ctx, directories.PersistentDatabasePath(), options)
 	if err != nil {
-		return []finding{{verdictFailure, "library.db does not open", err.Error()}}, nil
+		return []finding{{verdictFailure, "persistent.db does not open", err.Error()}}, nil
 	}
 	defer func() { _ = database.Close() }() //nolint:errcheck // doctor reports; a close error changes no finding
 	findings := []finding{checkSchema(ctx, database)}
@@ -201,22 +201,22 @@ func checkSchema(ctx context.Context, database *store.Database) finding {
 	}
 	switch {
 	case state.Version == binaryVersion:
-		return finding{verdictOK, fmt.Sprintf("library.db opens, pragmas as set, at schema %d", state.Version), ""}
+		return finding{verdictOK, fmt.Sprintf("persistent.db opens, pragmas as set, at schema %d", state.Version), ""}
 	case store.RefuseBeforeBaseline(state) != nil:
 		return finding{
-			verdictFailure, fmt.Sprintf("library.db is at schema %d, below the baseline this release "+
+			verdictFailure, fmt.Sprintf("persistent.db is at schema %d, below the baseline this release "+
 				"starts from; no release migrates it (D228)", state.Version),
 			"move it aside and start with an empty one; in development, `make dev-reset`",
 		}
 	case state.Version < binaryVersion:
-		return finding{verdictWarning, fmt.Sprintf("library.db is at schema %d; this release migrates it to %d",
+		return finding{verdictWarning, fmt.Sprintf("persistent.db is at schema %d; this release migrates it to %d",
 			state.Version, binaryVersion), "start the server, or run `orpheum migrate`"}
 	case state.UsableBy(binaryVersion):
-		return finding{verdictOK, fmt.Sprintf("library.db is at schema %d, from a newer release that left it "+
+		return finding{verdictOK, fmt.Sprintf("persistent.db is at schema %d, from a newer release that left it "+
 			"usable by this one (%d)", state.Version, binaryVersion), ""}
 	}
 	return finding{
-		verdictFailure, fmt.Sprintf("library.db is at schema %d and needs a newer release than this "+
+		verdictFailure, fmt.Sprintf("persistent.db is at schema %d and needs a newer release than this "+
 			"one (%d)", state.Version, binaryVersion),
 		"restore the pre-migrate snapshot in the backup directory, or upgrade",
 	}

@@ -77,7 +77,7 @@ func findJobHistoryReaders(functionsByPackage, readers map[string][]string) []vi
 }
 
 // TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory checks that no package reads cache.db's
-// job rows but the storage, the queue and the job view (D231 §3): work is derived from library.db
+// job rows but the storage, the queue and the job view (D231 §3): work is derived from persistent.db
 // by sweeps, never from whether a job was queued, failed or ran, which a discarded cache.db loses.
 func TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory(t *testing.T) {
 	t.Parallel()

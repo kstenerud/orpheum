@@ -6,7 +6,7 @@
 // # Invariants
 //
 //   - Every database it opens is a real file under the test's temporary directory, so a test sees
-//     the production schema: a copy of one library.db the real runner migrated once per test
+//     the production schema: a copy of one persistent.db the real runner migrated once per test
 //     process, which the runner is then asked to migrate again and finds current. Review-only.
 //   - It goes through internal/store like everyone else, except ExecRaw, which opens a file with
 //     database/sql to build a state the store never produces (a newer release's file, a foreign

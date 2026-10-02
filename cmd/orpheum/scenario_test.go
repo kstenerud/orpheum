@@ -43,7 +43,7 @@ import (
 // the server's own wiring of the queue, TMDB's provider service and the matcher, against a TMDB
 // on loopback that goes down and comes back, on a fake clock.
 
-// identifiedState is a title matched to its provider, as library.db's identification_state says it.
+// identifiedState is a title matched to its provider, as persistent.db's identification_state says it.
 const identifiedState = "identified"
 
 // scenarioKey is the TMDB key the scenarios' TMDB accepts.
@@ -479,7 +479,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		refreshed: `{"isRefresh":true,"shouldRetryImages":true}`, // the person's refresh, images and all
 	}
 	if got := world.openWork(); !maps.Equal(got, want) {
-		t.Errorf("the work derived again from library.db: %v, want %v: the matches owed and the person's refresh, "+
+		t.Errorf("the work derived again from persistent.db: %v, want %v: the matches owed and the person's refresh, "+
 			"not the film that failed for good, nor a recheck before its time", got, want)
 	}
 	world.runDue()

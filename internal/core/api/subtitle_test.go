@@ -196,7 +196,7 @@ func TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain(t 
 	}
 }
 
-func TestSubtitles_ExtractedTextIsKeptInLibraryDBWhichOutlivesCacheDB(t *testing.T) {
+func TestSubtitles_ExtractedTextIsKeptInPersistentDBWhichOutlivesCacheDB(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -214,7 +214,7 @@ func TestSubtitles_ExtractedTextIsKeptInLibraryDBWhichOutlivesCacheDB(t *testing
 		SourceHash: []byte{0x0c, 0x0d}, StreamIndex: 2,
 	})
 	if err != nil || string(kept.ASS) != "[Script Info]" || string(kept.VTT) != "WEBVTT" || kept.Failure != nil {
-		t.Errorf("library.db keeps %+v (%v), want the text the node made", kept, err)
+		t.Errorf("persistent.db keeps %+v (%v), want the text the node made", kept, err)
 	}
 }
 

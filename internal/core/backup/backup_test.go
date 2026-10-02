@@ -53,7 +53,7 @@ func newServer(t *testing.T) server {
 
 func openAt(t *testing.T, directories *datadir.Directories) *store.Database {
 	t.Helper()
-	database, err := store.Open(t.Context(), directories.LibraryDatabasePath(), storetest.OpenOptions())
+	database, err := store.Open(t.Context(), directories.PersistentDatabasePath(), storetest.OpenOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,8 +245,8 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 	if err = Restore(t.Context(), target, plan, nil, storetest.OpenOptions()); !errors.Is(err, datadir.ErrInUse) {
 		t.Errorf("a restore while the server runs: %v, want ErrInUse", err)
 	}
-	if exists, existsErr := target.LibraryDatabaseExists(); existsErr != nil || exists {
-		t.Errorf("the refused restore wrote library.db anyway (%v)", existsErr)
+	if exists, existsErr := target.PersistentDatabaseExists(); existsErr != nil || exists {
+		t.Errorf("the refused restore wrote persistent.db anyway (%v)", existsErr)
 	}
 	if err = running.Release(); err != nil {
 		t.Fatal(err)

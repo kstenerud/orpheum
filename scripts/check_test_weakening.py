@@ -36,7 +36,7 @@ see a test that got weaker in the same branch. This gate lists the weakening its
 * any change to, or deletion of, a file under a `testdata/` golden or baseline directory
   (D110: owner-edited only). Adding a new golden weakens nothing and is not listed; as a gate
   path it still needs `Gate-Changed:`.
-  Until migrations are live (D228), library.db's schema goldens are rewritten by each fold of
+  Until migrations are live (D228), persistent.db's schema goldens are rewritten by each fold of
   the last step into the baseline, and are not listed either; they too need `Gate-Changed:`;
 * a name that left the list of retired names (docs/contributors/retired-names.md): the list is
   what a test searches the tree for, so dropping a name stops that search.
@@ -321,7 +321,7 @@ def renamed_tests(base: str, head: str, path: str) -> dict[str, tuple[str, str]]
 def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -> Weakening | None:
     """A golden or baseline that was changed, deleted or renamed may now ask less. A new one
     adds a check and weakens nothing; it is still a gate path, so the owner's `Gate-Changed:`
-    trailer is still required for it. Until migrations are live (D228), library.db's schema
+    trailer is still required for it. Until migrations are live (D228), persistent.db's schema
     goldens follow each fold of the last step into the baseline, and the test that compares
     them with a fresh schema still runs, so rewriting or removing one weakens nothing either."""
     import gate_paths

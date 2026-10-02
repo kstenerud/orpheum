@@ -52,7 +52,7 @@ func (replay replayingScanner) Scan(_ context.Context, _ *confine.MediaRoot, emi
 	return nil
 }
 
-// storedFiling is one file's filing as library.db holds it.
+// storedFiling is one file's filing as persistent.db holds it.
 type storedFiling struct {
 	filing string
 	reason string
@@ -161,7 +161,7 @@ func checkFilings(t *testing.T, tree testutil.FixtureTree, first map[string]stor
 		}
 	}
 	if len(missing) > 0 || len(first) != len(tree.Files) {
-		t.Fatalf("%d of %d files in library.db; missing %v", len(first), len(tree.Files), missing)
+		t.Fatalf("%d of %d files in persistent.db; missing %v", len(first), len(tree.Files), missing)
 	}
 	if unreadable := first[tree.UnreadablePath]; unreadable.filing != "errored" {
 		t.Errorf("the mode-000 file is %+v, want errored", unreadable)

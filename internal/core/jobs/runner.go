@@ -42,7 +42,7 @@ func (runner *Runner) WithRetrySchedule(retrySchedule []time.Duration) *Runner {
 	return runner
 }
 
-// FailureRecorder records a failed job as its item's own failure, a fact in library.db that the
+// FailureRecorder records a failed job as its item's own failure, a fact in persistent.db that the
 // kind's sweep passes over and a person may clear (D231 §4, §10), with what its last attempt said.
 // A job whose destination was down never failed: it parked.
 type FailureRecorder func(ctx context.Context, job Job, failure string) error

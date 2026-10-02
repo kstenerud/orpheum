@@ -120,32 +120,32 @@ is the evidence. The first column names each package by its path; the check read
 
 ## 2. Storage table
 
-"Backed up" means included in `orpheum backup` (VACUUM INTO of library.db only; backup.go:30-51,
+"Backed up" means included in `orpheum backup` (VACUUM INTO of persistent.db only; backup.go:30-51,
 with `secret.key` only under `--include-key`). Which package writes each table is schema.md's
 [owners table](plans/schema.md#who-writes-each-table).
 
 | What | Where | Tier (actual → should) | Backed up | Flag |
 | --- | --- | --- | --- | --- |
-| user, role, user_deny, device, grant | library.db | T1 | yes | — |
-| setting, secret (sealed) | library.db | T1 | yes (secret.key: only with --include-key, D194 §4) | by design |
-| play_position, play_event, play_span, progress_hide, preference, favourite, user_rating, watchlist, tag, item_tag | library.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
-| field_override, edition (user-made), extra_relation (asserted), collection (user) | library.db | T1 | yes | — |
-| item, title, version, item_provider_id, collection_member, ordering, position | library.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |
-| file | library.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
-| root_state | library.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
-| library_root, root_scan, root_mount, stream | library.db | TO | yes | — |
-| node | library.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |
-| provider_response (body_gzip) | library.db | T2 | yes | correct (moved from cache.db by the second audit, schema.md:803) |
-| fetched_subtitle (body_gzip) | library.db | T2 | yes | correct |
-| loudness | library.db | T3 (reads the whole file; the schema calls it "class O") | yes | ⚑ T3 placed as TO; the one T3 that survives a cache discard |
-| item_text (name, overview) | library.db | TO/T2, resolved | yes | — |
-| item_text.search_alternates, item_fts, item_fts_tri, sort_key | library.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway (metadata.go:199). See F12 |
-| schema_meta, schema_step | library.db | runner record | yes | — |
+| user, role, user_deny, device, grant | persistent.db | T1 | yes | — |
+| setting, secret (sealed) | persistent.db | T1 | yes (secret.key: only with --include-key, D194 §4) | by design |
+| play_position, play_event, play_span, progress_hide, preference, favourite, user_rating, watchlist, tag, item_tag | persistent.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
+| field_override, edition (user-made), extra_relation (asserted), collection (user) | persistent.db | T1 | yes | — |
+| item, title, version, item_provider_id, collection_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |
+| file | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
+| root_state | persistent.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
+| library_root, root_scan, root_mount, stream | persistent.db | TO | yes | — |
+| node | persistent.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |
+| provider_response (body_gzip) | persistent.db | T2 | yes | correct (moved from cache.db by the second audit, schema.md:803) |
+| fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct |
+| loudness | persistent.db | T3 (reads the whole file; the schema calls it "class O") | yes | ⚑ T3 placed as TO; the one T3 that survives a cache discard |
+| item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
+| item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway (metadata.go:199). See F12 |
+| schema_meta, schema_step | persistent.db | runner record | yes | — |
 | job | cache.db | T4 | no | correct (D231 §3). But the code is not yet level-triggered: only loudness is swept (loudness.go:157). First matches, artwork, subtitles and prepares are enqueued once (refresh.go:305/356, artwork/service.go:130, subtitles.go:203, prepare.go:115) |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: chooser.go:155-178 searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | prepared_rendition (index of node renditions) | cache.db | T3 | no | ⚑ discarded on every cache schema bump (serve.go:202-212, now version 19). The node's files survive, but no row names them and a new `run_id` is minted, so the renditions are re-made and the old ones sit until the budget evicts them (prepared/doc.go) |
-| subtitle_text (ass, vtt) | library.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by migration 0029 (F1, the jobs rebuild's Phase 3) |
+| subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by migration 0029 (F1, the jobs rebuild's Phase 3) |
 | secret.key | state dir | T1 | only with --include-key | by design (D194) |
 | setup-code file | state dir | transient | no | — |
 | backups/*.sqlite, pre-restore and pre-migrate snapshots | state dir | T1 copies | — | same disk (doctor.go:268 says so); manual until M4's scheduled backups (cut-a M4, D223 §6) |
@@ -216,14 +216,14 @@ are in cache.db. cache.db is discarded on any cache schema change (serve.go:202-
 have been 19 versions in two milestones. After a discard, every rendition is re-transcoded and
 every embedded track re-extracted with a whole-file read. The old rendition directories stay on the
 node, unreferenced, until the budget evicts them. Meanwhile loudness, the same kind of costly
-measurement, sits in library.db and is backed up.
+measurement, sits in persistent.db and is backed up.
 
 D231 §3 says losing cache.db "loses nothing but timing", and schema.md accepts "re-transcodes".
 The frame's T3 rule ("kept across restarts") is stricter than both. The two choices were:
 
 - (a) accept it, and write down that T3 data lives in cache.db and is lost on a bump; or
 - (b) give T3 a store that survives a cache version bump. Options: a separate `derived.db`; keep
-  T3 in library.db like loudness, and leave it out of the backup with VACUUM INTO filtering; or let
+  T3 in persistent.db like loudness, and leave it out of the backup with VACUUM INTO filtering; or let
   the node report its renditions on hello so the core can re-adopt them.
 
 Either way, `loudness` is re-classed as T3 in schema.md.
@@ -303,9 +303,9 @@ in SQL should be named in library's and artwork's doc.go. library/art.go:21's co
 corrected on 2026-09-30.
 
 **F12. Cheap derived data in the backup.** *Accepted.*
-sort_key, both FTS tables, search_alternates and `node.last_status_json` are in library.db. The
+sort_key, both FTS tables, search_alternates and `node.last_status_json` are in persistent.db. The
 bloat is small at Cut A's scale, and startup re-derives the sort and search keys anyway.
-schema.md's conventions already accept backing library.db up whole: at the reference scale it is
+schema.md's conventions already accept backing persistent.db up whole: at the reference scale it is
 46 MB and 177 ms, so splitting it by table bought nothing. Leaving the derived tables out needs
 no schema change, but it is not cheap: `VACUUM INTO` copies the whole file, so emptying them means
 a second pass over the copy, and a restore would then have to rebuild the FTS indexes, which the

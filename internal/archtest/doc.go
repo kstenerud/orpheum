@@ -37,7 +37,7 @@
 //   - TestArch_NoForbiddenSuppressions: no //nolint names a complexity linter or depguard.
 //   - TestArch_QueriesNameEveryColumn: no query in internal/store/queries or
 //     internal/store/cache/queries selects or returns *.
-//   - TestArch_EachTableHasOneWritingPackage: each library.db and cache.db table is written, by
+//   - TestArch_EachTableHasOneWritingPackage: each persistent.db and cache.db table is written, by
 //     calls to the generated queries that insert into, update or delete from it, by one package:
 //     the one schema.md's "Who writes each table" names. Calls are found by type-checking, so a
 //     service method named like a query is not taken for one.

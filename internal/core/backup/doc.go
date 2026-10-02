@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package backup writes and restores backups of library.db with VACUUM INTO: orpheum backup, and
+// Package backup writes and restores backups of persistent.db with VACUUM INTO: orpheum backup, and
 // orpheum restore (a command-line operation with the server stopped, never an endpoint), which
 // first keeps a pre-restore copy of the database it replaces. The pre-migration snapshots are the
 // store's migration runner's, not this package's. A database backup never contains secret.key;

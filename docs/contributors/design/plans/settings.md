@@ -14,7 +14,7 @@
 ## The rule
 
 **No behaviour has a default in code.** Every opinionated value the server acts on is either a
-setting — a row in `library.db`'s `setting` table — or a key of the config file. Both have a
+setting — a row in `persistent.db`'s `setting` table — or a key of the config file. Both have a
 **starting value** that is written down, shown, and changeable; neither is a value that exists
 only in the program.
 
@@ -41,7 +41,7 @@ only in the program.
 
 ## The config file
 
-- **It holds only what must be known before `library.db` opens**, or must not be changeable by
+- **It holds only what must be known before `persistent.db` opens**, or must not be changeable by
   someone holding only an admin account: the listen address, the two directories and the socket
   directory, the HTTP timeouts, the store's reader minimum and migration space factor, the node's
   name, roots, FFmpeg path, confinement, video and subtitle extensions, error limit, probe timeout and status

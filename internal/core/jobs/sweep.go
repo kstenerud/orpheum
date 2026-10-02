@@ -9,7 +9,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 )
 
-// Sweep derives one kind's work, or part of it, from library.db and queues it (D231 §3): the
+// Sweep derives one kind's work, or part of it, from persistent.db and queues it (D231 §3): the
 // queue is a cache of the work the library's state implies, so a job lost with cache.db,
 // cancelled, or parked and forgotten is queued again by the next sweep. A request to queue a job
 // is only a hint to run it sooner.

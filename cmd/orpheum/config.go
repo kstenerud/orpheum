@@ -106,7 +106,7 @@ func (key configKey) path() string {
 func configKeys() []configKey {
 	return append([]configKey{
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
-		{tableServer, "data_dir", "", "where library.db, secret.key and backups live on this machine"},
+		{tableServer, "data_dir", "", "where persistent.db, secret.key and backups live on this machine"},
 		{tableServer, "cache_dir", "", "where cache.db and the artwork cache live on this machine"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},

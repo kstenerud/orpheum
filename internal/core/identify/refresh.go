@@ -324,7 +324,7 @@ type Queue interface {
 
 // Refresher queues fetches: a person's refresh, of one title or series whenever they like, the
 // rolling refresh of every item whose data is older than its provider's setting (D213 §2, §3),
-// and, as the fetch sweeps, what library.db says is owed (D231 §3).
+// and, as the fetch sweeps, what persistent.db says is owed (D231 §3).
 type Refresher struct {
 	database *store.Database
 	queue    Queue

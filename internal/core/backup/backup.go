@@ -19,7 +19,7 @@ import (
 const timestampLayout = "20060102T150405Z"
 
 // restoringName is where a restore writes its copy before moving it into place.
-const restoringName = "library.db.restoring"
+const restoringName = "persistent.db.restoring"
 
 // WrittenBackup is what a backup produced.
 type WrittenBackup struct {
@@ -27,7 +27,7 @@ type WrittenBackup struct {
 	KeyPath      string // empty unless the key was included
 }
 
-// Write backs library.db up into the backup directory with VACUUM INTO. The file carries sealed
+// Write backs persistent.db up into the backup directory with VACUUM INTO. The file carries sealed
 // ciphertext only; with includeKey, secret.key is written beside it, for moving to a new machine,
 // and whoever holds both holds the secrets (D194 §4).
 func Write(
@@ -60,7 +60,7 @@ type Plan struct {
 	SourcePath               string
 	SourceState              store.SchemaState
 	TargetPath               string
-	ReplacesExistingDatabase bool   // a library.db is there and will be replaced
+	ReplacesExistingDatabase bool   // a persistent.db is there and will be replaced
 	SnapshotPath             string // where the replaced database is kept, if there is one
 	InstallsKey              bool
 	BinarySchemaVersion      int
@@ -113,12 +113,12 @@ func MakePlan(
 			return Plan{}, err
 		}
 	}
-	databaseExists, err := directories.LibraryDatabaseExists()
+	databaseExists, err := directories.PersistentDatabaseExists()
 	if err != nil {
 		return Plan{}, err
 	}
 	plan := Plan{
-		SourcePath: sourcePath, SourceState: inspected.State, TargetPath: directories.LibraryDatabasePath(),
+		SourcePath: sourcePath, SourceState: inspected.State, TargetPath: directories.PersistentDatabasePath(),
 		ReplacesExistingDatabase: databaseExists,
 		InstallsKey:              keyFileContents != nil, BinarySchemaVersion: binaryVersion,
 	}
@@ -142,7 +142,7 @@ func Restore(
 	}
 	defer func() { err = errors.Join(err, lock.Release()) }()
 	if plan.ReplacesExistingDatabase {
-		err = snapshotCurrentDatabase(ctx, directories.LibraryDatabasePath(), plan.SnapshotPath, options)
+		err = snapshotCurrentDatabase(ctx, directories.PersistentDatabasePath(), plan.SnapshotPath, options)
 		if err != nil {
 			return err
 		}
@@ -159,7 +159,7 @@ func Restore(
 	if err != nil {
 		return err
 	}
-	err = directories.ReplaceLibraryDatabase(restoringName)
+	err = directories.ReplacePersistentDatabase(restoringName)
 	if err != nil {
 		return err
 	}

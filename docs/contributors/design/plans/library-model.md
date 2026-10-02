@@ -457,7 +457,7 @@ summary of them.
   4K" versus "films I have only in 4K"), so it is explicit, like D75's tag count operators.
 - ~~**Mark the backup-critical tables in the schema** ([D77](../../decisions/working-notes.md)),
   so backup is a query rather than a hand-maintained list that goes stale.~~ **The whole
-  `library.db` is backed up** ([D185](../../decisions/working-notes.md)), so there is no list to
+  `persistent.db` is backed up** ([D185](../../decisions/working-notes.md)), so there is no list to
   go stale; each table's class in [schema.md](schema.md) still says what is irreplaceable and
   what a migration may re-derive.
 - **No row a user's history or authored data references is ever hard-deleted**

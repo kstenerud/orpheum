@@ -14,8 +14,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// CacheApplicationID marks a SQLite file as our cache.db: 'VPMC'. It differs from library.db's,
-// so a cache path pointed at library.db is refused rather than discarded.
+// CacheApplicationID marks a SQLite file as our cache.db: 'VPMC'. It differs from persistent.db's,
+// so a cache path pointed at persistent.db is refused rather than discarded.
 const CacheApplicationID = 0x56504D43
 
 //go:embed cache/schema.sql

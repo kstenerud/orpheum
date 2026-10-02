@@ -7,7 +7,7 @@
 - **Status:** PLANNED — the first migration of [Cut A](cut-a.md)'s M1. Revised 2026-09-23 by
   the second audit ([audit-2026-09-23.md](../research/audit-2026-09-23.md) §3.1, [D193](../../decisions/working-notes.md)): a
   `setting` table, per-column classes on mixed tables, `provider_response` moved into
-  `library.db`, node state, one `job` queue, FTS triggers, and the ceiling columns dropped;
+  `persistent.db`, node state, one `job` queue, FTS triggers, and the ceiling columns dropped;
   then the sealed `secret` table ([D194](../../decisions/working-notes.md)).
   First sketched 2026-09-23 from the data-architecture critique
   ([D179](../../decisions/working-notes.md)–[D185](../../decisions/working-notes.md); this sketch is D185). The SQL
@@ -51,12 +51,12 @@ where that kind of hole is visible.
   (a client's monotonic clock, [D165](../../decisions/working-notes.md)).
 - **Closed vocabularies are `CHECK` constraints**, so a typo is an error rather than a new value.
   Widening one is a table rebuild (about a second, [D181](../../decisions/working-notes.md)).
-- **Two database files.** `library.db` holds everything below except the last section and is
+- **Two database files.** `persistent.db` holds everything below except the last section and is
   backed up **whole** — at the reference scale that is 46 MB and 177 ms by `VACUUM INTO`, so
   splitting it by table bought nothing. `cache.db` holds match candidates, the job queue and the
   index of prepared renditions, is never backed up, and may be deleted at any time
   ([principles §14](../../principles/README.md)). **Fetched provider responses are in
-  `library.db`**, because re-deriving a title reads them and D170 forbids refetching them.
+  `persistent.db`**, because re-deriving a title reads them and D170 forbids refetching them.
 
 **Class**, used in every table below, is what [D181](../../decisions/working-notes.md) and
 [D182](../../decisions/working-notes.md) need to know to migrate it:
@@ -697,7 +697,7 @@ CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
 ```
 
 **Secrets are not settings** ([D194](../../decisions/working-notes.md)). A third-party credential is sealed with a key kept in
-`secret.key` in the state directory ([D198](../../decisions/working-notes.md)), never in this database, so a backup of `library.db`
+`secret.key` in the state directory ([D198](../../decisions/working-notes.md)), never in this database, so a backup of `persistent.db`
 carries only ciphertext. A restore without the key marks each row *needs re-entering* and loses
 nothing else. Only the `secrets` package queries this table. A user's own password is not here:
 it is an argon2id PHC string in `user.password_hash`.
@@ -804,7 +804,7 @@ it is, or `{"isOff":true}`; a choice in the file writes it, and the first play r
 with none writes what the playback started with. A file's tracks are matched when it plays: its
 own `…_used` found again, else the work's language, of the same kind, then the same title.
 
-## No caches in `library.db` — measured
+## No caches in `persistent.db` — measured
 
 The watched badge on a poster rolls completion up from File through Version to Title. A
 `title_watch(user, title, watched_at, in_progress)` cache was sketched here and **measured out**
@@ -824,7 +824,7 @@ the measurement did show is that **query shape matters ten times more than cachi
 correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `version_title`, not an
 `EXISTS` the planner turns into a scan. That is a rule for the query review, not for the schema.
 
-## Fetched responses — in `library.db`
+## Fetched responses — in `persistent.db`
 
 ```sql
 CREATE TABLE provider_response (                           -- class F: the stored input (D170)
@@ -876,7 +876,7 @@ reference scale, and removes a failure mode.
 
 > **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
-> and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
+> and built again. sqlc reads it into its own package, `cachegen`, so a `persistent.db` query
 > cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8); version 9
 > renamed columns to say what they hold (`runnable_at`, `last_served_epoch_day`, `size_bytes`);
 > version 10 added `subtitle_text` and the `extract_subtitle` job with subtitle extraction in M3;
@@ -893,7 +893,7 @@ reference scale, and removes a failure mode.
 > `is_snoozed`, so a repeat request wakes a job in back-off but not one waiting for a time it was
 > given, and `last_attempt_tool_failed`, the tool's failure kept apart from the job's own
 > (D231 §8, D233 §6: the jobs rebuild's Phase 1); version 21 gave a job its `destination` (D231
-> §5, Phase 2); version 22 moved `subtitle_text` to `library.db` (the architecture map's F1, Phase 3);
+> §5, Phase 2); version 22 moved `subtitle_text` to `persistent.db` (the architecture map's F1, Phase 3);
 > version 23 gave a job the `assigned` state and `assigned_until`, a job whose work a node does with
 > no runner waiting for it (D234 §7, Phase 4.0).
 
@@ -953,7 +953,7 @@ CREATE TABLE art_served (                                  -- D212 section 6: re
 ) WITHOUT ROWID;
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_file  INTEGER NOT NULL,         -- library.db's file; play state records against it
+  source_file  INTEGER NOT NULL,         -- persistent.db's file; play state records against it
   source_payload_hash BLOB NOT NULL,     -- the source as it was when prepared (D179)
   profile      TEXT NOT NULL CHECK (profile IN ('remux','h264-8m')),
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
@@ -978,14 +978,14 @@ A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under t
 directory, which the node alone deletes from (D217 §5); this row is the core's note of what it
 asked for and what the node said. Its prepare job's target is the row's id, `rendition_id` (D217 §3).
 
-The text made from a subtitle track is kept in `library.db` since version 22 (below, *Subtitle
+The text made from a subtitle track is kept in `persistent.db` since version 22 (below, *Subtitle
 text*): making it again reads a whole video, which is not "only timing" (the architecture map's
 F1).
 
-No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
+No foreign keys cross into `persistent.db` — SQLite cannot enforce them across files, and nothing
 here is referenced by anything authored. **Losing `cache.db` costs re-queued work and
 re-transcodes; it loses nothing** (D231 §3,
-`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`): every job is derived again from `library.db`
+`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`): every job is derived again from `persistent.db`
 by its sweep, or asked for again by the next play. A lost `match_candidate` means an ambiguous title's choice
 screen searches once more, which is a search the user asked for, and running jobs restart from
 zero because their output is a cache.
@@ -994,7 +994,7 @@ zero because their output is a cache.
 backups differ in what runs them and in `args_json`, not in how they wait, retry, report progress or
 get cancelled; `fetch_queue` was the first of what would have become four.
 
-## Subtitle text — in `library.db`
+## Subtitle text — in `persistent.db`
 
 ```sql
 CREATE TABLE subtitle_text (                               -- class O; migration 0029 (F1)
@@ -1035,56 +1035,56 @@ second writer, or on a writer this table does not name. A table no package write
 
 | Table | Database | Writing package | Notes |
 | --- | --- | --- | --- |
-| `artwork` | library.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
-| `collection` | library.db | `internal/core/identify` | |
-| `collection_member` | library.db | `internal/core/identify` | |
-| `device` | library.db | `internal/core/auth` | |
-| `edition` | library.db | none yet | |
-| `edition_text` | library.db | none yet | |
-| `extra_relation` | library.db | `internal/core/identify` | |
-| `favourite` | library.db | none yet | |
-| `fetched_subtitle` | library.db | `internal/core/playback` | |
-| `fetch_failure` | library.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
-| `field_override` | library.db | `internal/core/identify` | |
-| `file` | library.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
-| `grant` | library.db | `internal/core/auth` | |
-| `group_text` | library.db | none yet | |
-| `item` | library.db | `internal/core/identify` | |
-| `item_fts`, `item_fts_tri` | library.db | `internal/core/identify` | kept by `item_text`'s triggers |
-| `item_provider_id` | library.db | `internal/core/identify` | |
-| `item_tag` | library.db | none yet | |
-| `item_text` | library.db | `internal/core/identify` | |
-| `library` | library.db | `internal/core/library` | |
-| `library_root` | library.db | `internal/core/library` | |
-| `loudness` | library.db | `internal/core/playback` | |
-| `node` | library.db | `internal/core/nodes` | |
-| `ordering` | library.db | `internal/core/identify` | |
-| `play_event` | library.db | `internal/core/playback` | |
-| `play_position` | library.db | `internal/core/playback` | |
-| `play_span` | library.db | `internal/core/playback` | |
-| `position` | library.db | `internal/core/identify` | |
-| `preference` | library.db | `internal/core/preferences` | |
-| `progress_hide` | library.db | `internal/core/playback` | |
-| `provider_response` | library.db | `internal/core/identify` | |
-| `refresh_request` | library.db | `internal/core/identify` | |
-| `role` | library.db | none yet | the baseline seeds the built-in roles |
-| `root_mount` | library.db | `internal/core/library` | |
-| `root_scan` | library.db | `internal/core/library` | |
-| `root_state` | library.db | `internal/core/library` | |
-| `schema_meta` | library.db | `internal/store` | the migration runner's own statements |
-| `schema_step` | library.db | `internal/store` | the migration runner's own statements |
-| `secret` | library.db | `internal/core/secrets` | |
-| `setting` | library.db | `internal/core/settings` | |
-| `sort_key` | library.db | `internal/core/identify` | |
-| `stream` | library.db | `internal/core/library` | |
-| `subtitle_text` | library.db | `internal/core/playback` | |
-| `tag` | library.db | none yet | |
-| `title` | library.db | `internal/core/identify` | |
-| `user` | library.db | `internal/core/auth` | |
-| `user_deny` | library.db | none yet | |
-| `user_rating` | library.db | none yet | |
-| `version` | library.db | `internal/core/identify` | |
-| `watchlist` | library.db | none yet | |
+| `artwork` | persistent.db | `internal/core/artwork` | identify reports the images it found; the server's wiring hands them to `artwork.Service.Take` |
+| `collection` | persistent.db | `internal/core/identify` | |
+| `collection_member` | persistent.db | `internal/core/identify` | |
+| `device` | persistent.db | `internal/core/auth` | |
+| `edition` | persistent.db | none yet | |
+| `edition_text` | persistent.db | none yet | |
+| `extra_relation` | persistent.db | `internal/core/identify` | |
+| `favourite` | persistent.db | none yet | |
+| `fetched_subtitle` | persistent.db | `internal/core/playback` | |
+| `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
+| `field_override` | persistent.db | `internal/core/identify` | |
+| `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
+| `grant` | persistent.db | `internal/core/auth` | |
+| `group_text` | persistent.db | none yet | |
+| `item` | persistent.db | `internal/core/identify` | |
+| `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |
+| `item_provider_id` | persistent.db | `internal/core/identify` | |
+| `item_tag` | persistent.db | none yet | |
+| `item_text` | persistent.db | `internal/core/identify` | |
+| `library` | persistent.db | `internal/core/library` | |
+| `library_root` | persistent.db | `internal/core/library` | |
+| `loudness` | persistent.db | `internal/core/playback` | |
+| `node` | persistent.db | `internal/core/nodes` | |
+| `ordering` | persistent.db | `internal/core/identify` | |
+| `play_event` | persistent.db | `internal/core/playback` | |
+| `play_position` | persistent.db | `internal/core/playback` | |
+| `play_span` | persistent.db | `internal/core/playback` | |
+| `position` | persistent.db | `internal/core/identify` | |
+| `preference` | persistent.db | `internal/core/preferences` | |
+| `progress_hide` | persistent.db | `internal/core/playback` | |
+| `provider_response` | persistent.db | `internal/core/identify` | |
+| `refresh_request` | persistent.db | `internal/core/identify` | |
+| `role` | persistent.db | none yet | the baseline seeds the built-in roles |
+| `root_mount` | persistent.db | `internal/core/library` | |
+| `root_scan` | persistent.db | `internal/core/library` | |
+| `root_state` | persistent.db | `internal/core/library` | |
+| `schema_meta` | persistent.db | `internal/store` | the migration runner's own statements |
+| `schema_step` | persistent.db | `internal/store` | the migration runner's own statements |
+| `secret` | persistent.db | `internal/core/secrets` | |
+| `setting` | persistent.db | `internal/core/settings` | |
+| `sort_key` | persistent.db | `internal/core/identify` | |
+| `stream` | persistent.db | `internal/core/library` | |
+| `subtitle_text` | persistent.db | `internal/core/playback` | |
+| `tag` | persistent.db | none yet | |
+| `title` | persistent.db | `internal/core/identify` | |
+| `user` | persistent.db | `internal/core/auth` | |
+| `user_deny` | persistent.db | none yet | |
+| `user_rating` | persistent.db | none yet | |
+| `version` | persistent.db | `internal/core/identify` | |
+| `watchlist` | persistent.db | none yet | |
 | `art_served` | cache.db | `internal/core/artwork` | |
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |

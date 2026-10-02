@@ -3,7 +3,7 @@
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
 // (fetches, artwork, prepares, subtitles, loudness; scans and backups come in M4), their targets,
 // the answers its handlers give, the sweeps that derive their work, and the job view. The rows are
-// cache.db's job table, kept by internal/store's JobStorage, a cache of the work library.db
+// cache.db's job table, kept by internal/store's JobStorage, a cache of the work persistent.db
 // implies (D231 §3): each kind's work is derived again by its sweeps, or asked for again by the
 // next play. One scheduler per kind picks the highest-priority queued job whose runnable_at has
 // passed; node jobs become commands, each answered on its own path to the node service. After a
@@ -61,7 +61,7 @@
 //   - A kind may retry on its own schedule instead (D213 §5), and a job may wait until a time
 //     before it first runs. TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails,
 //     TestEnqueue_AJobWaitsUntilItsRunnableAt.
-//   - Every kind's work is derived by a sweep from library.db, or asked for by a play, and each
+//   - Every kind's work is derived by a sweep from persistent.db, or asked for by a play, and each
 //     kind whose item can fail records the failure as a fact there (D231 §3, §4, §10); the server
 //     registers them (cmd/orpheum).
 //     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact. So

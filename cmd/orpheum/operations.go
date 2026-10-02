@@ -76,21 +76,21 @@ func (call invocation) logger(config Config) (*slog.Logger, error) {
 	return slogx.New(call.stderr, format, level)
 }
 
-// openExistingDatabase opens an existing library.db, refusing to create one where there is none.
+// openExistingDatabase opens an existing persistent.db, refusing to create one where there is none.
 func openExistingDatabase(ctx context.Context, config Config) (*datadir.Directories, *store.Database, error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return nil, nil, err
 	}
-	exists, err := directories.LibraryDatabaseExists()
+	exists, err := directories.PersistentDatabaseExists()
 	if err != nil {
 		return nil, nil, err
 	}
 	if !exists {
 		return nil, nil, fmt.Errorf("there is no database at %s yet; start the server once with `orpheum core`",
-			directories.LibraryDatabasePath())
+			directories.PersistentDatabasePath())
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
+	database, err := store.Open(ctx, directories.PersistentDatabasePath(), config.openOptions())
 	return directories, database, err
 }
 

@@ -61,7 +61,7 @@ func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 	if dryRun.status != exitUsageError || !strings.Contains(dryRun.stdout, "Nothing was changed") {
 		t.Errorf("restore without --yes = %+v, want exit 2 and nothing changed", dryRun)
 	}
-	if _, err := os.Stat(filepath.Join(target.Server.DataDir, "library.db")); err == nil {
+	if _, err := os.Stat(filepath.Join(target.Server.DataDir, "persistent.db")); err == nil {
 		t.Error("restore without --yes wrote the database")
 	}
 	restored := runCommand(t, "restore", "--config", targetPath, "--from", backupFile, "--key", keyFile, "--yes")
@@ -96,7 +96,7 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 	_, path := testConfig(t)
 	fresh := runCommand(t, "doctor", "--config", path)
 	for _, want := range []string{
-		"there is no library.db yet", "start the server with `orpheum core`", "secret.key is missing",
+		"there is no persistent.db yet", "start the server with `orpheum core`", "secret.key is missing",
 		"there is no backup yet",
 	} {
 		if !strings.Contains(fresh.stdout, want) {
@@ -120,7 +120,7 @@ func TestDoctor_FailsADatabaseBelowTheBaselineRatherThanPromisingAMigration(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
 		"PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
 	doctor := runCommand(t, "doctor", "--config", path)
 	if doctor.status != exitFailure || !strings.Contains(doctor.stdout, "below the baseline") {
@@ -140,7 +140,7 @@ func TestOpenAPI_PrintsTheDocument(t *testing.T) {
 func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T) {
 	t.Parallel()
 	config, path := startServerOnce(t)
-	database := filepath.Join(config.Server.DataDir, "library.db")
+	database := filepath.Join(config.Server.DataDir, "persistent.db")
 	storetest.ExecRaw(t, database,
 		"INSERT INTO setting (key, value_json, set_at) VALUES ('backup_age_warn_h', '24', 1)")
 	text := strings.Replace(string(readFile(t, path)),

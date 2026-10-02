@@ -144,7 +144,7 @@ type Queue struct {
 }
 
 // NewQueue returns the queue. A person's request probes its parked destination at once, and
-// cache.db and library.db failing for want of room or with an I/O error park the core's storage
+// cache.db and persistent.db failing for want of room or with an I/O error park the core's storage
 // (D231 §5, §6).
 func NewQueue(parts QueueParts) *Queue {
 	return newQueue(parts.Cache.Jobs(), parts)

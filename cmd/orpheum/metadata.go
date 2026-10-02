@@ -139,7 +139,7 @@ func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
 
 // jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
 // its item's own failure (D231 §4, §10), its retry schedule when it has its own, how many of its
-// jobs run at once, and the sweeps that derive its work from library.db (D231 §3).
+// jobs run at once, and the sweeps that derive its work from persistent.db (D231 §3).
 type jobRunners []jobRunner
 
 // jobRunner is one of them.
@@ -149,7 +149,7 @@ type jobRunner struct {
 	recordFailure jobs.FailureRecorder
 	retrySchedule []time.Duration
 	concurrency   int
-	// derivedBy names the sweeps that queue the kind's work again from library.db, or is
+	// derivedBy names the sweeps that queue the kind's work again from persistent.db, or is
 	// derivedByAPlay for work a play asks for, which the next play asks for again.
 	derivedBy []string
 }
@@ -199,7 +199,7 @@ func (services jobServices) prepareRunners() jobRunners {
 // The sweeps, by what they derive (D231 §3): the first match of each film and series with no
 // answer yet; the refreshes people asked for that no fetch has answered; the one recheck of each
 // image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
-// §3); every library identified again from library.db, each item's season listings and images
+// §3); every library identified again from persistent.db, each item's season listings and images
 // owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
 // file whose sound has none (D226 §2).
 const (
@@ -226,7 +226,7 @@ const derivedWorkSweepEvery = time.Hour
 // bound on how late one runs, not a choice about how often work is derived.
 const sweepCheckEvery = time.Minute
 
-// sweeps are every sweep that derives the server's work from library.db (D231 §3), each queuing
+// sweeps are every sweep that derives the server's work from persistent.db (D231 §3), each queuing
 // what the library's state implies of one kind's work, as its name says.
 func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 	derivedWorkEvery := func(context.Context) time.Duration { return derivedWorkSweepEvery }

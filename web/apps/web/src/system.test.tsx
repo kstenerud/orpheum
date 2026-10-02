@@ -79,7 +79,7 @@ function report(node: SystemNode): SystemReport {
         { path: "/var/lib/orpheum", totalBytes: 500_000_000_000, availableBytes: 250_000_000_000 },
       ],
       databases: [
-        { name: "library.db", sizeBytes: 40_000_000 },
+        { name: "persistent.db", sizeBytes: 40_000_000 },
         { name: "cache.db", sizeBytes: 5_000_000 },
       ],
     },
@@ -117,7 +117,7 @@ it("the System page answers whether a machine sees its GPU, may open it, and enc
   expect(text).toContain("Films/Metropolis (1995)/Metropolis.mkv");
   expect(text).toContain("6.5× real time");
   expect(text).toContain("1.5 TB free of 4 TB");
-  expect(text).toContain("library.db");
+  expect(text).toContain("persistent.db");
   expect(text).toContain("encodes use h264_qsv");
 });
 

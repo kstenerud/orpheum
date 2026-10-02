@@ -62,7 +62,7 @@ func TestBackup_ARestoredCopyReproducesEveryTable(t *testing.T) {
 	if err := source.BackupInto(t.Context(), backup); err != nil {
 		t.Fatalf("BackupInto: %v", err)
 	}
-	restoredPath := filepath.Join(t.TempDir(), "library.db")
+	restoredPath := filepath.Join(t.TempDir(), "persistent.db")
 	if err := CopyBackup(t.Context(), backup, restoredPath); err != nil {
 		t.Fatalf("CopyBackup: %v", err)
 	}

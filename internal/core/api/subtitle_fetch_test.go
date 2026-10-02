@@ -354,7 +354,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 	}
 }
 
-// checkKeptGzipped fails unless the fetched subtitle is kept in library.db, gzipped (D224 §6).
+// checkKeptGzipped fails unless the fetched subtitle is kept in persistent.db, gzipped (D224 §6).
 func checkKeptGzipped(t *testing.T, harness testHarness, fetchedID int64) {
 	t.Helper()
 	kept, err := harness.database.Read().GetFetchedSubtitle(t.Context(), fetchedID)

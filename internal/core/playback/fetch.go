@@ -167,7 +167,7 @@ type Fetched struct {
 // FetchSubtitle downloads the subtitle a person chose, which spends one of the account's
 // downloads, and has the node that holds the file convert it while the person waits, since
 // hostile text is parsed on a node (D224 §5). Only a subtitle the node converted is kept, in
-// library.db, gzipped, since it cost that download (D224 §6), with its converted text, and made
+// persistent.db, gzipped, since it cost that download (D224 §6), with its converted text, and made
 // the file's subtitle choice for that person: nothing unparsed becomes a choice. A node that is
 // away is found before a download is spent; a subtitle it cannot convert is ErrUnreadableSubtitle,
 // kept nowhere. A download whose conversion never came back is not spent again by the next try
@@ -267,7 +267,7 @@ func (service *Service) keepConvertedText(
 	return service.finishSubtitle(ctx, key, converted)
 }
 
-// fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as library.db
+// fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as persistent.db
 // keeps it, as a subtitle file's is by its payload hash.
 func fetchedKey(body []byte) sqlcgen.GetSubtitleTextParams {
 	sum := sha256.Sum256(body)
