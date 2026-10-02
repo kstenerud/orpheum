@@ -349,6 +349,10 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
   priority; the node schedules within it (D234 §3), replacing `runnerPool`.
 - A play-now prepare pauses background reads on its node; play-driven work carries "wanted
   until" and falls to background priority past it (question C).
+- *Seen on devnas (2026-10-02):* the node runs its commands one at a time and a scan in line with
+  them, so a prepare a person asked for waited behind a 55-second scan of 329 films: the player's
+  playlist answered "being prepared" from 05:19:05 until the scan ended at 05:19:38. Play-driven
+  work must not queue behind a scan or background work on the node.
 - Closes S87, S88.
 
 ### 4e — a scan is a job
@@ -358,6 +362,9 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
 - Its pushed progress shows beside the root: *"Scanning… N files found so far"* (D236 §2); a
   scan asked for while one runs schedules one rescan after it, and the button says *"Scan again
   when this one ends"* (D236 §3, D38).
+- A node's hello asks for no scan of a root no library covers: on devnas (2026-10-02), the dev
+  loop's start read all 329 films of a root no library covered yet, for 58 seconds, and stored
+  nothing ("a node scanned a root no library covers; what it saw is not stored").
 - Last, because it moves the oldest path, the report stream, onto everything 4b–4d built.
 
 S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
