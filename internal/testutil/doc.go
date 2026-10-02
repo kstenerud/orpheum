@@ -16,6 +16,8 @@
 //     here and nowhere else (.golangci.yml).
 //   - ORPHEUM_TEST_UNCONTROLLED is read here and nowhere else in Go code, and the Makefile
 //     prints it on every Go test run. check-claims fails a test variable nothing sets.
+//   - A test waits on a channel only through Receive, a select's case, or <-ctx.Done(), so no wait
+//     can hang a run. TestArch_EveryTestWaitOnAChannelIsBounded.
 //   - Only tests import this package, so nothing here — skipping, test variables, starting
 //     MKVToolNix — reaches a binary. Enforced by TestArch_TestSupportIsImportedOnlyByTests; that
 //     is why the depguard rule exec-only-in-execx and forbidigo's [exec] exempt it.
