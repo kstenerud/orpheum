@@ -401,6 +401,13 @@ refusal, the full disk.
   invariant (D234 §6), never repaired silently.
 - The rendition index rebuilt from the node's inventory (question D); commands of ended jobs never
   sent.
+- *The owner (2026-10-02): "the node will need to be able to date and identify things in its cache
+  dir so that it can find after a restart, and evict things the core knows nothing about."* Each
+  rendition's manifest (question D) says what it is (the source's identity, profile, gains, run)
+  and when it was made, beside the last use its directory's time already keeps (D217 §5), so a
+  node that restarts knows what it holds from its disk alone. At reconciliation the core names the
+  renditions it knows, and the node evicts the rest, whatever their kept time; a run directory with
+  no manifest, from a making that never finished, is evicted too, never while it is being written.
 - The intermittent hang in
   `TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain`, a handler
   failing after its command reached the node, is closed by the cancel on every way out.
