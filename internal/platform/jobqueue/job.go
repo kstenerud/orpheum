@@ -12,10 +12,13 @@ type Kind string
 type State string
 
 // The states a job moves through: queued until a runner claims it, running while its handler
-// works, then done, failed or cancelled. A retry or a snooze returns a running job to queued.
+// works, then done, failed or cancelled. A retry or a snooze returns a running job to queued. A
+// job whose handler gave its work to another machine (Assign) is assigned until that machine's
+// outcome is taken (Runner.Resolve) or its time runs out (D234 §7).
 const (
 	StateQueued    State = "queued"
 	StateRunning   State = "running"
+	StateAssigned  State = "assigned"
 	StateDone      State = "done"
 	StateFailed    State = "failed"
 	StateCancelled State = "cancelled"
@@ -80,6 +83,9 @@ type Row[T comparable] struct {
 	AttemptCount int64
 	// LastAttemptToolFailed is whether its last attempt ended with the tool failing.
 	LastAttemptToolFailed bool
+	// AssignedUntil is when an assigned job's time runs out, kept while its outcome is taken; nil
+	// once that is written, and for a job never assigned.
+	AssignedUntil *time.Time
 	// ProgressFraction is how far a running job is, 0 to 1, or nil when not known.
 	ProgressFraction *float64
 	Reason           string

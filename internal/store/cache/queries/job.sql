@@ -11,22 +11,23 @@ VALUES (sqlc.arg(kind), sqlc.arg(item_id), sqlc.arg(rendition_id), sqlc.arg(stre
 RETURNING id;
 
 -- name: ListEveryOpenJob :many
--- Every queued and running job: what a retire action looks through for the work it cancels
--- (D231 section 7).
+-- Every queued, running and assigned job: what a retire action looks through for the work it
+-- cancels (D231 section 7).
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
 FROM job
-WHERE state IN ('queued', 'running')
+WHERE state IN ('queued', 'running', 'assigned')
 ORDER BY id;
 
 -- name: ListOpenJobs :many
--- The queued and running jobs of this kind for this target: at most one of each (D231 section 8).
+-- The queued and running jobs of this kind for this target, an assigned job counting as running: at
+-- most one of each (D231 section 8).
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
 FROM job
 WHERE kind = sqlc.arg(kind) AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
   AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
-  AND state IN ('queued', 'running')
+  AND state IN ('queued', 'running', 'assigned')
 ORDER BY id;
 
 -- name: MergeQueuedJob :execrows
@@ -53,13 +54,13 @@ UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = sqlc.arg(id) AND state = 'queued'
 RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
-          created_at, finished_at;
+          created_at, finished_at, assigned_until;
 
 -- name: FinishJob :exec
 -- A cancelled job stays cancelled, whatever its handler answers after. A claim that refuses a
 -- job at its attempt limit gives back the attempt it counted.
 UPDATE job SET state = sqlc.arg(state), progress_fraction = sqlc.arg(progress_fraction), last_failure = sqlc.arg(last_failure),
-               attempt_count = sqlc.arg(attempt_count), finished_at = sqlc.arg(finished_at)
+               attempt_count = sqlc.arg(attempt_count), finished_at = sqlc.arg(finished_at), assigned_until = NULL
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: DeferJob :exec
@@ -67,13 +68,39 @@ WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 -- that is not the job's fault gives back the attempt StartJob counted.
 UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_failure = sqlc.arg(last_failure),
                attempt_count = sqlc.arg(attempt_count), is_snoozed = sqlc.arg(is_snoozed),
-               last_attempt_tool_failed = sqlc.arg(last_attempt_tool_failed), destination = sqlc.arg(destination)
+               last_attempt_tool_failed = sqlc.arg(last_attempt_tool_failed), destination = sqlc.arg(destination),
+               assigned_until = NULL
 WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
+-- name: AssignJob :exec
+-- A running job whose work a node now does: no runner waits for it, until its outcome is taken or
+-- assigned_until passes (D234 section 7).
+UPDATE job SET state = 'assigned', assigned_until = sqlc.arg(assigned_until), attempt_count = sqlc.arg(attempt_count)
+WHERE id = sqlc.arg(id) AND state = 'running';
+
+-- name: TakeAssignedJob :one
+-- An assigned job back to running, so its outcome can be written; only one of its outcome and its
+-- time running out takes it.
+UPDATE job SET state = 'running'
+WHERE id = sqlc.arg(id) AND state = 'assigned'
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
+          runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
+          created_at, finished_at, assigned_until;
+
+-- name: TakeOverdueAssignedJob :one
+-- The assigned job of a kind whose time ran out first, back to running so its failure can be written.
+UPDATE job SET state = 'running'
+WHERE id = (SELECT overdue.id FROM job AS overdue
+            WHERE overdue.state = 'assigned' AND overdue.kind = sqlc.arg(kind) AND overdue.assigned_until <= sqlc.arg(now)
+            ORDER BY overdue.assigned_until, overdue.id LIMIT 1)
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
+          runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
+          created_at, finished_at, assigned_until;
+
 -- name: CancelJob :execrows
--- A person's cancel (cut-a section 5.3): only a queued or running job can be.
-UPDATE job SET state = 'cancelled', finished_at = sqlc.arg(finished_at)
-WHERE id = sqlc.arg(id) AND state IN ('queued', 'running');
+-- A person's cancel (cut-a section 5.3): only a queued, running or assigned job can be.
+UPDATE job SET state = 'cancelled', finished_at = sqlc.arg(finished_at), assigned_until = NULL
+WHERE id = sqlc.arg(id) AND state IN ('queued', 'running', 'assigned');
 
 -- name: SetJobProgress :exec
 -- How far a running job is, 0 to 1, for the job view.
@@ -82,14 +109,15 @@ WHERE id = sqlc.arg(id) AND state = 'running';
 
 -- name: RequeueRunningJobs :execrows
 -- After a stop, running jobs return to queued and restart; each keeps the attempt its claim
--- counted, so one that stops the server every time reaches its limit (S86).
+-- counted, so one that stops the server every time reaches its limit (S86). An assigned job stays
+-- assigned: its node still has it.
 UPDATE job SET state = 'queued'
 WHERE state = 'running';
 
 -- name: ListJobs :many
 -- The job view, newest first.
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
-       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at
+       is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until
 FROM job
 ORDER BY id DESC
 LIMIT sqlc.arg(max_rows);

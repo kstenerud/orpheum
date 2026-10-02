@@ -54,10 +54,10 @@ func (jobStorage *JobStorage) Enqueue(
 		var open jobqueue.Open[JobTarget]
 		for _, row := range rows {
 			converted := jobRow(row)
-			if converted.State == jobqueue.StateRunning {
-				open.Running = &converted
-			} else {
+			if converted.State == jobqueue.StateQueued {
 				open.Queued = &converted
+			} else {
+				open.Running = &converted // running, or assigned, which counts as running
 			}
 		}
 		change, err := plan(open)
@@ -101,7 +101,7 @@ func applyChange(
 	return nil
 }
 
-// Cancel cancels a queued or running job, and says whether one was open.
+// Cancel cancels a queued, running or assigned job, and says whether one was open.
 func (jobStorage *JobStorage) Cancel(ctx context.Context, id int64, at time.Time) (bool, error) {
 	var cancelledCount int64
 	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
@@ -178,10 +178,59 @@ func (jobStorage *JobStorage) Record(ctx context.Context, outcome jobqueue.Outco
 				return fmt.Errorf("finish job %d: %w", outcome.ID, err)
 			}
 			return nil
+		case jobqueue.StateAssigned:
+			err := queries.AssignJob(ctx, cachegen.AssignJobParams{
+				AssignedUntil: new(outcome.At.UnixMilli()), AttemptCount: outcome.AttemptCount, ID: outcome.ID,
+			})
+			if err != nil {
+				return fmt.Errorf("assign job %d: %w", outcome.ID, err)
+			}
+			return nil
 		case jobqueue.StateRunning, jobqueue.StateCancelled:
 		}
 		return fmt.Errorf("job %d: an outcome cannot leave it %s", outcome.ID, outcome.State)
 	})
+}
+
+// TakeAssigned returns an assigned job to running, and reports false when it is not assigned.
+func (jobStorage *JobStorage) TakeAssigned(ctx context.Context, id int64) (jobqueue.Row[JobTarget], bool, error) {
+	return jobStorage.take(ctx, "take assigned job", func(queries *cachegen.Queries) (cachegen.Job, error) {
+		return queries.TakeAssignedJob(ctx, id)
+	})
+}
+
+// TakeOverdueAssigned returns to running the assigned job of kind whose time ran out first, by now.
+func (jobStorage *JobStorage) TakeOverdueAssigned(
+	ctx context.Context, kind jobqueue.Kind, now time.Time,
+) (jobqueue.Row[JobTarget], bool, error) {
+	return jobStorage.take(ctx, "take an overdue assigned job", func(queries *cachegen.Queries) (cachegen.Job, error) {
+		return queries.TakeOverdueAssignedJob(ctx, cachegen.TakeOverdueAssignedJobParams{
+			Kind: string(kind), Now: new(now.UnixMilli()),
+		})
+	})
+}
+
+// take writes what update does to one job and returns the job, or false when it found none.
+func (jobStorage *JobStorage) take(
+	ctx context.Context, action string, update func(*cachegen.Queries) (cachegen.Job, error),
+) (jobqueue.Row[JobTarget], bool, error) {
+	var taken jobqueue.Row[JobTarget]
+	found := false
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		row, updateErr := OrNotFound(update(queries))
+		if errors.Is(updateErr, ErrNotFound) {
+			return nil
+		}
+		if updateErr != nil {
+			return updateErr
+		}
+		taken, found = jobRow(row), true
+		return nil
+	})
+	if err != nil {
+		return jobqueue.Row[JobTarget]{}, false, fmt.Errorf("%s: %w", action, err)
+	}
+	return taken, found, nil
 }
 
 // SetProgress records how far a running job is.
@@ -218,7 +267,7 @@ func (jobStorage *JobStorage) List(ctx context.Context, limit int64) ([]jobqueue
 	return listed, nil
 }
 
-// ListOpen is every queued and running job.
+// ListOpen is every queued, running and assigned job.
 func (jobStorage *JobStorage) ListOpen(ctx context.Context) ([]jobqueue.Row[JobTarget], error) {
 	rows, err := jobStorage.cache.Read().ListEveryOpenJob(ctx)
 	if err != nil {
@@ -262,6 +311,9 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 	}
 	if row.FinishedAt != nil {
 		converted.FinishedAt = new(time.UnixMilli(*row.FinishedAt))
+	}
+	if row.AssignedUntil != nil {
+		converted.AssignedUntil = new(time.UnixMilli(*row.AssignedUntil))
 	}
 	return converted
 }

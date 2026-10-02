@@ -893,7 +893,9 @@ reference scale, and removes a failure mode.
 > `is_snoozed`, so a repeat request wakes a job in back-off but not one waiting for a time it was
 > given, and `last_attempt_tool_failed`, the tool's failure kept apart from the job's own
 > (D231 §8, D233 §6: the jobs rebuild's Phase 1); version 21 gave a job its `destination` (D231
-> §5, Phase 2); version 22 moved `subtitle_text` to `library.db` (the architecture map's F1, Phase 3).
+> §5, Phase 2); version 22 moved `subtitle_text` to `library.db` (the architecture map's F1, Phase 3);
+> version 23 gave a job the `assigned` state and `assigned_until`, a job whose work a node does with
+> no runner waiting for it (D234 §7, Phase 4.0).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -911,8 +913,9 @@ CREATE TABLE job (                                         -- the one work queue
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
+  -- 'assigned' is a job whose work a node does: no runner waits for it (D234 section 7).
   state       TEXT NOT NULL DEFAULT 'queued'
-                CHECK (state IN ('queued','running','done','failed','cancelled')),
+                CHECK (state IN ('queued','running','assigned','done','failed','cancelled')),
   -- What it needs that can be down (D231 section 5): 'tmdb-api', 'node:3', 'root:3:/media/films';
   -- named when it is queued, or the one it was last parked on. A claim passes over the parked ones.
   destination TEXT,
@@ -929,6 +932,9 @@ CREATE TABLE job (                                         -- the one work queue
   last_failure  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
   created_at  INTEGER NOT NULL,
   finished_at INTEGER,
+  -- When an assigned job's time runs out, after which it is its own failure; kept while its
+  -- outcome is taken, and NULL once that is written.
+  assigned_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
 );

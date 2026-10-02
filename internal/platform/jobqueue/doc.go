@@ -64,6 +64,17 @@
 //     TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPanicFailsOnlyItsJob.
 //   - What a stop left running returns to the queue with the attempt its claim counted.
 //     TestRequeueRunning_ReturnsWhatAStopLeftRunningWithItsAttemptCounted.
+//   - A job a handler gave to a node (Assign) is assigned: its runner goes on, and nothing waits
+//     for it. The node's outcome is taken once (Runner.Resolve), as a handler's answer; one past
+//     its time is its own failure, retried or failed at its limit, and a late outcome is dropped.
+//     An assigned job counts as running for a request and a cancel, and a restart leaves it with
+//     its node (D234 §7). TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce,
+//     TestResolve_TakesTheNodesOutcomeAsAHandlersAnswer,
+//     TestAssign_AJobWhoseTimeRunsOutFailsAndALateOutcomeIsDropped,
+//     TestAssign_AnAssignedJobCountsAsRunningForRequestsCancelsAndRestarts,
+//     TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart,
+//     TestJobStorage_ACancelEndsAnAssignedJobAndNoOutcomeTakesIt,
+//     TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut (store).
 //   - A cancelled queued job never runs; a running one's context ends with ErrCancelled; either
 //     stays cancelled whatever its handler answers after.
 //     TestCancel_AQueuedJobNeverRunsAndARunningOnesContextEndsWithErrCancelled.
@@ -95,15 +106,17 @@
 //   - D231 §3, §4, §9: work derived by sweeps; an item's failure a fact; cancel stops a run.
 //   - D231 §5, §6: destinations, what counts as down, parking and probing.
 //   - D233 §6: a panic is the tool's failure, and a claim checks the attempt count.
+//   - D234 §7: the core never blocks on a node; a job given to one is assigned.
 //   - D170: provider rate limits and back-off.
 //   - docs/contributors/design/plans/jobs-rebuild.md: the phases.
 //
 // # Where to change
 //
 //   - job.go: the kinds, states, requests, jobs and rows. storage.go: what a storage keeps and
-//     what a claim passes over. answers.go: what a handler can answer. queue.go: enqueue and its
+//     what a claim passes over. answers.go: what a handler can answer, Assign among them. queue.go: enqueue and its
 //     merge, cancel, progress, the listing. runner.go: claiming, probing, running and recording
-//     each outcome, and a kind's failure recorder. destination.go: parked destinations, their
+//     each outcome, resolving an assigned job and failing one past its time, and a kind's failure
+//     recorder. destination.go: parked destinations, their
 //     probes and their state. sweep.go: the sweeps, and cancelling what is retired.
 //     backoff.go: the back-off and its jitter.
 //   - internal/store/jobs.go: the storage on cache.db. jobqueuetest: the storage in memory.

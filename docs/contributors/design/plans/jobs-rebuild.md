@@ -299,7 +299,13 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
 - One request/answer envelope and one `nodes` seam that the five round trips use today
   (prepare, subtitle, loudness, artwork, scan), replacing a goroutine blocked on each answer.
 - `nodes/service.go` split along that seam.
-- The queue's *assigned* state, built and tested in `jobqueue`, not yet used.
+- The queue's *assigned* state, built and tested in `jobqueue`, not yet used. *As the owner accepted it
+  (2026-10-02, "agreed"):* a handler answers `Assign(until)`, and the job is assigned, its runner
+  free; the node's outcome is taken later by the runner's `Resolve`, through the same answers as a
+  handler's; an assigned job past `until` is its own failure and spends an attempt (whether a node
+  gone away parks it instead is 4c's reconciliation); assigned counts as running for one job per
+  target, and for a cancel; a restart leaves it assigned, for 4c's reconciliation at hello.
+  `cache.db`'s job gains the state and `assigned_until`.
 
 ### 4a — the node stands alone
 

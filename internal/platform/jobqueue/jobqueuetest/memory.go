@@ -69,7 +69,7 @@ func (memory *Memory[T]) Enqueue(
 		switch row.State {
 		case jobqueue.StateQueued:
 			open.Queued = &row
-		case jobqueue.StateRunning:
+		case jobqueue.StateRunning, jobqueue.StateAssigned:
 			open.Running = &row
 		case jobqueue.StateDone, jobqueue.StateFailed, jobqueue.StateCancelled:
 		}
@@ -104,10 +104,10 @@ func (memory *Memory[T]) Cancel(_ context.Context, id int64, cancelledAt time.Ti
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
 	row := memory.find(id)
-	if row == nil || (row.State != jobqueue.StateQueued && row.State != jobqueue.StateRunning) {
+	if row == nil || !isOpen(row.State) {
 		return false, nil
 	}
-	row.State, row.FinishedAt = jobqueue.StateCancelled, &cancelledAt
+	row.State, row.FinishedAt, row.AssignedUntil = jobqueue.StateCancelled, &cancelledAt, nil
 	return true, nil
 }
 
@@ -158,7 +158,10 @@ func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) err
 		return nil
 	}
 	row.State, row.LastFailure, row.AttemptCount = outcome.State, outcome.LastFailure, outcome.AttemptCount
+	row.AssignedUntil = nil
 	switch outcome.State {
+	case jobqueue.StateAssigned:
+		row.AssignedUntil = &outcome.At
 	case jobqueue.StateQueued:
 		row.RunnableAt, row.Destination = outcome.At, outcome.Destination
 		row.IsSnoozed, row.LastAttemptToolFailed = outcome.IsSnoozed, outcome.ToolFailed
@@ -168,6 +171,47 @@ func (memory *Memory[T]) Record(_ context.Context, outcome jobqueue.Outcome) err
 		row.FinishedAt = &outcome.At
 	}
 	return nil
+}
+
+// TakeAssigned returns an assigned job to running.
+func (memory *Memory[T]) TakeAssigned(_ context.Context, id int64) (jobqueue.Row[T], bool, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return jobqueue.Row[T]{}, false, memory.writeFailure
+	}
+	row := memory.find(id)
+	if row == nil || row.State != jobqueue.StateAssigned {
+		return jobqueue.Row[T]{}, false, nil
+	}
+	row.State = jobqueue.StateRunning
+	return *row, true, nil
+}
+
+// TakeOverdueAssigned returns to running the assigned job of a kind whose time ran out first.
+func (memory *Memory[T]) TakeOverdueAssigned(
+	_ context.Context, kind jobqueue.Kind, now time.Time,
+) (jobqueue.Row[T], bool, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	if memory.writeFailure != nil {
+		return jobqueue.Row[T]{}, false, memory.writeFailure
+	}
+	var first *jobqueue.Row[T]
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.Kind != kind || row.State != jobqueue.StateAssigned || row.AssignedUntil.After(now) {
+			continue
+		}
+		if first == nil || row.AssignedUntil.Before(*first.AssignedUntil) {
+			first = row
+		}
+	}
+	if first == nil {
+		return jobqueue.Row[T]{}, false, nil
+	}
+	first.State = jobqueue.StateRunning
+	return *first, true, nil
 }
 
 // SetProgress records a running job's progress.
@@ -203,17 +247,22 @@ func (memory *Memory[T]) List(_ context.Context, limit int64) ([]jobqueue.Row[T]
 	return rows[:min(int64(len(rows)), limit)], nil
 }
 
-// ListOpen is every queued and running job, oldest first.
+// ListOpen is every queued, running and assigned job, oldest first.
 func (memory *Memory[T]) ListOpen(context.Context) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()
 	defer memory.mutex.Unlock()
 	var open []jobqueue.Row[T]
 	for _, row := range memory.rows {
-		if row.State == jobqueue.StateQueued || row.State == jobqueue.StateRunning {
+		if isOpen(row.State) {
 			open = append(open, row)
 		}
 	}
 	return open, nil
+}
+
+// isOpen is whether a job in state is open: queued, running or assigned.
+func isOpen(state jobqueue.State) bool {
+	return state == jobqueue.StateQueued || state == jobqueue.StateRunning || state == jobqueue.StateAssigned
 }
 
 // find is the row with id, or nil. The caller holds the mutex.
