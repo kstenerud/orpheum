@@ -316,6 +316,17 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
   that reason; an unknown request is refused explicitly (D233 §9).
 - Closes S89.
 
+### 4a′ — CI runs in the development image
+
+Not jobs work, but due before 4b (the owner, 2026-10-02): D235 §2 has CI run in the same image as
+every other machine, and CI's first run since the tool step changed failed only because its runner's
+make (4.3) differs from the image's (4.4.1). CI runs `./dev make check`, `./dev make
+test-integration` and `./dev make check-pr`, in place of installing Go, Node, shellcheck and
+Playwright's libraries; the image's layers are kept in GitHub's build cache, so a run builds it only
+when the Containerfile or a pin changes; and `./dev` learns to keep Go's and npm's caches in a
+directory CI saves, as setup-go does now. Publishing a prebuilt image stays shelved until the
+public beta. The nested gate steps then run in parallel in CI too (make 4.3 ran them at -j1).
+
 ### 4b — the journal and acknowledged outcomes
 
 - `node.db` on the node's own volume: its jobs by id and attempt, ordered within their
