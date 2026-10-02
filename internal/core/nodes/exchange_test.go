@@ -133,7 +133,6 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	if err != nil || got.Prepare == nil || got.Prepare.State != nodeproto.PrepareDone {
 		t.Fatalf("Next = %+v, %v; want this attempt's report from node 1, and no other", got, err)
 	}
-	exchange.MarkEndedByNode()
 	exchange.Close()
 	select {
 	case sent := <-sender.sent:
@@ -236,17 +235,71 @@ func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
 	exchange.Close()
 	bench.exchanges.Deliver(t.Context(), 2, nodeproto.Result{
 		JobID: 8, AttemptToken: sentElsewhere.AttemptToken,
-		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareRunning},
+		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone},
 	})
 	result, err := elsewhere.Next(t.Context(), time.Minute)
 	if err != nil || result.Prepare == nil {
 		t.Errorf("job 8, on node 2, heard %+v, %v, want its result", result, err)
 	}
-	elsewhere.MarkEndedByNode()
 	elsewhere.Close()
 	select {
 	case sent := <-bench.sender.sent:
 		t.Errorf("the nodes were sent %+v, want nothing: node 1 lost job 7 with its restart", sent)
 	default:
 	}
+}
+
+// Progress is the node's word that it still holds the work: each starts the silence again and goes
+// to OnProgress, whose error ends the wait; progress for another attempt, or from another node, is
+// dropped. How the work ended is still Next's answer.
+func TestExchange_ProgressKeepsTheWaitAliveAndOnlyItsOwnReachesTheJob(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	exchange, err := bench.exchanges.Ask(t.Context(), 1, jobs.Job{ID: 7}, prepareCommand, "prepare 7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+	heard := make(chan nodeproto.Progress, 4)
+	exchange.OnProgress = func(progress nodeproto.Progress) error {
+		heard <- progress
+		if progress.PreparedThroughMs < 0 {
+			return errors.New("a prepare cannot go back")
+		}
+		return nil
+	}
+	running := func(nodeID int64, token string, throughMs int64) {
+		bench.exchanges.DeliverProgress(t.Context(), nodeID, nodeproto.Progress{
+			JobID: 7, AttemptToken: token, State: nodeproto.ProgressRunning, PreparedThroughMs: throughMs,
+		})
+	}
+	ended := make(chan error, 1)
+	go func() {
+		_, nextErr := exchange.Next(t.Context(), time.Minute)
+		ended <- nextErr
+	}()
+	running(2, sent.AttemptToken, 1000)
+	running(1, "0123456789abcdef0123456789abcdef", 2000)
+	running(1, sent.AttemptToken, 3000)
+	if progress := testutil.Receive(t, heard, "the job's progress"); progress.PreparedThroughMs != 3000 {
+		t.Errorf("the job heard %+v first, want its own attempt's from node 1, 3000 ms", progress)
+	}
+	// Past the first minute, the silence started again at the progress has not run out.
+	for range 3 {
+		bench.now.Advance(30 * time.Second)
+		running(1, sent.AttemptToken, 4000)
+		testutil.Receive(t, heard, "the job's progress again")
+	}
+	select {
+	case err := <-ended:
+		t.Fatalf("the wait ended %v while the node kept saying where the work is", err)
+	default:
+	}
+	running(1, sent.AttemptToken, -1)
+	testutil.Receive(t, heard, "the progress the job refuses")
+	if err := testutil.Receive(t, ended, "the wait to end"); err == nil ||
+		!strings.Contains(err.Error(), "cannot go back") {
+		t.Errorf("the wait ended %v, want OnProgress's error", err)
+	}
+	bench.wantToldToStop(t, exchange)
 }

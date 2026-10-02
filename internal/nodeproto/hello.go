@@ -71,7 +71,7 @@ type Hello struct {
 type Capacity struct {
 	// EncodeSlotCount is how many encodes the node runs at once, which its processor or GPU bounds;
 	// RemuxSlotCount is how many remuxes, which its disk bounds. The node holds a prepare beyond
-	// its slots and says so (PrepareWaiting), and the core runs as many prepares at once as the
+	// its slots and says so (ProgressWaiting), and the core runs as many prepares at once as the
 	// nodes' slots add up to.
 	EncodeSlotCount int `json:"encodeSlotCount"`
 	RemuxSlotCount  int `json:"remuxSlotCount"`

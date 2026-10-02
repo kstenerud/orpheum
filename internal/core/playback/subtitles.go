@@ -307,7 +307,6 @@ func (service *Service) makeSubtitleText(
 	case result.Subtitle == nil:
 		return fmt.Errorf("node %d answered %s job %d with something other than a subtitle", nodeID, job.Kind, job.ID)
 	}
-	exchange.MarkEndedByNode()
 	answer := *result.Subtitle
 	if answer.Refusal != "" {
 		return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)

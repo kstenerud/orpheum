@@ -50,11 +50,12 @@ const attemptTokenBytes = 16
 // memory and has lost (D238 §3).
 var ErrNodeRestarted = errors.New("the node started again and lost the work it held")
 
-// waiter is one job waiting on a node: the node it asked, its results as they come, and a channel
-// closed when that node starts again.
+// waiter is one job waiting on a node: the node it asked, its results and its progress as they
+// come, and a channel closed when that node starts again.
 type waiter struct {
 	nodeID      int64
 	results     chan nodeproto.Result
+	progress    chan nodeproto.Progress
 	interrupted chan struct{}
 }
 
@@ -80,9 +81,12 @@ func (all *Exchanges) Ask(
 		return nil, fmt.Errorf("name an attempt at %s: %w", about, err)
 	}
 	token := hex.EncodeToString(raw)
-	// A job's results are few (a prepare's progress, then its end), and each is taken as it comes;
-	// a buffer of a few lets the node's post return without waiting on the job's loop.
-	waiting := &waiter{nodeID: nodeID, results: make(chan nodeproto.Result, 8), interrupted: make(chan struct{})}
+	// A job's result is one, its end; its progress comes every few seconds and is taken as it
+	// comes. A buffer of a few lets the node's post return without waiting on the job's loop.
+	waiting := &waiter{
+		nodeID: nodeID, results: make(chan nodeproto.Result, 1), progress: make(chan nodeproto.Progress, 8),
+		interrupted: make(chan struct{}),
+	}
 	command.JobID, command.AttemptToken, command.Priority = job.ID, token, job.Priority
 	all.mutex.Lock()
 	all.waiting[token] = waiting
@@ -111,6 +115,24 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 	case waiting.results <- result:
 	default:
 		all.logger.DebugContext(ctx, "a node's result was dropped: its job is behind", "jobId", result.JobID)
+	}
+}
+
+// DeliverProgress hands a node's word on where an attempt is to the job waiting for it, by its
+// token and from its node, as Deliver does a result. Progress is best effort: one nothing waits
+// for, or one that finds the job's progress unread, is dropped, since the newest supersedes it.
+func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress) {
+	all.mutex.Lock()
+	waiting, found := all.waiting[progress.AttemptToken]
+	all.mutex.Unlock()
+	if !found || waiting.nodeID != nodeID {
+		all.logger.DebugContext(ctx, "a node's progress came for no job waiting on it", "nodeId", nodeID,
+			"jobId", progress.JobID, "attemptToken", progress.AttemptToken)
+		return
+	}
+	select {
+	case waiting.progress <- progress:
+	default:
 	}
 }
 
@@ -144,45 +166,75 @@ type Exchange struct {
 	waiter        *waiter
 	silenceTimer  clock.Timer // made at the first Next
 	isEndedByNode bool
+	// OnProgress, when set, takes each word on where the work is; an error from it ends the wait
+	// (Next), with the node told to stop the work when the exchange closes. Progress keeps the wait
+	// from running out whether or not it is set.
+	OnProgress func(progress nodeproto.Progress) error
 }
 
-// Next waits for the job's next result, for at most silence on the core's clock. A silence that
-// runs out is ErrNodeSilent, parked on the node when it went away (Sender.Unanswered); a context
+// Next waits for how the job's work ended, for at most silence on the core's clock without a word
+// from the node: each progress it hears starts the silence again, and goes to OnProgress. A silence
+// that runs out is ErrNodeSilent, parked on the node when it went away (Sender.Unanswered); a context
 // that ends is its error, which the caller reads to tell a cancel from a shutdown; a node that
 // refused the command, not knowing it, parks the job until it is updated (D233 §9); a node that
 // started again, losing the work, is ErrNodeRestarted, the tool's failure the handler answers.
 func (exchange *Exchange) Next(ctx context.Context, silence time.Duration) (nodeproto.Result, error) {
+	for {
+		exchange.startSilence(silence)
+		result, progress, err := exchange.nextWord(ctx, silence)
+		if progress == nil {
+			return result, err
+		}
+		if exchange.OnProgress != nil {
+			if err := exchange.OnProgress(*progress); err != nil {
+				return nodeproto.Result{}, err
+			}
+		}
+	}
+}
+
+// startSilence starts the wait for the node's next word.
+func (exchange *Exchange) startSilence(silence time.Duration) {
 	if exchange.silenceTimer == nil {
 		exchange.silenceTimer = exchange.all.clock.NewTimer(silence)
-	} else {
-		exchange.silenceTimer.Stop()
-		exchange.silenceTimer.Reset(silence)
+		return
 	}
+	exchange.silenceTimer.Stop()
+	exchange.silenceTimer.Reset(silence)
+}
+
+// nextWord is the node's next word on the job: its progress, or its result, or why the wait ended.
+func (exchange *Exchange) nextWord(
+	ctx context.Context, silence time.Duration,
+) (nodeproto.Result, *nodeproto.Progress, error) {
 	select {
+	case progress := <-exchange.waiter.progress:
+		return nodeproto.Result{}, &progress, nil
 	case result := <-exchange.waiter.results:
+		// However it ended, the node is done with the work: nothing to stop.
+		exchange.markEndedByNode()
 		if result.Refusal != "" {
-			// The node took no part of the command: nothing to stop, and it needs an update.
-			exchange.MarkEndedByNode()
-			return nodeproto.Result{}, jobs.ParkOnNodeNeedingUpdate(exchange.nodeID,
+			// The node took no part of the command, and it needs an update.
+			return nodeproto.Result{}, nil, jobs.ParkOnNodeNeedingUpdate(exchange.nodeID,
 				fmt.Errorf("it refused %s: %s", exchange.about, result.Refusal))
 		}
-		return result, nil
+		return result, nil, nil
 	case <-exchange.waiter.interrupted:
 		// The node lost the work with its restart: nothing to stop.
-		exchange.MarkEndedByNode()
-		return nodeproto.Result{}, fmt.Errorf("node %d, during %s: %w", exchange.nodeID, exchange.about,
+		exchange.markEndedByNode()
+		return nodeproto.Result{}, nil, fmt.Errorf("node %d, during %s: %w", exchange.nodeID, exchange.about,
 			ErrNodeRestarted)
 	case <-exchange.silenceTimer.C():
 		silent := fmt.Errorf("node %d said nothing about %s for %s: %w",
 			exchange.nodeID, exchange.about, silence, ErrNodeSilent)
-		return nodeproto.Result{}, exchange.all.sender.Unanswered(ctx, exchange.nodeID, silent)
+		return nodeproto.Result{}, nil, exchange.all.sender.Unanswered(ctx, exchange.nodeID, silent)
 	case <-ctx.Done():
-		return nodeproto.Result{}, fmt.Errorf("wait for %s: %w", exchange.about, ctx.Err())
+		return nodeproto.Result{}, nil, fmt.Errorf("wait for %s: %w", exchange.about, ctx.Err())
 	}
 }
 
-// MarkEndedByNode records that the node said how the work ended, so Close has nothing to stop.
-func (exchange *Exchange) MarkEndedByNode() {
+// markEndedByNode records that the node is done with the work, so Close has nothing to stop.
+func (exchange *Exchange) markEndedByNode() {
 	exchange.isEndedByNode = true
 }
 

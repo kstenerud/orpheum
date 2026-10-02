@@ -61,6 +61,9 @@ type Workers struct {
 	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
 	// a node that does not prepare.
 	PreparedDirectory string
+	// ProgressEvery is how often, at most, a running prepare tells the core how far it is:
+	// node.progress_every_seconds.
+	ProgressEvery time.Duration
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
@@ -159,9 +162,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 					cancel(err)
 					return
 				}
-				for _, waiting := range agent.work.waitingPrepares() {
-					agent.sayWaiting(ctx, reply.NodeID, waiting)
-				}
+				agent.sayHeld(ctx, reply.NodeID)
 			}
 		}
 	})
@@ -230,8 +231,8 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 			"attemptToken", held.token)
 		return
 	}
-	if isWaiting && work.saysWaiting {
-		go agent.sayWaiting(nodeCtx, nodeID, held)
+	if isWaiting {
+		go agent.sayProgress(nodeCtx, nodeID, held.progress(nodeproto.ProgressWaiting))
 	}
 }
 
@@ -308,6 +309,7 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 // the core, whose artwork store takes images from nowhere else (D212 §8).
 func (agent *Agent) artworkWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Artwork) heldWork {
 	return heldWork{slot: slotArtwork, run: func(jobCtx context.Context) {
+		agent.sayProgress(ctx, nodeID, held.progress(nodeproto.ProgressRunning))
 		var result nodeproto.ArtworkResult
 		sourceHash := ""
 		if command.AbsolutePath != nil {

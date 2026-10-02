@@ -249,7 +249,6 @@ func (service *Service) convertFetched(
 		return nodeproto.SubtitleText{}, fmt.Errorf(
 			"node %d answered a fetched subtitle with something other than a subtitle: %w", nodeID, nodes.ErrNodeSilent)
 	}
-	exchange.MarkEndedByNode()
 	answer := *result.Subtitle
 	switch {
 	case answer.Refusal != "":

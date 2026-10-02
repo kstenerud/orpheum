@@ -435,11 +435,43 @@ func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	}
 }
 
-// recordingResultSink records the results it is handed, and the nodes it is told started again.
+// recordingResultSink records the results and progress it is handed, and the nodes it is told
+// started again.
 type recordingResultSink struct {
 	results     []nodeproto.Result
 	from        []int64
+	progress    []nodeproto.Progress
 	interrupted []int64
+}
+
+func (sink *recordingResultSink) DeliverProgress(_ context.Context, _ int64, progress nodeproto.Progress) {
+	sink.progress = append(sink.progress, progress)
+}
+
+// A node's progress, on its own path, reaches the result sink from a node that said hello, and
+// counts as hearing from it.
+func TestProgress_ReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	progressJSON := func() io.Reader {
+		encoded, err := json.Marshal(nodeproto.Progress{JobID: 4, AttemptToken: "a4", State: nodeproto.ProgressRunning})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bytes.NewReader(encoded)
+	}
+	if stranger := harness.post(t, nodeproto.PathProgress, reply.NodeID+1, progressJSON()); stranger.status !=
+		http.StatusConflict {
+		t.Errorf("progress from a node that never said hello: %d, want 409", stranger.status)
+	}
+	taken := harness.post(t, nodeproto.PathProgress, reply.NodeID, progressJSON())
+	if taken.status != http.StatusOK || len(sink.progress) != 1 || sink.progress[0].AttemptToken != "a4" ||
+		sink.progress[0].State != nodeproto.ProgressRunning {
+		t.Errorf("answered %d %s; the sink has %+v, want attempt a4 running", taken.status, taken.body, sink.progress)
+	}
 }
 
 func (sink *recordingResultSink) Interrupt(_ context.Context, nodeID int64) {

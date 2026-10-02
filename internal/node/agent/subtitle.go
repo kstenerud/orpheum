@@ -49,6 +49,7 @@ type answeringJob struct {
 // cancelled meanwhile posts nothing.
 func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeringJob) heldWork {
 	return heldWork{slot: job.slot, run: func(jobCtx context.Context) {
+		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
 		result, refusalOrFailure := job.makeAnswer(jobCtx)
 		result = job.named(result)
 		if jobCtx.Err() != nil && ctx.Err() == nil {

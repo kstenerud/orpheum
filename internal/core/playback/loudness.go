@@ -299,7 +299,6 @@ func (service *Service) measure(
 	case result.Loudness == nil:
 		return fmt.Errorf("node %d answered measuring file %d with something other than loudness", file.NodeID, file.ID)
 	}
-	exchange.MarkEndedByNode()
 	answer := *result.Loudness
 	if answer.Refusal != "" {
 		// A refusal says nothing of the file's bytes (a full disk, a file changed since the

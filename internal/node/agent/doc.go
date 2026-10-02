@@ -36,7 +36,7 @@
 //     artwork store's one way in (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
 //   - A prepare runs only on the file the core named, a regular file under one of the node's roots
 //     whose payload hash is still the one named (D100), opened and checked by
-//     internal/node/namedfile; its progress and its end are posted to the core. One
+//     internal/node/namedfile; how far it is and how it ended are posted to the core. One
 //     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //   - A subtitle is extracted only from the video or sidecar the core named, a regular file under
 //     one of the node's roots whose payload hash is still the one named (D100, D217 §6). One extraction runs
@@ -52,6 +52,12 @@
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt,
 //     TestAgent_AnArtworkJobTheCoreCancelledIsStopped,
 //     TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops.
+//   - Every attempt the node holds says where it is on the progress path, best effort and never
+//     sent again (D234 §5): running when it starts, waiting at once when its slot is taken, and
+//     each again at every status tick; a running prepare says how far it is as FFmpeg moves on, at
+//     most every node.progress_every_seconds, instead of at the tick.
+//     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
+//     TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
 //     which a cancel and every result name, and a command without one is refused; and it is held
 //     beside its scans, never queued behind one. What waits for a slot of its kind starts the
@@ -90,7 +96,8 @@
 // # Where to change
 //
 //   - agent.go: the session and its four parts, the commands and scans; report.go: numbering;
-//     answer.go: posting a job's result, and trying it again; prepare.go: prepares;
+//     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
+//     prepare.go: prepares;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
 //     loudness.go: loudness measurement; working.go: the work held, its slots and priority order,
 //     and cancel.

@@ -62,6 +62,7 @@ type NodeConfig struct {
 	MaxErrorsPerRoot      int      `toml:"max_errors_per_root"`
 	ProbeTimeoutSeconds   int64    `toml:"probe_timeout_seconds"`
 	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
+	ProgressEverySeconds  int64    `toml:"progress_every_seconds"`
 	PreparedDir           string   `toml:"prepared_dir"`
 	// PreparedBudgetGiB, PreparedKeptAfterPlayHours and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
@@ -151,6 +152,10 @@ func nodeConfigKeys() []configKey {
 		{
 			tableNode, "status_interval_seconds", "10",
 			"seconds between the node's status records; keep it well under the core's node_silent_after_seconds",
+		},
+		{
+			tableNode, "progress_every_seconds", "2",
+			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5)",
 		},
 		{
 			tableNode, "prepared_dir", `"/var/cache/orpheum/prepared"`,
@@ -313,6 +318,7 @@ func (config *Config) check() error {
 		"node.max_errors_per_root":                int64(config.Node.MaxErrorsPerRoot),
 		"node.probe_timeout_seconds":              config.Node.ProbeTimeoutSeconds,
 		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
+		"node.progress_every_seconds":             config.Node.ProgressEverySeconds,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
 		"node.encode_slot_count":                  config.Node.EncodeSlotCount,

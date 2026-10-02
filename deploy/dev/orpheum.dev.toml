@@ -35,6 +35,7 @@ subtitle_extensions = ["srt", "ass", "ssa", "vtt"]
 max_errors_per_root = 1000
 probe_timeout_seconds = 60
 status_interval_seconds = 10
+progress_every_seconds = 2
 prepared_dir = "{root}/.dev/cache/prepared"
 prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
 prepared_kept_after_play_hours = 72

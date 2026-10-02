@@ -126,26 +126,48 @@ func (service *Service) serveReport(writer http.ResponseWriter, request *http.Re
 // measurement are a few numbers.
 const maxResultBytes = 64 << 20
 
-// takeResult reads a known node's word on a job, at most maxResultBytes of JSON, and hands it to
-// the job waiting for it; with nowhere to hand it, the result is refused.
+// takeResult reads a known node's word on how a job ended, at most maxResultBytes of JSON, and hands
+// it to the job waiting for it; with nowhere to hand it, the result is refused.
 func (service *Service) takeResult(writer http.ResponseWriter, request *http.Request) {
+	if nodeID, result, ok := readPost[nodeproto.Result](service, writer, request, maxResultBytes); ok {
+		service.resultSink.Deliver(request.Context(), nodeID, result)
+		writeJSON(writer, struct{}{}) // the node reads a JSON answer
+	}
+}
+
+// maxProgressBytes bounds a progress post: a few numbers.
+const maxProgressBytes = 4 << 10
+
+// takeProgress reads a known node's word on where an attempt is, at most maxProgressBytes of JSON,
+// and hands it to the job waiting for it. It is best effort: one nothing waits for is dropped.
+func (service *Service) takeProgress(writer http.ResponseWriter, request *http.Request) {
+	if nodeID, progress, ok := readPost[nodeproto.Progress](service, writer, request, maxProgressBytes); ok {
+		service.resultSink.DeliverProgress(request.Context(), nodeID, progress)
+		writeJSON(writer, struct{}{}) // the node reads a JSON answer
+	}
+}
+
+// readPost reads a known node's post to the result sink, at most maxBytes of JSON, and notes that
+// the node was heard. It answers the node itself, and reports false, for an unknown node, a core
+// with no result sink, or a body that is not the JSON it should be.
+func readPost[Body any](
+	service *Service, writer http.ResponseWriter, request *http.Request, maxBytes int64,
+) (int64, Body, bool) {
+	var body Body
 	nodeID, ok := service.knownNodeIDOf(writer, request)
 	if !ok {
-		return
+		return 0, body, false
 	}
 	service.noteHeard(nodeID)
 	if service.resultSink == nil {
 		http.Error(writer, "this core takes no results", http.StatusServiceUnavailable)
-		return
+		return 0, body, false
 	}
-	var result nodeproto.Result
-	body := http.MaxBytesReader(writer, request.Body, maxResultBytes)
-	if err := json.NewDecoder(body).Decode(&result); err != nil {
-		http.Error(writer, "a result is JSON: "+err.Error(), http.StatusBadRequest)
-		return
+	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxBytes)).Decode(&body); err != nil {
+		http.Error(writer, "the body is not the JSON it should be: "+err.Error(), http.StatusBadRequest)
+		return 0, body, false
 	}
-	service.resultSink.Deliver(request.Context(), nodeID, result)
-	writeJSON(writer, struct{}{}) // the node reads a JSON answer
+	return nodeID, body, true
 }
 
 // readLine reads one line without its newline, refusing one longer than maxBytes. At the end of the

@@ -65,17 +65,13 @@ type PrepareAudio struct {
 	CarriedGainDB float64 `json:"carriedGainDb,omitempty"`
 }
 
-// PrepareState is where a prepare is.
+// PrepareState is how a prepare ended. Where one is while it waits or runs is its progress
+// (Progress).
 type PrepareState string
 
 // The states a report names.
 const (
-	// PrepareWaiting is a prepare the node holds, waiting for a slot of its kind (cut-a §5.3):
-	// sent when it starts to wait and at each status tick while it does, so the core, which
-	// gives up on a node silent about a job, keeps waiting for it.
-	PrepareWaiting PrepareState = "waiting"
-	PrepareRunning PrepareState = "running"
-	PrepareDone    PrepareState = "done"
+	PrepareDone PrepareState = "done"
 	// PrepareFailed is FFmpeg failing on the source: Failure says how.
 	PrepareFailed PrepareState = "failed"
 	// PrepareRefused is a prepare the node did not try: Refusal says why.
@@ -85,17 +81,6 @@ const (
 	PrepareStalled PrepareState = "stalled"
 )
 
-// IsEnd is whether a report in this state is the prepare's last: the node is done with it, made
-// or not.
-func (state PrepareState) IsEnd() bool {
-	switch state {
-	case PrepareDone, PrepareFailed, PrepareRefused, PrepareStalled:
-		return true
-	case PrepareWaiting, PrepareRunning:
-	}
-	return false
-}
-
 // RefusalCode names a refusal the core acts on, rather than only shows.
 type RefusalCode string
 
@@ -103,11 +88,9 @@ type RefusalCode string
 // nothing can be evicted: the core waits for the node's status to show room (D231 §5).
 const RefusedNoRoom RefusalCode = "no_room"
 
-// PrepareReport is the node's word on a prepare: how far it is, or how it ended.
+// PrepareReport is the node's word on how a prepare ended.
 type PrepareReport struct {
 	State PrepareState `json:"state"`
-	// PreparedThroughMs is how much of the source is prepared, in milliseconds of its time.
-	PreparedThroughMs int64 `json:"preparedThroughMs"`
 	// SizeBytes is the rendition's size once done.
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
 	// Failure is FFmpeg's exit and the tail of its stderr: a fact about the source's bytes, which

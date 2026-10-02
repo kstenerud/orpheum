@@ -33,9 +33,10 @@
 // # Where to change
 //
 //   - One file per feature, each holding both directions: hello.go, report.go (the JSONL records),
-//     commands.go (the long-poll, each command naming its job), result.go (the node's word on a
-//     job, by its id, on one path), and artwork.go, prepare.go, subtitle.go and loudness.go, each
-//     a command's payload and its answer's. stall.go: what a node saw of an FFmpeg run it stopped
-//     as stalled, which those answers carry. bytes.go names a file on the node's byte socket. probe.go: the
-//     probe record a scan reports and the core keeps.
+//     commands.go (the long-poll, each command naming its job), result.go (the node's word on how
+//     an attempt ended, on one path), progress.go (its word on where one is, best effort, on
+//     another), and artwork.go, prepare.go, subtitle.go and loudness.go, each a command's payload
+//     and its answer's. stall.go: what a node saw of an FFmpeg run it stopped as stalled, which
+//     those answers carry. bytes.go names a file on the node's byte socket. probe.go: the probe
+//     record a scan reports and the core keeps.
 package nodeproto
