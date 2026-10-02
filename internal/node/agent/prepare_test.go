@@ -51,9 +51,10 @@ func (fakePreparer) Prepare(
 // never comes fails the test in seconds rather than at the suite's deadline.
 const answerTimeout = 10 * time.Second
 
-// jobPrepareReport is a prepare report with the job id its result carried.
+// jobPrepareReport is a prepare report with the job id and attempt token its result carried.
 type jobPrepareReport struct {
-	JobID int64
+	JobID        int64
+	AttemptToken string
 	nodeproto.PrepareReport
 }
 
@@ -64,7 +65,7 @@ func nextPrepareReport(t *testing.T, core *fakeCore) jobPrepareReport {
 	defer stop()
 	select {
 	case result := <-core.prepareReports:
-		return jobPrepareReport{JobID: result.JobID, PrepareReport: *result.Prepare}
+		return jobPrepareReport{JobID: result.JobID, AttemptToken: result.AttemptToken, PrepareReport: *result.Prepare}
 	case <-ctx.Done():
 		t.Fatal("no prepare report reached the core")
 	}
@@ -303,5 +304,46 @@ func TestAgent_APrepareRunsWhileAScanIsStillGoing(t *testing.T) {
 	core.sendPrepare(2, preparableFilm(t, root), "3/remux/0123456789abcdef")
 	if final := finalPrepareReport(t, core); final.JobID != 2 || final.State != nodeproto.PrepareDone {
 		t.Errorf("while the scan went on, the prepare ended %+v, want job 2 done", final)
+	}
+}
+
+// The node holds work by its attempt: two attempts at one job are two, a cancel stops only the
+// attempt it names, and every report names the attempt it is about (D238 §2). A command with no
+// attempt is refused.
+func TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	source := preparableFilm(t, root)
+	attemptAt := func(seq, job int64, token, dir string) nodeproto.Command {
+		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir}
+		return nodeproto.Command{
+			CommandSeq: seq, Type: nodeproto.CommandPrepare, JobID: job, AttemptToken: token, Prepare: payload,
+		}
+	}
+	// Two slow attempts at job 1 fill both remux slots.
+	core.commands <- attemptAt(1, 1, "old", "3/remux/slow")
+	core.commands <- attemptAt(2, 1, "new", "3/remux/slow")
+	started := map[string]bool{}
+	for range 2 {
+		report := nextPrepareReport(t, core)
+		if report.JobID != 1 || report.State != nodeproto.PrepareRunning {
+			t.Fatalf("a slow attempt's first report = %+v, want job 1 running", report)
+		}
+		started[report.AttemptToken] = true
+	}
+	if !started["old"] || !started["new"] {
+		t.Fatalf("the running reports named attempts %v, want old and new, each its own", started)
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 3, Type: nodeproto.CommandCancel, JobID: 1, AttemptToken: "old"}
+	core.commands <- attemptAt(4, 4, "only", "5/remux/0123456789abcdef")
+	if next := finalPrepareReport(t, core); next.JobID != 4 || next.AttemptToken != "only" ||
+		next.State != nodeproto.PrepareDone {
+		t.Errorf("the next final report = %+v, want job 4's attempt only done, in the slot attempt old freed", next)
+	}
+	core.sendsTokenless(5)
+	core.commands <- attemptAt(5, 5, "", "6/remux/0123456789abcdef")
+	if refused := testutil.Receive(t, core.refusals, "the refusal of a command naming no attempt"); refused.JobID != 5 {
+		t.Errorf("the refusal named job %d, want job 5, whose command named no attempt", refused.JobID)
 	}
 }

@@ -5,11 +5,13 @@ package nodeproto
 // PathResult is where the node posts its word on a job: a Result.
 const PathResult = "/node/v1/result"
 
-// Result is the node's word on a job the core gave it, by the job's id (Command.JobID): one of a
+// Result is the node's word on a job the core gave it, by the job's id and the attempt's token: one of a
 // prepare's reports, a subtitle's text, a loudness measurement or an artwork re-encode. Exactly
 // one is set, the one that answers the command the job sent, or none and a Refusal.
 type Result struct {
 	JobID int64 `json:"jobId"`
+	// AttemptToken is the command's (Command.AttemptToken), echoed: the attempt this answers.
+	AttemptToken string `json:"attemptToken"`
 	// Refusal says why the node took no part of the command: a command it does not know, from a
 	// core of another build, which the core reads as the node needing an update (D233 §9).
 	Refusal  string          `json:"refusal,omitempty"`

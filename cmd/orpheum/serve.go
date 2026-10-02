@@ -160,7 +160,7 @@ func openAndWire(
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
-		opened.exchanges = nodes.NewExchanges(opened.nodes, clock.System{}, logger)
+		opened.exchanges = nodes.NewExchanges(opened.nodes, clock.System{}, rand.Reader, logger)
 		opened.nodes.SetResultSink(opened.exchanges)
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}

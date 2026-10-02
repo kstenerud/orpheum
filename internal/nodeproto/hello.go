@@ -30,7 +30,7 @@ const ArtworkAnswerWait = 2 * time.Minute
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 2
+const ProtocolVersion = 3
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {

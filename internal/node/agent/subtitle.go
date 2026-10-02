@@ -21,9 +21,11 @@ type Subtitler interface {
 
 // subtitleWork is an extraction held until the node's one extraction slot is free, since an
 // embedded track means reading the whole video, which posts its answer to the core.
-func (agent *Agent) subtitleWork(ctx context.Context, nodeID, jobID int64, command nodeproto.ExtractSubtitle) heldWork {
+func (agent *Agent) subtitleWork(
+	ctx context.Context, nodeID int64, held attempt, command nodeproto.ExtractSubtitle,
+) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		jobID: jobID, slot: slotExtract, jobKind: "a subtitle",
+		attempt: held, slot: slotExtract, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runExtraction(jobCtx, command)
 			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
@@ -33,12 +35,12 @@ func (agent *Agent) subtitleWork(ctx context.Context, nodeID, jobID int64, comma
 
 // answeringJob is one job whose whole answer is posted to the core when it ends.
 type answeringJob struct {
-	jobID int64
+	attempt
 	// slot is the kind of slot it runs in.
 	slot slotKind
 	// jobKind names the work in the log.
 	jobKind string
-	// makeAnswer makes the result, its job id left for answeringWork to fill, and says why
+	// makeAnswer makes the result, the attempt it answers left for answeringWork to name, and says why
 	// nothing was made: a refusal or a failure.
 	makeAnswer func(ctx context.Context) (result nodeproto.Result, refusalOrFailure string)
 }
@@ -48,7 +50,7 @@ type answeringJob struct {
 func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeringJob) heldWork {
 	return heldWork{slot: job.slot, run: func(jobCtx context.Context) {
 		result, refusalOrFailure := job.makeAnswer(jobCtx)
-		result.JobID = job.jobID
+		result = job.named(result)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a job was cancelled", "jobKind", job.jobKind, "jobId", job.jobID)
 			return

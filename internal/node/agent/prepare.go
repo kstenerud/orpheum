@@ -40,9 +40,10 @@ func slotForProfile(profile nodeproto.PrepareProfile) slotKind {
 // prepareWork is a prepare held until a slot of its kind is free, which reports its progress and
 // its end to the core. The source is checked to be the file the core named before FFmpeg reads it
 // (D100).
-func (agent *Agent) prepareWork(ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare) heldWork {
+func (agent *Agent) prepareWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Prepare) heldWork {
+	jobID := held.jobID
 	return heldWork{slot: slotForProfile(command.Profile), saysWaiting: true, run: func(jobCtx context.Context) {
-		outcome := agent.runPrepare(jobCtx, nodeID, jobID, command)
+		outcome := agent.runPrepare(jobCtx, nodeID, held, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", jobID)
 			return
@@ -59,7 +60,7 @@ func (agent *Agent) prepareWork(ctx context.Context, nodeID, jobID int64, comman
 				"jobId", jobID, "renditionDir", command.RenditionDir, "stall", outcome.Stall.Detail)
 		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
 		}
-		agent.postResult(ctx, nodeID, "a prepare", nodeproto.Result{JobID: jobID, Prepare: &outcome})
+		agent.postResult(ctx, nodeID, "a prepare", held.named(nodeproto.Result{Prepare: &outcome}))
 		agent.evict(ctx)
 	}}
 }
@@ -75,17 +76,17 @@ func (agent *Agent) evict(ctx context.Context) {
 }
 
 // sayWaiting tells the core a prepare is waiting for a slot.
-func (agent *Agent) sayWaiting(ctx context.Context, nodeID, jobID int64) {
+func (agent *Agent) sayWaiting(ctx context.Context, nodeID int64, held attempt) {
 	waiting := nodeproto.PrepareReport{State: nodeproto.PrepareWaiting}
-	if err := agent.sendPrepareReport(ctx, nodeID, jobID, waiting); err != nil && ctx.Err() == nil {
-		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "jobId", jobID, "err", err)
+	if err := agent.sendPrepareReport(ctx, nodeID, held, waiting); err != nil && ctx.Err() == nil {
+		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "jobId", held.jobID, "err", err)
 	}
 }
 
 // runPrepare runs one prepare to its end and says how it ended: done, FFmpeg failing on the
 // source, or refused without trying, which says nothing of the source's bytes.
 func (agent *Agent) runPrepare(
-	ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare,
+	ctx context.Context, nodeID int64, held attempt, command nodeproto.Prepare,
 ) nodeproto.PrepareReport {
 	refused := func(err error) nodeproto.PrepareReport {
 		return nodeproto.PrepareReport{State: nodeproto.PrepareRefused, Refusal: err.Error()}
@@ -104,9 +105,9 @@ func (agent *Agent) runPrepare(
 			running := nodeproto.PrepareReport{
 				State: nodeproto.PrepareRunning, PreparedThroughMs: preparedThroughMs,
 			}
-			if sendErr := agent.sendPrepareReport(ctx, nodeID, jobID, running); sendErr != nil && ctx.Err() == nil {
+			if sendErr := agent.sendPrepareReport(ctx, nodeID, held, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
-					"jobId", jobID, "err", sendErr)
+					"jobId", held.jobID, "err", sendErr)
 			}
 		}
 	}
@@ -152,9 +153,9 @@ func (agent *Agent) openNamed(named nodeproto.BytesFile) (*os.File, error) {
 // sendPrepareReport posts a prepare's progress, or that it waits for a slot, once: the newest
 // supersedes it, so a lost one is not tried again.
 func (agent *Agent) sendPrepareReport(
-	ctx context.Context, nodeID, jobID int64, report nodeproto.PrepareReport,
+	ctx context.Context, nodeID int64, held attempt, report nodeproto.PrepareReport,
 ) error {
-	encoded, err := json.Marshal(nodeproto.Result{JobID: jobID, Prepare: &report})
+	encoded, err := json.Marshal(held.named(nodeproto.Result{Prepare: &report}))
 	if err != nil {
 		return fmt.Errorf("encode a prepare report: %w", err)
 	}

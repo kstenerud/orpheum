@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -23,7 +24,8 @@ func newBlockingWork() blockingWork {
 }
 
 func (blocking blockingWork) held(jobID, priority int64) heldWork {
-	return heldWork{jobID: jobID, priority: priority, slot: slotArtwork, run: func(ctx context.Context) {
+	held := attempt{jobID: jobID, token: tokenOf(jobID)}
+	return heldWork{attempt: held, priority: priority, slot: slotArtwork, run: func(ctx context.Context) {
 		blocking.started <- jobID
 		select {
 		case <-blocking.release:
@@ -34,11 +36,14 @@ func (blocking blockingWork) held(jobID, priority int64) heldWork {
 	}}
 }
 
+// tokenOf is the attempt token the tests give job jobID's one attempt.
+func tokenOf(jobID int64) string { return "attempt-" + strconv.FormatInt(jobID, 10) }
+
 func TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops(t *testing.T) {
 	t.Parallel()
 	list := newWorkList(nodeproto.Capacity{})
 	blocking := newBlockingWork()
-	if list.cancel(5) {
+	if list.cancel(tokenOf(5)) {
 		t.Error("cancelling job 5, which the node does not hold, said it was held")
 	}
 	if isHeld, isWaiting := list.hold(t.Context(), blocking.held(6, 0)); !isHeld || isWaiting {
@@ -51,10 +56,10 @@ func TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops(t *testing.
 	if _, isWaiting := list.hold(t.Context(), blocking.held(5, 0)); !isWaiting {
 		t.Fatal("job 5, behind job 6 in the one artwork slot, did not wait")
 	}
-	if !list.cancel(5) {
+	if !list.cancel(tokenOf(5)) {
 		t.Error("cancelling waiting job 5 said the node did not hold it")
 	}
-	if !list.cancel(6) {
+	if !list.cancel(tokenOf(6)) {
 		t.Error("cancelling running job 6 said the node did not hold it")
 	}
 	if err := testutil.Receive(t, blocking.ended, "job 6's end"); err == nil {
