@@ -20,6 +20,9 @@
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
 //   - A prepare the disk has no room for is refused, with why.
 //     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
+//   - The disk keeps its floor of free space, node.min_free_mib, whatever its percentage says:
+//     below it renditions are evicted, and a prepare with nothing left to evict is refused (the
+//     owner, 2026-10-02). TestMakeRoom_KeepsTheDisksFloorOfFreeSpace.
 //
 // # Read before changing
 //

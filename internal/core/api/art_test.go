@@ -169,10 +169,11 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 	harness.connectNode(t, "/media/films")
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
 		UsedBytes: 3 << 30, BudgetBytes: 200 << 30, DiskUsedPercent: 40, DiskUsedLimitPercent: 95,
+		DiskAvailableBytes: 500 << 20, DiskMinFreeBytes: 100 << 20,
 	}
 	within := harness.do(t, http.MethodGet, "/doctor", admin, nil)
 	want := `{"check":"prepared copies on node local","verdict":"ok","detail":"3.0 GiB of a 200 GiB budget; ` +
-		`the disk is 40% full, its limit 95%"}`
+		`the disk is 40% full, its limit 95%, with 500 MiB free, its floor 100 MiB"}`
 	if !strings.Contains(within.body, want) {
 		t.Errorf("doctor = %s, want the node's prepared copies against their budget (D217 §5)", within.body)
 	}
@@ -180,5 +181,10 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 	if past := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(past.body,
 		`{"check":"prepared copies on node local","verdict":"warn"`) {
 		t.Errorf("doctor with the disk past its limit = %s, want a warning", past.body)
+	}
+	harness.nodes.prepared.DiskUsedPercent, harness.nodes.prepared.DiskAvailableBytes = 40, 50<<20
+	if below := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(below.body,
+		`{"check":"prepared copies on node local","verdict":"warn"`) {
+		t.Errorf("doctor with the disk below its floor of free space = %s, want a warning", below.body)
 	}
 }

@@ -393,7 +393,8 @@ func (agent *Agent) status() nodeproto.Record {
 		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
 			status.PreparedUsage = &nodeproto.PreparedUsage{
 				UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
-				DiskUsedLimitPercent: usage.DiskUsedLimitPercent,
+				DiskUsedLimitPercent: usage.DiskUsedLimitPercent, DiskAvailableBytes: usage.DiskAvailableBytes,
+				DiskMinFreeBytes: usage.DiskMinFreeBytes,
 			}
 		}
 	}

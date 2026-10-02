@@ -84,11 +84,14 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody {
 	finding := FindingBody{
 		Check: "prepared copies on node " + nodeName, Verdict: verdictOK,
-		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%",
+		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%, with %d MiB "+
+			"free, its floor %d MiB",
 			float64(usage.UsedBytes)/diskspace.BytesPerGiB, usage.BudgetBytes/diskspace.BytesPerGiB,
-			usage.DiskUsedPercent, usage.DiskUsedLimitPercent),
+			usage.DiskUsedPercent, usage.DiskUsedLimitPercent, usage.DiskAvailableBytes>>20,
+			usage.DiskMinFreeBytes>>20),
 	}
-	if usage.DiskUsedPercent > usage.DiskUsedLimitPercent || usage.UsedBytes > usage.BudgetBytes {
+	if usage.DiskUsedPercent > usage.DiskUsedLimitPercent || usage.UsedBytes > usage.BudgetBytes ||
+		usage.DiskAvailableBytes < usage.DiskMinFreeBytes {
 		finding.Verdict = verdictWarn
 		finding.Action = "free space on the disk that holds the prepared directory, or raise " +
 			"node.prepared_budget_gib; new copies are refused while nothing can be evicted"

@@ -75,7 +75,8 @@
 //   - A node's hello brings back the work parked on it and on any node; its status showing room
 //     brings back the prepares parked on its prepared directory (D231 §5, §6).
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode,
-//     TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory.
+//     TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory. Room is the disk
+//     within its fullness limit and keeping its floor of free space.
 //   - A node an admin retired is removed and forgotten: it is told to say hello first, and its
 //     name, saying hello again, enrols a new node (D231 §7).
 //     TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode.

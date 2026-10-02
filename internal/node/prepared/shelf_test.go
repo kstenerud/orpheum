@@ -144,3 +144,33 @@ func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 		t.Errorf("left %v, want the one just served kept", got)
 	}
 }
+
+// The disk keeps its floor of free space whatever its percentage says (node.min_free_mib): below
+// it, renditions are evicted, and a prepare with nothing left to evict is refused.
+func TestMakeRoom_KeepsTheDisksFloorOfFreeSpace(t *testing.T) {
+	t.Parallel()
+	disk := 50
+	shelf := shelfWith(t, Budget{
+		MaxBytes: 1 << 30, KeptAfterLastPlay: time.Hour, DiskUsedLimitPercent: 95, MinFreeBytes: 100 << 20,
+	}, &disk, map[string]struct {
+		bytes int
+		ago   time.Duration
+	}{"1/remux/aaaaaaaaaaaaaaaa": {100, 5 * 24 * time.Hour}})
+	free := int64(10 << 20)
+	shelf.diskAvailableBytes = func(string) (int64, error) {
+		if len(remainingRunDirs(t, shelf)) == 0 {
+			return free, nil
+		}
+		return free / 2, nil
+	}
+	if err := shelf.MakeRoom(); !errors.Is(err, ErrNoRoom) {
+		t.Errorf("MakeRoom with 10 MiB free and a floor of 100: %v, want ErrNoRoom", err)
+	}
+	if got := remainingRunDirs(t, shelf); len(got) != 0 {
+		t.Errorf("left %v below the floor, want every rendition evicted for it", got)
+	}
+	free = 200 << 20
+	if err := shelf.MakeRoom(); err != nil {
+		t.Errorf("MakeRoom with 200 MiB free: %v, want room", err)
+	}
+}
