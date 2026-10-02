@@ -451,6 +451,12 @@ ended attempt for `node.ended_work_kept_hours`. Node protocol 4.
 - A node's hello asks for no scan of a root no library covers: on devnas (2026-10-02), the dev
   loop's start read all 329 films of a root no library covered yet, for 58 seconds, and stored
   nothing ("a node scanned a root no library covers; what it saw is not stored").
+- *Seen in 4b's branch gates (2026-10-02), once in sixteen runs:*
+  `TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath` filed two specials
+  (`S00E01`) differently in the replayed scan than in the live one, under the load of the gates'
+  parallel steps. The replay sends the same records in the same order, so where a record lands in
+  the ingest's batches looks to decide a special's filing. To be found when the report stream
+  becomes a record stream here.
 - Last, because it moves the oldest path, the report stream, onto everything 4b–4d built.
 
 S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
