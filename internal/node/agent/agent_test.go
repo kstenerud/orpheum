@@ -694,11 +694,18 @@ func TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello(t *testin
 	startAgent(t, socket)
 	core.commands <- nodeproto.Command{CommandSeq: 1, Type: "transcode_to_av2", JobID: 31}
 	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandScan, JobID: 32} // no payload
-	for _, jobID := range []int64{31, 32} {
+	// Each refusal is posted beside the node's other work, so they may arrive in either order.
+	var refusedJobIDs []int64
+	for range 2 {
 		refused := testutil.Receive(t, core.refusals, "the refusal of a command the node cannot read")
-		if refused.JobID != jobID || !strings.Contains(refused.Refusal, "cannot read the command") {
-			t.Errorf("refusal %+v, want job %d refused, saying the node cannot read its command", refused, jobID)
+		if !strings.Contains(refused.Refusal, "cannot read the command") {
+			t.Errorf("refusal %+v, want it to say the node cannot read its command", refused)
 		}
+		refusedJobIDs = append(refusedJobIDs, refused.JobID)
+	}
+	slices.Sort(refusedJobIDs)
+	if !slices.Equal(refusedJobIDs, []int64{31, 32}) {
+		t.Errorf("refused jobs %v, want 31 and 32, each by its own id", refusedJobIDs)
 	}
 	core.mutex.Lock()
 	defer core.mutex.Unlock()
