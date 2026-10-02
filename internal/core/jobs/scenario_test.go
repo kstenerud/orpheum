@@ -45,7 +45,7 @@ func (disk *fillingDisk) Record(ctx context.Context, outcome jobqueue.Outcome) e
 	return disk.Storage.Record(ctx, outcome)
 }
 
-// S77: the core's own disk fills: cache.db's and library.db's writes fail. Nothing that cost
+// S77: the core's own disk fills: cache.db's and persistent.db's writes fail. Nothing that cost
 // something is lost, the server says why, once, rather than every runner every second, no job is
 // left running for want of a write, and work resumes on its own once there is room (D231 §5, §6).
 func TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom(t *testing.T) {
@@ -72,7 +72,7 @@ func TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIs
 			disk.isFull.Store(true) // the disk fills as the job ends: its outcome cannot be written
 		case 2:
 			if !couldNotKeep {
-				couldNotKeep = true // library.db cannot keep what it fetched
+				couldNotKeep = true // persistent.db cannot keep what it fetched
 				return fmt.Errorf("keep item 2's record: %w", disk.fullErr)
 			}
 		}

@@ -135,7 +135,7 @@ func newHarness(t *testing.T) testHarness {
 		System: System{
 			Build: harnessServerBuild, StartedAt: now.Now(),
 			DataDirectory: stateDirectory, CacheDirectory: cacheDirectory,
-			LibraryDatabase: database, CacheDatabase: cache,
+			PersistentDatabase: database, CacheDatabase: cache,
 		},
 		ConfigFileKeys: []ConfigFileKey{{
 			Key: "server.shutdown_grace_seconds", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),

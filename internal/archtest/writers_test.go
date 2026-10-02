@@ -45,7 +45,7 @@ var writeStatement = regexp.MustCompile(`(?is)\b(?:insert(?:\s+or\s+\w+)?\s+into
 	`update(?:\s+or\s+\w+)?|delete\s+from)\s+["'` + "`" + `]?(\w+)`)
 
 // ownerRow is one row of schema.md's owners table: the tables, the database, the writing package.
-var ownerRow = regexp.MustCompile("(?m)^\\| (`\\w+`(?:, `\\w+`)*) \\| (?:library|cache)\\.db \\| (`[^`]+`|" +
+var ownerRow = regexp.MustCompile("(?m)^\\| (`\\w+`(?:, `\\w+`)*) \\| (?:persistent|cache)\\.db \\| (`[^`]+`|" +
 	noWriterYet + ") \\|")
 
 // findWriteQueries maps each query that writes a table, as "<generated package>.<query name>", to
@@ -240,7 +240,7 @@ func loadExportFiles(t *testing.T) map[string]string {
 	return exportFiles
 }
 
-// TestArch_EachTableHasOneWritingPackage checks that each library.db and cache.db table is
+// TestArch_EachTableHasOneWritingPackage checks that each persistent.db and cache.db table is
 // written by one package, the one schema.md's owners table names: a package whose code calls a
 // generated query that inserts into, updates or deletes from it. Any other package asks that one
 // (architecture map F5).

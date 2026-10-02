@@ -98,9 +98,9 @@
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
-//   - The text a node made of a track, or why it could not, is kept in library.db, not cache.db:
+//   - The text a node made of a track, or why it could not, is kept in persistent.db, not cache.db:
 //     making it again reads a whole video (the architecture map's F1, D231 §3).
-//     TestSubtitles_ExtractedTextIsKeptInLibraryDBWhichOutlivesCacheDB.
+//     TestSubtitles_ExtractedTextIsKeptInPersistentDBWhichOutlivesCacheDB.
 //   - A measurement, an extraction or a conversion whose job fails is kept as its item's own
 //     failure, by payload hash as FFmpeg's is (D231 §4, §10): the loudness sweep does not ask
 //     again, and a subtitle shows it failed until the next play asks again.
@@ -110,7 +110,7 @@
 //     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
 //   - A subtitle fetched on request is found by the work's ids or the series' and place, and the
 //     file's moviehash, with a candidate whose hash matches listed first; is fetched by anyone
-//     signed in; is kept gzipped in library.db; becomes the person's choice; and is offered as a
+//     signed in; is kept gzipped in persistent.db; becomes the person's choice; and is offered as a
 //     track of the file, which the video's node converts (D224).
 //     TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft,
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,

@@ -40,9 +40,9 @@ type System struct {
 	// DataDirectory and CacheDirectory are the server's own, whose disks the page shows.
 	DataDirectory  string
 	CacheDirectory string
-	// LibraryDatabase and CacheDatabase are library.db and cache.db, measured when the page asks.
-	LibraryDatabase Sized
-	CacheDatabase   Sized
+	// PersistentDatabase and CacheDatabase are persistent.db and cache.db, measured when the page asks.
+	PersistentDatabase Sized
+	CacheDatabase      Sized
 }
 
 // SystemOutput is the System page: the server's facts, what doctor finds, and each node's facts
@@ -132,7 +132,7 @@ type DiskBody struct {
 
 // DatabaseBody is one of the server's database files and its size.
 type DatabaseBody struct {
-	Name      string `enum:"library.db,cache.db" json:"name"`
+	Name      string `enum:"persistent.db,cache.db" json:"name"`
 	SizeBytes int64  `json:"sizeBytes"`
 }
 
@@ -303,7 +303,7 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 	for _, database := range []struct {
 		name     string
 		measurer Sized
-	}{{"library.db", system.LibraryDatabase}, {"cache.db", system.CacheDatabase}} {
+	}{{"persistent.db", system.PersistentDatabase}, {"cache.db", system.CacheDatabase}} {
 		size, err := database.measurer.SizeBytes(ctx)
 		if err != nil {
 			return ServerBody{}, fmt.Errorf("measure %s: %w", database.name, err)

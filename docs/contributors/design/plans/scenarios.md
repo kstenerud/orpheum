@@ -196,7 +196,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 ### S17 — The database lost, with a backup
 
-- **Story:** the disk holding `library.db` dies; the owner restores last night's backup and the
+- **Story:** the disk holding `persistent.db` dies; the owner restores last night's backup and the
   server scans.
 - **Expected:** everything as of last night; files added since appear as new.
 - **Status:** **holds on paper**: restore is built (M1) and the ingest matches by path and
@@ -534,7 +534,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 ### S75 — OpenSubtitles' daily quota is spent while conversions are queued
 
 - **Expected:** conversions finish, and only new downloads are refused, with the reset time.
-- **Today:** a conversion is node work on a body already stored in library.db, and never calls
+- **Today:** a conversion is node work on a body already stored in persistent.db, and never calls
   OpenSubtitles. Search and download are synchronous, and running out of quota returns
   `quota_exhausted`.
 - **Status:** **holds**. OpenSubtitles stays a reserved destination (D231).
@@ -553,7 +553,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Status:** **holds** (`TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`, 2026-09-30): the down
   node's work parks on it and is passed over; the live node's runs.
 
-### S77 — The core's own disk is full (cache.db and library.db writes fail)
+### S77 — The core's own disk is full (cache.db and persistent.db writes fail)
 
 - **Expected:** nothing is lost that cost something. The server says why, and work resumes on
   its own once there is space.
@@ -562,7 +562,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     of log lines per second on the same full disk.
   - A handler that finished, but whose `writeFinish` failed, leaves its job `running` until the
     next restart. `FindOpenJob` then blocks the target from being queued again.
-  - **`FetchSubtitle` downloads first and then writes to library.db, so a failed write loses a
+  - **`FetchSubtitle` downloads first and then writes to persistent.db, so a failed write loses a
     download that was paid for** (D224 §6 keeps a subtitle because it cost a download).
   - A node's report is sent again from its last ingested sequence. This holds.
 - **Design:** silent.
@@ -587,7 +587,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     - owed artwork, at the next pass, since the hellos trigger a scan;
     - season listings;
     - rolling refreshes;
-    - loudness, whose facts live in library.db;
+    - loudness, whose facts live in persistent.db;
     - prepares and subtitles, on the next play (S35);
     - match candidates, by searching again (D172).
   - First matches are queued again **for every title never answered**, because `EverQueued` now
@@ -597,7 +597,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     missing image is already recorded as refused, so it is held and never owed again.
 - **Status:** **holds** (`TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`, the jobs rebuild's
   Phase 3): the matches owed, the person's refresh with its images and the recheck are derived
-  again from library.db, and a failure of the item's own is not retried. G10, G14, G15
+  again from persistent.db, and a failure of the item's own is not retried. G10, G14, G15
   **closed**; Q5, Q6, Q7 answered by D231.
 
 ---
@@ -621,17 +621,17 @@ the backup's size."* In practice: **could cache.db be deleted now at the cost of
 
 | Kind / use | Queued by | If lost | Queued again? | Can a person ask? | State only in the queue today | Where it must live | Flag |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fetch_metadata`: **first match** (D170) | The pass after a scan: derived from `ListTitlesAwaitingMatch`/`ListSeriesAwaitingMatch`, **then gated by `EverQueued`** (an event read from job history) | Failed for good (an outage longer than 7.5 min, or the item's own 5xx), cancelled, or the title died before its job ran and was then revived (S10) | **Never**, except by an accidental cache.db discard | Yes, by Refresh on the identify page, but a failed match looks the same as one not tried yet | **`EverQueued`: "was a match ever attempted"**, a fact about the item held in job history | library.db already says "never answered" (`unidentified`, `followed_source` NULL). An item-caused failure becomes a fact there, with its reason (Q6) | **YES** |
-| `fetch_metadata`: season listing (D209 §3) | The pass, from `AwaitingListings` | Derived again | At the next pass | Yes, refresh the series | Nothing | Already in library.db | Sweep runs only after a scan (Q13) |
-| `fetch_metadata`: rolling refresh (D213 §3) | `Refresher.Sweep`: at start, then every `metadata_refresh_check_every_hours`, from response ages | Derived again | Yes | Yes | Nothing | Already in library.db | — |
-| `fetch_metadata`: **a person's refresh** (+ retry images) | The API, `Refresher.Request` | Lost on a discard or a failure for good; merged into an open rolling job, losing priority 20 and `shouldRetryImages` | No | Yes, by asking again, but they are never told the request died | **The request itself and its args** | library.db: `refresh_requested_at` (+ retry-images) on the item, cleared by a refresh that succeeds after it; a sweep derives the job (Q7) | **YES** (partly) |
-| `fetch_metadata`: **D213 §1 recheck** of a missing image | The artwork handler, on the first 404, `RunnableAt` = now + `RecheckAfter` | Lost on a discard; **dropped by `Enqueue` if a fetch job is already open for the item**; failed for good | **Never.** The image is recorded as refused, so it is "held" and not owed | Only by a person's refresh with images, and nobody knows to ask | **The recheck's due time** (the miss itself is in library.db: `CountEarlierMisses`) | Derived from the artwork refusal row: miss count 1 and refused-at + `RecheckAfter` ≤ now | **YES** |
+| `fetch_metadata`: **first match** (D170) | The pass after a scan: derived from `ListTitlesAwaitingMatch`/`ListSeriesAwaitingMatch`, **then gated by `EverQueued`** (an event read from job history) | Failed for good (an outage longer than 7.5 min, or the item's own 5xx), cancelled, or the title died before its job ran and was then revived (S10) | **Never**, except by an accidental cache.db discard | Yes, by Refresh on the identify page, but a failed match looks the same as one not tried yet | **`EverQueued`: "was a match ever attempted"**, a fact about the item held in job history | persistent.db already says "never answered" (`unidentified`, `followed_source` NULL). An item-caused failure becomes a fact there, with its reason (Q6) | **YES** |
+| `fetch_metadata`: season listing (D209 §3) | The pass, from `AwaitingListings` | Derived again | At the next pass | Yes, refresh the series | Nothing | Already in persistent.db | Sweep runs only after a scan (Q13) |
+| `fetch_metadata`: rolling refresh (D213 §3) | `Refresher.Sweep`: at start, then every `metadata_refresh_check_every_hours`, from response ages | Derived again | Yes | Yes | Nothing | Already in persistent.db | — |
+| `fetch_metadata`: **a person's refresh** (+ retry images) | The API, `Refresher.Request` | Lost on a discard or a failure for good; merged into an open rolling job, losing priority 20 and `shouldRetryImages` | No | Yes, by asking again, but they are never told the request died | **The request itself and its args** | persistent.db: `refresh_requested_at` (+ retry-images) on the item, cleared by a refresh that succeeds after it; a sweep derives the job (Q7) | **YES** (partly) |
+| `fetch_metadata`: **D213 §1 recheck** of a missing image | The artwork handler, on the first 404, `RunnableAt` = now + `RecheckAfter` | Lost on a discard; **dropped by `Enqueue` if a fetch job is already open for the item**; failed for good | **Never.** The image is recorded as refused, so it is "held" and not owed | Only by a person's refresh with images, and nobody knows to ask | **The recheck's due time** (the miss itself is in persistent.db: `CountEarlierMisses`) | Derived from the artwork refusal row: miss count 1 and refused-at + `RecheckAfter` ≤ now | **YES** |
 | `make_artwork_sizes`: owed images (D212) | The pass's report → the artwork service's `Take` (through the server's wiring) | Derived again (not held means owed) | At the next pass, and a pass runs only after a scan (node hello or admin) | Yes, refresh with images | A snapshot of the args (the refs) | Derived; the args are a cache | Q13. **The node's refusal of an unreadable local image is recorded as permanent** (G9) |
 | `make_artwork_sizes`: sizes made on request (D212 §3) | Serving a size that was not made | Dropped next to an open owed job, or lost | By the next request | Yes, by viewing | A snapshot of the args | Forgettable | — |
 | `prepare` | Play (`want`), and `PrepareAgain` when the node answers 404 | Failed for good on ordinary errors, **leaving the rendition `running`** | By the next play (`want` queues whenever it is not complete) | Yes, by playing | Nothing beyond `prepared_rendition`, which is a cache | cache.db (a note of the node's cache, D217 §5) | G8, G13 |
 | `extract_subtitle` | Play (`wantText`) | — | By the next play | Yes | Nothing | Text by payload hash in cache.db | — |
-| `convert_fetched_subtitle` | Play (`wantText`) | — | By the next play; the body is in library.db | Yes | Nothing | — | — |
-| `measure_loudness` (D226 §2) | `QueueMeasurements`: at start, after each pass, and hourly | Derived again; a failure is kept in library.db | Yes | No button, and none needed | Nothing | Already in library.db | Queues offline roots every hour (G6) |
+| `convert_fetched_subtitle` | Play (`wantText`) | — | By the next play; the body is in persistent.db | Yes | Nothing | — | — |
+| `measure_loudness` (D226 §2) | `QueueMeasurements`: at start, after each pass, and hourly | Derived again; a failure is kept in persistent.db | Yes | No button, and none needed | Nothing | Already in persistent.db | Queues offline roots every hour (G6) |
 | `scan` (M4; today a node command held in memory) | A node's hello (a setting), or an admin request | An admin's scan of a node that has not said hello since the core started is **dropped silently**; lost on a restart | At the next hello | Yes, by asking again | The request | When it becomes a job, derived from root state (never scanned, withheld, offline, the admin's request) | Mild |
 | `backup` (M4) | Not built | — | — | — | — | Derived from the last backup time against its schedule | Design at M4 |
 
@@ -649,7 +649,7 @@ the backup's size."* In practice: **could cache.db be deleted now at the cost of
 **Every job is the image of a predicate over durable state; the queue is a cache of the work
 that state implies.** Each kind registers three things with the generic queue:
 - its handler;
-- a **sweep** that derives the kind's open work from library.db and configuration;
+- a **sweep** that derives the kind's open work from persistent.db and configuration;
 - the destination it needs.
 
 A sweep runs:
@@ -674,7 +674,7 @@ It follows that:
 - **First match:**
   - delete `EverQueued`;
   - derive the job from the awaiting-match queries alone;
-  - add a library.db fact for an item-caused failure (`match_failed_at`, `match_failure`),
+  - add a persistent.db fact for an item-caused failure (`match_failed_at`, `match_failure`),
     which the query excludes and a person's refresh clears;
   - with D231's parking, an outage no longer produces failures.
   - This keeps D170's intent (one fetch per *answer*, never a flood) and drops a mechanism that
@@ -697,7 +697,7 @@ It follows that:
     person's refresh waiting, and a recheck scheduled.
   - Run the script twice to quiescence, once with cache.db discarded at that point and once
     without.
-  - Assert that library.db's facts are the same in both runs: identification, artwork rows,
+  - Assert that persistent.db's facts are the same in both runs: identification, artwork rows,
     loudness, requested refreshes done, and item failures.
 - A structural guard, an architecture test, still to write, that nothing reads job history as a fact: only the queue package and the
   job view read the job table.

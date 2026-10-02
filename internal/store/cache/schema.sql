@@ -1,7 +1,7 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- cache.db, never backed up (schema.md, cache.db). Versioned by discard (migrations.md): when
 -- the version below differs from the file's user_version, the file is deleted and built again
--- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
+-- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
 -- cache schema version 23
 
@@ -63,7 +63,7 @@ CREATE TABLE art_served (                                  -- D212 section 6: re
 
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_file  INTEGER NOT NULL,         -- library.db's file; play state records against it
+  source_file  INTEGER NOT NULL,         -- persistent.db's file; play state records against it
   source_payload_hash BLOB NOT NULL,     -- the source as it was when prepared (D179)
   profile      TEXT NOT NULL CHECK (profile IN ('remux','h264-8m')),
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source

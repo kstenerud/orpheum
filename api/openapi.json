@@ -629,7 +629,7 @@
         "properties": {
           "name": {
             "enum": [
-              "library.db",
+              "persistent.db",
               "cache.db"
             ],
             "type": "string"

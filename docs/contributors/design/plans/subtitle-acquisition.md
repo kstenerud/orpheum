@@ -172,7 +172,7 @@ extremely ordinary subject.
 
 ### 7. Where a fetched track goes
 
-In `library.db`, compressed, where [schema.md](schema.md) has it
+In `persistent.db`, compressed, where [schema.md](schema.md) has it
 ([D224](../../decisions/working-notes.md) §6): `cache.db` may be deleted at any time, and a lost
 fetch costs a download and a person's choice to get back. The node converts it, as it converts a
 subtitle file beside the media, because it is hostile input (§6; D224 §5). *(Amended 2026-09-27

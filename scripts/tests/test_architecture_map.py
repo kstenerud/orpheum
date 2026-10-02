@@ -59,9 +59,9 @@ class Tables(unittest.TestCase):
               "CREATE TABLE 'item_fts_data'(id INTEGER PRIMARY KEY, block BLOB);\n"
               "CREATE TABLE sqlite_sequence(name,seq);\n")
     PLAN = ("| Table | Database | Writing package | Notes |\n| --- | --- | --- | --- |\n"
-            "| `file` | library.db | `internal/core/library` | |\n"
-            "| `grant` | library.db | `internal/core/auth` | |\n"
-            "| `item_fts` | library.db | `internal/core/identify` | |\n"
+            "| `file` | persistent.db | `internal/core/library` | |\n"
+            "| `grant` | persistent.db | `internal/core/auth` | |\n"
+            "| `item_fts` | persistent.db | `internal/core/identify` | |\n"
             "| `job` | cache.db | `internal/core/jobs` | |\n")
 
     def test_the_schemas_tables_leave_out_shadow_and_sqlite_tables(self):

@@ -55,7 +55,7 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	}
 	film, notes := filings["Film (2020)/Film (2020).mkv"], filings["notes.txt"]
 	if film != "unidentified" || notes != "skipped" || len(filings) != 2 {
-		t.Errorf("library.db holds %v; want the film unidentified (no NFO, and the library reads NFO only) "+
+		t.Errorf("persistent.db holds %v; want the film unidentified (no NFO, and the library reads NFO only) "+
 			"and the notes skipped", filings)
 	}
 }
@@ -211,7 +211,7 @@ func openDatabase(t *testing.T, config Config) *store.Database {
 	if err != nil {
 		t.Fatal(err)
 	}
-	database, err := store.Open(t.Context(), directories.LibraryDatabasePath(), config.openOptions())
+	database, err := store.Open(t.Context(), directories.PersistentDatabasePath(), config.openOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

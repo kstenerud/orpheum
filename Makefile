@@ -304,7 +304,7 @@ build: web-deps ## Build the web apps into their dist/, then the server binary, 
 	@$(WEBCLIENT_CLEAR)
 
 .PHONY: generate
-generate: web-deps ## Regenerate committed generated code (sqlc for library.db and cache.db, the OpenAPI document, and the SDK's TS types)
+generate: web-deps ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, and the SDK's TS types)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
 	  $(PYTHON) scripts/fetch_tools.py; \
 	  sqlc generate && sqlc vet; \
@@ -388,8 +388,8 @@ dev-logs: ## Follow the dev server's log
 
 .PHONY: dev-db
 dev-db: ## Open the dev database in an SQL shell (python3 -m sqlite3; stop the server before writing)
-	@test -f $(DEV_DIR)/state/library.db || { echo "no dev database yet: run make dev"; exit 1; }
-	@$(PYTHON) -m sqlite3 $(DEV_DIR)/state/library.db
+	@test -f $(DEV_DIR)/state/persistent.db || { echo "no dev database yet: run make dev"; exit 1; }
+	@$(PYTHON) -m sqlite3 $(DEV_DIR)/state/persistent.db
 
 .PHONY: dev-doctor
 dev-doctor: ## Run `orpheum doctor` against the dev config

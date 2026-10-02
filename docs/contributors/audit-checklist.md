@@ -112,10 +112,10 @@ setting key goes to the owner first.
     3. **Tables and files.** Every table in `internal/store/migrations/` and
        `internal/store/cache/schema.sql`, every file kind under the state, cache and prepared
        directories, and what `orpheum backup` writes, each has a tier, a home and a backup answer.
-       Irreplaceable or expensive-to-re-acquire data outside library.db, expensive derived data in
-       a store discarded by a version bump, and cheap derived data added to library.db are findings
+       Irreplaceable or expensive-to-re-acquire data outside persistent.db, expensive derived data in
+       a store discarded by a version bump, and cheap derived data added to persistent.db are findings
        unless the map cites the decision that accepts them.
-    4. **Writers.** For each library.db and cache.db table, list the packages that call its
+    4. **Writers.** For each persistent.db and cache.db table, list the packages that call its
        INSERT, UPDATE or DELETE queries. More than one writer package is a finding unless the map
        names the split per column.
     5. **Seams.** Every crossing the map lists (a core package imported by the node role,

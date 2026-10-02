@@ -25,7 +25,7 @@ func MigrateOptions(directory string) store.MigrateOptions {
 	return store.MigrateOptions{SnapshotDirectory: directory, FreeSpaceDatabaseMultiple: 3}
 }
 
-// migratedTemplate is library.db migrated to the current schema once per test process, as bytes:
+// migratedTemplate is persistent.db migrated to the current schema once per test process, as bytes:
 // every test starts from a copy, because replaying every migration step is most of what a test
 // that opens a database costs. The first test to ask builds it, in its own temporary directory.
 //
@@ -67,7 +67,7 @@ func OpenMigrated(tb testing.TB) *store.Database {
 		tb.Fatalf("make the migrated template: %v", err)
 	}
 	directory := tb.TempDir()
-	path := filepath.Join(directory, "library.db")
+	path := filepath.Join(directory, "persistent.db")
 	if err = os.WriteFile(path, contents, 0o600); err != nil {
 		tb.Fatalf("copy the migrated template: %v", err)
 	}

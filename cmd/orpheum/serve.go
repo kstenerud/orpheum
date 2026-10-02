@@ -187,18 +187,18 @@ func openAndWire(
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), DataDirectory: config.Server.DataDir,
-		CacheDirectory: config.Server.CacheDir, LibraryDatabase: database, CacheDatabase: opened.cache,
+		CacheDirectory: config.Server.CacheDir, PersistentDatabase: database, CacheDatabase: opened.cache,
 	}
 	server.Ready(dependencies)
 	return opened, nil
 }
 
-// openAndMigrate opens library.db and migrates it, calling beforeStep, when it is not nil, before
+// openAndMigrate opens persistent.db and migrates it, calling beforeStep, when it is not nil, before
 // each step starts. Serving, the migrate command and the dev seed all open the database this way.
 func openAndMigrate(
 	ctx context.Context, config Config, directories *datadir.Directories, beforeStep func(step, total int),
 ) (*store.Database, error) {
-	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
+	database, err := store.Open(ctx, directories.PersistentDatabasePath(), config.openOptions())
 	if err != nil {
 		return nil, err
 	}

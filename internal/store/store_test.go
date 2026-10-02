@@ -26,7 +26,7 @@ func testMigrateOptions(directory string) MigrateOptions {
 // openTemporary opens a new database in the test's temporary directory.
 func openTemporary(t *testing.T) *Database {
 	t.Helper()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), testOpenOptions())
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), testOpenOptions())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestOpen_RefusesAFileThatIsNotOurs(t *testing.T) {
 
 func TestOpen_RefusesAPathWithAQuestionMark(t *testing.T) {
 	t.Parallel()
-	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db?mode=memory"), testOpenOptions())
+	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db?mode=memory"), testOpenOptions())
 	if err == nil || !strings.Contains(err.Error(), "may not contain '?'") {
 		t.Errorf("Open error = %v, want the '?' refusal", err)
 	}
@@ -208,7 +208,7 @@ func TestOrNotFound_TurnsNoRowsIntoErrNotFound(t *testing.T) {
 
 func TestOpen_RefusesOptionsNobodyChose(t *testing.T) {
 	t.Parallel()
-	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), OpenOptions{})
+	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), OpenOptions{})
 	if err == nil || !strings.Contains(err.Error(), "reader pool minimum is 0") {
 		t.Errorf("Open with no reader minimum = %v, want a refusal, not a value from code", err)
 	}

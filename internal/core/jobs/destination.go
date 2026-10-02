@@ -26,7 +26,7 @@ const (
 	DestinationTMDBImages Destination = "tmdb-images"
 	// DestinationOpenSubtitles is OpenSubtitles.
 	DestinationOpenSubtitles Destination = "opensubtitles"
-	// DestinationCoreStorage is the core's own disk: cache.db and library.db, which fail for
+	// DestinationCoreStorage is the core's own disk: cache.db and persistent.db, which fail for
 	// want of room or with an I/O error.
 	DestinationCoreStorage Destination = "core-storage"
 	// DestinationAnyNode is work any node can do, such as re-encoding a downloaded image, while no

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package store is the database: the one Open() for library.db and cache.db with its pragmas read
+// Package store is the database: the one Open() for persistent.db and cache.db with its pragmas read
 // back at startup, the single writer connection and the reader pool, our migration runner, the
 // sqlc-generated queries in sqlcgen, and search's three hand-written static statements. It knows
 // tables, not features.
@@ -54,8 +54,8 @@
 //   - cache.db is built from one schema file, cache/schema.sql, and versioned by discard: a file
 //     from another version is reported as outdated for the caller to delete, never migrated.
 //     Enforced by TestOpenCache_ReportsAnotherVersionAsOutdated.
-//   - cache.db carries its own application_id, so library.db is never taken for a cache and
-//     discarded. Enforced by TestOpenCache_RefusesLibraryDB.
+//   - cache.db carries its own application_id, so persistent.db is never taken for a cache and
+//     discarded. Enforced by TestOpenCache_RefusesPersistentDB.
 //   - Cache queries are generated into cachegen, apart from sqlcgen, so a library query cannot
 //     name a cache table (M2-1). Enforced by sqlc.yaml's two entries.
 //   - JobStorage keeps internal/platform/jobqueue's storage promises on cache.db's job table: the

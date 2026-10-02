@@ -3,7 +3,7 @@
 
 # Queries
 
-Each file holds library.db's queries for one concern (`library.sql`, `play.sql`, `secret.sql`,
+Each file holds persistent.db's queries for one concern (`library.sql`, `play.sql`, `secret.sql`,
 …) and `make generate` turns them into typed Go in `../sqlcgen`, which is committed and never
 edited by hand. cache.db's queries (`job.sql` among them) are in `../cache/queries` and generate
 into `../cachegen`. The rules are in

@@ -65,13 +65,13 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	written := runCommand(t, "backup", "--config", configPath)
 	backupFile := strings.Fields(written.stdout)[1]
 	backupBytes := readFile(t, backupFile)
-	databaseBytes := readFile(t, filepath.Join(config.Server.DataDir, "library.db"))
+	databaseBytes := readFile(t, filepath.Join(config.Server.DataDir, "persistent.db"))
 	channels := []channel{
 		{"API responses", responses.String(), adminName},
 		{"the log", captured.String(), setupCode},
 		{"doctor's output", doctor.stdout + doctor.stderr, config.Server.DataDir},
 		{"a backup", string(backupBytes), adminName},
-		{"library.db", string(databaseBytes), adminName},
+		{"persistent.db", string(databaseBytes), adminName},
 	}
 	for _, place := range channels {
 		if !strings.Contains(place.content, place.control) {

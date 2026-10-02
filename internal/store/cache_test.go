@@ -61,12 +61,12 @@ func TestOpenCache_ReportsAnotherVersionAsOutdated(t *testing.T) {
 	}
 }
 
-func TestOpenCache_RefusesLibraryDB(t *testing.T) {
+func TestOpenCache_RefusesPersistentDB(t *testing.T) {
 	t.Parallel()
 	library := openMigrated(t)
 	_, err := OpenCache(t.Context(), library.Path(), testOpenOptions())
 	if !errors.Is(err, ErrNotOurs) {
-		t.Errorf("OpenCache on library.db = %v, want ErrNotOurs, so it is never discarded", err)
+		t.Errorf("OpenCache on persistent.db = %v, want ErrNotOurs, so it is never discarded", err)
 	}
 }
 
@@ -77,9 +77,9 @@ func TestCacheVersion_IsDeclaredByTheSchema(t *testing.T) {
 	}
 }
 
-func TestOpenCache_HoldsNoSubtitleTextWhichLibraryDBKeeps(t *testing.T) {
+func TestOpenCache_HoldsNoSubtitleTextWhichPersistentDBKeeps(t *testing.T) {
 	t.Parallel()
-	// Making a track's text again reads a whole video: it is kept in library.db, and cache.db,
+	// Making a track's text again reads a whole video: it is kept in persistent.db, and cache.db,
 	// which a release may discard, holds none (the architecture map's F1, D231 section 3).
 	const named = "SELECT name FROM sqlite_master WHERE name = 'subtitle_text'"
 	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
@@ -88,6 +88,6 @@ func TestOpenCache_HoldsNoSubtitleTextWhichLibraryDBKeeps(t *testing.T) {
 	}
 	library := openMigrated(t)
 	if rows := queryRows(t, library, named, 1); len(rows) != 1 {
-		t.Errorf("library.db has %v, want subtitle_text", rows)
+		t.Errorf("persistent.db has %v, want subtitle_text", rows)
 	}
 }

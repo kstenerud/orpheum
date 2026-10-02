@@ -90,33 +90,33 @@ func TestStateFiles_RefuseAnythingButAPlainName(t *testing.T) {
 	}
 }
 
-func TestReplaceLibraryDatabase_RemovesTheOldWAL(t *testing.T) {
+func TestReplacePersistentDatabase_RemovesTheOldWAL(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
-	target := directories.LibraryDatabasePath()
+	target := directories.PersistentDatabasePath()
 	for _, path := range []string{target, target + "-wal", target + "-shm"} {
 		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	restoredPath := filepath.Join(directories.stateDirectory, "library.db.restoring")
+	restoredPath := filepath.Join(directories.stateDirectory, "persistent.db.restoring")
 	if err := os.WriteFile(restoredPath, []byte("restored"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := directories.ReplaceLibraryDatabase("library.db.restoring"); err != nil {
-		t.Fatalf("ReplaceLibraryDatabase: %v", err)
+	if err := directories.ReplacePersistentDatabase("persistent.db.restoring"); err != nil {
+		t.Fatalf("ReplacePersistentDatabase: %v", err)
 	}
 	got, err := os.ReadFile(target)
 	if err != nil || string(got) != "restored" {
-		t.Errorf("library.db = %q, %v; want the restored copy", got, err)
+		t.Errorf("persistent.db = %q, %v; want the restored copy", got, err)
 	}
 	for _, sidecar := range []string{target + "-wal", target + "-shm"} {
 		if _, err := os.Stat(sidecar); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s survived; a stale WAL would be replayed into the restored database", sidecar)
 		}
 	}
-	if err := directories.ReplaceLibraryDatabase("../elsewhere.db"); err == nil {
-		t.Error("ReplaceLibraryDatabase accepted a copy outside the state directory")
+	if err := directories.ReplacePersistentDatabase("../elsewhere.db"); err == nil {
+		t.Error("ReplacePersistentDatabase accepted a copy outside the state directory")
 	}
 }
 
@@ -221,7 +221,7 @@ func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 		t.Errorf("a size never written: %v, want ErrNotFound", err)
 	}
 
-	for _, name := range []string{"../../state/library.db", "portrait-m.webp/../x", ".hidden", "poster.png"} {
+	for _, name := range []string{"../../state/persistent.db", "portrait-m.webp/../x", ".hidden", "poster.png"} {
 		if err := directories.WriteArt(sourceSha256Hex, name, nil); !errors.Is(err, ErrBadArtName) {
 			t.Errorf("WriteArt(%q) = %v, want ErrBadArtName", name, err)
 		}

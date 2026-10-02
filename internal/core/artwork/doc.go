@@ -3,7 +3,7 @@
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under
 // content-addressed names in the cache directory, recording each in the item's artwork rows in
-// library.db. It owns the image vocabulary and is the artwork table's one writer: identify finds
+// persistent.db. It owns the image vocabulary and is the artwork table's one writer: identify finds
 // the images an item's source names and those beside the media and reports them, and the
 // server's wiring hands them to Take (identify and artwork never import each other). It serves
 // them: a stored size as it is, JPEG cut from the WebP of its size, and a size not made by

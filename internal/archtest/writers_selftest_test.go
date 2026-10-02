@@ -32,9 +32,9 @@ func TestFindWriteQueries_FindsTheTableEachWriteNames(t *testing.T) {
 func TestReadTableOwners_ReadsEveryRowOfTheOwnersTable(t *testing.T) {
 	t.Parallel()
 	plan := "| Table | Database | Writing package | Notes |\n| --- | --- | --- | --- |\n" +
-		"| `file` | library.db | `internal/core/library` | |\n" +
-		"| `item_fts`, `item_fts_tri` | library.db | `internal/core/identify` | triggers |\n" +
-		"| `tag` | library.db | none yet | |\n" +
+		"| `file` | persistent.db | `internal/core/library` | |\n" +
+		"| `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | triggers |\n" +
+		"| `tag` | persistent.db | none yet | |\n" +
 		"| `job` | cache.db | `internal/core/jobs` | |\n"
 	want := map[string]string{
 		"file": "internal/core/library", "item_fts": "internal/core/identify",

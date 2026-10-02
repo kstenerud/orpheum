@@ -42,7 +42,7 @@ func (service *Service) aim(ctx context.Context) (loudnessAim, error) {
 	return loudnessAim{targetLUFS: float64(target), maxRaiseDB: float64(maxRaise)}, nil
 }
 
-// The mixes of a track library.db's loudness table names (measured_mix): the multichannel sound
+// The mixes of a track persistent.db's loudness table names (measured_mix): the multichannel sound
 // as it is, which a receiver plays, and the stereo a stereo device hears (D226 §1).
 const (
 	mixMultichannel = "multichannel"

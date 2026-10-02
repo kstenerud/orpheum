@@ -4,7 +4,7 @@
 // client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. An
 // ambiguous match is never guessed. A fetched response is stored and never refetched except by a
 // person or the rolling refresh (D213); re-deriving a title reads only stored input. What it owes
-// a provider is derived from library.db by its sweeps, never read from job history (D231 §3).
+// a provider is derived from persistent.db by its sweeps, never read from job history (D231 §3).
 //
 // # Invariants
 //
@@ -118,7 +118,7 @@
 //     replacing D170's "once per item"). The pass reports the same, from the same queries.
 //     TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsLost.
 //   - A fetch that fails through the item's own fault, its last attempt included, is a fact in
-//     library.db (fetch_failure) with its reason and time: the sweeps pass the item over, the
+//     persistent.db (fetch_failure) with its reason and time: the sweeps pass the item over, the
 //     identification list and its page show it, and a person's refresh, "try again", clears it,
 //     as a fetch that succeeds does (D231 §4, §10).
 //     TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRefresh.
@@ -146,7 +146,7 @@
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
 //   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
-//   - D231 §3, §4: work derived from library.db by sweeps; an item's own failure and a person's
+//   - D231 §3, §4: work derived from persistent.db by sweeps; an item's own failure and a person's
 //     refresh are facts, not job rows.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.

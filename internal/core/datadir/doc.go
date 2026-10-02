@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package datadir is the only core package that touches the filesystem: the state directory
-// (/var/lib/orpheum: library.db, secret.key, TLS and ACME keys) and the cache directory
+// (/var/lib/orpheum: persistent.db, secret.key, TLS and ACME keys) and the cache directory
 // (/var/cache/orpheum: cache.db, art/). It never opens a path under a media root; media bytes come
 // from the node.
 //
@@ -34,7 +34,7 @@
 //
 // # Where to change
 //
-//   - datadir.go: the layout (library.db, cache.db, backups/, state files) and atomic writes.
+//   - datadir.go: the layout (persistent.db, cache.db, backups/, state files) and atomic writes.
 //   - art.go: the artwork store under the cache directory. lock_unix.go: the state lock. The
 //     sockets are internal/platform/unixsocket's, since the node listens on one too.
 //     netfs_*.go: the network-filesystem refusal.

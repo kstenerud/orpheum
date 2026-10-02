@@ -52,7 +52,7 @@ type Subtitle struct {
 	Failure string
 }
 
-// textKey is where a track's text is kept in library.db: the payload hash of the file its bytes
+// textKey is where a track's text is kept in persistent.db: the payload hash of the file its bytes
 // are in, and its stream index there. A subtitle file's one track is its stream 0, as FFmpeg
 // numbers it.
 func textKey(payloadHash []byte, streamIndex *int64) sqlcgen.GetSubtitleTextParams {
@@ -323,7 +323,7 @@ func (service *Service) makeSubtitleText(
 	return service.finishSubtitle(ctx, key, answer)
 }
 
-// finishSubtitle keeps a node's answer in library.db: the text, or why there is none.
+// finishSubtitle keeps a node's answer in persistent.db: the text, or why there is none.
 func (service *Service) finishSubtitle(
 	ctx context.Context, key sqlcgen.GetSubtitleTextParams, answer nodeproto.SubtitleText,
 ) error {

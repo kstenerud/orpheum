@@ -48,7 +48,7 @@ Two guards, taken verbatim from Navidrome's hard-won comments:
 ## What is actually backed up
 
 > **Simplified by [D185](../../decisions/working-notes.md):** the table below still says what is
-> *irreplaceable*, but the backup no longer splits the database by it. **`library.db` is backed up
+> *irreplaceable*, but the backup no longer splits the database by it. **`persistent.db` is backed up
 > whole** — at the reference scale 32–46 MB and 130–180 ms by `VACUUM INTO` — which carries the
 > identity rows ([D179](../../decisions/working-notes.md)) and the index for free and makes a
 > restore a restore rather than a rebuild. What is left out is what is large and disposable:
@@ -121,6 +121,6 @@ all present; a restore into the wrong path cannot destroy a live database; a bac
 older schema ~~is refused with a comprehensible message rather than converted~~ **restores and is
 migrated by the ordinary runner, and one from a newer schema is refused with a comprehensible
 message naming the way back** ([D181](../../decisions/working-notes.md)); **the whole
-`library.db` is in the backup, so a restore is a restore rather than a rebuild**
+`persistent.db` is in the backup, so a restore is a restore rather than a rebuild**
 ([D185](../../decisions/working-notes.md)); and the automatic backup has run, with where it goes
 and how many are kept shown at setup ([D184](../../decisions/working-notes.md)).

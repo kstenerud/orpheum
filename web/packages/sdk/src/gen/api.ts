@@ -1270,7 +1270,7 @@ export interface components {
         };
         DatabaseBody: {
             /** @enum {string} */
-            name: "library.db" | "cache.db";
+            name: "persistent.db" | "cache.db";
             /** Format: int64 */
             sizeBytes: number;
         };

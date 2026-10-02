@@ -175,7 +175,7 @@ alongside the code that made them differ
 path `scripts/gate_paths.py` lists, which includes `testdata/golden/` and `testdata/baselines/`;
 `scripts/check_test_weakening.py`, run by `make check-pr`, lists deleted tests, new skips, fewer
 assertions and changed goldens, and fails without the trailer. Until migrations are live (D228),
-library.db's schema goldens follow each fold of the last step into the baseline and are not
+persistent.db's schema goldens follow each fold of the last step into the baseline and are not
 listed; as gate paths they still need `Gate-Changed:`.
 
 ## 9. `TestArch_` is reserved for claims the docs make

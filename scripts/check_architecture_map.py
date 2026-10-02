@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Architecture map gate run by `make check`: every Go and web package has a row in the
 # ABOUTME: map's package table and every row names a package that exists; schema.md's owners
-# ABOUTME: table lists exactly the tables library.db and cache.db have.
+# ABOUTME: table lists exactly the tables persistent.db and cache.db have.
 """Keep the architecture map and the owners table in step with the code.
 
 The map (docs/contributors/design/architecture-map.md) says which package does which job; the
@@ -12,7 +12,7 @@ mechanical, and a map that silently misses a package or a table is the failure t
 1. **Packages.** Every Go package under cmd/ and internal/, and every web package and app, has
    a row in the map's package table (§1), named by its path in a code span; and every path a
    row names is a package that exists.
-2. **Tables.** schema.md's "Who writes each table" lists each table of library.db (the newest
+2. **Tables.** schema.md's "Who writes each table" lists each table of persistent.db (the newest
    schema golden) and cache.db (its one schema file) exactly once, and no table that is gone.
    Which package writes each table, against the one listed, is
    TestArch_EachTableHasOneWritingPackage's check: it type-checks the callers, which a text scan
@@ -36,7 +36,7 @@ PACKAGE_SECTION = re.compile(r"^## 1\. Package table$(.*?)^## 2\.", re.M | re.S)
 # A package path in a row's first cell.
 PACKAGE_SPAN = re.compile(r"`((?:cmd|internal|web)/[\w./-]+)`")
 # A table schema.md's owners table lists, in the same form the archtest reads.
-OWNER_ROW = re.compile(r"^\| (`\w+`(?:, `\w+`)*) \| (?:library|cache)\.db \| ", re.M)
+OWNER_ROW = re.compile(r"^\| (`\w+`(?:, `\w+`)*) \| (?:persistent|cache)\.db \| ", re.M)
 # A table the schema creates. FTS5's shadow tables are created with single-quoted names by the
 # module itself, so they are not matched; sqlite_ tables are SQLite's own.
 CREATE_TABLE = re.compile(r'^CREATE (?:VIRTUAL )?TABLE "?(\w+)"?', re.M)

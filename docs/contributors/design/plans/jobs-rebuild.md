@@ -182,13 +182,13 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
 
 D231 §3, §4, §7, §9; F1.
 
-- Every kind's work derived by a sweep from library.db; sweeps at start, on their timers, after a
+- Every kind's work derived by a sweep from persistent.db; sweeps at start, on their timers, after a
   pass and on unpark. D170's "ever queued" goes: a first match is owed until the item has an answer.
-- An item's own failure is a fact in library.db with its reason and time, shown and cleared by "try
+- An item's own failure is a fact in persistent.db with its reason and time, shown and cleared by "try
   again"; a person's refresh is a fact. The D213 §1 recheck is derived.
 - Retire actions for a root, a node and a library, cancelling their work; a deleted library's Titles
   tombstoned with their history; "offline since" and the weekly reminder.
-- F1: extracted subtitle text moves to library.db; nothing expensive to re-derive stays in cache.db.
+- F1: extracted subtitle text moves to persistent.db; nothing expensive to re-derive stays in cache.db.
 - One schema step: the facts, the retire records, subtitle text, and the grant kind `invite` renamed
   `issued_secret` (it covers registration invitations and device codes).
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`, and an architecture test that nothing reads

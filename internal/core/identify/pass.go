@@ -98,7 +98,7 @@ func (pass *Pass) sorter(ctx context.Context) (*textindex.Sorter, error) {
 }
 
 // IdentifyAll identifies every live library again, as a scan's pass does: the sweep that derives,
-// from library.db alone, the season listings and the images each item's sources name, which the
+// from persistent.db alone, the season listings and the images each item's sources name, which the
 // pass's report hands on (D231 §3). A library that fails is logged, and the others still run; it
 // says how many passes ran.
 func (pass *Pass) IdentifyAll(ctx context.Context) (int, error) {

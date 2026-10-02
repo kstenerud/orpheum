@@ -95,7 +95,7 @@ func askForAPassOnNewFiles(ingester *library.Ingester, sweeps sweepRequester) {
 	ingester.SetOnNewFiles(func(context.Context) { sweeps.RequestSweeps(sweepPasses) })
 }
 
-// reportSink stores what a node reports in library.db, then logs the scan's milestones.
+// reportSink stores what a node reports in persistent.db, then logs the scan's milestones.
 type reportSink struct {
 	ingester *library.Ingester
 	logger   *slog.Logger

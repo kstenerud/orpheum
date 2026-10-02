@@ -2,7 +2,7 @@
 -- Subtitle text (schema.md, subtitle_text; D217 section 6, D224 section 5): a text track as ASS and
 -- WebVTT, or why it could not be made, kept by its source's hash: the payload hash of the file an
 -- embedded track's bytes are in, so a move or a rescan keeps it, or the SHA-256 of a fetched
--- subtitle's stored body. It is kept in library.db, since making it again reads a whole video
+-- subtitle's stored body. It is kept in persistent.db, since making it again reads a whole video
 -- (the architecture map's F1); a track being made has no row until the node answers.
 
 -- name: GetSubtitleText :one

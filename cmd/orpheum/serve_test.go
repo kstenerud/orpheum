@@ -298,7 +298,7 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	server := api.NewServer(slog.New(slog.DiscardHandler))
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), storetest.OpenOptions())
+	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), storetest.OpenOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	if err := os.MkdirAll(config.Server.DataDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	foreign := filepath.Join(config.Server.DataDir, "library.db")
+	foreign := filepath.Join(config.Server.DataDir, "persistent.db")
 	if err := os.WriteFile(foreign, []byte("SQLite format 3\x00"+strings.Repeat("\x00", 84)), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +414,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
 		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE key = 'should_serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
@@ -432,7 +432,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	}
 	// As a database looks after an upgrade that changed two starting values: one row nobody
 	// touched still holds the old value; the other was set by a person.
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
 		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
 		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
 	captured := newCapturedLog("ready")

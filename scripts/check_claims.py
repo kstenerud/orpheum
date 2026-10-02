@@ -23,7 +23,7 @@ Five checks. Each is for a way a true sentence silently becomes false:
    read gates a test that no job will ever run.
 4. **Retired names stay retired.** When a decision renames something, the old name goes in
    `docs/contributors/retired-names.md`, and no tracked file outside history (and the
-   agent-failures record, which quotes them, and library.db's schema steps, their test and goldens,
+   agent-failures record, which quotes them, and persistent.db's schema steps, their test and goldens,
    which move rows from them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
    by an audit and never by a gate (agent-failures A12). Taking a name off the list is a
    weakening `check_test_weakening.py` asks a trailer for.

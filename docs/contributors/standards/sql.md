@@ -40,7 +40,7 @@ exhaustive ([go.md](go.md) §6).
 
 ## 2. Queries
 
-- **All SQL lives in `internal/store/queries/*.sql` for library.db and
+- **All SQL lives in `internal/store/queries/*.sql` for persistent.db and
   `internal/store/cache/queries/*.sql` for cache.db, one file per concern** (`library.sql`,
   `play.sql`, `secret.sql`; cache.db's `job.sql`), and sqlc generates the Go in
   `internal/store/sqlcgen` and `internal/store/cachegen`. Search's three statements
@@ -160,12 +160,12 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 
 ## 7. Opening the database
 
-- **One `Open()` in `internal/store`** per database file (`library.db`, `cache.db`). Nothing
+- **One `Open()` in `internal/store`** per database file (`persistent.db`, `cache.db`). Nothing
   else opens SQLite. **Enforced by:** depguard `sql-only-in-store`.
 - **Pragmas are set in the DSN with the pure-Go `_pragma=` syntax**, so every connection the
   pool opens gets them (`foreign_keys` and `busy_timeout` are per connection; an `Exec` after
   opening would set them on one):
-  `file:library.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(15000)`.
+  `file:persistent.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(15000)`.
 - **They are read back at startup, and the server refuses to run if any is wrong**:
   `journal_mode`, `synchronous`, `foreign_keys`, `busy_timeout`, and `application_id`. A file
   without our `application_id` is refused, not migrated; a database on a network filesystem is
