@@ -48,6 +48,17 @@
 //     TestExchange_AContextEndingTellsTheNodeToStop,
 //     TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID,
 //     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
+//   - A job whose work a node does is given to it, not waited for (D234 §7): Assign keeps its attempt,
+//     by token, with its job, kind and work, in cache.db before the command is sent, and is the
+//     handler's answer, the job assigned until assigned_job_limit_hours. The node's word on how it
+//     ended resolves it, by the token, with its kind's answers (Assignee), after a restart too (Load);
+//     an attempt said nothing of for the silence limit, or whose node started again, is unanswered,
+//     and its node told to stop; a cancel tells its node to stop and its kind (Cancelled); progress
+//     its kind refuses ends it. TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten,
+//     TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord,
+//     TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken,
+//     TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard,
+//     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode.
 //   - A node whose hello names another start than its last hello to this core started again and
 //     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
 //     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers
@@ -100,6 +111,7 @@
 //     sending a node work, and what a wait for it that ran out means; facts.go: what each node
 //     last said about itself — its roots, slots, hardware and status;
 //     channel.go: commands, the report and the nodes' results; bytes.go:
-//     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: a job asking a
-//     node for work and waiting for its results, and the cancel it sends.
+//     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the results and
+//     progress nodes send, and a job asking a node for work and waiting for its results, which only
+//     artwork does now; assign.go: a job given to a node, assigned, and resolved by its word.
 package nodes

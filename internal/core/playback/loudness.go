@@ -4,17 +4,17 @@ package playback
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -247,9 +247,9 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 		return fmt.Errorf("node %d has not said how fast it reads, so a measurement of file %d cannot be "+
 			"waited for", file.NodeID, file.ID)
 	}
-	reading := time.Duration(ptr.ValueOrZero(file.SizeBytes)/slowestRead) * time.Second
-	patience := service.maxSilence + reading
-	return service.measure(ctx, job, file, command, patience)
+	return service.exchanges.Assign(ctx, file.NodeID, job, nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
+	})
 }
 
 // RecordMeasurementFailure records a measure_loudness job that failed as its file's own failure
@@ -275,49 +275,47 @@ func (service *Service) RecordMeasurementFailure(ctx context.Context, job jobs.J
 		nodeproto.LoudnessResult{Failure: "given up: " + failure})
 }
 
-// measure has the node measure, waits for its answer, and keeps it.
-func (service *Service) measure(
-	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,
-	patience time.Duration,
-) error {
-	exchange, err := service.exchanges.Ask(ctx, file.NodeID, job, nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
-	}, fmt.Sprintf("measuring file %d", file.ID))
-	if err != nil {
-		return fmt.Errorf("measure file %d: %w", file.ID, err)
+// LoudnessAssignee is how a measurement given to a node is resolved; its recorder keeps the
+// measurement, or FFmpeg's word, by the file's payload hash (recordLoudness).
+func (service *Service) LoudnessAssignee(runner nodes.Resolver) nodes.Assignee {
+	keepFailure := func(ctx context.Context, attempt nodes.Attempt) func(failure string) error {
+		return func(failure string) error {
+			measure := attempt.Work.MeasureLoudness
+			if measure == nil {
+				return nil
+			}
+			payloadHash, err := hex.DecodeString(measure.Video.PayloadHash)
+			if err != nil {
+				return fmt.Errorf("measuring a file with payload hash %q: %w", measure.Video.PayloadHash, err)
+			}
+			return service.keepLoudness(ctx, payloadHash, measure.Tracks, nodeproto.LoudnessResult{Failure: failure})
+		}
 	}
-	defer exchange.Close()
-	result, err := exchange.Next(ctx, patience)
-	switch {
-	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
-		return jobs.MarkPermanent(jobs.ErrCancelled)
-	case err != nil:
-		return unansweredOutcome(job, err, func(failure string) error {
-			failed := nodeproto.LoudnessResult{Failure: failure}
-			return service.keepLoudness(ctx, file.PayloadHash, command.Tracks, failed)
-		})
-	case result.Loudness == nil:
-		return fmt.Errorf("node %d answered measuring file %d with something other than loudness", file.NodeID, file.ID)
+	return nodes.Assignee{
+		Runner: runner,
+		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
+			about := fmt.Sprintf("measuring file %d", job.FileID)
+			if result.Loudness == nil {
+				return fmt.Errorf("node %d answered %s with something other than loudness", attempt.NodeID, about)
+			}
+			answer := *result.Loudness
+			switch {
+			case answer.Refusal != "":
+				// A refusal says nothing of the file's bytes (a full disk, a file changed since the
+				// scan): nothing is kept, and the job is tried again on its back-off, as when the node
+				// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
+				return refusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
+			case answer.Stall != nil:
+				return stallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
+			case answer.Failure != "":
+				return jobs.MarkPermanent(errors.New(answer.Failure))
+			}
+			return nil
+		},
+		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
+			return unansweredOutcome(job, err, keepFailure(ctx, attempt))
+		},
 	}
-	answer := *result.Loudness
-	if answer.Refusal != "" {
-		// A refusal says nothing of the file's bytes (a full disk, a file changed since the
-		// scan): nothing is kept, and the job is tried again on its back-off, as when the node
-		// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
-		return refusalError(file.NodeID, fmt.Sprintf("measuring file %d", file.ID), answer.Refusal, answer.RefusalCode)
-	}
-	if answer.Stall != nil {
-		return stallOutcome(job, file.NodeID, fmt.Sprintf("measuring file %d", file.ID), *answer.Stall,
-			func(failure string) error {
-				return service.keepLoudness(ctx, file.PayloadHash, command.Tracks,
-					nodeproto.LoudnessResult{Failure: failure})
-			})
-	}
-	// The measurement, or FFmpeg's word, is kept by its recorder (recordLoudness).
-	if answer.Failure != "" {
-		return jobs.MarkPermanent(errors.New(answer.Failure))
-	}
-	return nil
 }
 
 // keepLoudness keeps a node's answer by the file's payload hash: each track's sounds, or, when

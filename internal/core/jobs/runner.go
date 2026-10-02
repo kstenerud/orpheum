@@ -4,6 +4,7 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
@@ -65,3 +66,20 @@ func (runner *Runner) Run(ctx context.Context, tick <-chan time.Time) error {
 func (runner *Runner) RunDue(ctx context.Context) error {
 	return runner.runner.RunDue(ctx)
 }
+
+// ResolveBy takes the outcome of an assigned job of the runner's kind, which a node said (Assign),
+// as decide answers it for the job as it was assigned, as its handler would have. It reports false,
+// recording nothing, for a job no longer assigned: cancelled, or failed when its time ran out.
+func (runner *Runner) ResolveBy(ctx context.Context, id int64, decide func(job Job) error) (bool, error) {
+	resolved, err := runner.runner.ResolveBy(ctx, id, func(job jobqueue.Job[Target]) error {
+		return decide(jobOf(job))
+	})
+	if err != nil {
+		return false, fmt.Errorf("resolve job %d: %w", id, err)
+	}
+	return resolved, nil
+}
+
+// Assign is a handler's answer that its job's work was given to a node, which says later how it
+// ended: the job is assigned until then, or until until, past which it is its own failure (D234 §7).
+func Assign(until time.Time) error { return jobqueue.Assign(until) }

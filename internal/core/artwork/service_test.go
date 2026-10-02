@@ -176,12 +176,14 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
-		Exchanges: nodes.NewExchanges(node, fakeClock, rand.Reader, slog.New(slog.DiscardHandler)),
-		Cache:     storetest.OpenCache(t),
-		Settings:  config,
-		Fetchers:  map[string]Fetcher{"tmdb": images},
-		Clock:     fakeClock,
-		Logger:    slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
+		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
+			Sender: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+		}),
+		Cache:    storetest.OpenCache(t),
+		Settings: config,
+		Fetchers: map[string]Fetcher{"tmdb": images},
+		Clock:    fakeClock,
+		Logger:   slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
 	})
 	node.service = service
 	return &bench{

@@ -80,9 +80,8 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 		t.Fatalf("the decision = %+v, want a standard and a boosted mix, preparing", decided)
 	}
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: 77, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandlePrepare, job)
 	command := harness.nextCommand(t)
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || command.JobID != 77 ||
@@ -113,9 +112,8 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	decided := harness.play(t, user, chrome(2))
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandlePrepare, job)
 	harness.nextCommand(t)
 	failed := nodeproto.PrepareReport{State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
 	harness.answerPrepare(t, 78, failed)
@@ -137,9 +135,8 @@ func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testin
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	decided := harness.play(t, user, chrome(2))
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandlePrepare, job)
 	harness.nextCommand(t)
 	refused := nodeproto.PrepareReport{
 		State: nodeproto.PrepareRefused, Refusal: "not the one named", RefusalCode: nodeproto.RefusedChanged,
@@ -169,9 +166,8 @@ func TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRo
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, user, chrome(2))
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
+	finished := harness.handle(t, playback.HandlePrepare, job)
 	harness.nextCommand(t)
 	harness.answerPrepare(t, 79, nodeproto.PrepareReport{
 		State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
@@ -213,13 +209,10 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
 	playback := harness.server.dependencies.Load().Playback
-	first := make(chan error, 1)
-	go func() {
-		first <- playback.HandlePrepare(t.Context(), jobs.Job{
-			ID: 80, Kind: jobs.KindPrepare,
-			Target: jobs.Target{RenditionID: 1},
-		})
-	}()
+	first := harness.handle(t, playback.HandlePrepare, jobs.Job{
+		ID: 80, Kind: jobs.KindPrepare,
+		Target: jobs.Target{RenditionID: 1},
+	})
 	harness.nextCommand(t)
 	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9}
 	harness.answerPrepare(t, 80, done)
@@ -303,12 +296,9 @@ func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.
 func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodeproto.Prepare {
 	t.Helper()
 	playback := harness.server.dependencies.Load().Playback
-	finished := make(chan error, 1)
-	go func() {
-		finished <- playback.HandlePrepare(t.Context(), jobs.Job{
-			ID: jobID, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
-		})
-	}()
+	finished := harness.handle(t, playback.HandlePrepare, jobs.Job{
+		ID: jobID, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
+	})
 	command := harness.nextCommand(t)
 	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9}
 	harness.answerPrepare(t, jobID, done)

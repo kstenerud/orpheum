@@ -10,6 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -281,49 +282,55 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	return service.makeSubtitleText(ctx, job, stream.NodeID, command)
 }
 
-// makeSubtitleText has a node make one subtitle's text and waits for its answer, which its recorder
-// keeps where the command's source says (recordSubtitle). FFmpeg's failure is kept and not retried; a
-// node's refusal, which says nothing of the source's bytes, is not kept, and the job is tried again.
+// makeSubtitleText gives a node the making of one subtitle's text, which says later how it ended:
+// its recorder keeps the text where the command's source says (recordSubtitle), and the job is
+// resolved by subtitleAssignee.
 func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 ) error {
-	key, _, err := subtitleTextKey(*command)
-	if err != nil {
+	if _, _, err := subtitleTextKey(*command); err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	exchange, err := service.exchanges.Ask(ctx, nodeID, job, nodeproto.Command{
+	return service.exchanges.Assign(ctx, nodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command},
-	}, fmt.Sprintf("%s job %d", job.Kind, job.ID))
-	if err != nil {
-		return fmt.Errorf("%s job %d: %w", job.Kind, job.ID, err)
-	}
-	defer exchange.Close()
-	result, err := exchange.Next(ctx, service.maxSilence)
-	switch {
-	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
-		// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
-		return jobs.MarkPermanent(jobs.ErrCancelled)
-	case err != nil:
-		return unansweredOutcome(job, err, func(failure string) error {
+	})
+}
+
+// SubtitleAssignee is how a subtitle's making given to a node, an extraction or a fetched subtitle's
+// conversion, is resolved. FFmpeg's failure is kept and not retried; a node's refusal, which says
+// nothing of the source's bytes, is not kept, and the job is tried again.
+func (service *Service) SubtitleAssignee(runner nodes.Resolver) nodes.Assignee {
+	keepFailure := func(ctx context.Context, attempt nodes.Attempt) func(failure string) error {
+		return func(failure string) error {
+			key, isKept, err := subtitleTextKey(ptr.ValueOrZero(attempt.Work.ExtractSubtitle))
+			if err != nil || !isKept {
+				return err
+			}
 			return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: failure})
-		})
-	case result.Subtitle == nil:
-		return fmt.Errorf("node %d answered %s job %d with something other than a subtitle", nodeID, job.Kind, job.ID)
+		}
 	}
-	answer := *result.Subtitle
-	if answer.Refusal != "" {
-		return refusalError(nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), answer.Refusal, answer.RefusalCode)
+	return nodes.Assignee{
+		Runner: runner,
+		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
+			about := fmt.Sprintf("%s job %d", job.Kind, job.ID)
+			if result.Subtitle == nil {
+				return fmt.Errorf("node %d answered %s with something other than a subtitle", attempt.NodeID, about)
+			}
+			answer := *result.Subtitle
+			switch {
+			case answer.Refusal != "":
+				return refusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
+			case answer.Stall != nil:
+				return stallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
+			case answer.Failure != "":
+				return jobs.MarkPermanent(errors.New(answer.Failure))
+			}
+			return nil
+		},
+		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
+			return unansweredOutcome(job, err, keepFailure(ctx, attempt))
+		},
 	}
-	if answer.Stall != nil {
-		return stallOutcome(job, nodeID, fmt.Sprintf("%s job %d", job.Kind, job.ID), *answer.Stall,
-			func(failure string) error {
-				return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: failure})
-			})
-	}
-	if answer.Failure != "" {
-		return jobs.MarkPermanent(errors.New(answer.Failure))
-	}
-	return nil
 }
 
 // finishSubtitle keeps a node's answer in persistent.db: the text, or why there is none.

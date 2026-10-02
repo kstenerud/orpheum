@@ -24,8 +24,7 @@ func answerAfterStall(
 	t *testing.T, harness testHarness, job jobs.Job, handle jobs.Handler, answer func(),
 ) error {
 	t.Helper()
-	finished := make(chan error, 1)
-	go func() { finished <- handle(t.Context(), job) }()
+	finished := harness.handle(t, handle, job)
 	harness.nextCommand(t)
 	answer()
 	//nolint:wrapcheck // the job's own error, which the test reads as it is

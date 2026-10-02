@@ -44,7 +44,8 @@ func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 		{job: 3, preparedThroughMs: 1_000, durationMs: 0},
 	} {
 		job := jobs.Job{ID: step.job, Target: jobs.Target{RenditionID: 9}}
-		if err := all.recordProgress(t.Context(), job, testRun, step.preparedThroughMs, step.durationMs); err != nil {
+		err := all.recordProgress(t.Context(), job.ID, testRun, step.preparedThroughMs, step.durationMs)
+		if err != nil {
 			t.Fatal(err)
 		}
 		got, isKnown := queue.progress[step.job]
@@ -102,11 +103,10 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	const silence = time.Minute
 	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
 	clockSource := clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))
-	all := preparesOnAFakeNode(t, node, clockSource)
+	all, start := preparesOnAFakeNode(t, node, clockSource)
 	all.maxSilence = silence
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
-	ended := make(chan error, 1)
-	go func() { ended <- all.handle(t.Context(), job, testOrder) }()
+	ended := start(job)
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {

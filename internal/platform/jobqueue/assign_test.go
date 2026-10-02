@@ -183,3 +183,39 @@ func TestAssign_AnAssignedJobCountsAsRunningForRequestsCancelsAndRestarts(t *tes
 		}
 	}
 }
+
+// ResolveBy decides an assigned job's answer from the job as it was assigned, its attempt among it;
+// a cancel tells the queue's cancel hook which job it ended; and IsAssigned tells a handler's
+// Assign from any other answer.
+func TestResolveBy_DecidesFromTheJobAndACancelIsHeardByTheHook(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a"})
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "b"})
+	var ran []target
+	runner := assigningRunner(jobs, &ran)
+	jobs.runDue(t, runner)
+	assignedA := jobs.row(t, "a")
+	var decidedFor jobqueue.Job[target]
+	resolved, err := runner.ResolveBy(t.Context(), assignedA.ID, func(job jobqueue.Job[target]) error {
+		decidedFor = job
+		return nil
+	})
+	if err != nil || !resolved || decidedFor.ID != assignedA.ID || decidedFor.Target != "a" ||
+		decidedFor.AttemptNumber != 1 {
+		t.Errorf("ResolveBy = %v, %v, deciding for %+v; want a's job, on its first attempt", resolved, err, decidedFor)
+	}
+	var heard []int64
+	jobs.queue.OnCancel(func(_ context.Context, id int64) { heard = append(heard, id) })
+	assignedB := jobs.row(t, "b")
+	if err := jobs.queue.Cancel(t.Context(), assignedB.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(heard, []int64{assignedB.ID}) {
+		t.Errorf("the cancel hook heard %v, want b's id", heard)
+	}
+	if !jobqueue.IsAssigned(jobqueue.Assign(time.Time{})) || jobqueue.IsAssigned(errors.New("failed")) ||
+		jobqueue.IsAssigned(nil) {
+		t.Error("IsAssigned does not tell Assign from another answer")
+	}
+}

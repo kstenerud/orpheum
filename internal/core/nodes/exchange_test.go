@@ -16,9 +16,12 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
+	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -48,6 +51,7 @@ func (sender *recordingSender) Unanswered(_ context.Context, _ int64, err error)
 // exchangeBench is exchanges over a recording node, on a fake clock, logging to a buffer.
 type exchangeBench struct {
 	exchanges *nodes.Exchanges
+	cache     *store.Cache
 	sender    *recordingSender
 	now       *clocktest.Fake
 	logged    *bytes.Buffer
@@ -61,7 +65,12 @@ func newExchanges(t *testing.T) exchangeBench {
 		logged: &bytes.Buffer{},
 	}
 	logger := slog.New(slog.NewJSONHandler(bench.logged, nil))
-	bench.exchanges = nodes.NewExchanges(bench.sender, bench.now, rand.Reader, logger)
+	database := storetest.OpenMigrated(t)
+	bench.cache = storetest.OpenCache(t)
+	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
+		Sender: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger, Cache: bench.cache,
+		Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
+	})
 	return bench
 }
 

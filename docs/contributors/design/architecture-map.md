@@ -85,7 +85,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/randbytes`, `internal/platform/readonly` | PRIM | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
-| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
+| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
 
 ### Web
 

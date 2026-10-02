@@ -7,6 +7,14 @@
 //
 // # Invariants
 //
+//   - A prepare, an extraction, a conversion or a measurement is given to its node, not waited for:
+//     its handler records what it begins and answers with the job assigned (nodes.Exchanges.Assign),
+//     and its kind's Assignee resolves it from the node's word, a silence or a restart with the
+//     answers the handler gave before; a prepare cancelled while its node holds it has its making
+//     recorded failed, so the next play prepares again (D234 §7).
+//     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain
+//     (internal/core/api).
+//
 //   - A node's result on a prepare, an extraction or a measurement is recorded as it arrives, by
 //     what its echoed work names, whether or not its job still waits (D238 §2, S81): a making of a
 //     rendition by its run, so a rendition made again since is never completed by an earlier one

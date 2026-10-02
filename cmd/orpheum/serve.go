@@ -160,8 +160,8 @@ func openAndWire(
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
-		opened.exchanges = nodes.NewExchanges(opened.nodes, clock.System{}, rand.Reader, logger)
-		opened.nodes.SetResultSink(opened.exchanges)
+		opened.exchanges = openExchanges(opened, logger)
+		opened.jobServices.exchanges = opened.exchanges
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err != nil {
@@ -190,6 +190,17 @@ func openAndWire(
 	}
 	server.Ready(dependencies)
 	return opened, nil
+}
+
+// openExchanges are how the server gives its nodes work and takes their word on it, wired to the
+// node channel and the job runners (D234 §7).
+func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges {
+	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
+		Sender: opened.nodes, Clock: clock.System{}, Random: rand.Reader, Logger: logger, Cache: opened.cache,
+		Settings: opened.settings, MaxSilence: prepareMaxSilence,
+	})
+	opened.nodes.SetResultSink(exchanges)
+	return exchanges
 }
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, and

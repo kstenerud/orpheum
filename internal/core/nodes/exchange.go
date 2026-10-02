@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // Sender sends a node its work and says what a wait that ran out means: nodes.Service.
@@ -33,14 +34,35 @@ type Sender interface {
 // job that asked by that token, a wait bounded by the core's clock, and the node told to stop on
 // every way out that leaves it working (audit-2026-09-30 §3).
 type Exchanges struct {
-	sender Sender
-	clock  clock.Clock
-	random io.Reader
-	logger *slog.Logger
+	sender     Sender
+	clock      clock.Clock
+	random     io.Reader
+	logger     *slog.Logger
+	cache      *store.Cache
+	settings   Settings
+	maxSilence time.Duration
 
 	mutex     sync.Mutex
 	waiting   map[string]*waiter                 // by attempt token; guarded by mutex
 	recorders map[nodeproto.CommandType]Recorder // guarded by mutex
+	// attempts are the jobs assigned to nodes, by attempt token, mirroring cache.db's (Assign).
+	attempts  map[string]*heldAttempt // guarded by mutex
+	assignees map[jobs.Kind]Assignee  // guarded by mutex
+}
+
+// ExchangeParts are what the exchanges are built from.
+type ExchangeParts struct {
+	// Sender is how a node is sent its work: Service.
+	Sender Sender
+	Clock  clock.Clock
+	// Random is where attempt tokens come from.
+	Random io.Reader
+	Logger *slog.Logger
+	// Cache keeps the attempts given to nodes through a restart.
+	Cache    *store.Cache
+	Settings Settings
+	// MaxSilence is how long an assigned job's node may say nothing of it before it is unanswered.
+	MaxSilence time.Duration
 }
 
 // Recorder records what a node's result on one kind of work establishes, by the content its echoed
@@ -71,13 +93,23 @@ type waiter struct {
 	interrupted chan struct{}
 }
 
-// NewExchanges returns the exchanges with nodes reached through sender, waiting on clockSource,
-// whose attempt tokens come from random.
-func NewExchanges(sender Sender, clockSource clock.Clock, random io.Reader, logger *slog.Logger) *Exchanges {
+// NewExchanges returns the exchanges with nodes.
+func NewExchanges(parts ExchangeParts) *Exchanges {
 	return &Exchanges{
-		sender: sender, clock: clockSource, random: random, logger: logger, waiting: map[string]*waiter{},
-		recorders: map[nodeproto.CommandType]Recorder{},
+		sender: parts.Sender, clock: parts.Clock, random: parts.Random, logger: parts.Logger, cache: parts.Cache,
+		settings: parts.Settings, maxSilence: parts.MaxSilence,
+		waiting: map[string]*waiter{}, recorders: map[nodeproto.CommandType]Recorder{},
+		attempts: map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
 	}
+}
+
+// newToken is a new attempt token.
+func (all *Exchanges) newToken() (string, error) {
+	raw, err := randbytes.Read(all.random, attemptTokenBytes)
+	if err != nil {
+		return "", fmt.Errorf("name an attempt: %w", err)
+	}
+	return hex.EncodeToString(raw), nil
 }
 
 // Record names the recorder of one kind of work's results. Set each before the channel serves.
@@ -96,11 +128,10 @@ func (all *Exchanges) Record(kind nodeproto.CommandType, recorder Recorder) {
 func (all *Exchanges) Ask(
 	ctx context.Context, nodeID int64, job jobs.Job, command nodeproto.Command, about string,
 ) (*Exchange, error) {
-	raw, err := randbytes.Read(all.random, attemptTokenBytes)
+	token, err := all.newToken()
 	if err != nil {
-		return nil, fmt.Errorf("name an attempt at %s: %w", about, err)
+		return nil, fmt.Errorf("ask for %s: %w", about, err)
 	}
-	token := hex.EncodeToString(raw)
 	// A job's result is one, its end; its progress comes every few seconds and is taken as it
 	// comes. A buffer of a few lets the node's post return without waiting on the job's loop.
 	waiting := &waiter{
@@ -137,6 +168,13 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 			return fmt.Errorf("record job %d's result from node %d: %w", result.JobID, nodeID, err)
 		}
 	}
+	held, isHeld, err := all.attemptOf(nodeID, result.AttemptToken)
+	if err != nil {
+		return err
+	}
+	if isHeld {
+		return all.resolveResult(ctx, held.Attempt, held.assignee, result)
+	}
 	if !found || waiting.nodeID != nodeID {
 		all.logger.InfoContext(ctx, "a node's result came for no job waiting on it", "nodeId", nodeID,
 			"jobId", result.JobID, "attemptToken", result.AttemptToken)
@@ -154,6 +192,9 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 // token and from its node, as Deliver does a result. Progress is best effort: one nothing waits
 // for, or one that finds the job's progress unread, is dropped, since the newest supersedes it.
 func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress) {
+	if all.takeProgress(ctx, nodeID, progress) {
+		return
+	}
 	all.mutex.Lock()
 	waiting, found := all.waiting[progress.AttemptToken]
 	all.mutex.Unlock()
@@ -171,6 +212,11 @@ func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progres
 // Interrupt tells every job waiting on a node that it started again, losing the work it held in
 // memory (D238 §3): its hello named another start than the last one this core heard.
 func (all *Exchanges) Interrupt(ctx context.Context, nodeID int64) {
+	all.unanswered(ctx, func(held heldAttempt) bool { return held.NodeID == nodeID }, func(attempt Attempt) error {
+		all.logger.InfoContext(ctx, "a job's node started again, losing its work", "nodeId", nodeID,
+			"jobId", attempt.JobID, "attemptToken", attempt.Token)
+		return fmt.Errorf("node %d, during %s job %d: %w", nodeID, attempt.Kind, attempt.JobID, ErrNodeRestarted)
+	}, false)
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	for token, waiting := range all.waiting {
