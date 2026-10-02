@@ -177,15 +177,17 @@ func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
 	command := harness.nextCommand(t)
-	refusal := "the disk has no room"
-	answer := nodeproto.LoudnessResult{Refusal: refusal}
+	refusal := "not the one named"
+	answer := nodeproto.LoudnessResult{Refusal: refusal, RefusalCode: nodeproto.RefusedChanged}
 	harness.answerLoudness(t, command.JobID, answer)
 	if err := testutil.Receive(t, ran, "the measurement runner to end"); err != nil {
 		t.Fatal(err)
 	}
 	job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness)
-	if job.State != "queued" || !strings.Contains(job.LastFailure, refusal) {
-		t.Errorf("the refused measurement = %+v, want queued to be tried again, with the refusal", job)
+	if job.State != "queued" || !strings.Contains(job.LastFailure, refusal) ||
+		!strings.Contains(job.LastFailure, "changed since the scan") {
+		t.Errorf("the refused measurement = %+v, want queued to be tried again, with the refusal for a changed file",
+			job)
 	}
 }
 
