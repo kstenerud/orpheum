@@ -393,6 +393,13 @@ order, and the start id; **4b.2** tokens, the progress path, acknowledged outcom
 recording; **4b.3** large outcomes by reference; **4b.4** conversions as jobs, the changed
 refusal, the full disk.
 
+*4b.1 built 2026-10-02:* the node holds its work in memory, each job starting once a slot of its
+kind is free, the highest priority first (the command carries its job's), and beside its scans
+rather than behind them, which settles 4d's devnas finding for prepares; a cancel drops a job that
+waits. Every hello names its start (`startId`); a hello from another start ends the waits of the
+jobs on that node at once, the tool's failure (`jobs.MarkInterrupted`), and the target's on a
+second in a row. Node protocol 2.
+
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's

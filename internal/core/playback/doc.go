@@ -81,7 +81,9 @@
 //     no attempt, and two in a row are the target's failure. Enforced by
 //     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure,
 //     TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure and
-//     TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure.
+//     TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure. So does its node starting
+//     again while it held the work, which it lost (D238 §3).
+//     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
 //   - A prepare the node holds waiting for a slot outlives the silence limit, but not maxSlotWait
 //     in all: then the job gives up and the node is told to stop it. Enforced by
 //     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit and
@@ -166,5 +168,5 @@
 //     fetched on request, and the job that converts one. loudness.go: the gain that levels a
 //     sound, the sweep for files to measure and the measurement job. choices.go: a person's
 //     choices in a file, kept through internal/core/preferences, and a file's audio tracks. stall.go: a
-//     node's word that FFmpeg stalled. Next Up comes after M3.
+//     node's word that FFmpeg stalled, and a wait its node's restart ended. Next Up comes after M3.
 package playback

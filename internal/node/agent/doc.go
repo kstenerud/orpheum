@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time — except prepares, subtitle extractions and loudness
-// measurements, which run beside the rest in their own slots — and streams its report — scan
-// records, and a status record every tick — as one JSONL request whose records reach the core as
-// they are written. When the core goes away it says hello again at the next tick, and numbers its
-// records on from the last one the core ingested.
+// commands, runs its scans one at a time and holds the rest of its work in memory (D238 §3), each
+// job starting once a slot of its kind is free, and streams its report — scan records, and a status
+// record every tick — as one JSONL request whose records reach the core as they are written. When
+// the core goes away it says hello again at the next tick, and numbers its records on from the last
+// one the core ingested.
 //
 // # Invariants
 //
@@ -47,10 +47,16 @@
 //     one named (D100, D226). One measurement runs at once.
 //     TestAgent_MeasuresOnlyTheVideoTheCoreNamed.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
-//     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled before it
-//     started starts cancelled (cut-a §5.3).
+//     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
+//     waits for a slot never starts (cut-a §5.3).
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt,
-//     TestAgent_AnArtworkJobTheCoreCancelledIsStopped.
+//     TestAgent_AnArtworkJobTheCoreCancelledIsStopped,
+//     TestWorkList_ACancelledWaitingJobNeverStartsAndARunningOneStops.
+//   - The work the node holds is in memory, never on disk (D238 §3), and held beside its scans,
+//     never queued behind one. What waits for a slot of its kind starts the highest priority
+//     first, the command's, and at one priority the first to come (D234 §3); a job the core sends
+//     again while it is held is held once. TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
+//     TestAgent_APrepareRunsWhileAScanIsStillGoing.
 //   - A finished prepare's report says what made its video and how fast (D225 §3).
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //   - A prepare, subtitle or measurement the node did not try (no worker for it, a file outside
@@ -80,8 +86,9 @@
 //
 // # Where to change
 //
-//   - agent.go: the session and its four parts; report.go: numbering; answer.go: posting a job's
-//     result, and trying it again; prepare.go: prepares and their slots; subtitle.go: subtitle
-//     extraction, and running a command in the background; loudness.go: loudness measurement;
-//     working.go: the jobs running, and cancel.
+//   - agent.go: the session and its four parts, the commands and scans; report.go: numbering;
+//     answer.go: posting a job's result, and trying it again; prepare.go: prepares;
+//     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
+//     loudness.go: loudness measurement; working.go: the work held, its slots and priority order,
+//     and cancel.
 package agent

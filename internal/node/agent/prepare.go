@@ -29,41 +29,19 @@ type Preparer interface {
 // progressEvery is how often a running prepare tells the core how far it is.
 const progressEvery = 2 * time.Second
 
-// slots are how many jobs of each kind run at once on this node (cut-a §5.3): the encodes and
-// remuxes its config says (nodeproto.Capacity), and one subtitle extraction and one loudness
-// measurement, each of which reads a whole video.
-type slots struct {
-	encode  chan struct{}
-	remux   chan struct{}
-	extract chan struct{}
-	measure chan struct{}
-}
-
-func newSlots(capacity nodeproto.Capacity) slots {
-	return slots{
-		encode: make(chan struct{}, capacity.EncodeSlotCount), remux: make(chan struct{}, capacity.RemuxSlotCount),
-		extract: make(chan struct{}, 1), measure: make(chan struct{}, 1),
-	}
-}
-
-func (all slots) forProfile(profile nodeproto.PrepareProfile) chan struct{} {
+// slotForProfile is the slot a prepare runs in: a remux's, or an encode's.
+func slotForProfile(profile nodeproto.PrepareProfile) slotKind {
 	if profile == nodeproto.ProfileRemux {
-		return all.remux
+		return slotRemux
 	}
-	return all.encode
+	return slotEncode
 }
 
-// startPrepare starts a prepare beside the node's other work, once a slot of its kind is free, and
-// reports its progress and its end to the core. The source is checked to be the file the core
-// named before FFmpeg reads it (D100).
-func (agent *Agent) startPrepare(ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare) {
-	jobCtx, finishJob := agent.jobs.startJob(ctx, jobID)
-	go func() {
-		defer finishJob()
-		if !agent.takePrepareSlot(jobCtx, nodeID, jobID, command.Profile) {
-			return
-		}
-		defer func() { <-agent.slots.forProfile(command.Profile) }()
+// prepareWork is a prepare held until a slot of its kind is free, which reports its progress and
+// its end to the core. The source is checked to be the file the core named before FFmpeg reads it
+// (D100).
+func (agent *Agent) prepareWork(ctx context.Context, nodeID, jobID int64, command nodeproto.Prepare) heldWork {
+	return heldWork{slot: slotForProfile(command.Profile), saysWaiting: true, run: func(jobCtx context.Context) {
 		outcome := agent.runPrepare(jobCtx, nodeID, jobID, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", jobID)
@@ -83,7 +61,7 @@ func (agent *Agent) startPrepare(ctx context.Context, nodeID, jobID int64, comma
 		}
 		agent.postResult(ctx, nodeID, "a prepare", nodeproto.Result{JobID: jobID, Prepare: &outcome})
 		agent.evict(ctx)
-	}()
+	}}
 }
 
 // evict keeps the prepared directory within its budget after a prepare has added to it (D217 §5).
@@ -93,27 +71,6 @@ func (agent *Agent) evict(ctx context.Context) {
 	}
 	if _, err := agent.workers.PreparedShelf.Evict(); err != nil {
 		agent.logger.WarnContext(ctx, "could not keep the prepared directory within its budget", "err", err)
-	}
-}
-
-// takePrepareSlot takes a slot of the prepare's kind, and reports false when the job ended first. A
-// prepare that has to wait says so at once and at each status tick while it waits (sayWaiting),
-// so the core keeps waiting for it (cut-a §5.3).
-func (agent *Agent) takePrepareSlot(ctx context.Context, nodeID, jobID int64, profile nodeproto.PrepareProfile) bool {
-	slot := agent.slots.forProfile(profile)
-	select {
-	case slot <- struct{}{}:
-		return true
-	default:
-	}
-	agent.jobs.setWaiting(jobID, true)
-	defer agent.jobs.setWaiting(jobID, false)
-	agent.sayWaiting(ctx, nodeID, jobID)
-	select {
-	case slot <- struct{}{}:
-		return true
-	case <-ctx.Done():
-		return false
 	}
 }
 

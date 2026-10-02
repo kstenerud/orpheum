@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -28,5 +29,21 @@ func stallOutcome(
 		return jobs.MarkStalled(stalled)
 	}
 	failure := stalledTwice + stalled.Error()
+	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
+}
+
+// unansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that
+// started again, losing the work (nodes.ErrNodeRestarted), is the tool's failure, as a stall is:
+// tried again at no cost of an attempt (jobs.MarkInterrupted), and the target's failure, kept by
+// keepFailure, when its last attempt's tool failed too (D238 §3, D233 §6). Any other err is as it
+// is.
+func unansweredOutcome(job jobs.Job, err error, keepFailure func(failure string) error) error {
+	if !errors.Is(err, nodes.ErrNodeRestarted) {
+		return err
+	}
+	if !job.PreviousAttemptToolFailed {
+		return jobs.MarkInterrupted(err)
+	}
+	failure := jobs.ToolFailedTwice + err.Error()
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }

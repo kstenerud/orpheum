@@ -288,7 +288,7 @@ func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 	key sqlcgen.GetSubtitleTextParams,
 ) error {
-	exchange, err := service.exchanges.Ask(ctx, nodeID, job.ID, nodeproto.Command{
+	exchange, err := service.exchanges.Ask(ctx, nodeID, job, nodeproto.Command{
 		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
 	}, fmt.Sprintf("%s job %d", job.Kind, job.ID))
 	if err != nil {
@@ -301,7 +301,9 @@ func (service *Service) makeSubtitleText(
 		// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
 		return jobs.MarkPermanent(jobs.ErrCancelled)
 	case err != nil:
-		return err
+		return unansweredOutcome(job, err, func(failure string) error {
+			return service.finishSubtitle(ctx, key, nodeproto.SubtitleText{Failure: failure})
+		})
 	case result.Subtitle == nil:
 		return fmt.Errorf("node %d answered %s job %d with something other than a subtitle", nodeID, job.Kind, job.ID)
 	}

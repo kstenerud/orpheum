@@ -38,6 +38,8 @@ type Sink interface {
 // (D212 §8).
 type ResultSink interface {
 	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result)
+	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.
+	Interrupt(ctx context.Context, nodeID int64)
 }
 
 // Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back

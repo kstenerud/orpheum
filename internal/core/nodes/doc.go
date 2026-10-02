@@ -33,6 +33,13 @@
 //     TestExchange_AContextEndingTellsTheNodeToStop,
 //     TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID,
 //     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
+//   - A node whose hello names another start than its last hello to this core started again and
+//     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
+//     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers
+//     it as the tool's failure, free the first time. TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt,
+//     TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly.
+//   - A command carries its job's priority, by which the node orders what waits (D234 §3).
+//     TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway.
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
@@ -64,6 +71,7 @@
 //     made the node a service of its own.
 //   - D107: the socket's permissions are the authentication in Cut A.
 //   - D34, D37: liveness is judged from what the core observes.
+//   - D238: each fact has one owner; the node holds its work in memory, and a restart loses it.
 //   - D231 §5, §6, §11: a node not connected is a destination that parks its work, and its hello
 //     brings the work back.
 //   - docs/contributors/design/plans/cut-a.md §2 and §4; scanner.md, The core reads the report

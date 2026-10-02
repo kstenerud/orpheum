@@ -19,11 +19,11 @@ type Subtitler interface {
 	ConvertText(ctx context.Context, source []byte) (subtitle.Text, error)
 }
 
-// extractSubtitle starts an extraction beside the node's other work, one at a time, since an
-// embedded track means reading the whole video, and posts the answer to the core.
-func (agent *Agent) extractSubtitle(ctx context.Context, nodeID, jobID int64, command nodeproto.ExtractSubtitle) {
-	agent.answerInBackground(ctx, nodeID, backgroundJob{
-		jobID: jobID, slot: agent.slots.extract, jobKind: "a subtitle",
+// subtitleWork is an extraction held until the node's one extraction slot is free, since an
+// embedded track means reading the whole video, which posts its answer to the core.
+func (agent *Agent) subtitleWork(ctx context.Context, nodeID, jobID int64, command nodeproto.ExtractSubtitle) heldWork {
+	return agent.answeringWork(ctx, nodeID, answeringJob{
+		jobID: jobID, slot: slotExtract, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runExtraction(jobCtx, command)
 			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
@@ -31,30 +31,22 @@ func (agent *Agent) extractSubtitle(ctx context.Context, nodeID, jobID int64, co
 	})
 }
 
-// backgroundJob is one command worked beside the node's others, whose answer is posted to the core.
-type backgroundJob struct {
+// answeringJob is one job whose whole answer is posted to the core when it ends.
+type answeringJob struct {
 	jobID int64
-	// slot bounds how many of its kind run at once.
-	slot chan struct{}
+	// slot is the kind of slot it runs in.
+	slot slotKind
 	// jobKind names the work in the log.
 	jobKind string
-	// makeAnswer makes the result, its job id left for answerInBackground to fill, and says why
+	// makeAnswer makes the result, its job id left for answeringWork to fill, and says why
 	// nothing was made: a refusal or a failure.
 	makeAnswer func(ctx context.Context) (result nodeproto.Result, refusalOrFailure string)
 }
 
-// answerInBackground runs one command beside the node's other work once its slot is free, and
-// posts its answer to the core; a command cancelled meanwhile posts nothing.
-func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job backgroundJob) {
-	jobCtx, finishJob := agent.jobs.startJob(ctx, job.jobID)
-	go func() {
-		defer finishJob()
-		select {
-		case job.slot <- struct{}{}:
-		case <-jobCtx.Done():
-			return
-		}
-		defer func() { <-job.slot }()
+// answeringWork is the work of a job that posts its answer to the core when it ends; a job
+// cancelled meanwhile posts nothing.
+func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeringJob) heldWork {
+	return heldWork{slot: job.slot, run: func(jobCtx context.Context) {
 		result, refusalOrFailure := job.makeAnswer(jobCtx)
 		result.JobID = job.jobID
 		if jobCtx.Err() != nil && ctx.Err() == nil {
@@ -66,7 +58,7 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job ba
 				"refusalOrFailure", refusalOrFailure)
 		}
 		agent.postResult(ctx, nodeID, job.jobKind, result)
-	}()
+	}}
 }
 
 // notTriedError is an extraction the node did not try: it says nothing of the source's bytes.

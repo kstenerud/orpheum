@@ -79,6 +79,38 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 	}
 }
 
+// A node that started again lost the prepare it held (D238 §3): the tool's failure, as a stall
+// is, tried again at no cost the first time and the rendition's failure on the second in a row.
+func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
+	t.Parallel()
+	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
+	all := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
+	rendition := insertRendition(t, all)
+	prepareAfter := func(previousAttemptToolFailed bool) error {
+		job := jobs.Job{
+			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptToolFailed,
+		}
+		ended := make(chan error, 1)
+		go func() { ended <- all.handle(t.Context(), job, prepareOrder{nodeID: 1}) }()
+		testutil.Receive(t, node.sent, "the prepare command")
+		all.exchanges.Interrupt(t.Context(), 1)
+		return testutil.Receive(t, ended, "the prepare job to end")
+	}
+	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {
+		t.Errorf("a first restart of the node ended %v; want it tried again as the tool's failure", err)
+	}
+	if row := renditionRow(t, all, rendition); row.State == renditionFailed {
+		t.Errorf("after one restart the rendition is %+v; want it not failed", row)
+	}
+	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), jobs.ToolFailedTwice) {
+		t.Errorf("a second tool failure in a row ended %v; want the rendition's failure", err)
+	}
+	if row := renditionRow(t, all, rendition); row.State != renditionFailed || row.Failure == nil ||
+		!strings.HasPrefix(*row.Failure, jobs.ToolFailedTwice) {
+		t.Errorf("after two tool failures the rendition is %+v; want failed, saying so", row)
+	}
+}
+
 func TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline(t *testing.T) {
 	t.Parallel()
 	probe := nodeproto.Probe{Format: nodeproto.ProbeFormat{DurationMs: 7_200_000}}

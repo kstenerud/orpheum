@@ -34,7 +34,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 				return nodeErr
 			}
 			command.SourceImage = stored
-			return service.cutFrom(ctx, nodeID, want.jobID, command, args, false)
+			return service.cutFrom(ctx, nodeID, want.job, command, args, false)
 		}
 	}
 	if want.source == SourceLocal {
@@ -46,7 +46,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 			return err
 		}
 		command.AbsolutePath = named
-		return service.cutFrom(ctx, nodeID, want.jobID, command, args, true)
+		return service.cutFrom(ctx, nodeID, want.job, command, args, true)
 	}
 	download, err := service.fetch(ctx, fetcher, want.ref.SourceRef)
 	if errors.Is(err, ErrNoImage) || (err == nil && download.sourceSha256Hex() != args.SourceSha256) {
@@ -62,15 +62,15 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 		return err
 	}
 	command.SourceImage = download.bytes
-	return service.cutFrom(ctx, nodeID, want.jobID, command, args, true)
+	return service.cutFrom(ctx, nodeID, want.job, command, args, true)
 }
 
 // cutFrom has the node cut the sizes asked for from a source and stores them. Only the image's
 // own source can say a size cannot be made; a size a base did not yield is an error, retried.
 func (service *Service) cutFrom(
-	ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork, args artworkJobArgs, isFromSource bool,
+	ctx context.Context, nodeID int64, job jobs.Job, command nodeproto.Artwork, args artworkJobArgs, isFromSource bool,
 ) error {
-	result, err := service.reEncode(ctx, nodeID, jobID, command)
+	result, err := service.reEncode(ctx, nodeID, job, command)
 	if err != nil {
 		return err
 	}

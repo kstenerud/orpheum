@@ -3,80 +3,167 @@
 package agent
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"sync"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// jobTracker holds the jobs this node is working on, by the core's job id, each with the cancel that
-// stops it (cut-a §5.3), and the jobs cancelled before they started: a cancel can arrive while
-// its job still waits behind other work.
-type jobTracker struct {
-	mutex                sync.Mutex
-	cancelByJobID        map[int64]context.CancelFunc // guarded by mutex
-	cancelledBeforeStart map[int64]bool               // guarded by mutex: cancelled before they started
-	waiting              map[int64]bool               // guarded by mutex: prepares waiting for a slot
+// slotKind names the slots a kind of work runs in (cut-a §5.3): the encodes and remuxes the node's
+// config says (nodeproto.Capacity), and one each of subtitle extraction and loudness measurement,
+// each of which reads a whole video, and of artwork re-encoding.
+type slotKind string
+
+const (
+	slotEncode  slotKind = "encode"
+	slotRemux   slotKind = "remux"
+	slotExtract slotKind = "extract"
+	slotMeasure slotKind = "measure"
+	slotArtwork slotKind = "artwork"
+)
+
+// slotCounts is how many of each kind of work run at once on a node of capacity.
+func slotCounts(capacity nodeproto.Capacity) map[slotKind]int {
+	return map[slotKind]int{
+		slotEncode: capacity.EncodeSlotCount, slotRemux: capacity.RemuxSlotCount,
+		slotExtract: 1, slotMeasure: 1, slotArtwork: 1,
+	}
 }
 
-// setWaiting marks a job waiting for a slot, or no longer waiting.
-func (tracker *jobTracker) setWaiting(jobID int64, isWaiting bool) {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	if tracker.waiting == nil {
-		tracker.waiting = map[int64]bool{}
+// heldWork is one job the node holds, by the core's job id: waiting for a slot of its kind, then
+// running.
+type heldWork struct {
+	jobID    int64
+	priority int64
+	slot     slotKind
+	// saysWaiting is a prepare, which tells the core while it waits for a slot (sayWaiting).
+	saysWaiting bool
+	// run does the work to its end and says how it ended to the core, on a context a cancel ends.
+	run func(ctx context.Context)
+
+	arrival int64 // the order it came in, among work of one priority
+	// start runs it on the node's lifetime, which hold was given, and returns what stops it.
+	start func() context.CancelFunc
+	stop  context.CancelFunc
+}
+
+func (work *heldWork) isRunning() bool { return work.stop != nil }
+
+// workList is the work the node holds, in memory (D238 §3): each job waits until a slot of its kind
+// is free and starts before the others waiting at a lower priority and, at one priority, before
+// those that came after it (D234 §3). A cancel stops a running job, or drops a waiting one before
+// it starts.
+type workList struct {
+	mutex    sync.Mutex
+	slots    map[slotKind]int // how many of each kind run at once
+	running  map[slotKind]int // guarded by mutex
+	held     []*heldWork      // guarded by mutex: waiting and running
+	arrivals int64            // guarded by mutex
+}
+
+func newWorkList(capacity nodeproto.Capacity) *workList {
+	return &workList{slots: slotCounts(capacity), running: map[slotKind]int{}}
+}
+
+// hold takes a job and starts what is due. It reports false, holding nothing, for a job it holds
+// already: a command the core sent again. isWaiting says the job waits for a slot.
+func (list *workList) hold(ctx context.Context, work heldWork) (isHeld, isWaiting bool) {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	if list.find(work.jobID) != nil {
+		return false, false
 	}
-	if isWaiting {
-		tracker.waiting[jobID] = true
+	list.arrivals++
+	work.arrival = list.arrivals
+	added := &work
+	added.start = func() context.CancelFunc {
+		runCtx, stop := context.WithCancel(ctx)
+		go func() {
+			defer list.finish(added)
+			added.run(runCtx)
+		}()
+		return stop
+	}
+	list.held = append(list.held, added)
+	list.startDue()
+	return true, !added.isRunning()
+}
+
+// startDue starts each waiting job whose kind has a free slot, the highest priority first and, at
+// one priority, the first to come. The caller holds the mutex.
+func (list *workList) startDue() {
+	waiting := make([]*heldWork, 0, len(list.held))
+	for _, work := range list.held {
+		if !work.isRunning() {
+			waiting = append(waiting, work)
+		}
+	}
+	slices.SortFunc(waiting, func(first, second *heldWork) int {
+		return cmp.Or(cmp.Compare(second.priority, first.priority), cmp.Compare(first.arrival, second.arrival))
+	})
+	for _, work := range waiting {
+		if list.running[work.slot] >= list.slots[work.slot] {
+			continue
+		}
+		list.running[work.slot]++
+		work.stop = work.start()
+	}
+}
+
+// finish forgets a job whose run ended, frees its slot and starts what is due.
+func (list *workList) finish(work *heldWork) {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	// stop is set under the mutex once the run has begun, which may end before then.
+	work.stop()
+	list.running[work.slot]--
+	list.remove(work.jobID)
+	list.startDue()
+}
+
+// cancel stops a running job, or drops a waiting one before it starts. It reports whether the job
+// was held.
+func (list *workList) cancel(jobID int64) bool {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	work := list.find(jobID)
+	if work == nil {
+		return false
+	}
+	if work.isRunning() {
+		work.stop()
 	} else {
-		delete(tracker.waiting, jobID)
+		list.remove(jobID)
 	}
+	return true
 }
 
-// waitingJobIDs are the jobs waiting for a slot, in no order.
-func (tracker *jobTracker) waitingJobIDs() []int64 {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	jobIDs := make([]int64, 0, len(tracker.waiting))
-	for jobID := range tracker.waiting {
-		jobIDs = append(jobIDs, jobID)
+// waitingPrepareJobIDs are the prepares waiting for a slot, in no order.
+func (list *workList) waitingPrepareJobIDs() []int64 {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	var jobIDs []int64
+	for _, work := range list.held {
+		if work.saysWaiting && !work.isRunning() {
+			jobIDs = append(jobIDs, work.jobID)
+		}
 	}
 	return jobIDs
 }
 
-// startJob is a job's context, which cancel ends, and finishJob, which forgets the job once it ends. A
-// job cancelled before it started starts cancelled.
-func (tracker *jobTracker) startJob(ctx context.Context, jobID int64) (context.Context, func()) {
-	jobCtx, stop := context.WithCancel(ctx)
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	if tracker.cancelledBeforeStart[jobID] {
-		delete(tracker.cancelledBeforeStart, jobID)
-		stop()
+// find is the held job of an id, or nil. The caller holds the mutex.
+func (list *workList) find(jobID int64) *heldWork {
+	for _, work := range list.held {
+		if work.jobID == jobID {
+			return work
+		}
 	}
-	if tracker.cancelByJobID == nil {
-		tracker.cancelByJobID = map[int64]context.CancelFunc{}
-	}
-	tracker.cancelByJobID[jobID] = stop
-	return jobCtx, func() {
-		stop()
-		tracker.mutex.Lock()
-		defer tracker.mutex.Unlock()
-		delete(tracker.cancelByJobID, jobID)
-	}
+	return nil
 }
 
-// cancel stops a job, or, when it has not started, has it start cancelled. It reports whether the
-// job was running.
-func (tracker *jobTracker) cancel(jobID int64) bool {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	stop, isRunning := tracker.cancelByJobID[jobID]
-	if isRunning {
-		stop()
-		return true
-	}
-	if tracker.cancelledBeforeStart == nil {
-		tracker.cancelledBeforeStart = map[int64]bool{}
-	}
-	tracker.cancelledBeforeStart[jobID] = true
-	return false
+// remove forgets a held job. The caller holds the mutex.
+func (list *workList) remove(jobID int64) {
+	list.held = slices.DeleteFunc(list.held, func(work *heldWork) bool { return work.jobID == jobID })
 }

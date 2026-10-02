@@ -62,15 +62,21 @@ func newExchanges(t *testing.T) exchangeBench {
 	return bench
 }
 
-// askAndWait asks for job 7's prepare, and waits for its next result on another goroutine, whose
-// error it returns on the channel.
+// askAndWait asks for job 7's prepare, at play priority, and waits for its next result on another
+// goroutine, whose error it returns on the channel. The command names the job and its priority, by
+// which the node orders what waits (D234 §3).
 func (bench exchangeBench) askAndWait(ctx context.Context, t *testing.T) (*nodes.Exchange, <-chan error) {
 	t.Helper()
-	exchange, err := bench.exchanges.Ask(ctx, 1, 7, prepareCommand, "prepare 7")
+	job := jobs.Job{ID: 7, Priority: jobs.PriorityPlayNow}
+	exchange, err := bench.exchanges.Ask(ctx, 1, job, prepareCommand, "prepare 7")
 	if err != nil {
 		t.Fatal(err)
 	}
-	testutil.Receive(t, bench.sender.sent, "the prepare command")
+	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+	if sent.JobID != 7 || sent.Priority != jobs.PriorityPlayNow {
+		t.Errorf("the node was sent job %d at priority %d, want job 7 at %d", sent.JobID, sent.Priority,
+			jobs.PriorityPlayNow)
+	}
 	waited := make(chan error, 1)
 	go func() {
 		_, nextErr := exchange.Next(ctx, time.Minute)
@@ -97,7 +103,7 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	t.Parallel()
 	bench := newExchanges(t)
 	exchanges, sender := bench.exchanges, bench.sender
-	exchange, err := exchanges.Ask(t.Context(), 1, 7, prepareCommand, "prepare 7")
+	exchange, err := exchanges.Ask(t.Context(), 1, jobs.Job{ID: 7}, prepareCommand, "prepare 7")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +180,7 @@ func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	exchange, err := bench.exchanges.Ask(t.Context(), 1, 7, prepareCommand, "prepare 7")
+	exchange, err := bench.exchanges.Ask(t.Context(), 1, jobs.Job{ID: 7}, prepareCommand, "prepare 7")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,6 +197,39 @@ func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *tes
 	select {
 	case sent := <-bench.sender.sent:
 		t.Errorf("closing after a refusal sent %+v, want nothing to stop", sent)
+	default:
+	}
+}
+
+// A node that started again has lost the work it held in memory (D238 §3): the job waiting on it
+// learns so at once, rather than after its silence runs out, and nothing is sent to stop work the
+// node no longer has. A job waiting on another node waits on.
+func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	exchange, waited := bench.askAndWait(t.Context(), t)
+	elsewhere, err := bench.exchanges.Ask(t.Context(), 2, jobs.Job{ID: 8}, prepareCommand, "prepare 8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Receive(t, bench.sender.sent, "job 8's prepare command")
+	bench.exchanges.Interrupt(t.Context(), 1)
+	if ended := testutil.Receive(t, waited, "job 7's wait ending"); !errors.Is(ended, nodes.ErrNodeRestarted) {
+		t.Errorf("job 7's wait ended with %v, want ErrNodeRestarted", ended)
+	}
+	exchange.Close()
+	bench.exchanges.Deliver(t.Context(), 2, nodeproto.Result{JobID: 8, Prepare: &nodeproto.PrepareReport{
+		State: nodeproto.PrepareRunning,
+	}})
+	result, err := elsewhere.Next(t.Context(), time.Minute)
+	if err != nil || result.Prepare == nil {
+		t.Errorf("job 8, on node 2, heard %+v, %v, want its result", result, err)
+	}
+	elsewhere.MarkEndedByNode()
+	elsewhere.Close()
+	select {
+	case sent := <-bench.sender.sent:
+		t.Errorf("the nodes were sent %+v, want nothing: node 1 lost job 7 with its restart", sent)
 	default:
 	}
 }
