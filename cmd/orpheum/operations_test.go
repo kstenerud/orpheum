@@ -95,7 +95,10 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 	t.Parallel()
 	_, path := testConfig(t)
 	fresh := runCommand(t, "doctor", "--config", path)
-	for _, want := range []string{"there is no library.db yet", "secret.key is missing", "there is no backup yet"} {
+	for _, want := range []string{
+		"there is no library.db yet", "start the server with `orpheum core`", "secret.key is missing",
+		"there is no backup yet",
+	} {
 		if !strings.Contains(fresh.stdout, want) {
 			t.Errorf("doctor on a fresh directory does not say %q:\n%s", want, fresh.stdout)
 		}
