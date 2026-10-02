@@ -349,6 +349,48 @@ caches in a directory the workflow saves; the runner installs nothing but runs `
   why, and work that writes elsewhere goes on (S28).
 - Closes G13, S28, S81, S83–S85.
 
+*As the owner accepted it (2026-10-02, "Sounds good"), with D234's words made concrete:*
+
+1. `node.db` lives in a new node config key, `node.state_dir`, specific to the machine (no
+   starting value), as the server's `data_dir` is.
+2. Its schema is one file, versioned by discard as `cache.db` is: what it holds is regenerable,
+   and the core asks again for what it still wants.
+3. A job running when the node restarted is reported *interrupted*, not run again by the node: the
+   core decides. Interrupted is the tool's failure source as a stall is (D233 §6), free the first
+   time and the item's the second, so a file that crashes the node does not loop (S86).
+4. Acknowledged means recorded. The core records every outcome as it arrives, whether or not a job
+   still waits, each kind checked against what is current by content (a prepare by its rendition's
+   run id, closing G13 and S81; a measurement or subtitle by the file's hash; artwork by its
+   target), and only then answers. A job that waits is told the outcome. The node resends an
+   unacknowledged outcome at each hello and with a doubling wait while connected, and forgets it a
+   week after it was acknowledged (question B).
+5. Every sending carries an attempt token, random, which the result echoes: a job's wait takes
+   only its own token, from the node it sent to (S83, S84). Attempt numbers cannot fence, since an
+   attempt given back is numbered again, and job ids repeat after a `cache.db` discard. Anything
+   else goes only to the recording of item 4.
+6. A fetched subtitle converted while a person waits is the conversion job that exists, at the top
+   priority, and the request waits, bounded, for its text to be recorded: one way to ask a node for
+   work, and no negative ids.
+7. An outcome up to 1 MiB (a protocol constant) is inline; a larger one (artwork, a large
+   subtitle) is a file in the node's state directory, named with its size and SHA-256, which the
+   core fetches from the byte socket and checks.
+8. Progress has its own path, best effort and never resent, at most every
+   `node.progress_every_seconds` (a node config key starting at 2, today's constant). Every kind
+   says waiting for a slot and running; a prepare also says how far. Commands carry their priority,
+   and the node starts what waits in priority order.
+9. The "changed since the scan" refusal gets its own code and is retried with back-off as today;
+   the scan that notices the change ends the old file's jobs.
+10. A node whose journal cannot be written, or whose state directory's disk has less than
+    `node.min_free_mib` free (a node config key starting at 100; the owner, 2026-10-02: "a node
+    balk and report full when less than 100mb space remains. Configurable"), refuses new work with
+    its reason, and the core parks that node's work until its status shows room, as prepares wait
+    on a full prepared directory (S28). Work that writes nothing on the node goes on.
+
+The protocol version becomes 2. The steps: **4b.1** `node.db`, work run from the journal in
+priority order, interrupted; **4b.2** tokens, the progress path, acknowledged outcomes and their
+recording; **4b.3** large outcomes by reference; **4b.4** conversions as jobs, the changed
+refusal, the full disk.
+
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's
