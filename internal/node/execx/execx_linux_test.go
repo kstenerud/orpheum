@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,18 @@ func TestRun_CancellingKillsTheWholeProcessGroup(t *testing.T) {
 	// were killed, Run would return after waitDelay with the grandchild still asleep.
 	pid := fake.GrandchildPID(t)
 	assertGone(t, pid)
+}
+
+// assertGone fails the test if pid, a grandchild that held the child's output open, is still
+// asleep. The child is gone only once that output has closed, which a process does partway
+// through exiting: by then it is gone, a zombie, or running its exit (R or D). Only a grandchild
+// that was never killed is still sleeping (S), holding the output open.
+func assertGone(t *testing.T, pid int) {
+	t.Helper()
+	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err == nil && processState(string(stat)) == "S" {
+		t.Errorf("the grandchild %d is still asleep: the process group was not killed", pid)
+	}
 }
 
 // processState is the state letter in /proc/<pid>/stat, after the parenthesised command name.

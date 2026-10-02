@@ -154,7 +154,7 @@ func checkDatabase(
 		return []finding{{verdictFailure, "library.db", err.Error()}}, nil
 	}
 	if !exists {
-		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum run`"}}, nil
+		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum core`"}}, nil
 	}
 	database, err := store.Open(ctx, directories.LibraryDatabasePath(), options)
 	if err != nil {

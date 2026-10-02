@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,7 +23,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -155,10 +155,11 @@ type runningServer struct {
 // the log so far, rather than hanging until the test binary's timeout says nothing useful.
 const serveWaitLimit = 5 * time.Minute
 
-// startServing runs serve until the test stops it, and waits until it logs awaited. When startNode
-// is not nil, the core starts its node with it: inProcessStarter runs one in this process.
+// startServing runs serve until the test stops it, and waits until it logs awaited. When node is not
+// nil, it runs beside the core until the test stops both, as a node's own service runs beside the
+// core's: runNodeWith in this process.
 func startServing(
-	t *testing.T, config Config, captured capturedLog, awaited string, startNode nodes.Starter,
+	t *testing.T, config Config, captured capturedLog, awaited string, node func(ctx context.Context) error,
 ) runningServer {
 	t.Helper()
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -169,11 +170,16 @@ func startServing(
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
-			startNode: startNode, tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
-			openSubtitlesBaseURL: unreachableURL,
+			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
+	nodeDone := make(chan error, 1)
+	if node == nil {
+		nodeDone <- nil
+	} else {
+		go func() { nodeDone <- node(ctx) }()
+	}
 	select {
 	case <-captured.signals[awaited]:
 	case err := <-done:
@@ -190,7 +196,8 @@ func startServing(
 		}
 		stopped = true
 		cancel()
-		return testutil.Receive(t, done, "serve to stop")
+		served := testutil.Receive(t, done, "serve to stop")
+		return errors.Join(served, testutil.Receive(t, nodeDone, "the node to stop"))
 	}
 	t.Cleanup(func() {
 		if err := stop(); err != nil {

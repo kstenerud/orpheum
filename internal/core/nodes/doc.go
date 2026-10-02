@@ -2,13 +2,13 @@
 
 // Package nodes is the core's side of the node channel (D207): it enrols a node by name on its
 // hello, queues its commands for the long-poll, reads its JSONL report as it arrives and hands it
-// to the ingest in batches, and supervises the co-located node child — started through a Starter
-// that cmd/orpheum builds on execx, because the core never starts a process.
+// to the ingest in batches. It starts no node: each is a service of its own that dials the core's
+// socket (D233 §2, D235 §4).
 //
 // # Invariants
 //
-//   - The core never reaches os/exec: the child is started through the Starter interface.
-//     Enforced by the depguard rule core-boundary and TestArch_CoreNeverExecs.
+//   - The core never reaches os/exec, and starts no process. Enforced by the depguard rule
+//     core-boundary and TestArch_CoreNeverExecs.
 //   - A node is enrolled once per name (D207). TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the
 //     prepare slots of every node that said one are added up for whoever runs prepares, and each
@@ -17,10 +17,9 @@
 //   - A report's records reach the ingest in order, batched, and as soon as the stream goes
 //     quiet; a record out of sequence is refused. TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
 //     TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
-//   - A node silent for node_silent_after_seconds is reported; silent for
-//     node_restart_after_silent_seconds it is restarted; one that exits is started again after
-//     node_restart_after_exit_seconds, so it cannot spin.
-//     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.
+//   - A node silent for node_silent_after_seconds is reported as silent; restarting a node that
+//     hangs or exits is its service manager's (D234 §4).
+//     TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
 //   - A node's word on a job, bounded, is one Result posted to one path, whichever the work: it
 //     goes to the result sink (Exchanges) and nowhere else, and one from a node that has not said
 //     hello is refused. An artwork result is the artwork store's one way in (D212 §8).
@@ -61,7 +60,8 @@
 //
 // # Read before changing
 //
-//   - D43, D44: the thin supervisor, and never exit when you could report.
+//   - D43, D44: one process per role, and never exit when you could report; D233 §2 and D235 §4
+//     made the node a service of its own.
 //   - D107: the socket's permissions are the authentication in Cut A.
 //   - D34, D37: liveness is judged from what the core observes.
 //   - D231 §5, §6, §11: a node not connected is a destination that parks its work, and its hello
@@ -75,7 +75,7 @@
 //     node; connection.go: whether each node is connected and when it was last heard; send.go:
 //     sending a node work, and what a wait for it that ran out means; facts.go: what each node
 //     last said about itself — its roots, slots, hardware and status;
-//     channel.go: commands, the report and the nodes' results; supervisor.go: the child; bytes.go:
+//     channel.go: commands, the report and the nodes' results; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: a job asking a
 //     node for work and waiting for its results, and the cancel it sends.
 package nodes

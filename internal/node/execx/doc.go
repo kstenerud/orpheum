@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package execx is the only place a shipping process starts. It runs the bundled ffmpeg and
-// ffprobe, and orpheum's own binary in another mode as a long-lived child (StartSelf), and nothing
-// else, with hardened arguments, an empty environment, the root directory as its
+// ffprobe, and nothing else, with hardened arguments, an empty environment, the root directory as its
 // working directory and stdin closed, in a process group that is killed whole when the run is
 // cancelled, and that on Linux the kernel kills when the node dies. A failure carries the exit
 // status and the tail of the tool's stderr. A long FFmpeg run is watched (RunWatched): it reports
@@ -59,5 +58,5 @@
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
-//     child.go: StartSelf, orpheum's own binary as a long-lived child. The shim itself is internal/node/confine's.
+//     The shim itself is internal/node/confine's.
 package execx

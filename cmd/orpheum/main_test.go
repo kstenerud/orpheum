@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"strings"
 	"testing"
 	"time"
@@ -137,10 +136,9 @@ func TestShimIfAsked_OnlyTheShimsArgumentMakesThisProcessTheShim(t *testing.T) {
 
 func TestReleaseWiring_ReachesTheProvidersRealAddresses(t *testing.T) {
 	t.Parallel()
-	config, _ := testConfig(t)
-	outside := releaseWiring(config, io.Discard)
+	outside := releaseWiring()
 	if outside.tmdbBaseURL != tmdb.BaseURL || outside.tmdbImagesBaseURL != tmdb.ImageBaseURL ||
-		outside.openSubtitlesBaseURL != opensubtitles.BaseURL || outside.startNode == nil {
-		t.Errorf("a release is wired to %+v; want TMDB's and OpenSubtitles' real addresses and its node", outside)
+		outside.openSubtitlesBaseURL != opensubtitles.BaseURL {
+		t.Errorf("a release is wired to %+v; want TMDB's and OpenSubtitles' real addresses", outside)
 	}
 }

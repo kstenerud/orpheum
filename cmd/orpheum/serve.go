@@ -33,8 +33,8 @@ import (
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
 // loop (migrations.md, When a step fails). Once the database is ready it runs the background jobs
-// (fetch, artwork, prepare, subtitle and loudness) and their loops, serves the node channel, and
-// supervises the node child when the wiring can start one.
+// (fetch, artwork, prepare, subtitle and loudness) and their loops, and serves the node channel,
+// which each node, a service of its own, dials.
 func serve(
 	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
 	logger *slog.Logger,
@@ -75,7 +75,7 @@ func serve(
 		return err
 	}
 	defer stopBackgroundJobs()
-	stopNodes, err := runNodeChannel(ctx, config, opened, outside.startNode, logger)
+	stopNodes, err := runNodeChannel(ctx, config, opened, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
 		logger.ErrorContext(ctx, "the node channel could not start; the server stays up to report why", "err", err)
@@ -89,11 +89,9 @@ func serve(
 	return nil
 }
 
-// wiring is what serve is given from outside: how to start the node child (nil in tests that
-// run none), and where TMDB answers and serves its images (tmdb.BaseURL and tmdb.ImageBaseURL,
-// or a test's fake).
+// wiring is what serve is given from outside: where TMDB answers and serves its images
+// (tmdb.BaseURL and tmdb.ImageBaseURL, or a test's fake).
 type wiring struct {
-	startNode         nodes.Starter
 	tmdbBaseURL       string
 	tmdbImagesBaseURL string
 	// openSubtitlesBaseURL is where OpenSubtitles answers (opensubtitles.BaseURL, or a test's fake).

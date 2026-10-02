@@ -5,17 +5,14 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
@@ -26,27 +23,10 @@ import (
 // enough that an idle node costs nothing.
 const commandPollHold = 25 * time.Second
 
-// selfStarter starts the node child: orpheum's own binary in node mode, with the same config
-// file (D207). Its output joins the core's.
-func selfStarter(config Config, output io.Writer) nodes.Starter {
-	return func(ctx context.Context) (nodes.Process, error) {
-		executable, err := os.Executable()
-		if err != nil {
-			return nil, err
-		}
-		child, err := execx.StartSelf(ctx, executable, []string{"node", "--config", config.path}, output)
-		if err != nil {
-			return nil, err
-		}
-		return child, nil
-	}
-}
-
-// runNodeChannel serves the node channel on the core's socket and, when startNode is set,
-// supervises the node child. The returned stop ends both: the child first, so its requests end,
-// then the socket's server.
+// runNodeChannel serves the node channel on the core's socket, which each node dials; the returned
+// stop ends it. The core starts no node: each is a service of its own (D233 §2, D235 §4).
 func runNodeChannel(
-	ctx context.Context, config Config, opened openedServices, startNode nodes.Starter, logger *slog.Logger,
+	ctx context.Context, config Config, opened openedServices, logger *slog.Logger,
 ) (stop func() error, err error) {
 	service := opened.nodes
 	listener, err := unixsocket.Listen(config.Server.SocketDir, coreSocketName)
@@ -60,21 +40,7 @@ func runNodeChannel(
 			logger.ErrorContext(ctx, "the node channel stopped", "err", serveErr)
 		}
 	})
-	supervisorContext, stopSupervising := context.WithCancel(ctx)
-	if startNode != nil {
-		// The supervisor judges its child each second: far finer than the silences it acts on
-		// (node_restart_after_silent_seconds), and nothing to a machine's load.
-		ticker := time.NewTicker(time.Second)
-		supervisor := nodes.NewSupervisor(startNode, service, config.Node.Name, clock.System{}, opened.settings, logger)
-		running.Go(func() {
-			defer ticker.Stop()
-			if runErr := supervisor.Run(supervisorContext, ticker.C); runErr != nil {
-				logger.ErrorContext(ctx, "the node supervisor stopped", "err", runErr)
-			}
-		})
-	}
 	return func() error {
-		stopSupervising()
 		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.shutdownGrace())
 		defer cancel()
 		err := server.Shutdown(shutdownContext)

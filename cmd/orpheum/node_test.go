@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -29,35 +27,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// inProcessNode runs the node's loop in this process, where run would start a child: the same
-// code from runNode on, without a second binary.
-type inProcessNode struct {
-	done   chan struct{}
-	err    error
-	cancel context.CancelFunc
-}
-
-func (node *inProcessNode) Done() <-chan struct{} { return node.done }
-func (node *inProcessNode) Err() error            { return node.err }
-func (node *inProcessNode) Kill() error {
-	node.cancel()
-	timer := time.NewTimer(testutil.ReceiveLimit)
-	defer timer.Stop()
-	select {
-	case <-node.done:
-		return nil
-	case <-timer.C:
-		return fmt.Errorf("the node did not stop within %s of being killed", testutil.ReceiveLimit)
-	}
-}
-
 func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	t.Parallel()
 	scanned := scanOnce(t, "nfo", "a node finished a scan")
 	config, captured, nodeID, media := scanned.config, scanned.log, scanned.nodeID, scanned.media
 	log := captured.String()
 	for _, want := range []string{
-		`"msg":"started the node"`,
+		`"msg":"said hello to the core"`,
 		`"msg":"a node said hello"`,
 		`"ffmpegVersion":"{\"format\"`,
 		`"msg":"a node finished a scan"`,
@@ -179,22 +155,9 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 // log says awaited; the returned stop ends both, and so does the test's end.
 func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
-	return startServing(t, config, captured, awaited, inProcessStarter(func(ctx context.Context) error {
+	return startServing(t, config, captured, awaited, func(ctx context.Context) error {
 		return runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams)
-	}))
-}
-
-// inProcessStarter is a node starter that runs a node's loop in this process.
-func inProcessStarter(run func(ctx context.Context) error) nodes.Starter {
-	return func(ctx context.Context) (nodes.Process, error) {
-		ctx, cancel := context.WithCancel(ctx)
-		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
-		go func() {
-			defer close(node.done)
-			node.err = run(ctx)
-		}()
-		return node, nil
-	}
+	})
 }
 
 // libraryShape is what enrolNodeWithLibrary's library is: its name, kind and metadata source.

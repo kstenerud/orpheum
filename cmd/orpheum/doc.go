@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi,
-// version, and dev in dev builds). The systemd unit runs `orpheum run`, which starts the core,
-// and the core supervises the node as a child process.
+// (core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi, version,
+// and dev in dev builds). The core and each node are services of their own, `orpheum core` and
+// `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
 //
 // This is the composition root. It is the only package that reads argv, the environment or the
 // process's standard streams, and the only one that exits; it builds the logger, the clock and
@@ -19,8 +19,8 @@
 //     file a release build compiles.
 //   - Every time the server formats is UTC, whatever TZ says (D204). Enforced by
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
-//   - run starts the node as its own child, through execx, and the core supervises it through an
-//     interface (D207); node runs the node's loop on its own. The node refuses to run while
+//   - core starts no node, and node runs the node's loop on its own: a node's work is its own, which a
+//     core restart does not touch (D233 §2). The node refuses to run while
 //     node.confinement_policy is "require" and a confinement mechanism is not in force (D112).
 //     Enforced by TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired.
 //   - The node role, node.go, imports nothing from internal/core or internal/store, as the node's
@@ -44,7 +44,7 @@
 //
 // # Read before changing
 //
-//   - D43: one binary, one process per role, and a thin optional supervisor.
+//   - D43: one binary, one process per role; D233 §2 and D235 §4 ended its thin supervisor.
 //   - D44: prefer the platform's supervisor, and never exit when you could report.
 //   - D181: migrate is also a command, so an operator can run it without starting the server.
 //   - D195: the binary is named orpheum; environment variables take an ORPHEUM_ prefix.
@@ -57,10 +57,10 @@
 //     only parses flags and wires dependencies.
 //   - config.go: the config file (cut-a §2a), every key required, each with a starting value or
 //     none (D200, D201). configfill.go: running a missing key on its starting value (D202). serve.go:
-//     orpheum run, which seeds the settings at start. operations.go: migrate, backup, restore,
+//     orpheum core, which seeds the settings at start. operations.go: migrate, backup, restore,
 //     setup-code and openapi. doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum
 //     dev seed, in dev builds only.
-//   - metadata.go: the background jobs and loops run starts. artwork.go: the artwork service and
-//     its cache's upkeep. nodes.go: the core's side of the node channel and the node's
-//     supervisor. node.go: orpheum node, the media node itself.
+//   - metadata.go: the background jobs and loops the core starts. artwork.go: the artwork service
+//     and its cache's upkeep. nodes.go: the core's side of the node channel. node.go: orpheum node,
+//     the media node itself.
 package main
