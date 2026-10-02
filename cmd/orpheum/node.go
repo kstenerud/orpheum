@@ -179,14 +179,21 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Subtitler:        subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		PreparedShelf:    preparedShelf,
-		ProgressEvery:    time.Duration(config.Node.ProgressEverySeconds) * time.Second,
-		EndedWorkKept:    time.Duration(config.Node.EndedWorkKeptHours) * time.Hour,
 	}
+	workers.ProgressEvery, workers.EndedWorkKept = workPacing(config)
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
 	coreSocketPath := filepath.Join(config.Server.SocketDir, coreSocketName)
 	return agent.New(coreSocketPath, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+}
+
+// workPacing is how often, at most, a running prepare tells the core how far it is, and how long the
+// node remembers work whose result the core took: node.progress_every_seconds and
+// node.ended_work_kept_hours.
+func workPacing(config Config) (progressEvery, endedWorkKept time.Duration) {
+	return time.Duration(config.Node.ProgressEverySeconds) * time.Second,
+		time.Duration(config.Node.EndedWorkKeptHours) * time.Hour
 }
 
 // chooseEncoder chooses, once, the encoder the node's encodes use: the first hardware one that

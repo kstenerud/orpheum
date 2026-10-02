@@ -204,4 +204,9 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	if !bench.isHeld(sourceSha256Hex, "landscape-m.webp") {
 		t.Error("landscape-m was not made again")
 	}
+	// The base is a size of the source: the command names the source's hash, which the sizes are
+	// recorded under, not the base's.
+	if cutFromBase && bench.node.sent[sent].SourceSha256 != sourceSha256Hex {
+		t.Errorf("the cut named source %q, want the source's %s", bench.node.sent[sent].SourceSha256, sourceSha256Hex)
+	}
 }
