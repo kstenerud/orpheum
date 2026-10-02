@@ -147,6 +147,9 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); answer != nil {
 		t.Fatalf("job 7 was resolved with %v; want this attempt's report from node 1, and no other", answer)
 	}
+	if kept, err := bench.cache.Read().ListNodeAttempts(t.Context()); err != nil || len(kept) != 0 {
+		t.Errorf("cache.db keeps %+v, %v once job 7 was resolved; want its attempt forgotten", kept, err)
+	}
 	bench.wantNothingSent(t, "a finished job has nothing to stop")
 }
 
