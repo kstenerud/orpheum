@@ -126,8 +126,12 @@ func (agent *Agent) Run(ctx context.Context, tick <-chan time.Time) error {
 	}
 }
 
-// session is one hello and everything until something fails.
+// session is one hello and everything until something fails. The work it is given runs on ctx,
+// the node's own lifetime, not the session's: a session that ends, the core gone or restarting,
+// stops no prepare, extraction, measurement or re-encode (D233 §2), and each posts its result when
+// a core takes it.
 func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
+	nodeCtx := ctx
 	reply, err := agent.sayHello(ctx)
 	if err != nil {
 		return err
@@ -144,7 +148,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	var sessionTasks sync.WaitGroup
 	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
 	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, reply.NodeID, commandQueue)) })
-	sessionTasks.Go(func() { cancel(agent.runCommandsInOrder(ctx, reply.NodeID, commandQueue, stream)) })
+	sessionTasks.Go(func() {
+		cancel(agent.runCommandsInOrder(ctx, nodeCtx, reply.NodeID, commandQueue, stream))
+	})
 	sessionTasks.Go(func() {
 		for {
 			select {
@@ -204,16 +210,17 @@ func (agent *Agent) pollCommands(ctx context.Context, nodeID int64, commandQueue
 	}
 }
 
-// runCommandsInOrder runs commands one at a time.
+// runCommandsInOrder runs commands one at a time, until the session's ctx ends; the work they start
+// runs on nodeCtx, the node's lifetime.
 func (agent *Agent) runCommandsInOrder(
-	ctx context.Context, nodeID int64, commandQueue <-chan nodeproto.Command, stream *recordStream,
+	ctx, nodeCtx context.Context, nodeID int64, commandQueue <-chan nodeproto.Command, stream *recordStream,
 ) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("worker stopped: %w", ctx.Err())
 		case command := <-commandQueue:
-			agent.runCommand(ctx, nodeID, command, stream)
+			agent.runCommand(ctx, nodeCtx, nodeID, command, stream)
 		}
 	}
 }
@@ -221,22 +228,22 @@ func (agent *Agent) runCommandsInOrder(
 // runCommand carries out one command. A scan of a root the node was not configured with is
 // refused, whatever the core asks (D107).
 func (agent *Agent) runCommand(
-	ctx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
+	ctx, nodeCtx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
 ) {
 	if command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil {
-		agent.deriveAndPostArtwork(ctx, nodeID, command.JobID, *command.EncodeArtwork)
+		agent.deriveAndPostArtwork(nodeCtx, nodeID, command.JobID, *command.EncodeArtwork)
 		return
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
-		agent.startPrepare(ctx, nodeID, command.JobID, *command.Prepare)
+		agent.startPrepare(nodeCtx, nodeID, command.JobID, *command.Prepare)
 		return
 	}
 	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
-		agent.extractSubtitle(ctx, nodeID, command.JobID, *command.ExtractSubtitle)
+		agent.extractSubtitle(nodeCtx, nodeID, command.JobID, *command.ExtractSubtitle)
 		return
 	}
 	if command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil {
-		agent.measureLoudness(ctx, nodeID, command.JobID, *command.MeasureLoudness)
+		agent.measureLoudness(nodeCtx, nodeID, command.JobID, *command.MeasureLoudness)
 		return
 	}
 	if command.Type == nodeproto.CommandScan {

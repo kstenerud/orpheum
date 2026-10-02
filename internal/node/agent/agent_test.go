@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,6 +43,11 @@ type fakeCore struct {
 	reportsToDrop  int                // the first reports it ends at once, as a core that went away would
 	postsToRefuse  map[resultKind]int // by kind, the first results it refuses, as a busy core would
 	stopped        chan struct{}      // closed at teardown: a handler stops handing on what it heard
+	// endSession, sent on, ends the session it reaches: the open long-poll answers 503, as a core
+	// that went away does.
+	endSession chan struct{}
+	// helloHeard is sent on at each hello, while it has room: a test waits on it for a session to begin.
+	helloHeard chan struct{}
 }
 
 // isMalformed says the node posted something that is not the JSON it should be; a body cut short
@@ -68,7 +74,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
-		stopped: make(chan struct{}),
+		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -79,6 +85,10 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
 		core.mutex.Unlock()
+		select {
+		case core.helloHeard <- struct{}{}:
+		default:
+		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
 			NodeID:                7,
 			LastIngestedReportSeq: 40,
@@ -93,6 +103,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			if err := json.NewEncoder(writer).Encode(answer); err != nil {
 				t.Error(err)
 			}
+		case <-core.endSession:
+			writer.WriteHeader(http.StatusServiceUnavailable)
 		case <-request.Context().Done():
 		case <-core.stopped:
 		}
@@ -595,5 +607,74 @@ func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
 	}
 	if disks[1].Path != gone || disks[1].Failure == "" {
 		t.Errorf("a prepared directory that cannot be measured = %+v; want why", disks[1])
+	}
+}
+
+// releasedPreparer runs every prepare until the test releases it, saying when it started, and
+// says whether one was stopped instead.
+type releasedPreparer struct {
+	started, release chan struct{}
+	stopped          *atomic.Bool
+}
+
+func (preparer releasedPreparer) Prepare(
+	ctx context.Context, _ string, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
+) (prepare.Made, error) {
+	progress(500)
+	close(preparer.started)
+	select {
+	case <-preparer.release:
+		return prepare.Made{SizeBytes: 9, VideoEncoder: "copy"}, nil
+	case <-ctx.Done():
+		preparer.stopped.Store(true)
+		return prepare.Made{}, ctx.Err()
+	}
+}
+
+// A session that ends, the core gone or restarting, stops none of the node's work: the prepare
+// runs on to its end, and its result reaches the core of the next session (D233 §2).
+func TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	preparer := releasedPreparer{
+		started: make(chan struct{}), release: make(chan struct{}), stopped: &atomic.Bool{},
+	}
+	root, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Preparer: preparer})
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	source := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	payload := &nodeproto.Prepare{
+		Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandPrepare, JobID: 9, Prepare: payload}
+	testutil.Receive(t, preparer.started, "the prepare to start")
+	select {
+	case core.endSession <- struct{}{}: // the open long-poll answers 503, which ends the session
+	case <-time.After(testutil.ReceiveLimit):
+		t.Fatal("the session's long-poll never reached the core to be ended")
+	}
+	// The next tick starts the next session; the prepare ends only once it has.
+	testutil.Receive(t, core.helloHeard, "the first session's hello")
+	ticking, stopTicking := context.WithCancel(t.Context())
+	defer stopTicking()
+	go func() {
+		for {
+			select {
+			case tick <- time.Time{}:
+			case <-ticking.Done():
+				return
+			}
+		}
+	}()
+	testutil.Receive(t, core.helloHeard, "the next session's hello")
+	close(preparer.release)
+	if done := finalPrepareReport(t, core); done.JobID != 9 || done.State != nodeproto.PrepareDone {
+		t.Errorf("the prepare's end = %+v, want job 9 done", done)
+	}
+	if preparer.stopped.Load() {
+		t.Error("the session's end stopped the prepare")
 	}
 }
