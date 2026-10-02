@@ -171,7 +171,7 @@ func Registry() []Definition {
 			"the owner, 2026-10-02: a backstop; silence and the node's own list find a lost job first"),
 		{
 			Key: ShouldScanOnNodeHello, Kind: KindBool, StartJSON: json.RawMessage("true"),
-			Description: "whether the core asks a node to scan every root it names each time it says hello",
+			Description: "whether a node is asked to scan each of its roots a library covers each time it says hello",
 			StartSource: "best guess (M2): a node that says hello may have been away while its files changed",
 		},
 		sourced(integerSetting(ScanWithholdRemovalsOverPercent, "50", 1, 100,

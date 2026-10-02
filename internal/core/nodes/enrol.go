@@ -69,7 +69,12 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
 	service.destinations.Unpark(ctx, jobs.DestinationAnyNode)
 	if scanOnHello {
-		for _, root := range hello.RootPaths {
+		roots, err := service.coveredRoots(ctx, node.ID, hello.RootPaths)
+		if err != nil {
+			service.fail(ctx, writer, "read the libraries' roots", err)
+			return
+		}
+		for _, root := range roots {
 			service.Enqueue(node.ID, nodeproto.Command{
 				Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}},
 			})
@@ -79,6 +84,26 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq,
 		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
 	})
+}
+
+// coveredRoots are the roots, of those a node's hello names, that a live library covers on it: a
+// scan of any other stores nothing, and would only hold the node's scans of those that do (the
+// owner, 2026-10-02). Creating a library over a root asks for its scan.
+func (service *Service) coveredRoots(ctx context.Context, nodeID int64, roots []string) ([]string, error) {
+	covered := make([]string, 0, len(roots))
+	for _, root := range roots {
+		_, err := store.OrNotFound(service.database.Read().GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
+			NodeID: nodeID, RootPath: root,
+		}))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+		case err != nil:
+			return nil, fmt.Errorf("read the library over %s: %w", root, err)
+		default:
+			covered = append(covered, root)
+		}
+	}
+	return covered, nil
 }
 
 // keptRenditions squares the index with the renditions a hello lists and returns those it keeps
