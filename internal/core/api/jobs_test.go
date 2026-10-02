@@ -3,6 +3,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -199,5 +200,25 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 	if waiting == nil || waiting.Name != "TMDB" || waiting.Reason != "unreachable" ||
 		waiting.NextCheckAt == nil || *waiting.NextCheckAt != next {
 		t.Errorf("a fetch while TMDB is down waits for %+v; want TMDB, unreachable, next checked in 30 s", waiting)
+	}
+}
+
+// The job view says where the node holding a job's work last said it is (D240 §6).
+func TestJobs_AJobGivenToANodeSaysWhereItsNodeSaysItIs(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.play(t, admin, chrome(2))
+	runner := harness.queue.NewRunner(jobs.KindPrepare, func(context.Context, jobs.Job) error {
+		return jobs.Assign(harness.clock.Now().Add(time.Hour))
+	})
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	harness.queue.SetNodeWords(func(int64) (string, bool) { return "paused", true })
+	shown := newestPrepareJob(t, harness.listedJobs(t, admin))
+	if shown.State != "running" || shown.OnNode != "paused" {
+		t.Errorf("the prepare its node paused shows %+v; want running, paused on its node", shown)
 	}
 }

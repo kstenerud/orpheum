@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -13,11 +14,14 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -207,5 +211,38 @@ func TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsks
 			t.Errorf("item %d's job: priority %d, arguments %s; want the person's priority, arguments %s", itemID,
 				row.Priority, row.ArgsJSON, wantArgs[itemID])
 		}
+	}
+}
+
+// The job view hears from the exchanges where the node holding a job's work last said it is: here
+// its status, which lists the attempt paused (D240 §6).
+func TestNodeWordsOf_AreWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testing.T) {
+	t.Parallel()
+	cache := storetest.OpenCache(t)
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
+			AttemptToken: "attempt-7", JobID: 7, JobKind: string(jobs.KindMeasureLoudness), NodeID: 1,
+			WorkJSON: `{"type":"measure_loudness"}`, SentAt: 1,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
+		Clock: clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)), Random: rand.Reader,
+		Logger: slog.New(slog.DiscardHandler), Cache: cache, MaxSilence: time.Minute,
+		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+	})
+	if err := exchanges.Load(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	words := nodeWordsOf(exchanges)
+	if word, isSaid := words(7); isSaid {
+		t.Errorf("before its node spoke of job 7 its word is %q, want none", word)
+	}
+	exchanges.Square(t.Context(), 1,
+		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "attempt-7", State: nodeproto.HeldPaused}}, nil)
+	if word, isSaid := words(7); !isSaid || word != "paused" {
+		t.Errorf("once its node's status listed job 7 paused, its word is %q (%v), want paused", word, isSaid)
 	}
 }
