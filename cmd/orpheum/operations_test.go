@@ -5,6 +5,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -199,5 +200,21 @@ func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t
 	// A machine that reports no mechanism at all is not confined; the command once said nothing.
 	if none := confinementOfThisMachine(nil); none.verdict != verdictWarning {
 		t.Errorf("no mechanism reported: %+v, want a warning", none)
+	}
+}
+
+// An operation on a server that never started says how to start it, with a subcommand that exists:
+// `orpheum core` since the node became a service of its own (D235 §4).
+func TestOpenExistingDatabase_SaysToStartTheCoreWithASubcommandThatExists(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	_, _, err := openExistingDatabase(t.Context(), config)
+	if err == nil || !strings.Contains(err.Error(), "`orpheum core`") {
+		t.Fatalf("an operation with no database: %v, want it to say to start `orpheum core`", err)
+	}
+	if !slices.ContainsFunc(plannedSubcommands(), func(planned subcommand) bool {
+		return planned.name == "core" && planned.implementation != nil
+	}) {
+		t.Error("the message names `orpheum core`, which is not a subcommand that runs")
 	}
 }
