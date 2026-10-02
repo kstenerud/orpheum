@@ -498,6 +498,16 @@ failure (`ErrWorkLost`), stray work is a broken invariant and dropped; counts pe
 *4c.4 built 2026-10-02:* a job that ends or is cancelled before its node took its command has the
 command withdrawn from the node's queue (`Service.Withdraw`), never sent, and nothing sent to stop it.
 
+*4c.5 built 2026-10-02:* a made rendition's manifest (`nodeproto.RenditionManifest`, the command
+that made it and how) is written beside it while it is still marked being written; each hello lists
+the renditions on the node's disk by them; the core adopts those it does not know whose source is
+still that file on that node, completes one whose making it names but whose end it did not hear,
+and replies with those it keeps (`HelloReply.KeptRenditionDirs`); the node evicts the others it
+listed and every run directory without a manifest, never one being written or made since the
+listing. A rendition the index holds complete that the node no longer has is not marked at the
+hello, which could race a making that ends meanwhile: the play that finds it gone prepares it again,
+as before (`PrepareAgain`). Node protocol 10.
+
 ### 4d — windows, slots and priority
 
 - The core gives each node a window of work a little beyond its free slots and keeps global

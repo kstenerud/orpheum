@@ -3,12 +3,19 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -156,5 +163,71 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	})
 	if levelled.GainDB != 12.7 {
 		t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", levelled)
+	}
+}
+
+// TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted rebuilds the index from
+// the node's disk (D238 §2): a rendition whose manifest names the film as it is, which cache.db does
+// not know, is adopted complete at the node's hello, and a run directory without a manifest, a
+// making that never finished, is evicted.
+func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *testing.T) {
+	t.Parallel()
+	shelved := filmOnNode(t, "nfo")
+	server, _, filmFileID := playableFilm(t, shelved)
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+	config := shelved.config
+	film, err := openDatabase(t, config).Read().GetPlayableFile(t.Context(), filmFileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	made := strconv.FormatInt(filmFileID, 10) + "/remux/0123456789abcdef"
+	unfinished := strconv.FormatInt(filmFileID, 10) + "/h264-8m/fedcba9876543210"
+	for _, dir := range []string{made, unfinished} {
+		writeFile(t, filepath.Join(config.Node.PreparedDir, dir, "master.m3u8"), "#EXTM3U")
+	}
+	manifest, err := json.Marshal(nodeproto.RenditionManifest{
+		Prepare: nodeproto.Prepare{
+			Video:   nodeproto.BytesFile{PayloadHash: hex.EncodeToString(film.PayloadHash)},
+			Profile: nodeproto.ProfileRemux, RenditionDir: made, SegmentLengthSeconds: 2,
+		},
+		MadeAtMs: 1000, SizeBytes: 7, VideoEncoder: "copy",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(config.Node.PreparedDir, made, nodeproto.ManifestName), string(manifest))
+	const evicted = "evicted the renditions the core does not keep"
+	again := serveWithNode(t, config, newCapturedLog("ready", evicted), evicted)
+	if err = again.stop(); err != nil {
+		t.Fatal(err)
+	}
+	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
+	adopted, err := cache.Read().GetRenditionOfFileAndProfile(t.Context(),
+		cachegen.GetRenditionOfFileAndProfileParams{SourceFile: filmFileID, Profile: "remux"})
+	if err != nil || adopted.State != "complete" || adopted.RunID != "0123456789abcdef" {
+		t.Errorf("the film's remux in the index is %+v (%v), want the node's adopted complete", adopted, err)
+	}
+	if _, err := os.Stat(filepath.Join(config.Node.PreparedDir, unfinished)); !os.IsNotExist(err) {
+		t.Errorf("the unfinished making is still on the node's disk: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(config.Node.PreparedDir, made, "master.m3u8")); err != nil {
+		t.Errorf("the adopted rendition is gone from the node's disk: %v", err)
+	}
+}
+
+// writeFile writes contents to path, making its folders.
+func writeFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }

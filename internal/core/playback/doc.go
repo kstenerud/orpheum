@@ -22,6 +22,13 @@
 //     by the file's. The job only learns how the work ended.
 //     TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits.
 //
+//   - The index of renditions is squared with those a node's hello lists by their manifests (D238
+//     §2): one it does not know whose source is still that file on that node is adopted complete,
+//     which rebuilds the index after a cache.db discard; one whose making it names is kept, and
+//     recorded complete if its end was not heard; any other is not kept, and the node evicts it.
+//     TestAdoptRenditions_RebuildsTheIndexFromTheNodesManifestsAndKeepsOnlyWhatItNames, and end to
+//     end TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted (cmd/orpheum).
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
@@ -213,5 +220,6 @@
 //     fetched on request, and the job that converts one. loudness.go: the gain that levels a
 //     sound, the sweep for files to measure and the measurement job. choices.go: a person's
 //     choices in a file, kept through internal/core/preferences, and a file's audio tracks. stall.go: a
-//     node's word that FFmpeg stalled, and a wait its node's restart ended. Next Up comes after M3.
+//     node's word that FFmpeg stalled, and a wait its node's restart ended. adopt.go: the index
+//     squared with a node's renditions at its hello. Next Up comes after M3.
 package playback

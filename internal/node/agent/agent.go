@@ -73,10 +73,14 @@ type Workers struct {
 	HeldResults *HeldResults
 }
 
-// PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
+// PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
+// the renditions it holds by their manifests for the hello, and evicts those the core does not keep
+// (D238 §2).
 type PreparedShelf interface {
 	Evict() (prepared.Usage, error)
 	LastUsage() (prepared.Usage, bool)
+	Inventory() ([]nodeproto.RenditionManifest, error)
+	Reconcile(listed, kept []string) (evicted []string, err error)
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
@@ -149,12 +153,14 @@ func (agent *Agent) Run(ctx context.Context, tick <-chan time.Time) error {
 // a core takes it.
 func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	nodeCtx := ctx
-	reply, err := agent.sayHello(ctx)
+	hello := agent.helloNow(ctx)
+	reply, err := agent.sayHello(ctx, hello)
 	if err != nil {
 		return err
 	}
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastIngestedReportSeq",
 		reply.LastIngestedReportSeq)
+	agent.evictUnkept(ctx, hello.Renditions, reply.KeptRenditionDirs)
 	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -185,8 +191,42 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	return context.Cause(ctx)
 }
 
-func (agent *Agent) sayHello(ctx context.Context) (nodeproto.HelloReply, error) {
-	encoded, err := json.Marshal(agent.hello)
+// helloNow is the node's hello with the renditions its prepared directory holds now.
+func (agent *Agent) helloNow(ctx context.Context) nodeproto.Hello {
+	hello := agent.hello
+	if agent.workers.PreparedShelf == nil {
+		return hello
+	}
+	renditions, err := agent.workers.PreparedShelf.Inventory()
+	if err != nil {
+		// The core adopts none of them this time, and none is evicted for it.
+		agent.logger.WarnContext(ctx, "could not list the prepared renditions for the hello", "err", err)
+	}
+	hello.Renditions = renditions
+	return hello
+}
+
+// evictUnkept evicts the renditions the hello listed that the core's reply does not keep, and the
+// makings that never finished (D238 §2).
+func (agent *Agent) evictUnkept(ctx context.Context, listed []nodeproto.RenditionManifest, kept []string) {
+	if agent.workers.PreparedShelf == nil {
+		return
+	}
+	listedDirs := make([]string, 0, len(listed))
+	for _, manifest := range listed {
+		listedDirs = append(listedDirs, manifest.Prepare.RenditionDir)
+	}
+	evicted, err := agent.workers.PreparedShelf.Reconcile(listedDirs, kept)
+	if err != nil {
+		agent.logger.WarnContext(ctx, "could not evict the renditions the core does not keep", "err", err)
+	}
+	if len(evicted) > 0 {
+		agent.logger.InfoContext(ctx, "evicted the renditions the core does not keep", "renditionDirs", evicted)
+	}
+}
+
+func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodeproto.HelloReply, error) {
+	encoded, err := json.Marshal(hello)
 	if err != nil {
 		return nodeproto.HelloReply{}, fmt.Errorf("encode the hello: %w", err)
 	}

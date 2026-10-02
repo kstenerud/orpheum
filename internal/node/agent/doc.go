@@ -16,6 +16,9 @@
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - Records reach the core in the order of their numbers, numbered on from the core's last,
 //     each as soon as it is written. TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder.
+//   - Each hello lists the renditions the prepared directory holds, by their manifests, and the
+//     node evicts those the reply does not keep (D238 §2).
+//     TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted.
 //   - A root is scanned only if the node was configured with it, whatever the core asks (D107).
 //     TestAgent_RefusesToScanARootItWasNotGiven.
 //   - Losing the core ends the session and the next tick starts another.
@@ -113,7 +116,7 @@
 //
 //   - agent.go: the session and its four parts, the commands and scans; report.go: numbering;
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
-//     prepare.go: prepares;
+//     prepare.go: prepares; hello_test.go: the hello's renditions;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
 //     loudness.go: loudness measurement; working.go: the work held, its slots and priority order,
 //     and cancel.

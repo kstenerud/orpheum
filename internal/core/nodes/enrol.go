@@ -17,8 +17,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// maxHelloBytes bounds a hello; a real one is a few hundred bytes.
-const maxHelloBytes = 1 << 20
+// maxHelloBytes bounds a hello: a few hundred bytes, and as many again for each rendition the node
+// holds, so thousands fit.
+const maxHelloBytes = 8 << 20
 
 // hello enrols a node it has not seen, by name (D207), and queues a scan of every root it names
 // when should_scan_on_node_hello says so.
@@ -74,7 +75,32 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 			})
 		}
 	}
-	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq})
+	writeJSON(writer, nodeproto.HelloReply{
+		NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq,
+		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
+	})
+}
+
+// keptRenditions squares the index with the renditions a hello lists and returns those it keeps
+// (D238 §2). Without an index, or when it cannot be squared, every one is kept: the node evicts
+// nothing for the core's failure.
+func (service *Service) keptRenditions(
+	ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest,
+) []string {
+	listed := make([]string, 0, len(renditions))
+	for _, manifest := range renditions {
+		listed = append(listed, manifest.Prepare.RenditionDir)
+	}
+	if service.renditionIndex == nil {
+		return listed
+	}
+	kept, err := service.renditionIndex.AdoptRenditions(ctx, nodeID, renditions)
+	if err != nil {
+		service.logger.ErrorContext(ctx, "could not square the index with a node's renditions; keeping them all",
+			"nodeId", nodeID, "err", err)
+		return listed
+	}
+	return kept
 }
 
 // Enrol returns the id of the live node called name, creating its row if there is none (D207):

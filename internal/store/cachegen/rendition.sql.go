@@ -78,6 +78,55 @@ func (q *Queries) GetRenditionOfFileAndProfile(ctx context.Context, arg GetRendi
 	return i, err
 }
 
+const insertAdoptedRendition = `-- name: InsertAdoptedRendition :execrows
+INSERT INTO prepared_rendition (source_file, source_payload_hash, profile, node_id, state, segment_length_seconds,
+  run_id, size_bytes, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at,
+  finished_at)
+VALUES (?1, ?2, ?3, ?4, 'complete',
+  ?5, ?6, ?7, ?8,
+  ?9, ?10, ?11, ?12,
+  ?12)
+ON CONFLICT (source_file, profile) DO NOTHING
+`
+
+type InsertAdoptedRenditionParams struct {
+	SourceFile           int64
+	SourcePayloadHash    []byte
+	Profile              string
+	NodeID               int64
+	SegmentLengthSeconds int64
+	RunID                string
+	SizeBytes            *int64
+	VideoEncoder         *string
+	RealtimeFactor       *float64
+	CarriedGainsDBJSON   string
+	AudioLanguagesJSON   string
+	MadeAt               int64
+}
+
+// A rendition a node holds that the index does not know, as after a cache.db discard: adopted,
+// complete, from the manifest beside it (D238 section 2). One the index has meanwhile is left.
+func (q *Queries) InsertAdoptedRendition(ctx context.Context, arg InsertAdoptedRenditionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertAdoptedRendition,
+		arg.SourceFile,
+		arg.SourcePayloadHash,
+		arg.Profile,
+		arg.NodeID,
+		arg.SegmentLengthSeconds,
+		arg.RunID,
+		arg.SizeBytes,
+		arg.VideoEncoder,
+		arg.RealtimeFactor,
+		arg.CarriedGainsDBJSON,
+		arg.AudioLanguagesJSON,
+		arg.MadeAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const insertRendition = `-- name: InsertRendition :one
 INSERT INTO prepared_rendition (source_file, source_payload_hash, profile, node_id, segment_length_seconds, run_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)

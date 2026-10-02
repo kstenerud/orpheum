@@ -22,7 +22,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 9
+const ProtocolVersion = 10
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -55,6 +55,10 @@ type Hello struct {
 	Hardware Hardware `json:"hardware"`
 	// Capacity is how much work the node takes on at once, and how fast it reads, from its config.
 	Capacity Capacity `json:"capacity"`
+	// Renditions are the renditions in the node's prepared directory, by their manifests, read from
+	// its disk as it says hello: the core adopts those it does not know into its index, and its
+	// reply names the ones it keeps (D238 §2).
+	Renditions []RenditionManifest `json:"renditions,omitempty"`
 }
 
 // Capacity is what a node's machine can do, as its config says: facts about the deployment, not
@@ -112,9 +116,13 @@ type Confinement struct {
 	Remedy string `json:"remedy"`
 }
 
-// HelloReply is the core's answer: the node's id, and the last report sequence number the core
-// ingested, from which the node continues numbering.
+// HelloReply is the core's answer: the node's id, the last report sequence number the core
+// ingested, from which the node continues numbering, and the renditions of the hello it keeps.
 type HelloReply struct {
 	NodeID                int64 `json:"nodeId"`
 	LastIngestedReportSeq int64 `json:"lastIngestedReportSeq"`
+	// KeptRenditionDirs are the directories, as <file_id>/<profile>/<run_id>, of the hello's
+	// renditions the core's index keeps: the node evicts the others it listed, which the core knows
+	// nothing of or has made again since (D238 §2).
+	KeptRenditionDirs []string `json:"keptRenditionDirs"`
 }

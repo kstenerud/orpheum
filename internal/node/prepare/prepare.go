@@ -51,6 +51,8 @@ type Keeper interface {
 	MakeRoom() error
 	// MarkWriting marks a rendition being written, which eviction leaves alone, until finishWriting is called.
 	MarkWriting(renditionDir string) (finishWriting func())
+	// Shelve writes a made rendition's manifest beside it (D238 §2).
+	Shelve(manifest nodeproto.RenditionManifest) error
 }
 
 // Preparer makes renditions under the node's prepared directory.
@@ -142,7 +144,17 @@ func (preparer *Preparer) Prepare(
 	if command.Profile == nodeproto.ProfileH264At8M {
 		videoEncoder = string(preparer.encoder)
 	}
-	return Made{SizeBytes: sizeBytes, VideoEncoder: videoEncoder, RealtimeFactor: realtimeFactor}, nil
+	made := Made{SizeBytes: sizeBytes, VideoEncoder: videoEncoder, RealtimeFactor: realtimeFactor}
+	// The manifest is written while the rendition is still marked being written, so no eviction
+	// finds it without one and takes it for a making that never finished.
+	err = preparer.keeper.Shelve(nodeproto.RenditionManifest{
+		Prepare: command, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
+		RealtimeFactor: made.RealtimeFactor,
+	})
+	if err != nil {
+		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+	}
+	return made, nil
 }
 
 // expectedLength is how long a prepare is expected to run: its source's length at the speed the

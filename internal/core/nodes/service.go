@@ -49,6 +49,13 @@ type ResultSink interface {
 	Square(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)
 }
 
+// RenditionIndex is the core's index of the renditions its nodes hold: playback's, which owns it. A
+// node's hello lists its renditions by their manifests, and AdoptRenditions squares the index with
+// them and returns the directories of those it keeps; the node evicts the others (D238 §2).
+type RenditionIndex interface {
+	AdoptRenditions(ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest) ([]string, error)
+}
+
 // Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back
 // the work parked on it, and its status showing room the prepares parked on its prepared
 // directory (D231 §5, §11).
@@ -70,6 +77,7 @@ type Service struct {
 	resultSink       ResultSink
 	heldResults      HeldResultReader
 	prepareSlotsSink PrepareSlotsSink
+	renditionIndex   RenditionIndex
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode
@@ -88,6 +96,12 @@ type HeldResultReader interface {
 // a held result that arrives with none set is refused.
 func (service *Service) SetHeldResultReader(reader HeldResultReader) {
 	service.heldResults = reader
+}
+
+// SetRenditionIndex names the index a node's hello squares its renditions with. Set it before the
+// channel serves; with none set, every rendition a node lists is kept.
+func (service *Service) SetRenditionIndex(index RenditionIndex) {
+	service.renditionIndex = index
 }
 
 // SetResultSink names where the nodes' results go. Set it before the channel serves; a result that

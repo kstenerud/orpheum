@@ -33,6 +33,9 @@
 //     (integration tier). The gain is provisional until the listening test sets it (cut-a §6).
 //   - A rendition is written only under "<file_id>/<profile>/<run_id>" in the prepared directory.
 //     Enforced by the renditionDir pattern, checked before anything is made.
+//   - A made rendition's manifest is shelved beside it while it is still marked being written, so
+//     no eviction takes it for a making that never finished (D238 §2). Enforced by
+//     TestPreparer_ShelvesAMadeRenditionsManifestWhileItIsStillBeingWritten.
 //   - A prepare is watched for a stall (execx.RunWatched), with a deadline from its source's length
 //     at the speed the last prepare of its profile ran here, or half of real time before one has.
 //     Enforced by TestPreparer_WatchesARunWithADeadlineFromTheSourcesLengthAndTheSpeedLastMeasuredHere.

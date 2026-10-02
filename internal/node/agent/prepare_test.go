@@ -162,6 +162,10 @@ func (shelf evictingShelf) Evict() (prepared.Usage, error) {
 
 func (evictingShelf) LastUsage() (prepared.Usage, bool) { return prepared.Usage{}, false }
 
+func (evictingShelf) Inventory() ([]nodeproto.RenditionManifest, error) { return nil, nil }
+
+func (evictingShelf) Reconcile([]string, []string) ([]string, error) { return nil, nil }
+
 // A prepare adds to the prepared directory, so once it ends the directory is brought back within its
 // budget then, not only when the next prepare makes room (D217 §5).
 func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testing.T) {

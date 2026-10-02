@@ -20,6 +20,13 @@
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
 //   - A prepare the disk has no room for is refused, with why.
 //     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
+//   - Each made rendition has a manifest beside it (nodeproto.ManifestName), so a node holding no
+//     database knows what its disk holds after a restart, and its hello lists them by it (D238 §2).
+//     TestInventory_ListsTheShelvedRenditionsByTheirManifests.
+//   - At each hello the node evicts the renditions it listed that the core does not keep, and every
+//     run directory without a manifest, whatever their kept time; never one being written, nor one
+//     made after the listing (the owner, 2026-10-02).
+//     TestReconcile_EvictsWhatTheCoreDoesNotKeepAndUnfinishedMakingsButNeverOneBeingWrittenOrMadeSince.
 //   - The disk keeps its floor of free space, node.min_free_mib, whatever its percentage says:
 //     below it renditions are evicted, and a prepare with nothing left to evict is refused (the
 //     owner, 2026-10-02). TestMakeRoom_KeepsTheDisksFloorOfFreeSpace.
@@ -32,4 +39,5 @@
 // # Where to change
 //
 //   - shelf.go: the budget, last use, eviction and room.
+//   - manifest.go: the manifests, the inventory and the hello's eviction.
 package prepared

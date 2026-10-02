@@ -77,6 +77,10 @@
 //     TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly.
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
 //     TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway.
+//   - The reply to a hello names the renditions it listed that the index keeps (RenditionIndex),
+//     and the node evicts the others; with no index, or one that cannot be squared, every one is
+//     kept, so the node evicts nothing for the core's failure (D238 §2).
+//     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.

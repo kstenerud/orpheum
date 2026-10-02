@@ -181,6 +181,7 @@ func openAndWire(
 		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
 	})
 	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
+	opened.nodes.SetRenditionIndex(dependencies.Playback)
 	dependencies.NodeBytes = openByteSocket(opened.nodes, config)
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.NodeReports = opened.nodes

@@ -54,6 +54,8 @@ type fakeCore struct {
 	endSession chan struct{}
 	// helloHeard is sent on at each hello, while it has room: a test waits on it for a session to begin.
 	helloHeard chan struct{}
+	// keptRenditionDirs are the renditions the reply to a hello keeps. Guarded by mutex.
+	keptRenditionDirs []string
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
 	tokenlessJobIDs map[int64]bool
 }
@@ -104,6 +106,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
+		kept := core.keptRenditionDirs
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
@@ -112,6 +115,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
 			NodeID:                7,
 			LastIngestedReportSeq: 40,
+			KeptRenditionDirs:     kept,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -654,12 +658,6 @@ func TestReadImage_ReadsAnImageUnderARootOfSlash(t *testing.T) {
 		t.Errorf("an image under the root / read as %q, %v; want its bytes", image, err)
 	}
 }
-
-// fakePreparedShelf is a prepared shelf whose last eviction left usage.
-type fakePreparedShelf struct{ usage prepared.Usage }
-
-func (kept fakePreparedShelf) Evict() (prepared.Usage, error)    { return kept.usage, nil }
-func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
 
 func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 	t.Parallel()
