@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 22
+-- cache schema version 23
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,8 +20,9 @@ CREATE TABLE job (                                         -- the one work queue
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
+  -- 'assigned' is a job whose work a node does: no runner waits for it (D234 section 7).
   state       TEXT NOT NULL DEFAULT 'queued'
-                CHECK (state IN ('queued','running','done','failed','cancelled')),
+                CHECK (state IN ('queued','running','assigned','done','failed','cancelled')),
   -- What it needs that can be down (D231 section 5): 'tmdb-api', 'node:3', 'root:3:/media/films';
   -- named when it is queued, or the one it was last parked on. A claim passes over the parked ones.
   destination TEXT,
@@ -38,6 +39,9 @@ CREATE TABLE job (                                         -- the one work queue
   last_failure TEXT,                     -- FFmpeg's exit and stderr tail, the provider's reply
   created_at  INTEGER NOT NULL,
   finished_at INTEGER,
+  -- When an assigned job's time runs out, after which it is its own failure; kept while its
+  -- outcome is taken, and NULL once that is written.
+  assigned_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
 );

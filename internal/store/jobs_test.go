@@ -230,3 +230,87 @@ func TestJobStorage_AClaimPassesOverAParkedDestinationAndAWaitKeepsWhereItWasPar
 		t.Errorf("with nothing parked, the claim took %+v (found %v); want item 1's, the highest", third, found)
 	}
 }
+
+// assign queues a job of kind for target, claims it and records it given to a node until until,
+// and returns its id.
+func (fixed jobStorageFixture) assign(kind jobqueue.Kind, target JobTarget, until time.Time) int64 {
+	fixed.t.Helper()
+	fixed.insert(kind, target, 0, jobStart)
+	row, _ := fixed.claim(kind, jobStart)
+	assigned := jobqueue.Outcome{ID: row.ID, State: jobqueue.StateAssigned, At: until, AttemptCount: 1}
+	if err := fixed.jobs.Record(fixed.t.Context(), assigned); err != nil {
+		fixed.t.Fatal(err)
+	}
+	return row.ID
+}
+
+// An assigned job is kept on cache.db with when its time runs out: open, running for a request,
+// and left assigned by a restart, since its node still has it (D234 §7).
+func TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	until := jobStart.Add(time.Hour)
+	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, until)
+	if row := storage.byID()[prepare]; row.State != jobqueue.StateAssigned || row.AssignedUntil == nil ||
+		!row.AssignedUntil.Equal(until) || row.AttemptCount != 1 {
+		t.Fatalf("an assigned prepare = %+v, want assigned until %v with its attempt", row, until)
+	}
+	if open := storage.insert("prepare", JobTarget{RenditionID: 7}, 0, jobStart); open.Running == nil ||
+		open.Running.ID != prepare {
+		t.Errorf("a request's plan was shown %+v, want the assigned prepare as running", open)
+	}
+	if count, err := storage.jobs.RequeueRunning(t.Context()); err != nil || count != 0 {
+		t.Errorf("RequeueRunning = %d, %v; want the assigned job left with its node", count, err)
+	}
+	if open, err := storage.jobs.ListOpen(t.Context()); err != nil || len(open) != 2 {
+		t.Errorf("ListOpen = %d jobs, %v; want the assigned prepare and its follow-up", len(open), err)
+	}
+}
+
+// A cancel ends an assigned job, and no outcome takes it after.
+func TestJobStorage_ACancelEndsAnAssignedJobAndNoOutcomeTakesIt(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, jobStart.Add(time.Hour))
+	if cancelled, err := storage.jobs.Cancel(t.Context(), prepare, jobStart); err != nil || !cancelled {
+		t.Fatalf("cancelling the assigned prepare: %v, %v", cancelled, err)
+	}
+	_, found, takeErr := storage.jobs.TakeAssigned(t.Context(), prepare)
+	if row := storage.byID()[prepare]; takeErr != nil || found || row.State != jobqueue.StateCancelled ||
+		row.AssignedUntil != nil {
+		t.Errorf("an outcome for the cancelled prepare: taken %v (%v), and it is %+v; want it left cancelled",
+			found, takeErr, row)
+	}
+}
+
+// An assigned job is taken back once: by its kind once its time ran out, or by its outcome, and
+// whichever comes second finds nothing.
+func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	until := jobStart.Add(time.Hour)
+	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, until)
+	storage.assign("measure_loudness", JobTarget{FileID: 8}, jobStart)
+	takeOverdue := func(kind jobqueue.Kind, now time.Time) (jobqueue.Row[JobTarget], bool) {
+		t.Helper()
+		row, found, err := storage.jobs.TakeOverdueAssigned(t.Context(), kind, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row, found
+	}
+	if _, found := takeOverdue("prepare", until.Add(-time.Millisecond)); found {
+		t.Error("a prepare was taken as overdue before its time ran out")
+	}
+	overdue, found := takeOverdue("prepare", until)
+	if !found || overdue.ID != prepare || overdue.State != jobqueue.StateRunning || overdue.AssignedUntil == nil ||
+		!overdue.AssignedUntil.Equal(until) {
+		t.Fatalf("the overdue prepare = %+v (%v); want it back to running, its time kept", overdue, found)
+	}
+	if _, found := takeOverdue("prepare", until.Add(24*time.Hour)); found {
+		t.Error("an overdue prepare was taken twice, or the measurement, of another kind, taken as a prepare")
+	}
+	if _, found, err := storage.jobs.TakeAssigned(t.Context(), prepare); err != nil || found {
+		t.Errorf("an outcome after its time ran out took the prepare again: %v, %v", found, err)
+	}
+}

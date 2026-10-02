@@ -20,8 +20,8 @@ type Queueing[T comparable] interface {
 	// Enqueue reads kind's open jobs for target, asks plan what to do with them, and applies its
 	// Change, all in one write, so two requests for one target never both insert.
 	Enqueue(ctx context.Context, kind Kind, target T, plan func(open Open[T]) (Change, error)) error
-	// Cancel ends a queued or running job as cancelled at the given time, and says whether one was
-	// open. A cancelled job stays cancelled whatever its handler records after.
+	// Cancel ends a queued, running or assigned job as cancelled at the given time, and says whether
+	// one was open. A cancelled job stays cancelled whatever its handler records after.
 	Cancel(ctx context.Context, id int64, at time.Time) (bool, error)
 }
 
@@ -34,10 +34,18 @@ type Working[T comparable] interface {
 	Claim(ctx context.Context, claim Claim) (Row[T], bool, error)
 	// Record writes a claimed job's outcome, unless the job was cancelled meanwhile.
 	Record(ctx context.Context, outcome Outcome) error
+	// TakeAssigned returns an assigned job to running, so its outcome can be recorded, and reports
+	// false when it is not assigned: cancelled, or already taken by its outcome or its time running
+	// out. Only one of those takes it.
+	TakeAssigned(ctx context.Context, id int64) (Row[T], bool, error)
+	// TakeOverdueAssigned returns to running the assigned job of a kind whose time ran out first,
+	// by now, and reports false when there is none.
+	TakeOverdueAssigned(ctx context.Context, kind Kind, now time.Time) (Row[T], bool, error)
 	// SetProgress records how far a running job is.
 	SetProgress(ctx context.Context, id int64, fraction float64) error
 	// RequeueRunning returns every running job to queued, keeping the attempt its claim counted,
-	// and says how many there were: what a stop left running.
+	// and says how many there were: what a stop left running. An assigned job stays assigned: the
+	// machine it was given to still has it.
 	RequeueRunning(ctx context.Context) (int64, error)
 }
 
@@ -45,13 +53,14 @@ type Working[T comparable] interface {
 type Listing[T comparable] interface {
 	// List is the newest jobs, newest first, at most limit: the job view's.
 	List(ctx context.Context, limit int64) ([]Row[T], error)
-	// ListOpen is every queued and running job, for a cancel of the work of what a program
+	// ListOpen is every queued, running and assigned job, for a cancel of the work of what a program
 	// retires. What became of a job that ended is never a fact a program derives work from
 	// (D231 section 3).
 	ListOpen(ctx context.Context) ([]Row[T], error)
 }
 
-// Open are a kind's open jobs for one target: at most one queued and one running.
+// Open are a kind's open jobs for one target: at most one queued and one running, where an
+// assigned job counts as running.
 type Open[T comparable] struct {
 	Queued  *Row[T]
 	Running *Row[T]
@@ -99,9 +108,11 @@ type Claim struct {
 // Outcome is a claimed job's end, or its return to the queue.
 type Outcome struct {
 	ID int64
-	// State is StateDone, StateFailed, or StateQueued for a job that waits to run again.
+	// State is StateDone, StateFailed, StateQueued for a job that waits to run again, or
+	// StateAssigned for one whose work another machine does.
 	State State
-	// At is when a done or failed job finished, or when a queued one may run again.
+	// At is when a done or failed job finished, when a queued one may run again, or when an
+	// assigned one's time runs out.
 	At time.Time
 	// AttemptCount is the count the job ends or waits with: the claim's, or one less when the
 	// attempt is given back.

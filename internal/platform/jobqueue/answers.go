@@ -11,7 +11,7 @@ import (
 // A handler answers with an error, or nil when the job is done. These wrap the error to say what
 // the queue does next; any other error is the job's own failure, retried with back-off until the
 // attempt limit. Only an error wrapped this way costs no attempt. The queue reads the first it
-// finds of Park, Snooze, Permanent and ToolFailed, in that order.
+// finds of Assign, Park, Snooze, Permanent and ToolFailed, in that order.
 
 // Park answers that the job's destination is down, a failure that says nothing of the job's own
 // item (D231 §5): the job returns to the queue at no cost of an attempt, kept with that
@@ -34,6 +34,18 @@ func ParkingOf(answer error) (Parking, bool) {
 		return Parking{}, false
 	}
 	return failure.parking, true
+}
+
+// Assign answers that the job's work was given to another machine, a node, which says later how it
+// ended (D234 §7): the job is assigned, its runner goes on with other jobs, and nothing waits for
+// it. Runner.Resolve takes the node's outcome, as a handler's answer; past until, the job's time
+// has run out, and that is its own failure.
+func Assign(until time.Time) error { return &assigned{until: until} }
+
+type assigned struct{ until time.Time }
+
+func (handOff *assigned) Error() string {
+	return "assigned to another machine until " + handOff.until.UTC().Format(time.RFC3339)
 }
 
 // Snooze answers that the job should wait until a time at no cost of an attempt, while the

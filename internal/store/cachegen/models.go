@@ -30,6 +30,7 @@ type Job struct {
 	LastFailure           *string
 	CreatedAt             int64
 	FinishedAt            *int64
+	AssignedUntil         *int64
 }
 
 type MatchCandidate struct {

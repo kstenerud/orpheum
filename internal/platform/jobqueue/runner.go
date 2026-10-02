@@ -70,26 +70,79 @@ func (runner *Runner[T]) Run(ctx context.Context, tick <-chan time.Time) error {
 }
 
 // RunDue runs every job of the runner's kind whose time has come and whose destination is not
-// parked, highest priority first. While the storage is down it claims nothing until its probe.
+// parked, highest priority first, once every assigned job of its kind whose time ran out has
+// failed for it. While the storage is down it claims nothing until its probe.
 func (runner *Runner[T]) RunDue(ctx context.Context) error {
 	for ctx.Err() == nil {
 		if isWritten, err := runner.recordUnrecorded(ctx); err != nil || !isWritten {
 			return err
 		}
+		if isOverdue, err := runner.failOverdueAssigned(ctx); err != nil || isOverdue {
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		claimed, found, err := runner.claim(ctx)
 		if err != nil || !found {
 			return err
 		}
-		row := claimed.row
-		job := Job[T]{
-			ID: row.ID, Kind: row.Kind, Target: row.Target, ArgsJSON: row.ArgsJSON, Priority: row.Priority,
-			AttemptNumber: row.AttemptCount, PreviousAttemptToolFailed: row.LastAttemptToolFailed,
-		}
-		if err := runner.runClaimed(ctx, job, claimed); err != nil {
+		if err := runner.runClaimed(ctx, jobOf(claimed.row), claimed); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// jobOf is a job as its handler receives it, from its row.
+func jobOf[T comparable](row Row[T]) Job[T] {
+	return Job[T]{
+		ID: row.ID, Kind: row.Kind, Target: row.Target, ArgsJSON: row.ArgsJSON, Priority: row.Priority,
+		AttemptNumber: row.AttemptCount, PreviousAttemptToolFailed: row.LastAttemptToolFailed,
+	}
+}
+
+// Resolve takes the outcome of an assigned job of the runner's kind, which the machine it was given
+// to said (Assign), as though its handler had answered it: nil is done, and the answers.go answers
+// say what else happens. It reports false, and records nothing, for a job that is not assigned:
+// cancelled meanwhile, or failed when its time ran out.
+func (runner *Runner[T]) Resolve(ctx context.Context, id int64, answer error) (bool, error) {
+	row, found, err := runner.queue.storage.TakeAssigned(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("take assigned job %d: %w", id, err)
+	}
+	if !found {
+		return false, nil
+	}
+	if row.Kind != runner.kind {
+		return false, fmt.Errorf("job %d is a %s job, not this runner's %s", id, row.Kind, runner.kind)
+	}
+	return true, runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, answer)
+}
+
+// failOverdueAssigned fails one assigned job of the runner's kind whose time ran out, as its own
+// failure: retried after its back-off, or failed at its attempt limit. It reports whether there
+// was one. While the storage is parked it waits for the claims' probe, and a write the storage
+// refuses parks it, as a claim's does.
+func (runner *Runner[T]) failOverdueAssigned(ctx context.Context) (bool, error) {
+	queue := runner.queue
+	if storage := queue.storageDestination; storage != "" && queue.isParked(storage) {
+		return false, nil
+	}
+	now := queue.clock.Now()
+	row, found, err := queue.storage.TakeOverdueAssigned(ctx, runner.kind, now)
+	if err != nil && queue.isStorageFailure(err) {
+		queue.Park(ctx, Parking{Destination: queue.storageDestination, Reason: storageReason(err)})
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("take an overdue assigned %s job: %w", runner.kind, err)
+	}
+	if !found {
+		return false, nil
+	}
+	overdue := fmt.Errorf("its machine did not say how it ended by %s", row.AssignedUntil.UTC().Format(time.RFC3339))
+	return true, runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, overdue)
 }
 
 // claimedRow is a claimed job, with the parked destinations it is the probe of: its own, and the
@@ -271,6 +324,11 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 	now, destination := runner.queue.clock.Now(), claimed.row.Destination
 	if answer == nil {
 		return runner.record(ctx, Outcome{ID: job.ID, State: StateDone, At: now, AttemptCount: job.AttemptNumber})
+	}
+	if handOff, isAssigned := errors.AsType[*assigned](answer); isAssigned {
+		return runner.record(ctx, Outcome{
+			ID: job.ID, State: StateAssigned, At: handOff.until, AttemptCount: job.AttemptNumber,
+		})
 	}
 	given := job.AttemptNumber - 1 // the attempt's count, given back
 	if parking, isParked := ParkingOf(answer); isParked {
