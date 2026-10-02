@@ -99,8 +99,9 @@ func TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord(t *testing.T)
 	bench := newExchanges(t)
 	sent := bench.assign(t)
 	restarted := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-		Cache: bench.cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: time.Minute,
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader,
+		Logger: slog.New(slog.DiscardHandler), Cache: bench.cache, MaxSilence: time.Minute,
+		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
 	})
 	if err := restarted.Load(t.Context()); err != nil {
 		t.Fatal(err)

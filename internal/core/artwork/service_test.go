@@ -83,6 +83,8 @@ func (*fakeNode) Withdraw(int64, string) bool { return false }
 
 func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (*fakeNode) Unpark(context.Context, jobs.Destination) {}
+
 func (*fakeNode) Resources(context.Context, int64) (nodes.Resources, bool, error) {
 	return nodes.Resources{}, false, nil
 }
@@ -200,7 +202,7 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	service := NewService(Parts{
 		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art,
 		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
-			Sender: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+			Sender: node, Rooms: node, Clock: fakeClock, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			Cache: cache, Settings: config, MaxSilence: time.Minute,
 		}),
 		Cache:    cache,

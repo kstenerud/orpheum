@@ -81,6 +81,8 @@ func (fakeNodes) IsConnected(context.Context, int64) bool { return true }
 
 func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (fakeNodes) Unpark(context.Context, jobs.Destination) {}
+
 func (fakeNodes) Resources(context.Context, int64) (nodes.Resources, bool, error) {
 	return nodes.Resources{}, false, nil
 }

@@ -122,6 +122,8 @@ func (*fakeNodes) Withdraw(int64, string) bool { return false }
 
 func (*fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (*fakeNodes) Unpark(context.Context, jobs.Destination) {}
+
 func (*fakeNodes) Resources(context.Context, int64) (corenodes.Resources, bool, error) {
 	return corenodes.Resources{}, false, nil
 }

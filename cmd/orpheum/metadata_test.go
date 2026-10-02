@@ -236,6 +236,8 @@ func (toldSender) Withdraw(int64, string) bool { return false }
 
 func (toldSender) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (toldSender) Unpark(context.Context, jobs.Destination) {}
+
 func (toldSender) Resources(context.Context, int64) (nodes.Resources, bool, error) {
 	return nodes.Resources{}, false, nil
 }
@@ -278,7 +280,7 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 	}
 	told := toldSender{told: make(chan nodeproto.Command, 1)}
 	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: told, Clock: now, Random: rand.Reader, Logger: logger, Cache: cache, Settings: config,
+		Sender: told, Rooms: told, Clock: now, Random: rand.Reader, Logger: logger, Cache: cache, Settings: config,
 		MaxSilence: time.Hour,
 	})
 	if err = exchanges.Load(t.Context()); err != nil {

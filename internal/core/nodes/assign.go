@@ -100,7 +100,7 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 // node_work_window_extra more, so the next starts without waiting for the core. It is nil while
 // there is room, and for a node whose resources are not known.
 func (all *Exchanges) windowFull(ctx context.Context, nodeID int64, work nodeproto.Work) error {
-	resources, isConnected, err := all.sender.Resources(ctx, nodeID)
+	resources, isConnected, err := all.rooms.Resources(ctx, nodeID)
 	if err != nil || !isConnected {
 		return err
 	}
@@ -142,15 +142,12 @@ var errWindowFull = errors.New("its window is full")
 // unparkRoomFor brings back the work waiting for room a node's attempt held: its slot's, and its
 // device's while the node is connected (D240 §5).
 func (all *Exchanges) unparkRoomFor(ctx context.Context, attempt Attempt) {
-	if all.destinations == nil {
-		return
-	}
 	if slot := attempt.Work.Slot(); slot != "" {
-		all.destinations.Unpark(ctx, jobs.SlotDestination(attempt.NodeID, string(slot)))
+		all.rooms.Unpark(ctx, jobs.SlotDestination(attempt.NodeID, string(slot)))
 	}
-	if resources, isConnected, err := all.sender.Resources(ctx, attempt.NodeID); err == nil && isConnected {
+	if resources, isConnected, err := all.rooms.Resources(ctx, attempt.NodeID); err == nil && isConnected {
 		if device := resources.deviceOf(attempt.Work); device != "" {
-			all.destinations.Unpark(ctx, jobs.ReaderDestination(attempt.NodeID, device))
+			all.rooms.Unpark(ctx, jobs.ReaderDestination(attempt.NodeID, device))
 		}
 	}
 }

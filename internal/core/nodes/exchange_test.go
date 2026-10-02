@@ -34,6 +34,12 @@ type recordingSender struct {
 	isQueued bool
 	// resources are what the node can run at once; nil is a node whose resources are not known.
 	resources *nodes.Resources
+	// unparked are the destinations brought back, in order.
+	unparked *unparkedDestinations
+}
+
+func (sender *recordingSender) Unpark(ctx context.Context, destination jobs.Destination) {
+	sender.unparked.Unpark(ctx, destination)
 }
 
 func (sender *recordingSender) Resources(context.Context, int64) (nodes.Resources, bool, error) {
@@ -96,16 +102,17 @@ func (unparked *unparkedDestinations) list() []jobs.Destination {
 func newExchanges(t *testing.T) exchangeBench {
 	t.Helper()
 	bench := exchangeBench{
-		sender: &recordingSender{sent: make(chan nodeproto.Command, 4)},
+		sender: &recordingSender{sent: make(chan nodeproto.Command, 4), unparked: &unparkedDestinations{}},
 		now:    clocktest.NewFake(time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)),
-		logged: &bytes.Buffer{}, unparked: &unparkedDestinations{},
+		logged: &bytes.Buffer{},
 	}
+	bench.unparked = bench.sender.unparked
 	logger := slog.New(slog.NewJSONHandler(bench.logged, nil))
 	database := storetest.OpenMigrated(t)
 	bench.cache = storetest.OpenCache(t)
 	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger, Cache: bench.cache,
-		Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute, Destinations: bench.unparked,
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger,
+		Cache: bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
 	})
 	return bench
 }

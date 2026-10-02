@@ -35,7 +35,7 @@ func preparesOnAFakeNode(
 		cache: cache, queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		clock: clockSource, maxSlotWait: maxSlotWait,
 		exchanges: nodes.NewExchanges(nodes.ExchangeParts{
-			Sender: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: 2 * maxSlotWait,
 		}),
 		logger:       slog.New(slog.DiscardHandler),

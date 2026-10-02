@@ -111,6 +111,11 @@ func readerSetting(kind nodeproto.DeviceKind) settings.Key {
 	return settings.DeviceReadersUnknown
 }
 
+// Unpark brings back the work parked on a destination (Sender).
+func (service *Service) Unpark(ctx context.Context, destination jobs.Destination) {
+	service.destinations.Unpark(ctx, destination)
+}
+
 // Resources are what a connected node can run at once, as its last hello said and the settings say
 // now (D240 §5), and false for a node not connected.
 func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources, bool, error) {
