@@ -180,6 +180,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		PreparedShelf:    preparedShelf,
 		ProgressEvery:    time.Duration(config.Node.ProgressEverySeconds) * time.Second,
+		EndedWorkKept:    time.Duration(config.Node.EndedWorkKeptHours) * time.Hour,
 	}
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
