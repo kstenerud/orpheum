@@ -220,3 +220,32 @@ func TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated(t 
 		t.Errorf("after a hello in this core's protocol the node is %s, want connected", connection)
 	}
 }
+
+// A node's status is squared with what it was given (D234 §6), judging none of the attempts whose
+// command it had not taken when it made the status: those are on their way.
+func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	for _, token := range []string{"taken", "on its way"} {
+		harness.service.Enqueue(reply.NodeID, nodeproto.Command{
+			JobID: 7, AttemptToken: token, Work: nodeproto.Work{Type: nodeproto.CommandPrepare},
+		})
+	}
+	held := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "taken", State: nodeproto.HeldRunning}}
+	status := []nodeproto.Record{{
+		ReportSeq: 1, Type: nodeproto.RecordStatus,
+		Status: &nodeproto.Status{Activity: "idle", Held: held, TakenCommandSeq: 1},
+	}}
+	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
+		http.StatusNoContent {
+		t.Fatalf("the report answered %d %s", response.status, response.body)
+	}
+	if len(sink.squared) != 1 || len(sink.squared[0].held) != 1 || sink.squared[0].held[0].AttemptToken != "taken" ||
+		!sink.squared[0].onTheirWay["on its way"] || sink.squared[0].onTheirWay["taken"] {
+		t.Errorf("squared %+v; want what the node holds, with only the command it had not taken on its way",
+			sink.squared)
+	}
+}

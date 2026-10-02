@@ -20,8 +20,11 @@ type connectedNode struct {
 	status         *nodeproto.Status
 	commands       []nodeproto.Command
 	nextCommandSeq int64
-	wake           chan struct{}
-	lastHeard      time.Time
+	// seqByToken is the last command sent for each attempt, its work or its cancel, until the
+	// node's status says it took it: the squaring judges no attempt whose command is on its way.
+	seqByToken map[string]int64
+	wake       chan struct{}
+	lastHeard  time.Time
 	// openPollCount is how many long-polls for its commands are open: while one is, it is
 	// connected however long ago it last spoke.
 	openPollCount int

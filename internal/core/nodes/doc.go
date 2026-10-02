@@ -60,6 +60,12 @@
 //     TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken,
 //     TestWatch_ASilentAttemptIsUnansweredAndProgressKeepsItHeard,
 //     TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode.
+//   - Each status is squared with what the node was given (D234 §6), judging no attempt whose command
+//     the node had not taken: one held is adopted, heard of (S82); one not held is lost, a broken
+//     invariant logged and counted, its job resolved as the tool's failure (ErrWorkLost); work held
+//     that no job was given, or wants, is a broken invariant, and the node told to drop it (S91, G4);
+//     work whose result is on its way is left to it. TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds,
+//     TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
 //   - A node whose hello names another start than its last hello to this core started again and
 //     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
 //     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers
@@ -114,5 +120,5 @@
 //     channel.go: commands, the report and the nodes' results; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the exchanges,
 //     and the results and progress nodes send; assign.go: a job given to a node, assigned, and
-//     resolved by its word.
+//     resolved by its word; square.go: what a node was given squared with what it holds.
 package nodes

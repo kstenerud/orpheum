@@ -61,6 +61,12 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	command.CommandSeq = node.nextCommandSeq
 	node.nextCommandSeq++
 	node.commands = append(node.commands, command)
+	if command.AttemptToken != "" {
+		if node.seqByToken == nil {
+			node.seqByToken = map[string]int64{}
+		}
+		node.seqByToken[command.AttemptToken] = command.CommandSeq
+	}
 	close(node.wake)
 	node.wake = make(chan struct{})
 }

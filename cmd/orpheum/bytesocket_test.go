@@ -39,8 +39,9 @@ func (taken *takenResults) Deliver(_ context.Context, _ int64, result nodeproto.
 	taken.results = append(taken.results, result)
 	return nil
 }
-func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress) {}
-func (*takenResults) Interrupt(context.Context, int64)                           {}
+func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress)              {}
+func (*takenResults) Interrupt(context.Context, int64)                                        {}
+func (*takenResults) Square(context.Context, int64, []nodeproto.HeldAttempt, map[string]bool) {}
 
 // The core's byte socket client is how its node channel fetches a result the node holds, too large
 // to post (D234 §5): wired so, a post naming one hands on the whole result from the node's socket.
