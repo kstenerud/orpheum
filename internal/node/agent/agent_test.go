@@ -46,6 +46,7 @@ type fakeCore struct {
 	refusals      chan nodeproto.Result
 	reportsToDrop int                // the first reports it ends at once, as a core that went away would
 	postsToRefuse map[resultKind]int // by kind, the first results it refuses, as a busy core would
+	refusedPosts  chan struct{}      // sent on, while it has room, at each result it refuses
 	stopped       chan struct{}      // closed at teardown: a handler stops handing on what it heard
 	// endSession, sent on, ends the session it reaches: the open long-poll answers 503, as a core
 	// that went away does.
@@ -89,7 +90,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
-		progress:  make(chan nodeproto.Progress, 64),
+		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4),
 		stopped:  make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
@@ -258,6 +259,10 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		}
 		if core.refusesNextPost(kind) {
 			http.Error(writer, "the core is busy", http.StatusServiceUnavailable)
+			select {
+			case core.refusedPosts <- struct{}{}:
+			default:
+			}
 			return
 		}
 		into := map[resultKind]chan nodeproto.Result{
@@ -364,15 +369,18 @@ func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*con
 }
 
 // startAgentWithWorkers starts an agent with workers, which tries an answer the core did not take
-// again within milliseconds.
-func startAgentWithWorkers(t *testing.T, socket string, workers Workers) (*confine.MediaRoot, chan time.Time) {
+// again within milliseconds, changed by adjustments before it runs.
+func startAgentWithWorkers(
+	t *testing.T, socket string, workers Workers, adjustments ...func(*Agent),
+) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
 	root := nodetest.OpenMediaRoot(t, t.TempDir())
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	node := New(socket, nodeproto.Hello{Name: "local", Capacity: testCapacity}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
-	node.answerRetry = answerRetry{
-		firstWait: time.Millisecond, longestWait: 4 * time.Millisecond, patience: time.Second,
+	node.answerRetry = answerRetry{firstWait: time.Millisecond, longestWait: 4 * time.Millisecond}
+	for _, adjust := range adjustments {
+		adjust(node)
 	}
 	tick := make(chan time.Time)
 	ctx, cancel := context.WithCancel(t.Context())

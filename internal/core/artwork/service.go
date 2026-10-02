@@ -73,9 +73,14 @@ type Parts struct {
 	Fetchers  map[string]Fetcher // by source: "tmdb"
 	Clock     clock.Clock
 	Logger    *slog.Logger
-	// AnswerWait is how long a job waits for the node's answer; nodeproto.ArtworkAnswerWait when zero.
+	// AnswerWait is how long a job waits for the node's word on it; defaultAnswerWait when zero.
 	AnswerWait time.Duration
 }
+
+// defaultAnswerWait is how long a job waits for the node's word on a re-encode, whose progress it
+// hears at each status tick while it waits or runs: two minutes is far past an image's encode,
+// which takes seconds, and many ticks.
+const defaultAnswerWait = 2 * time.Minute
 
 // Service fetches, re-encodes through the node, and stores artwork.
 type Service struct {
@@ -89,7 +94,7 @@ type Service struct {
 // NewService returns the service.
 func NewService(parts Parts) *Service {
 	if parts.AnswerWait == 0 {
-		parts.AnswerWait = nodeproto.ArtworkAnswerWait
+		parts.AnswerWait = defaultAnswerWait
 	}
 	return &Service{
 		parts: parts, exchanges: parts.Exchanges,

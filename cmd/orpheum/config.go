@@ -63,6 +63,7 @@ type NodeConfig struct {
 	ProbeTimeoutSeconds   int64    `toml:"probe_timeout_seconds"`
 	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
 	ProgressEverySeconds  int64    `toml:"progress_every_seconds"`
+	EndedWorkKeptHours    int64    `toml:"ended_work_kept_hours"`
 	PreparedDir           string   `toml:"prepared_dir"`
 	// PreparedBudgetGiB, PreparedKeptAfterPlayHours and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
@@ -156,6 +157,10 @@ func nodeConfigKeys() []configKey {
 		{
 			tableNode, "progress_every_seconds", "2",
 			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5)",
+		},
+		{
+			tableNode, "ended_work_kept_hours", "168",
+			"hours the node remembers work whose result the core took, so the same command is not run twice (D238 §2)",
 		},
 		{
 			tableNode, "prepared_dir", `"/var/cache/orpheum/prepared"`,
@@ -319,6 +324,7 @@ func (config *Config) check() error {
 		"node.probe_timeout_seconds":              config.Node.ProbeTimeoutSeconds,
 		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
 		"node.progress_every_seconds":             config.Node.ProgressEverySeconds,
+		"node.ended_work_kept_hours":              config.Node.EndedWorkKeptHours,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
 		"node.encode_slot_count":                  config.Node.EncodeSlotCount,

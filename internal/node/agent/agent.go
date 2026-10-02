@@ -64,6 +64,9 @@ type Workers struct {
 	// ProgressEvery is how often, at most, a running prepare tells the core how far it is:
 	// node.progress_every_seconds.
 	ProgressEvery time.Duration
+	// EndedWorkKept is how long the node remembers an attempt whose result the core acknowledged,
+	// so the same command sent again is not run again: node.ended_work_kept_hours.
+	EndedWorkKept time.Duration
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
@@ -85,6 +88,7 @@ type Agent struct {
 	logger  *slog.Logger
 
 	work        *workList
+	ended       *endedAttempts
 	answerRetry answerRetry
 
 	mutex    sync.Mutex
@@ -108,6 +112,7 @@ func New(
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
 		clock:   clockSource, logger: logger, activity: "idle", work: newWorkList(hello.Capacity),
+		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
 	}
 }
@@ -141,6 +146,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	}
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastIngestedReportSeq",
 		reply.LastIngestedReportSeq)
+	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	stream := newRecordStream(reply.LastIngestedReportSeq)
@@ -225,6 +231,11 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 		return
 	}
 	work.attempt, work.priority = held, command.Priority
+	if agent.ended.hasEnded(held.token) {
+		agent.logger.InfoContext(ctx, "the core sent again an attempt that ended here; it is not run again",
+			"jobId", held.jobID, "attemptToken", held.token)
+		return
+	}
 	isHeld, isWaiting := agent.work.hold(nodeCtx, work)
 	if !isHeld {
 		agent.logger.InfoContext(ctx, "the core sent again an attempt this node holds", "jobId", held.jobID,
@@ -302,7 +313,7 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 	refusal := fmt.Sprintf("this node cannot read the command %q, unknown or without its payload; "+
 		"it speaks node protocol %d", command.Type, nodeproto.ProtocolVersion)
 	refused := attempt{jobID: command.JobID, token: command.AttemptToken}.named(nodeproto.Result{Refusal: refusal})
-	go agent.postResult(ctx, nodeID, "a refusal", refused)
+	agent.postResult(ctx, nodeID, "a refusal", refused)
 }
 
 // artworkWork re-encodes an image and posts the answer — the sizes, or why there are none — to

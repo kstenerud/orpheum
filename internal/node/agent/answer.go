@@ -7,64 +7,131 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// answerRetry paces the tries of an answer the core did not take: the first wait, the longest one
-// the doubling stops at, and how long the waits may add up to before the answer is given up.
+// answerRetry paces the tries of a result the core did not take: the first wait, and the longest one
+// the doubling stops at.
 type answerRetry struct {
-	firstWait, longestWait, patience time.Duration
+	firstWait, longestWait time.Duration
 }
 
-// defaultAnswerRetry gives an answer at most nodeproto.ArtworkAnswerWait of waits: as long as the
-// core waits for an artwork answer, and within the five minutes it waits to hear of a prepare,
-// after which the core tries the job again and a later answer has nothing to go to.
 func defaultAnswerRetry() answerRetry {
-	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second, patience: nodeproto.ArtworkAnswerWait}
+	return answerRetry{firstWait: time.Second, longestWait: 30 * time.Second}
 }
 
-// postResult posts a job's result to the core. A post that fails, the core busy or the connection
-// broken, is tried again with a doubling wait until the waits reach the retry's patience or the
-// session ends. A result that never arrives is logged and costs only its own job, which the core
-// tries again: it never ends the session, whose running work it would stop.
+// endedAttempts are the attempts whose work ended on this node, by token: those whose result the core
+// has not yet acknowledged, and, for endedWorkKept after it did, when it did, so a command the core
+// sends again for an attempt that ended is not run again (D238 §2). Held in memory, as the work is
+// (D238 §3).
+type endedAttempts struct {
+	mutex          sync.Mutex
+	unacknowledged map[string]bool      // guarded by mutex
+	acknowledgedAt map[string]time.Time // guarded by mutex
+	// helloSaid is closed at each hello, when every unacknowledged result is sent again at once.
+	helloSaid chan struct{} // guarded by mutex
+}
+
+func newEndedAttempts() *endedAttempts {
+	return &endedAttempts{
+		unacknowledged: map[string]bool{}, acknowledgedAt: map[string]time.Time{}, helloSaid: make(chan struct{}),
+	}
+}
+
+// hasEnded is whether the attempt of token ended on this node, its result acknowledged or not.
+func (ended *endedAttempts) hasEnded(token string) bool {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	_, isAcknowledged := ended.acknowledgedAt[token]
+	return ended.unacknowledged[token] || isAcknowledged
+}
+
+// awaitAcknowledgement notes an attempt whose result is not yet acknowledged.
+func (ended *endedAttempts) awaitAcknowledgement(token string) {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	ended.unacknowledged[token] = true
+}
+
+// acknowledge notes that the core acknowledged an attempt's result at now, and forgets the
+// attempts acknowledged longer than kept ago.
+func (ended *endedAttempts) acknowledge(token string, now time.Time, kept time.Duration) {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	delete(ended.unacknowledged, token)
+	ended.acknowledgedAt[token] = now
+	for other, at := range ended.acknowledgedAt {
+		if now.Sub(at) > kept {
+			delete(ended.acknowledgedAt, other)
+		}
+	}
+}
+
+// nextHello is closed at the next hello.
+func (ended *endedAttempts) nextHello() <-chan struct{} {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	return ended.helloSaid
+}
+
+// saidHello has every unacknowledged result sent again at once.
+func (ended *endedAttempts) saidHello() {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	close(ended.helloSaid)
+	ended.helloSaid = make(chan struct{})
+}
+
+// postResult notes that an attempt ended, and posts its result to the core beside the node's other
+// work until the core acknowledges it, which it does once it has recorded it (D234 §5): a post that
+// fails, the core busy, gone or restarting, is tried again with a doubling wait, and at once at the
+// node's next hello, for as long as the node runs. It holds no slot, and never ends the session,
+// whose running work it would stop.
 func (agent *Agent) postResult(ctx context.Context, nodeID int64, jobKind string, result nodeproto.Result) {
-	jobID := result.JobID
+	agent.ended.awaitAcknowledgement(result.AttemptToken)
+	go agent.postUntilAcknowledged(ctx, nodeID, jobKind, result)
+}
+
+func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, jobKind string, result nodeproto.Result) {
+	token := result.AttemptToken
 	encoded, err := json.Marshal(result)
 	if err != nil {
-		agent.logger.ErrorContext(ctx, "could not encode a job's answer", "jobKind", jobKind, "jobId", jobID,
+		agent.logger.ErrorContext(ctx, "could not encode a job's answer", "jobKind", jobKind, "jobId", result.JobID,
 			"err", err)
 		return
 	}
-	wait, waited := agent.answerRetry.firstWait, time.Duration(0)
+	wait := agent.answerRetry.firstWait
 	for {
 		var accepted struct{}
 		err = agent.exchange(ctx, http.MethodPost, nodeproto.PathResult, nodeID, bytes.NewReader(encoded), &accepted)
-		if err == nil || ctx.Err() != nil {
+		if err == nil {
+			agent.ended.acknowledge(token, agent.clock.Now(), agent.workers.EndedWorkKept)
 			return
 		}
-		if waited+wait > agent.answerRetry.patience {
-			agent.logger.WarnContext(ctx, "gave up sending a job's answer to the core", "jobKind", jobKind,
-				"jobId", jobID, "waited", waited.String(), "err", err)
+		if ctx.Err() != nil {
 			return
 		}
-		agent.logger.InfoContext(ctx, "could not send a job's answer to the core; trying again", "jobKind", jobKind,
-			"jobId", jobID, "wait", wait.String(), "err", err)
-		if !sleepUnlessDone(ctx, wait) {
+		agent.logger.InfoContext(ctx, "the core has not taken a job's answer; trying again", "jobKind", jobKind,
+			"jobId", result.JobID, "wait", wait.String(), "err", err)
+		if !sleepUntilHelloOrDone(ctx, wait, agent.ended.nextHello()) {
 			return
 		}
-		waited += wait
 		wait = min(2*wait, agent.answerRetry.longestWait)
 	}
 }
 
-// sleepUnlessDone waits for wait, and reports false when ctx ended first.
-func sleepUnlessDone(ctx context.Context, wait time.Duration) bool {
+// sleepUntilHelloOrDone waits for wait, or until the next hello, and reports false when ctx ended
+// first.
+func sleepUntilHelloOrDone(ctx context.Context, wait time.Duration, hello <-chan struct{}) bool {
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
+		return true
+	case <-hello:
 		return true
 	case <-ctx.Done():
 		return false

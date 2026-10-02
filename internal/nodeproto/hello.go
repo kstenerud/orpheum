@@ -3,8 +3,6 @@
 package nodeproto
 
 import (
-	"time"
-
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/host"
 )
@@ -19,12 +17,6 @@ const (
 // QueryAfterCommandSeq is the commands long-poll's parameter: the sequence number of the last command
 // the node took, so the core answers with the ones after it.
 const QueryAfterCommandSeq = "afterCommandSeq"
-
-// ArtworkAnswerWait is how long the core waits for a node's answer to an artwork command, and so
-// how long a node keeps trying to send one the core did not take: past it, the core has tried the
-// job again and a later answer has nothing to go to. Two minutes is far past an image's encode,
-// which takes seconds.
-const ArtworkAnswerWait = 2 * time.Minute
 
 // ProtocolVersion is the version of the node protocol this build speaks: its paths, commands,
 // records and results. It is raised with any change a node or core of another build would misread,

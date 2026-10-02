@@ -20,14 +20,20 @@
 //     TestAgent_RefusesToScanARootItWasNotGiven.
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, the report
-//     stream and the command poll, end it: a job's answer the core did not take is posted again
-//     with a doubling wait for about two minutes, then logged and given up, and never stops the
-//     session or the work running beside it. A session that ends stops none of the node's work: a
-//     prepare, extraction, measurement or re-encode runs on the node's lifetime and posts its result
-//     to the next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession.
+//     stream and the command poll, end it. A job's result is posted beside the node's other work,
+//     holding no slot, until the core acknowledges it, with a doubling wait and at once at the next
+//     hello, and never given up while the node runs (D234 §5); it never stops the session or the
+//     work running beside it. A session that ends stops none of the node's work: a prepare,
+//     extraction, measurement or re-encode runs on the node's lifetime and posts its result to the
+//     next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession,
+//     TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt,
+//     TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello,
 //     TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWork,
 //     TestAgent_ASubtitleAnswerTheCoreRefusedOnceArrivesOnRetry,
 //     TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry.
+//   - An attempt that ended is remembered, its result's content forgotten once the core
+//     acknowledged it, for node.ended_work_kept_hours after (D238 §2): the same command sent again is
+//     not run again. TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain.
 //   - A command the node cannot read, unknown or without its payload, is refused by its job's id,
 //     never ignored or crashed on, and every hello says this build's protocol version (D233 §9).
 //     TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello.
