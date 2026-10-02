@@ -126,6 +126,17 @@ type DestinationState = jobqueue.DestinationState
 // (D231 §5, §6).
 func Park(parking Parking, err error) error { return jobqueue.Park(parking, err) }
 
+// ReasonNeedsUpdate is why a node's work waits when the node speaks another version of the node
+// protocol than the core, or refused a command it did not know (D233 §9).
+const ReasonNeedsUpdate = "needs updating"
+
+// ParkOnNodeNeedingUpdate answers that a job's node speaks another version of the node protocol, or
+// did not know the job's command: it waits for the node's hello in the core's own version.
+func ParkOnNodeNeedingUpdate(nodeID int64, err error) error {
+	return Park(Parking{Destination: NodeDestination(nodeID), Reason: ReasonNeedsUpdate, AwaitsSignal: true},
+		fmt.Errorf("node %d needs updating: %w", nodeID, err))
+}
+
 // ParkOnNode answers that a job's node is not connected: it waits for the node's hello, which
 // brings the node back (D231 §11). The node went away at lastHeard, or at an unknown time when
 // it is zero.

@@ -37,6 +37,11 @@
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
+//   - A node that says hello in another version of the node protocol is refused, shown as needing
+//     an update, and its work parks with that reason until it says hello in the core's version; a
+//     command it refused, not knowing it, parks its job the same way (D233 §9).
+//     TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated,
+//     TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing.
 //   - A node's last hello and last status are kept whole, for the System page (D225): its
 //     hardware, disks and prepared directory. TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks.
 //   - A node is connected while a long-poll for its commands is open or it was heard within

@@ -326,6 +326,8 @@ export const en = {
     action: "What to do: {{action}}",
     node: "Machine: {{node}}",
     awaitingHello: "Not heard from since the server started.",
+    needsUpdate:
+      "The media machine needs updating: it runs another version of Orpheum than the server, and its work waits until it is updated.",
     retireNode: "This machine is gone for good…",
     retireNodeConsequence:
       "Its folders leave every library and its waiting work is cancelled; what was watched is kept. If it comes back, it joins as a new machine.",

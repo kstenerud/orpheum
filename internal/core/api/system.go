@@ -141,9 +141,10 @@ type DatabaseBody struct {
 type SystemNodeBody struct {
 	Name string `json:"name"`
 	// Connection is connected (polling for its commands, or heard within
-	// node_silent_after_seconds), silent (heard since the server started, not lately) or
-	// awaiting_hello (not heard since the server started).
-	Connection  string `enum:"connected,silent,awaiting_hello" json:"connection"`
+	// node_silent_after_seconds), silent (heard since the server started, not lately),
+	// awaiting_hello (not heard since the server started) or needs_update (it speaks another version
+	// of the node protocol than the server, so its work waits, D233 §9).
+	Connection  string `enum:"connected,silent,awaiting_hello,needs_update" json:"connection"`
 	IsConnected bool   `doc:"Whether its connection is connected" json:"isConnected"`
 	// LastHeardAt is when it last spoke since the server started, in Unix milliseconds.
 	LastHeardAt *int64 `json:"lastHeardAt,omitempty"`

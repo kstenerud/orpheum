@@ -12,9 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -164,5 +166,31 @@ func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 	exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 42, Prepare: &nodeproto.PrepareReport{}})
 	if !strings.Contains(logged.String(), `"jobId":42`) || !strings.Contains(logged.String(), `"nodeId":1`) {
 		t.Errorf("the log = %s, want the job named as jobId and the node as nodeId", logged.String())
+	}
+}
+
+// A node that refused the command, not knowing it, took no part of it: the job waits on the node,
+// which needs updating, and closing the exchange sends it nothing to stop (D233 §9).
+func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	exchange, err := bench.exchanges.Ask(t.Context(), 1, 7, prepareCommand, "prepare 7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Receive(t, bench.sender.sent, "the prepare command")
+	refusal := `this node cannot read the command "prepare"`
+	bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 7, Refusal: refusal})
+	_, err = exchange.Next(t.Context(), time.Minute)
+	parking, isParked := jobqueue.ParkingOf(err)
+	if !isParked || parking.Destination != jobs.NodeDestination(1) || parking.Reason != jobs.ReasonNeedsUpdate ||
+		!strings.Contains(err.Error(), "cannot read the command") {
+		t.Errorf("a refusal: %v (%+v), want the job parked on node 1, which needs updating, saying why", err, parking)
+	}
+	exchange.Close()
+	select {
+	case sent := <-bench.sender.sent:
+		t.Errorf("closing after a refusal sent %+v, want nothing to stop", sent)
+	default:
 	}
 }

@@ -3,6 +3,8 @@
 package nodes
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -171,5 +173,39 @@ func TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode(t 
 	}
 	if enrolled := harness.hello(t, nodeproto.Hello{Name: "local"}).NodeID; enrolled == retired {
 		t.Errorf("its name said hello again as node %d, the retired one; want a new node", enrolled)
+	}
+}
+
+// A node that says hello in another version of the node protocol is refused, shown as needing
+// updating, and its work waits for it with that reason; its hello in this core's version brings it
+// back (D233 §9, S89).
+func TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	ctx := t.Context()
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	connected := harness.hello(t, nodeproto.Hello{Name: "local"})
+	older := nodeproto.Hello{Name: "local", ProtocolVersion: nodeproto.ProtocolVersion + 1}
+	encoded, err := json.Marshal(older)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused := harness.post(t, nodeproto.PathHello, 0, bytes.NewReader(encoded))
+	if refused.status != http.StatusConflict || !bytes.Contains(refused.body, []byte("update it")) {
+		t.Fatalf("a hello in another protocol answered %d %q, want 409 saying to update the node",
+			refused.status, refused.body)
+	}
+	if connection, _ := harness.service.NodeConnection(ctx, connected.NodeID); connection != NeedsUpdate {
+		t.Errorf("the refused node is %s, want %s", connection, NeedsUpdate)
+	}
+	scan := nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}}
+	parking, isParked := jobqueue.ParkingOf(harness.service.Send(ctx, connected.NodeID, scan))
+	if !isParked || parking.Destination != jobs.NodeDestination(connected.NodeID) ||
+		parking.Reason != jobs.ReasonNeedsUpdate || !parking.AwaitsSignal {
+		t.Errorf("work for it parks %+v (%v), want it waiting on the node, which needs updating", parking, isParked)
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local"})
+	if connection, _ := harness.service.NodeConnection(ctx, connected.NodeID); connection != Connected {
+		t.Errorf("after a hello in this core's protocol the node is %s, want connected", connection)
 	}
 }

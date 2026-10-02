@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,6 +41,7 @@ type fakeCore struct {
 	prepareReports chan nodeproto.Result
 	subtitles      chan nodeproto.Result
 	loudness       chan nodeproto.Result
+	refusals       chan nodeproto.Result
 	reportsToDrop  int                // the first reports it ends at once, as a core that went away would
 	postsToRefuse  map[resultKind]int // by kind, the first results it refuses, as a busy core would
 	stopped        chan struct{}      // closed at teardown: a handler stops handing on what it heard
@@ -74,7 +76,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
-		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
+		refusals: make(chan nodeproto.Result, 4),
+		stopped:  make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -188,15 +191,18 @@ const (
 	prepareResult  resultKind = "prepare"
 	subtitleResult resultKind = "subtitle"
 	loudnessResult resultKind = "loudness"
+	// A refusal of a command the node could not read carries no payload.
+	refusalResult resultKind = "refusal"
 )
 
-// kindOf is the one payload a result carries; a result with none or several is not one the node
-// should post.
+// kindOf is the one payload a result carries, or a refusal and none; a result with neither, or
+// several, is not one the node should post.
 func kindOf(result nodeproto.Result) (resultKind, bool) {
 	var kinds []resultKind
 	for kind, isSet := range map[resultKind]bool{
 		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
 		subtitleResult: result.Subtitle != nil, loudnessResult: result.Loudness != nil,
+		refusalResult: result.Refusal != "",
 	} {
 		if isSet {
 			kinds = append(kinds, kind)
@@ -223,7 +229,7 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		}
 		kind, isOne := kindOf(result)
 		if !isOne {
-			t.Errorf("the node posted %+v, want a result with exactly one payload", result)
+			t.Errorf("the node posted %+v, want a result with exactly one payload, or a refusal alone", result)
 			return
 		}
 		if core.refusesNextPost(kind) {
@@ -232,7 +238,7 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		}
 		into := map[resultKind]chan nodeproto.Result{
 			artworkResult: core.artwork, prepareResult: core.prepareReports,
-			subtitleResult: core.subtitles, loudnessResult: core.loudness,
+			subtitleResult: core.subtitles, loudnessResult: core.loudness, refusalResult: core.refusals,
 		}[kind]
 		if !handOn(core, into, result) {
 			return
@@ -676,5 +682,28 @@ func TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession(t *t
 	}
 	if preparer.stopped.Load() {
 		t.Error("the session's end stopped the prepare")
+	}
+}
+
+// A command the node cannot read, unknown or without its payload, from a core of another build, is
+// refused by its job's id rather than ignored or crashing the node, and the node says hello in its
+// own protocol version (D233 §9, S89).
+func TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	startAgent(t, socket)
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: "transcode_to_av2", JobID: 31}
+	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandScan, JobID: 32} // no payload
+	for _, jobID := range []int64{31, 32} {
+		refused := testutil.Receive(t, core.refusals, "the refusal of a command the node cannot read")
+		if refused.JobID != jobID || !strings.Contains(refused.Refusal, "cannot read the command") {
+			t.Errorf("refusal %+v, want job %d refused, saying the node cannot read its command", refused, jobID)
+		}
+	}
+	core.mutex.Lock()
+	defer core.mutex.Unlock()
+	if core.hellos[0].ProtocolVersion != nodeproto.ProtocolVersion {
+		t.Errorf("the hello said protocol %d, want this build's %d", core.hellos[0].ProtocolVersion,
+			nodeproto.ProtocolVersion)
 	}
 }

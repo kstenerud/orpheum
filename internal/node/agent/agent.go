@@ -90,12 +90,13 @@ type Agent struct {
 }
 
 // New returns an agent that talks to the core at socketPath. The hello is sent as given, with
-// the roots' paths filled in.
+// the roots' paths and this build's protocol version filled in.
 func New(
 	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, workers Workers, clockSource clock.Clock,
 	logger *slog.Logger,
 ) *Agent {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
+	hello.ProtocolVersion = nodeproto.ProtocolVersion
 	hello.RootPaths = make([]string, 0, len(roots))
 	for _, root := range roots {
 		byPath[root.Path()] = root
@@ -246,7 +247,7 @@ func (agent *Agent) runCommand(
 		agent.measureLoudness(nodeCtx, nodeID, command.JobID, *command.MeasureLoudness)
 		return
 	}
-	if command.Type == nodeproto.CommandScan {
+	if command.Type == nodeproto.CommandScan && command.Scan != nil {
 		root, known := agent.roots[command.Scan.RootPath]
 		if !known {
 			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath",
@@ -269,7 +270,21 @@ func (agent *Agent) runCommand(
 		}
 		return
 	}
-	agent.logger.WarnContext(ctx, "ignored a command this node does not know", "commandType", command.Type)
+	agent.refuseUnknown(ctx, nodeID, command)
+}
+
+// refuseUnknown answers a command this node does not know, or whose payload is missing, from a core
+// of another build: the job it is for is refused, so the core sees the node needs updating rather
+// than waiting on silence (D233 §9). A command for no job is logged.
+func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nodeproto.Command) {
+	agent.logger.WarnContext(ctx, "refused a command this node does not know", "commandType", command.Type,
+		"jobId", command.JobID)
+	if command.JobID == 0 {
+		return
+	}
+	refusal := fmt.Sprintf("this node cannot read the command %q, unknown or without its payload; "+
+		"it speaks node protocol %d", command.Type, nodeproto.ProtocolVersion)
+	go agent.postResult(ctx, nodeID, "a refusal", nodeproto.Result{JobID: command.JobID, Refusal: refusal})
 }
 
 // deriveAndPostArtwork re-encodes an image and posts the answer — the sizes, or why there are

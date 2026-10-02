@@ -63,6 +63,9 @@ type Service struct {
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode
+	// protocolByNodeID is the protocol version each node that needs updating last said hello in:
+	// another than this core's, so it was refused (D233 §9). Guarded by mutex.
+	protocolByNodeID map[int64]int
 }
 
 // SetResultSink names where the nodes' results go. Set it before the channel serves; a result that
@@ -90,7 +93,7 @@ func NewService(parts ServiceParts) *Service {
 	return &Service{
 		database: parts.Database, clock: parts.Clock, settings: parts.Settings, recordSink: parts.Sink,
 		destinations: parts.Destinations, logger: parts.Logger, pollHold: parts.PollHold,
-		connectedNodes: map[int64]*connectedNode{},
+		connectedNodes: map[int64]*connectedNode{}, protocolByNodeID: map[int64]int{},
 	}
 }
 

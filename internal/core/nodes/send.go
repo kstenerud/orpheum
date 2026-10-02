@@ -11,9 +11,13 @@ import (
 
 // Send queues a command for a node that is connected, numbering it, and wakes a waiting
 // long-poll. To a node that is not, it queues nothing and answers that the job is parked on the
-// node until its hello (D231 §11).
+// node until its hello (D231 §11), or, for one that speaks another version of the node protocol,
+// until it is updated (D233 §9).
 func (service *Service) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
 	connection, lastHeard := service.NodeConnection(ctx, nodeID)
+	if connection == NeedsUpdate {
+		return jobs.ParkOnNodeNeedingUpdate(nodeID, ErrNodeSilent)
+	}
 	if connection != Connected {
 		return jobs.ParkOnNode(nodeID, lastHeard, ErrNodeSilent)
 	}
@@ -24,7 +28,11 @@ func (service *Service) Send(ctx context.Context, nodeID int64, command nodeprot
 // Unanswered is a job's wait for a node's answer that ran out: the node going away, which parks
 // the job on it, when it is no longer connected; otherwise err, the job's own failure.
 func (service *Service) Unanswered(ctx context.Context, nodeID int64, err error) error {
-	if connection, lastHeard := service.NodeConnection(ctx, nodeID); connection != Connected {
+	connection, lastHeard := service.NodeConnection(ctx, nodeID)
+	if connection == NeedsUpdate {
+		return jobs.ParkOnNodeNeedingUpdate(nodeID, err)
+	}
+	if connection != Connected {
 		return jobs.ParkOnNode(nodeID, lastHeard, err)
 	}
 	return err

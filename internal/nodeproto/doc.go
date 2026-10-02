@@ -14,6 +14,8 @@
 //     musttag.
 //   - A closed set of record or command types is a sum type, and every type switch over it is
 //     exhaustive. Enforced by gochecksumtype.
+//   - Every hello says the protocol version it speaks (ProtocolVersion), raised with any change the
+//     other side would misread (D233 §9). Enforced by review.
 //   - A command and a result name their job in the envelope alone, and the node answers every job on
 //     one path (D234 §2). TestEnvelope_AJobIsNamedByTheEnvelopeAloneNeverByWhatItCarries.
 //

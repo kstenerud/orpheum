@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -98,7 +99,8 @@ type Exchange struct {
 
 // Next waits for the job's next result, for at most silence on the core's clock. A silence that
 // runs out is ErrNodeSilent, parked on the node when it went away (Sender.Unanswered); a context
-// that ends is its error, which the caller reads to tell a cancel from a shutdown.
+// that ends is its error, which the caller reads to tell a cancel from a shutdown; a node that
+// refused the command, not knowing it, parks the job until it is updated (D233 §9).
 func (exchange *Exchange) Next(ctx context.Context, silence time.Duration) (nodeproto.Result, error) {
 	if exchange.silenceTimer == nil {
 		exchange.silenceTimer = exchange.all.clock.NewTimer(silence)
@@ -108,6 +110,12 @@ func (exchange *Exchange) Next(ctx context.Context, silence time.Duration) (node
 	}
 	select {
 	case result := <-exchange.results:
+		if result.Refusal != "" {
+			// The node took no part of the command: nothing to stop, and it needs an update.
+			exchange.MarkEndedByNode()
+			return nodeproto.Result{}, jobs.ParkOnNodeNeedingUpdate(exchange.nodeID,
+				fmt.Errorf("it refused %s: %s", exchange.about, result.Refusal))
+		}
 		return result, nil
 	case <-exchange.silenceTimer.C():
 		silent := fmt.Errorf("node %d said nothing about %s for %s: %w",

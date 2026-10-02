@@ -770,8 +770,10 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 - **S88 — Two nodes; node A's prepares wait on a busy slot.** *Expected:* a play on node B
   starts at once. *Today:* it can wait behind global prepare runners held by A's jobs.
 - **S89 — A remote node on an older build receives a command it does not know.** *Expected:* it
-  refuses explicitly, or the core parks the node with the reason "version mismatch". *Today:*
-  silence, timeouts and attempts spent.
+  refuses explicitly, or the core parks the node with the reason "version mismatch". *Closed in
+  the jobs rebuild's Phase 4a (2026-10-02):* a hello in another protocol version is refused and the
+  node's work waits, "needs updating"; a command the node cannot read is refused by its job's id,
+  which parks the job the same way.
 - **S90 — A double click on "download subtitle".** *Expected:* one quota spent, and the same
   answer twice. *Today:* two downloads.
 - **S91 — The owner stops the core with a cancel pending for a running node job.** *Expected:* at
