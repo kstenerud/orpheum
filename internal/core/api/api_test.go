@@ -113,7 +113,8 @@ func newHarness(t *testing.T) testHarness {
 	})
 	preferencesService := preferences.NewService(database, now)
 	exchanges := corenodes.NewExchanges(corenodes.ExchangeParts{
-		Sender: nodes, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler), Cache: cache,
+		Sender: nodes, Rooms: nodes, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+		Cache:    cache,
 		Settings: seeded, MaxSilence: time.Minute,
 	})
 	queue.OnCancel(exchanges.Cancelled)
