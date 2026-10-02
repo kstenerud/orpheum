@@ -83,6 +83,13 @@ class Engine(unittest.TestCase):
         self.assertEqual(launcher.find_engine(env, lambda n: True), "podman")
         self.assertIsNone(launcher.find_engine(env, lambda n: n == "docker"))
 
+    def test_the_image_tag_is_printed_for_a_ci_cache_to_key_the_image_by(self):
+        with mock.patch.object(launcher, "find_engine", return_value="docker"), \
+                mock.patch("sys.stdout") as out:
+            self.assertEqual(launcher.main(["--image-tag"]), 0)
+        printed = "".join(c.args[0] for c in out.write.call_args_list)
+        self.assertEqual(printed.strip(), launcher.image_tag(launcher.ROOT, os.getuid(), os.getgid()))
+
     def test_no_engine_prints_what_to_install(self):
         with mock.patch.object(launcher, "find_engine", return_value=None), \
                 mock.patch("sys.stderr") as err:
@@ -108,6 +115,13 @@ class RunArgs(unittest.TestCase):
             self.assertIn(f"type=volume,src={volume},dst={path}", mounts)
         self.assertEqual(set(launcher.VOLUMES.values()),
                          {"/home/dev/go", "/home/dev/.cache", "/home/dev/.npm"})
+
+    def test_a_named_cache_directory_holds_each_cache_in_place_of_its_volume(self):
+        cache = Path(tempfile.mkdtemp())
+        mounts = pairs(self.run_args(env={launcher.CACHE_DIR_ENV: str(cache)}), "--mount")
+        for volume, path in launcher.VOLUMES.items():
+            self.assertIn(f"type=bind,src={cache.resolve() / volume},dst={path}", mounts)
+            self.assertNotIn(f"type=volume,src={volume},dst={path}", mounts)
 
     def test_the_ports_are_published_on_loopback_unless_the_environment_says_otherwise(self):
         self.assertEqual(pairs(self.run_args(), "--publish"), ["127.0.0.1:8432:8432", "127.0.0.1:5173:5173"])

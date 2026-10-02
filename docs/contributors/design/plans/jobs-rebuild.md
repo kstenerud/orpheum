@@ -331,6 +331,9 @@ Playwright's libraries; the image's layers are kept in GitHub's build cache, so 
 when the Containerfile or a pin changes; and `./dev` learns to keep Go's and npm's caches in a
 directory CI saves, as setup-go does now. Publishing a prebuilt image stays shelved until the
 public beta. The nested gate steps then run in parallel in CI too (make 4.3 ran them at -j1).
+*Built 2026-10-02, to be confirmed by its first run on GitHub:* `./dev --image-tag` keys a saved,
+zstd-compressed copy of the image, and `ORPHEUM_DEV_CACHE_DIR` keeps Go's, npm's and Playwright's
+caches in a directory the workflow saves; the runner installs nothing but runs `./dev`.
 
 ### 4b — the journal and acknowledged outcomes
 

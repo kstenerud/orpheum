@@ -8,6 +8,7 @@
     ./dev make check      the gate, the same way CI and every other machine run it
     ./dev make dev        the app, on http://127.0.0.1:5173 (the server on :8432)
     ./dev --stop          remove this repository's container (the volumes stay)
+    ./dev --image-tag     print the image's tag, which a CI cache keys the built image by
 
 The image is built from deploy/dev.Containerfile and tagged with a hash of every file it is built
 from and of your uid and gid, so a changed pin builds a new one and an unchanged tree reuses it.
@@ -28,6 +29,8 @@ container is replaced when the image or anything below changes.
 - ORPHEUM_DEV_ALLOWED_HOSTS, the names Vite answers to besides IP addresses (`devnas.example`), is
   passed to the command, so the LAN reaches the dev loop by name.
 - ORPHEUM_DEV_ENGINE picks the container engine; otherwise docker, then podman.
+- ORPHEUM_DEV_CACHE_DIR, when set, keeps the caches in a directory of the host, one subdirectory
+  each, in place of the named volumes: CI saves and restores it between runs.
 """
 
 from __future__ import annotations
@@ -60,6 +63,9 @@ VOLUMES = {
     "orpheum-dev-cache": f"{HOME}/.cache",  # Go's build cache, golangci-lint's, Playwright's browsers
     "orpheum-dev-npm": f"{HOME}/.npm",  # npm's cache
 }
+# Names a directory of the host to keep the caches in, one subdirectory per volume, in place of the
+# named volumes: what CI saves between runs (the jobs rebuild's step 4a′).
+CACHE_DIR_ENV = "ORPHEUM_DEV_CACHE_DIR"
 # The dev loop's ports: the server's (deploy/dev/orpheum.dev.toml's listen) and Vite's (scripts/dev.py).
 SERVER_PORT = 8432
 VITE_PORT = 5173
@@ -119,8 +125,12 @@ def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, 
             "--env", f"DEV_LISTEN={CONTAINER_LISTEN}"]
     if engine == "podman":
         args.append("--userns=keep-id")  # rootless podman: map the host user to the same uid inside
+    cache_dir = env.get(CACHE_DIR_ENV)
     for volume, path in VOLUMES.items():
-        args += ["--mount", f"type=volume,src={volume},dst={path}"]
+        if cache_dir:
+            args += ["--mount", f"type=bind,src={Path(cache_dir).resolve() / volume},dst={path}"]
+        else:
+            args += ["--mount", f"type=volume,src={volume},dst={path}"]
     for port in (SERVER_PORT, VITE_PORT):
         args += ["--publish", f"{publish}:{port}:{port}"]
     media = env.get("ORPHEUM_DEV_MEDIA")
@@ -199,6 +209,13 @@ def main(argv: list[str]) -> int:
     name = container_name(ROOT)
     if argv == ["--stop"]:
         return quiet([engine, "rm", "--force", name]).returncode
+    if argv == ["--image-tag"]:
+        print(image_tag(ROOT, uid, gid))
+        return 0
+    cache_dir = env.get(CACHE_DIR_ENV)
+    if cache_dir:
+        for volume in VOLUMES:
+            (Path(cache_dir) / volume).mkdir(parents=True, exist_ok=True)
     try:
         tag = ensure_image(engine, ROOT, uid, gid)
         ensure_container(engine, name, run_args(engine, tag, ROOT, env, Path("/dev/dri"),
