@@ -235,8 +235,10 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 	sent := bench.node.sent
 	if len(sent) != 1 || !bytes.Equal(sent[0].SourceImage, source) || sent[0].Shape != nodeproto.ShapePortrait ||
 		!slices.Equal(sent[0].SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitS, nodeproto.PortraitM}) ||
-		sent[0].MaxSourcePixels != 40_000_000 || sent[0].WebPQuality != 82 {
-		t.Fatalf("sent %+v; want the source, portrait, the sizes made when fetched, and the settings", sent)
+		sent[0].MaxSourcePixels != 40_000_000 || sent[0].WebPQuality != 82 ||
+		sent[0].SourceSha256 != Received(source).sourceSha256Hex() {
+		t.Fatalf("sent %+v; want the source and its hash, portrait, the sizes made when fetched, and the settings",
+			sent)
 	}
 	checkStored(t, bench.art, source)
 	rows := bench.rows(t)

@@ -15,7 +15,10 @@
 //   - A closed set of record or command types is a sum type, and every type switch over it is
 //     exhaustive. Enforced by gochecksumtype.
 //   - Every hello says the protocol version it speaks (ProtocolVersion), raised with any change the
-//     other side would misread (D233 §9). Enforced by review.
+//     other side would misread (D233 §9). A change to any message's fields, their types or wire
+//     names, fails until the version is raised and its shape recorded:
+//     TestProtocolVersion_IsRaisedWithAnyChangeToTheWire. A change to what a value means is the
+//     review's.
 //   - A command and a result name their job, and the attempt at it (its token), in the envelope
 //     alone, and the node answers every job on one path (D234 §2, D238 §2).
 //     TestEnvelope_AJobIsNamedByTheEnvelopeAloneNeverByWhatItCarries.

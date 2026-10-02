@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -364,5 +365,16 @@ func TestNewStartID_IsEightRandomBytesInHex(t *testing.T) {
 	}
 	if _, err := newStartID(bytes.NewReader([]byte{1, 2})); err == nil {
 		t.Error("a start id from too few random bytes was made, want an error")
+	}
+}
+
+func TestWorkPacing_IsTheNodesConfig(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.Node.ProgressEverySeconds, config.Node.EndedWorkKeptHours = 3, 5
+	if progressEvery, endedWorkKept := workPacing(config); progressEvery != 3*time.Second ||
+		endedWorkKept != 5*time.Hour {
+		t.Errorf("the node's pacing = %v, %v; want 3s from progress_every_seconds and 5h from ended_work_kept_hours",
+			progressEvery, endedWorkKept)
 	}
 }

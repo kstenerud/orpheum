@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package nodeproto
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"reflect"
+	"slices"
+	"strings"
+	"testing"
+)
+
+// wireShapeByVersion is the shape of the protocol's messages at each version the core and node have
+// spoken: a hash of every field of every message, at any depth, with its type and wire tag. A version
+// is added here with each raise of ProtocolVersion, and never changed after.
+var wireShapeByVersion = map[int]string{
+	4: "f3ad787eff46694996512e112edea5efbffbd5af6f568ca8b301a856ec5b4ffd",
+}
+
+// TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
+// ProtocolVersion was raised for (D233 §9): a field added, removed, retyped or renamed on the wire
+// without raising it, or a raise without its shape recorded, fails.
+func TestProtocolVersion_IsRaisedWithAnyChangeToTheWire(t *testing.T) {
+	t.Parallel()
+	got := wireShape()
+	if want, recorded := wireShapeByVersion[ProtocolVersion]; !recorded || want != got {
+		t.Errorf("the wire's shape is %s; protocol %d records %q. Changing the wire raises ProtocolVersion, "+
+			"and the new version's shape is recorded in wireShapeByVersion", got, ProtocolVersion, want)
+	}
+}
+
+// wireShape is a hash of every field of every message, at any depth.
+func wireShape() string {
+	seen := map[reflect.Type]bool{}
+	var fields []string
+	for _, message := range []reflect.Type{
+		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
+		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Record](),
+	} {
+		fields = append(fields, fieldsOf(message, seen)...)
+	}
+	slices.Sort(fields)
+	sum := sha256.Sum256([]byte(strings.Join(fields, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+func fieldsOf(typ reflect.Type, seen map[reflect.Type]bool) []string {
+	for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array ||
+		typ.Kind() == reflect.Map {
+		typ = typ.Elem()
+	}
+	if typ.Kind() != reflect.Struct || seen[typ] {
+		return nil
+	}
+	seen[typ] = true
+	var fields []string
+	for field := range typ.Fields() {
+		fields = append(fields, fmt.Sprintf("%s.%s %s %q", typ.String(), field.Name, field.Type.String(),
+			field.Tag.Get("json")))
+		fields = append(fields, fieldsOf(field.Type, seen)...)
+	}
+	return fields
+}

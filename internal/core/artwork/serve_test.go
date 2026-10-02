@@ -163,6 +163,10 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		if !slices.Equal(command.SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitL}) {
 			t.Errorf("asked for %v, want portrait-l only", command.SizeNames)
 		}
+		if command.SourceSha256 != sourceSha256Hex {
+			t.Errorf("the command named source %q, want %s, which its sizes are recorded under",
+				command.SourceSha256, sourceSha256Hex)
+		}
 		return nodeproto.ArtworkResult{}
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
