@@ -142,3 +142,73 @@ func TestRun_AToolDiesWithTheNode(t *testing.T) {
 	}
 	t.Errorf("the tool %d outlived the node that started it", pid)
 }
+
+// stateOf is the state letter /proc gives process pid once it is wantStopped's, "T" stopped or any
+// other, or as it is when a second has passed: a signal takes effect a moment after it is sent.
+func stateOf(t *testing.T, pid int, wantStopped bool) string {
+	t.Helper()
+	var state string
+	for range 100 {
+		stat, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state = processState(string(stat)); (state == "T") == wantStopped {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return state
+}
+
+// A paused run is stopped where it stands, its process group sent SIGSTOP, and neither stalls nor
+// spends its deadline however long it is paused; continued, it is judged again from where it
+// stood, its paused time not counted (D240 §6).
+func TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainOnceContinued(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Progress: hangingProgress, Hang: testutil.HangUntilQuit})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	runner, ticks := watchedRunner(t, fake, clockSource)
+	runner.quitGrace, runner.termGrace = time.Hour, time.Hour
+	reported := make(chan struct{}, 1)
+	watch := testWatch
+	watch.OnProgress = func(Progress) {
+		select {
+		case reported <- struct{}{}:
+		default:
+		}
+	}
+	pausing := &Pausing{}
+	ended := make(chan error, 1)
+	go func() {
+		_, err := runner.RunWatched(WithPausing(t.Context(), pausing),
+			WatchedRun{Arguments: []string{"-i", "x"}, Watch: watch})
+		ended <- err
+	}()
+	testutil.Receive(t, reported, "the watch's report")
+	pausing.Pause()
+	pausing.mutex.Lock()
+	pid := pausing.pid
+	pausing.mutex.Unlock()
+	if state := stateOf(t, pid, true); state != "T" {
+		t.Errorf("the paused run's process is in state %q, want stopped (T)", state)
+	}
+	clockSource.Advance(testWatch.Deadline + testWatch.StallWindow)
+	ticks <- clockSource.Now()
+	select {
+	case err := <-ended:
+		t.Fatalf("a paused run ended %v; want it left paused, however long", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	pausing.Continue()
+	if state := stateOf(t, pid, false); state == "T" {
+		t.Error("the continued run's process is still stopped")
+	}
+	clockSource.Advance(testWatch.StallWindow)
+	ticks <- clockSource.Now()
+	err := testutil.Receive(t, ended, "the continued run's end")
+	stalled, isStalled := errors.AsType[*StalledError](err)
+	if !isStalled || stalled.Cause != StallStoodStill || stalled.WithoutAdvance != testWatch.StallWindow {
+		t.Errorf("the continued run, still for its window, ended %v; want stood still for the window alone", err)
+	}
+}

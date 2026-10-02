@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancelled(t *testing.T) {
@@ -71,4 +72,27 @@ func (fixed fixture) view(t *testing.T, id int64) View {
 	}
 	t.Fatalf("no job %d in the view", id)
 	return View{}
+}
+
+// A job given to a node shows as running, with where its node last said it is: waiting for a slot,
+// running, or paused for play-driven work (D240 §6).
+func TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, 0)
+	jobs.enqueue(t, 2, 0)
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
+		return Assign(jobs.clock.Now().Add(time.Hour))
+	})
+	jobs.runDue(t, runner)
+	jobs.runDue(t, runner)
+	paused := jobs.job(t, 1).ID
+	jobs.queue.SetNodeWords(func(jobID int64) (string, bool) { return "paused", jobID == paused })
+	if view := jobs.view(t, paused); view.State != "running" || view.OnNode != "paused" {
+		t.Errorf("the job its node paused shows %q, on its node %q; want running, paused", view.State, view.OnNode)
+	}
+	if view := jobs.view(t, jobs.job(t, 2).ID); view.State != "running" || view.OnNode != "" {
+		t.Errorf("the job its node has not spoken of shows %q, on its node %q; want running, nothing said",
+			view.State, view.OnNode)
+	}
 }

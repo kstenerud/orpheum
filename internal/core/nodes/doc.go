@@ -84,6 +84,12 @@
 //     and the node evicts the others; with no index, or one that cannot be squared, every one is
 //     kept, so the node evicts nothing for the core's failure (D238 §2).
 //     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
+//   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for
+//     commands carries the reader limits the settings say then. Where a node last said a job's work
+//     is, by its progress or status, is kept for the job view (NodeWordOf).
+//     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot,
+//     TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow,
+//     TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs.
 //   - The reply to a hello gives each device it lists the reader limit of its kind's setting
 //     (device_readers_*), an unknown kind's for one the core does not know (D240 §5).
 //     TestHello_RepliesWithEachDevicesReaderLimitByItsKind.

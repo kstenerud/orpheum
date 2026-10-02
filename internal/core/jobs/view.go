@@ -21,6 +21,7 @@ type View struct {
 	ID   int64
 	Kind Kind
 	Target
+	// State is queued, running, done, failed or cancelled: a job given to a node is running.
 	State string
 	// ProgressFraction is how far it is, 0 to 1, or nil when not known.
 	ProgressFraction *float64
@@ -34,6 +35,19 @@ type View struct {
 	// WaitingFor is its destination's state while it is queued on a parked one: what the job view
 	// shows as "waiting for TMDB — unreachable since 14:02, next check 14:10" (D231 §12).
 	WaitingFor *DestinationState
+	// OnNode is where the node it was given to last said it is, for a job assigned to one: waiting
+	// for a slot or a reader, running, or paused for play-driven work (D240 §6); empty otherwise.
+	OnNode string
+}
+
+// NodeWords says where the node holding a job's work last said it is: nodes.Exchanges.NodeWordOf.
+type NodeWords func(jobID int64) (word string, isSaid bool)
+
+// SetNodeWords has the job view say where the node holding each assigned job's work is.
+func (queue *Queue) SetNodeWords(words NodeWords) {
+	queue.nodeWordsMutex.Lock()
+	defer queue.nodeWordsMutex.Unlock()
+	queue.nodeWords = words
 }
 
 // List is the newest jobs, newest first, at most limit of them.
@@ -54,9 +68,24 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 			row.State == jobqueue.StateQueued {
 			view.WaitingFor = &state
 		}
+		if row.State == jobqueue.StateAssigned {
+			// To a person, work given to a node runs there; OnNode says where it is.
+			view.State = string(jobqueue.StateRunning)
+			if words := queue.wordsOfNodes(); words != nil {
+				if word, isSaid := words(row.ID); isSaid {
+					view.OnNode = word
+				}
+			}
+		}
 		views = append(views, view)
 	}
 	return views, nil
+}
+
+func (queue *Queue) wordsOfNodes() NodeWords {
+	queue.nodeWordsMutex.Lock()
+	defer queue.nodeWordsMutex.Unlock()
+	return queue.nodeWords
 }
 
 // Cancel cancels a queued or running job: a queued one never runs, and a running one's handler

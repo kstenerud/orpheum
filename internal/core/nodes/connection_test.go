@@ -334,3 +334,19 @@ func TestHello_RepliesWithEachDevicesReaderLimitByItsKind(t *testing.T) {
 		t.Errorf("the reply's reader limits are %v, want %v", reply.DeviceReaderLimits, want)
 	}
 }
+
+// Each answer to a poll for commands carries the reader limits as the settings say then, so a change
+// reaches the node without a new hello (D240 §5).
+func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: []nodeproto.Device{
+		{Key: "zfs:tank", Kind: nodeproto.DeviceSpinning},
+	}})
+	settingstest.Set(t, harness.settings, settings.DeviceReadersSpinning, "2")
+	commands, status := harness.pollThroughHold(t, reply.NodeID, 0)
+	if status != http.StatusOK || commands.DeviceReaderLimits["zfs:tank"] != 2 {
+		t.Errorf("the poll answered %d with limits %v; want zfs:tank's raised to 2", status,
+			commands.DeviceReaderLimits)
+	}
+}

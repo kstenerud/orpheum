@@ -99,6 +99,9 @@ type HeldState string
 const (
 	HeldWaiting HeldState = "waiting"
 	HeldRunning HeldState = "running"
+	// HeldPaused is an attempt whose run the node paused, so play-driven work can read its device
+	// alone (D240 §6).
+	HeldPaused HeldState = "paused"
 	// HeldEnded is an attempt whose work ended, its result not yet acknowledged: sent again until it
 	// is.
 	HeldEnded HeldState = "ended"

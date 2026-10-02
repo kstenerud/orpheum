@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -141,6 +142,9 @@ type QueueParts struct {
 // over the job table, with Orpheum's kinds and targets.
 type Queue struct {
 	queue *jobqueue.Queue[Target]
+
+	nodeWordsMutex sync.Mutex
+	nodeWords      NodeWords // guarded by nodeWordsMutex: nil until set
 }
 
 // NewQueue returns the queue. A person's request probes its parked destination at once, and

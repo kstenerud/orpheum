@@ -11,6 +11,9 @@
 //
 // # Invariants
 //
+//   - The job view shows a job given to a node as running, with where its node last said it is:
+//     waiting, running or paused (D240 §6).
+//     TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs.
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.

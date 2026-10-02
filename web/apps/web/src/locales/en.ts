@@ -402,6 +402,10 @@ export const en = {
     lastFailure: "Last error: {{failure}}",
     waitingFor: "Waiting for {{name}}: {{reason}} since {{since}}, next check {{next}}",
     waitingForSignal: "Waiting for {{name}}: {{reason}} since {{since}}",
+    onNode: {
+      waiting: "Waiting for a free slot on the media machine",
+      paused: "Paused while a film is prepared",
+    },
     cancel: "Cancel",
     cancelLabel: "Cancel {{kind}} #{{target}}",
     alreadyEnded: "That job has already ended.",

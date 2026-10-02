@@ -16,6 +16,15 @@
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - Records reach the core in the order of their numbers, numbered on from the core's last,
 //     each as soon as it is written. TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder.
+//   - A job's work reads the device its file is on, and runs only with a reader of it free, its
+//     limit the core's, one when the core named none; a paused run holds its slot but no reader.
+//     TestWorkList_ADevicesReadersAreBoundedByItsLimit,
+//     TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackground.
+//   - Play-driven work that finds its device's readers taken pauses the background work reading
+//     it, which continues once it ends; a scan of the device waits between files meanwhile; a device
+//     with room for both pauses nothing (D240 §6). The status says what is paused.
+//     TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds,
+//     TestWorkList_ADeviceWithRoomForBothPausesNothing.
 //   - Each hello lists the devices the roots are on as found then (D240 §5).
 //     TestAgent_TheHelloListsTheDevicesFoundAsItIsSaid.
 //   - Each hello lists the renditions the prepared directory holds, by their manifests, and the

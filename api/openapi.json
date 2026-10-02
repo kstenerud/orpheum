@@ -1761,6 +1761,14 @@
           "lastFailure": {
             "type": "string"
           },
+          "onNode": {
+            "enum": [
+              "waiting",
+              "running",
+              "paused"
+            ],
+            "type": "string"
+          },
           "progressFraction": {
             "format": "double",
             "type": "number"

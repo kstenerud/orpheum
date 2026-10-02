@@ -363,3 +363,22 @@ func TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing(t *testing.T) {
 	bench.exchanges.Cancelled(t.Context(), 7)
 	bench.wantNothingSent(t, "the node never took the work, which was withdrawn")
 }
+
+// Work a person waits for, to play, is sent play-driven, and pauses the background work on its
+// device; background work is not (D240 §6).
+func TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	for _, job := range []jobs.Job{
+		{ID: 7, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow},
+		{ID: 8, Kind: jobs.KindPrepare, Priority: 0},
+	} {
+		jobqueue.Hand(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, prepareCommand))
+		sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+		if wantPlayDriven := job.Priority >= jobs.PriorityPlayNow; sent.IsPlayDriven != wantPlayDriven {
+			t.Errorf("job %d at priority %d was sent play-driven %v, want %v", job.ID, job.Priority,
+				sent.IsPlayDriven, wantPlayDriven)
+		}
+	}
+}

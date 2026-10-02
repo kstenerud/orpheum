@@ -250,3 +250,26 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 		t.Errorf("%d broken invariants counted, want 2: the lost job and the stray work", count)
 	}
 }
+
+// Where the node holding a job's work last said it is, by its progress or its status, is kept for
+// the job view: waiting, running, or paused for play-driven work (D240 §6).
+func TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	sent := bench.assign(t)
+	if word, isSaid := bench.exchanges.NodeWordOf(7); isSaid {
+		t.Errorf("before the node spoke of job 7 its word is %q, want none", word)
+	}
+	bench.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+		JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.ProgressWaiting,
+	})
+	if word, _ := bench.exchanges.NodeWordOf(7); word != nodeproto.ProgressWaiting {
+		t.Errorf("after its progress said waiting, job 7's word is %q", word)
+	}
+	bench.exchanges.Square(t.Context(), 1,
+		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldPaused}}, nil)
+	if word, _ := bench.exchanges.NodeWordOf(7); word != nodeproto.ProgressPaused {
+		t.Errorf("after its status said paused, job 7's word is %q", word)
+	}
+}

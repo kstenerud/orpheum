@@ -30,6 +30,9 @@ type Command struct {
 	// Priority is the job's: the node starts what waits for a slot, the highest first and, at one
 	// priority, the first to come (D234 §3). Zero for a scan and a cancel.
 	Priority int64 `json:"priority,omitempty"`
+	// IsPlayDriven is work a person is waiting for, to play: on its device it pauses the background
+	// work reading there, and no background work starts there while it runs (D240 §6).
+	IsPlayDriven bool `json:"isPlayDriven,omitempty"`
 	Work
 }
 
@@ -57,6 +60,25 @@ type Scan struct {
 // when the poll's time ran out.
 type Commands struct {
 	Commands []Command `json:"commands"`
+	// DeviceReaderLimits are how many may read each of the node's devices at once, by its key, as the
+	// core's settings say now: a change reaches the node with the next answer (D240 §5).
+	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
+}
+
+// MediaFile is the file of the node's media a command reads, and whether it reads one: the device it
+// is on is the one the work holds a reader of (D240 §5).
+func (work Work) MediaFile() (BytesFile, bool) {
+	switch {
+	case work.Prepare != nil:
+		return work.Prepare.Video, true
+	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil:
+		return *work.ExtractSubtitle.Video, true
+	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Sidecar != nil:
+		return *work.ExtractSubtitle.Sidecar, true
+	case work.MeasureLoudness != nil:
+		return work.MeasureLoudness.Video, true
+	}
+	return BytesFile{}, false
 }
 
 // WithoutBytes is the work as a result echoes it, and the core keeps it: without the bytes it

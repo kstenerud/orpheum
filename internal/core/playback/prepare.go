@@ -261,6 +261,10 @@ func (all *prepares) takeProgress(ctx context.Context, attempt nodes.Attempt, pr
 			return fmt.Errorf("node %d held prepare %s waiting for a slot for %s", attempt.NodeID, run.dir(), waited)
 		}
 		return nil
+	case nodeproto.ProgressPaused:
+		// Paused for play-driven work on its device: heard of, and not waiting for a slot.
+		all.forgetWaiting(attempt.Token)
+		return nil
 	case nodeproto.ProgressRunning:
 		all.forgetWaiting(attempt.Token)
 		return all.recordProgress(ctx, attempt.JobID, run, progress.PreparedThroughMs,

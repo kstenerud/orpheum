@@ -141,6 +141,27 @@ describe("the job view", () => {
     expect(waiting[1]).not.toContain("next check"); // its hello brings it back, not a check
   });
 
+  it("says where a node holds the work: waiting for a slot, or paused for a film (D240 §6)", async () => {
+    const waitingForSlot: Job = { ...preparing, id: 8, onNode: "waiting" };
+    const paused: Job = {
+      ...preparing,
+      id: 9,
+      kind: "measure_loudness",
+      fileId: 2,
+      onNode: "paused",
+    };
+    const running: Job = { ...preparing, id: 10, onNode: "running" };
+    const services = servedBy({ "GET /jobs": [200, { jobs: [waitingForSlot, paused, running] }] });
+    mounted = await mount(withServices(<Jobs />, services));
+    const waiting = [...mounted.container.querySelectorAll(".jobs__waiting")].map(
+      (line) => line.textContent,
+    );
+    expect(waiting).toEqual([
+      "Waiting for a free slot on the media machine",
+      "Paused while a film is prepared",
+    ]);
+  });
+
   it("says so when the job had already ended", async () => {
     const services = servedBy({
       "GET /jobs": [200, { jobs: [preparing] }],

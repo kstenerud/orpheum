@@ -32,8 +32,11 @@ func (all *Exchanges) Square(
 		}
 	}
 	for token, attempt := range all.attempts {
-		if _, isHeld := heldByToken[token]; isHeld && attempt.NodeID == nodeID {
+		if each, isHeld := heldByToken[token]; isHeld && attempt.NodeID == nodeID {
 			attempt.lastHeard = now
+			if word, isWord := wordOfHeld(each.State); isWord {
+				attempt.lastWord = word
+			}
 		}
 	}
 	all.mutex.Unlock()
@@ -49,6 +52,21 @@ func (all *Exchanges) Square(
 			each.AttemptToken)
 		all.sender.Enqueue(nodeID, CancelCommand(each.JobID, each.AttemptToken))
 	}
+}
+
+// wordOfHeld is the node's word on an attempt its status lists, as its progress would say it, and
+// whether it says one: an ended attempt's word is its result.
+func wordOfHeld(state nodeproto.HeldState) (nodeproto.ProgressState, bool) {
+	switch state {
+	case nodeproto.HeldWaiting:
+		return nodeproto.ProgressWaiting, true
+	case nodeproto.HeldRunning:
+		return nodeproto.ProgressRunning, true
+	case nodeproto.HeldPaused:
+		return nodeproto.ProgressPaused, true
+	case nodeproto.HeldEnded:
+	}
+	return "", false
 }
 
 // brokeAnInvariant logs and counts a difference between what the core gave a node and what it holds,

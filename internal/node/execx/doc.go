@@ -12,6 +12,9 @@
 //
 // # Invariants
 //
+//   - A watched run made on a context carrying a Pausing is paused with SIGSTOP to its process
+//     group and continued with SIGCONT, and its paused time is neither a stall nor spent deadline
+//     (D240 §6). TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainOnceContinued.
 //   - It is the only shipping package that imports os/exec or calls exec.Command; the test-only
 //     internal/testutil is the other. Enforced by the depguard rule exec-only-in-execx, the
 //     forbidigo rule tagged [exec], and TestArch_OnlyExecxImportsOsExec.
@@ -57,6 +60,7 @@
 //
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
+//     pause.go: pausing a watched run for play-driven work.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.
 package execx
