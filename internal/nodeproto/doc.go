@@ -14,12 +14,15 @@
 //     musttag.
 //   - A closed set of record or command types is a sum type, and every type switch over it is
 //     exhaustive. Enforced by gochecksumtype.
+//   - A command and a result name their job in the envelope alone, and the node answers every job on
+//     one path (D234 §2). TestEnvelope_AJobIsNamedByTheEnvelopeAloneNeverByWhatItCarries.
 //
 // # Read before changing
 //
 //   - D39: reports are JSONL.
 //   - D100: a command names its target by path and payload hash.
 //   - D107: the node channel is authenticated by socket permissions in Cut A.
+//   - D234 §2: the core sends requests the node answers, each matched by id.
 //   - D127: the node dials out; the file channel is deleted (D193).
 //   - D85: the node protocol is under the compatibility contract.
 //   - docs/contributors/design/plans/cut-a.md §4.
