@@ -47,3 +47,14 @@ func unansweredOutcome(job jobs.Job, err error, keepFailure func(failure string)
 	failure := jobs.ToolFailedTwice + err.Error()
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }
+
+// refusalError is a node's refusal of work it did not try, which says nothing of the source and is
+// tried again on the job's back-off. A file changed since the scan says so: the scan that sees the
+// change ends the old file's jobs (S74).
+func refusalError(nodeID int64, what, refusal string, code nodeproto.RefusalCode) error {
+	if code == nodeproto.RefusedChanged {
+		return fmt.Errorf("node %d refused %s: its file changed since the scan, which the next scan "+
+			"of its root ends the job for: %s", nodeID, what, refusal)
+	}
+	return fmt.Errorf("node %d refused %s: %s", nodeID, what, refusal)
+}

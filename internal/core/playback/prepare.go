@@ -259,7 +259,7 @@ func (all *prepares) takeEnd(
 		return stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
 			func(failure string) error { return all.failMaking(ctx, order.run, failure) })
 	case nodeproto.PrepareRefused:
-		refused := fmt.Errorf("node %d refused prepare %s: %s", nodeID, renditionDir, report.Refusal)
+		refused := refusalError(nodeID, "prepare "+renditionDir, report.Refusal, report.RefusalCode)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
 			// Its prepared directory's disk is full: the node's prepares wait until its status
 			// shows room (D231 §5).

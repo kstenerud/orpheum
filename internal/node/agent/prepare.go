@@ -75,7 +75,9 @@ func (agent *Agent) runPrepare(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.Prepare,
 ) nodeproto.PrepareReport {
 	refused := func(err error) nodeproto.PrepareReport {
-		return nodeproto.PrepareReport{State: nodeproto.PrepareRefused, Refusal: err.Error()}
+		return nodeproto.PrepareReport{
+			State: nodeproto.PrepareRefused, Refusal: err.Error(), RefusalCode: refusalCodeOf(err),
+		}
 	}
 	if agent.workers.Preparer == nil {
 		return refused(errors.New("this node does not prepare"))
@@ -109,6 +111,14 @@ func (agent *Agent) runPrepare(
 		State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
 		RealtimeFactor: made.RealtimeFactor,
 	}
+}
+
+// refusalCodeOf names a refusal the core says apart: a file changed since the scan.
+func refusalCodeOf(err error) nodeproto.RefusalCode {
+	if errors.Is(err, namedfile.ErrChanged) {
+		return nodeproto.RefusedChanged
+	}
+	return ""
 }
 
 // verifiedSourcePath is the absolute path of the file source names, once it is under one of the

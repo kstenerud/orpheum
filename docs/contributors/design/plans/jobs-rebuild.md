@@ -414,6 +414,13 @@ held by the node, served on the byte socket by its attempt's token, and posted a
 work, size and SHA-256; the core fetches it and takes it only whole, then records it as any other.
 Node protocol 5.
 
+*4b.4 built 2026-10-02:* a fetched subtitle is converted by its job, at play priority, while the
+fetch waits for its text, at most the silence limit, and is discarded if not converted (D224 §6);
+the prepared directory's disk keeps `node.min_free_mib` free (100), evicting for it and refusing a
+prepare with nothing to evict, and the core's "room" reads the floor too; a refusal for a file
+changed since the scan is named (`changed`) and said apart, tried again as before. Node protocol 7.
+4b is built.
+
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's

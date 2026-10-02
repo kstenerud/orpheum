@@ -202,3 +202,17 @@ func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.
 		t.Errorf("after late progress and a job giving up, the rendition is %+v; want it still complete", row)
 	}
 }
+
+// A refusal says nothing of the source, and is tried again; one for a file changed since the scan
+// says so, and that the next scan of its root ends the job (S74).
+func TestRefusalError_SaysAFileChangedSinceTheScanApart(t *testing.T) {
+	t.Parallel()
+	changed := refusalError(1, "prepare 3/remux/0123456789abcdef", "not the one named", nodeproto.RefusedChanged)
+	if !strings.Contains(changed.Error(), "changed since the scan") || !strings.Contains(changed.Error(), "next scan") {
+		t.Errorf("a changed file's refusal says %q, want it said apart, with what ends the job", changed)
+	}
+	other := refusalError(1, "prepare 3/remux/0123456789abcdef", "this node does not prepare", "")
+	if strings.Contains(other.Error(), "changed since the scan") {
+		t.Errorf("another refusal says %q, want it not taken for a changed file", other)
+	}
+}

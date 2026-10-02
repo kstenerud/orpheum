@@ -107,6 +107,8 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 	defer agent.workers.HeldResults.forget(token)
 	wait := agent.answerRetry.firstWait
 	for {
+		// Taken before the post, so a hello said while the post fails still wakes the next try.
+		nextHello := agent.ended.nextHello()
 		var accepted struct{}
 		err = agent.exchange(ctx, http.MethodPost, nodeproto.PathResult, nodeID, bytes.NewReader(encoded), &accepted)
 		if err == nil {
@@ -118,7 +120,7 @@ func (agent *Agent) postUntilAcknowledged(ctx context.Context, nodeID int64, job
 		}
 		agent.logger.InfoContext(ctx, "the core has not taken a job's answer; trying again", "jobKind", jobKind,
 			"jobId", result.JobID, "wait", wait.String(), "err", err)
-		if !sleepUntilHelloOrDone(ctx, wait, agent.ended.nextHello()) {
+		if !sleepUntilHelloOrDone(ctx, wait, nextHello) {
 			return
 		}
 		wait = min(2*wait, agent.answerRetry.longestWait)

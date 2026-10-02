@@ -111,8 +111,9 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	changed.PayloadHash = strings.Repeat("0", 64)
 	send(2, changed)
 	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
-		!strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" {
-		t.Errorf("a prepare of a changed file ended %+v, want refused", refused)
+		!strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" ||
+		refused.RefusalCode != nodeproto.RefusedChanged {
+		t.Errorf("a prepare of a changed file ended %+v, want refused as changed since the scan", refused)
 	}
 	elsewhere := source
 	elsewhere.RootPath = t.TempDir()
