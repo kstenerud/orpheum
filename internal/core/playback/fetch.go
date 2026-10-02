@@ -231,7 +231,8 @@ func (service *Service) convertFetched(
 	ctx context.Context, nodeID int64, text []byte,
 ) (nodeproto.SubtitleText, error) {
 	conversionID := -service.fetchConversions.Add(1)
-	exchange, err := service.exchanges.Ask(ctx, nodeID, conversionID, nodeproto.Command{
+	conversion := jobs.Job{ID: conversionID, Priority: jobs.PriorityPlayNow}
+	exchange, err := service.exchanges.Ask(ctx, nodeID, conversion, nodeproto.Command{
 		Type:            nodeproto.CommandExtractSubtitle,
 		ExtractSubtitle: &nodeproto.ExtractSubtitle{FetchedSubRip: text},
 	}, "a fetched subtitle")

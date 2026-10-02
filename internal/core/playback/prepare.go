@@ -183,7 +183,7 @@ const maxSlotWait = 6 * time.Hour
 // has held it waiting for a slot for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
-	exchange, err := all.exchanges.Ask(ctx, nodeID, job.ID,
+	exchange, err := all.exchanges.Ask(ctx, nodeID, job,
 		nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command}, "prepare "+command.RenditionDir)
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
@@ -203,7 +203,9 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 			return all.abandon(ctx, job)
 		}
 		if err != nil {
-			return err
+			return unansweredOutcome(job, err, func(failure string) error {
+				return all.finish(ctx, job.RenditionID, nil, failure)
+			})
 		}
 		if result.Prepare == nil {
 			return fmt.Errorf("node %d answered prepare %s with something other than a prepare report",

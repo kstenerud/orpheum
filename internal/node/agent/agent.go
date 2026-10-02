@@ -81,8 +81,7 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	slots       slots
-	jobs        jobTracker
+	work        *workList
 	answerRetry answerRetry
 
 	mutex    sync.Mutex
@@ -105,7 +104,7 @@ func New(
 	return &Agent{
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
-		clock:   clockSource, logger: logger, activity: "idle", slots: newSlots(hello.Capacity),
+		clock:   clockSource, logger: logger, activity: "idle", work: newWorkList(hello.Capacity),
 		answerRetry: defaultAnswerRetry(),
 	}
 }
@@ -143,15 +142,13 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	defer cancel(nil)
 	stream := newRecordStream(reply.LastIngestedReportSeq)
 	// The long-poll hands over a batch of commands at a time; a buffer of a batch or so lets it go
-	// back for the next while the session starts the last. Only its size is chosen: a full buffer
-	// holds the poll, never drops a command.
-	commandQueue := make(chan nodeproto.Command, 16)
+	// back for the next while the session starts the last scan. Only its size is chosen: a full
+	// buffer holds the poll, never drops a command.
+	scanQueue := make(chan nodeproto.Scan, 16)
 	var sessionTasks sync.WaitGroup
 	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
-	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, reply.NodeID, commandQueue)) })
-	sessionTasks.Go(func() {
-		cancel(agent.runCommandsInOrder(ctx, nodeCtx, reply.NodeID, commandQueue, stream))
-	})
+	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, nodeCtx, reply.NodeID, scanQueue)) })
+	sessionTasks.Go(func() { cancel(agent.runScansInOrder(ctx, scanQueue, stream)) })
 	sessionTasks.Go(func() {
 		for {
 			select {
@@ -162,7 +159,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 					cancel(err)
 					return
 				}
-				for _, jobID := range agent.jobs.waitingJobIDs() {
+				for _, jobID := range agent.work.waitingPrepareJobIDs() {
 					agent.sayWaiting(ctx, reply.NodeID, jobID)
 				}
 			}
@@ -182,8 +179,11 @@ func (agent *Agent) sayHello(ctx context.Context) (nodeproto.HelloReply, error) 
 	return reply, err
 }
 
-// pollCommands long-polls for commands and queues them for the worker.
-func (agent *Agent) pollCommands(ctx context.Context, nodeID int64, commandQueue chan<- nodeproto.Command) error {
+// pollCommands long-polls for commands. Work is held by the node, beside its scans, which are
+// queued for the session to run one at a time; a cancel is carried out as it arrives.
+func (agent *Agent) pollCommands(
+	ctx, nodeCtx context.Context, nodeID int64, scanQueue chan<- nodeproto.Scan,
+) error {
 	var lastTakenCommandSeq int64
 	for {
 		var answer nodeproto.Commands
@@ -193,84 +193,96 @@ func (agent *Agent) pollCommands(ctx context.Context, nodeID int64, commandQueue
 			return err
 		}
 		for _, command := range answer.Commands {
-			// A cancel is carried out as it arrives, not queued behind the work it stops.
-			if command.Type == nodeproto.CommandCancel {
-				if !agent.jobs.cancel(command.JobID) {
-					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "jobId", command.JobID)
+			switch {
+			case command.Type == nodeproto.CommandCancel:
+				if !agent.work.cancel(command.JobID) {
+					agent.logger.InfoContext(ctx, "a cancel came for a job this node does not hold", "jobId",
+						command.JobID)
 				}
-				lastTakenCommandSeq = command.CommandSeq
-				continue
-			}
-			select {
-			case commandQueue <- command:
-			case <-ctx.Done():
-				return fmt.Errorf("stopped while queueing command %d: %w", command.CommandSeq, ctx.Err())
+			case command.Type == nodeproto.CommandScan && command.Scan != nil:
+				select {
+				case scanQueue <- *command.Scan:
+				case <-ctx.Done():
+					return fmt.Errorf("stopped while queueing command %d: %w", command.CommandSeq, ctx.Err())
+				}
+			default:
+				agent.holdCommand(ctx, nodeCtx, nodeID, command)
 			}
 			lastTakenCommandSeq = command.CommandSeq
 		}
 	}
 }
 
-// runCommandsInOrder runs commands one at a time, until the session's ctx ends; the work they start
-// runs on nodeCtx, the node's lifetime.
-func (agent *Agent) runCommandsInOrder(
-	ctx, nodeCtx context.Context, nodeID int64, commandQueue <-chan nodeproto.Command, stream *recordStream,
-) error {
+// holdCommand holds a command's work until a slot of its kind is free (workList), on nodeCtx, the
+// node's lifetime: a session that ends, the core gone or restarting, stops no work (D233 §2), and
+// each posts its result when a core takes it. A command the node cannot read is refused.
+func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, command nodeproto.Command) {
+	work, isKnown := agent.workFor(nodeCtx, nodeID, command)
+	if !isKnown {
+		agent.refuseUnknown(ctx, nodeID, command)
+		return
+	}
+	work.jobID, work.priority = command.JobID, command.Priority
+	isHeld, isWaiting := agent.work.hold(nodeCtx, work)
+	if !isHeld {
+		agent.logger.InfoContext(ctx, "the core sent again a job this node holds", "jobId", command.JobID)
+		return
+	}
+	if isWaiting && work.saysWaiting {
+		go agent.sayWaiting(nodeCtx, nodeID, command.JobID)
+	}
+}
+
+// workFor is the work a command asks for, and false for one this node cannot read: unknown, or
+// without its payload.
+func (agent *Agent) workFor(nodeCtx context.Context, nodeID int64, command nodeproto.Command) (heldWork, bool) {
+	switch {
+	case command.Type == nodeproto.CommandPrepare && command.Prepare != nil:
+		return agent.prepareWork(nodeCtx, nodeID, command.JobID, *command.Prepare), true
+	case command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil:
+		return agent.subtitleWork(nodeCtx, nodeID, command.JobID, *command.ExtractSubtitle), true
+	case command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil:
+		return agent.loudnessWork(nodeCtx, nodeID, command.JobID, *command.MeasureLoudness), true
+	case command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil:
+		return agent.artworkWork(nodeCtx, nodeID, command.JobID, *command.EncodeArtwork), true
+	}
+	return heldWork{}, false
+}
+
+// runScansInOrder runs scans one at a time, until the session's ctx ends.
+func (agent *Agent) runScansInOrder(ctx context.Context, scanQueue <-chan nodeproto.Scan, stream *recordStream) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("worker stopped: %w", ctx.Err())
-		case command := <-commandQueue:
-			agent.runCommand(ctx, nodeCtx, nodeID, command, stream)
+			return fmt.Errorf("the scans stopped: %w", ctx.Err())
+		case queued := <-scanQueue:
+			agent.runScan(ctx, queued, stream)
 		}
 	}
 }
 
-// runCommand carries out one command. A scan of a root the node was not configured with is
-// refused, whatever the core asks (D107).
-func (agent *Agent) runCommand(
-	ctx, nodeCtx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
-) {
-	if command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil {
-		agent.deriveAndPostArtwork(nodeCtx, nodeID, command.JobID, *command.EncodeArtwork)
+// runScan scans one root. A root the node was not configured with is refused, whatever the core
+// asks (D107).
+func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream *recordStream) {
+	root, known := agent.roots[command.RootPath]
+	if !known {
+		agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath", command.RootPath)
 		return
 	}
-	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
-		agent.startPrepare(nodeCtx, nodeID, command.JobID, *command.Prepare)
-		return
-	}
-	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
-		agent.extractSubtitle(nodeCtx, nodeID, command.JobID, *command.ExtractSubtitle)
-		return
-	}
-	if command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil {
-		agent.measureLoudness(nodeCtx, nodeID, command.JobID, *command.MeasureLoudness)
-		return
-	}
-	if command.Type == nodeproto.CommandScan && command.Scan != nil {
-		root, known := agent.roots[command.Scan.RootPath]
-		if !known {
-			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath",
-				command.Scan.RootPath)
-			return
+	agent.setActivity("scanning " + root.Path())
+	defer agent.setActivity("idle")
+	emit := func(record nodeproto.Record) error {
+		// Once a scan says it is complete, the node is idle: a status record sent after the
+		// completion must not still say it is scanning.
+		if record.Type == nodeproto.RecordScanComplete {
+			agent.setActivity("idle")
 		}
-		agent.setActivity("scanning " + root.Path())
-		defer agent.setActivity("idle")
-		emit := func(record nodeproto.Record) error {
-			// Once a scan says it is complete, the node is idle: a status record sent after the
-			// completion must not still say it is scanning.
-			if record.Type == nodeproto.RecordScanComplete {
-				agent.setActivity("idle")
-			}
-			return stream.emit(ctx, record)
-		}
-		err := agent.workers.Scanner.Scan(ctx, root, emit)
-		if err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
-		}
-		return
+		return stream.emit(ctx, record)
 	}
-	agent.refuseUnknown(ctx, nodeID, command)
+	err := agent.workers.Scanner.Scan(ctx, root, emit)
+	if err != nil && ctx.Err() == nil {
+		agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
+	}
 }
 
 // refuseUnknown answers a command this node does not know, or whose payload is missing, from a core
@@ -287,33 +299,34 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 	go agent.postResult(ctx, nodeID, "a refusal", nodeproto.Result{JobID: command.JobID, Refusal: refusal})
 }
 
-// deriveAndPostArtwork re-encodes an image and posts the answer — the sizes, or why there are
-// none — to the core, whose artwork store takes images from nowhere else (D212 §8). The answer is
-// posted beside the node's other work, so a core slow to take it holds up no other command.
-func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork) {
-	agent.setActivity("re-encoding artwork")
-	defer agent.setActivity("idle")
-	jobCtx, finishJob := agent.jobs.startJob(ctx, jobID)
-	defer finishJob()
-	var result nodeproto.ArtworkResult
-	sourceHash := ""
-	if command.AbsolutePath != nil {
-		source, err := agent.readImage(*command.AbsolutePath)
-		if err == nil {
-			sum := sha256.Sum256(source)
-			command.SourceImage, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
-		} else {
-			result = nodeproto.ArtworkResult{Refusal: err.Error()}
+// artworkWork re-encodes an image and posts the answer — the sizes, or why there are none — to
+// the core, whose artwork store takes images from nowhere else (D212 §8).
+func (agent *Agent) artworkWork(ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork) heldWork {
+	return heldWork{slot: slotArtwork, run: func(jobCtx context.Context) {
+		var result nodeproto.ArtworkResult
+		sourceHash := ""
+		if command.AbsolutePath != nil {
+			source, err := agent.readImage(*command.AbsolutePath)
+			if err == nil {
+				sum := sha256.Sum256(source)
+				command.SourceImage, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
+			} else {
+				result = nodeproto.ArtworkResult{Refusal: err.Error()}
+			}
 		}
-	}
-	if result.Refusal == "" {
-		result = agent.workers.Artworker.Derive(jobCtx, command)
-		result.SourceSha256 = sourceHash
-	}
-	if result.Refusal != "" {
-		agent.logger.WarnContext(ctx, "refused an image", "jobId", jobID, "refusal", result.Refusal)
-	}
-	go agent.postResult(ctx, nodeID, "an artwork re-encode", nodeproto.Result{JobID: jobID, Artwork: &result})
+		if result.Refusal == "" {
+			result = agent.workers.Artworker.Derive(jobCtx, command)
+			result.SourceSha256 = sourceHash
+		}
+		if jobCtx.Err() != nil && ctx.Err() == nil {
+			agent.logger.InfoContext(ctx, "an artwork re-encode was cancelled", "jobId", jobID)
+			return
+		}
+		if result.Refusal != "" {
+			agent.logger.WarnContext(ctx, "refused an image", "jobId", jobID, "refusal", result.Refusal)
+		}
+		agent.postResult(ctx, nodeID, "an artwork re-encode", nodeproto.Result{JobID: jobID, Artwork: &result})
+	}}
 }
 
 // maxImageBytes bounds an image beside the media the node reads: posters are megabytes.

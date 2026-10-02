@@ -156,7 +156,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 			args.ArtworkSource)))
 	}
 	for _, ref := range args.Refs {
-		want := wantedImage{jobID: job.ID, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
+		want := wantedImage{job: job, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
 		var err error
 		if len(args.SizeNames) > 0 {
 			err = service.makeSizes(ctx, fetcher, want, args)
@@ -172,7 +172,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 
 // wantedImage is one image an item's source names, and the job that fetches it.
 type wantedImage struct {
-	jobID  int64
+	job    jobs.Job
 	itemID int64
 	source string
 	ref    Ref
@@ -209,7 +209,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	if err != nil {
 		return err
 	}
-	result, err := service.reEncode(ctx, nodeID, want.jobID, command)
+	result, err := service.reEncode(ctx, nodeID, want.job, command)
 	if err != nil {
 		return err
 	}
@@ -266,10 +266,10 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 	return holds(rows, want.source, want.ref), nil
 }
 
-// reEncode sends a source to the node for job jobID and waits for its answer. A job cancelled while
+// reEncode sends a source to the node for job and waits for its answer. A job cancelled while
 // it waits tells the node to stop.
 func (service *Service) reEncode(
-	ctx context.Context, nodeID, jobID int64, command nodeproto.Artwork,
+	ctx context.Context, nodeID int64, job jobs.Job, command nodeproto.Artwork,
 ) (nodeproto.ArtworkResult, error) {
 	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
@@ -280,7 +280,7 @@ func (service *Service) reEncode(
 		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_webp_quality: %w", err)
 	}
 	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
-	exchange, err := service.exchanges.Ask(ctx, nodeID, jobID,
+	exchange, err := service.exchanges.Ask(ctx, nodeID, job,
 		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command}, "re-encoding an image")
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("re-encode an image: %w", err)
@@ -290,6 +290,12 @@ func (service *Service) reEncode(
 	switch {
 	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
 		return nodeproto.ArtworkResult{}, jobs.MarkPermanent(jobs.ErrCancelled)
+	case errors.Is(err, nodes.ErrNodeRestarted) && !job.PreviousAttemptToolFailed:
+		// The node lost the work with its restart: the tool's failure, tried again at no cost
+		// (D238 §3); a second tool failure in a row fails the job, which the queue records.
+		return nodeproto.ArtworkResult{}, jobs.MarkInterrupted(err)
+	case errors.Is(err, nodes.ErrNodeRestarted):
+		return nodeproto.ArtworkResult{}, jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, err))
 	case err != nil:
 		return nodeproto.ArtworkResult{}, err
 	case result.Artwork == nil:
@@ -367,7 +373,7 @@ func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure
 		return nil //nolint:nilerr // arguments that cannot be read name no image to record
 	}
 	for _, ref := range args.Refs {
-		want := wantedImage{jobID: job.ID, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
+		want := wantedImage{job: job, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
 		if _, known := shapeOf(ref.Kind); !known {
 			continue
 		}

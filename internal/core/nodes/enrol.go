@@ -51,7 +51,13 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "read should_scan_on_node_hello", err)
 		return
 	}
-	service.connect(node.ID, hello)
+	if service.connect(node.ID, hello) {
+		service.logger.InfoContext(ctx, "a node started again; the work it held is lost", "nodeName", hello.Name,
+			"nodeId", node.ID)
+		if service.resultSink != nil {
+			service.resultSink.Interrupt(ctx, node.ID)
+		}
+	}
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
 		"confinement", hello.Confinement, "capacity", hello.Capacity)
@@ -120,8 +126,9 @@ func (service *Service) speaksThisProtocol(nodeID int64, protocol int) bool {
 }
 
 // connect registers a node's channel, keeping its queue across a reconnection, with the roots
-// its hello named.
-func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
+// its hello named. It reports whether the node started again since its last hello to this core:
+// another start id (D238 §3).
+func (service *Service) connect(nodeID int64, hello nodeproto.Hello) (isRestarted bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	existing, found := service.connectedNodes[nodeID]
@@ -129,8 +136,10 @@ func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
 		existing = &connectedNode{name: hello.Name, nextCommandSeq: 1, wake: make(chan struct{})}
 		service.connectedNodes[nodeID] = existing
 	}
+	isRestarted = found && existing.hello.StartID != hello.StartID
 	existing.lastHeard = service.clock.Now()
 	existing.hello = hello
+	return isRestarted
 }
 
 // RemoveNode removes a node an admin retired (D231 §7), as Remove does, and forgets it: its

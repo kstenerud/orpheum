@@ -16,7 +16,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
+	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakePreparer reports half the source done, then a size that names the input it was given, made
@@ -269,5 +271,37 @@ func TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry(t *testing.T) {
 	core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
 	if done := finalPrepareReport(t, core); done.JobID != 1 || done.State != nodeproto.PrepareDone {
 		t.Errorf("the prepare's end after a refusal = %+v, want done", done)
+	}
+}
+
+// blockingScanner begins a scan, says so, and holds it until the session ends.
+type blockingScanner struct{ scanning chan struct{} }
+
+func (scanner blockingScanner) Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error {
+	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()}}
+	if err := emit(begin); err != nil {
+		return err
+	}
+	scanner.scanning <- struct{}{}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// A prepare is held beside a scan, not queued behind it: on devnas a prepare a person asked for
+// waited for a 55-second scan to end (the jobs rebuild's 4d).
+func TestAgent_APrepareRunsWhileAScanIsStillGoing(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	scanner := blockingScanner{scanning: make(chan struct{}, 1)}
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: scanner, Artworker: fakeArtworker{}, Preparer: fakePreparer{},
+	})
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()},
+	}
+	testutil.Receive(t, scanner.scanning, "the scan beginning")
+	core.sendPrepare(2, preparableFilm(t, root), "3/remux/0123456789abcdef")
+	if final := finalPrepareReport(t, core); final.JobID != 2 || final.State != nodeproto.PrepareDone {
+		t.Errorf("while the scan went on, the prepare ended %+v, want job 2 done", final)
 	}
 }

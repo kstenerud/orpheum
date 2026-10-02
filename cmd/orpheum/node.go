@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -33,6 +34,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 	"github.com/kstenerud/orpheum/internal/platform/host"
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
@@ -289,6 +291,20 @@ func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner,
 	})
 }
 
+// startIDBytes is a start id's random bytes before hex: eight never repeat between two starts of a
+// node in practice.
+const startIDBytes = 8
+
+// newStartID names this start of the node, from random: its hello says it until the node starts
+// again, so the core knows a node that lost the work it held in memory (D238 §3).
+func newStartID(random io.Reader) (string, error) {
+	raw, err := randbytes.Read(random, startIDBytes)
+	if err != nil {
+		return "", fmt.Errorf("name this start of the node: %w", err)
+	}
+	return hex.EncodeToString(raw), nil
+}
+
 // describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
 // confinement it has.
 func describeNode(
@@ -304,8 +320,13 @@ func describeNode(
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
+	startID, err := newStartID(rand.Reader)
+	if err != nil {
+		return nodeproto.Hello{}, err
+	}
 	return nodeproto.Hello{
 		Name:          config.Node.Name,
+		StartID:       startID,
 		Build:         thisBuild(),
 		Host:          host.Describe(),
 		FFmpegVersion: firstLine,

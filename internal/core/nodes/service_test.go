@@ -435,10 +435,35 @@ func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	}
 }
 
-// recordingResultSink records the results it is handed.
+// recordingResultSink records the results it is handed, and the nodes it is told started again.
 type recordingResultSink struct {
-	results []nodeproto.Result
-	from    []int64
+	results     []nodeproto.Result
+	from        []int64
+	interrupted []int64
+}
+
+func (sink *recordingResultSink) Interrupt(_ context.Context, nodeID int64) {
+	sink.interrupted = append(sink.interrupted, nodeID)
+}
+
+// A hello naming another start of the node than the last this core heard is a node that started
+// again, losing the work it held in memory: the jobs waiting on it are told (D238 §3). Its hello
+// after a dropped connection, the same start, interrupts nothing.
+func TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	first := harness.hello(t, nodeproto.Hello{Name: "local", StartID: "a1"})
+	harness.hello(t, nodeproto.Hello{Name: "local", StartID: "a1"})
+	if len(sink.interrupted) != 0 {
+		t.Errorf("a node's first hello and its hello again from the same start interrupted %v, want none",
+			sink.interrupted)
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local", StartID: "b2"})
+	if len(sink.interrupted) != 1 || sink.interrupted[0] != first.NodeID {
+		t.Errorf("a hello from another start interrupted %v, want node %d once", sink.interrupted, first.NodeID)
+	}
 }
 
 func (sink *recordingResultSink) Deliver(_ context.Context, nodeID int64, result nodeproto.Result) {

@@ -330,6 +330,37 @@ func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
 	}
 }
 
+// A node that started again lost the re-encode it held (D238 §3): the tool's failure, tried again
+// at no cost the first time, and the job's failure on the second in a row; nothing is sent to stop
+// what the node no longer has.
+func TestService_ANodeThatStartedAgainIsTheToolsFailureAndTwoInARowFailTheJob(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
+	bench.node.enqueued = make(chan struct{}, 1)
+	reEncodeAfter := func(previousAttemptToolFailed bool) error {
+		job := bench.job(Ref{Kind: library.ArtPoster, SourceRef: "/poster.jpg"})
+		job.ID, job.PreviousAttemptToolFailed = 41, previousAttemptToolFailed
+		ended := make(chan error, 1)
+		go func() { ended <- bench.service.Handle(t.Context(), job) }()
+		testutil.Receive(t, bench.node.enqueued, "the artwork command")
+		bench.service.exchanges.Interrupt(t.Context(), fakeNodeID)
+		return testutil.Receive(t, ended, "the artwork job to end")
+	}
+	first := reEncodeAfter(false)
+	if !errors.Is(first, nodes.ErrNodeRestarted) || !strings.HasPrefix(first.Error(), "interrupted: ") {
+		t.Errorf("a first restart of the node ended %v; want it tried again as the tool's failure", first)
+	}
+	second := reEncodeAfter(true)
+	if !errors.Is(second, nodes.ErrNodeRestarted) || !strings.HasPrefix(second.Error(), jobs.ToolFailedTwice) {
+		t.Errorf("a second tool failure in a row ended %v; want the job's failure, saying so", second)
+	}
+	bench.node.mutex.Lock()
+	defer bench.node.mutex.Unlock()
+	if len(bench.node.cancelled) != 0 {
+		t.Errorf("the node was told to stop jobs %v, want none: it lost them with its restart", bench.node.cancelled)
+	}
+}
+
 func TestTake_QueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("p"), "/back.jpg": []byte("b")})

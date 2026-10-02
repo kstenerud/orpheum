@@ -280,7 +280,7 @@ func (service *Service) measure(
 	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,
 	patience time.Duration,
 ) error {
-	exchange, err := service.exchanges.Ask(ctx, file.NodeID, job.ID, nodeproto.Command{
+	exchange, err := service.exchanges.Ask(ctx, file.NodeID, job, nodeproto.Command{
 		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
 	}, fmt.Sprintf("measuring file %d", file.ID))
 	if err != nil {
@@ -292,7 +292,10 @@ func (service *Service) measure(
 	case errors.Is(context.Cause(ctx), jobs.ErrCancelled):
 		return jobs.MarkPermanent(jobs.ErrCancelled)
 	case err != nil:
-		return err
+		return unansweredOutcome(job, err, func(failure string) error {
+			failed := nodeproto.LoudnessResult{Failure: failure}
+			return service.keepLoudness(ctx, file.PayloadHash, command.Tracks, failed)
+		})
 	case result.Loudness == nil:
 		return fmt.Errorf("node %d answered measuring file %d with something other than loudness", file.NodeID, file.ID)
 	}

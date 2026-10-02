@@ -30,7 +30,7 @@ const ArtworkAnswerWait = 2 * time.Minute
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 1
+const ProtocolVersion = 2
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -39,6 +39,10 @@ type Hello struct {
 	ProtocolVersion int `json:"protocolVersion"`
 	// Name is the node's configured name; the core enrols a node it has not seen by it (D207).
 	Name string `json:"name"`
+	// StartID names this start of the node, random, the same in every hello until it starts again: a
+	// node that restarted has lost the work it held in memory, which the core then counts as
+	// interrupted (D238 §3).
+	StartID string `json:"startId"`
 	// Build is what the node's binary was built from, so the core can see a mismatch (D225).
 	Build build.Provenance `json:"build"`
 	// Host is the node's operating system, as lsb_release shows it, and its kernel (D225).

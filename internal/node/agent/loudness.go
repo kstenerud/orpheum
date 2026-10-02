@@ -14,11 +14,11 @@ type Measurer interface {
 	Measure(ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack) ([]nodeproto.TrackLoudness, error)
 }
 
-// measureLoudness starts a measurement beside the node's other work, one at a time, since it reads
-// the whole video, and posts the answer to the core (D226 §2).
-func (agent *Agent) measureLoudness(ctx context.Context, nodeID, jobID int64, command nodeproto.MeasureLoudness) {
-	agent.answerInBackground(ctx, nodeID, backgroundJob{
-		jobID: jobID, slot: agent.slots.measure, jobKind: "a loudness measurement",
+// loudnessWork is a measurement held until the node's one measurement slot is free, since it reads
+// the whole video, which posts its answer to the core (D226 §2).
+func (agent *Agent) loudnessWork(ctx context.Context, nodeID, jobID int64, command nodeproto.MeasureLoudness) heldWork {
+	return agent.answeringWork(ctx, nodeID, answeringJob{
+		jobID: jobID, slot: slotMeasure, jobKind: "a loudness measurement",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runMeasurement(jobCtx, command)
 			return nodeproto.Result{Loudness: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)

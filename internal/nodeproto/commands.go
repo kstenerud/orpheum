@@ -23,7 +23,10 @@ type Command struct {
 	// JobID is the core's job the command is for: the work a node answers with a Result of the same
 	// id, or the job a cancel stops. Zero for a scan.
 	JobID int64 `json:"jobId,omitempty"`
-	Scan  *Scan `json:"scan,omitempty"`
+	// Priority is the job's: the node starts what waits for a slot, the highest first and, at one
+	// priority, the first to come (D234 §3). Zero for a scan and a cancel.
+	Priority int64 `json:"priority,omitempty"`
+	Scan     *Scan `json:"scan,omitempty"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.

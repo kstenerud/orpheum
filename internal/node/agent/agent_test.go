@@ -497,25 +497,52 @@ func TestAgent_AnArtworkAnswerTheCoreRefusedOnceArrivesOnRetryAndStopsNoOtherWor
 	}
 }
 
+// blockingArtworker re-encodes as fakeArtworker does, but holds an image whose bytes are "hold"
+// until its job is cancelled, and says when it starts holding and that it was stopped.
+type blockingArtworker struct {
+	holding chan struct{}
+	stopped chan struct{}
+}
+
+func (artworker blockingArtworker) Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
+	if string(command.SourceImage) != "hold" {
+		return fakeArtworker{}.Derive(ctx, command)
+	}
+	artworker.holding <- struct{}{}
+	<-ctx.Done()
+	artworker.stopped <- struct{}{}
+	return nodeproto.ArtworkResult{Refusal: "cancelled"}
+}
+
+// A cancel stops a running re-encode at once, and nothing is reported for it: the next answer the
+// core hears is the next job's.
 func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	startAgent(t, socket)
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandCancel, JobID: 12}
-	artwork := &nodeproto.Artwork{
-		SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
-		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+	artworker := blockingArtworker{holding: make(chan struct{}, 1), stopped: make(chan struct{}, 1)}
+	startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: artworker})
+	artwork := func(source string) *nodeproto.Artwork {
+		return &nodeproto.Artwork{
+			SourceImage: []byte(source), Shape: nodeproto.ShapePortrait,
+			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		}
 	}
 	core.commands <- nodeproto.Command{
-		CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork,
+		CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, JobID: 12, EncodeArtwork: artwork("hold"),
 	}
-	select {
-	case result := <-core.artwork:
-		if result.JobID != 12 || result.Artwork.Refusal != "cancelled" || len(result.Artwork.Images) != 0 {
-			t.Errorf("the core heard %+v, want job 12 stopped before it re-encoded anything", result)
-		}
-	case <-t.Context().Done():
-		t.Fatal("no artwork answer reached the core")
+	testutil.Receive(t, artworker.holding, "job 12's re-encode starting")
+	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandCancel, JobID: 12}
+	testutil.Receive(t, artworker.stopped, "job 12's re-encode stopped by the cancel")
+	core.commands <- nodeproto.Command{
+		CommandSeq: 3, Type: nodeproto.CommandEncodeArtwork, JobID: 13, EncodeArtwork: artwork("abc"),
+	}
+	result := testutil.Receive(t, core.artwork, "an artwork answer")
+	if result.JobID != 13 {
+		t.Errorf("the core heard job %d's answer first, want job 13's: cancelled job 12 reports nothing",
+			result.JobID)
+	}
+	if result.Artwork == nil || len(result.Artwork.Images) != 1 {
+		t.Errorf("job 13's answer = %+v, want its one size: the slot job 12 held is free", result.Artwork)
 	}
 }
 

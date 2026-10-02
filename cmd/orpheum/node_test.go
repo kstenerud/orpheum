@@ -352,3 +352,17 @@ func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
 		t.Errorf("the hello's hardware = %+v, want %+v (D225 §3)", got, want)
 	}
 }
+
+func TestNewStartID_IsEightRandomBytesInHex(t *testing.T) {
+	t.Parallel()
+	first, err := newStartID(bytes.NewReader([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != "0102030405060708" {
+		t.Errorf("a start id = %q, want its eight random bytes in hex", first)
+	}
+	if _, err := newStartID(bytes.NewReader([]byte{1, 2})); err == nil {
+		t.Error("a start id from too few random bytes was made, want an error")
+	}
+}
