@@ -206,6 +206,39 @@ class TrailersTiedToCommits(unittest.TestCase):
         self.assertEqual(status, 1, out)
         self.assertIn("no test of that name is in the file", out)
 
+    def test_a_test_moved_to_another_file_and_changed_holds_as_a_claim_naming_that_file(self):
+        """A test moved out of a file that went away, and renamed there (Phase 4.0, 2026-10-02)."""
+        repo = Repo({self.TEST: self.TWO})
+        base = repo.commit("chore: base")
+        moved = 'func TestB_Elsewhere(t *testing.T) { t.Error("moved") }\n'
+        repo.commit("test(a): move", {
+            self.TEST: 'func TestA(t *testing.T) { t.Error("a") }\n', "internal/a/b_test.go": moved,
+        })
+        status, out = self.run_gate(repo, base)
+        self.assertEqual(status, 1, out)
+        self.assertIn("test 'TestB' was removed", out)
+        claim = f'Test-Renamed: {self.TEST}: "TestB" -> internal/a/b_test.go: "TestB_Elsewhere"'
+        repo.commit(f"chore: say so\n\n{claim}", {"notes.txt": "the claim names both files\n"})
+        status, out = self.run_gate(repo, base)
+        self.assertEqual(status, 0, out)
+        self.assertIn("test 'TestB' is now internal/a/b_test.go: 'TestB_Elsewhere' (Test-Renamed), its checks kept",
+                      out)
+
+    def test_a_claim_naming_another_file_holds_only_where_the_test_is_with_its_checks(self):
+        for claimed_file, why in [("internal/a/c_test.go", "no test of that name is in the file (internal/a/c_test.go)"),
+                                  ("internal/a/b_test.go", "but its checks went from 1 to 0")]:
+            repo = Repo({self.TEST: self.TWO})
+            base = repo.commit("chore: base")
+            repo.commit("test(a): move", {
+                self.TEST: 'func TestA(t *testing.T) { t.Error("a") }\n',
+                "internal/a/b_test.go": "func TestB_Elsewhere(t *testing.T) { }\n",
+            })
+            claim = f'Test-Renamed: {self.TEST}: "TestB" -> {claimed_file}: "TestB_Elsewhere"'
+            repo.commit(f"chore: claim\n\n{claim}", {"notes.txt": "the claim\n"})
+            status, out = self.run_gate(repo, base)
+            self.assertEqual(status, 1, out)
+            self.assertIn(why, out)
+
     def test_a_test_moved_to_a_new_file_takes_its_checks_with_it(self):
         repo = Repo({self.TEST: self.TWO})
         base = repo.commit("chore: base")
