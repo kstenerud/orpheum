@@ -262,13 +262,14 @@ test-browser: browsers ## The browser tier: Chrome and Firefox against a server 
 # The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
 # web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
 # (check-deps compares the two). Nothing else installed them, so a fresh machine or CI failed at
-# the browser tier (audit-2026-09-29 §6). CI adds --with-deps for the system libraries. With the
-# browsers already there, the install checks and does nothing.
+# the browser tier (audit-2026-09-29 §6). The development image holds their system libraries, so CI,
+# which runs in it, needs no --with-deps. With the browsers already there, the install checks and
+# does nothing.
 PLAYWRIGHT_VERSION := 1.63.0
 PLAYWRIGHT_INSTALL_FLAGS ?=
 
 .PHONY: browsers
-browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (CI: PLAYWRIGHT_INSTALL_FLAGS=--with-deps)
+browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (outside the dev image: PLAYWRIGHT_INSTALL_FLAGS=--with-deps)
 	@v="$$(npm --prefix web exec -- playwright --version)"; [ "$$v" = "Version $(PLAYWRIGHT_VERSION)" ] || \
 	  { echo "playwright is $$v; this project pins $(PLAYWRIGHT_VERSION)"; exit 1; }
 	@npm --prefix web exec -- playwright install $(PLAYWRIGHT_INSTALL_FLAGS) chromium firefox

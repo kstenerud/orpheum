@@ -76,6 +76,13 @@ class DevMedia(unittest.TestCase):
 
 
 class DevLoop(unittest.TestCase):
+    def test_the_loop_runs_the_core_and_the_node_each_on_the_dev_config(self):
+        commands = dev.role_commands(Path("/b/orpheum"), Path("/c/orpheum.toml"))
+        self.assertEqual(commands, {
+            "core": ["/b/orpheum", "core", "--config", "/c/orpheum.toml"],
+            "node": ["/b/orpheum", "node", "--config", "/c/orpheum.toml"],
+        })
+
     def test_config_rendering_and_listen_override(self):
         template = 'listen = "127.0.0.1:8432"\nroots = ["{root}/.dev/media"]\nffmpeg_dir = "{ffmpeg_dir}"\n'
         text = dev.render_config(template, Path("/r"), Path("/f"), "0.0.0.0:9000")

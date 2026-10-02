@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# CI runs exactly what a developer runs: `make check` on every push and pull request, and the
-# branch gates (`make check-pr`) on a pull request. No job exists only in CI — a gate that cannot
-# be run locally is one people learn about too late (yoloAI DF226).
+# CI runs exactly what a developer runs, in the same development image (D235 §2): `./dev make check`
+# on every push and pull request, and the branch gates (`./dev make check-pr`) on a pull request
+# and a branch. No job exists only in CI — a gate that cannot be run locally is one people learn
+# about too late (yoloAI DF226) — and no tool is installed on the runner but Docker, which it has.
 name: ci
 
 on:
@@ -18,50 +19,55 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    env:
+      # ./dev keeps Go's, npm's and Playwright's caches here, which the cache step below saves.
+      ORPHEUM_DEV_CACHE_DIR: ${{ runner.temp }}/dev-cache
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      # The image is built once per change to its inputs: its tag hashes them (./dev --image-tag),
+      # and a run with that tag cached loads it rather than building (the jobs rebuild's step 4a′).
+      - name: The development image's tag
+        id: image
+        run: echo "tag=$(./dev --image-tag)" >> "$GITHUB_OUTPUT"
+      - name: Restore the development image
+        id: restore-image
+        uses: actions/cache/restore@v4
         with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@v4
+          path: ${{ runner.temp }}/dev-image.tar.zst
+          key: dev-image-${{ steps.image.outputs.tag }}
+      - name: Load the development image
+        if: steps.restore-image.outputs.cache-hit == 'true'
+        run: zstd -d -c "$RUNNER_TEMP/dev-image.tar.zst" | docker load
+      - uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      # make check fetches the pinned golangci-lint and sqlc itself (scripts/fetch_tools.py).
-      - name: Install shellcheck
-        run: sudo apt-get update -q && sudo apt-get install -y -q shellcheck
+          path: ${{ runner.temp }}/dev-cache
+          key: dev-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'web/package-lock.json') }}
+          restore-keys: dev-cache-${{ runner.os }}-
       - name: make check
-        run: make check VERBOSE=1
-      # The integration tier runs the pinned FFmpeg and MKVToolNix; each download is verified by
-      # hash and cached under its pin, so a changed pin fetches afresh.
-      - uses: actions/cache@v4
+        run: ./dev make check VERBOSE=1
+      - name: Save the development image
+        if: steps.restore-image.outputs.cache-hit != 'true'
+        run: docker save "${{ steps.image.outputs.tag }}" | zstd -T0 -3 > "$RUNNER_TEMP/dev-image.tar.zst"
+      - if: steps.restore-image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
-          path: .tools/ffmpeg
-          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch_ffmpeg.py') }}
-      - uses: actions/cache@v4
-        with:
-          path: .tools/mkvtoolnix
-          key: mkvtoolnix-${{ runner.os }}-${{ hashFiles('scripts/fetch_mkvtoolnix.py') }}
+          path: ${{ runner.temp }}/dev-image.tar.zst
+          key: dev-image-${{ steps.image.outputs.tag }}
+      # The integration tier runs the pinned FFmpeg and MKVToolNix, which the image holds.
       - name: Integration tier
-        run: make test-integration
-      # The browser tier's browsers, fetched by the pinned Playwright for its own version (make
-      # browsers checks the version), with the system libraries they need; cached by the lockfile.
-      - uses: actions/cache@v4
-        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+        run: ./dev make test-integration
+      # The browser tier's browsers, fetched by the pinned Playwright into the cache directory; the
+      # image holds the system libraries they need.
       - name: Playwright's browsers
         if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
-        run: make browsers PLAYWRIGHT_INSTALL_FLAGS=--with-deps
+        run: ./dev make browsers
       # Every branch that is not main runs the branch gates on every push, not only once a pull
       # request exists: yoloAI once had a release branch reach 63 commits with no CI (DF226).
       - name: Branch gates (pull request)
         if: github.event_name == 'pull_request'
-        run: make check-pr VERBOSE=1 BASE=origin/${{ github.base_ref }}
+        run: ./dev make check-pr VERBOSE=1 BASE=origin/${{ github.base_ref }}
       - name: Branch gates (branch push)
         if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-        run: make check-pr VERBOSE=1 BASE=origin/main
+        run: ./dev make check-pr VERBOSE=1 BASE=origin/main

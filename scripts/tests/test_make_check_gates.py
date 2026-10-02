@@ -35,8 +35,8 @@ class PlaywrightPin(unittest.TestCase):
         self.assertEqual(cdeps.playwright_pin_problems(makefile, lock), [])
         self.assertRegex(makefile, r"(?m)^test-browser: browsers\b")
         self.assertRegex(makefile, r"(?m)^\t@npm --prefix web exec -- playwright install .*chromium firefox$")
-        self.assertIn("make browsers PLAYWRIGHT_INSTALL_FLAGS=--with-deps",
-                      (REPO / ".github/workflows/ci.yml").read_text())
+        # CI installs them in the development image, which holds their system libraries (D235 §2).
+        self.assertIn("run: ./dev make browsers", (REPO / ".github/workflows/ci.yml").read_text())
 
     def test_eslint_may_send_the_reader_only_to_an_installed_package(self):
         config = ('  ["swr", "@tanstack/react-query"],\n'
