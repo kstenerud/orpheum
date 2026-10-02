@@ -210,6 +210,26 @@ async function waitForHealth(
   throw new Error(`the server did not answer /health within 60 s:\n${readLog()}`);
 }
 
+/** How a role is started: the binary, its config, and where its output goes. */
+interface Launch {
+  readonly binary: string;
+  readonly configPath: string;
+  readonly appendToLog: (chunk: Buffer) => void;
+}
+
+/** Starts one of orpheum's roles on the config, its output appended to the log. */
+function startRole(
+  role: "core" | "node",
+  { binary, configPath, appendToLog }: Launch,
+): ChildProcess {
+  const started = spawn(binary, [role, "--config", configPath], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  started.stdout.on("data", appendToLog);
+  started.stderr.on("data", appendToLog);
+  return started;
+}
+
 /**
  * Makes the library, starts the server — the core, then the node beside it, two services as in
  * deployment (D235 §4) — and returns what stops both and removes everything.
@@ -248,15 +268,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const appendToLog = (chunk: Buffer): void => {
     log += chunk.toString();
   };
-  const startRole = (role: "core" | "node"): ChildProcess => {
-    const started = spawn(binary, [role, "--config", configPath], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    started.stdout.on("data", appendToLog);
-    started.stderr.on("data", appendToLog);
-    return started;
-  };
-  const server = startRole("core");
+  const launch: Launch = { binary, configPath, appendToLog };
+  const server = startRole("core", launch);
   const url = `http://127.0.0.1:${String(port)}`;
   // The spec reads the address from here: Playwright hands a global setup's environment to its
   // workers.
@@ -264,7 +277,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   await waitForHealth(url, server, () => log);
   // The node dials the core's socket, which exists once the core answers: started now, its first
   // hello does not wait for a status tick.
-  const node = startRole("node");
+  const node = startRole("node", launch);
   // A key the server does not read is a key this config names wrongly, as after a rename (D227):
   // the tests would run on its starting value, not the one written here.
   const unread = log.split("\n").filter((line) => line.includes("nothing reads it"));
