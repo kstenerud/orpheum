@@ -63,3 +63,26 @@ func TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackgro
 	close(preparer.release)
 	close(background.release)
 }
+
+// A paused prepare, which says nothing of itself while FFmpeg is stopped, is said paused at each
+// status tick, so the core neither waits on it for a slot nor gives it up for silence (D240 §6).
+func TestAgent_APausedPrepareIsSaidPausedAtEachTick(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	node := New(socket, nodeproto.Hello{Name: "local", Capacity: testCapacity}, nil, Workers{},
+		clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	blocking := newBlockingWork()
+	prepare := blocking.onDevice(4, slotRemux, "zfs:tank", false)
+	prepare.saysHowFar = true
+	node.work.hold(t.Context(), prepare)
+	testutil.Receive(t, blocking.started, "the prepare's start")
+	node.work.mutex.Lock()
+	node.work.find(tokenOf(4)).pausing.Pause()
+	node.work.mutex.Unlock()
+	node.sayHeld(t.Context(), 7)
+	if said := testutil.Receive(t, core.progress, "the tick's word"); said.JobID != 4 ||
+		said.State != nodeproto.ProgressPaused {
+		t.Errorf("the tick said %+v of the paused prepare, want job 4 paused", said)
+	}
+	close(blocking.release)
+}

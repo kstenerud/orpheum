@@ -310,10 +310,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		return nil, err
 	}
 	services.queue.OnCancel(services.exchanges.Cancelled)
-	services.queue.SetNodeWords(func(jobID int64) (string, bool) {
-		word, isSaid := services.exchanges.NodeWordOf(jobID)
-		return string(word), isSaid
-	})
+	services.queue.SetNodeWords(nodeWordsOf(services.exchanges))
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
 	startRunner := func(runnerSpec jobRunner) {
@@ -361,6 +358,15 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
 	return func() { prepares.stop(); cancel(); loops.Wait() }, nil
+}
+
+// nodeWordsOf has the job view say where the node holding each assigned job's work last said it is
+// (D240 §6).
+func nodeWordsOf(exchanges *nodes.Exchanges) jobs.NodeWords {
+	return func(jobID int64) (string, bool) {
+		word, isSaid := exchanges.NodeWordOf(jobID)
+		return string(word), isSaid
+	}
 }
 
 // runnerPool is the prepare runners: as many as the nodes that said hello have encode and remux

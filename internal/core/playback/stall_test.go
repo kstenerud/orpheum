@@ -194,6 +194,29 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 	t.Fatal("a prepare the node held waiting for ten times the cap was never given up")
 }
 
+// A prepare its node paused for play-driven work on its disk is not waiting for a slot: its wait
+// starts afresh once it waits again, so a pause between two waits never adds up to the cap (D240 §6).
+func TestHandle_APausedPrepareIsNotCountedAsWaitingForASlot(t *testing.T) {
+	t.Parallel()
+	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	all, start := preparesOnAFakeNode(t, node, clockSource)
+	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
+	command := testutil.Receive(t, node.sent, "the prepare command")
+	for _, word := range []nodeproto.ProgressState{
+		nodeproto.ProgressWaiting, nodeproto.ProgressPaused, nodeproto.ProgressWaiting, nodeproto.ProgressPaused,
+		nodeproto.ProgressWaiting,
+	} {
+		all.progressed(t.Context(), command, word)
+		clockSource.Advance(maxSlotWait * 2 / 3)
+	}
+	select {
+	case err := <-ended:
+		t.Errorf("a prepare paused between its waits, each shorter than the cap, ended %v; want it held", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 // A node's word that a making is done is recorded by its run as it arrives, with no job waiting for
 // it any more (S81), and nothing heard after undoes it; a making the rendition no longer is, made
 // again since under another run, is not recorded over it (G13).
