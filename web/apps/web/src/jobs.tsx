@@ -10,7 +10,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
@@ -62,7 +62,7 @@ export function isCancellable(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), backgroundChanges);
+  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), useBackgroundChanges());
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const cancel = (job: Job): void => {
     cancelJob(api, job.id).then(

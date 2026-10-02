@@ -31,7 +31,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,
   *Needs a match*, the libraries, the System page, the jobs and the home rows — after 2 s, backing
-  off while nothing changes to 30 s, and keeps what it shows meanwhile (D237). One way to poll:
+  off while nothing changes to 30 s, and keeps what it shows meanwhile (D237); the waits are the
+  server's, from `/client-settings`, through `useBackgroundChanges`. One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
   `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the

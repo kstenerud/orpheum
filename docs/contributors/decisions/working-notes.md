@@ -17466,5 +17466,9 @@ benefit from updated info."*
    answer arriving would change what a person is in the middle of.
 3. **Not a push channel.** The server tells no screen that something changed; a push channel can
    replace the polling later without changing what a screen shows.
+4. **The waits are settings the server gives the client** (the owner, the same day: *"As per usual,
+   the 30s max poll interval should be configurable, passed by the server to the client."*):
+   `screen_refresh_first_wait_seconds` (2) and `screen_refresh_longest_wait_seconds` (30), read by
+   every signed-in client from `GET /client-settings`; D237's waits until they are read.
 
 **Status:** Decided 2026-10-02.

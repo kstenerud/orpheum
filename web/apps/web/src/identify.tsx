@@ -5,7 +5,7 @@ import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
@@ -190,7 +190,7 @@ export function Identify(): JSX.Element {
       );
       return itemsBody.items ?? [];
     },
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   return (
     <section aria-labelledby="identify-heading">

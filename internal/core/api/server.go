@@ -121,6 +121,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerDoctor()
 	server.registerSystem()
 	server.registerOfflineReminder()
+	server.registerClientSettings()
 	server.registerPlayback()
 	server.registerPreferences()
 	server.registerReport()

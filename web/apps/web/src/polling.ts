@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { createContext, use } from "react";
+
 /**
  * How a screen asks the server again (D237): after firstMs, then, while the answer is unchanged,
  * after twice the last wait, up to longestMs; after firstMs again once it changes.
@@ -22,7 +24,10 @@ export function backingOff(polling: Polling): Poller {
   return { start: (ask) => pollUntilStopped(polling, ask) };
 }
 
-/** The waits of a screen showing what the server changes in the background: 2 s to 30 s (D237 §1). */
+/**
+ * The waits of a screen showing what the server changes in the background, 2 s to 30 s (D237 §1):
+ * the settings' starting values, which the server's client settings replace once read.
+ */
 export const backgroundChangeWaits: Polling = { firstMs: 2000, longestMs: 30_000 };
 
 /**
@@ -61,4 +66,32 @@ export function pollUntilStopped(polling: Polling, ask: Ask): () => void {
     isStopped = true;
     clearTimeout(timer);
   };
+}
+
+/**
+ * The waits the server's client settings say, in seconds, as a screen waits them; D237's starting
+ * waits before they are read. A longest wait shorter than the first is the first.
+ */
+export function clientWaits(
+  read: { readonly firstSeconds: number; readonly longestSeconds: number } | undefined,
+): Polling {
+  if (read === undefined) {
+    return backgroundChangeWaits;
+  }
+  return {
+    firstMs: read.firstSeconds * 1000,
+    longestMs: Math.max(read.firstSeconds, read.longestSeconds) * 1000,
+  };
+}
+
+/**
+ * The poller screens showing what the server changes in the background use: backgroundChanges until
+ * the server's client settings say the waits an admin set (screen_refresh_first_wait_seconds and
+ * screen_refresh_longest_wait_seconds).
+ */
+export const BackgroundChangesContext = createContext<Poller>(backgroundChanges);
+
+/** The poller of a screen showing what the server changes in the background (D237). */
+export function useBackgroundChanges(): Poller {
+  return use(BackgroundChangesContext);
 }

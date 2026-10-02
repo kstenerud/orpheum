@@ -6,7 +6,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -131,7 +131,7 @@ export function ContinueWatching(): JSX.Element | null {
   const [rows, reload] = useResource(
     "continue-watching",
     () => loadContinueWatching(api),
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
   if (rows.state !== "loaded") {
