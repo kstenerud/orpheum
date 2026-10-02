@@ -581,7 +581,9 @@ What the earlier 4d and 4e found still holds:
   `ReaderDestination`, *"Waiting for a free slot on node …"*), back when one of the node's jobs
   there ends or it says hello. The slots are `nodeproto.Slot`, the node's and the core's one list.
   One runner per kind: `runnerPool` and the hello's prepare slots are gone. A prepare records its
-  making running only once it is given to the node.
+  making running only once it is given to the node. Play-driven work is never held back for its
+  device's readers, which the node pauses background work to give it: the browser tier's timed play
+  caught a play waiting 9 s behind background measurements.
 - **4d.4 Wanted until (S87).** Each time a play asks for its prepare, subtitle or fetch, the job's
   "wanted until" moves to ten minutes on (question C, a setting); past it, the job falls to
   background priority, in the core's queue and on the node, where it pauses nothing.
