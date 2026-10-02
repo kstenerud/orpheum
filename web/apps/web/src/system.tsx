@@ -12,7 +12,7 @@ import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -54,7 +54,7 @@ export function System(): JSX.Element {
   const [report, reload] = useResource(
     "system",
     async () => dataOrThrow(await api.GET("/system")),
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   const [problem, setProblem] = useState("");
   const retireNode = (nodeName: string): void => {

@@ -69,6 +69,8 @@ const (
 	JobViewMaxJobs                                 Key = "job_view_max_jobs"
 	SystemPageRecentPreparesPerNode                Key = "system_page_recent_prepares_per_node"
 	OfflineReminderIntervalDays                    Key = "offline_reminder_interval_days"
+	ScreenRefreshFirstWaitSeconds                  Key = "screen_refresh_first_wait_seconds"
+	ScreenRefreshLongestWaitSeconds                Key = "screen_refresh_longest_wait_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -279,6 +281,14 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),
+		sourced(durationSetting(ScreenRefreshFirstWaitSeconds, time.Second, "2", 1, 60,
+			"seconds a screen showing what the server changes in the background waits before asking again, "+
+				"and after an answer that changed it (D237)"),
+			"D237: the owner, 2026-10-02"),
+		sourced(durationSetting(ScreenRefreshLongestWaitSeconds, time.Second, "30", 1, 3600,
+			"the longest such a screen waits before asking again; the wait doubles to it while nothing "+
+				"changes (D237)"),
+			"D237: the owner, 2026-10-02: \"max 30s\""),
 		sourced(durationSetting(OfflineReminderIntervalDays, day, "7", 1, 365,
 			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
 				"after them while any is still offline (D231 §7)"),

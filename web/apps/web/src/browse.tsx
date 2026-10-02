@@ -6,7 +6,7 @@ import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
@@ -110,7 +110,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
     },
     [api, kind, sort],
   );
-  const pages = usePages(loadPage, backgroundChanges);
+  const pages = usePages(loadPage, useBackgroundChanges());
   return (
     <BrowseView
       kind={kind}

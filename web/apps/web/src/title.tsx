@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -200,7 +200,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const [title] = useResource(
     `title/${String(props.id)}`,
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   return <Loaded resource={title} render={(value) => <TitleView title={value} />} />;
 }

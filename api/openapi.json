@@ -291,6 +291,24 @@
         ],
         "type": "object"
       },
+      "ClientSettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "screenRefreshFirstWaitSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "screenRefreshLongestWaitSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "screenRefreshFirstWaitSeconds",
+          "screenRefreshLongestWaitSeconds"
+        ],
+        "type": "object"
+      },
       "CodeSignInInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -4217,6 +4235,48 @@
         "summary": "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)",
         "tags": [
           "Playback"
+        ]
+      }
+    },
+    "/client-settings": {
+      "get": {
+        "operationId": "getClientSettings",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientSettingsBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The server settings every client reads: how often a screen asks again (D237)",
+        "tags": [
+          "Settings"
         ]
       }
     },

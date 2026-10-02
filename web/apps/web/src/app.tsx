@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useMemo, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { About } from "./about.tsx";
@@ -14,6 +14,13 @@ import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
 import { OfflineReminder } from "./offline-reminder.tsx";
 import { People } from "./people.tsx";
+import {
+  BackgroundChangesContext,
+  backgroundChanges,
+  backingOff,
+  clientWaits,
+  type Poller,
+} from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
 import { Play } from "./play.tsx";
@@ -54,20 +61,45 @@ function SignedIn(): JSX.Element {
     signOutHere(api, session);
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
+  const poller = useServersPoller();
   return (
-    <AppShell
-      isAdmin={isAdmin}
-      signedInAs={
-        me.state === "loaded"
-          ? { name: me.value.name, deviceName: me.value.device?.name }
-          : undefined
-      }
-      currentScreen={route.screen}
-      onSignOut={signOut}
-    >
-      {isAdmin ? <OfflineReminder /> : null}
-      <Screen route={route} />
-    </AppShell>
+    <BackgroundChangesContext value={poller}>
+      <AppShell
+        isAdmin={isAdmin}
+        signedInAs={
+          me.state === "loaded"
+            ? { name: me.value.name, deviceName: me.value.device?.name }
+            : undefined
+        }
+        currentScreen={route.screen}
+        onSignOut={signOut}
+      >
+        {isAdmin ? <OfflineReminder /> : null}
+        <Screen route={route} />
+      </AppShell>
+    </BackgroundChangesContext>
+  );
+}
+
+/**
+ * The poller of screens showing what the server changes in the background, on the waits the
+ * server's client settings say (D237); D237's starting waits until they are read. A longest wait
+ * shorter than the first is the first.
+ */
+function useServersPoller(): Poller {
+  const { api } = useServices();
+  const [clientSettings] = useResource("client-settings", async () =>
+    dataOrThrow(await api.GET("/client-settings")),
+  );
+  const read = clientSettings.state === "loaded" ? clientSettings.value : undefined;
+  const firstSeconds = read?.screenRefreshFirstWaitSeconds;
+  const longestSeconds = read?.screenRefreshLongestWaitSeconds;
+  return useMemo(
+    () =>
+      firstSeconds === undefined || longestSeconds === undefined
+        ? backgroundChanges
+        : backingOff(clientWaits({ firstSeconds, longestSeconds })),
+    [firstSeconds, longestSeconds],
   );
 }
 

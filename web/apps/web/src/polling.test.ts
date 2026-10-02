@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { backgroundChangeWaits, nextWaitMs, pollUntilStopped } from "./polling.ts";
+import { backgroundChangeWaits, clientWaits, nextWaitMs, pollUntilStopped } from "./polling.ts";
 
 describe("polling (D237)", () => {
   afterEach(() => {
@@ -32,5 +32,18 @@ describe("polling (D237)", () => {
     stop();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(asked).toBe(3);
+  });
+
+  it("waits as the server's client settings say, D237's waits until they are read", () => {
+    expect(clientWaits(undefined)).toEqual({ firstMs: 2000, longestMs: 30_000 });
+    expect(clientWaits({ firstSeconds: 5, longestSeconds: 60 })).toEqual({
+      firstMs: 5000,
+      longestMs: 60_000,
+    });
+    // A longest wait shorter than the first is the first.
+    expect(clientWaits({ firstSeconds: 10, longestSeconds: 4 })).toEqual({
+      firstMs: 10_000,
+      longestMs: 10_000,
+    });
   });
 });

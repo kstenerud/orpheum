@@ -90,6 +90,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The server settings every client reads: how often a screen asks again (D237) */
+        get: operations["getClientSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}": {
         parameters: {
             query?: never;
@@ -1153,6 +1170,12 @@ export interface components {
         ChangePasswordInputBody: {
             currentPassword: string;
             newPassword: string;
+        };
+        ClientSettingsBody: {
+            /** Format: int64 */
+            screenRefreshFirstWaitSeconds: number;
+            /** Format: int64 */
+            screenRefreshLongestWaitSeconds: number;
         };
         CodeSignInInputBody: {
             /** @description As typed: case, dashes and spaces do not matter */
@@ -2507,6 +2530,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getClientSettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientSettingsBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
         };
     };

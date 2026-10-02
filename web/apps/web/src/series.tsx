@@ -6,7 +6,7 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -96,7 +96,7 @@ export function Series(props: { readonly id: number }): JSX.Element {
         }),
       );
     },
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   return <Loaded resource={series} render={(value) => <SeriesView series={value} />} />;
 }

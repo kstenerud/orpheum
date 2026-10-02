@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { backgroundChanges } from "./polling.ts";
+import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
@@ -235,7 +235,7 @@ export function Libraries(): JSX.Element {
       const librariesBody = dataOrThrow(await api.GET("/libraries"));
       return librariesBody.libraries ?? [];
     },
-    backgroundChanges,
+    useBackgroundChanges(),
   );
   const actions = useLibraryActions(reload);
   const renderCard = (library: Library): JSX.Element => (
