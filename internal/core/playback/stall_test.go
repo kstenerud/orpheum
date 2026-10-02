@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -192,6 +193,24 @@ func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopI
 		clockSource.Advance(maxSlotWait)
 	}
 	t.Fatal("a prepare the node held waiting for ten times the cap was never given up")
+}
+
+// A prepare that waits, for its node or for room on it, has not begun its making: its rendition is
+// recorded running only once the node is given it.
+func TestHandle_APrepareThatWaitsHasNotBegunItsMaking(t *testing.T) {
+	t.Parallel()
+	away := jobs.Park(jobs.Parking{Destination: jobs.NodeDestination(1), Reason: "not connected"},
+		errors.New("node 1 is not connected"))
+	node := fakeNodes{sent: make(chan nodeproto.Command, 1), notReady: away}
+	all, _ := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
+	rendition := insertRendition(t, all)
+	answer := all.handle(t.Context(), jobs.Job{ID: 7, Target: jobs.Target{RenditionID: rendition}}, testOrder)
+	if _, isParked := jobqueue.ParkingOf(answer); !isParked {
+		t.Fatalf("a prepare for a node away was answered %v, want it parked", answer)
+	}
+	if row := renditionRow(t, all, rendition); row.State != renditionQueued {
+		t.Errorf("the rendition of a prepare that waits is %s, want still queued", row.State)
+	}
 }
 
 // A prepare its node paused for play-driven work on its disk is not waiting for a slot: its wait

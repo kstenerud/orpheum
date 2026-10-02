@@ -25,7 +25,7 @@ func (agent *Agent) subtitleWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.ExtractSubtitle,
 ) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, slot: slotExtract, jobKind: "a subtitle",
+		attempt: held, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runExtraction(jobCtx, command)
 			return nodeproto.Result{Subtitle: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
@@ -36,8 +36,6 @@ func (agent *Agent) subtitleWork(
 // answeringJob is one job whose whole answer is posted to the core when it ends.
 type answeringJob struct {
 	attempt
-	// slot is the kind of slot it runs in.
-	slot slotKind
 	// jobKind names the work in the log.
 	jobKind string
 	// makeAnswer makes the result, the attempt it answers left for answeringWork to name, and says why
@@ -48,7 +46,7 @@ type answeringJob struct {
 // answeringWork is the work of a job that posts its answer to the core when it ends; a job
 // cancelled meanwhile posts nothing.
 func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeringJob) heldWork {
-	return heldWork{slot: job.slot, run: func(jobCtx context.Context) {
+	return heldWork{run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
 		result, refusalOrFailure := job.makeAnswer(jobCtx)
 		result = job.named(result)

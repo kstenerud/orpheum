@@ -20,7 +20,7 @@ func (agent *Agent) loudnessWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.MeasureLoudness,
 ) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, slot: slotMeasure, jobKind: "a loudness measurement",
+		attempt: held, jobKind: "a loudness measurement",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			answer := agent.runMeasurement(jobCtx, command)
 			return nodeproto.Result{Loudness: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)

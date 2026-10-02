@@ -89,3 +89,6 @@ func Assign(until time.Time) error { return jobqueue.Assign(until) }
 func AssignThen(until time.Time, then func(ctx context.Context)) error {
 	return jobqueue.AssignThen(until, then)
 }
+
+// IsAssigned is whether a handler's answer gives its job to a node (Assign).
+func IsAssigned(answer error) bool { return jobqueue.IsAssigned(answer) }

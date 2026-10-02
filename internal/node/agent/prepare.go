@@ -23,20 +23,12 @@ type Preparer interface {
 	) (prepare.Made, error)
 }
 
-// slotForProfile is the slot a prepare runs in: a remux's, or an encode's.
-func slotForProfile(profile nodeproto.PrepareProfile) slotKind {
-	if profile == nodeproto.ProfileRemux {
-		return slotRemux
-	}
-	return slotEncode
-}
-
 // prepareWork is a prepare held until a slot of its kind is free, which reports its progress and
 // its end to the core. The source is checked to be the file the core named before FFmpeg reads it
 // (D100).
 func (agent *Agent) prepareWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.Prepare) heldWork {
 	jobID := held.jobID
-	return heldWork{slot: slotForProfile(command.Profile), saysHowFar: true, run: func(jobCtx context.Context) {
+	return heldWork{saysHowFar: true, run: func(jobCtx context.Context) {
 		outcome := agent.runPrepare(jobCtx, nodeID, held, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", jobID)

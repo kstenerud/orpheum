@@ -99,3 +99,52 @@ func (work Work) WithoutBytes() Work {
 	}
 	return work
 }
+
+// Slot is the kind of slot a node runs work in (cut-a §5.3): the encodes and remuxes its config
+// says (Capacity), and one each of subtitle extraction and loudness measurement, each of which reads
+// a whole video, and of artwork re-encoding. The core holds a node to its slots, as the node does
+// (D240 §5).
+type Slot string
+
+// The slots.
+const (
+	SlotEncode  Slot = "encode"
+	SlotRemux   Slot = "remux"
+	SlotExtract Slot = "extract"
+	SlotMeasure Slot = "measure"
+	SlotArtwork Slot = "artwork"
+)
+
+// Slot is the slot the work runs in, or "" for a scan or a cancel, which hold none.
+func (work Work) Slot() Slot {
+	switch {
+	case work.Prepare != nil && work.Prepare.Profile == ProfileRemux:
+		return SlotRemux
+	case work.Prepare != nil:
+		return SlotEncode
+	case work.ExtractSubtitle != nil:
+		return SlotExtract
+	case work.MeasureLoudness != nil:
+		return SlotMeasure
+	case work.EncodeArtwork != nil:
+		return SlotArtwork
+	}
+	return ""
+}
+
+// Slots are every kind of slot a node runs work in.
+func (Capacity) Slots() []Slot {
+	return []Slot{SlotEncode, SlotRemux, SlotExtract, SlotMeasure, SlotArtwork}
+}
+
+// SlotCount is how many of a slot's work run at once on a node of this capacity.
+func (capacity Capacity) SlotCount(slot Slot) int {
+	switch slot {
+	case SlotEncode:
+		return capacity.EncodeSlotCount
+	case SlotRemux:
+		return capacity.RemuxSlotCount
+	case SlotExtract, SlotMeasure, SlotArtwork:
+	}
+	return 1
+}

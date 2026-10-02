@@ -188,6 +188,14 @@ const maxSlotWait = 6 * time.Hour
 // later how it ended (D234 §7, Assignee).
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command := order.command
+	answer := all.exchanges.Assign(ctx, order.nodeID, job, nodeproto.Command{
+		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &command},
+	})
+	// A making begins only once its job is given to the node: one parked waiting for the node, or for
+	// room on it, has not begun. The node is sent it after the handler answers.
+	if !jobs.IsAssigned(answer) {
+		return answer
+	}
 	if err := all.recordRunning(ctx, order.run, 0); err != nil {
 		return err
 	}
@@ -195,9 +203,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
 		return err
 	}
-	return all.exchanges.Assign(ctx, order.nodeID, job, nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &command},
-	})
+	return answer
 }
 
 // assignee is how a prepare given to a node is resolved: by its node's word on how it ended, by its

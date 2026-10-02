@@ -84,6 +84,11 @@
 //     and the node evicts the others; with no index, or one that cannot be squared, every one is
 //     kept, so the node evicts nothing for the core's failure (D238 §2).
 //     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
+//   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
+//     device as may read it, each with node_work_window_extra more; work beyond waits, parked at no
+//     cost on the slot or device that is full, brought back when one of the node's jobs there ends
+//     or the node says hello (D240 §5). TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
+//     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for
 //     commands carries the reader limits the settings say then. Where a node last said a job's work
 //     is, by its progress or status, is kept for the job view (NodeWordOf).

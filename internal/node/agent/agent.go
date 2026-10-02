@@ -303,7 +303,8 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 		agent.refuseUnknown(ctx, nodeID, command)
 		return
 	}
-	work.attempt, work.priority, work.isPlayDriven = held, command.Priority, command.IsPlayDriven
+	work.attempt, work.priority, work.isPlayDriven, work.slot = held, command.Priority, command.IsPlayDriven,
+		command.Slot()
 	if file, isMedia := command.MediaFile(); isMedia {
 		work.device = agent.deviceOf(filepath.Join(file.RootPath, string(file.Path)))
 	}
@@ -411,7 +412,7 @@ func (agent *Agent) refuseUnknown(ctx context.Context, nodeID int64, command nod
 func (agent *Agent) artworkWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.ArtworkBatch,
 ) heldWork {
-	return heldWork{slot: slotArtwork, run: func(jobCtx context.Context) {
+	return heldWork{run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, held.progress(nodeproto.ProgressRunning))
 		results := make([]nodeproto.ArtworkResult, 0, len(command.Images))
 		for _, image := range command.Images {

@@ -83,6 +83,10 @@ func (*fakeNode) Withdraw(int64, string) bool { return false }
 
 func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
+func (*fakeNode) Resources(context.Context, int64) (nodes.Resources, bool, error) {
+	return nodes.Resources{}, false, nil
+}
+
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
 	if command.Type == nodeproto.CommandCancel {

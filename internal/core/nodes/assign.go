@@ -75,6 +75,9 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if notReady := all.sender.Ready(ctx, nodeID); notReady != nil {
 		return notReady
 	}
+	if full := all.windowFull(ctx, nodeID, command.Work); full != nil {
+		return full
+	}
 	token, err := all.newToken()
 	if err != nil {
 		return err
@@ -90,6 +93,66 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 		return err
 	}
 	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
+}
+
+// windowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
+// work's slot as the node runs at once, and as many reading its device as may read it, each with
+// node_work_window_extra more, so the next starts without waiting for the core. It is nil while
+// there is room, and for a node whose resources are not known.
+func (all *Exchanges) windowFull(ctx context.Context, nodeID int64, work nodeproto.Work) error {
+	resources, isConnected, err := all.sender.Resources(ctx, nodeID)
+	if err != nil || !isConnected {
+		return err
+	}
+	extra, err := all.settings.Int(ctx, settings.NodeWorkWindowExtra)
+	if err != nil {
+		return fmt.Errorf("read node_work_window_extra: %w", err)
+	}
+	slot, device := work.Slot(), resources.deviceOf(work)
+	var inSlot, onDevice int
+	all.mutex.Lock()
+	for _, held := range all.attempts {
+		if held.NodeID != nodeID {
+			continue
+		}
+		if slot != "" && held.Work.Slot() == slot {
+			inSlot++
+		}
+		if device != "" && resources.deviceOf(held.Work) == device {
+			onDevice++
+		}
+	}
+	all.mutex.Unlock()
+	full := func(destination jobs.Destination) error {
+		return jobs.Park(jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true},
+			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
+	}
+	switch {
+	case slot != "" && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
+		return full(jobs.SlotDestination(nodeID, string(slot)))
+	case device != "" && onDevice >= resources.readerLimit(device)+int(extra):
+		return full(jobs.ReaderDestination(nodeID, device))
+	}
+	return nil
+}
+
+// errWindowFull is work a node has no room for in the core's window.
+var errWindowFull = errors.New("its window is full")
+
+// unparkRoomFor brings back the work waiting for room a node's attempt held: its slot's, and its
+// device's while the node is connected (D240 §5).
+func (all *Exchanges) unparkRoomFor(ctx context.Context, attempt Attempt) {
+	if all.destinations == nil {
+		return
+	}
+	if slot := attempt.Work.Slot(); slot != "" {
+		all.destinations.Unpark(ctx, jobs.SlotDestination(attempt.NodeID, string(slot)))
+	}
+	if resources, isConnected, err := all.sender.Resources(ctx, attempt.NodeID); err == nil && isConnected {
+		if device := resources.deviceOf(attempt.Work); device != "" {
+			all.destinations.Unpark(ctx, jobs.ReaderDestination(attempt.NodeID, device))
+		}
+	}
 }
 
 // keep records an attempt, in cache.db and in memory.
@@ -129,8 +192,12 @@ func (all *Exchanges) NodeWordOf(jobID int64) (nodeproto.ProgressState, bool) {
 // forgetAttempt drops an attempt, resolved or given up.
 func (all *Exchanges) forgetAttempt(ctx context.Context, token string) error {
 	all.mutex.Lock()
+	held, isHeld := all.attempts[token]
 	delete(all.attempts, token)
 	all.mutex.Unlock()
+	if isHeld {
+		defer all.unparkRoomFor(ctx, held.Attempt)
+	}
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.DeleteNodeAttempt(ctx, token)
 	})

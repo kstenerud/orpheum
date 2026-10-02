@@ -198,7 +198,7 @@ func openAndWire(
 func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges {
 	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
 		Sender: opened.nodes, Clock: clock.System{}, Random: rand.Reader, Logger: logger, Cache: opened.cache,
-		Settings: opened.settings, MaxSilence: prepareMaxSilence,
+		Settings: opened.settings, MaxSilence: prepareMaxSilence, Destinations: opened.jobServices.queue,
 	})
 	opened.nodes.SetResultSink(exchanges)
 	return exchanges
