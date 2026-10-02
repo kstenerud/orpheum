@@ -545,8 +545,9 @@ What the earlier 4d and 4e found still holds:
 #### 4d — the node's devices, their limits, and the core's scheduling
 
 - **4d.1 Devices.** The node finds the device of each root and of each mount inside one, and what
-  kind it is (spinning, SSD, network, or unknown: a ZFS pool's device names no disk), and its hello
-  lists them. Each device's concurrency limit is a core setting per node and device, starting from
+  kind it is (spinning, SSD, network, or unknown), following a pool, array or volume to its member
+  disks (D240 §5): ZFS through the host's `/run/udev`, mounted read-only into the node's container,
+  checked on devnas as a verification item since no ZFS is here. Its hello lists them. Each device's concurrency limit is a core setting per node and device, starting from
   the kind: one for spinning or unknown, several for SSD; the core gives the node its limits in the
   hello's reply and again when one changes.
 - **4d.2 The node enforces and yields.** Every command names the device it reads. The node runs at

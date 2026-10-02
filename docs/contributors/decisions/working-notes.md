@@ -17564,8 +17564,12 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    (cut-a §5.3); a job needs a device, and some a slot too. Each device has a concurrency limit:
    one reader on a spinning disk, in path order, several on an SSD, its own on a network mount. The
    limit is a setting per device, whose starting value is what the node detects, one where it
-   cannot tell: a ZFS pool's device names no disk (devnas's `/tank`). A smarter scheduler for SSDs
-   has room to come.
+   cannot tell. Detection follows a pool, array or volume to its member disks and reads each disk's
+   `rotational` flag, spinning if any data disk spins: an md array or LVM volume through
+   `/sys/block/<device>/slaves`, btrfs through `/sys/fs/btrfs`, a ZFS dataset through the mount
+   table to its pool and udev's database to the pool's disks, which the node's container reads
+   from the host's `/run/udev`, mounted read-only (the owner, 2026-10-02: *"Are you sure we can't
+   detect zfs?"*). A smarter scheduler for SSDs has room to come.
 6. **The node enforces the limits and yields to play at once.** What a round trip to the core
    cannot do in time is the node's: when play-driven work arrives for a device, the node pauses the
    background work reading it (the owner: *"if a background task is allowed to finish first, that
