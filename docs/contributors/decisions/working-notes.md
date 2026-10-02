@@ -17377,7 +17377,8 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
     core lease becomes the expectation of updates; D233 §7's claiming by slots becomes the node's
     own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
 
-**Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4.
+**Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4. Since 2026-10-02, §3, §4 and §5
+are revised by D238: the node keeps no database.
 
 ## D235 — Development and deployment run in containers: one image family, one command each, built by GoReleaser
 
@@ -17470,5 +17471,60 @@ benefit from updated info."*
    the 30s max poll interval should be configurable, passed by the server to the client."*):
    `screen_refresh_first_wait_seconds` (2) and `screen_refresh_longest_wait_seconds` (30), read by
    every signed-in client from `GET /client-settings`; D237's waits until they are read.
+
+**Status:** Decided 2026-10-02.
+
+## D238 — Each fact has one owner; the node keeps no database, holding its work in memory and its renditions' facts beside them
+
+**Decided** (2026-10-02), by the project owner, when `node.db` met the gate that keeps the node
+off the database: *"Let's step back and think about what the data requirements of the core and
+nodes are, how to avoid duplication, and how to avoid one incorrectly storing data that belongs
+to the other."* Then, on the proposal below: *"Agreed on both"*, *"Does the node need persistent
+storage?"*, and *"Agreed"*. It revises D234 §3, §4 and §5.
+
+1. **Each fact has one owner**: the side where it starts and where it must survive the other's
+   loss. The other side keeps only what it needs to act, as a copy it can rebuild or as "what the
+   other last said" (schema.md's class O).
+   - **The core owns intent**: which work should happen, its priority, its "wanted until", a
+     cancel. **The library's facts**, the node's findings among them once recorded. **A node's
+     identity.**
+   - **The node owns its configuration** (D107), which the core keeps as reported; **what is on its
+     disks**, whose index the core keeps as a cache (`prepared_rendition`); and **the execution of
+     the work it holds**: accepted, waiting, running, and how it ended, until the core acknowledges
+     the outcome.
+2. **Nothing is held twice by design.** The node keeps a command as it came, with its attempt token
+   and priority, never broken into facts of its own, and drops it when the work ends or the core
+   says so. An outcome becomes the core's when it is acknowledged, and the node then keeps only its
+   identity (the token, the kind, when it ended) to know a repeated command, never its content: this
+   replaces D234 §5's week of kept outcomes. Progress is never stored by the node. A rendition's
+   facts (its profile, the source's identity, the gains, the run) live in a manifest beside it, so
+   they go with its files.
+3. **The node keeps no database.** Its work, its unacknowledged outcomes and the identities of
+   ended work are held in memory; on disk it has its configuration and its prepared directory. A
+   core that restarts finds them still held and resent. A node that restarts has lost them with the
+   work its process ran, and the core's reconciliation (D234 §6) finds the difference and asks
+   again: the hello carries an id for this start of the node, so the core knows the work was
+   interrupted, the tool's failure source (D233 §6), free the first time and the item's the second.
+   A prepare's outcome survives a restart as its rendition and manifest. What is lost is an
+   unacknowledged measurement, subtitle or re-encode, redone. Reconciliation is the one way back.
+4. **What it revises.** D234 §3's durable journal (`node.db`) becomes the node's memory; D234 §4's
+   "run again or reported interrupted" is the core's, at reconciliation; D234 §5's retention keeps
+   identities, not outcomes. The rule that the node never touches a database (D31, D42) stands.
+
+**Status:** Decided 2026-10-02.
+
+## D239 — `library.db` is `persistent.db`, named for how it is kept beside `cache.db`
+
+**Decided** (2026-10-02), by the project owner: *"Would it make sense to call the persistent db
+persistent.db? Then we have cache.db and it's easy to know which to back up from the file
+alone."*
+
+1. **The name says how the file is kept.** `persistent.db` is backed up and never discarded;
+   `cache.db` is never backed up and may be deleted at any time. `library.db` also held users,
+   devices, grants, settings, secrets and play state, which the name hid.
+2. **The data directory is still the unit of backup**: `secret.key`, which opens the secrets,
+   lives beside `persistent.db`.
+3. Decisions before this one, and research, keep `library.db` as written: history, not
+   specification.
 
 **Status:** Decided 2026-10-02.

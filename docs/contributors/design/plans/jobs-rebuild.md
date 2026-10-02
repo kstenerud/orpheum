@@ -281,7 +281,7 @@ D233 §2, §4, §6, §8, §9 as D234 keeps them; D234 throughout; D235 §4 and �
 | --- | --- |
 | 1. A job on a node with nobody waiting for it | D234 §7: a job given to a node is a row in the *assigned* state, resolved by its outcome, a timeout, a cancel or parking, never a waiting goroutine |
 | 2. Awaiting hello | D234 §6: the core expects updates from a node with work; after a few intervals of silence it asks, and a node that does not answer is unreachable and its work parks (D231 §5). *How many intervals is question A below* |
-| 3. The outbox | D234 §3, §5: the node's journal (`node.db`) holds its jobs and their outcomes, each resent until acknowledged; §4: a node whose disk is full refuses new work. *Retention is question B* |
+| 3. The outbox | D234 §3, §5: the node's journal holds its jobs and their outcomes, each resent until acknowledged; §4: a node whose disk is full refuses new work. *Retention is question B. D238: the journal is the node's memory, not a `node.db`* |
 | 4. The attempt token | D234 §3: every job, update and cancel names its attempt; the core deduplicates by result identity and attempt (§5) |
 | 5. The rendition inventory | Not settled: question D |
 | 6. A handler failing after its command reached the node | D234 §4, §6: both. The core cancels on every way out, and its reconciliation finds what a lost cancel left, reporting it as a broken invariant |
@@ -337,8 +337,8 @@ caches in a directory the workflow saves; the runner installs nothing but runs `
 
 ### 4b — the journal and acknowledged outcomes
 
-- `node.db` on the node's own volume: its jobs by id and attempt, ordered within their
-  priorities; a job running when the node restarted is run again or reported interrupted.
+- The node's jobs by id and attempt, ordered within their priorities; a job running when the
+  node restarted is reported interrupted. *D238: held in memory, not in a `node.db`.*
 - Progress pushed while a job runs, throttled, newest superseding the rest; an outcome inline when
   small, by reference when large (fetched from the byte socket and checked by hash), kept and
   resent until acknowledged.
@@ -349,45 +349,47 @@ caches in a directory the workflow saves; the runner installs nothing but runs `
   why, and work that writes elsewhere goes on (S28).
 - Closes G13, S28, S81, S83–S85.
 
-*As the owner accepted it (2026-10-02, "Sounds good"), with D234's words made concrete:*
+*As the owner accepted it (2026-10-02, "Sounds good"), with D234's words made concrete, and as
+D238 then revised it (the same day): each fact has one owner, and the node keeps no database.*
 
-1. `node.db` lives in a new node config key, `node.state_dir`, specific to the machine (no
-   starting value), as the server's `data_dir` is.
-2. Its schema is one file, versioned by discard as `cache.db` is: what it holds is regenerable,
-   and the core asks again for what it still wants.
-3. A job running when the node restarted is reported *interrupted*, not run again by the node: the
-   core decides. Interrupted is the tool's failure source as a stall is (D233 §6), free the first
-   time and the item's the second, so a file that crashes the node does not loop (S86).
-4. Acknowledged means recorded. The core records every outcome as it arrives, whether or not a job
+1. The node holds its work in memory: each command as it came, with its attempt token and
+   priority; its unacknowledged outcomes; and the identities (token, kind, when it ended) of work
+   that ended, to know a repeated command. No `node.db` (D238 §3).
+2. Every hello carries an id for this start of the node. A node that restarted has lost the work
+   its process ran; the core finds the difference at reconciliation (4c) and asks again, counting
+   the work interrupted: the tool's failure source as a stall is (D233 §6), free the first time
+   and the item's the second, so a file that crashes the node does not loop (S86).
+3. Acknowledged means recorded. The core records every outcome as it arrives, whether or not a job
    still waits, each kind checked against what is current by content (a prepare by its rendition's
    run id, closing G13 and S81; a measurement or subtitle by the file's hash; artwork by its
    target), and only then answers. A job that waits is told the outcome. The node resends an
-   unacknowledged outcome at each hello and with a doubling wait while connected, and forgets it a
-   week after it was acknowledged (question B).
-5. Every sending carries an attempt token, random, which the result echoes: a job's wait takes
+   unacknowledged outcome at each hello and with a doubling wait while connected; once it is
+   acknowledged the node keeps only its identity, for a week (question B as D238 §2 revised it).
+4. Every sending carries an attempt token, random, which the result echoes: a job's wait takes
    only its own token, from the node it sent to (S83, S84). Attempt numbers cannot fence, since an
    attempt given back is numbered again, and job ids repeat after a `cache.db` discard. Anything
-   else goes only to the recording of item 4.
-6. A fetched subtitle converted while a person waits is the conversion job that exists, at the top
+   else goes only to the recording of item 3.
+5. A fetched subtitle converted while a person waits is the conversion job that exists, at the top
    priority, and the request waits, bounded, for its text to be recorded: one way to ask a node for
    work, and no negative ids.
-7. An outcome up to 1 MiB (a protocol constant) is inline; a larger one (artwork, a large
-   subtitle) is a file in the node's state directory, named with its size and SHA-256, which the
-   core fetches from the byte socket and checks.
-8. Progress has its own path, best effort and never resent, at most every
+6. An outcome up to 1 MiB (a protocol constant) is inline; a larger one (artwork, a large
+   subtitle) is held by the node, within the result's 64 MiB bound, and named in the result with
+   its size and SHA-256; the core fetches it from the byte socket and checks it.
+7. Progress has its own path, best effort and never resent, at most every
    `node.progress_every_seconds` (a node config key starting at 2, today's constant). Every kind
    says waiting for a slot and running; a prepare also says how far. Commands carry their priority,
    and the node starts what waits in priority order.
-9. The "changed since the scan" refusal gets its own code and is retried with back-off as today;
+8. The "changed since the scan" refusal gets its own code and is retried with back-off as today;
    the scan that notices the change ends the old file's jobs.
-10. A node whose journal cannot be written, or whose state directory's disk has less than
-    `node.min_free_mib` free (a node config key starting at 100; the owner, 2026-10-02: "a node
-    balk and report full when less than 100mb space remains. Configurable"), refuses new work with
-    its reason, and the core parks that node's work until its status shows room, as prepares wait
-    on a full prepared directory (S28). Work that writes nothing on the node goes on.
+9. A node whose prepared directory's disk has less than `node.min_free_mib` free (a node config key
+   starting at 100; the owner, 2026-10-02: "a node balk and report full when less than 100mb space
+   remains. Configurable"), beside the directory's own limits (D217 §5), refuses new work that
+   writes there with its reason, and the core parks it until the node's status shows room, as
+   prepares wait on a full prepared directory now (S28). Work that writes nothing on the node goes
+   on.
 
-The protocol version becomes 2. The steps: **4b.1** `node.db`, work run from the journal in
-priority order, interrupted; **4b.2** tokens, the progress path, acknowledged outcomes and their
+The protocol version becomes 2. The steps: **4b.1** the work held in memory, run in priority
+order, and the start id; **4b.2** tokens, the progress path, acknowledged outcomes and their
 recording; **4b.3** large outcomes by reference; **4b.4** conversions as jobs, the changed
 refusal, the full disk.
 
