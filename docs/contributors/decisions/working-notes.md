@@ -17644,7 +17644,15 @@ with a per-file retire and a root's repoint.
    or reported moved, is now at another path on the same or another node. The root and its files'
    paths move with their history. The next scan confirms each file by its payload hash (D179) before
    it counts as present again, and treats one it cannot confirm as a removal under D208.
-7. **Later.** "Rescan to find missing media": the core asks a node for the full tree of each of its
+7. **A film already playing says why it stops.** When a fetch fails during play, the player asks
+   the server why, as a new play would, and §4's answer names what is missing and since when. The
+   film plays what the browser already holds, and the reason is shown when the picture stops; an
+   answer that the source is there means a passing failure, and the player tries again. The order
+   is the preferred one, not the requirement. The owner: *"If that turns out to not be feasible I'm
+   flexible on the specific ordering. All that matters is that the user knows why playback failed
+   (or is about to)."* Whether a browser plays out its buffer after a failed fetch, above all in
+   direct play, only a device can confirm.
+8. **Later.** "Rescan to find missing media": the core asks a node for the full tree of each of its
    roots and matches missing files by name, then confirms candidates by payload hash. It is not in
    Cut A.
 
