@@ -139,6 +139,17 @@ export async function submit(form: Element | null | undefined): Promise<void> {
   });
 }
 
+/** Fires event at an element, as the browser does, and lets the requests it made answer. */
+export async function fire(element: Element | null | undefined, event: Event): Promise<void> {
+  if (element === null || element === undefined) {
+    throw new Error("nothing to fire at");
+  }
+  await act(async () => {
+    element.dispatchEvent(event);
+    await settleAnswers();
+  });
+}
+
 /** Chooses value in a select, as a person does, and lets the requests it made answer. */
 export async function choose(select: Element | null | undefined, value: string): Promise<void> {
   if (!(select instanceof HTMLSelectElement)) {

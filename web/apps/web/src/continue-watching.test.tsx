@@ -29,6 +29,22 @@ const heat: ContinueWatchingRow = {
 };
 
 describe("Continue Watching", () => {
+  it("leads a row that cannot be played now to its page, which says why (D241 §3)", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <ContinueWatchingView
+          rows={[{ ...heat, unavailable: { reason: "node_away", nodeName: "devnas" } }]}
+          hiddenName={undefined}
+          onHide={nothing}
+          onUndo={nothing}
+        />,
+      ),
+    );
+    expect(markup).not.toContain('href="/play/3"');
+    expect(markup).toContain(`href="/titles/${String(heat.id)}"`);
+    expect(markup).toContain("Cannot be played now");
+  });
+
   it("plays each work's file at once, says how far along, which copy, and offers to hide it", () => {
     const markup = renderToStaticMarkup(
       withServices(

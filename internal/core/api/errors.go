@@ -108,12 +108,7 @@ func (MediaUnreachableDetailBody) problemCode() Code { return CodeMediaUnreachab
 // mediaUnreachable is a play refused because its file cannot be read now, its node named by
 // nodeName (D241 §4).
 func mediaUnreachable(unreadable *playback.UnreadableError, nodeName func(nodeID int64) string) error {
-	detail := MediaUnreachableDetailBody{
-		Reason: string(unreadable.Reason), NodeName: nodeName(unreadable.NodeID), Path: unreadable.Path,
-	}
-	if !unreadable.Since.IsZero() {
-		detail.Since = unreadable.Since.UnixMilli()
-	}
+	detail := MediaUnreachableDetailBody(*unavailableBody(&unreadable.Unreadable, nodeName))
 	return newDetailedError(http.StatusServiceUnavailable, "this file cannot be read now: "+unreadable.Error(), detail)
 }
 

@@ -76,6 +76,26 @@ func TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks(t *te
 	}
 }
 
+// A player whose fetch failed mid-play asks whether its file can be read now, and is told why not,
+// or that it can and the failure passed (D241 §7).
+func TestPlayback_APlayerAsksWhetherItsFileCanBeReadNow(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	if fine := harness.do(t, http.MethodGet, "/files/2/availability", user, nil); fine.status != http.StatusOK ||
+		strings.Contains(fine.body, "unavailable") {
+		t.Errorf("a file that can be read = %d %s; want it said so", fine.status, fine.body)
+	}
+	harness.missingMedia(t)
+	missing := harness.do(t, http.MethodGet, "/files/2/availability", user, nil)
+	const want = `{"unavailable":{"reason":"root_missing","nodeName":"local","path":"/media","since":5000}}`
+	if missing.status != http.StatusOK || !strings.Contains(missing.body, want) {
+		t.Errorf("a file under a missing root = %d %s; want %s", missing.status, missing.body, want)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/files/99/availability", user, nil), http.StatusNotFound, CodeNotFound)
+}
+
 // A play of a file under a root its node cannot read is refused at once, naming the root and since
 // when, and queues nothing (D241 §4).
 func TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing(t *testing.T) {

@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChanges } from "./polling.ts";
-import { dataOrThrow, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -47,6 +47,7 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
 
 /** A title's page: its art, name, year and length, what it is about, its versions and extras. */
 export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
+  const { t } = useTranslation();
   const { title } = props;
   return (
     <article className="title">
@@ -61,7 +62,10 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
         <TitleArt title={title} />
         <TitleFacts title={title} />
       </div>
-      <Versions versions={title.versions ?? []} />
+      {title.unavailable === undefined ? null : (
+        <output className="title__unavailable">{unavailableText(t, title.unavailable)}</output>
+      )}
+      <Versions versions={title.versions ?? []} isPlayable={title.unavailable === undefined} />
       <Extras extras={title.extras ?? []} />
     </article>
   );
@@ -112,9 +116,13 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   );
 }
 
-/** A title's versions, each file with its path (for an admin) and its streams. */
+/**
+ * A title's versions, each file with its path (for an admin) and its streams, and a way to play it
+ * unless none can be played now (D241 §3).
+ */
 function Versions(props: {
   readonly versions: readonly components["schemas"]["VersionBody"][];
+  readonly isPlayable: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { versions } = props;
@@ -129,9 +137,11 @@ function Versions(props: {
           {versions.length === 1 ? null : <h3>{t("title.version", { index: index + 1 })}</h3>}
           {(version.files ?? []).map((file) => (
             <div key={file.id} className="title__file">
-              <Link to={{ screen: "play", fileId: file.id }} className="title__play">
-                {t("title.play")}
-              </Link>
+              {props.isPlayable ? (
+                <Link to={{ screen: "play", fileId: file.id }} className="title__play">
+                  {t("title.play")}
+                </Link>
+              ) : null}
               {file.path === undefined ? null : <code>{file.path}</code>}
               <ul>
                 {(file.streams ?? []).map((stream) => (

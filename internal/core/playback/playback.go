@@ -383,6 +383,21 @@ func (unreadable *UnreadableError) Error() string {
 		cmp.Or(unreadable.Path, "-"), unreadable.Since.UTC().Format(time.RFC3339))
 }
 
+// Unreadable is why a file cannot be read now, or nil when it can (D241 §7); ErrNoFile for a file
+// that is not a live one to play.
+func (service *Service) Unreadable(ctx context.Context, fileID int64) (*library.Unreadable, error) {
+	file, err := service.playableFile(ctx, service.database.Read(), fileID)
+	if err != nil {
+		return nil, err
+	}
+	unreadable, isUnreadable, err := library.UnreadableFile(ctx, service.database.Read(), service.nodes, file.NodeID,
+		file.ReportedPathRaw)
+	if err != nil || !isUnreadable {
+		return nil, err
+	}
+	return &unreadable, nil
+}
+
 // refuseUnreadable refuses a play of the file a node reported at reportedPath when it cannot be read
 // now (UnreadableError); nil when it can.
 func (service *Service) refuseUnreadable(ctx context.Context, nodeID int64, reportedPath []byte) error {

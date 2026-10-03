@@ -19,6 +19,8 @@ type TitleDetail struct {
 	Extras   []sqlcgen.ListTitleExtrasRow
 	Episode  *sqlcgen.GetEpisodePlaceRow
 	Art      Art
+	// Unreadable is why none of its files can be read now, or nil when one can (D241 §3).
+	Unreadable *Unreadable
 }
 
 // Version is one of a title's versions: its files in part order (D155).
@@ -58,6 +60,13 @@ func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, 
 	}
 	if detail.Episode, err = browser.episodePlace(ctx, titleID); err != nil {
 		return TitleDetail{}, err
+	}
+	unreadable, err := browser.unreadableItems(ctx, []int64{titleID}, false)
+	if err != nil {
+		return TitleDetail{}, err
+	}
+	if why, isUnreadable := unreadable[titleID]; isUnreadable {
+		detail.Unreadable = &why
 	}
 	return detail, nil
 }
@@ -104,6 +113,10 @@ type SeriesDetail struct {
 	Episodes               []sqlcgen.ListSeriesEpisodeDetailsRow
 	Art                    Art
 	StillSha256ByEpisodeID map[int64]string // each episode's still, by its id
+	// UnreadableByEpisodeID is why none of an episode's files can be read now, for each such
+	// episode; Unreadable is why none of the series' can, or nil when one can (D241 §3).
+	UnreadableByEpisodeID map[int64]Unreadable
+	Unreadable            *Unreadable
 }
 
 // Series is a series' detail.
@@ -130,6 +143,16 @@ func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetai
 	}
 	if detail.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
 		return SeriesDetail{}, err
+	}
+	if detail.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, ids, false); err != nil {
+		return SeriesDetail{}, err
+	}
+	unreadable, err := browser.unreadableItems(ctx, []int64{seriesID}, true)
+	if err != nil {
+		return SeriesDetail{}, err
+	}
+	if why, isUnreadable := unreadable[seriesID]; isUnreadable {
+		detail.Unreadable = &why
 	}
 	return detail, nil
 }

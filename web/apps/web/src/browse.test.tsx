@@ -75,3 +75,28 @@ describe("browse", () => {
     expect(itemRoute("series", 4)).toEqual({ screen: "series-page", collectionId: 4 });
   });
 });
+
+describe("a title that cannot be played now (D241 §3)", () => {
+  it("stays in the list, marked", () => {
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: {
+        nextCursor: "",
+        items: [
+          {
+            id: 10,
+            name: "Metropolis",
+            identificationState: "identified",
+            libraryId: 1,
+            addedAt: 1,
+            unavailable: { reason: "disk_missing", nodeName: "devnas", path: "/media/usb" },
+          },
+        ],
+      },
+    });
+    expect(markup).toContain("Metropolis");
+    expect(markup).toContain("Cannot be played now");
+    expect(markup).toContain("the disk at /media/usb on devnas is missing");
+    expect(markup).toContain("poster-grid__card--unavailable");
+  });
+});

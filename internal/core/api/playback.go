@@ -163,6 +163,11 @@ func (server *Server) registerPlayback() {
 		Summary: "A prepared playback's master playlist, relayed from its node", Tags: []string{tagPlayback},
 		Responses: responses,
 	}, server.getMasterPlaylist)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getFileAvailability", Method: http.MethodGet, Path: "/files/{id}/availability",
+		Summary: "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
+		Tags:    []string{tagPlayback},
+	}, server.getFileAvailability)
 	server.registerSubtitles()
 	server.registerSubtitleFetch()
 	huma.Register(server.humaAPI, huma.Operation{
@@ -177,6 +182,30 @@ func (server *Server) registerPlayback() {
 // one rendition's playlist, init segment or media segment. The node checks it again.
 var hlsFilePattern = regexp.MustCompile(
 	`^(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
+
+// FileAvailabilityOutput is whether a file can be read now.
+type FileAvailabilityOutput struct {
+	Body struct {
+		// Unavailable says why it cannot; absent when it can, and a failed fetch was a passing one.
+		Unavailable *UnavailableBody `json:"unavailable,omitempty"`
+	}
+}
+
+// getFileAvailability answers whether a file can be read now: a player whose fetch failed mid-play
+// asks, and tells the viewer why, or tries again (D241 §7).
+func (server *Server) getFileAvailability(ctx context.Context, input *ItemInput) (*FileAvailabilityOutput, error) {
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	unreadable, err := dependencies.Playback.Unreadable(ctx, input.ID)
+	if err != nil {
+		return nil, server.playbackError(ctx, "ask whether a file can be read", err)
+	}
+	output := &FileAvailabilityOutput{}
+	output.Body.Unavailable = unavailableBody(unreadable, server.nodeNamer(ctx, dependencies))
+	return output, nil
+}
 
 func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInput) (*StartPlaybackOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)

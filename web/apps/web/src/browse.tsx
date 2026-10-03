@@ -7,7 +7,7 @@ import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBackgroundChanges } from "./polling.ts";
-import { dataOrThrow } from "./problem.ts";
+import { dataOrThrow, unavailableText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
 import { Poster } from "./poster.tsx";
@@ -43,11 +43,26 @@ export function PosterGrid(props: {
     <ul className="poster-grid">
       {props.entries.map((entry) => (
         <li key={entry.id}>
-          <Link to={itemRoute(props.kind, entry.id)} className="poster-grid__card">
+          <Link
+            to={itemRoute(props.kind, entry.id)}
+            className={
+              entry.unavailable === undefined
+                ? "poster-grid__card"
+                : "poster-grid__card poster-grid__card--unavailable"
+            }
+          >
             <Poster sourceSha256={entry.posterSha256} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
               <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
+            )}
+            {entry.unavailable === undefined ? null : (
+              <span
+                className="poster-grid__unavailable"
+                title={unavailableText(t, entry.unavailable)}
+              >
+                {t("title.unavailableNow")}
+              </span>
             )}
           </Link>
         </li>

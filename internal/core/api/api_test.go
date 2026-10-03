@@ -140,13 +140,15 @@ func newHarness(t *testing.T) testHarness {
 			t.Errorf("node %d's result was not taken: %v", nodeID, err)
 		}
 	}
+	browser := library.NewBrowser(database, seeded)
+	browser.SetNodeConnections(nodes)
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
 		Chooser:   identify.NewChooser(matcher, pass),
 		Libraries: library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
 		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
-		Browser:   library.NewBrowser(database, seeded),
+		Browser:   browser,
 		Artwork: artwork.NewService(artwork.Parts{
 			Database: database, Queue: queue,
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),

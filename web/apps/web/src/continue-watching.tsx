@@ -90,38 +90,67 @@ export function ContinueWatchingView(props: {
         </output>
       )}
       <ul className="continue-watching__rows">
-        {props.rows.map((row) => {
-          const percent = watchedPercent(row);
-          return (
-            <li key={row.id} className="continue-watching__row">
-              <Link to={{ screen: "play", fileId: row.fileId }} className="continue-watching__play">
-                <Poster sourceSha256={row.posterSha256} />
-                <span className="continue-watching__name">{nameOf(row)}</span>
-                {row.fileName === undefined ? null : (
-                  <span className="continue-watching__file">{row.fileName}</span>
-                )}
-                {percent === undefined ? null : (
-                  <progress
-                    value={percent}
-                    max={100}
-                    aria-label={t("continueWatching.watched", { percent })}
-                  />
-                )}
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  props.onHide(row);
-                }}
-                aria-label={t("continueWatching.hideLabel", { name: nameOf(row) })}
-              >
-                {t("continueWatching.hide")}
-              </button>
-            </li>
-          );
-        })}
+        {props.rows.map((row) => (
+          <ContinueWatchingRowView
+            key={row.id}
+            row={row}
+            name={nameOf(row)}
+            onHide={props.onHide}
+          />
+        ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * One row: its file played at once when chosen, or, when it cannot be played now, its page, which
+ * says why (D241 §3); and a way to hide it.
+ */
+function ContinueWatchingRowView(props: {
+  readonly row: ContinueWatchingRow;
+  readonly name: string;
+  readonly onHide: (row: ContinueWatchingRow) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { row } = props;
+  const percent = watchedPercent(row);
+  return (
+    <li className="continue-watching__row">
+      <Link
+        to={
+          row.unavailable === undefined
+            ? { screen: "play", fileId: row.fileId }
+            : { screen: "title", itemId: row.id }
+        }
+        className="continue-watching__play"
+      >
+        <Poster sourceSha256={row.posterSha256} />
+        <span className="continue-watching__name">{props.name}</span>
+        {row.unavailable === undefined ? null : (
+          <span className="continue-watching__file">{t("title.unavailableNow")}</span>
+        )}
+        {row.fileName === undefined ? null : (
+          <span className="continue-watching__file">{row.fileName}</span>
+        )}
+        {percent === undefined ? null : (
+          <progress
+            value={percent}
+            max={100}
+            aria-label={t("continueWatching.watched", { percent })}
+          />
+        )}
+      </Link>
+      <button
+        type="button"
+        onClick={() => {
+          props.onHide(row);
+        }}
+        aria-label={t("continueWatching.hideLabel", { name: props.name })}
+      >
+        {t("continueWatching.hide")}
+      </button>
+    </li>
   );
 }
 

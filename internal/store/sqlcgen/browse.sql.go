@@ -275,6 +275,87 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 	return items, nil
 }
 
+const listLiveFileLocationsOfSeries = `-- name: ListLiveFileLocationsOfSeries :many
+SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified')
+WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+  AND ordering.name = 'aired'
+ORDER BY ordering.collection_id, file.id
+`
+
+type ListLiveFileLocationsOfSeriesRow struct {
+	ItemID          int64
+	NodeID          int64
+	ReportedPathRaw []byte
+}
+
+// Where each of some series' episodes' live playable files is, by the series.
+func (q *Queries) ListLiveFileLocationsOfSeries(ctx context.Context, itemIDListJson string) ([]ListLiveFileLocationsOfSeriesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFileLocationsOfSeries, itemIDListJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveFileLocationsOfSeriesRow{}
+	for rows.Next() {
+		var i ListLiveFileLocationsOfSeriesRow
+		if err := rows.Scan(&i.ItemID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiveFileLocationsOfTitles = `-- name: ListLiveFileLocationsOfTitles :many
+SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw
+FROM version
+JOIN file ON file.version_id = version.id
+WHERE version.title_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+  AND version.removed_at IS NULL AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified')
+ORDER BY version.title_id, file.id
+`
+
+type ListLiveFileLocationsOfTitlesRow struct {
+	ItemID          int64
+	NodeID          int64
+	ReportedPathRaw []byte
+}
+
+// Where each of some titles' live playable files is: its node and the path it reported, for
+// whether any can be read now (D241 section 3).
+func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJson string) ([]ListLiveFileLocationsOfTitlesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFileLocationsOfTitles, itemIDListJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveFileLocationsOfTitlesRow{}
+	for rows.Next() {
+		var i ListLiveFileLocationsOfTitlesRow
+		if err := rows.Scan(&i.ItemID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeriesByAdded = `-- name: ListSeriesByAdded :many
 SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at
 FROM collection

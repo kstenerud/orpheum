@@ -57,6 +57,26 @@ describe("TitleView", () => {
     expect(markup).toContain("/m/Metropolis (1995).mkv");
   });
 
+  it("says why a title cannot be played now, and offers no play (D241 §3)", () => {
+    const playable = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const missing = renderToStaticMarkup(
+      withServices(
+        <TitleView
+          title={{
+            ...heat,
+            unavailable: { reason: "root_missing", nodeName: "devnas", path: "/media/films" },
+          }}
+        />,
+      ),
+    );
+    expect(playable).toContain('href="/play/1"');
+    expect(missing).toContain(
+      "This cannot be played now: the folder /media/films on devnas is missing.",
+    );
+    expect(missing).not.toContain('href="/play/1"');
+    expect(missing).toContain("<h1>Metropolis</h1>");
+  });
+
   it("places an episode in its series, with its still", () => {
     const episode: TitleDetail = {
       ...heat,

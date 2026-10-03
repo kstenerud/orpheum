@@ -45,3 +45,27 @@ describe("SeriesView", () => {
     expect(bySeason([]).length).toBe(0);
   });
 });
+
+describe("an episode that cannot be played now (D241 §3)", () => {
+  it("is listed, marked with why", () => {
+    const series: SeriesDetail = {
+      id: 20,
+      kind: "series",
+      name: "Glass Tide",
+      libraryId: 1,
+      art: {},
+      episodes: [
+        {
+          ...episode(31, { seasonNumber: 1, episodeNumber: 1 }),
+          unavailable: { reason: "node_away", nodeName: "devnas" },
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
+    expect(markup).toContain("Episode 1");
+    expect(markup).toContain(
+      "This cannot be played now: devnas, the machine that holds it, is not connected.",
+    );
+    expect(markup).toContain("series__item--absent");
+  });
+});
