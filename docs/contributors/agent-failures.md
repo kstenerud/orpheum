@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A19 — A session's permission stated from a summary, not read from the environment (2026-10-03)
+
+- **What happened:** before building D242, which changes the dev loop's gate files, I told the
+  owner that I could not edit gates and recommended restarting the session with
+  `ORPHEUM_ALLOW_GATE_EDIT=1`. It was already set. The false belief came from the project rules,
+  which say gate edits are refused, and from my own earlier work in the session, none of which
+  had needed one. One `env` command would have answered it.
+- **Caught by:** the owner: "Isn't ORPHEUM_ALLOW_GATE_EDIT=1 already set here?"
+- **Gate:** none; the hooks report a refusal, not a permission. The practice: before telling
+  the owner what a session may not do, read the variable the hook reads.
+
 ### A18 — A scan explained by the code that could start it, not by the log that said which one ran (2026-10-02)
 
 - **What happened:** the owner reset the dev loop during a scan of their media and, after a
