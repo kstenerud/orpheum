@@ -393,7 +393,7 @@ dev-db: ## Open the dev database in an SQL shell (python3 -m sqlite3; stop the s
 	@$(PYTHON) -m sqlite3 $(DEV_CORE)/persistent/persistent.db
 
 .PHONY: dev-doctor
-dev-doctor: ## Run `orpheum doctor` against the dev config
+dev-doctor: ## Run `orpheum doctor` on the dev core's instance (.dev/core)
 	@go build -tags dev -o $(DEV_DIR)/bin/orpheum ./cmd/orpheum
 	@$(DEV_DIR)/bin/orpheum doctor --instance $(DEV_CORE)
 
