@@ -40,6 +40,67 @@ counted:
 
 ## Log
 
+### P44 — Decision and scenario statuses drifted from the code, because only doc.go citations are checked (before M4, 2026-10-03) · gate-design
+
+- **Planned:** each decision's **Status** line and each scenario's status say what is built, and
+  the audit checklist's item 19 reads them back at every milestone.
+- **What happened:** the pre-M4 audit found eight decisions' Status lines stale (D234, D237, D238,
+  D239, D240 and D241 still "decided" or "to be built" though built; D233 claiming a clause that
+  is not), scenario statuses still naming gaps closed weeks before, and a scenario-tier list
+  naming tests never written. `check_claims` checks test names cited in doc.go and README files,
+  so every citation there was true; the same claims in working-notes.md and scenarios.md had no
+  check.
+- **Why the plan missed it:** the gate was built where the first stale claims were found, and
+  the claims spread to documents it does not read.
+- **Cost:** an audit section; a batch of documentation fixes.
+- **Process lesson:** a check on claims covers every document that makes them, or the documents
+  it does not cover rot first; and a status line updated by the commit that builds the thing
+  beats one an audit corrects.
+
+### P43 — One package collected five jobs before the plan's layout gave them homes (jobs rebuild, 2026-10-03) · plan-gap
+
+- **Planned:** cut-a §3's layout names one `playback` package for playing a file.
+- **What happened:** playback collected play state, prepared copies, subtitles (extraction,
+  conversion, fetching on request), loudness and the levelling arithmetic, half of its doc.go
+  invariants about node work. The architecture map flagged it (F2); the split waited on the
+  owner because it changed the frozen layout, and was made after Phase 6 into `loudness`,
+  `subtitles`, `renditions` and `decide/levels.go`.
+- **Why the plan missed it:** the layout was written from the user's verbs (play a file), not
+  from the kinds of work behind them; each feature found the nearest package.
+- **Cost:** five refactor commits and a docs pass.
+- **Process lesson:** derive a layout from the kinds of work and their owners (jobs, stores,
+  wire), and let a package's doc.go saying "and" a second time be the trigger to split, before a
+  milestone builds on it.
+
+### P42 — Where an instance's files live was the deployment's guess, until someone had to back it up (2026-10-03) · requirement-emerged
+
+- **Planned:** cut-a §2: `/var/lib/orpheum` for the state, `/var/cache/orpheum` for the cache,
+  `/run/orpheum` for the sockets, each a config key; a backup is persistent.db by VACUUM INTO.
+- **What happened:** the owner, looking at the development directory, could not tell what to
+  back up. D242 made an instance one directory with a top-level config pointing at persistent,
+  cache, backups and run, made a backup a tarball of persistent, gave the node an instance of its
+  own, and had its hello say where its byte socket is.
+- **Why the plan missed it:** the layout followed Linux's filesystem conventions, decided for a
+  packager, and was never looked at from the operator's chair: "what do I copy?".
+- **Cost:** a decision, a protocol bump, a dev-loop rewrite with a gate trailer, and a
+  regression (the pre-migration snapshot no longer restorable) found by the next audit.
+- **Process lesson:** for anything a person must back up or move, design the operator's view
+  first ("this directory is the instance; this one is what you keep") and let the distribution
+  map it onto conventions.
+
+### P41 — What a play does when its media is gone was unplanned (jobs rebuild, 2026-10-03) · plan-gap
+
+- **Planned:** D231 parked work on a missing root; nothing said what a person who asks to play a
+  file there sees, or what happens to a film already playing.
+- **What happened:** the owner's questions about nodes going away produced D241: unavailable
+  titles stay listed and marked, a play of one fails at once and queues nothing, an admin says
+  "gone" per file or per root and can repoint a root, and a play that loses its media says why.
+- **Why the plan missed it:** the jobs design looked at the work, not at the person waiting for
+  it.
+- **Cost:** a decision and Phase 6.
+- **Process lesson:** for every way a resource can go away, write what the person using it sees,
+  not only what the background work does.
+
 ### P40 — A prepare's film shows a growing length, and a seek cannot reach past what is made (after the jobs rebuild's Phase 3, 2026-10-01) · plan-gap
 
 - **Planned:** D193 §2: prepare writes a growing `EVENT` playlist so playback starts at the
