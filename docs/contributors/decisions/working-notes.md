@@ -17738,6 +17738,14 @@ key left out by default, and one instance directory over separate system directo
    `server.data_dir`, `server.cache_dir`, `server.socket_dir` and `node.prepared_dir`. (Both
    agreed by the owner, 2026-10-03: *"Yes, go ahead"*.)
 
+8. **A socket's path is short, so the run directory may live elsewhere.** A Unix socket's path is
+   at most 103 bytes, which a deep instance directory can pass. `default-config` refuses such an
+   instance before it makes anything, and `--run-dir <dir>` puts its run directory elsewhere, as
+   the top-level config already allows. Not `/tmp`, which the owner suggested (*"maybe we should
+   put them in tmp and use the config to point to them"*): anyone on the machine can create a
+   file there, so another user could take the socket's path first. The owner agreed (2026-10-03,
+   *"Ok go with your recommendation"*).
+
 **Status:** Built 2026-10-03: the instance directory, `--instance` and `default-config`, the
 node's own instance and its byte socket named in its hello (protocol 19), and `log.destination`
 ; the backup as a tarball of `persistent/`, restored from one, and made from the System

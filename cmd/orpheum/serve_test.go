@@ -17,7 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -105,20 +104,14 @@ func testConfig(t *testing.T) (Config, string) {
 	t.Helper()
 	root := t.TempDir()
 	dir := filepath.Join(root, "i")
-	instance, err := makeInstance(dir, kindCore, "test")
+	// A Unix socket's path is at most 103 bytes, and t.TempDir's carries the test's name: the run
+	// directory is put outside the instance, as default-config's --run-dir puts it, at the shortest
+	// path there is.
+	instance, err := makeInstance(dir, kindCore, filepath.Join(root, "r"), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A Unix socket's path is at most 103 bytes, and t.TempDir's carries the test's name: the run
-	// directory is pointed outside the instance, as a distribution may point it, at the shortest
-	// path there is.
-	topLevel := filepath.Join(dir, instanceFileName)
-	text := strings.Replace(string(readFile(t, topLevel)), strconv.Quote(instance.RunDir),
-		strconv.Quote(filepath.Join(root, "r")), 1)
-	if err = os.WriteFile(topLevel, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	text = `[server]
+	text := `[server]
 listen = "127.0.0.1:0"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10

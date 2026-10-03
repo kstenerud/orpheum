@@ -62,7 +62,7 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		}
 		want := "--instance is required"
 		if planned.name == "default-config" {
-			want = "usage: orpheum default-config [--node] <instance directory>"
+			want = "usage: orpheum default-config [--node] [--run-dir <dir>] <instance directory>"
 		}
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
