@@ -134,7 +134,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   is its iPhone Safari half (cut-a §8, M3's acceptance). (`web/packages/player/`)
 - [ ] **VQ15** — On the Mac, with Apple's HTTP Live Streaming tools installed: once VQ14 has
   prepared **TrueHD Film (2022)**, copy the rendition's directory (the one holding
-  `master.m3u8` under `.dev/cache/prepared/`) to the Mac and run
+  `master.m3u8` under `.dev/node/cache/prepared/`) to the Mac and run
   `mediastreamvalidator master.m3u8` in it. Passes when it reports no errors (cut-a §8, M3's
   acceptance: `mediastreamvalidator` passes on a prepared rendition).
   (`internal/node/prepare/arguments.go`)
