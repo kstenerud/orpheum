@@ -122,6 +122,19 @@ func (scans *Scans) RootStalled(ctx context.Context, nodeID int64, rootPath stri
 	return since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
 }
 
+// RootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
+// already was: plays of what is under it fail at once and say so, and nothing is removed on the
+// absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
+func (scans *Scans) RootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
+	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
+	if err != nil {
+		return err
+	}
+	scans.logger.WarnContext(ctx, "a node no longer names a library root; it is unavailable until it does",
+		"nodeId", nodeID, "rootPath", rootPath, "since", since)
+	return nil
+}
+
 // queueListing queues a scan's listing. A scan whose job could not be queued is forgotten, so a
 // later request starts it again rather than waiting on it.
 func (scans *Scans) queueListing(ctx context.Context, scanID, nodeID int64, root string, priority int64) error {

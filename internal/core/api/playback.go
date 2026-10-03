@@ -190,6 +190,9 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
+	if unreadable, isUnreadable := errors.AsType[*playback.UnreadableError](err); isUnreadable {
+		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
+	}
 	if err != nil {
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}

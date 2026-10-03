@@ -56,6 +56,16 @@ export const en = {
       "The machine that holds this file is not answering. Check that it is on and connected.",
     fileUnavailable:
       "The file is not where it was. It may have been moved or its disk unplugged; scanning the library again finds it.",
+    mediaUnreachable: "This cannot be played now: what holds it is missing.",
+    mediaReason: {
+      nodeAway:
+        "This cannot be played now: {{node}}, the machine that holds it, is not connected{{since}}.",
+      rootMissing:
+        "This cannot be played now: the folder {{path}} on {{node}} is missing{{since}}.",
+      diskMissing:
+        "This cannot be played now: the disk at {{path}} on {{node}} is missing{{since}}.",
+    },
+    sinceWhen: ", since {{since}}",
     preparing: "It is still being prepared. Wait a moment.",
     prepareFailed: "This could not be prepared for this device.",
     migrating: "The server is updating. Try again in a minute.",

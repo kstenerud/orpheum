@@ -211,11 +211,43 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 	}
 }
 
-// recordingScans keeps the scans asked of it.
+// A hello that no longer names a library root on its node makes it unavailable, whether or not a
+// hello asks for scans; one that names it again asks for its scan, which brings it back (D241 §2).
+func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/mnt/films", "/media/shows"}})
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if !slices.Equal(scans.notNamed, []string{"/media/films"}) {
+		t.Errorf("roots made unavailable: %q; want /media/films, once, when the second hello named it no more",
+			scans.notNamed)
+	}
+}
+
+// recordingScans keeps the scans asked of it, and the roots made unavailable for a hello not naming
+// them.
 type recordingScans struct {
 	mutex      sync.Mutex
 	roots      []string
 	priorities []int64
+	notNamed   []string
+}
+
+func (scans *recordingScans) RootNotNamed(_ context.Context, _ int64, root string) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	scans.notNamed = append(scans.notNamed, root)
+	return nil
 }
 
 func (scans *recordingScans) Request(_ context.Context, _ int64, root string, priority int64) error {

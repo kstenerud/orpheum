@@ -172,6 +172,12 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 	harness.nodes.roots = []string{"/media"} // shelveFilms enrolled node 1, "local"
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, admin, chrome(2))
+	// No one waits for it any more, so it waits for its node: a play-driven one whose node is away
+	// ends instead (D241 §4).
+	harness.clock.Advance(time.Hour)
+	if _, err := harness.queue.DemoteUnwanted(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	harness.nodes.isAway.Store(true)
 	playback := harness.server.dependencies.Load().Playback
 	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {

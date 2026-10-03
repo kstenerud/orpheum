@@ -268,7 +268,7 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 		subject: fmt.Sprintf("stream %d", job.StreamID), libraryID: stream.LibraryID, nodeID: stream.NodeID,
 		reportedPathRaw: stream.ReportedPathRaw, payloadHash: stream.PayloadHash,
 	}
-	if parked := service.parkIfUnavailable(ctx, file); parked != nil {
+	if parked := service.parkIfUnavailable(ctx, job, file); parked != nil {
 		return parked
 	}
 	bytesFile, err := service.bytesFileOf(ctx, file)

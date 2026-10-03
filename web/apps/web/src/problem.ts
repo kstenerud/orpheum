@@ -4,6 +4,8 @@ import { ApiProblem } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { dateTimeText } from "./date-time-text.ts";
+import { i18n } from "./i18n.ts";
 
 // A refusal and its reading are the SDK's (cut-a §5.2); the app puts it in the viewer's words.
 export { ApiProblem, dataOrThrow, throwIfRefused } from "@orpheum/sdk";
@@ -29,12 +31,42 @@ export function problemText(
     if (code === "authRequired") {
       return signedOutText(t, sessionEndReason(cause));
     }
+    const unreachable = cause.withCode("media_unreachable")?.detail;
+    if (unreachable !== undefined) {
+      return mediaUnreachableText(t, unreachable);
+    }
     return t(`problem.${code}`, { defaultValue: t("problem.unknown") });
   }
   if (cause instanceof TypeError) {
     return t("problem.unreachable"); // fetch's own failure: no answer at all
   }
   return t("problem.unknown");
+}
+
+/**
+ * Why a file cannot be played now, in the person's words: its machine away, or its folder or disk
+ * missing, named, and since when when the server knows (D241 §4). A reason this client does not
+ * know gets the general words.
+ */
+function mediaUnreachableText(
+  t: TFunction,
+  detail: {
+    readonly reason: string;
+    readonly nodeName: string;
+    readonly path?: string;
+    readonly since?: number;
+  },
+): string {
+  const since =
+    detail.since === undefined
+      ? ""
+      : t("problem.sinceWhen", { since: dateTimeText(detail.since, i18n.language) });
+  return t(`problem.mediaReason.${camelKey(detail.reason)}`, {
+    node: detail.nodeName,
+    path: detail.path ?? "",
+    since,
+    defaultValue: t("problem.mediaUnreachable"),
+  });
 }
 
 /** A form's words for a refusal: its fields' labels, and problemText's overrides. */

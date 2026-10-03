@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -79,6 +80,12 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 			return
 		}
 	}
+	if service.scans != nil {
+		if markErr := service.markRootsNotNamed(ctx, node.ID, hello.RootPaths); markErr != nil {
+			service.fail(ctx, writer, "make the roots the hello does not name unavailable", markErr)
+			return
+		}
+	}
 	limits, err := service.readerLimits(ctx, node.ID, hello.Devices)
 	if err != nil {
 		service.fail(ctx, writer, "read the devices' reader limits", err)
@@ -102,6 +109,25 @@ func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths
 	}
 	for _, root := range roots {
 		if err := service.scans.Request(ctx, nodeID, root, jobs.PriorityBackground); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// markRootsNotNamed makes each library root on the node that its hello does not name unavailable:
+// its files are not there to read, and nothing is removed on that absence; a hello that names it
+// again asks for its scan, which brings it back (D241 §2).
+func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, named []string) error {
+	libraryRoots, err := service.database.Read().ListLiveRootsOfNode(ctx, nodeID)
+	if err != nil {
+		return fmt.Errorf("read node %d's library roots: %w", nodeID, err)
+	}
+	for _, root := range libraryRoots {
+		if slices.Contains(named, root.RootPath) {
+			continue
+		}
+		if err := service.scans.RootNotNamed(ctx, nodeID, root.RootPath); err != nil {
 			return err
 		}
 	}

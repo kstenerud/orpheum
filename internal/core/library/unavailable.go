@@ -21,6 +21,8 @@ type Unavailable struct {
 	Path string
 	// Since is when it went: the first scan in a row that found it missing, or the stall.
 	Since time.Time
+	// IsMount is a disk mounted inside a root, rather than the root.
+	IsMount bool
 }
 
 // UnavailableUnder is the missing root or mount that holds a file on a node, by the path its node
@@ -42,7 +44,7 @@ func UnavailableUnder(
 	}
 	for _, mount := range mounts {
 		candidates = append(candidates, Unavailable{
-			Path: mount.MountPath, Since: time.UnixMilli(ptr.ValueOrZero(mount.LastScanAt)),
+			Path: mount.MountPath, Since: time.UnixMilli(ptr.ValueOrZero(mount.LastScanAt)), IsMount: true,
 		})
 	}
 	var found Unavailable

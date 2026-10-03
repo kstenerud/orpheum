@@ -78,6 +78,7 @@ function problemCodesAndReasons(document: string): { code: string; reasons: stri
 const reasonKeys: Readonly<Partial<Record<string, string>>> = {
   authRequired: "problem.signedOut",
   providerError: "problem.providerReason",
+  mediaUnreachable: "problem.mediaReason",
 };
 
 /**

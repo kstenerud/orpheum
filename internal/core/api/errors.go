@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -29,10 +30,13 @@ const (
 	CodeProviderError   Code = "provider_error"
 	CodeNodeSilent      Code = "node_silent"
 	CodeFileUnavailable Code = "file_unavailable"
-	CodePreparing       Code = "preparing"
-	CodePrepareFailed   Code = "prepare_failed"
-	CodeMigrating       Code = "migrating"
-	CodeInternal        Code = "internal"
+	// CodeMediaUnreachable is a play of a file that cannot be read now: its machine away, or its
+	// folder or disk missing, which its detail says, since when (D241 §4).
+	CodeMediaUnreachable Code = "media_unreachable"
+	CodePreparing        Code = "preparing"
+	CodePrepareFailed    Code = "prepare_failed"
+	CodeMigrating        Code = "migrating"
+	CodeInternal         Code = "internal"
 )
 
 // codes are every Code, in the order above: the one list the API document's ProblemBody names.
@@ -41,7 +45,7 @@ func codes() []Code {
 	return []Code{
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
-		CodePreparing, CodePrepareFailed, CodeMigrating, CodeInternal,
+		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeMigrating, CodeInternal,
 	}
 }
 
@@ -86,7 +90,31 @@ func problemDetails() []problemDetail {
 		RateLimitedDetailBody{},
 		QuotaExhaustedDetailBody{},
 		ProviderRefusalDetailBody{},
+		MediaUnreachableDetailBody{},
 	}
+}
+
+// MediaUnreachableDetailBody is media_unreachable's detail: why the file cannot be read now, on
+// which machine, the folder or disk missing, and since when (D241 §4).
+type MediaUnreachableDetailBody struct {
+	Reason   string `enum:"node_away,root_missing,disk_missing" json:"reason"`
+	NodeName string `doc:"The machine that holds the file" json:"nodeName"`
+	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
+	Since    int64  `doc:"Unix milliseconds; absent when not known" json:"since,omitempty"`
+}
+
+func (MediaUnreachableDetailBody) problemCode() Code { return CodeMediaUnreachable }
+
+// mediaUnreachable is a play refused because its file cannot be read now, its node named by
+// nodeName (D241 §4).
+func mediaUnreachable(unreadable *playback.UnreadableError, nodeName func(nodeID int64) string) error {
+	detail := MediaUnreachableDetailBody{
+		Reason: string(unreadable.Reason), NodeName: nodeName(unreadable.NodeID), Path: unreadable.Path,
+	}
+	if !unreadable.Since.IsZero() {
+		detail.Since = unreadable.Since.UnixMilli()
+	}
+	return newDetailedError(http.StatusServiceUnavailable, "this file cannot be read now: "+unreadable.Error(), detail)
 }
 
 // SignedOutDetailBody is auth_required's detail: why there is no session, so a client can tell

@@ -133,6 +133,13 @@
 //     again while it held the work, which it lost (D238 §3).
 //     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
 //
+//   - A play of a file that cannot be read now, its node away or its root or a disk inside it
+//     missing, is refused before anything is queued (UnreadableError, library.UnreadableFile), and a
+//     play-driven job whose file cannot be read ends rather than parks (D241 §4).
+//     TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing,
+//     TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing,
+//     TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks (internal/core/api).
+//
 //   - A prepare the node holds waiting for a slot outlives the silence limit; how long it waits is
 //     bounded by whether the work ahead of it moves (internal/core/nodes, D233 §5). Enforced by
 //     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit.

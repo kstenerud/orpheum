@@ -3,6 +3,7 @@
 package playback
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -46,6 +47,8 @@ type Nodes interface {
 	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
 	Enqueue(nodeID int64, command nodeproto.Command)
 	IsConnected(ctx context.Context, nodeID int64) bool
+	// NodeConnection is whether a node is connected, and when it was last heard.
+	NodeConnection(ctx context.Context, nodeID int64) (nodes.Connection, time.Time)
 	Unanswered(ctx context.Context, nodeID int64, err error) error
 	// SlowestReadBytesPerSecond is the slowest a node reads a whole file, as its hello said;
 	// zero when not known.
@@ -163,6 +166,10 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	file, err := service.playableFile(ctx, service.database.Read(), request.FileID)
 	if err != nil {
 		return Started{}, err
+	}
+	// Nothing is queued for a file that cannot be read now: the person is told why at once (D241 §4).
+	if refused := service.refuseUnreadable(ctx, file.NodeID, file.ReportedPathRaw); refused != nil {
+		return Started{}, refused
 	}
 	probe, err := decodeProbe(file.ProbeJSON)
 	if err != nil {
@@ -365,10 +372,43 @@ func locatedOf(file sqlcgen.GetPlayableFileRow) located {
 	}
 }
 
+// UnreadableError is a play of a file that cannot be read now: its node away, or its root or a disk
+// inside it missing (D241 §4).
+type UnreadableError struct {
+	library.Unreadable
+}
+
+func (unreadable *UnreadableError) Error() string {
+	return fmt.Sprintf("node %d's file cannot be read: %s %s, since %s", unreadable.NodeID, unreadable.Reason,
+		cmp.Or(unreadable.Path, "-"), unreadable.Since.UTC().Format(time.RFC3339))
+}
+
+// refuseUnreadable refuses a play of the file a node reported at reportedPath when it cannot be read
+// now (UnreadableError); nil when it can.
+func (service *Service) refuseUnreadable(ctx context.Context, nodeID int64, reportedPath []byte) error {
+	unreadable, isUnreadable, err := library.UnreadableFile(ctx, service.database.Read(), service.nodes, nodeID,
+		reportedPath)
+	if err != nil {
+		return fmt.Errorf("ask whether the file can be read: %w", err)
+	}
+	if isUnreadable {
+		return &UnreadableError{unreadable}
+	}
+	return nil
+}
+
 // parkIfUnavailable answers that a job reading file waits, at no cost of an attempt, while the
 // root or the mounted disk that holds it is missing, until a scan finds it (D231 §5); nil when
-// it is there.
-func (service *Service) parkIfUnavailable(ctx context.Context, file located) error {
+// it is there. A play-driven job whose file cannot be read ends instead, its node away included: no
+// one can watch it, so no one waits for its work (D241 §4).
+func (service *Service) parkIfUnavailable(ctx context.Context, job jobs.Job, file located) error {
+	if job.Priority >= jobs.PriorityPlayNow {
+		err := service.refuseUnreadable(ctx, file.nodeID, file.reportedPathRaw)
+		if errors.As(err, new(*UnreadableError)) {
+			return jobs.MarkPermanent(fmt.Errorf("no one can watch %s: %w", file.subject, err))
+		}
+		return err
+	}
 	missing, isMissing, err := library.UnavailableUnder(ctx, service.database.Read(), file.nodeID, file.reportedPathRaw)
 	if err != nil || !isMissing {
 		return err

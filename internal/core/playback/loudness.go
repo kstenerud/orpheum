@@ -244,7 +244,7 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if len(command.Tracks) == 0 {
 		return nil
 	}
-	if parked := service.parkIfUnavailable(ctx, locatedOf(file)); parked != nil {
+	if parked := service.parkIfUnavailable(ctx, job, locatedOf(file)); parked != nil {
 		return parked
 	}
 	if command.Video, err = service.bytesFileOf(ctx, locatedOf(file)); err != nil {

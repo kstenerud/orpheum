@@ -78,6 +78,8 @@
 //     moved for movementWindow, past every window the node judges its own work by, is stopped and
 //     resolved as ErrNotMoving, which UnansweredOutcome takes as a stall (D233 §5).
 //     TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
+//   - A hello makes each library root on its node that it does not name unavailable, whether or not
+//     it asks for scans (D241 §2). TestHello_MakesALibraryRootItNoLongerNamesUnavailable.
 //   - Work that stalls waiting on its disk the first time makes the root it reads unavailable
 //     (DiskStalls, which asks for a scan) and parks on the root as the tool's failure; a listing
 //     or an examining, the scan itself, is tried again instead. The same stall after is the

@@ -1992,6 +1992,37 @@
         ],
         "type": "object"
       },
+      "MediaUnreachableDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeName": {
+            "description": "The machine that holds the file",
+            "type": "string"
+          },
+          "path": {
+            "description": "The folder or disk missing on it; absent for a machine away",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "node_away",
+              "root_missing",
+              "disk_missing"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "description": "Unix milliseconds; absent when not known",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reason",
+          "nodeName"
+        ],
+        "type": "object"
+      },
       "NewDeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -2471,6 +2502,37 @@
               },
               "detail": {
                 "$ref": "#/components/schemas/ProviderRefusalDetailBody"
+              },
+              "failedHop": {
+                "description": "The leg of the request that failed, for reachability errors",
+                "enum": [
+                  "node",
+                  "provider"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "description": "For developers, in English",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "media_unreachable"
+                ],
+                "type": "string"
+              },
+              "detail": {
+                "$ref": "#/components/schemas/MediaUnreachableDetailBody"
               },
               "failedHop": {
                 "description": "The leg of the request that failed, for reachability errors",
