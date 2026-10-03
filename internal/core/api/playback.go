@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -313,17 +314,17 @@ func (server *Server) relayHLSFile(
 	}
 	// A playlist grows while the rendition is made; a segment never changes once written.
 	cacheControl := cacheForADay
-	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != playback.Complete {
+	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != jobs.Complete {
 		cacheControl = cacheRevalidate
 	}
 	request := relayRequest{http.MethodGet, source.Source, header, cacheControl}
 	return server.relay(ctx, dependencies, request, func() error {
 		switch source.Readiness {
-		case playback.Preparing:
+		case jobs.Preparing:
 			return tooEarly()
-		case playback.Failed:
+		case jobs.Failed:
 			return newError(http.StatusBadGateway, CodePrepareFailed, "this file could not be prepared")
-		case playback.Complete:
+		case jobs.Complete:
 			// A complete rendition whose playlist its node no longer has was evicted or lost: it is
 			// prepared again, and the player waits as for a new one (D217 §5).
 			if renditionPath == "master.m3u8" {
@@ -353,14 +354,14 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
 	case errors.Is(err, playback.ErrNoToken):
 		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
-	case errors.Is(err, playback.ErrNoSubtitle):
+	case errors.Is(err, subtitles.ErrNoSubtitle):
 		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	case errors.Is(err, playback.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such item")
-	case errors.Is(err, playback.ErrNothingToSearchBy):
+	case errors.Is(err, subtitles.ErrNothingToSearchBy):
 		return newError(http.StatusConflict, CodeConflict,
 			"this file is not identified yet, and has not been scanned since it could be hashed for OpenSubtitles")
-	case errors.Is(err, playback.ErrNoSubtitler):
+	case errors.Is(err, subtitles.ErrNoSubtitler):
 		return providerRefusal(ReasonNotConfigured,
 			"this server fetches no subtitles")
 	case errors.Is(err, opensubtitles.ErrNoLogin):
@@ -391,7 +392,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 // subtitle is kept (D224 §5), or nil for any other error.
 func fetchRefusal(err error) error {
 	switch {
-	case errors.Is(err, playback.ErrUnreadableSubtitle):
+	case errors.Is(err, subtitles.ErrUnreadable):
 		return providerRefusal(ReasonUnreadable,
 			"the subtitle OpenSubtitles sent could not be read, so it was not kept; choose another")
 	case errors.Is(err, nodes.ErrNodeSilent):

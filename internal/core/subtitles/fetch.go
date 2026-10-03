@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package subtitles
 
 import (
 	"context"
@@ -39,17 +39,17 @@ const providerOpenSubtitles = "opensubtitles"
 // ErrNoSubtitler is a server that fetches no subtitles: it was started without a provider.
 var ErrNoSubtitler = errors.New("this server fetches no subtitles")
 
-// ErrUnreadableSubtitle is a fetched subtitle its node could not convert: it is not kept, and not
+// ErrUnreadable is a fetched subtitle its node could not convert: it is not kept, and not
 // the person's choice (D224 §5).
-var ErrUnreadableSubtitle = errors.New("the fetched subtitle could not be read")
+var ErrUnreadable = errors.New("the fetched subtitle could not be read")
 
 // ErrNothingToSearchBy is a file that is neither identified nor hashed for OpenSubtitles, so
 // nothing names it to the provider.
 var ErrNothingToSearchBy = errors.New("the file is not identified and has no OpenSubtitles hash yet")
 
-// SubtitleOffer is what a person is shown before choosing a subtitle to fetch: the candidates,
+// Offer is what a person is shown before choosing a subtitle to fetch: the candidates,
 // each unverified, those made for the file first, and what the account has left (D224 §4).
-type SubtitleOffer struct {
+type Offer struct {
 	Candidates []opensubtitles.Candidate
 	Allowance  opensubtitles.Allowance
 	// DidAskByIDs is a search that asked by the work's ids, which finds subtitles made for any copy of it;
@@ -59,27 +59,27 @@ type SubtitleOffer struct {
 	DidAskByOpensubtitlesHash bool
 }
 
-// SubtitleCandidates lists the subtitles OpenSubtitles has in language for a file a person may
+// Candidates lists the subtitles OpenSubtitles has in language for a file a person may
 // play, found by what the file is: its work's ids or its series' and place, and its moviehash
 // (D224 §3).
-func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, language string) (SubtitleOffer, error) {
+func (service *Service) Candidates(ctx context.Context, fileID int64, language string) (Offer, error) {
 	if service.subtitler == nil {
-		return SubtitleOffer{}, ErrNoSubtitler
+		return Offer{}, ErrNoSubtitler
 	}
 	if _, err := library.PlayableFile(ctx, service.database.Read(), fileID); err != nil {
-		return SubtitleOffer{}, err
+		return Offer{}, err
 	}
 	query, hasIDs, err := service.subtitleQuery(ctx, fileID, language)
 	if err != nil {
-		return SubtitleOffer{}, err
+		return Offer{}, err
 	}
 	allowance, err := service.subtitler.Allowance(ctx)
 	if err != nil {
-		return SubtitleOffer{}, err
+		return Offer{}, err
 	}
 	candidates, err := service.subtitler.Search(ctx, query)
 	if err != nil {
-		return SubtitleOffer{}, err
+		return Offer{}, err
 	}
 	// One uploaded for these exact bytes is listed first (D224 §3), whatever order the provider
 	// answered in; the rest keep its order.
@@ -92,7 +92,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 		}
 		return 1
 	})
-	return SubtitleOffer{
+	return Offer{
 		Candidates: candidates, Allowance: allowance, DidAskByIDs: hasIDs,
 		DidAskByOpensubtitlesHash: query.MovieHash != "",
 	}, nil
@@ -166,17 +166,18 @@ type Fetched struct {
 	DownloadsResetAt   time.Time
 }
 
-// FetchSubtitle downloads the subtitle a person chose, which spends one of the account's
+// Fetch downloads the subtitle a person chose, which spends one of the account's
 // downloads, and has the node that holds the file convert it while the person waits, since
 // hostile text is parsed on a node (D224 §5): the conversion job, queued at play priority, which
 // the fetch waits for, at most the core's silence limit (D238). Only a subtitle the node converted
 // is kept, in persistent.db, gzipped, since it cost that download (D224 §6), with its converted
-// text, and made the file's subtitle choice for that person: nothing unparsed becomes a choice. A
+// text, which the caller makes the file's subtitle choice for that person: nothing unparsed becomes a
+// choice. A
 // node that is away is found before a download is spent; a subtitle it cannot convert is
-// ErrUnreadableSubtitle, and one it did not convert in time is nodes.ErrNodeSilent, each kept
+// ErrUnreadable, and one it did not convert in time is nodes.ErrNodeSilent, each kept
 // nowhere. A download whose conversion never came back is not spent again by the next try while
 // its link works (opensubtitles.Client.Download).
-func (service *Service) FetchSubtitle(
+func (service *Service) Fetch(
 	ctx context.Context, userID, fileID int64, request FetchRequest,
 ) (Fetched, error) {
 	if service.subtitler == nil {
@@ -216,9 +217,6 @@ func (service *Service) FetchSubtitle(
 		return Fetched{}, errors.Join(err, service.discardFetched(context.WithoutCancel(ctx), id, fetchedKey(body)))
 	}
 	track := preferences.TrackRef{FetchedSubtitleID: id}
-	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, preferences.Used{TrackRef: track}); chooseErr != nil {
-		return Fetched{}, chooseErr
-	}
 	return Fetched{
 		Track: track, RemainingDownloads: downloaded.RemainingDownloads, DownloadsResetAt: downloaded.DownloadsResetAt,
 	}, nil
@@ -226,7 +224,7 @@ func (service *Service) FetchSubtitle(
 
 // convertWhileWaiting queues the job that converts fetched subtitle id at play priority and waits
 // for its text, kept where key says, for at most the core's silence limit: nil once it is made,
-// ErrUnreadableSubtitle when the converter could not, and nodes.ErrNodeSilent when it was not
+// ErrUnreadable when the converter could not, and nodes.ErrNodeSilent when it was not
 // kept in time.
 func (service *Service) convertWhileWaiting(ctx context.Context, id int64, key sqlcgen.GetSubtitleTextParams) error {
 	kept := service.keptTexts.await(key)
@@ -243,7 +241,7 @@ func (service *Service) convertWhileWaiting(ctx context.Context, id int64, key s
 		row, readErr := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, key))
 		switch {
 		case readErr == nil && row.Failure != nil:
-			return fmt.Errorf("%w: %s", ErrUnreadableSubtitle, *row.Failure)
+			return fmt.Errorf("%w: %s", ErrUnreadable, *row.Failure)
 		case readErr == nil:
 			return nil
 		case !errors.Is(readErr, store.ErrNotFound):

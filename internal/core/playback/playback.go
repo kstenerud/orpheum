@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -77,8 +78,8 @@ type Parts struct {
 	// MaxSilence is how long a running prepare or extraction may go without a word from its node
 	// before it is given up and retried.
 	MaxSilence time.Duration
-	// Subtitler fetches subtitles on request (D224); nil when the server has none.
-	Subtitler Subtitler
+	// Subtitles are a played video's subtitles, made by its node, and those fetched on request.
+	Subtitles *subtitles.Service
 	// Preferences keeps a person's choices, which a playback starts with (D230).
 	Preferences *preferences.Service
 	// Loudness says the gains that level a file's sounds (D226).
@@ -104,11 +105,9 @@ type Service struct {
 	prepares   *prepares
 	// exchanges are the jobs waiting on a node: a prepare, an extraction, a measurement.
 	exchanges   *nodes.Exchanges
-	subtitler   Subtitler
+	subtitles   *subtitles.Service
 	preferences *preferences.Service
-	// keptTexts tells a fetch waiting for its conversion that the text was kept.
-	keptTexts *keptTexts
-	loudness  Loudness
+	loudness    Loudness
 }
 
 // NewService returns the playback service.
@@ -118,8 +117,7 @@ func NewService(parts Parts) *Service {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
-		subtitler: parts.Subtitler, preferences: parts.Preferences, keptTexts: newKeptTexts(),
-		loudness: parts.Loudness,
+		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 	}
 	service.recordResults(exchanges)
 	return service
@@ -145,7 +143,7 @@ type Started struct {
 	// AudioRenditions are a prepared playback's audio renditions, in the master playlist's order.
 	AudioRenditions []AudioRendition
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
-	Subtitles []SubtitleTrack
+	Subtitles []subtitles.Track
 	// AudioTracks are the file's own audio tracks, by their place among them.
 	AudioTracks []AudioTrack
 	// StartingAudio is the audio track the playback starts with: the person's choice, or the one a
@@ -186,7 +184,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	started := Started{AudioOutput: output}
-	if started.Subtitles, err = service.wantSubtitles(ctx, file.ID); err != nil {
+	if started.Subtitles, err = service.subtitles.Want(ctx, file.ID); err != nil {
 		return Started{}, err
 	}
 	used, err := service.startingChoices(ctx, userID, file.ID, probe, &started)
@@ -399,4 +397,37 @@ func contentType(format nodeproto.ProbeFormat) string {
 		return "video/mp2t"
 	}
 	return "application/octet-stream"
+}
+
+// Subtitle is the text, in format, of a subtitle track of the file a media token refers to
+// (cut-a §5). A track of any other file is subtitles.ErrNoSubtitle.
+func (service *Service) Subtitle(
+	ctx context.Context, token string, track preferences.TrackRef, format subtitles.Format, userID int64,
+	sessionKey string,
+) (subtitles.Text, error) {
+	idle, err := service.tokenIdleExpiry(ctx)
+	if err != nil {
+		return subtitles.Text{}, err
+	}
+	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
+	if !found {
+		return subtitles.Text{}, ErrNoToken
+	}
+	return service.subtitles.TextOf(ctx, track, playback.fileID, format)
+}
+
+// FetchSubtitle fetches the subtitle a person chose for a file and, once its node converted it,
+// makes it their choice in the file: nothing unparsed becomes a choice (subtitles.Service.Fetch,
+// D224 §5).
+func (service *Service) FetchSubtitle(
+	ctx context.Context, userID, fileID int64, request subtitles.FetchRequest,
+) (subtitles.Fetched, error) {
+	fetched, err := service.subtitles.Fetch(ctx, userID, fileID, request)
+	if err != nil {
+		return subtitles.Fetched{}, err
+	}
+	if err := service.ChooseSubtitle(ctx, userID, fileID, preferences.Used{TrackRef: fetched.Track}); err != nil {
+		return subtitles.Fetched{}, err
+	}
+	return fetched, nil
 }

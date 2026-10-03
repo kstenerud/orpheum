@@ -22,13 +22,14 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
 // matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
-// matches name, playback's prepare and subtitle work, and the loudness measurements.
+// matches name, playback's prepares, the subtitles and the loudness measurements.
 type jobServices struct {
 	pass      *identify.Pass
 	queue     *jobs.Queue
@@ -41,6 +42,8 @@ type jobServices struct {
 	playback *playback.Service
 	// loudness measures each file's sounds (D226).
 	loudness *loudness.Service
+	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
+	subtitles *subtitles.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
 	nodes *nodes.Service
 	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
@@ -190,12 +193,12 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.artwork.Assignee,
 		},
 		{
-			jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, services.playback.RecordSubtitleFailure,
-			nil, 1, derivedByAPlay(), services.playback.SubtitleAssignee,
+			jobs.KindExtractSubtitle, services.subtitles.HandleExtractSubtitle, services.subtitles.RecordFailure,
+			nil, 1, derivedByAPlay(), services.subtitles.Assignee,
 		},
 		{
-			jobs.KindConvertFetchedSubtitle, services.playback.HandleConvertFetchedSubtitle,
-			services.playback.RecordSubtitleFailure, nil, 1, derivedByAPlay(), services.playback.SubtitleAssignee,
+			jobs.KindConvertFetchedSubtitle, services.subtitles.HandleConvertFetchedSubtitle,
+			services.subtitles.RecordFailure, nil, 1, derivedByAPlay(), services.subtitles.Assignee,
 		},
 		{
 			jobs.KindMeasureLoudness, services.loudness.HandleMeasureLoudness,

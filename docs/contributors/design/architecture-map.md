@@ -56,7 +56,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
 | `internal/core/nodes` | R8 | — |
 | `internal/core/loudness` | R8 (the loudness measurement jobs and their sweep), R3 (the measurements, by payload hash) | — (split out of playback on 2026-10-03, F2) |
-| `internal/core/playback` | R6b (play state) | ⚑ R8: handles two node job kinds (prepare.go, subtitles.go). ⚑ R1: subtitle search and fetch (fetch.go). The preferences store moved out on 2026-09-30 and loudness on 2026-10-03; renditions and subtitles follow (F2) |
+| `internal/core/playback` | R6b (play state) | ⚑ R8: handles the prepare job kind (prepare.go, hls.go). The preferences store moved out on 2026-09-30, loudness and subtitles on 2026-10-03; renditions follow (F2) |
+| `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/secrets` | R5 (secret custody) | — |

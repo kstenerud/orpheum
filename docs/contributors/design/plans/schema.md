@@ -1099,7 +1099,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `edition_text` | persistent.db | none yet | |
 | `extra_relation` | persistent.db | `internal/core/identify` | |
 | `favourite` | persistent.db | none yet | |
-| `fetched_subtitle` | persistent.db | `internal/core/playback` | |
+| `fetched_subtitle` | persistent.db | `internal/core/subtitles` | |
 | `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | persistent.db | `internal/core/identify` | |
 | `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
@@ -1133,7 +1133,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `setting` | persistent.db | `internal/core/settings` | |
 | `sort_key` | persistent.db | `internal/core/identify` | |
 | `stream` | persistent.db | `internal/core/library` | |
-| `subtitle_text` | persistent.db | `internal/core/playback` | |
+| `subtitle_text` | persistent.db | `internal/core/subtitles` | |
 | `tag` | persistent.db | none yet | |
 | `title` | persistent.db | `internal/core/identify` | |
 | `user` | persistent.db | `internal/core/auth` | |

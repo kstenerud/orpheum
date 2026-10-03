@@ -11,8 +11,10 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 )
 
 // SubtitleTrackBody is one text subtitle track, in the two forms it is served in (cut-a §6).
@@ -106,19 +108,19 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*huma.StreamResponse, error) {
 	match := subtitleFilePattern.FindStringSubmatch(input.FileName)
 	if match == nil {
-		return nil, server.playbackError(ctx, "find a subtitle", playback.ErrNoSubtitle)
+		return nil, server.playbackError(ctx, "find a subtitle", subtitles.ErrNoSubtitle)
 	}
 	id, err := strconv.ParseInt(match[2], 10, 64)
 	if err != nil {
-		return nil, server.playbackError(ctx, "find a subtitle", playback.ErrNoSubtitle)
+		return nil, server.playbackError(ctx, "find a subtitle", subtitles.ErrNoSubtitle)
 	}
 	track := preferences.TrackRef{StreamID: id}
 	if match[1] == "f" {
 		track = preferences.TrackRef{FetchedSubtitleID: id}
 	}
-	format, contentType := playback.FormatASS, assContentType
-	if match[3] == string(playback.FormatWebVTT) {
-		format, contentType = playback.FormatWebVTT, vttContentType
+	format, contentType := subtitles.FormatASS, assContentType
+	if match[3] == string(subtitles.FormatWebVTT) {
+		format, contentType = subtitles.FormatWebVTT, vttContentType
 	}
 	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
@@ -130,12 +132,12 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 		return nil, server.playbackError(ctx, "find a subtitle", err)
 	}
 	switch subtitleText.Readiness {
-	case playback.Preparing:
+	case jobs.Preparing:
 		return nil, tooEarly()
-	case playback.Failed:
+	case jobs.Failed:
 		return nil, newError(http.StatusBadGateway, CodePrepareFailed,
 			"this subtitle could not be extracted: "+subtitleText.Failure)
-	case playback.Complete:
+	case jobs.Complete:
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		stream.SetHeader("Content-Type", contentType)

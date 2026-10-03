@@ -97,6 +97,7 @@
 //     destination.go: the destinations, parking on them and their state. sweep.go: the sweeps,
 //     and cancelling what is retired.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
-//     job view, progress and cancel. Each kind's handler, runner count and argument merge are
-//     cmd/orpheum's (metadata.go); scan and backup jobs come in M4 (D223 §6).
+//     job view, progress and cancel. readiness.go: how far work a person waits for is. Each
+//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go); scan and
+//     backup jobs come in M4 (D223 §6).
 package jobs

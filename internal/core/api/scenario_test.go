@@ -207,16 +207,15 @@ func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *test
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 93, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
 	harness.nodes.isAway.Store(true)
-	err := playback.HandleExtractSubtitle(t.Context(), job)
+	err := harness.subtitles.HandleExtractSubtitle(t.Context(), job)
 	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.NodeDestination(1) {
 		t.Errorf("an extraction for a node that is away: %v; want it parked on the node (D231 §11)", err)
 	}
 	harness.nodes.isAway.Store(false)
 	harness.missingMedia(t)
-	err = playback.HandleExtractSubtitle(t.Context(), job)
+	err = harness.subtitles.HandleExtractSubtitle(t.Context(), job)
 	parking, isParked := jobqueue.ParkingOf(err)
 	if !isParked || parking.Destination != jobs.RootDestination(1, "/media") {
 		t.Errorf("an extraction under a missing root: %v; want it parked on the root (D231 §5)", err)
