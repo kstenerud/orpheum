@@ -222,3 +222,25 @@ func TestJobs_AJobGivenToANodeSaysWhereItsNodeSaysItIs(t *testing.T) {
 		t.Errorf("the prepare its node paused shows %+v; want running, paused on its node", shown)
 	}
 }
+
+// A scan's jobs name what they work on: a listing its scan, an examining the batch it reads (D240).
+func TestJobs_AScansJobsNameTheirScanAndBatch(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	for _, request := range []jobs.Request{
+		{Kind: jobs.KindScan, Target: jobs.Target{ScanID: 4}, Reason: "test"},
+		{Kind: jobs.KindExamine, Target: jobs.Target{ScanBatchID: 9}, Reason: "test"},
+	} {
+		if _, err := harness.queue.Enqueue(t.Context(), request); err != nil {
+			t.Fatal(err)
+		}
+	}
+	listed := harness.listedJobs(t, admin)
+	if scan := newestOf(t, listed, jobs.KindScan); scan.ScanID != 4 || scan.ScanBatchID != 0 {
+		t.Errorf("the scan job shows %+v, want scan 4", scan)
+	}
+	if examine := newestOf(t, listed, jobs.KindExamine); examine.ScanBatchID != 9 || examine.ScanID != 0 {
+		t.Errorf("the examine job shows %+v, want batch 9", examine)
+	}
+}
