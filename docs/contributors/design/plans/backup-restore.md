@@ -6,6 +6,12 @@
 - **Status:** PLANNED — researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
 - **Depends on:** library-model.md
 
+> **Since [D242](../../decisions/working-notes.md) (built 2026-10-03):** a backup is a gzipped
+> tar of the instance's `persistent/` directory, written into its `backups/`: the full config,
+> `secret.key` only when asked for, and `persistent.db` as the `VACUUM INTO` snapshot this page
+> describes. `orpheum restore --from <tarball>` restores one, and an admin makes one from the
+> System page.
+
 ## The gap
 
 [D7](../../decisions/working-notes.md) says the files are the source of truth and the database
