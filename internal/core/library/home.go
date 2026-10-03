@@ -105,7 +105,7 @@ func (browser *Browser) withPostersAndFileNames(
 		}
 		entries = append(entries, rows[index].Entry)
 	}
-	posterPage, err := browser.withPosters(ctx, Page{Entries: entries})
+	posterPage, err := browser.finishPage(ctx, ListFilms, Page{Entries: entries})
 	if err != nil {
 		return nil, err
 	}

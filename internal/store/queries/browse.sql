@@ -148,3 +148,24 @@ JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
 ORDER BY position.sort_order;
+
+-- name: ListLiveFileLocationsOfTitles :many
+-- Where each of some titles' live playable files is: its node and the path it reported, for
+-- whether any can be read now (D241 section 3).
+SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw
+FROM version
+JOIN file ON file.version_id = version.id
+WHERE version.title_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
+  AND version.removed_at IS NULL AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified')
+ORDER BY version.title_id, file.id;
+
+-- name: ListLiveFileLocationsOfSeries :many
+-- Where each of some series' episodes' live playable files is, by the series.
+SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified')
+WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
+  AND ordering.name = 'aired'
+ORDER BY ordering.collection_id, file.id;

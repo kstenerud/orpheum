@@ -244,6 +244,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7) */
+        get: operations["getFileAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/{id}/preferences": {
         parameters: {
             query?: never;
@@ -1222,6 +1239,8 @@ export interface components {
              * @description When a person asked for it to be refreshed, while no fetch has answered yet
              */
             refreshRequestedAt?: number;
+            /** @description Why none of its episodes' files can be read now; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
             year?: number;
         };
@@ -1385,6 +1404,7 @@ export interface components {
             name: string;
             /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
             posterSha256?: string;
+            unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
             year?: number;
         };
@@ -1403,6 +1423,7 @@ export interface components {
             seasonNumber: number;
             /** @description Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             stillSha256?: string;
+            unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
             year?: number;
         };
@@ -1471,6 +1492,9 @@ export interface components {
             fetchedSubtitleId: number;
             /** Format: int64 */
             remainingDownloads: number;
+        };
+        FileAvailabilityOutputBody: {
+            unavailable?: components["schemas"]["UnavailableBody"];
         };
         FileBody: {
             errorDetail?: components["schemas"]["ErrorDetailBody"];
@@ -1590,6 +1614,7 @@ export interface components {
             /** Format: int64 */
             positionMs: number;
             posterSha256?: string;
+            unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
             year?: number;
         };
@@ -1650,6 +1675,8 @@ export interface components {
             /** Format: int64 */
             runtimeMs?: number;
             tagline?: string;
+            /** @description Why none of its files can be read now; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
             versions: components["schemas"]["VersionBody"][] | null;
             /** Format: int64 */
             year?: number;
@@ -2338,6 +2365,19 @@ export interface components {
             nextCursor?: string;
             titles: components["schemas"]["EntryBody"][] | null;
         };
+        UnavailableBody: {
+            /** @description The machine that holds it */
+            nodeName: string;
+            /** @description The folder or disk missing on it; absent for a machine away */
+            path?: string;
+            /** @enum {string} */
+            reason: "node_away" | "root_missing" | "disk_missing";
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when not known
+             */
+            since?: number;
+        };
         UnusedBody: {
             key: string;
             /** @description The release that stopped reading it; empty for a typo */
@@ -2963,6 +3003,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FilesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFileAvailability: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAvailabilityOutputBody"];
                 };
             };
             /** @description Error */

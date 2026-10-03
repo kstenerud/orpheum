@@ -7,7 +7,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBackgroundChanges } from "./polling.ts";
-import { dataOrThrow } from "./problem.ts";
+import { dataOrThrow, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -55,7 +55,11 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
             {episodes.map((episode) => (
               <li
                 key={episode.id}
-                className={episode.hasLiveFile ? undefined : "series__item--absent"}
+                className={
+                  episode.hasLiveFile && episode.unavailable === undefined
+                    ? undefined
+                    : "series__item--absent"
+                }
               >
                 <Link to={{ screen: "title", itemId: episode.id }} className="series__episode">
                   {episode.stillSha256 === undefined ? (
@@ -73,6 +77,11 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
                   </span>
                   {episode.hasLiveFile ? null : (
                     <span className="series__absent">{t("title.unavailable")}</span>
+                  )}
+                  {episode.unavailable === undefined ? null : (
+                    <span className="series__absent">
+                      {unavailableText(t, episode.unavailable)}
+                    </span>
                   )}
                 </Link>
               </li>

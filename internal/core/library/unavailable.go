@@ -30,13 +30,23 @@ type Unavailable struct {
 func UnavailableUnder(
 	ctx context.Context, queries *sqlcgen.Queries, nodeID int64, reportedPath []byte,
 ) (Unavailable, bool, error) {
+	candidates, err := unavailableOfNode(ctx, queries, nodeID)
+	if err != nil {
+		return Unavailable{}, false, err
+	}
+	found, isFound := deepestUnder(candidates, reportedPath)
+	return found, isFound, nil
+}
+
+// unavailableOfNode is every root and mount of a node that is missing.
+func unavailableOfNode(ctx context.Context, queries *sqlcgen.Queries, nodeID int64) ([]Unavailable, error) {
 	roots, err := queries.ListUnavailableRootsOfNode(ctx, nodeID)
 	if err != nil {
-		return Unavailable{}, false, fmt.Errorf("read node %d's unavailable roots: %w", nodeID, err)
+		return nil, fmt.Errorf("read node %d's unavailable roots: %w", nodeID, err)
 	}
 	mounts, err := queries.ListMissingMountsOfNode(ctx, nodeID)
 	if err != nil {
-		return Unavailable{}, false, fmt.Errorf("read node %d's missing mounts: %w", nodeID, err)
+		return nil, fmt.Errorf("read node %d's missing mounts: %w", nodeID, err)
 	}
 	candidates := make([]Unavailable, 0, len(roots)+len(mounts))
 	for _, root := range roots {
@@ -47,6 +57,12 @@ func UnavailableUnder(
 			Path: mount.MountPath, Since: time.UnixMilli(ptr.ValueOrZero(mount.LastScanAt)), IsMount: true,
 		})
 	}
+	return candidates, nil
+}
+
+// deepestUnder is the deepest of candidates that reportedPath is at or under, and whether there is
+// one.
+func deepestUnder(candidates []Unavailable, reportedPath []byte) (Unavailable, bool) {
 	var found Unavailable
 	isFound := false
 	for _, candidate := range candidates {
@@ -54,7 +70,7 @@ func UnavailableUnder(
 			found, isFound = candidate, true
 		}
 	}
-	return found, isFound, nil
+	return found, isFound
 }
 
 // MarkRootUnavailable makes a root unavailable from now, unless it already was, because work

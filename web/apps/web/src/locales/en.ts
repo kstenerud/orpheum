@@ -196,6 +196,7 @@ export const en = {
     channels: "{{count}} channels",
     episodeLabel: "{{number}}. {{name}}",
     unavailable: "not on disk",
+    unavailableNow: "Cannot be played now",
     specials: "Specials",
     play: "Play",
   },

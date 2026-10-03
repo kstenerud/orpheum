@@ -380,6 +380,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its episodes' files can be read now; absent when one can"
+          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -885,6 +889,9 @@
             "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
             "type": "string"
           },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody"
+          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -931,6 +938,9 @@
           "stillSha256": {
             "description": "Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp",
             "type": "string"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody"
           },
           "year": {
             "format": "int64",
@@ -1132,6 +1142,15 @@
           "fetchedSubtitleId",
           "remainingDownloads"
         ],
+        "type": "object"
+      },
+      "FileAvailabilityOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody"
+          }
+        },
         "type": "object"
       },
       "FileBody": {
@@ -1516,6 +1535,9 @@
           "posterSha256": {
             "type": "string"
           },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody"
+          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -1689,6 +1711,10 @@
           },
           "tagline": {
             "type": "string"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its files can be read now; absent when one can"
           },
           "versions": {
             "items": {
@@ -3940,6 +3966,37 @@
         ],
         "type": "object"
       },
+      "UnavailableBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nodeName": {
+            "description": "The machine that holds it",
+            "type": "string"
+          },
+          "path": {
+            "description": "The folder or disk missing on it; absent for a machine away",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "node_away",
+              "root_missing",
+              "disk_missing"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "description": "Unix milliseconds; absent when not known",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reason",
+          "nodeName"
+        ],
+        "type": "object"
+      },
       "UnusedBody": {
         "additionalProperties": false,
         "properties": {
@@ -5003,6 +5060,57 @@
         "summary": "What the scanner saw: every file with its filing and reason (admin; D163)",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/files/{id}/availability": {
+      "get": {
+        "operationId": "getFileAvailability",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileAvailabilityOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether a file can be read now, and if not why: what a player whose fetch failed asks (D241 §7)",
+        "tags": [
+          "Playback"
         ]
       }
     },

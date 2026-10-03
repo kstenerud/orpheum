@@ -44,6 +44,15 @@ type BrowseSettings interface {
 type Browser struct {
 	database *store.Database
 	settings BrowseSettings
+	// connections says whether each node is connected, for whether a title's files can be read now
+	// (D241 §3); nil judges none unreadable.
+	connections NodeConnections
+}
+
+// SetNodeConnections names what says whether a node is connected: nodes.Service. Set it before the
+// API serves.
+func (browser *Browser) SetNodeConnections(connections NodeConnections) {
+	browser.connections = connections
 }
 
 // NewBrowser returns the browser.
@@ -60,6 +69,9 @@ type Entry struct {
 	LibraryID           int64
 	AddedAt             int64
 	PosterSha256        string // its poster's hash; "" when it has none
+	// Unreadable is why none of its files can be read now, the first's, or nil when one can, or it
+	// has none (D241 §3).
+	Unreadable *Unreadable
 }
 
 // Page is one page of a list, and the cursor of the next; "" on the last.
@@ -122,7 +134,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	if err != nil {
 		return Page{}, fmt.Errorf("list %s by name: %w", query.Kind, err)
 	}
-	return browser.withPosters(ctx,
+	return browser.finishPage(ctx, query.Kind,
 		closePage(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }))
 }
 
@@ -165,7 +177,7 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 	if err != nil {
 		return Page{}, fmt.Errorf("list %s by date added: %w", query.Kind, err)
 	}
-	return browser.withPosters(ctx, closePage(entries, query.Limit, func(last int) string {
+	return browser.finishPage(ctx, query.Kind, closePage(entries, query.Limit, func(last int) string {
 		added := binary.BigEndian.AppendUint64(nil, uint64(entries[last].AddedAt)) //nolint:gosec // a time
 		return encodeCursor(added, entries[last].ID)
 	}))

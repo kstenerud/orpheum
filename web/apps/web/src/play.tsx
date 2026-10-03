@@ -10,12 +10,20 @@ import {
   type PlaybackFailure,
 } from "@orpheum/player";
 import { whenReady, type Api, type components, type PlayableFormats } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type JSX,
+  type RefObject,
+  type SyntheticEvent,
+} from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
-import { dataOrThrow, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
@@ -150,7 +158,11 @@ function PreparedVideo(props: PlayProps): JSX.Element {
   const [startIndex] = useState(() =>
     audioRenditionIndex(decision, audioTrackIndex, decision.preferences.isDialogueBoostOn),
   );
-  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(decision, startIndex);
+  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
+    props.fileId,
+    decision,
+    startIndex,
+  );
   const boostMixes = mixIndices(decision, audioTrackIndex);
   const play = (trackIndex: number, isBoosted: boolean): void => {
     const index = audioRenditionIndex(decision, trackIndex, isBoosted);
@@ -199,6 +211,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
  * starting with the audio rendition startAudioRenditionIndex when one is given.
  */
 function usePreparedPlayback(
+  fileId: number,
   decision: PlaybackDecision,
   startAudioRenditionIndex: number | undefined,
 ): {
@@ -211,7 +224,7 @@ function usePreparedPlayback(
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const [failure, setFailure] = useFailure(fileId);
   useEffect(() => {
     const element = videoRef.current;
     if (element === null) {
@@ -241,15 +254,52 @@ function usePreparedPlayback(
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
-  }, [decision.url, startAudioRenditionIndex, t]);
+  }, [decision.url, startAudioRenditionIndex, t, setFailure]);
   return { videoRef, playbackRef, isWaiting, failure };
+}
+
+/**
+ * What the viewer is told when playback fails: what the player saw, at once, and, when the server
+ * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
+ * (D241 §7). A file that can be read leaves the player's words.
+ */
+function useFailure(fileId: number): [string | undefined, (seen: string) => void] {
+  const { api } = useServices();
+  const { t } = useTranslation();
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const fail = useCallback(
+    (seen: string) => {
+      setFailure(seen);
+      unavailableNow(api, fileId).then(
+        (unavailable) => {
+          if (unavailable !== undefined) {
+            setFailure(unavailableText(t, unavailable));
+          }
+        },
+        () => undefined, // the player's own words stand
+      );
+    },
+    [api, fileId, t],
+  );
+  return [failure, fail];
+}
+
+/** Why a file cannot be read now, as the server says, or undefined when it can. */
+async function unavailableNow(
+  api: Api,
+  fileId: number,
+): Promise<components["schemas"]["UnavailableBody"] | undefined> {
+  const answer = dataOrThrow(
+    await api.GET("/files/{id}/availability", { params: { path: { id: fileId } } }),
+  );
+  return answer.unavailable;
 }
 
 /** The original file, playing; when the browser cannot play it, why, in words. */
 function DirectVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const [failure, setFailure] = useFailure(props.fileId);
   const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
     setFailure(playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)));
   };

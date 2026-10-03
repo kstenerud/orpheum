@@ -22,6 +22,8 @@ type InProgressBody struct {
 	DurationMs   int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
 	FileName     string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
 	Episode      *EpisodePlaceBody `json:"episode,omitempty"`
+	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
+	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 }
 
 // HomeOutput is the home screen (D188): Continue Watching first. Next Up comes after M3.
@@ -65,11 +67,12 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	}
 	output := &HomeOutput{}
 	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))
+	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, row := range rows {
 		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
 			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterSha256: row.PosterSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
-			Episode: episodePlaceBody(row.Episode),
+			Episode: episodePlaceBody(row.Episode), Unavailable: unavailableBody(row.Unreadable, nodeName),
 		})
 	}
 	return output, nil

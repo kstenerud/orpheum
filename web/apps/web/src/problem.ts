@@ -33,7 +33,7 @@ export function problemText(
     }
     const unreachable = cause.withCode("media_unreachable")?.detail;
     if (unreachable !== undefined) {
-      return mediaUnreachableText(t, unreachable);
+      return unavailableText(t, unreachable);
     }
     return t(`problem.${code}`, { defaultValue: t("problem.unknown") });
   }
@@ -44,11 +44,11 @@ export function problemText(
 }
 
 /**
- * Why a file cannot be played now, in the person's words: its machine away, or its folder or disk
- * missing, named, and since when when the server knows (D241 §4). A reason this client does not
- * know gets the general words.
+ * Why something cannot be played now, in the person's words: its machine away, or its folder or
+ * disk missing, named, and since when when the server knows (D241 §3, §4). A play's refusal and a
+ * listed title's mark say it alike. A reason this client does not know gets the general words.
  */
-function mediaUnreachableText(
+export function unavailableText(
   t: TFunction,
   detail: {
     readonly reason: string;

@@ -160,3 +160,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   the host's `/run/udev`, which `./dev` mounts read-only into the container; no ZFS was at hand
   where this was written ([D240](decisions/working-notes.md#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play) §5).
   (`internal/node/hardware/storage.go`, `./dev`)
+
+- [ ] **VQ18** — In a desktop browser and on the iPhone, against the dev loop: start
+  **Direct Play Film (2020)** (it plays the original), let it play a few seconds, then make its
+  folder unavailable: move `.dev/media/movies` aside, then restart the node, so its hello no longer
+  names it, or stop the node altogether. Then do the same with **Remux Film (2021)** (a prepared
+  copy). Passes when, each time, the film either keeps playing to the end of what the browser holds
+  or stops, and the page then says why in words, "This cannot be played now: the folder … on … is
+  missing" (or "… is not connected"), never only a generic playback error. Whether a browser plays
+  out its buffer after a failed fetch, above all in direct play, no test here can see
+  ([D241](decisions/working-notes.md#d241--what-goes-missing-stays-listed-as-unavailable-until-an-admin-says-it-is-gone-and-a-play-of-it-fails-at-once) §7).
+  (`web/apps/web/src/play.tsx`)

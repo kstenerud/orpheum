@@ -24,6 +24,32 @@ type EntryBody struct {
 	LibraryID           int64  `json:"libraryId"`
 	AddedAt             int64  `json:"addedAt"`
 	PosterSha256        string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
+	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
+	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
+}
+
+// UnavailableBody is why what is listed cannot be played now: its machine away, or its folder or
+// disk missing, and since when (D241 §3).
+type UnavailableBody struct {
+	Reason   string `enum:"node_away,root_missing,disk_missing" json:"reason"`
+	NodeName string `doc:"The machine that holds it" json:"nodeName"`
+	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
+	Since    int64  `doc:"Unix milliseconds; absent when not known" json:"since,omitempty"`
+}
+
+// unavailableBody is why something cannot be read now as the API says it, or nil when it can, its
+// node named by nodeName.
+func unavailableBody(unreadable *library.Unreadable, nodeName func(nodeID int64) string) *UnavailableBody {
+	if unreadable == nil {
+		return nil
+	}
+	body := &UnavailableBody{
+		Reason: string(unreadable.Reason), NodeName: nodeName(unreadable.NodeID), Path: unreadable.Path,
+	}
+	if !unreadable.Since.IsZero() {
+		body.Since = unreadable.Since.UnixMilli()
+	}
+	return body
 }
 
 // ArtBody is the images an item shows, by the source SHA-256 GET /bytes/art/{sourceSha256}/{variant} takes.
@@ -113,6 +139,7 @@ type ItemDetailOutput struct {
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
+		Unavailable         *UnavailableBody  `doc:"Why none of its files can be read now; absent when one can" json:"unavailable,omitempty"`                         //nolint:lll // one struct tag
 	}
 }
 
@@ -127,6 +154,8 @@ type EpisodeBody struct {
 	IdentificationState string `json:"identificationState"`
 	HasLiveFile         bool   `doc:"Whether it has a live file" json:"hasLiveFile"`
 	StillSha256         string `doc:"Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"stillSha256,omitempty"` //nolint:lll // one struct tag
+	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
+	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 }
 
 // CollectionOutput is a series with its episodes in aired order.
@@ -143,6 +172,7 @@ type CollectionOutput struct {
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
+		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`               //nolint:lll // one struct tag
 	}
 }
 
@@ -201,11 +231,13 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	}
 	output := &TitlesOutput{}
 	output.Body.Titles = make([]EntryBody, 0, len(page.Entries))
+	nodeName := server.nodeNamer(ctx, dependencies)
 	for _, entry := range page.Entries {
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.IdentificationState,
 			LibraryID: entry.LibraryID,
 			AddedAt:   entry.AddedAt, PosterSha256: entry.PosterSha256,
+			Unavailable: unavailableBody(entry.Unreadable, nodeName),
 		})
 	}
 	output.Body.NextCursor = page.NextCursor
@@ -260,6 +292,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	}
 	body.Art = artBody(detail.Art)
 	body.Episode = episodePlaceBody(detail.Episode)
+	body.Unavailable = unavailableBody(detail.Unreadable, server.nodeNamer(ctx, dependencies))
 	return output, nil
 }
 
@@ -292,9 +325,16 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	body.FetchFailure = fetchFailureBody(series.FetchFailure, series.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(series.RefreshRequestedAt)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
+	nodeName := server.nodeNamer(ctx, dependencies)
+	body.Unavailable = unavailableBody(series.Unreadable, nodeName)
 	for _, episode := range series.Episodes {
+		var unreadable *library.Unreadable
+		if why, isUnreadable := series.UnreadableByEpisodeID[episode.TitleID]; isUnreadable {
+			unreadable = &why
+		}
 		body.Episodes = append(body.Episodes, EpisodeBody{
-			ID: episode.TitleID, SeasonNumber: ptr.ValueOrZero(episode.GroupNumber),
+			Unavailable: unavailableBody(unreadable, nodeName),
+			ID:          episode.TitleID, SeasonNumber: ptr.ValueOrZero(episode.GroupNumber),
 			EpisodeNumber: ptr.ValueOrZero(episode.NumberInGroup),
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),

@@ -172,6 +172,7 @@ func openAndWire(
 			Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
 		})
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
+	dependencies.Browser.SetNodeConnections(opened.nodes)
 	dependencies.Artwork = opened.jobServices.artwork
 	dependencies.Playback = playback.NewService(playback.Parts{
 		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,

@@ -130,3 +130,40 @@ func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 		}
 	}
 }
+
+// A title none of whose files can be read now stays listed, marked unavailable with why and since
+// when: in the lists, on its page and its series', and for its episode (D241 §3).
+func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/m', 'unreadable', 5000, 4000)`)
+	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","since":4000}`
+	for _, path := range []string{
+		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10", "/items/10",
+		"/items/21", "/collections/20",
+	} {
+		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
+			!strings.Contains(got.body, missing) {
+			t.Errorf("GET %s under a missing root = %d %s; want it there, marked unavailable", path, got.status,
+				got.body)
+		}
+	}
+	if series := harness.do(t, http.MethodGet, "/collections/20", user, nil); strings.Count(series.body, missing) != 2 {
+		t.Errorf("the series = %s; want it and its episode marked", series.body)
+	}
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM root_state")
+	harness.nodes.isAway.Store(true)
+	away := harness.do(t, http.MethodGet, "/items/10", user, nil)
+	if !strings.Contains(away.body, `"unavailable":{"reason":"node_away","nodeName":"local"`) {
+		t.Errorf("a title whose node is away = %s; want it marked so", away.body)
+	}
+	harness.nodes.isAway.Store(false)
+	if back := harness.do(t, http.MethodGet, "/items/10", user, nil); strings.Contains(back.body, `"unavailable"`) {
+		t.Errorf("a title that can be read = %s; want it unmarked", back.body)
+	}
+}
