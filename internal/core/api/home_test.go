@@ -117,3 +117,22 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 		t.Errorf("hiding what is not there: %d, want 404", answer.status)
 	}
 }
+
+// A work in Continue Watching none of whose files can be read now says why, so its row leads to
+// its page rather than to a play that cannot start (D241 §3).
+func TestContinueWatching_AWorkThatCannotBeReadNowSaysWhy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.setPositionReadAt(t, 2, 60_000, 150) // the pilot
+	if rows := harness.continueWatching(t, user); len(rows) != 1 || rows[0].Unavailable != nil {
+		t.Fatalf("Continue Watching = %+v; want the pilot, playable", rows)
+	}
+	harness.nodes.isAway.Store(true)
+	rows := harness.continueWatching(t, user)
+	if len(rows) != 1 || rows[0].Unavailable == nil || rows[0].Unavailable.Reason != "node_away" ||
+		rows[0].Unavailable.NodeName != "local" {
+		t.Errorf("Continue Watching while its node is away = %+v; want the pilot marked, its node away", rows)
+	}
+}

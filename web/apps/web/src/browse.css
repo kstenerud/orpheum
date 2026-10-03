@@ -32,13 +32,3 @@
 .poster-grid__year {
   color: var(--color-muted);
 }
-
-/* A title none of whose files can be read now: listed, dimmed, and saying so (D241 §3). */
-.poster-grid__card--unavailable img {
-  opacity: 0.45;
-}
-
-.poster-grid__unavailable {
-  font-size: 0.85em;
-  color: var(--color-muted);
-}
