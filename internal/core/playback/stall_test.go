@@ -33,13 +33,12 @@ func preparesOnAFakeNode(
 	cache := storetest.OpenCache(t)
 	all = &prepares{
 		cache: cache, queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
-		clock: clockSource, maxSlotWait: maxSlotWait,
+		clock: clockSource,
 		exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: 2 * maxSlotWait,
+			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: 12 * time.Hour,
 		}),
-		logger:       slog.New(slog.DiscardHandler),
-		waitingSince: map[string]time.Time{},
+		logger: slog.New(slog.DiscardHandler),
 	}
 	all.exchanges.Record(nodeproto.CommandPrepare, all.recordPrepare)
 	resolver := nodestest.NewResolver()
@@ -169,35 +168,6 @@ func renditionRow(t *testing.T, all *prepares, rendition int64) cachegen.Prepare
 	return row
 }
 
-func TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopIt(t *testing.T) {
-	t.Parallel()
-	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
-	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
-	all, start := preparesOnAFakeNode(t, node, clockSource)
-	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
-	ended := start(job)
-	command := testutil.Receive(t, node.sent, "the prepare command")
-	// The node says it is waiting at each tick; the clock moves on by the cap between them.
-	for range 10 {
-		all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
-		select {
-		case err := <-ended:
-			if err == nil || !strings.Contains(err.Error(), "waiting for a slot") ||
-				strings.HasPrefix(err.Error(), "stalled: ") {
-				t.Errorf("a prepare held waiting past the cap ended %v; want given up as an ordinary retry", err)
-			}
-			cancel := testutil.Receive(t, node.sent, "the cancel of job 7")
-			if cancel.Type != nodeproto.CommandCancel || cancel.JobID != 7 {
-				t.Errorf("the node was sent %+v; want it told to stop job 7", cancel)
-			}
-			return
-		case <-time.After(20 * time.Millisecond):
-		}
-		clockSource.Advance(maxSlotWait)
-	}
-	t.Fatal("a prepare the node held waiting for ten times the cap was never given up")
-}
-
 // A prepare that waits, for its node or for room on it, has not begun its making: its rendition is
 // recorded running only once the node is given it.
 func TestHandle_APrepareThatWaitsHasNotBegunItsMaking(t *testing.T) {
@@ -213,29 +183,6 @@ func TestHandle_APrepareThatWaitsHasNotBegunItsMaking(t *testing.T) {
 	}
 	if row := renditionRow(t, all, rendition); row.State != renditionQueued {
 		t.Errorf("the rendition of a prepare that waits is %s, want still queued", row.State)
-	}
-}
-
-// A prepare its node paused for play-driven work on its disk is not waiting for a slot: its wait
-// starts afresh once it waits again, so a pause between two waits never adds up to the cap (D240 §6).
-func TestHandle_APausedPrepareIsNotCountedAsWaitingForASlot(t *testing.T) {
-	t.Parallel()
-	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
-	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
-	all, start := preparesOnAFakeNode(t, node, clockSource)
-	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
-	command := testutil.Receive(t, node.sent, "the prepare command")
-	for _, word := range []nodeproto.ProgressState{
-		nodeproto.ProgressWaiting, nodeproto.ProgressPaused, nodeproto.ProgressWaiting, nodeproto.ProgressPaused,
-		nodeproto.ProgressWaiting,
-	} {
-		all.progressed(t.Context(), command, word)
-		clockSource.Advance(maxSlotWait * 2 / 3)
-	}
-	select {
-	case err := <-ended:
-		t.Errorf("a prepare paused between its waits, each shorter than the cap, ended %v; want it held", err)
-	case <-time.After(50 * time.Millisecond):
 	}
 }
 

@@ -133,10 +133,9 @@
 //     again while it held the work, which it lost (D238 §3).
 //     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
 //
-//   - A prepare the node holds waiting for a slot outlives the silence limit, but not maxSlotWait
-//     in all: then the job gives up and the node is told to stop it. Enforced by
-//     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit and
-//     TestHandle_APrepareHeldWaitingForASlotTooLongIsGivenUpAndTheNodeToldToStopIt.
+//   - A prepare the node holds waiting for a slot outlives the silence limit; how long it waits is
+//     bounded by whether the work ahead of it moves (internal/core/nodes, D233 §5). Enforced by
+//     TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit.
 //
 //   - A prepare carries its source's length, from which the node sets its deadline. Enforced by
 //     TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline.

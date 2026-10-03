@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -51,22 +50,16 @@ type prepares struct {
 	clock      clock.Clock
 	logger     *slog.Logger
 	maxSilence time.Duration
-	// maxSlotWait is how long in all a prepare may wait for a slot on its node (maxSlotWait).
-	maxSlotWait time.Duration
 
 	exchanges *nodes.Exchanges
-
-	waitingMutex sync.Mutex
-	// waitingSince is when the node first said each attempt waits for a slot, by its token.
-	waitingSince map[string]time.Time // guarded by waitingMutex
 }
 
 func newPrepares(parts Parts, exchanges *nodes.Exchanges) *prepares {
 	return &prepares{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
-		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence, maxSlotWait: maxSlotWait,
-		exchanges: exchanges, waitingSince: map[string]time.Time{},
+		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
+		exchanges: exchanges,
 	}
 }
 
@@ -171,19 +164,6 @@ func (all *prepares) newRunID() (string, error) {
 	return hex.EncodeToString(raw), nil
 }
 
-// maxSlotWait is how long in all a prepare may wait for a slot on its node before the job gives
-// up on it and tells the node to stop it. The node says it is waiting at each status tick, and
-// that keeps the prepare from being given up for silence; the node's watchdog now ends any
-// prepare that holds a slot without moving (execx), so a wait ends when the prepares ahead of it
-// do, and the cap is only for a wait that would otherwise never end: a node whose slot is held by
-// something its watchdog does not see. Six hours outlasts a legitimate wait behind the two
-// other prepares the core runs at once for a node on its starting slots (one encode and two
-// remuxes, nodeproto.Capacity), each a film encoded at about real time. The core runs as many
-// prepares as all the nodes' slots, so a node given more slots, or others beside it, can queue more
-// ahead of one; per-node claiming (the jobs rebuild's Phase 4) and a bound on the wait of its own
-// (Phase 5) replace this cap.
-const maxSlotWait = 6 * time.Hour
-
 // handle runs one prepare job: it records the making begun and gives it to the node, which says
 // later how it ended (D234 §7, Assignee).
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
@@ -212,7 +192,6 @@ func (all *prepares) assignee(runner nodes.Resolver) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
-			all.forgetWaiting(attempt.Token)
 			run, err := runOf(attempt)
 			if err != nil {
 				return jobs.MarkPermanent(err)
@@ -224,7 +203,6 @@ func (all *prepares) assignee(runner nodes.Resolver) nodes.Assignee {
 			return all.takeEnd(ctx, job, attempt.NodeID, run, *result.Prepare)
 		},
 		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
-			all.forgetWaiting(attempt.Token)
 			run, runErr := runOf(attempt)
 			if runErr != nil {
 				return jobs.MarkPermanent(runErr)
@@ -237,7 +215,6 @@ func (all *prepares) assignee(runner nodes.Resolver) nodes.Assignee {
 		Cancelled: func(ctx context.Context, attempt nodes.Attempt) error {
 			// The rendition is not made, so a later play prepares it again rather than waiting on one
 			// no one is making.
-			all.forgetWaiting(attempt.Token)
 			run, err := runOf(attempt)
 			if err != nil {
 				return err
@@ -255,50 +232,23 @@ func runOf(attempt nodes.Attempt) (renditionRun, error) {
 	return parseRenditionDir(attempt.Work.Prepare.RenditionDir)
 }
 
-// takeProgress takes the node's word on where a prepare is. Waiting for a slot of its kind is a
-// word about the node, which keeps the job from being given up for silence, until the node has held
-// it waiting for maxSlotWait in all; then the job gives up, and its node is told to stop it.
+// takeProgress takes the node's word on where a prepare is. Waiting for a slot of its kind, or
+// paused for play-driven work, is a word about the node, which keeps the job from being given up for
+// silence; how long it may wait is the core's to bound by the node's word on whether the work ahead
+// of it moves (D233 §5).
 func (all *prepares) takeProgress(ctx context.Context, attempt nodes.Attempt, progress nodeproto.Progress) error {
 	run, err := runOf(attempt)
 	if err != nil {
 		return err
 	}
 	switch progress.State {
-	case nodeproto.ProgressWaiting:
-		if waited := all.waitedFor(attempt.Token); waited >= all.maxSlotWait {
-			return fmt.Errorf("node %d held prepare %s waiting for a slot for %s", attempt.NodeID, run.dir(), waited)
-		}
-		return nil
-	case nodeproto.ProgressPaused:
-		// Paused for play-driven work on its device: heard of, and not waiting for a slot.
-		all.forgetWaiting(attempt.Token)
+	case nodeproto.ProgressWaiting, nodeproto.ProgressPaused:
 		return nil
 	case nodeproto.ProgressRunning:
-		all.forgetWaiting(attempt.Token)
 		return all.recordProgress(ctx, attempt.JobID, run, progress.PreparedThroughMs,
 			attempt.Work.Prepare.SourceDurationMs)
 	}
 	return nil
-}
-
-// waitedFor is how long the node has said an attempt waits for a slot, from its first word that it
-// does.
-func (all *prepares) waitedFor(token string) time.Duration {
-	now := all.clock.Now()
-	all.waitingMutex.Lock()
-	defer all.waitingMutex.Unlock()
-	since, found := all.waitingSince[token]
-	if !found {
-		all.waitingSince[token] = now
-		return 0
-	}
-	return now.Sub(since)
-}
-
-func (all *prepares) forgetWaiting(token string) {
-	all.waitingMutex.Lock()
-	defer all.waitingMutex.Unlock()
-	delete(all.waitingSince, token)
 }
 
 // takeEnd takes the node's word on how a prepare ended, and says how the job ended. What the word
