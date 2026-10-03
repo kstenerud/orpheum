@@ -269,6 +269,8 @@ D231 §3, §4, §7, §9; F1.
 
 ## Phase 4 — the core drives the node
 
+*Done 2026-10-03:* 4.0 to 4e are built, the last an earlier commit. Phases 5 and 6 come next, then M4.
+
 > **The re-cut, accepted by the owner (2026-10-01: "yes to your proposals").** Phase 4 was planned
 > on D233 before D234 revised it, D235 put core and node in separate containers, and D236 added
 > the scan's display. The questions at the end are answered as proposed.
