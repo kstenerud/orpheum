@@ -31,6 +31,15 @@ const (
 	defaultTermGrace = 3 * time.Second
 )
 
+// spinningShare is how much of one processor a stalled run's group must have used, over the time
+// it did not move, to be spinning rather than stuck: a loop keeps a processor near full, and a
+// tool waiting on a lock or a pipe uses next to none.
+const spinningShare = 0.5
+
+// clockTicksPerSecond is the unit of /proc's processor times, USER_HZ, which is 100 on every
+// architecture Linux runs on.
+const clockTicksPerSecond = 100
+
 // deadlineFactor is how many times its expected length a watched run may take before the watchdog
 // stops it however it moves: room for a slow disk, a busy processor, or a guess that was wrong.
 const deadlineFactor = 3
@@ -104,27 +113,62 @@ const (
 	StallPastDeadline StallCause = "past_deadline"
 )
 
+// StallCondition is what the tool was doing when the watchdog stopped it, as /proc said (D233 §5).
+type StallCondition string
+
+// The conditions of a stalled run.
+const (
+	// ConditionWaitingOnDisk is a run with a process in uninterruptible sleep: waiting on a device,
+	// as a read from a dead disk or a hung network mount does.
+	ConditionWaitingOnDisk StallCondition = "waiting_on_disk"
+	// ConditionSpinning is a run that kept a processor busy without moving: a loop.
+	ConditionSpinning StallCondition = "spinning"
+	// ConditionStuck is a run that did nothing: deadlocked, or waiting on something that never came.
+	ConditionStuck StallCondition = "stuck"
+)
+
 // StalledError is a run the watchdog stopped: FFmpeg hung, or crawled past its deadline. It says
 // nothing of the input's bytes, apart from a RunError: the tool, not the file, is what was seen.
 type StalledError struct {
-	Tool  Tool
-	Cause StallCause
+	Tool      Tool
+	Cause     StallCause
+	Condition StallCondition
 	// LastPosition is the furthest position FFmpeg reported.
 	LastPosition time.Duration
 	// WithoutAdvance is how long the position had not moved when the run was stopped, counted from
 	// the start when it never moved.
 	WithoutAdvance time.Duration
 	StderrTail     string
+	// IsLeftRunning is a run whose process outlived SIGKILL, as one waiting on a device does until
+	// the device answers: it is listed as stuck (Runner.Stuck) until it ends, and holds no slot.
+	IsLeftRunning bool
 }
 
 func (stalled *StalledError) Error() string {
-	return fmt.Sprintf("%s stalled (%s): stopped at %s of its output after %s without moving; stderr ends: %s",
-		stalled.Tool, stalled.Cause, stalled.LastPosition, stalled.WithoutAdvance.Round(time.Second),
-		stalled.StderrTail)
+	left := ""
+	if stalled.IsLeftRunning {
+		left = ", and outlived its kill"
+	}
+	return fmt.Sprintf("%s stalled (%s, %s%s): stopped at %s of its output after %s without moving; stderr ends: %s",
+		stalled.Tool, stalled.Cause, stalled.Condition, left, stalled.LastPosition,
+		stalled.WithoutAdvance.Round(time.Second), stalled.StderrTail)
+}
+
+// groupSample is what /proc said of a run's process group at one moment (sampleGroup).
+type groupSample struct {
+	processCount int
+	// isWaitingOnDevice is whether a process in it was in uninterruptible sleep (D).
+	isWaitingOnDevice bool
+	// cpuTicks is the processor time its processes had used, in clock ticks.
+	cpuTicks int64
+	// storageBytes is the bytes storage had read for its processes and from and written to storage.
+	storageBytes int64
 }
 
 // watchdog judges a run by its progress: it records where the position last moved, and says when
-// the run has stalled.
+// the run has stalled. Bytes read from or written to storage, or written to stdout, are movement
+// too, as a run reading through a file to its next frame, or writing a track whose position moves
+// only when a subtitle comes, moves without its position.
 type watchdog struct {
 	clock     clock.Clock
 	watch     Watch
@@ -135,6 +179,15 @@ type watchdog struct {
 	hasMoved      bool      // guarded by mutex
 	lastAdvanceAt time.Time // guarded by mutex: when the position or frame count last grew
 	pausedAt      time.Time // guarded by mutex: when the run was paused; zero while it is not
+	// latest is the last sample of its group, and cpuTicksAtAdvance the processor time the group
+	// had used when it last moved, by the samples; hasSample is whether one was taken. Guarded by
+	// mutex.
+	latest            groupSample
+	cpuTicksAtAdvance int64
+	hasSample         bool
+	// furthestStorageBytes and furthestStdoutBytes are the most seen. Guarded by mutex.
+	furthestStorageBytes int64
+	furthestStdoutBytes  int64
 }
 
 func newWatchdog(clockSource clock.Clock, watch Watch) *watchdog {
@@ -151,8 +204,52 @@ func (dog *watchdog) observe(progress Progress) {
 		dog.furthest.Position = max(dog.furthest.Position, progress.Position)
 		dog.furthest.FrameCount = max(dog.furthest.FrameCount, progress.FrameCount)
 		dog.hasMoved = true
-		dog.lastAdvanceAt = dog.clock.Now()
+		dog.advanced()
 	}
+}
+
+// observeGroup records a sample of the run's group and how much it has written to stdout: bytes
+// that grew are movement, though not the position's, so a run still in its start grace stays in
+// it.
+func (dog *watchdog) observeGroup(sample groupSample, stdoutBytes int64) {
+	dog.mutex.Lock()
+	defer dog.mutex.Unlock()
+	isFirst := !dog.hasSample
+	dog.latest, dog.hasSample = sample, true
+	grew := sample.storageBytes > dog.furthestStorageBytes || stdoutBytes > dog.furthestStdoutBytes
+	dog.furthestStorageBytes = max(dog.furthestStorageBytes, sample.storageBytes)
+	dog.furthestStdoutBytes = max(dog.furthestStdoutBytes, stdoutBytes)
+	switch {
+	case isFirst:
+		// What the group did before the first sample is its start, the baseline later ones grow from.
+		dog.cpuTicksAtAdvance = sample.cpuTicks
+	case grew:
+		dog.advanced()
+	}
+}
+
+// advanced records movement now. The caller holds the mutex.
+func (dog *watchdog) advanced() {
+	dog.lastAdvanceAt = dog.clock.Now()
+	dog.cpuTicksAtAdvance = dog.latest.cpuTicks
+}
+
+// cpuSecondsSinceAdvance is the processor time the group used since it last moved. The caller
+// holds the mutex.
+func (dog *watchdog) cpuSecondsSinceAdvance() float64 {
+	return float64(dog.latest.cpuTicks-dog.cpuTicksAtAdvance) / clockTicksPerSecond
+}
+
+// condition is what the run's group was doing over the time it did not move, by the last sample.
+// The caller holds the mutex.
+func (dog *watchdog) condition(withoutAdvance time.Duration) StallCondition {
+	switch {
+	case dog.latest.isWaitingOnDevice:
+		return ConditionWaitingOnDisk
+	case dog.hasSample && withoutAdvance > 0 && dog.cpuSecondsSinceAdvance() >= spinningShare*withoutAdvance.Seconds():
+		return ConditionSpinning
+	}
+	return ConditionStuck
 }
 
 // verdict is the stall the run is in now, or nil while it is fine.
@@ -176,6 +273,7 @@ func (dog *watchdog) verdict(tool Tool) *StalledError {
 	default:
 		return nil
 	}
+	stalled.Condition = dog.condition(stalled.WithoutAdvance)
 	return stalled
 }
 

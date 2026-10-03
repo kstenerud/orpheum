@@ -3,18 +3,21 @@
 package agent
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
-// errStalled is an FFmpeg the watchdog stopped: it stood at 4 s for three minutes.
+// errStalled is an FFmpeg the watchdog stopped: it stood at 4 s for three minutes, waiting on the
+// disk, and outlived its kill.
 var errStalled = &execx.StalledError{
-	Tool: execx.FFmpeg, Cause: execx.StallStoodStill, LastPosition: 4 * time.Second,
-	WithoutAdvance: 3 * time.Minute, StderrTail: "frame=100",
+	Tool: execx.FFmpeg, Cause: execx.StallStoodStill, Condition: execx.ConditionWaitingOnDisk, IsLeftRunning: true,
+	LastPosition: 4 * time.Second, WithoutAdvance: 3 * time.Minute, StderrTail: "frame=100",
 }
 
 // stallingStreamIndex is the stream index whose measurement or extraction stalls.
@@ -23,9 +26,27 @@ const stallingStreamIndex = 97
 // wantStall fails the test unless stall is errStalled as the core is told it.
 func wantStall(t *testing.T, what string, stall *nodeproto.Stall) {
 	t.Helper()
-	if stall == nil || stall.Cause != nodeproto.StallStoodStill || stall.LastPositionMs != 4000 ||
+	if stall == nil || stall.Cause != nodeproto.StallStoodStill ||
+		stall.Condition != nodeproto.ConditionWaitingOnDisk || !stall.IsLeftRunning || stall.LastPositionMs != 4000 ||
 		stall.WithoutAdvanceMs != 180_000 || !strings.Contains(stall.Detail, "stalled") {
-		t.Errorf("%s told the core %+v; want stood still at 4000 ms for 180000 ms", what, stall)
+		t.Errorf("%s told the core %+v; want stood still at 4000 ms for 180000 ms, waiting on the disk and left "+
+			"running", what, stall)
+	}
+}
+
+// The status lists the processes the runner left running, waiting on a device (D233 §10).
+func TestStatus_ListsTheProcessesLeftRunning(t *testing.T) {
+	t.Parallel()
+	since := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	left := []execx.StuckProcess{{PID: 42, Tool: execx.FFprobe, Reading: []string{"/media/films/a.mkv"}, Since: since}}
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil,
+		Workers{Stuck: func() []nodeproto.Stuck { return StuckOf(left) }},
+		clocktest.NewFake(since), slog.New(slog.DiscardHandler))
+	stuck := node.status().Stuck
+	want := nodeproto.Stuck{Tool: "ffprobe", PID: 42, Paths: []string{"/media/films/a.mkv"}, Since: since.UnixMilli()}
+	if len(stuck) != 1 || stuck[0].Tool != want.Tool || stuck[0].PID != want.PID || stuck[0].Since != want.Since ||
+		len(stuck[0].Paths) != 1 || stuck[0].Paths[0] != want.Paths[0] {
+		t.Errorf("the status's stuck = %+v, want %+v", stuck, want)
 	}
 }
 

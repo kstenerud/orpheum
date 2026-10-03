@@ -76,6 +76,9 @@ type Workers struct {
 	// FindDevices finds what the roots and prepared directory are on, for each hello (D240 §5):
 	// hardware.Devices over them. Nil finds none.
 	FindDevices func() ([]nodeproto.Device, error)
+	// Stuck is the work the node gave up on that has not ended, for its status (D233 §10):
+	// StuckOf the runner's. Nil has none.
+	Stuck func() []nodeproto.Stuck
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
@@ -453,6 +456,9 @@ func (agent *Agent) status() nodeproto.Status {
 	status := nodeproto.Status{
 		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: agent.held(),
 		TakenCommandSeq: agent.takenCommandSeq.Load(),
+	}
+	if agent.workers.Stuck != nil {
+		status.Stuck = agent.workers.Stuck()
 	}
 	if agent.workers.PreparedShelf != nil {
 		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {

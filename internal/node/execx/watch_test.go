@@ -153,3 +153,74 @@ func TestDeadlineFor_IsThreeTimesTheExpectedLengthAtLeastTenMinutesAndADayWhenUn
 		}
 	}
 }
+
+// A stall says what the run's group was doing over the time it did not move, by /proc: waiting on
+// a device when a process was in uninterruptible sleep, spinning when it kept a processor busy,
+// stuck otherwise (D233 §5).
+func TestWatchdog_AStallSaysWhetherItWaitedOnTheDiskSpunOrWasStuck(t *testing.T) {
+	t.Parallel()
+	for _, check := range []struct {
+		name  string
+		later groupSample
+		want  StallCondition
+	}{
+		{
+			"a process in D",
+			groupSample{processCount: 1, isWaitingOnDevice: true, cpuTicks: 100},
+			ConditionWaitingOnDisk,
+		},
+		// Two minutes without moving, 100 s of processor time used: a loop.
+		{"a busy processor", groupSample{processCount: 1, cpuTicks: 100 + 100*clockTicksPerSecond}, ConditionSpinning},
+		// A second of processor time in two minutes: waiting on something that never came.
+		{"an idle group", groupSample{processCount: 1, cpuTicks: 100 + clockTicksPerSecond}, ConditionStuck},
+	} {
+		clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+		dog := newWatchdog(clockSource, testWatch)
+		dog.observeGroup(groupSample{processCount: 1, cpuTicks: 100}, 0)
+		dog.observe(Progress{Position: time.Second})
+		clockSource.Advance(testWatch.StallWindow)
+		dog.observeGroup(check.later, 0)
+		stalled := dog.verdict(FFmpeg)
+		if stalled == nil || stalled.Condition != check.want {
+			t.Errorf("%s: %+v; want stalled, %s", check.name, stalled, check.want)
+		}
+	}
+}
+
+// Bytes read from or written to storage, or written to stdout, are movement though the position
+// stands: a run reading through a file to its next frame, or writing a track whose position moves
+// only when a subtitle comes. What the group did before its first sample is its start, not
+// movement.
+func TestWatchdog_BytesReadOrWrittenAreMovementThoughThePositionStands(t *testing.T) {
+	t.Parallel()
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	reading := newWatchdog(clockSource, testWatch)
+	reading.observe(Progress{Position: time.Second})
+	reading.observeGroup(groupSample{processCount: 1, storageBytes: 1 << 20}, 0)
+	for range 3 {
+		clockSource.Advance(testWatch.StallWindow - time.Second)
+		reading.observeGroup(groupSample{processCount: 1, storageBytes: reading.furthestStorageBytes + 1<<20}, 0)
+	}
+	if stalled := reading.verdict(FFmpeg); stalled != nil {
+		t.Errorf("a run reading from storage stalled: %v", stalled)
+	}
+
+	writing := newWatchdog(clockSource, testWatch)
+	writing.observe(Progress{Position: time.Second})
+	writing.observeGroup(groupSample{processCount: 1}, 0)
+	for written := range int64(3) {
+		clockSource.Advance(testWatch.StallWindow - time.Second)
+		writing.observeGroup(groupSample{processCount: 1}, (written+1)*100)
+	}
+	if stalled := writing.verdict(FFmpeg); stalled != nil {
+		t.Errorf("a run writing to stdout stalled: %v", stalled)
+	}
+
+	starting := newWatchdog(clockSource, testWatch)
+	starting.observeGroup(groupSample{processCount: 1, storageBytes: 1 << 30}, 0)
+	clockSource.Advance(testWatch.StartGrace)
+	starting.observeGroup(groupSample{processCount: 1, storageBytes: 1 << 30}, 0)
+	if stalled := starting.verdict(FFmpeg); stalled == nil || stalled.Cause != StallNeverMoved {
+		t.Errorf("a run that read only before its first sample: %+v; want never moved", stalled)
+	}
+}

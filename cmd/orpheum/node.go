@@ -179,16 +179,20 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Scanner: activeScanner, Artworker: deriver, Preparer: preparer,
 		Subtitler:        subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		PreparedShelf:    preparedShelf,
+		PreparedShelf:    preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
 	}
 	workers.ProgressEvery, workers.EndedWorkKept = workPacing(config)
-	workers.HeldResults = heldResults
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
 	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
 	coreSocketPath := filepath.Join(config.Server.SocketDir, coreSocketName)
 	return agent.New(coreSocketPath, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+}
+
+// stuckOf is what the node's status says of the processes runner left running (D233 §10).
+func stuckOf(runner *execx.Runner) func() []nodeproto.Stuck {
+	return func() []nodeproto.Stuck { return agent.StuckOf(runner.Stuck()) }
 }
 
 // devicesOf finds what the roots and the prepared directory, when there is one, are on (D240 §5).
