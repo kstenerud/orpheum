@@ -675,7 +675,9 @@ D231 §12; D233 §8; D241; F2.
 - D241: a hello marks missing each of the node's library roots it does not name; a Title whose
   every copy is unavailable is listed and marked so, with why and since when; a play of it fails at
   once, naming what is missing, and queues nothing, and a play-driven job whose source goes missing
-  is cancelled; an unavailable file can be retired by itself; a root can be repointed to a new path.
+  is cancelled; an unavailable file can be retired by itself; a root can be repointed to a new path;
+  a film whose fetch fails mid-play asks the server why and tells the viewer (§7), with a
+  verification-queue item for the browser's playing out its buffer.
 
 - Subtitle and refresh answers can say "waiting for <destination> (since …)" (a play of what is
   known unavailable fails instead, D241 §4); the job view's
