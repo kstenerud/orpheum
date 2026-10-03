@@ -227,6 +227,16 @@ func (queue *Queue) DemoteUnwanted(ctx context.Context) ([]Demoted, error) {
 	return demoted, nil
 }
 
+// PruneFinished forgets the jobs that ended longer ago than finished_jobs_kept_days, and says how
+// many (D233 §8).
+func (queue *Queue) PruneFinished(ctx context.Context) (int64, error) {
+	keptFor, err := queue.settings.Duration(ctx, settings.FinishedJobsKeptDays)
+	if err != nil {
+		return 0, fmt.Errorf("read finished_jobs_kept_days: %w", err)
+	}
+	return queue.queue.PruneFinished(ctx, keptFor)
+}
+
 // RequeueRunning returns the jobs a stop left running to the queue: their output is a cache, so
 // they restart from zero (cut-a §5.3). Each keeps its counted attempt (S86).
 func (queue *Queue) RequeueRunning(ctx context.Context) (int64, error) {

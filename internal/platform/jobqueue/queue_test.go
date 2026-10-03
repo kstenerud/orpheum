@@ -436,3 +436,31 @@ func TestCancel_AQueuedJobNeverRunsAndARunningOnesContextEndsWithErrCancelled(t 
 		t.Errorf("cancelling a cancelled job: %v, want ErrNotOpen", err)
 	}
 }
+
+// A job that ended longer ago than it is kept for is forgotten; an open one, and one that ended
+// lately, are kept (D233 §8).
+func TestPruneFinished_ForgetsWhatEndedLongerAgoThanItIsKeptFor(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	runner := jobs.queue.NewRunner(kindFetch, func(context.Context, jobqueue.Job[target]) error { return nil })
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "old"})
+	jobs.runDue(t, runner)
+	jobs.clock.Advance(time.Hour)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "recent"})
+	jobs.runDue(t, runner)
+	later := jobs.clock.Now().Add(time.Hour)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "open", RunnableAt: later})
+	jobs.clock.Advance(30 * time.Minute)
+	pruned, err := jobs.queue.PruneFinished(t.Context(), time.Hour)
+	if err != nil || pruned != 1 {
+		t.Fatalf("PruneFinished = %d, %v; want the one that ended 90 minutes ago", pruned, err)
+	}
+	var left []target
+	for _, row := range jobs.storage.Rows() {
+		left = append(left, row.Target)
+	}
+	slices.Sort(left)
+	if !slices.Equal(left, []target{"open", "recent"}) {
+		t.Errorf("the jobs left are %q; want the open one and the one that ended half an hour ago", left)
+	}
+}

@@ -161,6 +161,20 @@ func (jobStorage *JobStorage) DemoteUnwanted(
 	return demoted, err
 }
 
+// PruneFinished forgets the jobs that ended before a time.
+func (jobStorage *JobStorage) PruneFinished(ctx context.Context, before time.Time) (int64, error) {
+	var pruned int64
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		var deleteErr error
+		pruned, deleteErr = queries.DeleteFinishedJobs(ctx, before.UnixMilli())
+		if deleteErr != nil {
+			return fmt.Errorf("delete the jobs that ended: %w", deleteErr)
+		}
+		return nil
+	})
+	return pruned, err
+}
+
 // Claim marks the next due job of the claim's kind running, counts its attempt, and returns it.
 func (jobStorage *JobStorage) Claim(ctx context.Context, claim jobqueue.Claim) (jobqueue.Row[JobTarget], bool, error) {
 	var claimed jobqueue.Row[JobTarget]

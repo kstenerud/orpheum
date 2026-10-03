@@ -140,6 +140,23 @@ func (memory *Memory[T]) DemoteUnwanted(_ context.Context, now time.Time, priori
 	return demoted, nil
 }
 
+// PruneFinished is jobqueue.Storage's.
+func (memory *Memory[T]) PruneFinished(_ context.Context, before time.Time) (int64, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	kept := memory.rows[:0]
+	var pruned int64
+	for _, row := range memory.rows {
+		if !isOpen(row.State) && row.FinishedAt != nil && row.FinishedAt.Before(before) {
+			pruned++
+			continue
+		}
+		kept = append(kept, row)
+	}
+	memory.rows = kept
+	return pruned, nil
+}
+
 // Claim marks the next due job of the claim's kind that no parked destination holds running and
 // counts its attempt.
 func (memory *Memory[T]) Claim(_ context.Context, claim jobqueue.Claim) (jobqueue.Row[T], bool, error) {

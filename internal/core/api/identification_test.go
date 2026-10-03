@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -207,5 +208,43 @@ func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLe
 			!strings.Contains(answer.body, `"failedHop":"provider"`) {
 			t.Errorf("%v: %s, want reason %s and the provider as the failing leg", failure, answer.body, reason)
 		}
+	}
+}
+
+// A provider not answering says since when, and when it is next looked at, as its provider service
+// knows it, so a person is told how long it has been and when to try again (D231 §12).
+func TestIdentification_AProviderNotAnsweringSaysSinceWhenAndTheNextCheck(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
+	harness.tmdbProvider.SetFailure(fmt.Errorf("tmdb /movie/2: %w: status 502", outbound.ErrUnavailable))
+	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
+		map[string]string{"provider": "tmdb", "providerId": "2"})
+	since, next := harness.clock.Now().UnixMilli(), harness.clock.Now().Add(30*time.Second).UnixMilli()
+	want := fmt.Sprintf(`"detail":{"reason":"unavailable","since":%d,"nextCheckAt":%d}`, since, next)
+	if answer.status != http.StatusServiceUnavailable || !strings.Contains(answer.body, want) {
+		t.Errorf("a match while TMDB is down = %d %s; want %s", answer.status, answer.body, want)
+	}
+}
+
+// A refresh asked for while TMDB is not answering says so, since when and when it is next looked
+// at, beside being queued (D231 §12).
+func TestIdentification_ARefreshWhileTMDBIsDownSaysWhatItWaitsFor(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	fine := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
+	if strings.Contains(fine.body, "waitingFor") {
+		t.Errorf("a refresh while TMDB answers = %s; want nothing waited for", fine.body)
+	}
+	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
+	refreshed := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
+	want := fmt.Sprintf(`"waitingFor":{"destination":"tmdb-api","name":"TMDB","reason":"unreachable","since":%d`,
+		harness.clock.Now().UnixMilli())
+	if refreshed.status != http.StatusAccepted || !strings.Contains(refreshed.body, want) {
+		t.Errorf("a refresh while TMDB is down = %d %s; want %s", refreshed.status, refreshed.body, want)
 	}
 }

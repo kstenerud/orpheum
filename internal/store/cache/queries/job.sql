@@ -137,3 +137,9 @@ WHERE kind = sqlc.arg(kind) AND state IN ('queued', 'running', 'assigned')
 UPDATE job SET priority = sqlc.arg(priority), wanted_until = NULL
 WHERE wanted_until IS NOT NULL AND wanted_until < CAST(sqlc.arg(now) AS INTEGER) AND state IN ('queued', 'running', 'assigned')
 RETURNING id, state;
+
+-- name: DeleteFinishedJobs :execrows
+-- The jobs that ended before a time, done, failed or cancelled: the job view keeps what ended
+-- lately, and an item's own failure is a fact kept elsewhere (D231 section 4, D233 section 8).
+DELETE FROM job
+WHERE state IN ('done', 'failed', 'cancelled') AND finished_at < CAST(sqlc.arg(before) AS INTEGER);

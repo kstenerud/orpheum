@@ -2668,6 +2668,10 @@
       "ProviderRefusalDetailBody": {
         "additionalProperties": false,
         "properties": {
+          "nextCheckAt": {
+            "format": "int64",
+            "type": "integer"
+          },
           "reason": {
             "enum": [
               "no_key",
@@ -2679,6 +2683,10 @@
               "unreadable"
             ],
             "type": "string"
+          },
+          "since": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
@@ -2794,6 +2802,9 @@
           "isQueued": {
             "description": "False when a fetch for it was already waiting",
             "type": "boolean"
+          },
+          "waitingFor": {
+            "$ref": "#/components/schemas/DestinationBody"
           }
         },
         "required": [

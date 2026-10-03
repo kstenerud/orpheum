@@ -366,6 +366,11 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		demoteUnwanted(loopsContext, services.queue, services.exchanges, ticker.C, logger)
 	})
+	loops.Go(func() {
+		ticker := time.NewTicker(pruneFinishedEvery)
+		defer ticker.Stop()
+		pruneFinished(loopsContext, services.queue, ticker.C, logger)
+	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
 	return func() { cancel(); loops.Wait() }, nil
 }
@@ -398,6 +403,30 @@ func demoteUnwanted(
 		if len(demoted) > 0 {
 			logger.InfoContext(ctx, "jobs no one waits for any more fell to background priority",
 				"jobCount", len(demoted))
+		}
+	}
+}
+
+// pruneFinishedEvery is how often the jobs that ended long enough ago are forgotten: hours against a
+// month's keeping (finished_jobs_kept_days).
+const pruneFinishedEvery = time.Hour
+
+// pruneFinished forgets, at each tick, the jobs that ended longer ago than finished_jobs_kept_days
+// (D233 §8), until ctx ends.
+func pruneFinished(ctx context.Context, queue *jobs.Queue, tick <-chan time.Time, logger *slog.Logger) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+		}
+		pruned, err := queue.PruneFinished(ctx)
+		if err != nil {
+			logger.WarnContext(ctx, "could not forget the jobs that ended; trying again", "err", err)
+			continue
+		}
+		if pruned > 0 {
+			logger.InfoContext(ctx, "forgot the jobs that ended long ago", "jobCount", pruned)
 		}
 	}
 }
