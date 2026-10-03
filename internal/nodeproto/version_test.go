@@ -35,6 +35,9 @@ var wireShapeByVersion = map[int]string{
 	// 16 posts the status on its own (PathStatus), and the report stream, its records and the hello
 	// reply's report sequence are gone (the jobs rebuild's 4e.4).
 	16: "47fd403d76a5339300ab5ee965b6d80a4f01e7be57d651caba02532794805719",
+	// 17 adds a stall's condition and whether its process was left running, and the status's stuck
+	// processes (D233 §5, §10).
+	17: "fe3a6d405ae55bec7709edec6df30a7b3e0f5c1a04e89a034049bb677b03e82a",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -3,6 +3,7 @@
 package execx
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -210,5 +212,113 @@ func TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainO
 	stalled, isStalled := errors.AsType[*StalledError](err)
 	if !isStalled || stalled.Cause != StallStoodStill || stalled.WithoutAdvance != testWatch.StallWindow {
 		t.Errorf("the continued run, still for its window, ended %v; want stood still for the window alone", err)
+	}
+}
+
+// A stalled run's condition is read from /proc for its whole process group: here a sample that
+// says a process waits on a device.
+func TestRunWatched_AStalledRunSaysWhatItsGroupWasDoing(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Progress: hangingProgress, Hang: testutil.HangUntilQuit})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	runner, ticks := watchedRunner(t, fake, clockSource)
+	sampled := make(chan int, 1)
+	runner.sampleGroup = func(pgid int) groupSample {
+		select {
+		case sampled <- pgid:
+		default:
+		}
+		return groupSample{processCount: 1, isWaitingOnDevice: true}
+	}
+
+	err := runUntilStalled(t, runner, ticks, clockSource)
+	stalled, isStalled := errors.AsType[*StalledError](err)
+	if !isStalled || stalled.Condition != ConditionWaitingOnDisk || stalled.IsLeftRunning {
+		t.Fatalf("a run whose group waited on a device ended %v; want stalled on the disk, not left running", err)
+	}
+	if pgid := testutil.Receive(t, sampled, "the group's sample"); pgid != fake.HungPID(t) {
+		t.Errorf("sampled process group %d, want the run's, %d", pgid, fake.HungPID(t))
+	}
+}
+
+// A process waiting on a device outlives SIGKILL until the device answers. Its run is answered as
+// stalled on the disk once the kill's grace has passed, so its slot is freed, and it is listed as
+// stuck until it ends (D233 §10). Here the signals are not sent, which is how the kernel treats
+// them.
+func TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Progress: hangingProgress, Hang: testutil.HangUntilKilled})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	runner, ticks := watchedRunner(t, fake, clockSource)
+	runner.quitGrace, runner.termGrace, runner.killGrace = 10*time.Millisecond, 10*time.Millisecond, 10*time.Millisecond
+	runner.signalGroup = func(int, syscall.Signal) error { return nil }
+
+	err := runUntilStalled(t, runner, ticks, clockSource)
+	stalled, isStalled := errors.AsType[*StalledError](err)
+	if !isStalled || !stalled.IsLeftRunning || stalled.Condition != ConditionWaitingOnDisk {
+		t.Fatalf("a run that outlived its kill ended %v; want stalled on the disk and left running", err)
+	}
+	pid := fake.HungPID(t)
+	if stuck := runner.Stuck(); len(stuck) != 1 || stuck[0].PID != pid || stuck[0].Tool != FFmpeg {
+		t.Fatalf("stuck: %+v; want the run's process, %d", stuck, pid)
+	}
+	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+		t.Fatal(err)
+	}
+	for range 1000 {
+		if len(runner.Stuck()) == 0 {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Errorf("a stuck process that ended is still listed: %+v", runner.Stuck())
+}
+
+// A cancelled run whose process outlives its kill is answered as cancelled once the kill's grace
+// has passed, and listed as stuck until it ends: a cancel never waits on a dead disk.
+func TestRun_ACancelledRunThatOutlivesItsKillIsAnsweredAndListedAsStuck(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Hang: testutil.HangUntilKilled})
+	runner := newRunner(t, fake)
+	runner.killGrace = 10 * time.Millisecond
+	runner.signalGroup = func(int, syscall.Signal) error { return nil }
+	ctx, cancel := context.WithCancel(t.Context())
+	ended := make(chan error, 1)
+	go func() {
+		_, err := runner.Run(ctx, FFmpeg, confine.Access{Read: []string{"/media/films"}}, nil, 1)
+		ended <- err
+	}()
+	for range 1000 {
+		if recorded, err := os.ReadFile(filepath.Join(fake.Directory, "hung.pid")); err == nil &&
+			strings.HasSuffix(string(recorded), "\n") {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	pid := fake.HungPID(t)
+	cancel()
+	err := testutil.Receive(t, ended, "the cancelled run's end")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("a cancelled run that outlived its kill ended %v; want cancelled", err)
+	}
+	if stuck := runner.Stuck(); len(stuck) != 1 || stuck[0].PID != pid || stuck[0].Reading[0] != "/media/films" {
+		t.Fatalf("stuck: %+v; want the run's process, %d, reading /media/films", stuck, pid)
+	}
+	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// /proc/<pid>/stat's command name may hold spaces and parentheses; the fields after its last
+// parenthesis are read.
+func TestParseStat_ReadsTheStateGroupAndTimesAfterTheCommandName(t *testing.T) {
+	t.Parallel()
+	stat := "4242 (ff (mpeg) x) D 1 4240 4240 0 -1 4194560 100 0 0 0 250 50 0 0 20 0 1 0 1000 0 0"
+	got, isParsed := parseStat(stat)
+	if want := (procStat{state: "D", groupID: 4240, cpuTicks: 300}); !isParsed || got != want {
+		t.Errorf("parseStat(%q) = %+v, %t; want %+v", stat, got, isParsed, want)
+	}
+	if _, isParsed := parseStat("4242 (ffmpeg) R 1"); isParsed {
+		t.Error("a stat cut short was parsed")
 	}
 }

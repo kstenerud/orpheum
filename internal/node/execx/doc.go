@@ -39,6 +39,15 @@
 //     deadline. Progress lines that arrive with the position where it was are not movement.
 //     TestWatchdog_OnlyAPositionThatAdvancesIsProgressNotLinesThatArrive,
 //     TestWatchdog_ARunThatNeverMovesOrOutrunsItsDeadlineHasStalled.
+//   - Bytes its process group has read from or written to storage, or it has written to stdout,
+//     are movement too, though not the position's. TestWatchdog_BytesReadOrWrittenAreMovementThoughThePositionStands.
+//   - A stall says what the group was doing, by /proc: waiting on the disk when a process is in
+//     uninterruptible sleep, spinning when it used half a processor or more, stuck otherwise (D233 §5).
+//     TestWatchdog_AStallSaysWhetherItWaitedOnTheDiskSpunOrWasStuck,
+//     TestRunWatched_AStalledRunSaysWhatItsGroupWasDoing.
+//   - A run whose process outlives SIGKILL by killGrace, as one waiting on a device does, is
+//     answered at once, as stalled on the disk or cancelled, and listed by Stuck until it ends
+//     (D233 §10). TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds.
 //   - A deadline is three times the run's expected length, at least ten minutes, and a day when
 //     the length is unknown.
 //     TestDeadlineFor_IsThreeTimesTheExpectedLengthAtLeastTenMinutesAndADayWhenUnknown.
@@ -54,13 +63,15 @@
 //   - D43: confinement is per invocation.
 //   - D112: the node probes its confinement and reports it.
 //   - D190 §4: the fake ffmpeg fixture asserts the arguments and environment.
+//   - D233 §5, §10: a stall classified, and a process that outlives its kill.
 //   - docs/contributors/design/plans/cut-a.md §7.
 //
 // # Where to change
 //
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
-//     pause.go: pausing a watched run for play-driven work.
+//     pause.go: pausing a watched run for play-driven work. proc_linux.go: reading a process
+//     group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.
 package execx

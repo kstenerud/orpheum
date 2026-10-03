@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -35,6 +37,11 @@ const stderrTailBytes = 4096
 // How long a cancelled run's pipes may stay open once its process group is killed, before
 // Wait gives up on them.
 const waitDelay = 10 * time.Second
+
+// defaultKillGrace is how long a killed run's process may take to end before it is left running
+// and listed as stuck (Runner.Stuck): only a process waiting on a device outlives SIGKILL, and it
+// ends when the device answers, if ever (D233 §10).
+const defaultKillGrace = 10 * time.Second
 
 // hardeningFlags is prepended to every run's arguments: no banner, and ffmpeg never reads stdin.
 func hardeningFlags(tool Tool) ([]string, bool) {
@@ -93,10 +100,18 @@ type Runner struct {
 	// watchTicks are when the watchdog judges a watched run, and how to stop them; a test's are
 	// its own.
 	watchTicks func() (ticks <-chan time.Time, stop func())
-	// quitGrace and termGrace are how long a stalled run has after SIGINT and after SIGTERM.
-	quitGrace, termGrace time.Duration
+	// quitGrace and termGrace are how long a stalled run has after SIGINT and after SIGTERM, and
+	// killGrace after SIGKILL, before it is left running.
+	quitGrace, termGrace, killGrace time.Duration
+	// sampleGroup reads /proc for a watched run's process group; a test's says what it is told.
+	sampleGroup func(pgid int) groupSample
+	// signalGroup sends a signal to a run's process group; a test's may ignore SIGKILL, as the
+	// kernel does for a process waiting on a device.
+	signalGroup func(pgid int, signal syscall.Signal) error
 	// onStarted, when set by a test, is called once the process has started.
 	onStarted func()
+
+	stuck stuckProcesses
 }
 
 // NewRunner returns a runner for the tools in directory, which must be an absolute path, that
@@ -117,8 +132,15 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 	}
 	return &Runner{
 		directory: directory, shim: shim, clock: clock.System{}, watchTicks: systemWatchTicks,
-		quitGrace: defaultQuitGrace, termGrace: defaultTermGrace,
+		quitGrace: defaultQuitGrace, termGrace: defaultTermGrace, killGrace: defaultKillGrace,
+		sampleGroup: sampleGroup, signalGroup: signalProcessGroup,
+		stuck: stuckProcesses{byPID: map[int]StuckProcess{}},
 	}, nil
+}
+
+// signalProcessGroup sends signal to process group pgid: the tool and anything it started.
+func signalProcessGroup(pgid int, signal syscall.Signal) error {
+	return syscall.Kill(-pgid, signal) //nolint:wrapcheck // the caller ignores it: a group already gone needs no signal
 }
 
 // systemWatchTicks ticks every watchCheckEvery.
@@ -257,8 +279,13 @@ func (runner *Runner) runToExit(
 	// The watchdog stops a run by ending runCtx with the stall as its cause; ctx ending is a cancel.
 	runCtx, stopRun := context.WithCancelCause(ctx)
 	defer stopRun(nil)
-	exited := make(chan struct{})
-	command, stderr := runner.command(ctx, runCtx, path, argv, streams, exited)
+	ending := runEnding{exited: make(chan struct{}), leftRunning: make(chan struct{})}
+	var stdout *countingWriter
+	if streams.watch != nil {
+		stdout = &countingWriter{to: streams.stdout}
+		streams.stdout = stdout
+	}
+	command, stderr := runner.command(ctx, runCtx, path, argv, streams, ending)
 	var progress *progressPipe
 	if streams.watch != nil {
 		var err error
@@ -278,25 +305,73 @@ func (runner *Runner) runToExit(
 			defer streams.pausing.detach()
 		}
 		progress.startReading(dog)
-		go runner.watchUntil(exited, dog, tool, stopRun)
+		go runner.watchUntil(ending.exited, watched{dog: dog, pid: command.Process.Pid, stdout: stdout}, tool, stopRun)
 	}
 	if runner.onStarted != nil {
 		runner.onStarted()
 	}
-	err := command.Wait()
-	close(exited)
-	progress.finishReading()
-	if ended := outcome(ctx, runCtx, tool, command, stderr, err); ended != nil {
-		return nil, ended
+	waited := make(chan error, 1)
+	go func() {
+		err := command.Wait()
+		close(ending.exited)
+		progress.finishReading()
+		waited <- err
+	}()
+	select {
+	case err := <-waited:
+		if ended := outcome(ctx, runCtx, tool, command, stderr, err); ended != nil {
+			return nil, ended
+		}
+		return stderr, nil
+	case <-ending.leftRunning:
+		left := leftRun{tool: tool, reading: access.Read, pid: command.Process.Pid, stderr: stderr, waited: waited}
+		return nil, runner.leaveRunning(ctx, runCtx, left)
 	}
-	return stderr, nil
+}
+
+// runEnding is how a run's end is told: exited closes once its process has ended, and leftRunning
+// once it has outlived its kill by killGrace.
+type runEnding struct {
+	exited      chan struct{}
+	leftRunning chan struct{}
+}
+
+// leaveRunning answers for a run whose process outlived SIGKILL: it is listed as stuck until it
+// ends, which waited says, and the run's caller is answered now, so its slot is freed (D233 §10).
+// A stalled run says it was left running; a cancelled one says it was cancelled.
+func (runner *Runner) leaveRunning(ctx, runCtx context.Context, left leftRun) error {
+	runner.stuck.add(StuckProcess{PID: left.pid, Tool: left.tool, Reading: left.reading, Since: runner.clock.Now()})
+	go func() {
+		<-left.waited
+		runner.stuck.remove(left.pid)
+	}()
+	stalled, isStalled := errors.AsType[*StalledError](context.Cause(runCtx))
+	if ctx.Err() != nil || !isStalled {
+		return &RunError{
+			Tool: left.tool, ExitStatus: -1, StderrTail: left.stderr.String(),
+			Err: fmt.Errorf("its process %d outlived its kill and is left running: %w", left.pid, ctx.Err()),
+		}
+	}
+	// Only a process waiting on a device outlives SIGKILL, whatever the last sample said.
+	stalled.Condition, stalled.IsLeftRunning, stalled.StderrTail = ConditionWaitingOnDisk, true, left.stderr.String()
+	return stalled
+}
+
+// leftRun is a run whose process outlived its kill: its tool, what it was reading, its process,
+// the end of its log, and its Wait's answer, which comes when it ends.
+type leftRun struct {
+	tool    Tool
+	reading []string
+	pid     int
+	stderr  *tailBuffer
+	waited  <-chan error
 }
 
 // command is the tool's command at path with argv, its streams as streams says, and the buffer
 // that keeps the end of its stderr. Ending runCtx stops it: at once, killing its process group,
 // when ctx has ended, and gracefully when the watchdog ended it (stopStalled).
 func (runner *Runner) command(
-	ctx, runCtx context.Context, path string, argv []string, streams pipes, exited <-chan struct{},
+	ctx, runCtx context.Context, path string, argv []string, streams pipes, ending runEnding,
 ) (*exec.Cmd, *tailBuffer) {
 	//nolint:gosec // the one sanctioned start: a configured directory, a fixed tool name, and argv as a slice
 	command := exec.CommandContext(runCtx, path, argv...)
@@ -310,12 +385,14 @@ func (runner *Runner) command(
 	}
 	command.SysProcAttr = toolProcessAttributes()
 	command.Cancel = func() error {
+		pid := command.Process.Pid
 		if ctx.Err() == nil {
-			runner.stopStalled(command.Process.Pid, exited)
+			runner.stopStalled(pid, ending)
 			return nil
 		}
-		// The negative pid names the process group: the tool and anything it started.
-		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
+		err := runner.signalGroup(pid, syscall.SIGKILL)
+		go runner.leaveRunningUnlessExited(ending)
+		return err
 	}
 	command.WaitDelay = waitDelay
 	return command, stderr
@@ -341,9 +418,17 @@ func outcome(
 	return nil
 }
 
-// watchUntil judges the run at each of the watchdog's ticks until it has exited, and stops it,
-// with the stall as the cause, once the watchdog says it has stalled.
-func (runner *Runner) watchUntil(exited <-chan struct{}, dog *watchdog, tool Tool, stopRun context.CancelCauseFunc) {
+// watched is a run the watchdog judges: its watchdog, its process group, and its stdout counted.
+type watched struct {
+	dog    *watchdog
+	pid    int
+	stdout *countingWriter
+}
+
+// watchUntil judges the run at each of the watchdog's ticks until it has exited, sampling its
+// process group first, and stops it, with the stall as the cause, once the watchdog says it has
+// stalled.
+func (runner *Runner) watchUntil(exited <-chan struct{}, run watched, tool Tool, stopRun context.CancelCauseFunc) {
 	ticks, stopTicks := runner.watchTicks()
 	defer stopTicks()
 	for {
@@ -351,7 +436,8 @@ func (runner *Runner) watchUntil(exited <-chan struct{}, dog *watchdog, tool Too
 		case <-exited:
 			return
 		case <-ticks:
-			if stalled := dog.verdict(tool); stalled != nil {
+			run.dog.observeGroup(runner.sampleGroup(run.pid), run.stdout.count())
+			if stalled := run.dog.verdict(tool); stalled != nil {
 				stopRun(stalled)
 				return
 			}
@@ -360,25 +446,42 @@ func (runner *Runner) watchUntil(exited <-chan struct{}, dog *watchdog, tool Too
 }
 
 // stopStalled stops a stalled run's process group: SIGINT, FFmpeg's graceful quit, then SIGTERM,
-// then SIGKILL, each after its grace unless the run has exited by then.
-func (runner *Runner) stopStalled(pid int, exited <-chan struct{}) {
-	_ = syscall.Kill(-pid, syscall.SIGINT) //nolint:errcheck // a group already gone needs no stopping
+// then SIGKILL, each after its grace unless the run has exited by then; and leaves it running if
+// it outlives the SIGKILL.
+func (runner *Runner) stopStalled(pid int, ending runEnding) {
+	_ = runner.signalGroup(pid, syscall.SIGINT) //nolint:errcheck // a group already gone needs no stopping
 	escalation := []struct {
 		grace  time.Duration
 		signal syscall.Signal
 	}{{runner.quitGrace, syscall.SIGTERM}, {runner.termGrace, syscall.SIGKILL}}
 	go func() {
 		for _, step := range escalation {
-			timer := time.NewTimer(step.grace)
-			select {
-			case <-exited:
-				timer.Stop()
+			if !waitUnlessExited(ending.exited, step.grace) {
 				return
-			case <-timer.C:
 			}
-			_ = syscall.Kill(-pid, step.signal) //nolint:errcheck // a group already gone needs no stopping
+			_ = runner.signalGroup(pid, step.signal) //nolint:errcheck // a group already gone needs no stopping
 		}
+		runner.leaveRunningUnlessExited(ending)
 	}()
+}
+
+// leaveRunningUnlessExited says the run is left running once it has outlived its kill by killGrace.
+func (runner *Runner) leaveRunningUnlessExited(ending runEnding) {
+	if waitUnlessExited(ending.exited, runner.killGrace) {
+		close(ending.leftRunning)
+	}
+}
+
+// waitUnlessExited waits for grace, and is whether it passed without the run exiting.
+func waitUnlessExited(exited <-chan struct{}, grace time.Duration) bool {
+	timer := time.NewTimer(grace)
+	defer timer.Stop()
+	select {
+	case <-exited:
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 // progressPipe is a watched run's -progress pipe: FFmpeg writes into it as descriptor
@@ -463,13 +566,17 @@ func (limited *limitedBuffer) kept(tool Tool, stderrTail *tailBuffer) ([]byte, e
 	return limited.buffer.Bytes(), nil
 }
 
-// tailBuffer keeps the last limit bytes written to it.
+// tailBuffer keeps the last limit bytes written to it. A run left running may still write to it
+// while its caller reads it.
 type tailBuffer struct {
-	data       []byte
+	mutex      sync.Mutex
+	data       []byte // guarded by mutex
 	limitBytes int
 }
 
 func (tail *tailBuffer) Write(data []byte) (int, error) {
+	tail.mutex.Lock()
+	defer tail.mutex.Unlock()
 	tail.data = append(tail.data, data...)
 	if excess := len(tail.data) - tail.limitBytes; excess > 0 {
 		tail.data = tail.data[excess:]
@@ -477,4 +584,29 @@ func (tail *tailBuffer) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (tail *tailBuffer) String() string { return string(tail.data) }
+func (tail *tailBuffer) String() string {
+	tail.mutex.Lock()
+	defer tail.mutex.Unlock()
+	return string(tail.data)
+}
+
+// countingWriter passes what is written on to another writer and counts it, for the watchdog,
+// which reads the count from another goroutine.
+type countingWriter struct {
+	to      io.Writer
+	written atomic.Int64
+}
+
+func (counting *countingWriter) Write(data []byte) (int, error) {
+	written, err := counting.to.Write(data)
+	counting.written.Add(int64(written))
+	return written, err //nolint:wrapcheck // the writer's own error, passed through
+}
+
+// count is what has been written; zero for nil.
+func (counting *countingWriter) count() int64 {
+	if counting == nil {
+		return 0
+	}
+	return counting.written.Load()
+}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 
@@ -69,7 +68,6 @@ func assertGone(t *testing.T, pid int) {
 
 // processState is the state letter in /proc/<pid>/stat, after the parenthesised command name.
 func processState(stat string) string {
-	_, after, _ := strings.Cut(stat[strings.LastIndex(stat, ")"):], " ")
-	state, _, _ := strings.Cut(after, " ")
-	return state
+	parsed, _ := parseStat(stat)
+	return parsed.state
 }

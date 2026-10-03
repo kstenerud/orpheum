@@ -72,6 +72,22 @@ type Status struct {
 	// TakenCommandSeq is the last command the node had taken when it made the list: the core judges
 	// only the attempts it sent up to it, so one still on its way is not taken for lost.
 	TakenCommandSeq int64 `json:"takenCommandSeq"`
+	// Stuck is the work the node gave up on that has not ended, waiting on a device (D233 §10).
+	Stuck []Stuck `json:"stuck,omitempty"`
+}
+
+// Stuck is work the node answered as stalled that has not ended: a tool's process that outlived
+// its kill, waiting on a device, which it does until the device answers, if ever (D233 §10). It
+// holds no slot.
+type Stuck struct {
+	// Tool is the program: "ffmpeg" or "ffprobe".
+	Tool string `json:"tool"`
+	// PID is its process.
+	PID int `json:"pid"`
+	// Paths are where it was reading: the device it waits on holds one of them.
+	Paths []string `json:"paths,omitempty"`
+	// Since is when the node gave up on it, in Unix milliseconds.
+	Since int64 `json:"since"`
 }
 
 // HeldState is where an attempt the node holds is.

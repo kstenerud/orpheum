@@ -75,7 +75,10 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
 	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
 	rendition := insertRendition(t, all)
-	stall := &nodeproto.Stall{Cause: nodeproto.StallStoodStill, LastPositionMs: 4000, WithoutAdvanceMs: 180_000}
+	stall := &nodeproto.Stall{
+		Cause: nodeproto.StallStoodStill, Condition: nodeproto.ConditionSpinning, LastPositionMs: 4000,
+		WithoutAdvanceMs: 180_000,
+	}
 	prepareAfter := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptStalled,
@@ -86,7 +89,7 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
-		!strings.Contains(err.Error(), "stood_still at 4000 ms") {
+		!strings.Contains(err.Error(), "stood_still at 4000 ms") || !strings.Contains(err.Error(), "spinning") {
 		t.Errorf("a first stall ended %v; want it tried again as a stall, saying what the node saw", err)
 	}
 	if row := renditionRow(t, all, rendition); row.State == renditionFailed {
