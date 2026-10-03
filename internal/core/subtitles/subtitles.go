@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package subtitles
 
 import (
 	"context"
@@ -18,10 +18,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// SubtitleTrack is one text subtitle a playback offers: a track inside the video or a subtitle
+// Track is one text subtitle a playback offers: a track inside the video or a subtitle
 // file beside it, named by its stream row, with what the container or the file's name says of it;
 // or a subtitle fetched on request, named by its own row, with the provider's name for it (D224).
-type SubtitleTrack struct {
+type Track struct {
 	preferences.TrackRef
 	// Language is BCP 47, or empty when nothing named one.
 	Language string
@@ -36,18 +36,18 @@ type SubtitleTrack struct {
 	IsHearingImpaired bool
 }
 
-// SubtitleFormat is one of the two forms a subtitle is served in (cut-a §6).
-type SubtitleFormat string
+// Format is one of the two forms a subtitle is served in (cut-a §6).
+type Format string
 
 // The formats: ASS for JASSUB, WebVTT for the cast receiver.
 const (
-	FormatASS    SubtitleFormat = "ass"
-	FormatWebVTT SubtitleFormat = "vtt"
+	FormatASS    Format = "ass"
+	FormatWebVTT Format = "vtt"
 )
 
-// Subtitle is a playback's subtitle in one format, or how far its extraction is.
-type Subtitle struct {
-	Readiness Readiness
+// Text is a subtitle's text in one format, or how far its making is.
+type Text struct {
+	Readiness jobs.Readiness
 	Text      []byte
 	// Failure is why its extraction failed.
 	Failure string
@@ -60,11 +60,11 @@ func textKey(payloadHash []byte, streamIndex *int64) sqlcgen.GetSubtitleTextPara
 	return sqlcgen.GetSubtitleTextParams{SourceHash: payloadHash, StreamIndex: ptr.ValueOrZero(streamIndex)}
 }
 
-// wantSubtitles lists a video's text subtitle tracks, its own and its subtitle files', and has
+// Want lists a video's text subtitle tracks, its own and its subtitle files', and has
 // each extracted that is not already, whatever the decision: an embedded track means reading the
 // whole file, so it is done when the file is first played (D217 §6). A track that failed is tried
 // again. Bitmap tracks are not offered (cut-a §1).
-func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
+func (service *Service) Want(ctx context.Context, videoID int64) ([]Track, error) {
 	rows, err := service.textTrackRows(ctx, service.database.Read(), videoID)
 	if err != nil {
 		return nil, err
@@ -92,11 +92,11 @@ func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]Sub
 	return append(streamTracksOf(rows), fetchedTracksOf(fetched)...), nil
 }
 
-// textTracksOf lists a video's text subtitle tracks: its own, its subtitle files' and those
+// Tracks lists a video's text subtitle tracks: its own, its subtitle files' and those
 // fetched for it.
-func (service *Service) textTracksOf(
+func (service *Service) Tracks(
 	ctx context.Context, queries *sqlcgen.Queries, videoID int64,
-) ([]SubtitleTrack, error) {
+) ([]Track, error) {
 	rows, err := service.textTrackRows(ctx, queries, videoID)
 	if err != nil {
 		return nil, err
@@ -109,10 +109,10 @@ func (service *Service) textTracksOf(
 }
 
 // fetchedTracksOf are a video's fetched subtitles as tracks, named as the provider named them.
-func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTrack {
-	tracks := make([]SubtitleTrack, 0, len(rows))
+func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []Track {
+	tracks := make([]Track, 0, len(rows))
 	for _, row := range rows {
-		tracks = append(tracks, SubtitleTrack{
+		tracks = append(tracks, Track{
 			TrackRef: preferences.TrackRef{FetchedSubtitleID: row.ID}, Language: row.Language,
 			ReleaseName: ptr.ValueOrZero(row.ReleaseName),
 		})
@@ -137,10 +137,10 @@ func (service *Service) textTrackRows(
 	return textRows, nil
 }
 
-func streamTracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack {
-	tracks := make([]SubtitleTrack, 0, len(rows))
+func streamTracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []Track {
+	tracks := make([]Track, 0, len(rows))
 	for _, row := range rows {
-		tracks = append(tracks, SubtitleTrack{
+		tracks = append(tracks, Track{
 			TrackRef: preferences.TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Language),
 			ContainerTitle:    ptr.ValueOrZero(row.ContainerTitle),
 			IsDefault:         row.DispositionFlags&library.DispositionBit("default") != 0,
@@ -184,38 +184,29 @@ func (service *Service) wantText(ctx context.Context, want wantedText) error {
 	return err
 }
 
-// Subtitle is the text, in format, of a subtitle track of the file a media token refers to
-// (cut-a §5). A track of any other file is no subtitle of this playback.
-func (service *Service) Subtitle(
-	ctx context.Context, token string, track preferences.TrackRef, format SubtitleFormat, userID int64,
-	sessionKey string,
-) (Subtitle, error) {
-	idle, err := service.tokenIdleExpiry(ctx)
+// TextOf is the text, in format, of a subtitle track of video, which a playback of it offers
+// (cut-a §5). A track of any other file is ErrNoSubtitle.
+func (service *Service) TextOf(
+	ctx context.Context, track preferences.TrackRef, videoFileID int64, format Format,
+) (Text, error) {
+	key, err := service.textKeyOfTrack(ctx, track, videoFileID)
 	if err != nil {
-		return Subtitle{}, err
-	}
-	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
-	if !found {
-		return Subtitle{}, ErrNoToken
-	}
-	key, err := service.textKeyOfTrack(ctx, track, playback.fileID)
-	if err != nil {
-		return Subtitle{}, err
+		return Text{}, err
 	}
 	row, err := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, key))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return Subtitle{Readiness: Preparing}, nil // asked for when the playback began, and not made yet
+		return Text{Readiness: jobs.Preparing}, nil // asked for when the playback began, and not made yet
 	case err != nil:
-		return Subtitle{}, fmt.Errorf("read the subtitle: %w", err)
+		return Text{}, fmt.Errorf("read the subtitle: %w", err)
 	case row.Failure != nil:
-		return Subtitle{Readiness: Failed, Failure: *row.Failure}, nil
+		return Text{Readiness: jobs.Failed, Failure: *row.Failure}, nil
 	}
 	text := row.ASS
 	if format == FormatWebVTT {
 		text = row.VTT
 	}
-	return Subtitle{Readiness: Complete, Text: text}, nil
+	return Text{Readiness: jobs.Complete, Text: text}, nil
 }
 
 // textKeyOfTrack is where a track of video's text is kept, or ErrNoSubtitle for a track the
@@ -283,8 +274,8 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 }
 
 // makeSubtitleText gives a node the making of one subtitle's text, which says later how it ended:
-// its recorder keeps the text where the command's source says (recordSubtitle), and the job is
-// resolved by subtitleAssignee.
+// its recorder keeps the text where the command's source says (record), and the job is
+// resolved by Assignee.
 func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 ) error {
@@ -296,10 +287,10 @@ func (service *Service) makeSubtitleText(
 	})
 }
 
-// SubtitleAssignee is how a subtitle's making given to a node, an extraction or a fetched subtitle's
+// Assignee is how a subtitle's making given to a node, an extraction or a fetched subtitle's
 // conversion, is resolved. FFmpeg's failure is kept and not retried; a node's refusal, which says
 // nothing of the source's bytes, is not kept, and the job is tried again.
-func (service *Service) SubtitleAssignee(runner nodes.Resolver) nodes.Assignee {
+func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 	keepFailure := func(ctx context.Context, attempt nodes.Attempt) func(failure string) error {
 		return func(failure string) error {
 			key, isKept, err := subtitleTextKey(ptr.ValueOrZero(attempt.Work.ExtractSubtitle))
@@ -363,10 +354,10 @@ func nonNil(text []byte) []byte {
 	return text
 }
 
-// RecordSubtitleFailure records an extract_subtitle or convert_fetched_subtitle job that failed as
+// RecordFailure records an extract_subtitle or convert_fetched_subtitle job that failed as
 // its track's own failure (D231 §4, §10): the playback shows it failed, and the next play of its
 // video asks again, a play being the request.
-func (service *Service) RecordSubtitleFailure(ctx context.Context, job jobs.Job, failure string) error {
+func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure string) error {
 	var key sqlcgen.GetSubtitleTextParams
 	switch job.Kind {
 	case jobs.KindExtractSubtitle:

@@ -52,9 +52,8 @@ func (harness testHarness) extract(
 	t *testing.T, jobID int64, answer nodeproto.SubtitleText,
 ) (nodeproto.Command, error) {
 	t.Helper()
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
-	finished := harness.handle(t, playback.HandleExtractSubtitle, job)
+	finished := harness.handle(t, harness.subtitles.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	harness.answerSubtitle(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
@@ -272,9 +271,8 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		decided.Subtitles[1].StreamID != sidecarStreamID || decided.Subtitles[1].Language != "es" {
 		t.Fatalf("the subtitles offered = %+v, want the video's own track, then the Spanish file", decided.Subtitles)
 	}
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: sidecarStreamID}}
-	finished := harness.handle(t, playback.HandleExtractSubtitle, job)
+	finished := harness.handle(t, harness.subtitles.HandleExtractSubtitle, job)
 	command := harness.nextCommand(t)
 	sent := command.ExtractSubtitle
 	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.RootPath != "/media" ||
@@ -299,9 +297,8 @@ func TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain(t *testin
 	harness.shelveFilms(t)
 	harness.shelveSubtitles(t)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 94, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
-	if err := playback.RecordSubtitleFailure(t.Context(), job, "node 1 said nothing five times"); err != nil {
+	if err := harness.subtitles.RecordFailure(t.Context(), job, "node 1 said nothing five times"); err != nil {
 		t.Fatal(err)
 	}
 	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")

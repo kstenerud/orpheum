@@ -8,6 +8,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -25,7 +26,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
 			return err
 		}
-		tracks, err := service.textTracksOf(ctx, queries, fileID)
+		tracks, err := service.subtitles.Tracks(ctx, queries, fileID)
 		if err != nil {
 			return err
 		}
@@ -112,7 +113,7 @@ func audioTracksOf(ctx context.Context, queries *sqlcgen.Queries, videoID int64)
 }
 
 // subtitleKind is a subtitle track's kind, for a choice (D24).
-func subtitleKind(track SubtitleTrack) preferences.Kind {
+func subtitleKind(track subtitles.Track) preferences.Kind {
 	switch {
 	case track.IsForced:
 		return preferences.KindForced
@@ -123,7 +124,7 @@ func subtitleKind(track SubtitleTrack) preferences.Kind {
 }
 
 // choiceTracks are subtitle tracks as a choice sees them.
-func choiceTracks(tracks []SubtitleTrack) []preferences.Track {
+func choiceTracks(tracks []subtitles.Track) []preferences.Track {
 	described := make([]preferences.Track, 0, len(tracks))
 	for _, track := range tracks {
 		described = append(described, preferences.Track{TrackRef: track.TrackRef, Description: preferences.Description{

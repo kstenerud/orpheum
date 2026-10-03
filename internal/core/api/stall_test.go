@@ -69,13 +69,12 @@ func TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure(t *testing.
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	extract := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID},
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
-		return answerAfterStall(t, harness, job, playback.HandleExtractSubtitle, func() {
+		return answerAfterStall(t, harness, job, harness.subtitles.HandleExtractSubtitle, func() {
 			harness.answerSubtitle(t, 96, nodeproto.SubtitleText{Stall: testStall})
 		})
 	}
@@ -107,7 +106,6 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	interrupt := func() { harness.exchanges.Interrupt(t.Context(), 1) }
 	measure := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
@@ -121,7 +119,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 			ID: 96, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID},
 			PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
-		return answerAfterStall(t, harness, job, playback.HandleExtractSubtitle, interrupt)
+		return answerAfterStall(t, harness, job, harness.subtitles.HandleExtractSubtitle, interrupt)
 	}
 	for kind, run := range map[string]func(bool) error{"a measurement": measure, "an extraction": extract} {
 		if err := run(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {

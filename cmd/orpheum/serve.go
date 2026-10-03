@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -175,8 +176,9 @@ func openAndWire(
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	dependencies.Artwork = opened.jobServices.artwork
-	opened.jobServices.loudness, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences,
-		logger)
+	opened.jobServices.loudness, opened.jobServices.subtitles, dependencies.Playback = openPlayback(opened, database,
+		dependencies.Preferences, logger)
+	dependencies.Subtitles = opened.jobServices.subtitles
 	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
 	opened.nodes.SetRenditionIndex(dependencies.Playback)
 	dependencies.NodeBytes = openByteSocket(opened.nodes, config)
@@ -191,19 +193,24 @@ func openAndWire(
 }
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the loudness of its
-// sounds, and the playback service.
+// sounds, its subtitles, and the playback service.
 func openPlayback(
 	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
-) (*loudness.Service, *playback.Service) {
+) (*loudness.Service, *subtitles.Service, *playback.Service) {
+	queue := opened.jobServices.queue
 	loudnessService := loudness.NewService(loudness.Parts{
-		Database: database, Queue: opened.jobServices.queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
+		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
 		Settings: opened.settings, Clock: clock.System{},
 	})
-	return loudnessService, playback.NewService(playback.Parts{
-		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
+	subtitlesService := subtitles.NewService(subtitles.Parts{
+		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
+		Subtitler: opened.jobServices.subtitler, Clock: clock.System{}, MaxSilence: prepareMaxSilence,
+	})
+	return loudnessService, subtitlesService, playback.NewService(playback.Parts{
+		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes,
 		Exchanges: opened.exchanges,
 		Settings:  opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
-		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: preferencesService,
+		MaxSilence: prepareMaxSilence, Subtitles: subtitlesService, Preferences: preferencesService,
 		Loudness: loudnessService,
 	})
 }

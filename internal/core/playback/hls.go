@@ -62,20 +62,10 @@ func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	return renditions
 }
 
-// Readiness is how far a prepared playback's rendition is.
-type Readiness string
-
-// The readinesses: still being prepared, complete, or failed.
-const (
-	Preparing Readiness = "preparing"
-	Complete  Readiness = "complete"
-	Failed    Readiness = "failed"
-)
-
 // HLSSource is where one file of a prepared playback's rendition is, and how far the rendition is.
 type HLSSource struct {
 	Source
-	Readiness Readiness
+	Readiness jobs.Readiness
 	// fileID and profile name the rendition, for PrepareAgain.
 	fileID  int64
 	profile nodeproto.PrepareProfile
@@ -103,14 +93,14 @@ func (service *Service) HLSSourceOf(
 	if err != nil {
 		return HLSSource{}, fmt.Errorf("read the rendition: %w", err)
 	}
-	readiness := Preparing
+	readiness := jobs.Preparing
 	switch rendition.State {
 	case renditionComplete:
-		readiness = Complete
+		readiness = jobs.Complete
 	case renditionFailed:
-		readiness = Failed
+		readiness = jobs.Failed
 	}
-	if readiness == Preparing {
+	if readiness == jobs.Preparing {
 		// The player asking for it is a person still waiting for it (D234 §3).
 		err = service.queue.KeepWanted(ctx, jobs.KindPrepare, jobs.Target{RenditionID: rendition.ID})
 		if err != nil {

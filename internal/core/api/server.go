@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 )
 
 // Prefix is where the API lives (cut-a §5).
@@ -63,6 +64,8 @@ type Dependencies struct {
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.
 	Playback *playback.Service
+	// Subtitles lists the subtitles a person can fetch for a file (D224).
+	Subtitles *subtitles.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.

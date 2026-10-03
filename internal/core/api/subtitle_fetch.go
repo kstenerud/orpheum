@@ -9,7 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/subtitles"
 )
 
 // SubtitleCandidatesInput asks for the subtitles that can be fetched for a file in a language.
@@ -92,7 +92,7 @@ func (server *Server) getSubtitleCandidates(
 	if err != nil {
 		return nil, err
 	}
-	offer, err := dependencies.Playback.SubtitleCandidates(ctx, input.FileID, input.Language)
+	offer, err := dependencies.Subtitles.Candidates(ctx, input.FileID, input.Language)
 	if err != nil {
 		return nil, server.playbackError(ctx, "list subtitle candidates", err)
 	}
@@ -120,7 +120,7 @@ func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitle
 	if err != nil {
 		return nil, err
 	}
-	fetched, err := dependencies.Playback.FetchSubtitle(ctx, principal.UserID, input.FileID, playback.FetchRequest{
+	fetched, err := dependencies.Playback.FetchSubtitle(ctx, principal.UserID, input.FileID, subtitles.FetchRequest{
 		ProviderFileID: input.Body.ProviderFileID, Language: input.Body.Language,
 	})
 	if err != nil {
