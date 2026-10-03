@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -39,8 +40,8 @@ func TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved(t *testing.T) {
 		}
 		return service.keepSubtitleOffset(t.Context(), queries, userID, fileID, offsetMs)
 	})
-	if !errors.Is(err, ErrNoFile) {
-		t.Errorf("keeping an offset for a file removed in the same transaction: %v, want ErrNoFile", err)
+	if !errors.Is(err, library.ErrNoFile) {
+		t.Errorf("keeping an offset for a file removed in the same transaction: %v, want library.ErrNoFile", err)
 	}
 	// That transaction rolled back, so the file is live again, and an offset for it is kept.
 	if err = service.SetSubtitleOffset(t.Context(), userID, fileID, offsetMs); err != nil {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -217,8 +218,8 @@ func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
 // file whose bytes are already measured, as a second copy's are, is not measured again; FFmpeg's
 // failure is kept and not retried, and a node's refusal is not kept and is retried.
 func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job) error {
-	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
-	if errors.Is(err, ErrNoFile) {
+	file, err := library.PlayableFile(ctx, service.database.Read(), job.FileID)
+	if errors.Is(err, library.ErrNoFile) {
 		return jobs.MarkPermanent(err)
 	}
 	if err != nil {
@@ -231,7 +232,7 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if len(loudnessRows) > 0 {
 		return nil
 	}
-	probe, err := decodeProbe(file.ProbeJSON)
+	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -244,10 +245,11 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if len(command.Tracks) == 0 {
 		return nil
 	}
-	if parked := service.parkIfUnavailable(ctx, job, locatedOf(file)); parked != nil {
+	parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, library.LocatedOf(file))
+	if parked != nil {
 		return parked
 	}
-	if command.Video, err = service.bytesFileOf(ctx, locatedOf(file)); err != nil {
+	if command.Video, err = library.BytesFileOf(ctx, service.database.Read(), library.LocatedOf(file)); err != nil {
 		return jobs.MarkPermanent(err)
 	}
 	slowestRead := service.nodes.SlowestReadBytesPerSecond(file.NodeID)
@@ -264,14 +266,14 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 // (D231 §4, §10): its attempts spent, or its bytes unreadable. It is kept by the file's payload
 // hash as FFmpeg's failure is, so the sweep does not ask again; the file plays unlevelled.
 func (service *Service) RecordMeasurementFailure(ctx context.Context, job jobs.Job, failure string) error {
-	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
-	if errors.Is(err, ErrNoFile) {
+	file, err := library.PlayableFile(ctx, service.database.Read(), job.FileID)
+	if errors.Is(err, library.ErrNoFile) {
 		return nil // gone, or never probed: nothing to keep a failure against
 	}
 	if err != nil {
 		return err
 	}
-	probe, err := decodeProbe(file.ProbeJSON)
+	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
 		return nil //nolint:nilerr // a probe that cannot be read names no track to keep a failure for
 	}
@@ -312,9 +314,9 @@ func (service *Service) LoudnessAssignee(runner nodes.Resolver) nodes.Assignee {
 				// A refusal says nothing of the file's bytes (a full disk, a file changed since the
 				// scan): nothing is kept, and the job is tried again on its back-off, as when the node
 				// says nothing. Once it gives up, the next sweep asks again, of the file as it is then.
-				return refusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
+				return nodes.RefusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
 			case answer.Stall != nil:
-				return stallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
+				return nodes.FFmpegStallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
 			case answer.Failure != "":
 				return jobs.MarkPermanent(errors.New(answer.Failure))
 			}

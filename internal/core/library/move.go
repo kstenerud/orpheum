@@ -19,7 +19,7 @@ var (
 	// ErrFileReadable is a file an admin says is gone that can be read now: only what is missing
 	// is gone on the admin's word (D241 §5).
 	ErrFileReadable = errors.New("the file can be read now, so it is not gone")
-	// ErrNoFile is a file that is not a live one.
+	// ErrNoFile is a file that is not there to play: never seen, gone, not a video, or never probed.
 	ErrNoFile = errors.New("no such file")
 	// ErrRootCovered is a path another library, or this one, already covers on the node.
 	ErrRootCovered = errors.New("a library already covers that path on the node")

@@ -18,6 +18,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -80,7 +81,7 @@ func (all *prepares) want(
 	if runErr != nil {
 		return row, runErr
 	}
-	probe, probeErr := decodeProbe(file.ProbeJSON)
+	probe, probeErr := library.ProbeOf(file.ProbeJSON)
 	if probeErr != nil {
 		return row, probeErr
 	}
@@ -277,10 +278,10 @@ func (all *prepares) takeEnd(
 		// FFmpeg failing on a file fails again on it: this is not retried.
 		return jobs.MarkPermanent(errors.New(report.Failure))
 	case nodeproto.PrepareStalled:
-		return stallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
+		return nodes.FFmpegStallOutcome(job, nodeID, "prepare "+renditionDir, ptr.ValueOrZero(report.Stall),
 			func(failure string) error { return all.failMaking(ctx, run, failure) })
 	case nodeproto.PrepareRefused:
-		refused := refusalError(nodeID, "prepare "+renditionDir, report.Refusal, report.RefusalCode)
+		refused := nodes.RefusalError(nodeID, "prepare "+renditionDir, report.Refusal, report.RefusalCode)
 		if report.RefusalCode == nodeproto.RefusedNoRoom {
 			// Its prepared directory's disk is full: the node's prepares wait until its status
 			// shows room (D231 §5).

@@ -264,14 +264,14 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	if stream.PayloadHash == nil {
 		return jobs.MarkPermanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
 	}
-	file := located{
-		subject: fmt.Sprintf("stream %d", job.StreamID), libraryID: stream.LibraryID, nodeID: stream.NodeID,
-		reportedPathRaw: stream.ReportedPathRaw, payloadHash: stream.PayloadHash,
+	file := library.Located{
+		Subject: fmt.Sprintf("stream %d", job.StreamID), LibraryID: stream.LibraryID, NodeID: stream.NodeID,
+		ReportedPathRaw: stream.ReportedPathRaw, PayloadHash: stream.PayloadHash,
 	}
-	if parked := service.parkIfUnavailable(ctx, job, file); parked != nil {
+	if parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, file); parked != nil {
 		return parked
 	}
-	bytesFile, err := service.bytesFileOf(ctx, file)
+	bytesFile, err := library.BytesFileOf(ctx, service.database.Read(), file)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
@@ -319,9 +319,9 @@ func (service *Service) SubtitleAssignee(runner nodes.Resolver) nodes.Assignee {
 			answer := *result.Subtitle
 			switch {
 			case answer.Refusal != "":
-				return refusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
+				return nodes.RefusalError(attempt.NodeID, about, answer.Refusal, answer.RefusalCode)
 			case answer.Stall != nil:
-				return stallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
+				return nodes.FFmpegStallOutcome(job, attempt.NodeID, about, *answer.Stall, keepFailure(ctx, attempt))
 			case answer.Failure != "":
 				return jobs.MarkPermanent(errors.New(answer.Failure))
 			}
