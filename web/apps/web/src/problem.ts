@@ -116,10 +116,24 @@ function fieldLabel(
  */
 export function providerProblemText(t: TFunction, cause: unknown, reasons: string): string {
   if (cause instanceof ApiProblem) {
-    const reason = cause.withCode("provider_error")?.detail?.reason;
-    if (reason !== undefined) {
-      return t(`${reasons}.${camelKey(reason)}`, {
-        defaultValue: t(`problem.providerReason.${camelKey(reason)}`, {
+    const detail = cause.withCode("provider_error")?.detail;
+    if (detail !== undefined) {
+      // A host not answering says since when, and when it is next looked at (D231 §12).
+      const when = {
+        since:
+          detail.since === undefined
+            ? ""
+            : t("problem.sinceWhen", { since: dateTimeText(detail.since, i18n.language) }),
+        next:
+          detail.nextCheckAt === undefined
+            ? ""
+            : t("problem.nextCheck", { at: dateTimeText(detail.nextCheckAt, i18n.language) }),
+      };
+      const key = camelKey(detail.reason) + (detail.since === undefined ? "" : "Since");
+      return t(`${reasons}.${key}`, {
+        ...when,
+        defaultValue: t(`problem.providerReason.${key}`, {
+          ...when,
           defaultValue: t(`${reasons}.unknown`),
         }),
       });

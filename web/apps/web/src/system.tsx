@@ -11,6 +11,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
+import { DownDestinations, OutsideServices } from "./system-outside.tsx";
 import { tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChanges } from "./polling.ts";
@@ -107,6 +108,8 @@ export function SystemView(props: {
         <Disks disks={server.disks ?? []} />
       </section>
       <Findings findings={props.report.findings ?? []} />
+      <DownDestinations destinations={props.report.destinations ?? []} />
+      <OutsideServices providers={props.report.providers ?? []} />
       <OfflineStorage offline={props.report.offline ?? []} />
       {(props.report.nodes ?? []).map((node) => (
         <NodeFacts
