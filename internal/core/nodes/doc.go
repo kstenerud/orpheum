@@ -78,6 +78,12 @@
 //     moved for movementWindow, past every window the node judges its own work by, is stopped and
 //     resolved as ErrNotMoving, which UnansweredOutcome takes as a stall (D233 §5).
 //     TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
+//   - Work that stalls waiting on its disk the first time makes the root it reads unavailable
+//     (DiskStalls, which asks for a scan) and parks on the root as the tool's failure; a listing
+//     or an examining, the scan itself, is tried again instead. The same stall after is the
+//     target's own failure, its disk unreadable (D233 §10).
+//     TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswerAfter,
+//     TestStallOutcome_ASecondStallOnTheDiskIsTheTargetsUnreadableDisk.
 //   - A node whose hello names another start than its last hello to this core started again and
 //     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
 //     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers

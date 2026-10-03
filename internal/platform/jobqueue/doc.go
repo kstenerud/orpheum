@@ -59,6 +59,8 @@
 //     again (D231 §6). Enforced by review: nothing here writes it.
 //   - A tool's failure costs no attempt and the next attempt is told of it.
 //     TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled (internal/core/jobs).
+//     A tool's failure that parks its job keeps that: the attempt after the destination returns is
+//     told of it (D233 §10). TestRunDue_AToolFailureThatParksItsJobIsStillATheToolsFailure.
 //   - A panic in a handler is recovered and is the tool's failure: free the first time, the
 //     job's own failure the second in a row (D233 §6).
 //     TestRunDue_APanicIsTheToolsFailureFreeOnceAndTheJobsFailureTheSecondTimeInARow.

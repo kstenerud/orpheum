@@ -4,20 +4,22 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Unavailable is a root, or a disk mounted inside one, that the last scan found missing: the
-// files under it are not there to read, and work that reads them waits for a scan that finds it
-// (D208, D231 §5).
+// Unavailable is a root, or a disk mounted inside one, that the last scan found missing, or whose
+// disk work stalled on: the files under it are not there to read, and work that reads them waits for
+// a scan that finds it (D208, D231 §5, D233 §10).
 type Unavailable struct {
 	// Path is the root's or the mount's path on its node.
 	Path string
-	// Since is when the scan that found it missing ran.
+	// Since is when it went: the first scan in a row that found it missing, or the stall.
 	Since time.Time
 }
 
@@ -36,7 +38,7 @@ func UnavailableUnder(
 	}
 	candidates := make([]Unavailable, 0, len(roots)+len(mounts))
 	for _, root := range roots {
-		candidates = append(candidates, Unavailable{Path: root.RootPath, Since: time.UnixMilli(root.LastScanAt)})
+		candidates = append(candidates, Unavailable{Path: root.RootPath, Since: time.UnixMilli(root.UnavailableSince)})
 	}
 	for _, mount := range mounts {
 		candidates = append(candidates, Unavailable{
@@ -51,4 +53,27 @@ func UnavailableUnder(
 		}
 	}
 	return found, isFound, nil
+}
+
+// MarkRootUnavailable makes a root unavailable from now, unless it already was, because work
+// stalled waiting on its disk (D233 §10): what is under it is not there to read until a scan reads
+// it again (RecordRootComplete). It returns since when; a root no scan has read has no state, and is
+// unavailable from now without being kept so.
+func (ingester *Ingester) MarkRootUnavailable(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
+	now := ingester.clock.Now()
+	var since int64
+	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var markErr error
+		since, markErr = store.OrNotFound(queries.MarkRootUnavailable(ctx, sqlcgen.MarkRootUnavailableParams{
+			Now: new(now.UnixMilli()), NodeID: nodeID, RootPath: rootPath,
+		}))
+		if errors.Is(markErr, store.ErrNotFound) {
+			since, markErr = now.UnixMilli(), nil
+		}
+		return markErr
+	})
+	if err != nil {
+		return time.Time{}, fmt.Errorf("make root %s on node %d unavailable: %w", rootPath, nodeID, err)
+	}
+	return time.UnixMilli(since), nil
 }

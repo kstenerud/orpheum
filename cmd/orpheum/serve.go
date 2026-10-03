@@ -214,13 +214,15 @@ func openNodeWork(opened openedServices, logger *slog.Logger) openedServices {
 	return opened
 }
 
-// openScans are the scans of the nodes' roots, which a node's hello asks for (D240).
+// openScans are the scans of the nodes' roots, which a node's hello asks for (D240), and a stall on a
+// root's disk asks for too (D233 §10).
 func openScans(opened openedServices, ingester *library.Ingester, logger *slog.Logger) *library.Scans {
 	scans := library.NewScans(library.ScansParts{
 		Cache: opened.cache, Ingester: ingester, Jobs: opened.jobServices.queue, Assigner: opened.exchanges,
 		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
 	})
 	opened.nodes.SetScans(scans)
+	opened.exchanges.SetDiskStalls(scans)
 	return scans
 }
 

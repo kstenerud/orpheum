@@ -292,6 +292,9 @@ func (all *Exchanges) resolveResult(
 			return jobs.ParkOnNodeNeedingUpdate(attempt.NodeID,
 				fmt.Errorf("it refused %s job %d: %s", attempt.Kind, attempt.JobID, result.Refusal))
 		}
+		if isAnswered, answer := all.parkOnStalledDisk(ctx, job, attempt, result); isAnswered {
+			return answer
+		}
 		return assignee.Answer(ctx, job, attempt, result)
 	})
 }

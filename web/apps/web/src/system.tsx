@@ -10,6 +10,7 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
+import { NodeStuckView } from "./node-stuck.tsx";
 import { tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChanges } from "./polling.ts";
@@ -327,6 +328,7 @@ function NodeFacts(props: {
             </p>
           )}
           <Disks disks={node.disks ?? []} />
+          <NodeStuckView stuck={node.stuck ?? []} />
           <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>
       ) : (

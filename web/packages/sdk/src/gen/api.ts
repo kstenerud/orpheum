@@ -2200,6 +2200,13 @@ export interface components {
             /** @description BCP 47 */
             language?: string;
         };
+        StuckBody: {
+            paths: string[] | null;
+            /** @enum {string} */
+            program: "ffmpeg" | "ffprobe" | "node";
+            /** Format: int64 */
+            since: number;
+        };
         SubtitleCandidateBody: {
             /** Format: int64 */
             downloadCount: number;
@@ -2287,6 +2294,7 @@ export interface components {
             name: string;
             preparedUsage?: components["schemas"]["PreparedBody"];
             recentPrepares: components["schemas"]["FinishedPrepareBody"][] | null;
+            stuck: components["schemas"]["StuckBody"][] | null;
             /**
              * Format: int64
              * @description The user the node runs as

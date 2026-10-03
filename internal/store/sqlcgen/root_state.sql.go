@@ -293,19 +293,20 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 }
 
 const listUnavailableRootsOfNode = `-- name: ListUnavailableRootsOfNode :many
-SELECT root_path, last_scan_at
+SELECT root_path, CAST(coalesce(unavailable_since, last_scan_at) AS INTEGER) AS unavailable_since
 FROM root_state
-WHERE node_id = ?1 AND last_scan_outcome <> 'complete'
+WHERE node_id = ?1 AND (last_scan_outcome <> 'complete' OR unavailable_since IS NOT NULL)
 ORDER BY root_path
 `
 
 type ListUnavailableRootsOfNodeRow struct {
-	RootPath   string
-	LastScanAt int64
+	RootPath         string
+	UnavailableSince int64
 }
 
-// A node's roots whose last scan could not read them, or withheld its removals as a lost disk:
-// their files are not there to read (D208, D231 section 5).
+// A node's roots whose last scan could not read them, or withheld its removals as a lost disk, or
+// whose disk work stalled on since: their files are not there to read, since the first of those
+// in a row (D208, D231 section 5, D233 section 10).
 func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) ([]ListUnavailableRootsOfNodeRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUnavailableRootsOfNode, nodeID)
 	if err != nil {
@@ -315,7 +316,7 @@ func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) 
 	items := []ListUnavailableRootsOfNodeRow{}
 	for rows.Next() {
 		var i ListUnavailableRootsOfNodeRow
-		if err := rows.Scan(&i.RootPath, &i.LastScanAt); err != nil {
+		if err := rows.Scan(&i.RootPath, &i.UnavailableSince); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -327,6 +328,28 @@ func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const markRootUnavailable = `-- name: MarkRootUnavailable :one
+UPDATE root_state SET unavailable_since = coalesce(unavailable_since, ?1)
+WHERE node_id = ?2 AND root_path = ?3
+RETURNING CAST(unavailable_since AS INTEGER) AS unavailable_since
+`
+
+type MarkRootUnavailableParams struct {
+	Now      *int64
+	NodeID   int64
+	RootPath string
+}
+
+// Work stalled waiting on the root's disk: the root is unavailable from now, unless it already
+// was, until a scan reads it again (D233 section 10). A root no scan has read yet has no state, and
+// returns nothing.
+func (q *Queries) MarkRootUnavailable(ctx context.Context, arg MarkRootUnavailableParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, markRootUnavailable, arg.Now, arg.NodeID, arg.RootPath)
+	var unavailable_since int64
+	err := row.Scan(&unavailable_since)
+	return unavailable_since, err
 }
 
 const recordRootComplete = `-- name: RecordRootComplete :exec

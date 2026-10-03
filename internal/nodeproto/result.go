@@ -48,3 +48,20 @@ type Result struct {
 	Listing  *Listing            `json:"listing,omitempty"`
 	Examined *Examined           `json:"examined,omitempty"`
 }
+
+// Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.
+func (result Result) Stall() *Stall {
+	switch {
+	case result.Prepare != nil:
+		return result.Prepare.Stall
+	case result.Subtitle != nil:
+		return result.Subtitle.Stall
+	case result.Loudness != nil:
+		return result.Loudness.Stall
+	case result.Listing != nil:
+		return result.Listing.Stall
+	case result.Examined != nil:
+		return result.Examined.Stall
+	}
+	return nil
+}

@@ -92,6 +92,7 @@ type Exchanges struct {
 	assignees map[jobs.Kind]Assignee  // guarded by mutex
 	// brokenInvariants counts, by node, the differences squared between what it was given and held.
 	brokenInvariants map[int64]int // guarded by mutex
+	disks            DiskStalls    // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
@@ -166,10 +167,14 @@ func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string)
 // StallOutcome is a handler's answer to a node's word that the work stalled and was stopped: a
 // hang says nothing of the target the first time, so the job is tried again at no cost of an
 // attempt (jobs.MarkStalled), and when its last attempt's tool failed too it is the target's
-// failure, begun with twice and kept by keepFailure when it is not nil (D233 §6).
+// failure, begun with twice and kept by keepFailure when it is not nil (D233 §6). A second stall on
+// its disk is begun with UnreadableOnDisk instead (D233 §10).
 func StallOutcome(job jobs.Job, stalled error, twice string, keepFailure func(failure string) error) error {
 	if !job.PreviousAttemptToolFailed {
 		return jobs.MarkStalled(stalled)
+	}
+	if errors.Is(stalled, ErrStalledOnDisk) {
+		twice = UnreadableOnDisk
 	}
 	if keepFailure == nil {
 		return jobs.MarkPermanent(fmt.Errorf("%s%w", twice, stalled))

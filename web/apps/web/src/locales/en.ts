@@ -317,6 +317,14 @@ export const en = {
     disks: "Disks",
     disk: "{{available}} free of {{total}}",
     diskUnmeasured: "could not be measured: {{why}}",
+    stuck:
+      "Waiting on a disk that does not answer: each ends when its disk answers, and the machine's other work goes on.",
+    stuckWork: "{{program}}, reading {{path}}, since {{since}}",
+    stuckProgram: {
+      ffmpeg: "FFmpeg",
+      ffprobe: "FFprobe",
+      node: "Listing or reading a folder",
+    },
     findings: "What doctor finds",
     verdict: {
       ok: "OK",

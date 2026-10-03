@@ -29,6 +29,14 @@ ON CONFLICT (node_id, root_path) DO UPDATE SET
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
   unavailable_since = coalesce(root_state.unavailable_since, excluded.last_scan_at);
 
+-- name: MarkRootUnavailable :one
+-- Work stalled waiting on the root's disk: the root is unavailable from now, unless it already
+-- was, until a scan reads it again (D233 section 10). A root no scan has read yet has no state, and
+-- returns nothing.
+UPDATE root_state SET unavailable_since = coalesce(unavailable_since, sqlc.arg(now))
+WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path)
+RETURNING CAST(unavailable_since AS INTEGER) AS unavailable_since;
+
 -- name: ListRootMounts :many
 SELECT mount_path, filesystem_device, is_present
 FROM root_mount
@@ -65,11 +73,12 @@ FROM root_mount
 WHERE node_id = sqlc.arg(node_id) AND mount_path = sqlc.arg(mount_path);
 
 -- name: ListUnavailableRootsOfNode :many
--- A node's roots whose last scan could not read them, or withheld its removals as a lost disk:
--- their files are not there to read (D208, D231 section 5).
-SELECT root_path, last_scan_at
+-- A node's roots whose last scan could not read them, or withheld its removals as a lost disk, or
+-- whose disk work stalled on since: their files are not there to read, since the first of those
+-- in a row (D208, D231 section 5, D233 section 10).
+SELECT root_path, CAST(coalesce(unavailable_since, last_scan_at) AS INTEGER) AS unavailable_since
 FROM root_state
-WHERE node_id = sqlc.arg(node_id) AND last_scan_outcome <> 'complete'
+WHERE node_id = sqlc.arg(node_id) AND (last_scan_outcome <> 'complete' OR unavailable_since IS NOT NULL)
 ORDER BY root_path;
 
 -- name: ListMissingMountsOfNode :many

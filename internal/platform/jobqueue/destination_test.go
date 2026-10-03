@@ -306,3 +306,32 @@ func TestPark_TheProbeBackoffIsThePolicys(t *testing.T) {
 		}
 	}
 }
+
+// A tool that failed in a way that parks its job, as a stall on a disk parks it on the disk's root,
+// is still the tool's failure: the job spends no attempt, and its next attempt knows its last one's
+// tool failed, so the same failure again is its own (D233 §6, §10).
+func TestRunDue_AToolFailureThatParksItsJobIsStillATheToolsFailure(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a", Destination: host})
+	var previous []bool
+	runner := jobs.queue.NewRunner(kindFetch, func(_ context.Context, job jobqueue.Job[target]) error {
+		previous = append(previous, job.PreviousAttemptToolFailed)
+		if len(previous) == 1 {
+			return jobqueue.Park(jobqueue.Parking{Destination: host, Reason: "missing"},
+				jobqueue.ToolFailed(errors.New("its disk did not answer")))
+		}
+		return nil
+	})
+	jobs.runDue(t, runner)
+	row := jobs.row(t, "a")
+	if row.AttemptCount != 0 || !row.LastAttemptToolFailed || row.Destination != host {
+		t.Fatalf("after a tool failure that parks: %+v; want parked on the host, no attempt spent, its tool failed",
+			row)
+	}
+	jobs.queue.Unpark(t.Context(), host)
+	jobs.runDue(t, runner)
+	if !slices.Equal(previous, []bool{false, true}) {
+		t.Errorf("the attempts were told their last one's tool failed: %v; want false, then true", previous)
+	}
+}
