@@ -754,6 +754,26 @@ D231 §12; D233 §8; D241; F2.
 - The scenario-tier tests for every scenario the phases closed that is not yet one; D231's and
   D233's Status lines read back and updated.
 
+**Cut** (2026-10-03):
+
+- **6a — what is unavailable, and a play of it fails at once** (D241 §2–§4). A hello makes each of
+  the node's library roots it does not name unavailable. One answer says whether a file can be read
+  now and, if not, why and since when: its node away, its root missing, or a disk inside it missing.
+  A play of a file that cannot be read is refused at once, naming what is missing, and queues
+  nothing; a play-driven job whose source goes missing ends rather than parks.
+- **6b — unavailable is shown** (D241 §3, §7). Every list, the title page and a series' episodes
+  mark a title none of whose copies can be read, with why and since when, and the title page offers
+  no play; a player whose fetch fails mid-play asks the server why and says it.
+- **6c — gone is the admin's word, one file at a time, and a root moves** (D241 §5, §6). An
+  unavailable file can be retired by itself; a root can be repointed to a path on the same or
+  another node, its files' paths moving with their history, the next scan confirming each.
+- **6d — every balk says why and until when** (D231 §12). Subtitle and refresh answers say what
+  they wait for; the job view's parked states; the System page's destinations and queue health;
+  finished jobs pruned after 30 days; a test per kind of balk.
+- **6e — the rest.** A stall's failure as a fact with its kind; `internal/core/playback` split; the
+  scenario-tier tests for every scenario the phases closed, S79 and S80 among them; D231's and
+  D233's Status lines.
+
 ## After Phase 6 — one instance directory
 
 D242: the instance directory with its small top-level config, `persistent/`, `cache/`, `backups/`
