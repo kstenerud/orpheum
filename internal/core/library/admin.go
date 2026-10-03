@@ -34,6 +34,7 @@ var (
 // Nodes is what the admin service asks of the node channel: the roots a connected node named, by
 // name (D207), and removing a node an admin retired.
 type Nodes interface {
+	NodeConnections
 	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
 	RemoveNode(ctx context.Context, nodeID int64) error
 }

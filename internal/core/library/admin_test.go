@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
@@ -29,6 +30,16 @@ type fakeNodes struct {
 	// database is where a retired node is removed, as the node service does, at clock's time.
 	database *store.Database
 	clock    clock.Clock
+	// isAway is whether the node is not connected.
+	isAway bool
+}
+
+// NodeConnection is the node's: connected unless it is away.
+func (nodes *fakeNodes) NodeConnection(context.Context, int64) (corenodes.Connection, time.Time) {
+	if nodes.isAway {
+		return corenodes.Silent, time.Time{}
+	}
+	return corenodes.Connected, time.Time{}
 }
 
 func (nodes *fakeNodes) RemoveNode(ctx context.Context, nodeID int64) error {

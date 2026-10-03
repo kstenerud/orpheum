@@ -98,6 +98,12 @@
 //   - A library root its node's hello no longer names is unavailable from then, nothing removed
 //     (D241 §2). TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt. Whether a file
 //     can be read now, its node away or its root or disk missing, has one answer: UnreadableFile.
+//   - One file that cannot be read now is gone on the admin's word, a tombstone keeping its history;
+//     one that can be read is refused (D241 §5). A root that moved is repointed: it and its live
+//     files take the new path with their history, their modified times forgotten so the next scan,
+//     asked for at once, reads each again and confirms it by its payload hash (D241 §6).
+//     TestRetireFile_AFileThatCannotBeReadIsGoneOnTheAdminsWord,
+//     TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath (internal/core/api).
 //
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.

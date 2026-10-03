@@ -2837,6 +2837,51 @@
         ],
         "type": "object"
       },
+      "RepointInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "newNodeName": {
+            "description": "The node it is on now: the same, or another",
+            "minLength": 1,
+            "type": "string"
+          },
+          "newPath": {
+            "description": "Where it is now: one of that node's configured roots",
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeName": {
+            "description": "The root's node",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "description": "The root's path",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeName",
+          "path",
+          "newNodeName",
+          "newPath"
+        ],
+        "type": "object"
+      },
+      "RepointedOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "movedFileCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "movedFileCount"
+        ],
+        "type": "object"
+      },
       "ReportInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -5169,6 +5214,57 @@
         ]
       }
     },
+    "/files/{id}/retire": {
+      "post": {
+        "operationId": "postFileRetire",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetiredOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
     "/files/{id}/subtitle-candidates": {
       "get": {
         "operationId": "getSubtitleCandidates",
@@ -6196,6 +6292,67 @@
           }
         },
         "summary": "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/roots/repoint": {
+      "post": {
+        "operationId": "postLibraryRootRepoint",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepointInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepointedOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6)",
         "tags": [
           "Libraries"
         ]

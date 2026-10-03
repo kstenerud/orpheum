@@ -77,6 +77,28 @@ describe("TitleView", () => {
     expect(missing).toContain("<h1>Metropolis</h1>");
   });
 
+  it("offers an admin to retire a file that cannot be read now, and no one else (D241 §5)", () => {
+    const missing = { ...heat, unavailable: { reason: "node_away" as const, nodeName: "devnas" } };
+    const retire = (): void => undefined;
+    const forAdmin = renderToStaticMarkup(
+      withServices(<TitleView title={missing} onRetireFile={retire} />),
+    );
+    const readable = renderToStaticMarkup(
+      withServices(<TitleView title={heat} onRetireFile={retire} />),
+    );
+    const forUser = renderToStaticMarkup(
+      withServices(
+        <TitleView
+          title={{ ...missing, versions: [{ id: 1, files: [{ id: 1, streams: [] }] }] }}
+          onRetireFile={retire}
+        />,
+      ),
+    );
+    expect(forAdmin).toContain("This file is gone for good…");
+    expect(readable).not.toContain("This file is gone for good…");
+    expect(forUser).not.toContain("This file is gone for good…");
+  });
+
   it("places an episode in its series, with its still", () => {
     const episode: TitleDetail = {
       ...heat,

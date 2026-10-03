@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -403,6 +404,54 @@ func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheir
 	}
 	if again := harness.do(t, http.MethodDelete, "/libraries/1", admin, nil); again.status != http.StatusNotFound {
 		t.Errorf("deleting it again = %d %s, want 404", again.status, again.body)
+	}
+	harness.checkHistoryKept(t)
+}
+
+// One file that cannot be read now is gone on the admin's word: a tombstone, its history kept; a
+// file that can be read is refused, being there (D241 §5).
+func TestRetireFile_AFileThatCannotBeReadIsGoneOnTheAdminsWord(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.watchedFilm2(t)
+	wantError(t, harness.do(t, http.MethodPost, "/files/2/retire", admin, nil), http.StatusConflict, CodeConflict)
+	harness.missingMedia(t)
+	retired := harness.retire(t, admin, http.MethodPost, "/files/2/retire", nil)
+	if retired.Body.TombstonedFileCount != 1 {
+		t.Errorf("the retire = %+v; want the one file removed", retired.Body)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/files/2/availability", admin, nil), http.StatusNotFound, CodeNotFound)
+	if still := harness.do(t, http.MethodGet, "/files/1/availability", admin, nil); still.status != http.StatusOK {
+		t.Errorf("the other file under the root = %d %s; want it kept", still.status, still.body)
+	}
+	harness.checkHistoryKept(t)
+}
+
+// A root that moved is repointed: it and its files take the new path, the same files with their
+// history, and a scan of the new place is asked for, which confirms each (D241 §6).
+func TestRepointRoot_ARootThatMovedTakesItsFilesAndHistoryToTheNewPath(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.watchedFilm2(t)
+	harness.nodes.roots = []string{"/media", "/mnt/media"}
+	move := map[string]string{"nodeName": "local", "path": "/media", "newNodeName": "local", "newPath": "/elsewhere"}
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	move["newPath"] = "/mnt/media"
+	moved := harness.do(t, http.MethodPost, "/libraries/1/roots/repoint", admin, move)
+	if moved.status != http.StatusOK || !strings.Contains(moved.body, `"movedFileCount":3`) {
+		t.Fatalf("the repoint = %d %s; want the root's three files moved", moved.status, moved.body)
+	}
+	file, err := harness.database.Read().GetPlayableFile(t.Context(), 2)
+	if err != nil || string(file.ReportedPathRaw) != "/mnt/media/Film (2002).mkv" {
+		t.Errorf("file 2 after the repoint = %q, %v; want it at /mnt/media/Film (2002).mkv", file.ReportedPathRaw, err)
+	}
+	if !slices.Contains(harness.nodes.scanned, "/mnt/media") {
+		t.Errorf("scans asked for of %v; want the new place's", harness.nodes.scanned)
 	}
 	harness.checkHistoryKept(t)
 }
