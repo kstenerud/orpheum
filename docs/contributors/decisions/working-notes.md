@@ -17319,6 +17319,19 @@ pass missed it.
 9. **Compatibility** (O8, from M4). The hello carries a protocol number; a node whose number the
    core cannot serve is parked with that reason, and an unknown command is refused explicitly.
 
+10. **A stall on the disk, as built** (the owner, 2026-10-03, *"agreed on both"*, to two questions
+    asked before stage 2 was built):
+    - **The root first, then the file.** A run that stalls waiting on the disk makes its root
+      unavailable (D241 §2–§4: plays from it fail at once and say the disk is not answering), and a
+      scan of the root is asked for, whose success brings it back (D231 §6). The same file stalling
+      on the disk again after its root came back is the file's own failure, "the disk could not
+      read this file", and the root stays available: one bad patch of a disk would otherwise make
+      the whole root flicker forever.
+    - **A process the kernel will not kill frees its slot.** A process waiting on a dead disk
+      ignores even `SIGKILL` until the disk answers. The node answers its work as stalled and frees
+      its slot, so one dead disk does not block a node's other work, and lists the process as stuck
+      until it exits, which the System page shows.
+
 **Status:** Decided 2026-09-30. Since 2026-09-30, §3, §5 and §7 are revised by D234.
 
 ## D234 — The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
@@ -17655,6 +17668,11 @@ with a per-file retire and a root's repoint.
 8. **Later.** "Rescan to find missing media": the core asks a node for the full tree of each of its
    roots and matches missing files by name, then confirms candidates by payload hash. It is not in
    Cut A.
+
+§2–§6's details that the owner's words left open were proposed and confirmed (2026-10-03, *"yes to
+the things you filled in"*): a node that is not connected counts as known unavailable (§3, §4); a
+play-driven job is cancelled when its source goes missing (§4); background work parks (§4); a root
+can be repointed to another node (§6).
 
 **Status:** Decided 2026-10-03; to be built in the jobs rebuild's Phase 6, beside D231 §12's other
 answers to a person.
