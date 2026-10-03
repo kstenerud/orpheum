@@ -716,10 +716,8 @@ D233 §5, §6, §10; D241.
 
 **Deviations, for the owner:**
 
-- `maxSlotWait` stays. Waiting is now bounded by movement (5b, 5c), which is what replaces it, but
-  removing it removes three tests that assert it (`TestHandle_APrepareTheNodeHoldsWaitingForASlot
-  OutlivesTheSilenceLimit`, `…TooLongIsGivenUpAndTheNodeToldToStopIt`,
-  `TestHandle_APausedPrepareIsNotCountedAsWaitingForASlot`), which waits on the owner (rule 5).
+- `maxSlotWait` is gone (the owner, 2026-10-03: *"yes, remove the limit"*): waiting is bounded by
+  movement (5b, 5c), and the two tests that asserted the cap went with it.
 - A stall's failure is not yet a fact with a kind: the failure text begins with the kind's words
   (`FFmpeg stalled twice: `, `stalled on two attempts in a row: `, `its disk could not be read: `).
   A kind matters for a person reading it in their words, Phase 6's job; it moves there.
@@ -761,5 +759,5 @@ D231 §12; D233 §8; D241; F2.
 D242: the instance directory with its small top-level config, `persistent/`, `cache/`, `backups/`
 and `run/`; `orpheum default-config <dir>`; every subcommand started with the instance directory;
 a backup as a tarball of `persistent/`, the key left out unless asked for, from the admin interface
-and the command line; the development loop's own files (`bin`, sample media, browser results, the
+and the command line; the log written where the full config says; the development loop's own files (`bin`, sample media, browser results, the
 seed) out of the instance. Built before the pre-M4 audit.
