@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,7 +28,8 @@ const canary = "CANARY-backup-9b1d"
 
 var testTime = time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC)
 
-// server is a data directory with a migrated database and a secret.key, as `orpheum run` leaves it.
+// server is an instance with a migrated database and a secret.key, as a first `orpheum core` leaves
+// it.
 type server struct {
 	directories *datadir.Directories
 	database    *store.Database
@@ -88,8 +90,8 @@ func (server server) populate(t *testing.T) {
 	}
 }
 
-// emptyDataDirectory is a state directory with nothing in it yet.
-func emptyDataDirectory(t *testing.T) *datadir.Directories {
+// emptyInstance is an instance with nothing in it yet.
+func emptyInstance(t *testing.T) *datadir.Directories {
 	t.Helper()
 	root := t.TempDir()
 	directories, err := datadir.Prepare(datadir.PathsIn(root))
@@ -99,16 +101,52 @@ func emptyDataDirectory(t *testing.T) *datadir.Directories {
 	return directories
 }
 
-func restore(t *testing.T, directories *datadir.Directories, source string, key []byte) Plan {
+func restore(t *testing.T, directories *datadir.Directories, source string) Plan {
 	t.Helper()
-	plan, err := MakePlan(t.Context(), directories, source, key, testTime)
+	plan, err := MakePlan(t.Context(), directories, source, testTime)
 	if err != nil {
 		t.Fatalf("MakePlan: %v", err)
 	}
-	if err = Restore(t.Context(), directories, plan, key, storetest.OpenOptions()); err != nil {
+	if err = Restore(t.Context(), directories, plan, testTime, storetest.OpenOptions()); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 	return plan
+}
+
+// archiveOf is a backup archive whose database is the SQLite file at databasePath, as Write makes
+// one: for a test that needs a backup holding a database no server would write.
+func archiveOf(t *testing.T, databasePath string) string {
+	t.Helper()
+	directories := emptyInstance(t)
+	contents, err := os.ReadFile(databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := directories.BackupPath("snapshot.sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(snapshot, contents, 0o600); err != nil { //nolint:gosec // G703: under t.TempDir()
+		t.Fatal(err)
+	}
+	if err = directories.WriteBackupArchive("backup.tar.gz", "snapshot.sqlite", nil); err != nil {
+		t.Fatal(err)
+	}
+	path, err := directories.BackupPath("backup.tar.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// databaseOf is the database a backup archive holds, written out where a test can change it.
+func databaseOf(t *testing.T, archivePath string) string {
+	t.Helper()
+	path, err := emptyInstance(t).ExtractBackupDatabase(archivePath, "persistent.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *testing.T) {
@@ -119,19 +157,10 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if written.KeyPath != "" {
-		t.Errorf("a backup without --include-key wrote a key: %s", written.KeyPath)
-	}
-	contents, err := os.ReadFile(written.DatabasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(contents), canary) {
-		t.Error("the backup holds the secret in plain text; it must carry ciphertext only")
-	}
+	checkHoldsNoKeyAndCiphertextOnly(t, written)
 
-	target := emptyDataDirectory(t)
-	restore(t, target, written.DatabasePath, nil)
+	target := emptyInstance(t)
+	restore(t, target, written.Path)
 	restored := openAt(t, target)
 	if _, err = store.OrNotFound(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
 		t.Errorf("the restored database lost the owner: %v", err)
@@ -163,15 +192,11 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 	original := newServer(t)
 	original.populate(t)
 	written, err := Write(t.Context(), original.database, original.directories, testTime, true)
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || !written.IncludesKey {
+		t.Fatalf("a backup with the key: %+v, %v", written, err)
 	}
-	key, err := os.ReadFile(written.KeyPath)
-	if err != nil {
-		t.Fatalf("the included key: %v", err)
-	}
-	target := emptyDataDirectory(t)
-	if plan := restore(t, target, written.DatabasePath, key); !plan.InstallsKey {
+	target := emptyInstance(t)
+	if plan := restore(t, target, written.Path); !plan.InstallsKey {
 		t.Error("the plan does not say it installs the key")
 	}
 	installed, err := target.ReadPersistentFile(secrets.KeyFileName)
@@ -201,18 +226,18 @@ func TestRestore_KeepsTheDatabaseItReplaces(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := emptyDataDirectory(t)
+	target := emptyInstance(t)
 	existing := openAt(t, target)
 	storetest.InsertUser(t, existing, "someone-else", "user")
 	if err = existing.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	plan := restore(t, target, written.DatabasePath, nil)
+	plan := restore(t, target, written.Path)
 	if !plan.ReplacesExistingDatabase || !strings.Contains(plan.Describe(), plan.SnapshotPath) {
 		t.Errorf("the plan did not say what it replaces and where it keeps it:\n%s", plan.Describe())
 	}
-	kept, err := store.Open(t.Context(), plan.SnapshotPath, storetest.OpenOptions())
+	kept, err := store.Open(t.Context(), databaseOf(t, plan.SnapshotPath), storetest.OpenOptions())
 	if err != nil {
 		t.Fatalf("the kept copy: %v", err)
 	}
@@ -233,16 +258,16 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := emptyDataDirectory(t)
+	target := emptyInstance(t)
 	running, err := target.LockInstance()
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
+	plan, err := MakePlan(t.Context(), target, written.Path, testTime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Restore(t.Context(), target, plan, nil, storetest.OpenOptions()); !errors.Is(err, datadir.ErrInUse) {
+	if err = Restore(t.Context(), target, plan, testTime, storetest.OpenOptions()); !errors.Is(err, datadir.ErrInUse) {
 		t.Errorf("a restore while the server runs: %v, want ErrInUse", err)
 	}
 	if exists, existsErr := target.PersistentDatabaseExists(); existsErr != nil || exists {
@@ -255,11 +280,14 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 
 func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 	t.Parallel()
-	target := emptyDataDirectory(t)
+	target := emptyInstance(t)
 	foreign := filepath.Join(t.TempDir(), "foreign.sqlite")
 	storetest.ExecRaw(t, foreign, "CREATE TABLE someone_elses (id INTEGER)")
-	if _, err := MakePlan(t.Context(), target, foreign, nil, testTime); !errors.Is(err, store.ErrNotOurs) {
-		t.Errorf("a foreign file: %v, want ErrNotOurs", err)
+	if _, err := MakePlan(t.Context(), target, archiveOf(t, foreign), testTime); !errors.Is(err, store.ErrNotOurs) {
+		t.Errorf("a foreign database: %v, want ErrNotOurs", err)
+	}
+	if _, err := MakePlan(t.Context(), target, foreign, testTime); !errors.Is(err, datadir.ErrNotABackupArchive) {
+		t.Errorf("a database that is no archive: %v, want ErrNotABackupArchive", err)
 	}
 
 	original := newServer(t)
@@ -271,16 +299,14 @@ func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime); err != nil {
+	if _, err = MakePlan(t.Context(), target, written.Path, testTime); err != nil {
 		t.Fatalf("a backup from this release: %v", err)
 	}
-	if _, err = MakePlan(t.Context(), target, written.DatabasePath, []byte("not a key"), testTime); err == nil {
-		t.Error("MakePlan accepted a key file that is not one")
-	}
-	storetest.ExecRaw(t, written.DatabasePath,
+	newer := databaseOf(t, written.Path)
+	storetest.ExecRaw(t, newer,
 		"PRAGMA user_version = "+strconv.Itoa(version+1),
 		"UPDATE schema_meta SET compatible_version = "+strconv.Itoa(version+1)+" WHERE id = 1")
-	_, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
+	_, err = MakePlan(t.Context(), target, archiveOf(t, newer), testTime)
 	if !errors.Is(err, ErrNewerBackup) {
 		t.Errorf("a backup from a newer, incompatible release: %v, want ErrNewerBackup", err)
 	}
@@ -288,7 +314,7 @@ func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 
 func TestMakePlan_RefusesABackupOlderThanTheBaseline(t *testing.T) {
 	t.Parallel()
-	target := emptyDataDirectory(t)
+	target := emptyInstance(t)
 	original := newServer(t)
 	written, err := Write(t.Context(), original.database, original.directories, testTime, false)
 	if err != nil {
@@ -301,9 +327,61 @@ func TestMakePlan_RefusesABackupOlderThanTheBaseline(t *testing.T) {
 	if !steps[0].IsBaseline {
 		t.Fatal("the first step is not a baseline; this test needs one (D228)")
 	}
-	storetest.ExecRaw(t, written.DatabasePath, "PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
-	_, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
+	older := databaseOf(t, written.Path)
+	storetest.ExecRaw(t, older, "PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
+	_, err = MakePlan(t.Context(), target, archiveOf(t, older), testTime)
 	if !errors.Is(err, store.ErrBeforeBaseline) {
 		t.Errorf("a backup below the baseline, which the server would refuse at start: %v, want ErrBeforeBaseline", err)
+	}
+}
+
+// MakePlan reads the backup's database from a copy in the run directory and removes it: a plan
+// changes nothing the instance keeps.
+func TestMakePlan_LeavesNothingBehind(t *testing.T) {
+	t.Parallel()
+	original := newServer(t)
+	written, err := Write(t.Context(), original.database, original.directories, testTime, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := emptyInstance(t)
+	if _, err = MakePlan(t.Context(), target, written.Path, testTime); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = target.ReadRunFile(inspectingName); !errors.Is(err, datadir.ErrNotFound) {
+		t.Errorf("the plan left its copy of the database in the run directory: %v", err)
+	}
+	if exists, existsErr := target.PersistentDatabaseExists(); existsErr != nil || exists {
+		t.Errorf("the plan wrote persistent.db (%v)", existsErr)
+	}
+}
+
+// A backup with the key is refused on an instance that has none yet, rather than made without it.
+func TestWrite_RefusesToIncludeAKeyThereIsNot(t *testing.T) {
+	t.Parallel()
+	original := newServer(t)
+	if err := original.directories.RemovePersistentFile(secrets.KeyFileName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Write(t.Context(), original.database, original.directories, testTime, true); !errors.Is(err,
+		ErrNoKeyToInclude) {
+		t.Errorf("a backup with a key there is not: %v, want ErrNoKeyToInclude", err)
+	}
+}
+
+// checkHoldsNoKeyAndCiphertextOnly fails unless a backup made without the key holds no key, and its
+// database the secrets as ciphertext only.
+func checkHoldsNoKeyAndCiphertextOnly(t *testing.T, written Written) {
+	t.Helper()
+	names, err := datadir.ListBackupArchive(written.Path)
+	if err != nil || written.IncludesKey || slices.Contains(names, secrets.KeyFileName) {
+		t.Errorf("a backup without --include-key holds %v (%v); want no key", names, err)
+	}
+	contents, err := os.ReadFile(databaseOf(t, written.Path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), canary) {
+		t.Error("the backup holds the secret in plain text; it must carry ciphertext only")
 	}
 }

@@ -11,8 +11,9 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
+import { SystemBackups } from "./system-backups.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
-import { tenthsText } from "./number-text.ts";
+import { byteSizeText, tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
@@ -31,23 +32,6 @@ type Finding = components["schemas"]["FindingBody"];
 type Build = components["schemas"]["BuildBody"];
 type Host = components["schemas"]["HostBody"];
 type Offline = components["schemas"]["OfflineBody"];
-
-/** A size in bytes, in the unit that keeps it short: "12.3 GB". */
-export function byteSizeText(bytes: number): string {
-  const units = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
-  let value = bytes;
-  let index = 0;
-  while (value >= 1000 && index < units.length - 1) {
-    value /= 1000;
-    index += 1;
-  }
-  return new Intl.NumberFormat(i18n.language, {
-    style: "unit",
-    unit: units[index] ?? "byte",
-    unitDisplay: "short",
-    maximumFractionDigits: index === 0 ? 0 : 1,
-  }).format(value);
-}
 
 /** The System page, loaded from the server, and retiring a machine from it. */
 export function System(): JSX.Element {
@@ -74,6 +58,7 @@ export function System(): JSX.Element {
         resource={report}
         render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
       />
+      <SystemBackups />
     </>
   );
 }
@@ -224,7 +209,7 @@ function DatabaseSize(props: { readonly name: string; readonly bytes: number }):
       <dt>
         <code>{props.name}</code>
       </dt>
-      <dd>{byteSizeText(props.bytes)}</dd>
+      <dd>{byteSizeText(props.bytes, i18n.language)}</dd>
     </>
   );
 }
@@ -241,8 +226,8 @@ function Disks(props: { readonly disks: readonly Disk[] }): JSX.Element | null {
           <code>{disk.path}</code>{" "}
           {disk.failure === undefined
             ? t("system.disk", {
-                available: byteSizeText(disk.availableBytes),
-                total: byteSizeText(disk.totalBytes),
+                available: byteSizeText(disk.availableBytes, i18n.language),
+                total: byteSizeText(disk.totalBytes, i18n.language),
               })
             : t("system.diskUnmeasured", { why: disk.failure })}
         </li>
@@ -323,8 +308,8 @@ function NodeFacts(props: {
           {node.preparedUsage === undefined ? null : (
             <p>
               {t("system.preparedUsage", {
-                used: byteSizeText(node.preparedUsage.usedBytes),
-                budget: byteSizeText(node.preparedUsage.budgetBytes),
+                used: byteSizeText(node.preparedUsage.usedBytes, i18n.language),
+                budget: byteSizeText(node.preparedUsage.budgetBytes, i18n.language),
                 percent: node.preparedUsage.diskUsedPercent,
                 limit: node.preparedUsage.diskUsedLimitPercent,
               })}

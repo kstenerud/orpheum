@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -69,6 +70,8 @@ type Dependencies struct {
 	Subtitles *subtitles.Service
 	// Renditions says what each node's prepares made, for the System page (D225 §3).
 	Renditions *renditions.Service
+	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
+	Backups *backup.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.
@@ -126,6 +129,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerArt()
 	server.registerDoctor()
 	server.registerSystem()
+	server.registerBackups()
 	server.registerOfflineReminder()
 	server.registerClientSettings()
 	server.registerPlayback()

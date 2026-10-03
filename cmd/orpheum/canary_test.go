@@ -3,7 +3,11 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,13 +68,13 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	doctor := runCommand(t, "doctor", "--instance", configPath)
 	written := runCommand(t, "backup", "--instance", configPath)
 	backupFile := strings.Fields(written.stdout)[1]
-	backupBytes := readFile(t, backupFile)
+	backupContents := archiveContents(t, backupFile)
 	databaseBytes := readFile(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"))
 	channels := []channel{
 		{"API responses", responses.String(), adminName},
 		{"the log", captured.String(), setupCode},
 		{"doctor's output", doctor.stdout + doctor.stderr, config.Instance.PersistentDir},
-		{"a backup", string(backupBytes), adminName},
+		{"a backup", backupContents, adminName},
 		{"persistent.db", string(databaseBytes), adminName},
 	}
 	for _, place := range channels {
@@ -108,4 +112,32 @@ func readFile(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return contents
+}
+
+// archiveContents is every file a backup archive holds, uncompressed, one after another: what a
+// search of the backup's contents searches.
+func archiveContents(t *testing.T, path string) string {
+	t.Helper()
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
+	zipped, err := gzip.NewReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := tar.NewReader(zipped)
+	var contents strings.Builder
+	for {
+		if _, err = archive.Next(); errors.Is(err, io.EOF) {
+			return contents.String()
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		// The backup the test made is a few megabytes; a gibibyte bounds a broken one.
+		if _, err = io.Copy(&contents, io.LimitReader(archive, 1<<30)); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

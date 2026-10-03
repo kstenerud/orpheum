@@ -172,6 +172,52 @@
         ],
         "type": "object"
       },
+      "BackupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "madeAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sizeBytes",
+          "madeAt"
+        ],
+        "type": "object"
+      },
+      "BackupsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "backups": {
+            "items": {
+              "$ref": "#/components/schemas/BackupBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "directory": {
+            "description": "Where the backups are, on the server's machine",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory",
+          "backups"
+        ],
+        "type": "object"
+      },
       "BuildBody": {
         "additionalProperties": false,
         "properties": {
@@ -1995,6 +2041,35 @@
           "changeDetection",
           "isWritable",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "MadeBackupOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "includesKey": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "includesKey"
+        ],
+        "type": "object"
+      },
+      "MakeBackupInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "includesKey": {
+            "description": "Put secret.key in it, for moving to another machine (D194 §4)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "includesKey"
         ],
         "type": "object"
       },
@@ -4208,6 +4283,98 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/backups": {
+      "get": {
+        "operationId": "listBackups",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the backups directory, newest first (admin; D242 §5)",
+        "tags": [
+          "Running it"
+        ]
+      },
+      "post": {
+        "operationId": "makeBackup",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MakeBackupInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MadeBackupOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Back the persistent directory up now, into the backups directory (admin; D242 §5)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
     "/bytes/art/{sourceSha256}/{variant}": {
       "get": {
         "operationId": "getArt",

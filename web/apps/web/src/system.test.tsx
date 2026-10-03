@@ -9,6 +9,9 @@ import { System, type SystemNode, type SystemReport } from "./system.tsx";
 import { mount, servedBy, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
+/** The backups section's answer when there are none (D242 §5). */
+const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
+
 let mounted: Mounted | undefined;
 
 afterEach(() => {
@@ -96,7 +99,12 @@ function report(node: SystemNode): SystemReport {
 }
 
 async function shown(node: SystemNode): Promise<string> {
-  mounted = await mount(withServices(<System />, servedBy({ "GET /system": [200, report(node)] })));
+  mounted = await mount(
+    withServices(
+      <System />,
+      servedBy({ "GET /system": [200, report(node)], "GET /backups": noBackups }),
+    ),
+  );
   return mounted.container.textContent;
 }
 
@@ -226,6 +234,7 @@ it("the System page says what is not answering, and each outside service's limit
     withServices(
       <System />,
       servedBy({
+        "GET /backups": noBackups,
         "GET /system": [
           200,
           {

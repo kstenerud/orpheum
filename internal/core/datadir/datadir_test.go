@@ -158,21 +158,6 @@ func TestLockInstance_RefusesASecondHolder(t *testing.T) {
 	}
 }
 
-func TestWriteBackupFile_WritesIntoTheBackupDirectory(t *testing.T) {
-	t.Parallel()
-	directories := prepareTemporaryDirectories(t)
-	if err := directories.WriteBackupFile("backup.secret.key", []byte("key")); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(filepath.Join(directories.BackupDirectory(), "backup.secret.key"))
-	if err != nil || string(got) != "key" {
-		t.Errorf("the backup file = %q, %v", got, err)
-	}
-	if err := directories.WriteBackupFile("../secret.key", []byte("x")); err == nil {
-		t.Error("WriteBackupFile wrote outside the backup directory")
-	}
-}
-
 func TestListBackups_ListsNewestFirst(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)

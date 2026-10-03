@@ -6,50 +6,77 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // timestampLayout names backups so they sort by when they were taken.
 const timestampLayout = "20060102T150405Z"
 
-// restoringName is where a restore writes its copy before moving it into place.
+// archiveSuffix ends every backup's name: a gzipped tar of the persistent directory (D242 §5).
+const archiveSuffix = ".tar.gz"
+
+// restoringName is where a restore writes its database before moving it into place.
 const restoringName = "persistent.db.restoring"
 
-// WrittenBackup is what a backup produced.
-type WrittenBackup struct {
-	DatabasePath string
-	KeyPath      string // empty unless the key was included
+// inspectingName is where a restore's plan puts the backup's database, in the run directory, to
+// read its schema without changing anything the instance keeps.
+const inspectingName = "restore-inspecting.db"
+
+// ErrNoKeyToInclude is a backup asked to include secret.key on an instance that has none yet.
+var ErrNoKeyToInclude = errors.New("there is no secret.key to include; the server writes one at its first start")
+
+// Written is a backup made: where it is, and whether it holds secret.key.
+type Written struct {
+	Path        string
+	IncludesKey bool
 }
 
-// Write backs persistent.db up into the backup directory with VACUUM INTO. The file carries sealed
-// ciphertext only; with includeKey, secret.key is written beside it, for moving to a new machine,
-// and whoever holds both holds the secrets (D194 §4).
+// Write backs the persistent directory up into the backups directory: a tarball of its files, its
+// database a VACUUM INTO snapshot, safe beside a live writer (D242 §5, D77). The key, secret.key,
+// is left out unless includeKey asks for it, for moving to another machine: whoever holds a backup
+// with the key holds the secrets (D194 §4).
 func Write(
 	ctx context.Context, database *store.Database, directories *datadir.Directories, now time.Time, includeKey bool,
-) (WrittenBackup, error) {
-	stem := "backup-" + now.UTC().Format(timestampLayout)
-	written := WrittenBackup{DatabasePath: filepath.Join(directories.BackupDirectory(), stem+".sqlite")}
-	if err := database.BackupInto(ctx, written.DatabasePath); err != nil {
-		return WrittenBackup{}, err
+) (Written, error) {
+	return write(ctx, database, directories, "backup-"+now.UTC().Format(timestampLayout), includeKey)
+}
+
+// write writes the backup stem.tar.gz, as Write says.
+func write(
+	ctx context.Context, database *store.Database, directories *datadir.Directories, stem string, includeKey bool,
+) (written Written, err error) {
+	leftOut := []string{secrets.KeyFileName}
+	if includeKey {
+		if _, err = directories.ReadPersistentFile(secrets.KeyFileName); errors.Is(err, datadir.ErrNotFound) {
+			return Written{}, ErrNoKeyToInclude
+		} else if err != nil {
+			return Written{}, err
+		}
+		leftOut = nil
 	}
-	if !includeKey {
-		return written, nil
-	}
-	keyFileContents, err := directories.ReadPersistentFile(secrets.KeyFileName)
+	snapshotName := stem + ".snapshot.sqlite"
+	snapshotPath, err := directories.BackupPath(snapshotName)
 	if err != nil {
-		return written, fmt.Errorf("include the key: %w", err)
+		return Written{}, err
 	}
-	if err = directories.WriteBackupFile(stem+"."+secrets.KeyFileName, keyFileContents); err != nil {
-		return written, fmt.Errorf("include the key: %w", err)
+	if backupErr := database.BackupInto(ctx, snapshotPath); backupErr != nil {
+		return Written{}, backupErr
 	}
-	written.KeyPath = filepath.Join(directories.BackupDirectory(), stem+"."+secrets.KeyFileName)
-	return written, nil
+	defer func() { err = errors.Join(err, directories.RemoveBackupFile(snapshotName)) }()
+	name := stem + archiveSuffix
+	if archiveErr := directories.WriteBackupArchive(name, snapshotName, leftOut); archiveErr != nil {
+		return Written{}, archiveErr
+	}
+	path, err := directories.BackupPath(name)
+	return Written{Path: path, IncludesKey: includeKey}, err
 }
 
 // ErrNewerBackup is returned for a backup a newer release made that this binary cannot use.
@@ -57,11 +84,13 @@ var ErrNewerBackup = errors.New("the backup was made by a newer release")
 
 // Plan is what a restore would do, said before it does anything (backup-restore.md, Restore).
 type Plan struct {
-	SourcePath               string
-	SourceState              store.SchemaState
-	TargetPath               string
+	SourcePath  string
+	SourceState store.SchemaState
+	// RestoredFiles are the files the backup holds, by their names in the persistent directory.
+	RestoredFiles            []string
+	TargetDirectory          string
 	ReplacesExistingDatabase bool   // a persistent.db is there and will be replaced
-	SnapshotPath             string // where the replaced database is kept, if there is one
+	SnapshotPath             string // where what is replaced is kept, if anything is
 	InstallsKey              bool
 	BinarySchemaVersion      int
 }
@@ -69,9 +98,11 @@ type Plan struct {
 // Describe says, in sentences, what the plan will do.
 func (plan Plan) Describe() string {
 	var text strings.Builder
-	fmt.Fprintf(&text, "Restore %s (schema %d) into %s.\n", plan.SourcePath, plan.SourceState.Version, plan.TargetPath)
+	fmt.Fprintf(&text, "Restore %s (schema %d) into %s: %s.\n", plan.SourcePath, plan.SourceState.Version,
+		plan.TargetDirectory, strings.Join(plan.RestoredFiles, ", "))
 	if plan.ReplacesExistingDatabase {
-		fmt.Fprintf(&text, "The database there now is replaced; a copy of it is kept first as %s.\n", plan.SnapshotPath)
+		fmt.Fprintf(&text, "What is there now is replaced; a backup of it, key and all, is kept first as %s.\n",
+			plan.SnapshotPath)
 	} else {
 		text.WriteString("There is no database there now; nothing is replaced.\n")
 	}
@@ -80,20 +111,29 @@ func (plan Plan) Describe() string {
 			"next start.\n", plan.SourceState.Version, plan.BinarySchemaVersion)
 	}
 	if plan.InstallsKey {
-		text.WriteString("The given secret.key is installed, so sealed secrets open as before.\n")
+		text.WriteString("The backup holds secret.key, which is installed, so sealed secrets open as before.\n")
 	} else {
-		text.WriteString("No key is given: this machine's secret.key, or a new one, is used. Sealed secrets from a " +
-			"backup made elsewhere show \"needs re-entering\"; nothing else is lost.\n")
+		text.WriteString("The backup holds no secret.key: this machine's, or a new one, is used. Sealed secrets " +
+			"from a backup made elsewhere show \"needs re-entering\"; nothing else is lost.\n")
 	}
 	return text.String()
 }
 
-// MakePlan checks a backup and says what restoring it would do, changing nothing. The key file's
-// contents are those of a secret.key to install with it, or nil.
+// MakePlan checks a backup and says what restoring it would do, changing nothing the instance
+// keeps: it reads the backup's database from a copy in the run directory, and removes it.
 func MakePlan(
-	ctx context.Context, directories *datadir.Directories, sourcePath string, keyFileContents []byte, now time.Time,
-) (Plan, error) {
-	inspected, err := store.InspectBackup(ctx, sourcePath)
+	ctx context.Context, directories *datadir.Directories, sourcePath string, now time.Time,
+) (plan Plan, err error) {
+	names, err := datadir.ListBackupArchive(sourcePath)
+	if err != nil {
+		return Plan{}, err
+	}
+	inspecting, err := directories.ExtractBackupDatabase(sourcePath, inspectingName)
+	if err != nil {
+		return Plan{}, err
+	}
+	defer func() { err = errors.Join(err, directories.RemoveRunFile(inspectingName)) }()
+	inspected, err := store.InspectBackup(ctx, inspecting)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -108,33 +148,32 @@ func MakePlan(
 	if err = store.RefuseBeforeBaseline(inspected.State); err != nil {
 		return Plan{}, fmt.Errorf("%s cannot be restored by this release: %w", sourcePath, err)
 	}
-	if keyFileContents != nil {
-		if _, err = secrets.ParseKeyFile(keyFileContents); err != nil {
-			return Plan{}, err
-		}
-	}
 	databaseExists, err := directories.PersistentDatabaseExists()
 	if err != nil {
 		return Plan{}, err
 	}
-	plan := Plan{
-		SourcePath: sourcePath, SourceState: inspected.State, TargetPath: directories.PersistentDatabasePath(),
-		ReplacesExistingDatabase: databaseExists,
-		InstallsKey:              keyFileContents != nil, BinarySchemaVersion: binaryVersion,
+	plan = Plan{
+		SourcePath: sourcePath, SourceState: inspected.State, RestoredFiles: names,
+		TargetDirectory: directories.PersistentDirectory(), ReplacesExistingDatabase: databaseExists,
+		InstallsKey: slices.Contains(names, secrets.KeyFileName), BinarySchemaVersion: binaryVersion,
 	}
 	if databaseExists {
-		plan.SnapshotPath = filepath.Join(directories.BackupDirectory(),
-			"pre-restore-"+now.UTC().Format(timestampLayout)+".sqlite")
+		plan.SnapshotPath, err = directories.BackupPath(preRestoreStem(now) + archiveSuffix)
 	}
-	return plan, nil
+	return plan, err
 }
 
-// Restore carries out a plan, with the server stopped: it takes the state directory's lock, keeps
-// the database it replaces, writes a fresh copy of the backup, moves it into place and installs
-// the key if one was given. An older backup is migrated by the ordinary runner on the next start;
-// one below the baseline, which the runner cannot migrate, MakePlan has already refused (D228).
+// preRestoreStem names the backup a restore keeps of what it replaces.
+func preRestoreStem(now time.Time) string {
+	return "pre-restore-" + now.UTC().Format(timestampLayout)
+}
+
+// Restore carries out a plan, with the server stopped: it takes the instance's lock, keeps a
+// backup of what it replaces, key and all, and writes the backup's files into the persistent
+// directory. An older backup is migrated by the ordinary runner on the next start; one below the
+// baseline, which the runner cannot migrate, MakePlan has already refused (D228).
 func Restore(
-	ctx context.Context, directories *datadir.Directories, plan Plan, keyFileContents []byte, options store.OpenOptions,
+	ctx context.Context, directories *datadir.Directories, plan Plan, now time.Time, options store.OpenOptions,
 ) (err error) {
 	lock, err := directories.LockInstance()
 	if err != nil {
@@ -142,45 +181,64 @@ func Restore(
 	}
 	defer func() { err = errors.Join(err, lock.Release()) }()
 	if plan.ReplacesExistingDatabase {
-		err = snapshotCurrentDatabase(ctx, directories.PersistentDatabasePath(), plan.SnapshotPath, options)
-		if err != nil {
-			return err
+		if keepErr := keepWhatIsReplaced(ctx, directories, now, options); keepErr != nil {
+			return keepErr
 		}
 	}
-	err = directories.RemovePersistentFile(restoringName)
-	if err != nil {
-		return err
-	}
-	restoringPath, err := directories.PersistentPath(restoringName)
-	if err != nil {
-		return err
-	}
-	err = store.CopyBackup(ctx, plan.SourcePath, restoringPath)
-	if err != nil {
-		return err
-	}
-	err = directories.ReplacePersistentDatabase(restoringName)
-	if err != nil {
-		return err
-	}
-	if plan.InstallsKey {
-		err = directories.WritePersistentFile(secrets.KeyFileName, keyFileContents)
-		if err != nil {
-			return fmt.Errorf("install the key: %w", err)
-		}
-	}
-	return nil
+	return directories.RestorePersistentFromArchive(plan.SourcePath, restoringName)
 }
 
-// snapshotCurrentDatabase copies the database about to be replaced into snapshot.
-func snapshotCurrentDatabase(ctx context.Context, current, snapshot string, options store.OpenOptions) (err error) {
-	database, err := store.Open(ctx, current, options)
+// keepWhatIsReplaced backs the persistent directory up, key and all, before a restore replaces it.
+func keepWhatIsReplaced(
+	ctx context.Context, directories *datadir.Directories, now time.Time, options store.OpenOptions,
+) (err error) {
+	database, err := store.Open(ctx, directories.PersistentDatabasePath(), options)
 	if err != nil {
 		return fmt.Errorf("open the database being replaced, to keep a copy: %w", err)
 	}
 	defer func() { err = errors.Join(err, database.Close()) }()
-	if err = database.BackupInto(ctx, snapshot); err != nil {
-		return fmt.Errorf("keep the database being replaced: %w", err)
+	// The key goes in too, when there is one: a backup that holds a key replaces it, and the copy
+	// kept is this machine's own.
+	_, keyErr := directories.ReadPersistentFile(secrets.KeyFileName)
+	if keyErr != nil && !errors.Is(keyErr, datadir.ErrNotFound) {
+		return keyErr
+	}
+	if _, err = write(ctx, database, directories, preRestoreStem(now), keyErr == nil); err != nil {
+		return fmt.Errorf("keep what is being replaced: %w", err)
 	}
 	return nil
+}
+
+// Service makes backups of the running server's instance from the admin interface, one at a time
+// (D242 §5), and lists them.
+type Service struct {
+	database    *store.Database
+	directories *datadir.Directories
+	clock       clock.Clock
+
+	// mutex makes one backup at a time: two in the same second would share a name.
+	mutex sync.Mutex
+}
+
+// NewService returns the backup service of the server whose database and directories these are.
+func NewService(database *store.Database, directories *datadir.Directories, clockSource clock.Clock) *Service {
+	return &Service{database: database, directories: directories, clock: clockSource}
+}
+
+// Make writes a backup now, as Write says.
+func (service *Service) Make(ctx context.Context, includeKey bool) (Written, error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return Write(ctx, service.database, service.directories, service.clock.Now(), includeKey)
+}
+
+// Directory is where the backups are.
+func (service *Service) Directory() string {
+	return service.directories.BackupDirectory()
+}
+
+// List lists the backups directory, newest first: the backups, and the copies kept before a
+// restore or a migration.
+func (service *Service) List() ([]datadir.BackupFile, error) {
+	return service.directories.ListBackups()
 }

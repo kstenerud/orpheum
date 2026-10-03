@@ -16,3 +16,20 @@ export function signedTenthsText(value: number, locale: string): string {
     signDisplay: "exceptZero",
   }).format(value);
 }
+
+/** A size in bytes in the viewer's words, in the unit that keeps it short: "12.3 GB". */
+export function byteSizeText(bytes: number, locale: string): string {
+  const units = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
+  let value = bytes;
+  let index = 0;
+  while (value >= 1000 && index < units.length - 1) {
+    value /= 1000;
+    index += 1;
+  }
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: units[index] ?? "byte",
+    unitDisplay: "short",
+    maximumFractionDigits: index === 0 ? 0 : 1,
+  }).format(value);
+}

@@ -375,6 +375,18 @@ export const en = {
     retireNodeConsequence:
       "Its folders leave every library and its waiting work is cancelled; what was watched is kept. If it comes back, it joins as a new machine.",
     retireNodeConfirm: "Retire the machine",
+    backups: {
+      heading: "Backups",
+      what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it.",
+      includeKey: "Put the secret key in it, to move the server to another machine",
+      includeKeyWarning:
+        "Whoever has a backup with the key can read the passwords and keys kept on the server. Keep it somewhere safe.",
+      make: "Back up now",
+      where:
+        "Backups are kept in {{directory}} on the server's machine. A backup on the same disk does not survive that disk: copy them elsewhere.",
+      none: "There is no backup yet.",
+      backup: "{{name}}, {{size}}, made {{at}}",
+    },
     offline: "Offline",
     offlineRoot: "{{node}}: {{path}}, in {{library}}: offline since {{since}}",
     offlineDisk: "The disk at {{node}}: {{path}}, in {{library}}: missing since {{since}}",

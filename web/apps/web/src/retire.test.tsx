@@ -10,6 +10,9 @@ import { System, type SystemReport } from "./system.tsx";
 import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
+/** The backups section's answer when there are none (D242 §5). */
+const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
+
 let mounted: Mounted | undefined;
 
 afterEach(() => {
@@ -128,6 +131,7 @@ it("the System page says since when each folder and disk is offline, and retires
   const heard: Heard[] = [];
   const services = servedBy(
     {
+      "GET /backups": noBackups,
       "GET /system": [
         [200, report],
         [200, { ...report, nodes: [] }],

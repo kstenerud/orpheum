@@ -23,6 +23,11 @@
 //     and TestWritePersistentFile_ReplacesAtomicallyWithMode0600.
 //   - A running server holds the instance's lock, so restore cannot replace its database.
 //     Enforced by TestLockInstance_RefusesASecondHolder.
+//   - A backup is a gzipped tar of the persistent directory's files, its database a snapshot rather
+//     than the live file and its WAL; a restore takes only an archive of plain files under
+//     persistent/ with a database, and keeps a file the archive does not hold (D242 §5). Enforced
+//     by TestBackupArchive_HoldsThePersistentFilesAndRestoresThem and
+//     TestListBackupArchive_RefusesAnythingButPlainFilesUnderPersistent.
 //   - A persistent directory on a network filesystem is refused (D31). Enforced by
 //     TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems.
 //
@@ -40,6 +45,7 @@
 //
 //   - datadir.go: the layout (persistent.db, cache.db, the backups, persistent and run files) and
 //     atomic writes.
+//   - archive.go: a backup's archive, written and read back (D242 §5).
 //   - art.go: the artwork store under the cache directory. lock_unix.go: the instance's lock. The
 //     sockets are internal/platform/unixsocket's, since the node listens on one too.
 //     netfs_*.go: the network-filesystem refusal.
