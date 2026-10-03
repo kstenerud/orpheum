@@ -163,6 +163,14 @@ type Path struct {
 	Raw  []byte `json:"raw,omitempty"`
 }
 
+// Bytes is the path as the filesystem gave it: Raw when it is set, else Text.
+func (path Path) Bytes() []byte {
+	if path.Raw != nil {
+		return path.Raw
+	}
+	return []byte(path.Text)
+}
+
 // Observed is a file the node enumerated, probed and hashed.
 type Observed struct {
 	Path       Path  `json:"path"`
@@ -264,7 +272,9 @@ type ScanComplete struct {
 	ObservedCount int    `json:"observedCount"`
 	SidecarCount  int    `json:"sidecarCount"`
 	SkippedCount  int    `json:"skippedCount"`
-	ErrorCount    int    `json:"errorCount"`
+	// ListedCount is how many entries a listing listed.
+	ListedCount int `json:"listedCount"`
+	ErrorCount  int `json:"errorCount"`
 	// IsStoppedByErrors is true when the node stopped enumerating the root after too many errors.
 	IsStoppedByErrors bool `json:"isStoppedByErrors"`
 }

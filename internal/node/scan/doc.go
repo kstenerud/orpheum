@@ -2,7 +2,8 @@
 
 // Package scan walks a media root, read-only, and reports what it observes as JSONL records:
 // scan_begin, observed, sidecar, mount, skip, error and scan_complete. It reports; the core
-// decides. Roots are configured on the node and never remotely.
+// decides. Roots are configured on the node and never remotely. It also lists under a root, reading
+// no file, and examines the files the core names, which is how a scan becomes the core's (D240).
 //
 // # Invariants
 //
@@ -37,6 +38,15 @@
 //     TestScan_ReportsEveryEntryWithAFilingInByteOrder. A mount record needs a mount, which a test
 //     cannot make without privileges: the core's handling of both is tested with scripted
 //     records (internal/core/library's TestScenario_S7b_*).
+//   - A listing lists every entry with its stat and reads no file; the library's rules (trash,
+//     samples, AppleDouble, extensions) are the core's, and only a link out of the roots and what is
+//     neither a file nor a directory are skipped here (D240 §3).
+//     TestList_ListsEveryEntryWithItsStatAndReadsNoFile, TestList_ListsALinkOnlyIntoAMediaRoot.
+//   - A listing goes only as deep as asked, from where asked.
+//     TestList_GoesOnlyAsDeepAsAskedFromWhereAsked.
+//   - An examining answers each file it is given, in turn, with its record or its own error, and
+//     waits before each as it is told (D240 §4, §6). TestExamine_ReadsEachFileAsItsKindSaysOrSaysWhyNot,
+//     TestExamine_StopsWhenToldToBetweenFiles.
 //
 // # Read before changing
 //
@@ -45,6 +55,7 @@
 //   - D42: nodes are sensors; the core decides.
 //   - D107: a node's roots are set on the node.
 //   - D118: the scan is incremental, prioritised and steerable.
+//   - D240: a scan is a listing the core compares, and the examining of what it needs read.
 //   - docs/contributors/design/plans/scanner.md.
 //
 // # Where to change

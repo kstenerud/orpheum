@@ -53,6 +53,10 @@ type Work struct {
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
 	// MeasureLoudness is set for CommandMeasureLoudness.
 	MeasureLoudness *MeasureLoudness `json:"measureLoudness,omitempty"`
+	// List is set for CommandList.
+	List *List `json:"list,omitempty"`
+	// Examine is set for CommandExamine.
+	Examine *Examine `json:"examine,omitempty"`
 }
 
 // Scan asks the node to scan one of its roots.
@@ -81,6 +85,10 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return *work.ExtractSubtitle.Sidecar, true
 	case work.MeasureLoudness != nil:
 		return work.MeasureLoudness.Video, true
+	case work.List != nil:
+		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
+	case work.Examine != nil && len(work.Examine.Files) > 0:
+		return BytesFile{RootPath: work.Examine.RootPath, Path: work.Examine.Files[0].Path.Bytes()}, true
 	}
 	return BytesFile{}, false
 }
@@ -119,7 +127,8 @@ const (
 	SlotArtwork Slot = "artwork"
 )
 
-// Slot is the slot the work runs in, or "" for a scan or a cancel, which hold none.
+// Slot is the slot the work runs in, or "" for work that holds none: a listing or an examining,
+// which hold only a reader of their device, a scan, a cancel.
 func (work Work) Slot() Slot {
 	switch {
 	case work.Prepare != nil && work.Prepare.Profile == ProfileRemux:

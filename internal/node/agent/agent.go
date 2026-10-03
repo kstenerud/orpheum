@@ -37,9 +37,13 @@ const nodeHeader = "Orpheum-Node-ID"
 // connects to the core's socket.
 const coreURL = "http://orpheum-core"
 
-// Scanner walks one media root; scan.Scanner is the real one.
+// Scanner walks one media root, lists under one and examines files there; scan.Scanner is the real
+// one.
 type Scanner interface {
 	Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error
+	List(ctx context.Context, root *confine.MediaRoot, start string, depth int) ([]nodeproto.ScanRecord, error)
+	Examine(ctx context.Context, root *confine.MediaRoot, files []nodeproto.ExamineFile, between func() error) (
+		[]nodeproto.ScanRecord, error)
 }
 
 // Artworker re-encodes an image; artwork.Deriver is the real one (D212).
@@ -348,6 +352,10 @@ func (agent *Agent) workFor(
 		return agent.loudnessWork(nodeCtx, nodeID, held, *command.MeasureLoudness), true
 	case command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil:
 		return agent.artworkWork(nodeCtx, nodeID, held, *command.EncodeArtwork), true
+	case command.Type == nodeproto.CommandList && command.List != nil:
+		return agent.listWork(nodeCtx, nodeID, held, *command.List), true
+	case command.Type == nodeproto.CommandExamine && command.Examine != nil:
+		return agent.examineWork(nodeCtx, nodeID, held, *command.Examine), true
 	}
 	return heldWork{}, false
 }
@@ -375,13 +383,13 @@ func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream 
 	agent.setActivity("scanning " + root.Path())
 	defer agent.setActivity("idle")
 	device := agent.deviceOf(root.Path())
-	emit := func(record nodeproto.Record) error {
+	emit := func(record nodeproto.ScanRecord) error {
 		// Once a scan says it is complete, the node is idle: a status record sent after the
 		// completion must not still say it is scanning.
 		if record.Type == nodeproto.RecordScanComplete {
 			agent.setActivity("idle")
 		}
-		if err := stream.emit(ctx, record); err != nil {
+		if err := stream.emit(ctx, reportRecordOf(record)); err != nil {
 			return err
 		}
 		// Between one file and the next, the scan gives its device to play-driven work (D240 §6).
@@ -390,6 +398,14 @@ func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream 
 	err := agent.workers.Scanner.Scan(ctx, root, emit)
 	if err != nil && ctx.Err() == nil {
 		agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
+	}
+}
+
+// reportRecordOf is a scan's record as the report stream carries it.
+func reportRecordOf(record nodeproto.ScanRecord) nodeproto.Record {
+	return nodeproto.Record{
+		Type: record.Type, ScanBegin: record.ScanBegin, Observed: record.Observed, Skip: record.Skip,
+		Error: record.Error, ScanComplete: record.ScanComplete, Mount: record.Mount, Sidecar: record.Sidecar,
 	}
 }
 

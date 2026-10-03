@@ -172,9 +172,10 @@ func (list *workList) continuePaused(ordered []*heldWork) {
 	}
 }
 
-// hasSlot is whether a slot of the work's kind is free. The caller holds the mutex.
+// hasSlot is whether a slot of the work's kind is free: always, for work that holds none, a listing
+// or an examining, which waits only for its device's reader. The caller holds the mutex.
 func (list *workList) hasSlot(work *heldWork) bool {
-	return list.running[work.slot] < list.capacity.SlotCount(work.slot)
+	return work.slot == "" || list.running[work.slot] < list.capacity.SlotCount(work.slot)
 }
 
 // hasReader is whether a device has a reader free: always, for work that reads none. The caller
@@ -225,6 +226,26 @@ func (list *workList) waitForPlayOn(ctx context.Context, device string) error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("waiting for play-driven work on %s: %w", device, ctx.Err())
+		case <-changed:
+		}
+	}
+}
+
+// waitWhilePaused waits while the work holding token is paused, for work that reads in the node's own
+// process, between one file and the next, until ctx ends (D240 §6).
+func (list *workList) waitWhilePaused(ctx context.Context, token string) error {
+	for {
+		list.mutex.Lock()
+		work := list.find(token)
+		isPaused := work != nil && work.pausing.IsPaused()
+		changed := list.changed
+		list.mutex.Unlock()
+		if !isPaused {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting to be continued: %w", ctx.Err())
 		case <-changed:
 		}
 	}

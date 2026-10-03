@@ -17585,6 +17585,20 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    the node walking a root and reading every file into the report stream, becomes the listing and
    the examining (§2–§4). D234 §8's record stream is the listing's and the answers'. D233 and D234's
    other sections, and D238, stand.
+8. **As built, the owner's four answers** (2026-10-03, *"agreed on all four"*):
+   - **One answer per batch, not per file.** A command examines a folder's files in a batch: up to a
+     setting's count of videos, each with the sidecars named for it. The batch is answered whole and
+     acknowledged as every result is, so a lost node redoes one batch. A folder of loose videos, such
+     as a movies folder holding a few dozen bare files, is several batches (the owner: *"those would
+     all get swept up in one call to the base movies dir, right?"*). This revises §4's per-file
+     answer.
+   - **The extension lists are settings.** Which files are videos and which subtitles is a skip rule,
+     the core's by §3, so they leave the node's configuration.
+   - **A move is still told by its payload hash** (D179). A file at a new path is examined like a new
+     one, and the ingest finds the row it moved from. Telling a move by device and inode, which
+     saves that one read, waits; §3's move by inode is not built.
+   - **The listing comes whole.** It is fetched from the node's byte socket as large results are, not
+     in pages; paging waits for a library large enough to need it.
 
 **Status:** Decided 2026-10-02; to be built as the jobs rebuild's re-cut 4d and 4e. Until it is
 in use the protocol and both databases change freely: their one user is the owner, testing (the

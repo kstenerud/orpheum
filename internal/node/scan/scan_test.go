@@ -62,7 +62,7 @@ var options = Options{
 }
 
 // scanAll scans root and returns every record, failing the test if the scan fails.
-func scanAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.Record {
+func scanAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.ScanRecord {
 	t.Helper()
 	records, err := scanRecords(t.Context(), scanner, root)
 	if err != nil {
@@ -71,9 +71,9 @@ func scanAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeprot
 	return records
 }
 
-func scanRecords(ctx context.Context, scanner *Scanner, root *confine.MediaRoot) ([]nodeproto.Record, error) {
-	var records []nodeproto.Record
-	err := scanner.Scan(ctx, root, func(record nodeproto.Record) error {
+func scanRecords(ctx context.Context, scanner *Scanner, root *confine.MediaRoot) ([]nodeproto.ScanRecord, error) {
+	var records []nodeproto.ScanRecord
+	err := scanner.Scan(ctx, root, func(record nodeproto.ScanRecord) error {
 		records = append(records, record)
 		return nil
 	})
@@ -81,7 +81,7 @@ func scanRecords(ctx context.Context, scanner *Scanner, root *confine.MediaRoot)
 }
 
 // summary is one line per record, "type path detail", for comparing whole reports.
-func summary(records []nodeproto.Record) []string {
+func summary(records []nodeproto.ScanRecord) []string {
 	lines := make([]string, 0, len(records))
 	for _, record := range records {
 		switch record.Type {
@@ -102,6 +102,12 @@ func summary(records []nodeproto.Record) []string {
 			lines = append(lines, "mount "+record.Mount.Path.Text)
 		case nodeproto.RecordSidecar:
 			lines = append(lines, "sidecar "+record.Sidecar.Path.Text+" "+string(record.Sidecar.Kind))
+		case nodeproto.RecordListed:
+			line := "listed " + record.Listed.Path.Text
+			if record.Listed.IsDirectory {
+				line += "/"
+			}
+			lines = append(lines, line)
 		}
 	}
 	return lines
@@ -156,7 +162,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	}
 }
 
-func checkCountsAndFacts(t *testing.T, records []nodeproto.Record) {
+func checkCountsAndFacts(t *testing.T, records []nodeproto.ScanRecord) {
 	t.Helper()
 	complete := records[len(records)-1].ScanComplete
 	if complete.ObservedCount != 3 || complete.SidecarCount != 2 || complete.SkippedCount != 7 ||
@@ -175,7 +181,7 @@ func checkCountsAndFacts(t *testing.T, records []nodeproto.Record) {
 	}
 }
 
-func checkSidecarBodies(t *testing.T, records []nodeproto.Record) {
+func checkSidecarBodies(t *testing.T, records []nodeproto.ScanRecord) {
 	t.Helper()
 	for _, record := range records {
 		if sidecar := record.Sidecar; sidecar != nil {
@@ -366,7 +372,7 @@ func TestScan_StopsWhenNobodyIsListening(t *testing.T) {
 	gone := errors.New("the core hung up")
 	sent := 0
 	err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).Scan(t.Context(), media,
-		func(nodeproto.Record) error {
+		func(nodeproto.ScanRecord) error {
 			sent++
 			if sent == 2 {
 				return gone

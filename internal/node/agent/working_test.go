@@ -224,3 +224,48 @@ func TestWorkList_AReprioritizedJobTakesItsNewPlaceInLine(t *testing.T) {
 		t.Errorf("job %d started next, want 2: job 3, fallen to background, came after it", next)
 	}
 }
+
+// Work that holds no slot, a listing or an examining, waits only for its device's reader: two on two
+// devices run side by side, and a second on one device waits for the first (D240 §5).
+func TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{})
+	blocking := newBlockingWork()
+	list.hold(t.Context(), blocking.onDevice(1, "", "disk:sda", false))
+	list.hold(t.Context(), blocking.onDevice(2, "", "disk:sdb", false))
+	list.hold(t.Context(), blocking.onDevice(3, "", "disk:sda", false))
+	testutil.Receive(t, blocking.started, "the first start")
+	testutil.Receive(t, blocking.started, "the second start")
+	if got := []string{stateOf(list, 1), stateOf(list, 2), stateOf(list, 3)}; got[0] != "running" ||
+		got[1] != "running" || got[2] != "waiting" {
+		t.Errorf("jobs 1 and 3 on sda, 2 on sdb are %v; want 1 and 2 running, 3 waiting for sda's reader", got)
+	}
+	close(blocking.release)
+}
+
+// Work reading in the node's own process, an examining, waits between one file and the next while it
+// is paused for play-driven work on its device, and goes on once that ends (D240 §6).
+func TestWorkList_PausedWorkWaitsBetweenFilesUntilItIsContinued(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
+	examining, play := newBlockingWork(), newBlockingWork()
+	list.hold(t.Context(), examining.onDevice(1, "", "zfs:tank", false))
+	testutil.Receive(t, examining.started, "the examining's start")
+	if err := list.waitWhilePaused(t.Context(), tokenOf(1)); err != nil {
+		t.Errorf("the examining, not paused, waited: %v", err)
+	}
+	list.hold(t.Context(), play.onDevice(2, nodeproto.SlotRemux, "zfs:tank", true))
+	testutil.Receive(t, play.started, "the play-driven prepare's start")
+	continued := make(chan error, 1)
+	go func() { continued <- list.waitWhilePaused(t.Context(), tokenOf(1)) }()
+	select {
+	case err := <-continued:
+		t.Errorf("the paused examining went on (%v) while the play-driven work ran", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(play.release)
+	if err := testutil.Receive(t, continued, "the examining going on"); err != nil {
+		t.Errorf("the examining's wait ended %v, want it to go on", err)
+	}
+	close(examining.release)
+}

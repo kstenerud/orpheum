@@ -281,10 +281,15 @@ func TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry(t *testing.T) {
 }
 
 // blockingScanner begins a scan, says so, and holds it until the session ends.
-type blockingScanner struct{ scanning chan struct{} }
+type blockingScanner struct {
+	fakeScanner
+	scanning chan struct{}
+}
 
 func (scanner blockingScanner) Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error {
-	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()}}
+	begin := nodeproto.ScanRecord{
+		Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()},
+	}
 	if err := emit(begin); err != nil {
 		return err
 	}

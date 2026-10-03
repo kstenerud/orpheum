@@ -27,6 +27,8 @@ var wireShapeByVersion = map[int]string{
 	12: "25647d5faba4f24b0c1beeab4ee49f9087895d6f5192418ea1fd9968bacc5b0d",
 	// 13 adds the reprioritize command, which a node of 12 would refuse; the fields are unchanged.
 	13: "25647d5faba4f24b0c1beeab4ee49f9087895d6f5192418ea1fd9968bacc5b0d",
+	// 14 adds the list and examine commands, their results and the listed record (D240 §2, §4).
+	14: "2a89ff73d174a3e775f283925b9c5d8873e5bdf29c6e3c4c43537468564ca5b0",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
