@@ -23,6 +23,10 @@ const timestampLayout = "20060102T150405Z"
 // archiveSuffix ends every backup's name: a gzipped tar of the persistent directory (D242 §5).
 const archiveSuffix = ".tar.gz"
 
+// persistentDatabaseName is the database's name in the persistent directory, which a database
+// snapshot alone restores.
+const persistentDatabaseName = "persistent.db"
+
 // restoringName is where a restore writes its database before moving it into place.
 const restoringName = "persistent.db.restoring"
 
@@ -87,7 +91,10 @@ type Plan struct {
 	SourcePath  string
 	SourceState store.SchemaState
 	// RestoredFiles are the files the backup holds, by their names in the persistent directory.
-	RestoredFiles            []string
+	RestoredFiles []string
+	// IsDatabaseOnly is a source that is a database snapshot alone, as the migration runner keeps
+	// before it migrates, not a backup: it replaces persistent.db and nothing else.
+	IsDatabaseOnly           bool
 	TargetDirectory          string
 	ReplacesExistingDatabase bool   // a persistent.db is there and will be replaced
 	SnapshotPath             string // where what is replaced is kept, if anything is
@@ -123,20 +130,12 @@ func (plan Plan) Describe() string {
 // keeps: it reads the backup's database from a copy in the run directory, and removes it.
 func MakePlan(
 	ctx context.Context, directories *datadir.Directories, sourcePath string, now time.Time,
-) (plan Plan, err error) {
-	names, err := datadir.ListBackupArchive(sourcePath)
+) (Plan, error) {
+	source, err := inspectSource(ctx, directories, sourcePath)
 	if err != nil {
 		return Plan{}, err
 	}
-	inspecting, err := directories.ExtractBackupDatabase(sourcePath, inspectingName)
-	if err != nil {
-		return Plan{}, err
-	}
-	defer func() { err = errors.Join(err, directories.RemoveRunFile(inspectingName)) }()
-	inspected, err := store.InspectBackup(ctx, inspecting)
-	if err != nil {
-		return Plan{}, err
-	}
+	inspected := source.inspected
 	binaryVersion, err := store.SchemaVersion()
 	if err != nil {
 		return Plan{}, err
@@ -152,15 +151,53 @@ func MakePlan(
 	if err != nil {
 		return Plan{}, err
 	}
-	plan = Plan{
-		SourcePath: sourcePath, SourceState: inspected.State, RestoredFiles: names,
+	plan := Plan{
+		SourcePath: sourcePath, SourceState: inspected.State, RestoredFiles: source.names,
+		IsDatabaseOnly:  source.isDatabaseOnly,
 		TargetDirectory: directories.PersistentDirectory(), ReplacesExistingDatabase: databaseExists,
-		InstallsKey: slices.Contains(names, secrets.KeyFileName), BinarySchemaVersion: binaryVersion,
+		InstallsKey: slices.Contains(source.names, secrets.KeyFileName), BinarySchemaVersion: binaryVersion,
 	}
 	if databaseExists {
 		plan.SnapshotPath, err = directories.BackupPath(preRestoreStem(now) + archiveSuffix)
 	}
 	return plan, err
+}
+
+// inspectedSource is what a restore's source holds: its files, by their names in the persistent
+// directory, its database's schema, and whether it is a database snapshot alone.
+type inspectedSource struct {
+	names          []string
+	inspected      store.BackupDescription
+	isDatabaseOnly bool
+}
+
+// inspectSource reads what a restore's source holds: a backup, or a database snapshot alone, as the
+// migration runner keeps before it migrates (pre-migrate-vN.sqlite). A backup's database is read
+// from a copy in the run directory, removed after.
+func inspectSource(
+	ctx context.Context, directories *datadir.Directories, sourcePath string,
+) (source inspectedSource, err error) {
+	names, archiveErr := datadir.ListBackupArchive(sourcePath)
+	if errors.Is(archiveErr, datadir.ErrNotABackupArchive) {
+		inspected, inspectErr := store.InspectBackup(ctx, sourcePath)
+		if inspectErr != nil {
+			return source, fmt.Errorf("%s is neither a backup nor a database snapshot: %w",
+				sourcePath, errors.Join(archiveErr, inspectErr))
+		}
+		return inspectedSource{names: []string{persistentDatabaseName}, inspected: inspected, isDatabaseOnly: true},
+			nil
+	}
+	if archiveErr != nil {
+		return source, archiveErr
+	}
+	inspecting, err := directories.ExtractBackupDatabase(sourcePath, inspectingName)
+	if err != nil {
+		return source, err
+	}
+	defer func() { err = errors.Join(err, directories.RemoveRunFile(inspectingName)) }()
+	source = inspectedSource{names: names}
+	source.inspected, err = store.InspectBackup(ctx, inspecting)
+	return source, err
 }
 
 // preRestoreStem names the backup a restore keeps of what it replaces.
@@ -185,7 +222,26 @@ func Restore(
 			return keepErr
 		}
 	}
-	return directories.RestorePersistentFromArchive(plan.SourcePath, restoringName)
+	if !plan.IsDatabaseOnly {
+		return directories.RestorePersistentFromArchive(plan.SourcePath, restoringName)
+	}
+	return restoreDatabaseOnly(ctx, directories, plan.SourcePath)
+}
+
+// restoreDatabaseOnly replaces the database with a snapshot of one; the config and the key stay as
+// they are.
+func restoreDatabaseOnly(ctx context.Context, directories *datadir.Directories, snapshotPath string) error {
+	if err := directories.RemovePersistentFile(restoringName); err != nil {
+		return err
+	}
+	restoringPath, err := directories.PersistentPath(restoringName)
+	if err != nil {
+		return err
+	}
+	if err := store.CopyBackup(ctx, snapshotPath, restoringPath); err != nil {
+		return err
+	}
+	return directories.ReplacePersistentDatabase(restoringName)
 }
 
 // keepWhatIsReplaced backs the persistent directory up, key and all, before a restore replaces it.

@@ -219,7 +219,7 @@ func checkSchema(ctx context.Context, database *store.Database) finding {
 	return finding{
 		verdictFailure, fmt.Sprintf("persistent.db is at schema %d and needs a newer release than this "+
 			"one (%d)", state.Version, binaryVersion),
-		"restore the pre-migrate snapshot in the backup directory, or upgrade",
+		"restore the pre-migrate snapshot in the backups directory with `orpheum restore --from`, or upgrade",
 	}
 }
 

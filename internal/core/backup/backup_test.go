@@ -286,8 +286,8 @@ func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 	if _, err := MakePlan(t.Context(), target, archiveOf(t, foreign), testTime); !errors.Is(err, store.ErrNotOurs) {
 		t.Errorf("a foreign database: %v, want ErrNotOurs", err)
 	}
-	if _, err := MakePlan(t.Context(), target, foreign, testTime); !errors.Is(err, datadir.ErrNotABackupArchive) {
-		t.Errorf("a database that is no archive: %v, want ErrNotABackupArchive", err)
+	if _, err := MakePlan(t.Context(), target, foreign, testTime); !errors.Is(err, store.ErrNotOurs) {
+		t.Errorf("a foreign database snapshot: %v, want ErrNotOurs", err)
 	}
 
 	original := newServer(t)
@@ -383,5 +383,40 @@ func checkHoldsNoKeyAndCiphertextOnly(t *testing.T, written Written) {
 	}
 	if strings.Contains(string(contents), canary) {
 		t.Error("the backup holds the secret in plain text; it must carry ciphertext only")
+	}
+}
+
+// The snapshot the migration runner keeps before it migrates is a database alone, and the way
+// back from a newer release's database that the server's refusal names (D181): restore takes it,
+// replacing the database and keeping the config and the key.
+func TestRestore_TakesTheDatabaseSnapshotKeptBeforeAMigration(t *testing.T) {
+	t.Parallel()
+	original := newServer(t)
+	original.populate(t)
+	snapshot := filepath.Join(t.TempDir(), "pre-migrate-v1.sqlite")
+	if err := original.database.BackupInto(t.Context(), snapshot); err != nil {
+		t.Fatal(err)
+	}
+	target := newServer(t)
+	if err := target.directories.WritePersistentFile("config.toml", []byte("listen = 1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := target.database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	plan := restore(t, target.directories, snapshot)
+	if !plan.IsDatabaseOnly || plan.InstallsKey || !slices.Equal(plan.RestoredFiles, []string{"persistent.db"}) {
+		t.Errorf("the plan for a snapshot = %+v; want the database alone", plan)
+	}
+	restored := openAt(t, target.directories)
+	if _, err := store.OrNotFound(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
+		t.Errorf("the restored snapshot lost the owner: %v", err)
+	}
+	for name, want := range map[string]string{
+		"config.toml": "listen = 1", secrets.KeyFileName: string(target.key.EncodeKeyFile()),
+	} {
+		if got, err := target.directories.ReadPersistentFile(name); err != nil || string(got) != want {
+			t.Errorf("%s after restoring a snapshot = %q, %v; want it kept", name, got, err)
+		}
 	}
 }
