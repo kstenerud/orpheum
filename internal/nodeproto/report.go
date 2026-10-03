@@ -80,9 +80,10 @@ type Status struct {
 // its kill, waiting on a device, which it does until the device answers, if ever (D233 §10). It
 // holds no slot.
 type Stuck struct {
-	// Tool is the program: "ffmpeg" or "ffprobe".
+	// Tool is the program, "ffmpeg" or "ffprobe", or "node" for a listing's or an examining's own
+	// reading.
 	Tool string `json:"tool"`
-	// PID is its process.
+	// PID is its process; zero for the node's own reading.
 	PID int `json:"pid"`
 	// Paths are where it was reading: the device it waits on holds one of them.
 	Paths []string `json:"paths,omitempty"`
@@ -110,6 +111,10 @@ type HeldAttempt struct {
 	JobID        int64     `json:"jobId"`
 	AttemptToken string    `json:"attemptToken"`
 	State        HeldState `json:"state"`
+	// SinceMovedMs is how long it has not moved, its paused time apart: running work moves as its
+	// FFmpeg advances or its reading reads, and waiting work as the work running does. The core holds
+	// work only while it moves (D233 §5).
+	SinceMovedMs int64 `json:"sinceMovedMs"`
 }
 
 // Disk is one filesystem a node uses, named by a directory on it.

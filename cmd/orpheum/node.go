@@ -181,7 +181,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		PreparedShelf:    preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
 	}
-	workers.ProgressEvery, workers.EndedWorkKept = workPacing(config)
+	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
@@ -207,12 +207,14 @@ func devicesOf(roots []*confine.MediaRoot, preparedDirectory string) func() ([]n
 	return func() ([]nodeproto.Device, error) { return hardware.Devices(paths) }
 }
 
-// workPacing is how often, at most, a running prepare tells the core how far it is, and how long the
-// node remembers work whose result the core took: node.progress_every_seconds and
-// node.ended_work_kept_hours.
-func workPacing(config Config) (progressEvery, endedWorkKept time.Duration) {
+// workPacing is how often, at most, a running prepare tells the core how far it is, how long the
+// node remembers work whose result the core took, and how long its own reading may go without
+// moving: node.progress_every_seconds, node.ended_work_kept_hours, and the read window past
+// node.probe_timeout_seconds (agent.ReadStallWindowFor).
+func workPacing(config Config) (progressEvery, endedWorkKept, readStallWindow time.Duration) {
 	return time.Duration(config.Node.ProgressEverySeconds) * time.Second,
-		time.Duration(config.Node.EndedWorkKeptHours) * time.Hour
+		time.Duration(config.Node.EndedWorkKeptHours) * time.Hour,
+		agent.ReadStallWindowFor(time.Duration(config.Node.ProbeTimeoutSeconds) * time.Second)
 }
 
 // chooseEncoder chooses, once, the encoder the node's encodes use: the first hardware one that

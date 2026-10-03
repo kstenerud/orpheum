@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -224,5 +226,38 @@ func TestExamine_StopsWhenToldToBetweenFiles(t *testing.T) {
 	}
 	if got := summary(records); !slices.Equal(got, []string{"observed a.mkv"}) {
 		t.Errorf("examined %v, want only the file before it stopped", got)
+	}
+}
+
+// A listing moves with each entry it lists, and an examining with each read of a hash too, so the
+// node can tell one that has stalled on its disk from one still working (D233 §5).
+func TestListAndExamine_MoveWithEachRecordAndEachRead(t *testing.T) {
+	t.Parallel()
+	root := writeTree(t, map[string]string{"Film/film.mkv": strings.Repeat("v", 1<<16), "Film/film.nfo": "<movie/>"})
+	media := nodetest.OpenMediaRoot(t, root)
+	scanner := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options)
+	var moves atomic.Int64
+	ctx := execx.WithMoved(t.Context(), func() { moves.Add(1) })
+	records, err := scanner.List(ctx, media, ".", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := 0
+	for _, record := range records {
+		if record.Type == nodeproto.RecordListed {
+			listed++
+		}
+	}
+	if got := moves.Load(); listed == 0 || got < int64(listed) {
+		t.Errorf("a listing of %d entries moved %d times; want once an entry", listed, got)
+	}
+	moves.Store(0)
+	examined, err := scanner.Examine(ctx, media, []nodeproto.ExamineFile{video("Film/film.mkv")},
+		func() error { return nil })
+	if err != nil || len(examined) != 1 {
+		t.Fatalf("examined %+v, %v", examined, err)
+	}
+	if got := moves.Load(); got <= 1 {
+		t.Errorf("an examining of one video moved %d times; want its hashes' reads too, not its record alone", got)
 	}
 }

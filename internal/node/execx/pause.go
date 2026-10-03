@@ -29,6 +29,31 @@ func WithPausing(ctx context.Context, pausing *Pausing) context.Context {
 	return context.WithValue(ctx, pausingKey{}, pausing)
 }
 
+// movedKey is the context key a run's movement hook travels under.
+type movedKey struct{}
+
+// WithMoved is ctx carrying moved, which every watched run made on it calls each time it moves:
+// its position advances, or it reads or writes. The node's work list counts a job's movement by it.
+func WithMoved(ctx context.Context, moved func()) context.Context {
+	return context.WithValue(ctx, movedKey{}, moved)
+}
+
+// Moved calls the movement hook ctx carries, if it carries one: for work that reads in the node's
+// own process, which moves as it reads.
+func Moved(ctx context.Context) {
+	if moved := movedOf(ctx); moved != nil {
+		moved()
+	}
+}
+
+// movedOf is the movement hook ctx carries, or nil.
+func movedOf(ctx context.Context) func() {
+	if moved, isMoved := ctx.Value(movedKey{}).(func()); isMoved {
+		return moved
+	}
+	return nil
+}
+
 // pausingOf is the Pausing ctx carries, or nil.
 func pausingOf(ctx context.Context) *Pausing {
 	if pausing, isPausing := ctx.Value(pausingKey{}).(*Pausing); isPausing {

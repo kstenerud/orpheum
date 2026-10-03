@@ -250,32 +250,51 @@ func (scans *Scans) openBatch(ctx context.Context, batchID int64) (openedBatch, 
 // ScanAssignee is how a scan job given to a node is resolved: its listing is compared, and the
 // batches it leaves are queued (TakeListing).
 func (scans *Scans) ScanAssignee(runner nodes.Resolver) nodes.Assignee {
-	return scanWorkAssignee(runner, func(ctx context.Context, job jobs.Job, result nodeproto.Result) error {
-		listing := ptr.ValueOrZero(result.Listing)
-		return takeRecords(fmt.Sprintf("scan %d's listing", job.ScanID), result.Listing != nil, listing.Refusal,
-			func() error { return scans.takeListing(ctx, job.ScanID, listing.Records) })
-	})
+	return scanWorkAssignee(runner, listingAnswer,
+		func(ctx context.Context, job jobs.Job, records []nodeproto.ScanRecord) error {
+			return scans.takeListing(ctx, job.ScanID, records)
+		})
+}
+
+// listingAnswer is what a node answered a scan's listing with.
+func listingAnswer(job jobs.Job, result nodeproto.Result) nodeAnswer {
+	listing := ptr.ValueOrZero(result.Listing)
+	return nodeAnswer{
+		about: fmt.Sprintf("scan %d's listing", job.ScanID), isAnswered: result.Listing != nil,
+		refusal: listing.Refusal, stall: listing.Stall, records: listing.Records,
+	}
 }
 
 // ExamineAssignee is how an examine job given to a node is resolved: what it read is ingested into
 // its scan, and the scan completes after its last batch.
 func (scans *Scans) ExamineAssignee(runner nodes.Resolver) nodes.Assignee {
-	return scanWorkAssignee(runner, func(ctx context.Context, job jobs.Job, result nodeproto.Result) error {
-		examined := ptr.ValueOrZero(result.Examined)
-		return takeRecords(fmt.Sprintf("scan batch %d", job.ScanBatchID), result.Examined != nil, examined.Refusal,
-			func() error { return scans.takeExamined(ctx, job.ScanBatchID, examined.Records) })
-	})
+	return scanWorkAssignee(runner, examinedAnswer,
+		func(ctx context.Context, job jobs.Job, records []nodeproto.ScanRecord) error {
+			return scans.takeExamined(ctx, job.ScanBatchID, records)
+		})
 }
 
-// scanWorkAssignee is how a scan's job given to a node is resolved: by answer, from the node's word on
-// it; one the node lost is tried again (nodes.UnansweredOutcome).
+// examinedAnswer is what a node answered a scan batch's examining with.
+func examinedAnswer(job jobs.Job, result nodeproto.Result) nodeAnswer {
+	examined := ptr.ValueOrZero(result.Examined)
+	return nodeAnswer{
+		about: fmt.Sprintf("scan batch %d", job.ScanBatchID), isAnswered: result.Examined != nil,
+		refusal: examined.Refusal, stall: examined.Stall, records: examined.Records,
+	}
+}
+
+// scanWorkAssignee is how a scan's job given to a node is resolved: the records the node's answer
+// carries, by answerOf, are taken by take (takeRecords); one the node lost is tried again
+// (nodes.UnansweredOutcome).
 func scanWorkAssignee(
-	runner nodes.Resolver, answer func(ctx context.Context, job jobs.Job, result nodeproto.Result) error,
+	runner nodes.Resolver, answerOf func(job jobs.Job, result nodeproto.Result) nodeAnswer,
+	take func(ctx context.Context, job jobs.Job, records []nodeproto.ScanRecord) error,
 ) nodes.Assignee {
 	return nodes.Assignee{
 		Runner: runner,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
-			if err := answer(ctx, job, result); err != nil {
+			answer := answerOf(job, result)
+			if err := takeRecords(job, answer, func() error { return take(ctx, job, answer.records) }); err != nil {
 				return fmt.Errorf("node %d: %w", attempt.NodeID, err)
 			}
 			return nil
@@ -286,14 +305,29 @@ func scanWorkAssignee(
 	}
 }
 
+// nodeAnswer is what a node answered a listing or an examining, about, with: whether it answered
+// that at all, its refusal or its stall, if either, and its records.
+type nodeAnswer struct {
+	about      string
+	isAnswered bool
+	refusal    string
+	stall      *nodeproto.Stall
+	records    []nodeproto.ScanRecord
+}
+
 // takeRecords takes what a node answered about, by take, unless it answered with something else or
-// refused, which fails the job.
-func takeRecords(about string, isAnswered bool, refusal string, take func() error) error {
+// refused, which fails the job, or its reading stalled, which is the tool's failure: tried again,
+// and the job's own the second time (nodes.StallOutcome). A stalled reading's records are never
+// taken: a listing cut short is not a root's contents.
+func takeRecords(job jobs.Job, answer nodeAnswer, take func() error) error {
 	switch {
-	case !isAnswered:
-		return fmt.Errorf("answered %s with something else", about)
-	case refusal != "":
-		return jobs.MarkPermanent(fmt.Errorf("refused %s: %s", about, refusal))
+	case !answer.isAnswered:
+		return fmt.Errorf("answered %s with something else", answer.about)
+	case answer.refusal != "":
+		return jobs.MarkPermanent(fmt.Errorf("refused %s: %s", answer.about, answer.refusal))
+	case answer.stall != nil:
+		return nodes.StallOutcome(job, fmt.Errorf("%s stalled, %s: %s", answer.about, answer.stall.Condition,
+			answer.stall.Detail), nil)
 	}
 	return take()
 }

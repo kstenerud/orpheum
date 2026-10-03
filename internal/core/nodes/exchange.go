@@ -149,6 +149,21 @@ func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string)
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }
 
+// StallOutcome is a handler's answer to a node's word that the work stalled and was stopped: a
+// hang says nothing of the target the first time, so the job is tried again at no cost of an
+// attempt (jobs.MarkStalled), and when its last attempt's tool failed too it is the target's
+// failure, kept by keepFailure when it is not nil (D233 §6).
+func StallOutcome(job jobs.Job, stalled error, keepFailure func(failure string) error) error {
+	if !job.PreviousAttemptToolFailed {
+		return jobs.MarkStalled(stalled)
+	}
+	if keepFailure == nil {
+		return jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, stalled))
+	}
+	failure := jobs.ToolFailedTwice + stalled.Error()
+	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
+}
+
 // ErrNodeRestarted is a node that started again while it held a job's work, which it held in
 // memory and has lost (D238 §3).
 var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)

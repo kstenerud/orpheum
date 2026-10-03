@@ -9,9 +9,11 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // attempt is the core's attempt at a job that the node holds: the job's id, and the token the core
@@ -59,6 +61,12 @@ type heldWork struct {
 	stop  context.CancelFunc
 	// pausing pauses its FFmpeg, which runs on a context carrying it (execx.WithPausing).
 	pausing *execx.Pausing
+	// movement is when it last moved, which its run's context tells (execx.WithMoved).
+	movement *movement
+	// stalls, for work that reads in the node's own process, a listing or an examining, is told how
+	// long its reading has not moved once that is its window (stallStillReads); nil for FFmpeg's
+	// work, which execx watches.
+	stalls chan time.Duration
 }
 
 func (work *heldWork) isRunning() bool { return work.stop != nil }
@@ -72,6 +80,7 @@ func (work *heldWork) isReading() bool { return work.isRunning() && !work.pausin
 // device's readers taken pauses background work reading it, which continues once there is room
 // again (D240 §6). A cancel stops a running job, or drops a waiting one before it starts.
 type workList struct {
+	clock    clock.Clock
 	mutex    sync.Mutex
 	capacity nodeproto.Capacity     // how many of each kind run at once
 	running  map[nodeproto.Slot]int // guarded by mutex: running and paused alike hold their slot
@@ -85,9 +94,9 @@ type workList struct {
 	changed chan struct{}
 }
 
-func newWorkList(capacity nodeproto.Capacity) *workList {
+func newWorkList(capacity nodeproto.Capacity, clockSource clock.Clock) *workList {
 	return &workList{
-		capacity: capacity, running: map[nodeproto.Slot]int{}, readerLimits: map[string]int{},
+		clock: clockSource, capacity: capacity, running: map[nodeproto.Slot]int{}, readerLimits: map[string]int{},
 		changed: make(chan struct{}),
 	}
 }
@@ -112,10 +121,10 @@ func (list *workList) hold(ctx context.Context, work heldWork) (isHeld, isWaitin
 	}
 	list.arrivals++
 	work.arrival = list.arrivals
-	work.pausing = &execx.Pausing{}
+	work.pausing, work.movement = &execx.Pausing{}, newMovement(list.clock)
 	added := &work
 	added.start = func() context.CancelFunc {
-		runCtx, stop := context.WithCancel(execx.WithPausing(ctx, added.pausing))
+		runCtx, stop := context.WithCancel(execx.WithMoved(execx.WithPausing(ctx, added.pausing), added.movement.moved))
 		go func() {
 			defer list.finish(added)
 			added.run(runCtx)
@@ -168,6 +177,7 @@ func (list *workList) continuePaused(ordered []*heldWork) {
 	for _, work := range ordered {
 		if work.isRunning() && work.pausing.IsPaused() && !wantedForPlay[work.device] && list.hasReader(work.device) {
 			work.pausing.Continue()
+			work.movement.resume()
 		}
 	}
 }
@@ -206,6 +216,7 @@ func (list *workList) pauseBackgroundFor(device string, ordered []*heldWork) {
 		}
 		if work.device == device && !work.isPlayDriven && work.isReading() {
 			work.pausing.Pause()
+			work.movement.pause()
 		}
 	}
 }
@@ -271,24 +282,60 @@ func (list *workList) reprioritize(token string, priority int64, isPlayDriven bo
 	}
 }
 
-// heldState is where an attempt the node holds is.
+// heldState is where an attempt the node holds is, and how long it has not moved.
 type heldState struct {
 	attempt
 	isRunning, isPaused, saysHowFar bool
+	sinceMoved                      time.Duration
 }
 
-// states are where the attempts the node holds are, in no order.
+// states are where the attempts the node holds are, in no order. Waiting work moves when the work
+// running does, so a wait lasts only while something ahead of it moves (D233 §5); with nothing
+// running, it has not moved since it was held.
 func (list *workList) states() []heldState {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 	states := make([]heldState, 0, len(list.held))
+	runningSinceMoved, isAnyRunning := time.Duration(0), false
 	for _, work := range list.held {
+		if work.isRunning() {
+			since := work.movement.sinceMoved()
+			if !isAnyRunning || since < runningSinceMoved {
+				runningSinceMoved = since
+			}
+			isAnyRunning = true
+		}
+	}
+	for _, work := range list.held {
+		since := work.movement.sinceMoved()
+		if !work.isRunning() && isAnyRunning {
+			since = min(since, runningSinceMoved)
+		}
 		states = append(states, heldState{
 			attempt: work.attempt, isRunning: work.isRunning(), isPaused: work.isRunning() && work.pausing.IsPaused(),
-			saysHowFar: work.saysHowFar,
+			saysHowFar: work.saysHowFar, sinceMoved: since,
 		})
 	}
 	return states
+}
+
+// stallStillReads tells each running job that reads in the node's own process, and is not paused,
+// that it has stalled once it has not moved for window: its reading waits on its disk, which the
+// node cannot stop (D233 §10).
+func (list *workList) stallStillReads(window time.Duration) {
+	list.mutex.Lock()
+	defer list.mutex.Unlock()
+	for _, work := range list.held {
+		if work.stalls == nil || !work.isRunning() || work.pausing.IsPaused() {
+			continue
+		}
+		if since := work.movement.sinceMoved(); since >= window {
+			select {
+			case work.stalls <- since:
+			default:
+			}
+		}
+	}
 }
 
 // find is the held attempt of a token, or nil. The caller holds the mutex.

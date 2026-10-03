@@ -283,3 +283,32 @@ func TestScans_AScanWhoseListingFailsIsGivenUp(t *testing.T) {
 		t.Error("a scan whose listing failed is still in progress")
 	}
 }
+
+// A listing whose reading stalled is the tool's failure, not the root's contents: none of its records
+// are taken, the job is tried again at no cost the first time, and fails the second (D233 §6, §10).
+func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	ctx := t.Context()
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
+		t.Fatal(err)
+	}
+	job := bench.jobs.last(t, jobs.KindScan)
+	stalled := nodeproto.Result{Listing: &nodeproto.Listing{Stall: &nodeproto.Stall{
+		Cause: nodeproto.StallStoodStill, Condition: nodeproto.ConditionWaitingOnDisk, IsLeftRunning: true,
+		Detail: "a listing of /media did not move for 5m0s",
+	}}}
+	err := bench.scans.ScanAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID}, stalled)
+	if err == nil || !strings.HasPrefix(err.Error(), "node ") || !strings.Contains(err.Error(), "stalled: ") ||
+		!strings.Contains(err.Error(), "waiting_on_disk") {
+		t.Errorf("a first stalled listing = %v; want it tried again as a stall, saying it waited on the disk", err)
+	}
+	if !bench.isScanning() {
+		t.Error("a scan whose listing stalled once is no longer in progress; want it listed again")
+	}
+	job.PreviousAttemptToolFailed = true
+	err = bench.scans.ScanAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID}, stalled)
+	if err == nil || !strings.Contains(err.Error(), jobs.ToolFailedTwice) {
+		t.Errorf("a second stalled listing = %v; want the job's own failure", err)
+	}
+}

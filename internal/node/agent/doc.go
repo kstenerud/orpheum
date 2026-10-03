@@ -38,6 +38,14 @@
 //     the node's own process, waits between files while it is paused (D240 §5, §6).
 //     TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice,
 //     TestWorkList_PausedWorkWaitsBetweenFilesUntilItIsContinued.
+//   - Each held attempt says in the status how long it has not moved, its paused time apart:
+//     running work moves as its run says (execx.WithMoved), waiting work as the work running does
+//     (D233 §5). TestWorkList_AJobMovesAsItsRunSaysAndAWaitingOneAsTheRunningOneDoes,
+//     TestMovement_PausedTimeIsNotTimeWithoutMoving.
+//   - A listing or an examining whose reading does not move for the read window is answered as
+//     stalled on its disk, its reading listed as stuck until it returns and its late answer dropped
+//     (D233 §10). TestAgent_AListingThatStopsMovingIsAnsweredStalledAndListedAsStuck. The status
+//     lists the processes the runner left running too. TestStatus_ListsTheProcessesLeftRunning.
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, a status and
 //     the command poll, end it. A job's result is posted beside the node's other work,

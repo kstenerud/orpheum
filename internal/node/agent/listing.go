@@ -12,10 +12,13 @@ import (
 // core (D240 §2).
 func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.List) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, jobKind: "a listing",
+		attempt: held, jobKind: "a listing", reading: command.RootPath,
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			listing := agent.runList(jobCtx, command)
 			return nodeproto.Result{Listing: &listing}, listing.Refusal
+		},
+		stalledAnswer: func(stall nodeproto.Stall) nodeproto.Result {
+			return nodeproto.Result{Listing: &nodeproto.Listing{Stall: &stall}}
 		},
 	})
 }
@@ -42,7 +45,10 @@ func (agent *Agent) examineWork(
 	ctx context.Context, nodeID int64, held attempt, command nodeproto.Examine,
 ) heldWork {
 	return agent.answeringWork(ctx, nodeID, answeringJob{
-		attempt: held, jobKind: "an examining",
+		attempt: held, jobKind: "an examining", reading: command.RootPath,
+		stalledAnswer: func(stall nodeproto.Stall) nodeproto.Result {
+			return nodeproto.Result{Examined: &nodeproto.Examined{Stall: &stall}}
+		},
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
 			root, known := agent.roots[command.RootPath]
 			if !known {

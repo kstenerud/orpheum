@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
@@ -142,7 +144,7 @@ func (walk *walk) openSubtitlesHash(place location, size int64) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("open for the OpenSubtitles hash: %w", err)
 	}
-	hashed, hashErr := hash.OpenSubtitlesHash(file, size)
+	hashed, hashErr := hash.OpenSubtitlesHash(movingReader{file, walk.ctx}, size)
 	closeErr := file.Close()
 	if hashErr != nil {
 		return "", fmt.Errorf("hash for OpenSubtitles: %w", hashErr)
@@ -158,7 +160,7 @@ func (walk *walk) payloadIdentity(place location, size int64) (nodeproto.Identit
 	if err != nil {
 		return nodeproto.Identity{}, fmt.Errorf("open for the payload hash: %w", err)
 	}
-	identity, hashErr := hash.PayloadIdentity(file, size)
+	identity, hashErr := hash.PayloadIdentity(movingReader{file, walk.ctx}, size)
 	closeErr := file.Close()
 	if hashErr != nil {
 		return nodeproto.Identity{}, fmt.Errorf("payload hash: %w", hashErr)
@@ -172,6 +174,22 @@ func (walk *walk) payloadIdentity(place location, size int64) (nodeproto.Identit
 		PayloadHash:  hex.EncodeToString(identity.PayloadHash[:]),
 		PayloadBytes: identity.PayloadBytes,
 	}, nil
+}
+
+// movingReader reads a file for a hash, and each read is movement (execx.Moved): a hash reading
+// through a large file moves while no record is sent.
+type movingReader struct {
+	file io.ReaderAt
+	ctx  context.Context //nolint:containedctx // one hash's reads, on its examining's context
+}
+
+// ReadAt reads the file, and is movement when it read anything.
+func (reader movingReader) ReadAt(buffer []byte, offset int64) (int, error) {
+	read, err := reader.file.ReadAt(buffer, offset)
+	if read > 0 {
+		execx.Moved(reader.ctx)
+	}
+	return read, err //nolint:wrapcheck // the file's own error, which the hash wraps
 }
 
 // reportSidecar reports a metadata or subtitle file, with an NFO's bytes.
