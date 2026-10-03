@@ -670,9 +670,15 @@ D233 §5.
 
 ## Phase 6 — what a person sees, and the rest of F2
 
-D231 §12; D233 §8; F2.
+D231 §12; D233 §8; D241; F2.
 
-- Play, subtitle and refresh answers can say "waiting for <destination> (since …)"; the job view's
+- D241: a hello marks missing each of the node's library roots it does not name; a Title whose
+  every copy is unavailable is listed and marked so, with why and since when; a play of it fails at
+  once, naming what is missing, and queues nothing, and a play-driven job whose source goes missing
+  is cancelled; an unavailable file can be retired by itself; a root can be repointed to a new path.
+
+- Subtitle and refresh answers can say "waiting for <destination> (since …)" (a play of what is
+  known unavailable fails instead, D241 §4); the job view's
   parked states; the System page's destinations and queue health; finished rows pruned after 30
   days.
 - Every balk on a person's request says why and until when (D231 §12's 2026-09-30 note), closing
