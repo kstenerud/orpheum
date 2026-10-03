@@ -695,6 +695,41 @@ D233 §5, §6, §10; D241.
   not read this file". The System page lists a node's stuck processes. `TestScenario_S79_…` and
   `TestScenario_S80_…`.
 
+**Built** (2026-10-03), as cut:
+
+- 5a: `execx` samples `/proc` for a watched run's process group at each check; a stall
+  carries its condition (`waiting_on_disk`, `spinning`, `stuck`); bytes read or written, or stdout
+  written, are movement; a run whose process outlives `SIGKILL` by `killGrace` is answered at once
+  and listed by `Runner.Stuck` until it ends. Node protocol 17.
+- 5b: each held job counts its movement (`execx.WithMoved`, `execx.Moved`), paused time
+  apart, waiting work moving as the work running does; the status says how long each has not moved.
+  A listing or an examining whose reading does not move for the read window (five minutes past
+  `probe_timeout_seconds`) is answered as stalled on its disk, its reading listed as stuck. The core
+  never takes a stalled answer as a root's contents. Node protocol 18. A probe and an artwork run
+  were already bounded by `probe_timeout_seconds`, so they kept it.
+- 5c: the core stops work its node says has not moved for `movementWindow`, thirty
+  minutes, as a stall (`ErrNotMoving`); one `nodes.StallOutcome` answers every kind's stall.
+- 5d: the first stall on a disk makes its root unavailable (`MarkRootUnavailable`), asks
+  for a scan and parks the job on the root, the queue keeping that its tool failed; the same stall
+  after is the target's own failure, `its disk could not be read`. The System page lists each
+  machine's stuck programs.
+
+**Deviations, for the owner:**
+
+- `maxSlotWait` stays. Waiting is now bounded by movement (5b, 5c), which is what replaces it, but
+  removing it removes three tests that assert it (`TestHandle_APrepareTheNodeHoldsWaitingForASlot
+  OutlivesTheSilenceLimit`, `…TooLongIsGivenUpAndTheNodeToldToStopIt`,
+  `TestHandle_APausedPrepareIsNotCountedAsWaitingForASlot`), which waits on the owner (rule 5).
+- A stall's failure is not yet a fact with a kind: the failure text begins with the kind's words
+  (`FFmpeg stalled twice: `, `stalled on two attempts in a row: `, `its disk could not be read: `).
+  A kind matters for a person reading it in their words, Phase 6's job; it moves there.
+- A stall waiting on a disk is taken as the media root's disk. A prepare whose FFmpeg waits on the
+  prepared directory's disk instead would make the media root unavailable until a scan reads it,
+  which the scan does at once. Telling the two apart needs the node to read which file the process
+  waits on (`/proc/<pid>/syscall` and its descriptors), which is left for when it matters.
+- `TestScenario_S79_…` and `TestScenario_S80_…` move to Phase 6's scenario-tier bullet: S79's and
+  S80's parts are tested where they are built (execx, agent, nodes, playback).
+
 ## Phase 6 — what a person sees, and the rest of F2
 
 D231 §12; D233 §8; D241; F2.
