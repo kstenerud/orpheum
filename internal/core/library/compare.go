@@ -82,7 +82,7 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 		listing.taken.Complete = *record.ScanComplete
 		return nil
 	case nodeproto.RecordObserved, nodeproto.RecordSidecar, nodeproto.RecordSkip, nodeproto.RecordError,
-		nodeproto.RecordMount, nodeproto.RecordStatus:
+		nodeproto.RecordMount:
 	}
 	return batch.ingestRecord(ctx, record)
 }

@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 29
--- compatible_version 29
+-- user_version 31
+-- compatible_version 31
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -122,6 +122,15 @@ CREATE TABLE device (                                      -- class A
   last_signed_in_at INTEGER NOT NULL,
   removed_at    INTEGER
 );
+
+-- table device_reader_limit
+CREATE TABLE device_reader_limit (                          -- D240 section 5
+  node_id      INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+  device_key   TEXT NOT NULL,             -- the node's name for it: 'zfs:tank', 'disk:sdc'
+  reader_limit INTEGER NOT NULL CHECK (reader_limit BETWEEN 1 AND 64),
+  set_at       INTEGER NOT NULL,
+  PRIMARY KEY (node_id, device_key)
+) WITHOUT ROWID;
 
 -- table edition
 CREATE TABLE edition (                                     -- class A when a person made it
@@ -371,7 +380,6 @@ CREATE TABLE node (                                        -- class I + O (the l
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
-  last_ingested_report_seq INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
   last_status_json         TEXT,         -- the node's last status record, JSON
   last_status_at           INTEGER       -- when it arrived; liveness is judged from this
 );

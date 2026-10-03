@@ -89,9 +89,8 @@ type PreparedShelf interface {
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time, prepares, extractions and measurements beside them, and
-// streams its report — scan records and a status record every tick — as one JSONL request. When
-// the report or the poll breaks it waits for the next tick and says hello again.
+// commands and holds the work they give it, and posts its status every tick. When the poll or a
+// status breaks it waits for the next tick and says hello again.
 type Agent struct {
 	client  *http.Client
 	hello   nodeproto.Hello
@@ -164,16 +163,13 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	if err != nil {
 		return err
 	}
-	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastIngestedReportSeq",
-		reply.LastIngestedReportSeq)
+	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID)
 	agent.evictUnkept(ctx, hello.Renditions, reply.KeptRenditionDirs)
 	agent.work.setReaderLimits(reply.DeviceReaderLimits)
 	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	stream := newRecordStream(reply.LastIngestedReportSeq)
 	var sessionTasks sync.WaitGroup
-	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
 	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, nodeCtx, reply.NodeID)) })
 	sessionTasks.Go(func() {
 		for {
@@ -181,7 +177,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 			case <-ctx.Done():
 				return
 			case <-tick:
-				if err := stream.emit(ctx, agent.status()); err != nil {
+				if err := agent.postStatus(ctx, reply.NodeID); err != nil {
 					cancel(err)
 					return
 				}
@@ -439,11 +435,22 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	return holder.ReadFile(holderRelativePath, maxImageBytes)
 }
 
-func (agent *Agent) status() nodeproto.Record {
+// postStatus posts the node's status, now (D234 §6).
+func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
+	encoded, err := json.Marshal(agent.status())
+	if err != nil {
+		return fmt.Errorf("encode the status: %w", err)
+	}
+	var answer struct{}
+	return agent.exchange(ctx, http.MethodPost, nodeproto.PathStatus, nodeID, bytes.NewReader(encoded), &answer)
+}
+
+// status is what the node is doing and holds, and its disks, now.
+func (agent *Agent) status() nodeproto.Status {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	status := &nodeproto.Status{
+	status := nodeproto.Status{
 		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: agent.held(),
 		TakenCommandSeq: agent.takenCommandSeq.Load(),
 	}
@@ -456,7 +463,7 @@ func (agent *Agent) status() nodeproto.Record {
 			}
 		}
 	}
-	return nodeproto.Record{Type: nodeproto.RecordStatus, Status: status}
+	return status
 }
 
 // held is every attempt the node holds, and every one whose result the core has not acknowledged,
@@ -519,38 +526,4 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 		return fmt.Errorf("%s %s: the answer is not JSON: %w", method, path, err)
 	}
 	return nil
-}
-
-// streamReport sends the report as one request whose body is written as records arrive. The client
-// sends each write as its own chunk, so the core reads a record as soon as it is written.
-func (agent *Agent) streamReport(ctx context.Context, nodeID int64, stream *recordStream) error {
-	reader, writer := io.Pipe()
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, coreURL+nodeproto.PathReport, reader)
-	if err != nil {
-		return fmt.Errorf("build the report request: %w", err)
-	}
-	request.Header.Set(nodeHeader, strconv.FormatInt(nodeID, 10))
-	request.Header.Set("Content-Type", "application/jsonl")
-	reportRequestEnded := make(chan error, 1)
-	go func() {
-		response, err := agent.client.Do(request)
-		if err == nil {
-			err = fmt.Errorf("the core ended the report: %s", response.Status)
-			_ = response.Body.Close() //nolint:errcheck // nothing to read
-		}
-		reportRequestEnded <- err
-		_ = reader.CloseWithError(err)
-	}()
-	encoder := json.NewEncoder(writer)
-	for {
-		select {
-		case <-ctx.Done():
-			_ = writer.Close() //nolint:errcheck // always nil
-			return errors.Join(fmt.Errorf("report stopped: %w", ctx.Err()), <-reportRequestEnded)
-		case record := <-stream.records:
-			if err := encoder.Encode(record); err != nil {
-				return fmt.Errorf("write record %d: %w", record.ReportSeq, errors.Join(err, <-reportRequestEnded))
-			}
-		}
-	}
 }

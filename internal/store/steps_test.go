@@ -274,9 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0030 keeps the reader limit an admin sets for one of a node's devices (D240 §5), one per
-// device, within its bounds, gone with its node.
-func TestMigrate_Step0030KeepsADevicesReaderLimitPerNodeAndDevice(t *testing.T) {
+// Step 0031 drops the number a node's report stream continued from, which nothing reads now that
+// a node posts its status on its own (D240); a node keeps its name and its last status.
+func TestMigrate_Step0031DropsTheNodesReportSequenceAndKeepsItsStatus(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -286,26 +286,18 @@ func TestMigrate_Step0030KeepsADevicesReaderLimitPerNodeAndDevice(t *testing.T) 
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database, "INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1), (2, 'attic', 1)")
+	execRaw(t, database, `INSERT INTO node (id, name, enrolled_at, last_ingested_report_seq, last_status_json,
+		last_status_at) VALUES (1, 'local', 1, 40, '{"sentAt":7}', 7)`)
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database,
-		`INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES
-		 (1, 'disk:sdc', 4, 1), (1, 'zfs:tank', 1, 1), (2, 'disk:sdc', 2, 1)`)
-	for _, refused := range []string{
-		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdc', 3, 2)",
-		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdd', 0, 2)",
-		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (9, 'disk:sdd', 1, 2)",
-	} {
-		if _, execErr := database.writer.ExecContext(t.Context(), refused); execErr == nil {
-			t.Errorf("%s was taken; want it refused: one limit per device, within 1 to 64, of a node", refused)
-		}
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, name, last_status_json, last_status_at FROM node", 4))
+	if want := `[[1 local {"sentAt":7} 7]]`; got != want {
+		t.Errorf("the node is %s, want %s", got, want)
 	}
-	execRaw(t, database, "DELETE FROM node WHERE id = 2")
-	got := fmt.Sprint(queryRows(t, database,
-		"SELECT node_id, device_key, reader_limit FROM device_reader_limit ORDER BY 1, 2", 3))
-	if want := "[[1 disk:sdc 4] [1 zfs:tank 1]]"; got != want {
-		t.Errorf("the limits are %s, want %s: attic's gone with it", got, want)
+	columns := fmt.Sprint(queryRows(t, database,
+		"SELECT name FROM pragma_table_info('node') WHERE name = 'last_ingested_report_seq'", 1))
+	if columns != "[]" {
+		t.Errorf("node still has %s, want the report sequence gone", columns)
 	}
 }

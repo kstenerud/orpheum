@@ -288,98 +288,55 @@ func TestConnectedNode_ANodeMustSayHelloFirst(t *testing.T) {
 	if _, status := harness.poll(t, 99, 0); status != http.StatusConflict {
 		t.Errorf("a poll from an unknown node: %d, want 409", status)
 	}
-	response := harness.post(t, nodeproto.PathReport, 0, strings.NewReader(""))
+	response := harness.post(t, nodeproto.PathStatus, 0, strings.NewReader("{}"))
 	if response.status != http.StatusBadRequest {
-		t.Errorf("a report without the node header: %d, want 400", response.status)
+		t.Errorf("a status without the node header: %d, want 400", response.status)
 	}
 }
 
-func jsonl(t *testing.T, records []nodeproto.Record) io.Reader {
+// postStatus posts a node's status, failing the test unless it is taken.
+func (harness *fixture) postStatus(t *testing.T, nodeID int64, status nodeproto.Status) {
 	t.Helper()
-	var body bytes.Buffer
-	encoder := json.NewEncoder(&body)
-	for _, record := range records {
-		if err := encoder.Encode(record); err != nil {
-			t.Fatal(err)
-		}
+	encoded, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return &body
+	if response := harness.post(t, nodeproto.PathStatus, nodeID, bytes.NewReader(encoded)); response.status !=
+		http.StatusOK {
+		t.Fatalf("the status answered %d %s", response.status, response.body)
+	}
 }
 
-func TestServeReport_KeepsTheLastStatusAndRecordsHowFarItGot(t *testing.T) {
+// Each status is taken as it arrives: the node is heard, and its last status kept (D234 §6).
+func TestStatus_TheLastIsKeptAndTheNodeHeard(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	records := make([]nodeproto.Record, 0, 300)
-	for index := range 300 {
-		records = append(records, nodeproto.Record{
-			ReportSeq: reply.LastIngestedReportSeq + int64(index) + 1, Type: nodeproto.RecordStatus,
-			Status: &nodeproto.Status{SentAt: int64(index) + 1},
-		})
-	}
-	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
-	if response.status != http.StatusNoContent {
-		t.Fatalf("the report answered %d %s", response.status, response.body)
+	for _, sentAt := range []int64{7, 8} {
+		harness.postStatus(t, reply.NodeID, nodeproto.Status{SentAt: sentAt})
 	}
 	node, err := harness.database.Read().GetNodeStatus(t.Context(), reply.NodeID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"sentAt":300`) {
-		t.Errorf("the node's status is %v, want the last status record", node.LastStatusJSON)
+	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"sentAt":8`) {
+		t.Errorf("the node's status is %v, want the last one posted", node.LastStatusJSON)
 	}
-	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastIngestedReportSeq != 300 {
-		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there",
-			again.LastIngestedReportSeq)
+	if facts, _ := harness.service.Facts("local"); facts.Status == nil || facts.Status.SentAt != 8 {
+		t.Errorf("the status kept in memory is %+v, want the last one posted", facts.Status)
 	}
 	if heard, ever := harness.service.LastHeard("local"); !ever || !heard.Equal(harness.clock.Now()) {
 		t.Errorf("LastHeard = %v, %v", heard, ever)
 	}
 }
 
-func TestServeReport_RefusesARecordOutOfSequence(t *testing.T) {
+func TestStatus_ABodyThatIsNotAStatusIsRefused(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	records := []nodeproto.Record{
-		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 1}},
-		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 2}},
-	}
-	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
-	if response.status != http.StatusBadRequest || !strings.Contains(string(response.body), "only rises") {
-		t.Errorf("a repeated sequence number: %d %q, want a 400 saying why", response.status, response.body)
-	}
-}
-
-func TestServeReport_AStatusIsTakenWhileTheReportIsStillOpen(t *testing.T) {
-	t.Parallel()
-	harness := newFixture(t, time.Millisecond)
-	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	reader, writer := io.Pipe()
-	done := make(chan httpAnswer, 1)
-	go func() { done <- harness.post(t, nodeproto.PathReport, reply.NodeID, reader) }()
-	record := nodeproto.Record{ReportSeq: 1, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 7}}
-	if err := json.NewEncoder(writer).Encode(record); err != nil {
-		t.Fatal(err)
-	}
-	// The stream stays open and nothing else is written: the status must still be taken, as it
-	// arrives.
-	deadline := time.Now().Add(5 * time.Second) //nolint:forbidigo // a real request, not the fake clock
-	for {
-		facts, found := harness.service.Facts("local")
-		if found && facts.Status != nil && facts.Status.SentAt == 7 {
-			break
-		}
-		if time.Now().After(deadline) { //nolint:forbidigo // as above
-			t.Fatalf("the status was not taken while the report was open: %+v", facts.Status)
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if response := testutil.Receive(t, done, "the report's answer"); response.status != http.StatusNoContent {
-		t.Errorf("the report answered %d %s", response.status, response.body)
+	response := harness.post(t, nodeproto.PathStatus, reply.NodeID, strings.NewReader(`{"sentAt":"soon"}`))
+	if response.status != http.StatusBadRequest || !strings.Contains(string(response.body), "a status is JSON") {
+		t.Errorf("a status that is not one: %d %q, want a 400 saying why", response.status, response.body)
 	}
 }
 
@@ -580,14 +537,7 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 		t.Error("a node that has sent no status has a prepared usage")
 	}
 	usage := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
-	status := []nodeproto.Record{{
-		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{PreparedUsage: &usage},
-	}}
-	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
-		http.StatusNoContent {
-		t.Fatalf("the report answered %d %s", response.status, response.body)
-	}
+	harness.postStatus(t, reply.NodeID, nodeproto.Status{PreparedUsage: &usage})
 	facts, _ := harness.service.Facts("local")
 	if facts.Status == nil || facts.Status.PreparedUsage == nil || *facts.Status.PreparedUsage != usage {
 		t.Errorf("the kept status = %+v; want the prepared usage it said (D217 §5)", facts.Status)
@@ -609,14 +559,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 		Name: "local", Host: host.System{Platform: "linux/amd64", Codename: "trixie"}, Hardware: hardware,
 	})
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
-	status := []nodeproto.Record{{
-		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Disks: []nodeproto.Disk{disk}},
-	}}
-	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
-		http.StatusNoContent {
-		t.Fatalf("the report answered %d %s", response.status, response.body)
-	}
+	harness.postStatus(t, reply.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{disk}})
 	facts, found := harness.service.Facts("local")
 	kept := facts.Hello.Hardware
 	if !found || facts.NodeID != reply.NodeID || facts.Hello.Host.Codename != "trixie" ||

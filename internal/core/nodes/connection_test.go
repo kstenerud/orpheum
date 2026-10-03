@@ -147,31 +147,24 @@ func TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory(t *
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	report := func(seq int64, diskUsedPercent int, availableMiB int64) {
+	sayStatus := func(diskUsedPercent int, availableMiB int64) {
 		t.Helper()
 		usage := nodeproto.PreparedUsage{
 			DiskUsedPercent: diskUsedPercent, DiskUsedLimitPercent: 90,
 			DiskAvailableBytes: availableMiB << 20, DiskMinFreeBytes: 100 << 20,
 		}
-		status := []nodeproto.Record{{
-			ReportSeq: seq, Type: nodeproto.RecordStatus,
-			Status: &nodeproto.Status{PreparedUsage: &usage},
-		}}
-		if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
-			http.StatusNoContent {
-			t.Fatalf("the report answered %d %s", response.status, response.body)
-		}
+		harness.postStatus(t, reply.NodeID, nodeproto.Status{PreparedUsage: &usage})
 	}
 	prepared := jobs.PreparedDirectoryDestination(reply.NodeID)
-	report(1, 95, 500)
+	sayStatus(95, 500)
 	if slices.Contains(harness.destinations.all(), prepared) {
 		t.Error("a status past the disk's limit unparked the prepared directory")
 	}
-	report(2, 80, 50)
+	sayStatus(80, 50)
 	if slices.Contains(harness.destinations.all(), prepared) {
 		t.Error("a status below the disk's floor of free space unparked the prepared directory")
 	}
-	report(3, 80, 500)
+	sayStatus(80, 500)
 	if !slices.Contains(harness.destinations.all(), prepared) {
 		t.Error("a status with room did not unpark the prepared directory (D231 §5)")
 	}
@@ -247,14 +240,7 @@ func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *test
 		})
 	}
 	held := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "taken", State: nodeproto.HeldRunning}}
-	status := []nodeproto.Record{{
-		ReportSeq: 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Held: held, TakenCommandSeq: 1},
-	}}
-	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
-		http.StatusNoContent {
-		t.Fatalf("the report answered %d %s", response.status, response.body)
-	}
+	harness.postStatus(t, reply.NodeID, nodeproto.Status{Held: held, TakenCommandSeq: 1})
 	if len(sink.squared) != 1 || len(sink.squared[0].held) != 1 || sink.squared[0].held[0].AttemptToken != "taken" ||
 		!sink.squared[0].onTheirWay["on its way"] || sink.squared[0].onTheirWay["taken"] {
 		t.Errorf("squared %+v; want what the node holds, with only the command it had not taken on its way",

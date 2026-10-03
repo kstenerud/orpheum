@@ -101,7 +101,6 @@ CREATE TABLE node (                                        -- class I + O (the l
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
-  last_ingested_report_seq  INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
   last_status_json      TEXT,                        -- the node's last status record, JSON
   last_status_at   INTEGER                      -- when it arrived; liveness is judged from this
 );

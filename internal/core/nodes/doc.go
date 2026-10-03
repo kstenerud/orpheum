@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package nodes is the core's side of the node channel (D207): it enrols a node by name on its
-// hello, queues its commands for the long-poll, reads its JSONL report as it arrives and hands it
-// to the ingest in batches. It starts no node: each is a service of its own that dials the core's
+// hello, queues its commands for the long-poll and takes its status, results and progress. It starts
+// no node: each is a service of its own that dials the core's
 // socket (D233 §2, D235 §4).
 //
 // # Invariants
@@ -18,9 +18,9 @@
 //     prepare slots of every node that said one are added up for whoever runs prepares, and each
 //     node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
 //     TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads.
-//   - A report's status is taken as it arrives, the last kept with how far the report got; a record
-//     out of sequence is refused. TestServeReport_KeepsTheLastStatusAndRecordsHowFarItGot,
-//     TestServeReport_AStatusIsTakenWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
+//   - Each status a node posts is taken as it arrives: the node is heard, and its last status kept;
+//     one that is not a status is refused. TestStatus_TheLastIsKeptAndTheNodeHeard,
+//     TestStatus_ABodyThatIsNotAStatusIsRefused.
 //   - A node silent for node_silent_after_seconds is reported as silent; restarting a node that
 //     hangs or exits is its service manager's (D234 §4).
 //     TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.
@@ -142,8 +142,7 @@
 //   - D238: each fact has one owner; the node holds its work in memory, and a restart loses it.
 //   - D231 §5, §6, §11: a node not connected is a destination that parks its work, and its hello
 //     brings the work back.
-//   - docs/contributors/design/plans/cut-a.md §2 and §4; scanner.md, The core reads the report
-//     while it is still being written.
+//   - docs/contributors/design/plans/cut-a.md §2 and §4.
 //
 // # Where to change
 //
@@ -151,7 +150,7 @@
 //     node; connection.go: whether each node is connected and when it was last heard; send.go:
 //     sending a node work, and what a wait for it that ran out means; facts.go: what each node
 //     last said about itself — its roots, slots, hardware and status;
-//     channel.go: commands, the report and the nodes' results; bytes.go:
+//     channel.go: commands, the status and the nodes' results; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the exchanges,
 //     and the results and progress nodes send; assign.go: a job given to a node, assigned, and
 //     resolved by its word; square.go: what a node was given squared with what it holds.

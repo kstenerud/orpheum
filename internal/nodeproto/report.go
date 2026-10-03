@@ -2,14 +2,12 @@
 
 package nodeproto
 
-// RecordType names one kind of report record (cut-a §4). The set is closed; the core keys its
-// logic on it.
+// RecordType names one kind of a listing's or an examining's record (ScanRecord). The set is closed;
+// the core keys its logic on it.
 type RecordType string
 
-// The record types. A job's progress and end are not records: they are Results, posted to
-// PathResult.
+// The record types.
 const (
-	RecordStatus       RecordType = "status"
 	RecordScanBegin    RecordType = "scan_begin"
 	RecordObserved     RecordType = "observed"
 	RecordSkip         RecordType = "skip"
@@ -18,15 +16,6 @@ const (
 	RecordMount        RecordType = "mount"
 	RecordSidecar      RecordType = "sidecar"
 )
-
-// Record is one line of a JSONL report: the node's status, now that a scan's records travel in its
-// listing and examining (ScanRecord). ReportSeq is the node's sequence number, increasing by one per
-// record across the node's life.
-type Record struct {
-	ReportSeq int64      `json:"reportSeq"`
-	Type      RecordType `json:"type"`
-	Status    *Status    `json:"status,omitempty"`
-}
 
 // SidecarKind is what a sidecar file is for.
 type SidecarKind string
@@ -66,8 +55,9 @@ type Mount struct {
 	FilesystemDevice uint64 `json:"filesystemDevice"`
 }
 
-// Status is the node saying it is alive and what it is doing. The core marks a node silent when
-// none arrives for a while (cut-a §4, liveness); silence is only ever read as silence (D34).
+// Status is the node saying it is alive and what it is doing, posted to PathStatus each tick. The
+// core marks a node silent when none arrives for a while (cut-a §4, liveness); silence is only ever
+// read as silence (D34).
 type Status struct {
 	// SentAt is when the node sent it, by the node's clock, in Unix milliseconds.
 	SentAt int64 `json:"sentAt"`

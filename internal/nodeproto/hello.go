@@ -12,8 +12,9 @@ import (
 // The node channel's paths on the core's socket (cut-a §4). The node dials; the core answers.
 const (
 	PathHello    = "/node/v1/hello"
-	PathReport   = "/node/v1/report"
 	PathCommands = "/node/v1/commands"
+	// PathStatus is where the node posts its Status, each tick.
+	PathStatus = "/node/v1/status"
 )
 
 // QueryAfterCommandSeq is the commands long-poll's parameter: the sequence number of the last command
@@ -24,7 +25,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 15
+const ProtocolVersion = 16
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -120,11 +121,10 @@ type Confinement struct {
 	Remedy string `json:"remedy"`
 }
 
-// HelloReply is the core's answer: the node's id, the last report sequence number the core
-// ingested, from which the node continues numbering, and the renditions of the hello it keeps.
+// HelloReply is the core's answer: the node's id, the renditions of the hello it keeps and the readers
+// each of its devices may have.
 type HelloReply struct {
-	NodeID                int64 `json:"nodeId"`
-	LastIngestedReportSeq int64 `json:"lastIngestedReportSeq"`
+	NodeID int64 `json:"nodeId"`
 	// KeptRenditionDirs are the directories, as <file_id>/<profile>/<run_id>, of the hello's
 	// renditions the core's index keeps: the node evicts the others it listed, which the core knows
 	// nothing of or has made again since (D238 §2).
