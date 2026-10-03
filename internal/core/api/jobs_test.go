@@ -57,8 +57,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if queued.State != "queued" || queued.Reason == "" {
 		t.Errorf("the prepare in the view = %+v, want queued with its reason", queued)
 	}
-	playback := harness.server.dependencies.Load().Playback
-	runner := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare)
+	runner := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
 	if command := harness.nextCommand(t); command.Type != nodeproto.CommandPrepare {
@@ -178,8 +177,8 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 		t.Fatal(err)
 	}
 	harness.nodes.isAway.Store(true)
-	playback := harness.server.dependencies.Load().Playback
-	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+	prepares := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
+	if err := prepares.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	prepare := newestPrepareJob(t, harness.listedJobs(t, admin))

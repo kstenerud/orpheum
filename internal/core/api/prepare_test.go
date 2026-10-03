@@ -80,9 +80,8 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	if len(decided.Audio) != 2 || !decided.Audio[1].IsDialogueBoosted || !decided.IsPreparing {
 		t.Fatalf("the decision = %+v, want a standard and a boosted mix, preparing", decided)
 	}
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 77, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	finished := harness.handle(t, playback.HandlePrepare, job)
+	finished := harness.handle(t, harness.renditions.HandlePrepare, job)
 	command := harness.nextCommand(t)
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || command.JobID != 77 ||
@@ -112,9 +111,8 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	finished := harness.handle(t, playback.HandlePrepare, job)
+	finished := harness.handle(t, harness.renditions.HandlePrepare, job)
 	harness.nextCommand(t)
 	failed := nodeproto.PrepareReport{State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
 	harness.answerPrepare(t, 78, failed)
@@ -135,9 +133,8 @@ func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testin
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	finished := harness.handle(t, playback.HandlePrepare, job)
+	finished := harness.handle(t, harness.renditions.HandlePrepare, job)
 	harness.nextCommand(t)
 	refused := nodeproto.PrepareReport{
 		State: nodeproto.PrepareRefused, Refusal: "not the one named", RefusalCode: nodeproto.RefusedChanged,
@@ -166,9 +163,8 @@ func TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRo
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	finished := harness.handle(t, playback.HandlePrepare, job)
+	finished := harness.handle(t, harness.renditions.HandlePrepare, job)
 	harness.nextCommand(t)
 	harness.answerPrepare(t, 79, nodeproto.PrepareReport{
 		State: nodeproto.PrepareRefused, Refusal: "the disk is past its limit",
@@ -191,9 +187,8 @@ func TestPrepare_APrepareForANodeThatIsNotConnectedParksOnItAndSendsNothing(t *t
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, user, chrome(2))
 	harness.nodes.isAway.Store(true)
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 80, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	err := playback.HandlePrepare(t.Context(), job)
+	err := harness.renditions.HandlePrepare(t.Context(), job)
 	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.NodeDestination(1) {
 		t.Errorf("a prepare for a node that is away: %v; want it parked on the node (D231 §11)", err)
 	}
@@ -209,8 +204,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
-	first := harness.handle(t, playback.HandlePrepare, jobs.Job{
+	first := harness.handle(t, harness.renditions.HandlePrepare, jobs.Job{
 		ID: 80, Kind: jobs.KindPrepare,
 		Target: jobs.Target{RenditionID: 1},
 	})
@@ -296,8 +290,7 @@ func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.
 // and returns the command the node was sent.
 func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodeproto.Prepare {
 	t.Helper()
-	playback := harness.server.dependencies.Load().Playback
-	finished := harness.handle(t, playback.HandlePrepare, jobs.Job{
+	finished := harness.handle(t, harness.renditions.HandlePrepare, jobs.Job{
 		ID: jobID, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
 	})
 	command := harness.nextCommand(t)
@@ -342,9 +335,8 @@ func TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 80, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	if err := playback.RecordPrepareFailure(t.Context(), job, "refused five times"); err != nil {
+	if err := harness.renditions.RecordPrepareFailure(t.Context(), job, "refused five times"); err != nil {
 		t.Fatal(err)
 	}
 	playlist := harness.getBytePath(t, decided.URL, user, true, "")
@@ -366,8 +358,8 @@ func TestPrepare_AMakingRestartedWhileItsJobIsWithTheNodeIsQueuedAfterIt(t *test
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
-	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+	prepares := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
+	if err := prepares.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	first := newestPrepareJob(t, harness.listedJobs(t, user))
@@ -376,7 +368,7 @@ func TestPrepare_AMakingRestartedWhileItsJobIsWithTheNodeIsQueuedAfterIt(t *test
 	}
 	// The making fails, as a lost copy would, and the next play makes it again under a new run.
 	lost := jobs.Job{Target: jobs.Target{RenditionID: 1}}
-	if err := playback.RecordPrepareFailure(t.Context(), lost, "lost"); err != nil {
+	if err := harness.renditions.RecordPrepareFailure(t.Context(), lost, "lost"); err != nil {
 		t.Fatal(err)
 	}
 	harness.play(t, user, chrome(2))

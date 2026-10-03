@@ -462,7 +462,7 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	if err != nil {
 		return nil, fmt.Errorf("read system_page_recent_prepares_per_node: %w", err)
 	}
-	finished, err := dependencies.Playback.FinishedPrepares(ctx, nodeID, int(maxPrepares))
+	finished, err := dependencies.Renditions.FinishedPrepares(ctx, nodeID, int(maxPrepares))
 	if err != nil {
 		return nil, fmt.Errorf("list node %d's prepares: %w", nodeID, err)
 	}

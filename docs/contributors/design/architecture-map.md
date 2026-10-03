@@ -56,7 +56,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
 | `internal/core/nodes` | R8 | — |
 | `internal/core/loudness` | R8 (the loudness measurement jobs and their sweep), R3 (the measurements, by payload hash) | — (split out of playback on 2026-10-03, F2) |
-| `internal/core/playback` | R6b (play state) | ⚑ R8: handles the prepare job kind (prepare.go, hls.go). The preferences store moved out on 2026-09-30, loudness and subtitles on 2026-10-03; renditions follow (F2) |
+| `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
+| `internal/core/renditions` | R8 (the prepare jobs), R3 (the index of prepared copies, in cache.db) | — (split out of playback on 2026-10-03, F2) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
@@ -232,7 +233,9 @@ Either way, `loudness` is re-classed as T3 in schema.md.
 
 **F2. A package with five jobs: core/playback.** *Decided 2026-09-30; built with D230/D231. The
 preferences part was built with D230 on 2026-09-30: internal/core/preferences keeps a person's
-choices, which playback and the API use; the node-work split waits for D231.*
+choices, which playback and the API use. The node-work split was built on 2026-10-03, after
+D231: internal/core/loudness, internal/core/subtitles and internal/core/renditions, with the
+levelling arithmetic in internal/core/decide; playback keeps play state and starts playbacks.*
 It holds play state (R6b), the per-person preference store, three node job handlers (prepare,
 subtitle extraction, loudness), subtitle fetching (R1) and the levelling decision (R7). The
 recommendation: split the node-work orchestration out (subtitle text, loudness, and possibly

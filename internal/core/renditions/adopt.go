@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package renditions
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func (service *Service) AdoptRenditions(
 	kept := make([]string, 0, len(renditions))
 	adopted := 0
 	for _, manifest := range renditions {
-		isKept, isAdopted, err := service.prepares.adopt(ctx, nodeID, manifest)
+		isKept, isAdopted, err := service.adopt(ctx, nodeID, manifest)
 		if err != nil {
 			return nil, err
 		}
@@ -39,14 +39,14 @@ func (service *Service) AdoptRenditions(
 		}
 	}
 	if adopted > 0 {
-		service.prepares.logger.InfoContext(ctx, "adopted the renditions a node holds that the index did not know",
+		service.logger.InfoContext(ctx, "adopted the renditions a node holds that the index did not know",
 			"nodeId", nodeID, "adopted", adopted)
 	}
 	return kept, nil
 }
 
 // adopt squares the index with one rendition a node holds, as AdoptRenditions says.
-func (all *prepares) adopt(
+func (service *Service) adopt(
 	ctx context.Context, nodeID int64, manifest nodeproto.RenditionManifest,
 ) (isKept, isAdopted bool, err error) {
 	run, err := parseRenditionDir(manifest.Prepare.RenditionDir)
@@ -54,17 +54,17 @@ func (all *prepares) adopt(
 		return false, false, nil //nolint:nilerr // a directory that names no making is not a rendition to keep
 	}
 	key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: run.fileID, Profile: run.profile}
-	existing, err := store.OrNotFound(all.cache.Read().GetRenditionOfFileAndProfile(ctx, key))
+	existing, err := store.OrNotFound(service.cache.Read().GetRenditionOfFileAndProfile(ctx, key))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		isAdopted, err = all.adoptUnknown(ctx, nodeID, run, manifest)
+		isAdopted, err = service.adoptUnknown(ctx, nodeID, run, manifest)
 		return isAdopted, isAdopted, err
 	case err != nil:
 		return false, false, fmt.Errorf("read rendition %s: %w", run.dir(), err)
 	case existing.RunID != run.runID:
 		return false, false, nil
 	case existing.State != renditionComplete:
-		_, err = all.finish(ctx, run, &nodeproto.PrepareReport{
+		_, err = service.finish(ctx, run, &nodeproto.PrepareReport{
 			State: nodeproto.PrepareDone, SizeBytes: manifest.SizeBytes, VideoEncoder: manifest.VideoEncoder,
 			RealtimeFactor: manifest.RealtimeFactor,
 		}, "")
@@ -75,10 +75,10 @@ func (all *prepares) adopt(
 
 // adoptUnknown adopts a rendition the index does not know, complete, when its source is still the
 // file it names, on the node that holds it, and reports whether it did.
-func (all *prepares) adoptUnknown(
+func (service *Service) adoptUnknown(
 	ctx context.Context, nodeID int64, run renditionRun, manifest nodeproto.RenditionManifest,
 ) (bool, error) {
-	file, err := store.OrNotFound(all.database.Read().GetPlayableFile(ctx, run.fileID))
+	file, err := store.OrNotFound(service.database.Read().GetPlayableFile(ctx, run.fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return false, nil
 	}
@@ -89,7 +89,7 @@ func (all *prepares) adoptUnknown(
 		return false, nil
 	}
 	var inserted int64
-	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	err = service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		var insertErr error
 		inserted, insertErr = queries.InsertAdoptedRendition(ctx, cachegen.InsertAdoptedRenditionParams{
 			SourceFile: run.fileID, SourcePayloadHash: file.PayloadHash, Profile: run.profile, NodeID: nodeID,

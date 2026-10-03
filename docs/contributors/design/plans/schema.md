@@ -1147,7 +1147,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
-| `prepared_rendition` | cache.db | `internal/core/playback` | |
+| `prepared_rendition` | cache.db | `internal/core/renditions` | |
 
 ## Not in Cut A, and additive
 
