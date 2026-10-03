@@ -431,7 +431,7 @@ func prepareCommand(
 // with its language, langtag.Undetermined when the probe gave none.
 func preparedAudio(probe nodeproto.Probe) []nodeproto.PrepareAudio {
 	var tracks []nodeproto.PrepareAudio
-	for index, stream := range audioStreams(probe) {
+	for index, stream := range decide.AudioStreams(probe) {
 		language := cmp.Or(stream.Language, langtag.Undetermined)
 		tracks = append(tracks, nodeproto.PrepareAudio{
 			AudioTrackIndex: index, Language: language, ChannelCount: stream.Audio.ChannelCount,

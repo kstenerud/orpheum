@@ -151,7 +151,7 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 func playedAudio(input Input) (nodeproto.ProbeStream, bool) {
 	if input.AudioStreamIndex != nil {
 		for _, stream := range input.Probe.Streams {
-			if stream.Kind == "audio" && stream.StreamIndex == *input.AudioStreamIndex {
+			if stream.Kind == streamKindAudio && stream.StreamIndex == *input.AudioStreamIndex {
 				return stream, true
 			}
 		}

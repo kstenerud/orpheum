@@ -4,11 +4,13 @@ package playback
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -25,10 +27,25 @@ type AudioRendition struct {
 	IsBoosted       bool
 	// Levelling is the gain that brings the track's stereo sound to the level; the boosted mix
 	// plays with the standard one's (D226 §3).
-	Levelling Levelling
+	Levelling decide.Levelling
 	// CarriedGainDB is the gain the rendition's sound already carries, which the player takes
 	// from the levelling it applies (D226 §4).
 	CarriedGainDB float64
+}
+
+// levelAudio gives each audio rendition of a prepared playback its levelling, which is its track's
+// stereo sound's, and the gain its sound carries, by its track's place in carried: what the
+// rendition's making put in (D226 §4).
+func levelAudio(renditions []AudioRendition, levels decide.Levels, probe nodeproto.Probe, carriedGainsJSON string) {
+	var gains []float64
+	_ = json.Unmarshal([]byte(carriedGainsJSON), &gains) //nolint:errcheck // its own record; unreadable is none
+	for index := range renditions {
+		rendition := &renditions[index]
+		rendition.Levelling = decide.StereoLevelling(levels, probe, rendition.AudioTrackIndex)
+		if rendition.AudioTrackIndex < len(gains) {
+			rendition.CarriedGainDB = gains[rendition.AudioTrackIndex]
+		}
+	}
 }
 
 // audioRenditions lists a prepare's audio renditions in the order the master playlist has them.
@@ -201,11 +218,11 @@ func (service *Service) prepareOrderFor(
 	run := renditionRun{fileID: file.ID, profile: rendition.Profile, runID: rendition.RunID}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
 	command.SegmentLengthSeconds = int(rendition.SegmentLengthSeconds)
-	levels, err := service.levellings(ctx, file.PayloadHash)
+	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
 	if err != nil {
 		return prepareOrder{}, err
 	}
-	gains := levelPrepare(&command, levels, probe)
+	gains := decide.LevelPrepare(&command, levels, probe)
 	return prepareOrder{
 		run: run, command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
 	}, nil

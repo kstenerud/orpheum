@@ -129,7 +129,7 @@ func MainAudio(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
 	var first *nodeproto.ProbeStream
 	for index := range probe.Streams {
 		stream := &probe.Streams[index]
-		if stream.Kind != "audio" {
+		if stream.Kind != streamKindAudio {
 			continue
 		}
 		if slices.Contains(stream.Disposition, "default") {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 )
@@ -47,7 +48,7 @@ type LevellingBody struct {
 	GainDB     float64 `doc:"Applied after the player's volume; negative lowers a loud film" json:"gainDb"`
 }
 
-func levellingBody(levelling playback.Levelling) LevellingBody {
+func levellingBody(levelling decide.Levelling) LevellingBody {
 	return LevellingBody{IsMeasured: levelling.IsMeasured, GainDB: levelling.GainDB}
 }
 

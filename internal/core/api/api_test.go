@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/loudness"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/playback"
@@ -68,6 +69,8 @@ type testHarness struct {
 	subtitler *fakeSubtitler
 	// resolver takes the outcome of each job given to the node, and hands a test its answer.
 	resolver *nodestest.Resolver
+	// loudness measures each file's sounds.
+	loudness *loudness.Service
 }
 
 // handle runs job by its handler, as a runner would, and returns where its answer arrives
@@ -118,10 +121,13 @@ func newHarness(t *testing.T) testHarness {
 		Settings: seeded, MaxSilence: time.Minute,
 	})
 	queue.OnCancel(exchanges.Cancelled)
+	loudnessService := loudness.NewService(loudness.Parts{
+		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Settings: seeded, Clock: now,
+	})
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges,
 		Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService,
+		MaxSilence: time.Minute, Subtitler: subtitler, Preferences: preferencesService, Loudness: loudnessService,
 	})
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
 	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, playbackService.HandleConvertFetchedSubtitle)
@@ -130,7 +136,7 @@ func newHarness(t *testing.T) testHarness {
 	for kind, assignee := range map[jobs.Kind]func(corenodes.Resolver) corenodes.Assignee{
 		jobs.KindPrepare: playbackService.PrepareAssignee, jobs.KindExtractSubtitle: playbackService.SubtitleAssignee,
 		jobs.KindConvertFetchedSubtitle: playbackService.SubtitleAssignee,
-		jobs.KindMeasureLoudness:        playbackService.LoudnessAssignee,
+		jobs.KindMeasureLoudness:        loudnessService.Assignee,
 	} {
 		exchanges.Handle(kind, assignee(resolver.Of(queue.NewRunner(kind, nil))))
 	}
@@ -180,7 +186,7 @@ func newHarness(t *testing.T) testHarness {
 		database:     database,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver,
-		subtitler: subtitler,
+		subtitler: subtitler, loudness: loudnessService,
 	}
 }
 

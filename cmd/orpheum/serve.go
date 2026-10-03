@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
@@ -174,12 +175,8 @@ func openAndWire(
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	dependencies.Artwork = opened.jobServices.artwork
-	dependencies.Playback = playback.NewService(playback.Parts{
-		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
-		Exchanges: opened.exchanges,
-		Settings:  opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
-		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: dependencies.Preferences,
-	})
+	opened.jobServices.loudness, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences,
+		logger)
 	opened.jobServices.playback, opened.jobServices.nodes = dependencies.Playback, opened.nodes
 	opened.nodes.SetRenditionIndex(dependencies.Playback)
 	dependencies.NodeBytes = openByteSocket(opened.nodes, config)
@@ -191,6 +188,24 @@ func openAndWire(
 	}
 	server.Ready(dependencies)
 	return opened, nil
+}
+
+// openPlayback is what plays a file and the work a play asks of the nodes: the loudness of its
+// sounds, and the playback service.
+func openPlayback(
+	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
+) (*loudness.Service, *playback.Service) {
+	loudnessService := loudness.NewService(loudness.Parts{
+		Database: database, Queue: opened.jobServices.queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
+		Settings: opened.settings, Clock: clock.System{},
+	})
+	return loudnessService, playback.NewService(playback.Parts{
+		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
+		Exchanges: opened.exchanges,
+		Settings:  opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
+		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler, Preferences: preferencesService,
+		Loudness: loudnessService,
+	})
 }
 
 // openExchanges are how the server gives its nodes work and takes their word on it, wired to the
