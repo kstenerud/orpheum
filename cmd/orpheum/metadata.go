@@ -171,8 +171,8 @@ func derivedByAScanRequest() []string { return []string{"the next scan asked for
 
 // runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
 // by the caller: one fetch per provider; a node's job is given to its node and answered at once,
-// the core holding each node to its slots and devices (D234 §7, D240 §5). A prepare records no
-// failure of its own: the next play asks again.
+// the core holding each node to its slots and devices (D234 §7, D240 §5). A prepare's failure is its
+// rendition's, which the next play prepares again.
 func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
 	return jobRunners{
 		{
@@ -201,8 +201,8 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.playback.LoudnessAssignee,
 		},
 		{
-			jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 1, derivedByAPlay(),
-			services.playback.PrepareAssignee,
+			jobs.KindPrepare, services.playback.HandlePrepare, services.playback.RecordPrepareFailure, nil, 1,
+			derivedByAPlay(), services.playback.PrepareAssignee,
 		},
 		{
 			jobs.KindScan, services.scans.HandleScan, services.scans.RecordScanFailure, nil, 1,

@@ -36,6 +36,8 @@ type recordingSender struct {
 	resources *nodes.Resources
 	// unparked are the destinations brought back, in order.
 	unparked *unparkedDestinations
+	// withdrawn are the attempts whose commands were withdrawn, by token, in order.
+	withdrawn []string
 }
 
 func (sender *recordingSender) Unpark(ctx context.Context, destination jobs.Destination) {
@@ -54,7 +56,10 @@ var errParked = errors.New("parked on the node")
 func (*recordingSender) Ready(context.Context, int64) error { return nil }
 
 // Withdraw says the work is still queued when the test made it so: the node has not taken it.
-func (sender *recordingSender) Withdraw(int64, string) bool { return sender.isQueued }
+func (sender *recordingSender) Withdraw(_ int64, token string) bool {
+	sender.withdrawn = append(sender.withdrawn, token)
+	return sender.isQueued
+}
 
 func (sender *recordingSender) Send(_ context.Context, _ int64, command nodeproto.Command) error {
 	sender.sent <- command

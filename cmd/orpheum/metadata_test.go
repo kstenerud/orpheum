@@ -117,7 +117,7 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 	for _, runner := range services.runners(nil) {
 		run[runner.kind] = true
 		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
-		if runner.recordFailure == nil && runner.kind != jobs.KindPrepare {
+		if runner.recordFailure == nil {
 			t.Errorf("%s records no failure of its item's own (D231 §4, §10)", runner.kind)
 		}
 	}

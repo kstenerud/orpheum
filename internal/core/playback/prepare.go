@@ -114,12 +114,24 @@ func (all *prepares) want(
 		return row, fmt.Errorf("want a rendition of file %d: %w", file.ID, err)
 	}
 	if row.State != renditionComplete {
+		// The run its job makes is in its arguments: a making restarted while an earlier run's job is
+		// with its node is not that job's, so it is queued after it rather than dropped (G13).
+		args, argsErr := json.Marshal(prepareArgs{RunID: row.RunID})
+		if argsErr != nil {
+			return row, fmt.Errorf("encode a prepare's arguments: %w", argsErr)
+		}
 		_, err = all.queue.Enqueue(ctx, jobs.Request{
 			Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: row.ID}, Priority: jobs.PriorityPlayNow,
-			Reason: "someone is waiting to watch it", Destination: jobs.NodeDestination(file.NodeID),
+			ArgsJSON: string(args),
+			Reason:   "someone is waiting to watch it", Destination: jobs.NodeDestination(file.NodeID),
 		})
 	}
 	return row, err
+}
+
+// prepareArgs are a prepare job's arguments: the run of the rendition it makes.
+type prepareArgs struct {
+	RunID string `json:"runId"`
 }
 
 // redo prepares a rendition again from the start, whatever state its row is in.
