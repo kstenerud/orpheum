@@ -805,8 +805,11 @@ D231 §12; D233 §8; D241; F2.
 
 **Deviations, for the owner:**
 
-- 6e's `internal/core/playback` split is not done: it adds packages to cut-a §3's layout, which waits
-  on the owner. A stall's failure as a fact with its kind is not built either: nothing reads one, and
+- 6e's `internal/core/playback` split was built after Phase 6, once the owner approved the layout
+  change (2026-10-03): `internal/core/loudness`, `internal/core/subtitles` and
+  `internal/core/renditions` hold the node work, `internal/core/decide` the levelling arithmetic,
+  `internal/core/library` a playable file and its readability, and `jobs.Readiness` how far waited-for
+  work is; playback keeps play state and starts playbacks. A stall's failure as a fact with its kind is not built either: nothing reads one, and
   the failure's words say its kind for the admin's job view. The scenarios this rebuild closed hold by
   the tests their statuses name, most of them below the scenario tier, rather than by a
   `TestScenario_*` of their own each.
