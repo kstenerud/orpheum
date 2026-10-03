@@ -755,3 +755,11 @@ D231 §12; D233 §8; D241; F2.
   and the levelling decision into `decide`.
 - The scenario-tier tests for every scenario the phases closed that is not yet one; D231's and
   D233's Status lines read back and updated.
+
+## After Phase 6 — one instance directory
+
+D242: the instance directory with its small top-level config, `persistent/`, `cache/`, `backups/`
+and `run/`; `orpheum default-config <dir>`; every subcommand started with the instance directory;
+a backup as a tarball of `persistent/`, the key left out unless asked for, from the admin interface
+and the command line; the development loop's own files (`bin`, sample media, browser results, the
+seed) out of the instance. Built before the pre-M4 audit.
