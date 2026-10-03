@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { timeText } from "./date-time-text.ts";
 import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { RequestWait } from "./request-wait.tsx";
 import { useRequest } from "./use-request.ts";
 import { languageName } from "./language-name.ts";
 
@@ -115,9 +116,8 @@ export function FindSubtitles(props: {
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));
   const [offer, setOffer] = useState<SubtitleOffer | undefined>(undefined);
   // One request at a time, and why it failed when it did (D224 §4).
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    subtitleProblemText(t, cause, i18n.language),
-  );
+  const request = useRequest((cause) => subtitleProblemText(t, cause, i18n.language));
+  const { isBusy, problem, runRequest } = request;
   if (!isOpen) {
     return (
       <button
@@ -131,16 +131,17 @@ export function FindSubtitles(props: {
     );
   }
   const search = (): void => {
-    runRequest(listCandidates(api, props.fileId, language).then(setOffer));
+    runRequest(async () => {
+      setOffer(await listCandidates(api, props.fileId, language));
+    });
   };
   const choose = (candidate: SubtitleCandidate): void => {
     const chosen = { providerFileId: candidate.providerFileId, language };
-    runRequest(
-      fetchCandidate(api, props.fileId, chosen).then(() => {
-        setIsOpen(false);
-        props.onFetched();
-      }),
-    );
+    runRequest(async () => {
+      await fetchCandidate(api, props.fileId, chosen);
+      setIsOpen(false);
+      props.onFetched();
+    });
   };
   return (
     <section className="subtitle-search" aria-labelledby="subtitle-search-heading">
@@ -155,6 +156,7 @@ export function FindSubtitles(props: {
       <button type="button" onClick={search} disabled={isBusy}>
         {t("play.findSubtitles.search")}
       </button>
+      <RequestWait request={request} provider="OpenSubtitles" />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       {offer === undefined ? null : (
         <CandidateList offer={offer} language={language} isBusy={isBusy} onChoose={choose} />

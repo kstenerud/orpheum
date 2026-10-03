@@ -2,21 +2,28 @@
 
 import type { components } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { dateTimeText } from "./date-time-text.ts";
+import { i18n } from "./i18n.ts";
 import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { RequestWait } from "./request-wait.tsx";
+import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 /** A film or series waiting for a match, as the server sends it. */
 export type WaitingItem = components["schemas"]["ItemBody"];
 /** One of an ambiguous item's possible matches. */
 export type Candidate = components["schemas"]["CandidateBody"];
+
+/** What a search of the provider found for an item: the provider, and its candidates. */
+type CandidatesAnswer = components["schemas"]["CandidatesOutputBody"];
 
 /**
  * Why looking up or choosing a match failed, in words a person can act on: the metadata
@@ -95,10 +102,19 @@ function WaitingRow(props: {
   const refresh = (): void => {
     api
       .POST("/items/{id}/refresh", { params: { path: { id: item.id } } })
-      .then(throwIfRefused)
+      .then(dataOrThrow)
       .then(
-        () => {
-          setNote(t("identify.refreshed"));
+        (answer) => {
+          // While TMDB is not answering, the refresh says what it waits for, and since when (D231 §12).
+          const waiting = answer.waitingFor;
+          setNote(
+            waiting === undefined
+              ? t("identify.refreshed")
+              : t("identify.refreshedWaiting", {
+                  name: waiting.name,
+                  since: dateTimeText(waiting.since, i18n.language),
+                }),
+          );
         },
         (cause: unknown) => {
           setNote(identifyProblemText(t, cause));
@@ -129,48 +145,52 @@ function WaitingRow(props: {
   );
 }
 
-/** An ambiguous item's possible matches, and choosing one, which is permanent (D172). */
+/**
+ * An ambiguous item's possible matches, and choosing one, which is permanent (D172). Both ask TMDB,
+ * so each says what it waits for when TMDB holds it back (D231 §12).
+ */
 function CandidateChooser(props: {
   readonly itemId: number;
   readonly onChosen: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [problem, setProblem] = useState("");
-  const [candidates] = useResource(`candidates/${String(props.itemId)}`, async () => {
-    const candidatesBody = dataOrThrow(
-      await api.GET("/items/{id}/candidates", {
-        params: { path: { id: props.itemId } },
-      }),
-    );
-    return candidatesBody;
-  });
+  const [found, setFound] = useState<CandidatesAnswer | undefined>(undefined);
+  const request = useRequest((cause) => identifyProblemText(t, cause));
+  const { runRequest } = request;
+  useEffect(() => {
+    runRequest(async () => {
+      setFound(
+        dataOrThrow(
+          await api.GET("/items/{id}/candidates", { params: { path: { id: props.itemId } } }),
+        ),
+      );
+    });
+    // Asked for once, when the chooser opens: runRequest is the same every time.
+  }, [api, props.itemId, runRequest]);
   const pick = (provider: string, candidate: Candidate): void => {
-    api
-      .POST("/items/{id}/match", {
-        params: { path: { id: props.itemId } },
-        body: { provider, providerId: candidate.providerId },
-      })
-      .then(throwIfRefused)
-      .then(props.onChosen, (cause: unknown) => {
-        setProblem(identifyProblemText(t, cause));
-      });
+    runRequest(async () => {
+      throwIfRefused(
+        await api.POST("/items/{id}/match", {
+          params: { path: { id: props.itemId } },
+          body: { provider, providerId: candidate.providerId },
+        }),
+      );
+      props.onChosen();
+    });
   };
   return (
     <section aria-label={t("identify.candidates")}>
-      <Loaded
-        resource={candidates}
-        describeProblem={(cause) => identifyProblemText(t, cause)}
-        render={(value) => (
-          <CandidateList
-            candidates={value.candidates ?? []}
-            onPick={(candidate) => {
-              pick(value.provider ?? "tmdb", candidate);
-            }}
-          />
-        )}
-      />
-      {problem === "" ? null : <p role="alert">{problem}</p>}
+      {found === undefined ? null : (
+        <CandidateList
+          candidates={found.candidates ?? []}
+          onPick={(candidate) => {
+            pick(found.provider ?? "tmdb", candidate);
+          }}
+        />
+      )}
+      <RequestWait request={request} provider="TMDB" />
+      {request.problem === undefined ? null : <p role="alert">{request.problem}</p>}
     </section>
   );
 }

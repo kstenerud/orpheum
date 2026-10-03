@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { ApiProblem, fieldProblemText, problemText } from "./problem.ts";
+import { ApiProblem, fieldProblemText, problemText, providerProblemText } from "./problem.ts";
 
 const t = i18n.t.bind(i18n);
 
@@ -79,6 +79,27 @@ describe("a play of a file that cannot be read now (D241 §4)", () => {
     );
     expect(problemText(t, folder)).toBe(
       "This cannot be played now: the folder /media/films on devnas is missing.",
+    );
+  });
+});
+
+describe("a provider not answering (D231 §12)", () => {
+  it("says since when, and when it is looked at again, when the server knows", () => {
+    const knowing = new ApiProblem({
+      code: "provider_error",
+      message: "a note for developers",
+      detail: { reason: "unavailable", since: 1_790_000_000_000, nextCheckAt: 1_790_000_480_000 },
+    });
+    const unknowing = new ApiProblem({
+      code: "provider_error",
+      message: "a note for developers",
+      detail: { reason: "unavailable" },
+    });
+    expect(providerProblemText(t, knowing, "identify.providerReason")).toMatch(
+      /^TMDB has not been answering, since .+; it is looked at again at .+\.$/u,
+    );
+    expect(providerProblemText(t, unknowing, "identify.providerReason")).toBe(
+      "TMDB is not answering right now. Try again later.",
     );
   });
 });

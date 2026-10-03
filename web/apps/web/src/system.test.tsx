@@ -212,3 +212,58 @@ it("the System page says a machine on another version of Orpheum needs updating 
   expect(older).toContain("The media machine needs updating");
   expect(older).not.toContain("Not heard from since the server started.");
 });
+
+it("the System page says what is not answering, and each outside service's limits and state (D231 §5, §12)", async () => {
+  const down = {
+    destination: "tmdb-api",
+    name: "TMDB",
+    reason: "unreachable",
+    since: 1_790_000_000_000,
+    nextCheckAt: 1_790_000_480_000,
+    isChecking: false,
+  };
+  mounted = await mount(
+    withServices(
+      <System />,
+      servedBy({
+        "GET /system": [
+          200,
+          {
+            ...report(connected),
+            destinations: [down],
+            providers: [
+              {
+                name: "TMDB",
+                destination: "tmdb-api",
+                ratePerSecond: 40,
+                backgroundRatePerSecond: 32,
+                credentials: "accepted",
+                down,
+              },
+              {
+                name: "OpenSubtitles",
+                destination: "opensubtitles",
+                ratePerSecond: 5,
+                backgroundRatePerSecond: 4,
+                credentials: "missing",
+                quota: {
+                  remaining: 12,
+                  allowed: 20,
+                  reservedForPeoplePercent: 25,
+                  reservedForPeople: 5,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+  const text = mounted.container.textContent;
+  expect(text).toMatch(/Not answering.*Waiting for TMDB: unreachable since .+, next check/u);
+  expect(text).toContain(
+    "TMDB asked at most 40 times a second, background work 32; its key or login works.",
+  );
+  expect(text).toContain("no key or login is set: an admin can set it in Settings.");
+  expect(text).toContain("12 of 20 left today.");
+});
