@@ -48,14 +48,15 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/auth` | R5 | — |
 | `internal/core/backup` | OPS | — |
 | `internal/core/datadir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
-| `internal/core/decide` | R7 | — (pure: imports errors, fmt, slices, nodeproto; depguard `decide-sees-capabilities`) |
+| `internal/core/decide` | R7 | — (pure: imports nodeproto and the standard library alone; depguard `decide-sees-capabilities`; since 2026-10-03 also the levelling arithmetic, levels.go, F2) |
 | `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
 | `internal/core/providers` | R1 (each outside host as a provider service: health, rate, quota, credentials) | — (since 2026-09-30, the jobs rebuild's Phase 2; a host's health is its destination in the job queue) |
 | `internal/core/providers/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility; moved from `identify/tmdb` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
 | `internal/core/nodes` | R8 | — |
-| `internal/core/playback` | R6b (play state) | ⚑ R8: handles three node job kinds (prepare.go, subtitles.go:278, loudness.go:195). ⚑ R1: subtitle search and fetch (fetch.go:58). ⚑ R7: levelling gains (loudness.go:80-155). Four jobs in one package; the preferences store moved out on 2026-09-30 (F2) |
+| `internal/core/loudness` | R8 (the loudness measurement jobs and their sweep), R3 (the measurements, by payload hash) | — (split out of playback on 2026-10-03, F2) |
+| `internal/core/playback` | R6b (play state) | ⚑ R8: handles two node job kinds (prepare.go, subtitles.go). ⚑ R1: subtitle search and fetch (fetch.go). The preferences store moved out on 2026-09-30 and loudness on 2026-10-03; renditions and subtitles follow (F2) |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/secrets` | R5 (secret custody) | — |

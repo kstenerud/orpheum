@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -95,7 +96,7 @@ func (all *prepares) adoptUnknown(
 			SegmentLengthSeconds: int64(manifest.Prepare.SegmentLengthSeconds), RunID: run.runID,
 			SizeBytes: &manifest.SizeBytes, VideoEncoder: ptr.NilIfZero(manifest.VideoEncoder),
 			RealtimeFactor:     ptr.NilIfZero(manifest.RealtimeFactor),
-			CarriedGainsDBJSON: carriedGainsOf(manifest.Prepare.AudioTracks),
+			CarriedGainsDBJSON: decide.CarriedGains(manifest.Prepare.AudioTracks),
 			AudioLanguagesJSON: audioLanguagesOf(manifest.Prepare.AudioTracks), MadeAt: manifest.MadeAtMs,
 		})
 		return insertErr

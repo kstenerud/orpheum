@@ -81,6 +81,13 @@ type Parts struct {
 	Subtitler Subtitler
 	// Preferences keeps a person's choices, which a playback starts with (D230).
 	Preferences *preferences.Service
+	// Loudness says the gains that level a file's sounds (D226).
+	Loudness Loudness
+}
+
+// Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
+type Loudness interface {
+	Levels(ctx context.Context, payloadHash []byte) (decide.Levels, error)
 }
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
@@ -101,6 +108,7 @@ type Service struct {
 	preferences *preferences.Service
 	// keptTexts tells a fetch waiting for its conversion that the text was kept.
 	keptTexts *keptTexts
+	loudness  Loudness
 }
 
 // NewService returns the playback service.
@@ -111,6 +119,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
 		subtitler: parts.Subtitler, preferences: parts.Preferences, keptTexts: newKeptTexts(),
+		loudness: parts.Loudness,
 	}
 	service.recordResults(exchanges)
 	return service
@@ -150,7 +159,7 @@ type Started struct {
 	AudioOutput string
 	// Levelling is what brings the main sound to the level: the one played as it is, or, when
 	// prepared, its stereo mix (D226). Each audio rendition carries its own.
-	Levelling Levelling
+	Levelling decide.Levelling
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -197,11 +206,11 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	levels, err := service.levellings(ctx, file.PayloadHash)
+	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
 	if err != nil {
 		return Started{}, err
 	}
-	started.Levelling = directLevelling(levels, probe)
+	started.Levelling = decide.DirectLevelling(levels, probe)
 	playback := tokenPlayback{userID: userID, sessionKey: sessionKey, fileID: file.ID}
 	if decision.Delivery == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
@@ -241,7 +250,7 @@ func (service *Service) decide(
 // wantPrepared has a prepared playback's rendition made unless it is, and says in started how far
 // it is, its audio renditions and the gain that levels the audio track the playback starts with.
 func (service *Service) wantPrepared(
-	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, levels map[soundKey]Levelling,
+	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, levels decide.Levels,
 	profile nodeproto.PrepareProfile, started *Started,
 ) error {
 	rendition, err := service.prepares.want(ctx, file, profile)
@@ -252,7 +261,7 @@ func (service *Service) wantPrepared(
 	started.AudioRenditions = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, profile, "", probe))
 	levelAudio(started.AudioRenditions, levels, probe, rendition.CarriedGainsDBJSON)
 	if played := started.StartingAudio; played != nil {
-		started.Levelling = levels[soundKey{played.StreamIndex, mixStereo}]
+		started.Levelling = levels[decide.SoundKey{StreamIndex: played.StreamIndex, Mix: decide.MixStereo}]
 	}
 	return nil
 }

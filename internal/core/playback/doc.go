@@ -187,23 +187,6 @@
 //     a download is spent (D224 §5). TestFetchSubtitle_OnlyASubtitleItsNodeConvertedIsKeptAndChosen,
 //     TestFetchSubtitle_OneItsNodeDidNotConvertInTimeIsKeptNowhere (internal/core/api).
 //
-//   - Each live video with sound is measured once per payload hash, by a job behind anything a
-//     person waits on; one FFmpeg cannot measure is not asked again, and one its node would not
-//     try is (D226 §2): its job is tried again on its back-off, and once it gives up the next
-//     sweep asks again. Enforced by TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel,
-//     TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryIs and
-//     TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff (internal/core/api), and
-//     end to end by
-//     TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled (cmd/orpheum).
-//
-//   - A playback says the gain that levels its sound: towards loudness_target_lufs (-23 to start)
-//     both ways, never lifting the true peak above -1 dBTP nor raising more than
-//     loudness_max_raise_db (20 to start), silence left as it is; a prepared one levels each mix as
-//     its track's stereo mix and says what gain its copy already carries, which the copy's making
-//     put in (D226 §3, §4). Enforced by TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits,
-//     TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay and
-//     TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain.
-//
 //   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.
 //
@@ -219,7 +202,7 @@
 //   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
 //   - D224: fetching a subtitle on request; the provider client is internal/core/providers/opensubtitles.
 //   - D225: a finished rendition records what made its video and how fast, for the System page.
-//   - D226: loudness is measured by the node and levelled by the player; the gain's rule.
+//   - D226: loudness is measured by the node (internal/core/loudness) and levelled by the player.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change
@@ -231,9 +214,7 @@
 //     nodes.Exchanges. report.go: the play report, its log and the guarded position. resume.go: where a
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
 //     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
-//     fetched on request, and the job that converts one. loudness.go: the gain that levels a
-//     sound, the sweep for files to measure and the measurement job. choices.go: a person's
-//     choices in a file, kept through internal/core/preferences, and a file's audio tracks. stall.go: a
-//     node's word that FFmpeg stalled, and a wait its node's restart ended. adopt.go: the index
+//     fetched on request, and the job that converts one. choices.go: a person's
+//     choices in a file, kept through internal/core/preferences, and a file's audio tracks. adopt.go: the index
 //     squared with a node's renditions at its hello. Next Up comes after M3.
 package playback

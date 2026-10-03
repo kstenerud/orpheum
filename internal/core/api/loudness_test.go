@@ -30,9 +30,8 @@ func (harness testHarness) measureWith(
 	t *testing.T, jobID, fileID int64, answer nodeproto.LoudnessResult,
 ) (*nodeproto.MeasureLoudness, error) {
 	t.Helper()
-	service := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
-	finished := harness.handle(t, service.HandleMeasureLoudness, job)
+	finished := harness.handle(t, harness.loudness.HandleMeasureLoudness, job)
 	command := harness.nextCommand(t)
 	harness.answerLoudness(t, jobID, answer)
 	//nolint:wrapcheck // the job's own error, which the test reads as it is
@@ -57,8 +56,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	service := harness.server.dependencies.Load().Playback
-	if queued, err := service.QueueMeasurements(t.Context()); err != nil || queued != 2 {
+	if queued, err := harness.loudness.QueueMeasurements(t.Context()); err != nil || queued != 2 {
 		t.Fatalf("the sweep queued %d, %v; want both films with sound, not the skipped file (D226 §2)", queued, err)
 	}
 	unmeasured := harness.play(t, user, chrome(1))
@@ -166,8 +164,7 @@ func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.
 	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
 		t.Fatal(err)
 	}
-	playback := harness.server.dependencies.Load().Playback
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
+	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
 	command := harness.nextCommand(t)
@@ -280,9 +277,8 @@ func TestLoudness_AMeasurementOnANodeThatDidNotSayHowFastItReadsIsNotSent(t *tes
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	harness.nodes.isReadRateUnknown = true
-	service := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 5, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
-	err := service.HandleMeasureLoudness(t.Context(), job)
+	err := harness.loudness.HandleMeasureLoudness(t.Context(), job)
 	if err == nil || !strings.Contains(err.Error(), "has not said how fast it reads") {
 		t.Errorf("measuring on a node that did not say how fast it reads: %v, want it not waited for", err)
 	}
@@ -308,8 +304,7 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
 		t.Fatal(err)
 	}
-	playback := harness.server.dependencies.Load().Playback
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
+	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -359,9 +354,8 @@ func TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAga
 	harness := newHarness(t)
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
-	service := harness.server.dependencies.Load().Playback
 	job := jobs.Job{ID: 91, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
-	if err := service.RecordMeasurementFailure(t.Context(), job, "node 1 refused five times"); err != nil {
+	if err := harness.loudness.RecordMeasurementFailure(t.Context(), job, "node 1 refused five times"); err != nil {
 		t.Fatal(err)
 	}
 	if files := harness.filesToMeasure(t); !slices.Equal(files, []int64{2}) {

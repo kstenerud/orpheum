@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
@@ -27,7 +28,7 @@ import (
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
 // matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
-// matches name, and playback's prepare, subtitle and loudness work.
+// matches name, playback's prepare and subtitle work, and the loudness measurements.
 type jobServices struct {
 	pass      *identify.Pass
 	queue     *jobs.Queue
@@ -38,6 +39,8 @@ type jobServices struct {
 	artwork   *artwork.Service
 	// playback runs the prepare jobs, which share the one queue (cut-a §5.3).
 	playback *playback.Service
+	// loudness measures each file's sounds (D226).
+	loudness *loudness.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
 	nodes *nodes.Service
 	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
@@ -195,10 +198,10 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.playback.RecordSubtitleFailure, nil, 1, derivedByAPlay(), services.playback.SubtitleAssignee,
 		},
 		{
-			jobs.KindMeasureLoudness, services.playback.HandleMeasureLoudness,
-			services.playback.RecordMeasurementFailure, nil, 1,
+			jobs.KindMeasureLoudness, services.loudness.HandleMeasureLoudness,
+			services.loudness.RecordMeasurementFailure, nil, 1,
 			[]string{sweepLoudness},
-			services.playback.LoudnessAssignee,
+			services.loudness.Assignee,
 		},
 		{
 			jobs.KindPrepare, services.playback.HandlePrepare, services.playback.RecordPrepareFailure, nil, 1,
@@ -270,7 +273,7 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
 		{
-			Name: sweepLoudness, Derive: services.playback.QueueMeasurements,
+			Name: sweepLoudness, Derive: services.loudness.QueueMeasurements,
 			Every: func(ctx context.Context) time.Duration {
 				return lengthOrStarting(ctx, services.settings, settings.LoudnessSweepEveryHours, logger)
 			},

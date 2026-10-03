@@ -38,13 +38,12 @@ func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T)
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	playback := harness.server.dependencies.Load().Playback
 	measure := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
 			ID: 95, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2},
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
-		return answerAfterStall(t, harness, job, playback.HandleMeasureLoudness, func() {
+		return answerAfterStall(t, harness, job, harness.loudness.HandleMeasureLoudness, func() {
 			harness.answerLoudness(t, 95, nodeproto.LoudnessResult{Stall: testStall})
 		})
 	}
@@ -115,7 +114,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 			ID: 95, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2},
 			PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
-		return answerAfterStall(t, harness, job, playback.HandleMeasureLoudness, interrupt)
+		return answerAfterStall(t, harness, job, harness.loudness.HandleMeasureLoudness, interrupt)
 	}
 	extract := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{

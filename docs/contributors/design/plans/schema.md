@@ -1112,7 +1112,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `item_text` | persistent.db | `internal/core/identify` | |
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
-| `loudness` | persistent.db | `internal/core/playback` | |
+| `loudness` | persistent.db | `internal/core/loudness` | |
 | `node` | persistent.db | `internal/core/nodes` | |
 | `ordering` | persistent.db | `internal/core/identify` | |
 | `play_event` | persistent.db | `internal/core/playback` | |

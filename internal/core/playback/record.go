@@ -14,12 +14,11 @@ import (
 
 // recordResults has exchanges record what a node's results on playback's work establish, by the
 // content each names (D238 §2): a making of a rendition by its run, a subtitle's text by its
-// source's hash, a measurement by the file's. Each is recorded as it arrives, whether or not its
+// source's hash. Each is recorded as it arrives, whether or not its
 // job still waits, before the node is told it was taken (S81).
 func (service *Service) recordResults(exchanges *nodes.Exchanges) {
 	exchanges.Record(nodeproto.CommandPrepare, service.prepares.recordPrepare)
 	exchanges.Record(nodeproto.CommandExtractSubtitle, service.recordSubtitle)
-	exchanges.Record(nodeproto.CommandMeasureLoudness, service.recordLoudness)
 }
 
 // recordPrepare records a making of a rendition done, or failed with FFmpeg's word on its source,
@@ -92,22 +91,4 @@ func subtitleTextKey(
 			nodes.ErrMalformedResult, hashHex, err)
 	}
 	return textKey(hash, streamIndex), true, nil
-}
-
-// recordLoudness keeps a file's measurement, or FFmpeg's word that it cannot be measured, by the
-// file's payload hash.
-func (service *Service) recordLoudness(ctx context.Context, _ int64, result nodeproto.Result) error {
-	answer, command := result.Loudness, result.Work.MeasureLoudness
-	if answer == nil || command == nil {
-		return fmt.Errorf("a measurement's result carries no loudness, or names no measurement: %w",
-			nodes.ErrMalformedResult)
-	}
-	if answer.Refusal != "" || answer.Stall != nil {
-		return nil
-	}
-	payloadHash, err := hex.DecodeString(command.Video.PayloadHash)
-	if err != nil {
-		return fmt.Errorf("%w: a payload hash %q: %w", nodes.ErrMalformedResult, command.Video.PayloadHash, err)
-	}
-	return service.keepLoudness(ctx, payloadHash, command.Tracks, *answer)
 }

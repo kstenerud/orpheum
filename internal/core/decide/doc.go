@@ -8,28 +8,46 @@
 //
 // # Invariants
 //
+//   - A gain levels a sound towards loudness_target_lufs (-23 to start) both ways, never lifting
+//     its true peak above -1 dBTP nor raising it more than loudness_max_raise_db (20 to start),
+//     silence left as it is; a file played as it is levels its main track, as it is past two
+//     channels, else as stereo; a prepared copy levels each mix as its track's stereo, and says the
+//     gain its making put in (D226 §3, §4; levels.go). Enforced by
+//     TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits,
+//     TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay and
+//     TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain
+//     (internal/core/api).
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
+//
 //   - Opens no file and walks no directory; files are internal/core/datadir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
+//
 //   - Imports no database/sql or SQLite driver. Enforced by the depguard rule sql-only-in-store and
 //     TestArch_OnlyStoreImportsDatabaseSQL. It calls no store either: a pure function (review).
+//
 //   - Cannot see the HTTP request, so it cannot branch on client identity. Enforced by the
 //     depguard rule decide-sees-capabilities (no net/http, no internal/core/api).
+//
 //   - A stream the table cannot place is prepared, never guessed playable; each row of the
 //     table has a case. Enforced by TestDecide_SortsEachVideoStreamIntoOneMenuEntry and
 //     TestDecide_SortsEachAudioStreamIntoOneMenuEntry.
+//
 //   - Playable formats without both baselines, or naming something the menu does not have, are
 //     refused (D21). Enforced by
 //     TestPlayableFormats_RefusesAListWithoutTheBaselinesOrWithAnUnknownName.
+//
 //   - Direct play is judged on the picture and on the track a player starts with (the default,
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
+//
 //   - On stereo output (built-in speakers, headphones), a main sound of more than two channels is always
 //     prepared, for dialogue_boost, whether the boost is on or off, so it switches mid-film
 //     without a new job; a stereo sound is not (D222). Enforced by
 //     TestDecide_TheBoostPreparesOnlyASourceWithACentre.
+//
 //   - Every switch over a codec, container or reason names every value; a new codec breaks each
 //     switch that does not handle it. Enforced by exhaustive (default-signifies-exhaustive:
 //     false).

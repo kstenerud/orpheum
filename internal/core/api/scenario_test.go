@@ -141,7 +141,6 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	playback := harness.server.dependencies.Load().Playback
 	// The live node's measurement is assigned to it, and ends when its answer is taken.
 	answered := make(chan struct{})
 	go func() {
@@ -153,7 +152,7 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 		harness.answerLoudness(t, command.JobID,
 			nodeproto.LoudnessResult{Failure: "Invalid data found when processing input"})
 	}()
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, playback.HandleMeasureLoudness)
+	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -332,8 +331,7 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 		t.Errorf("the retire = %+v; want the root's 3 files removed and both jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, root)
-	playback := harness.server.dependencies.Load().Playback
-	if queued, err := playback.QueueMeasurements(t.Context()); err != nil || queued != 0 {
+	if queued, err := harness.loudness.QueueMeasurements(t.Context()); err != nil || queued != 0 {
 		t.Errorf("the loudness sweep after the retire queued %d, %v; want nothing for a retired root's files",
 			queued, err)
 	}
