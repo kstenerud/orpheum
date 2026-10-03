@@ -28,9 +28,9 @@ type Settings interface {
 	Bool(ctx context.Context, key settings.Key) (bool, error)
 }
 
-// Sink receives a node's report records, in order, a batch at a time: the ingest.
-type Sink interface {
-	IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error
+// ScanRequester asks for a scan of a node's root: library.Scans (D240).
+type ScanRequester interface {
+	Request(ctx context.Context, nodeID int64, root string, priority int64) error
 }
 
 // ResultSink receives a node's word on a job, to hand to the job that asked: Exchanges. It is the
@@ -69,7 +69,6 @@ type Service struct {
 	database     *store.Database
 	clock        clock.Clock
 	settings     Settings
-	recordSink   Sink
 	destinations Destinations
 	logger       *slog.Logger
 	pollHold     time.Duration
@@ -77,6 +76,7 @@ type Service struct {
 	resultSink     ResultSink
 	heldResults    HeldResultReader
 	renditionIndex RenditionIndex
+	scans          ScanRequester
 
 	mutex          sync.Mutex
 	connectedNodes map[int64]*connectedNode
@@ -103,6 +103,12 @@ func (service *Service) SetRenditionIndex(index RenditionIndex) {
 	service.renditionIndex = index
 }
 
+// SetScans names what a hello asks for its roots' scans of. Set it before the channel serves; with
+// none set, a hello asks for no scan.
+func (service *Service) SetScans(scans ScanRequester) {
+	service.scans = scans
+}
+
 // SetResultSink names where the nodes' results go. Set it before the channel serves; a result that
 // arrives with none set is refused.
 func (service *Service) SetResultSink(sink ResultSink) {
@@ -114,8 +120,6 @@ type ServiceParts struct {
 	Database *store.Database
 	Clock    clock.Clock
 	Settings Settings
-	// Sink receives each node's report records: the ingest.
-	Sink Sink
 	// Destinations are the job queue's parked destinations, which a hello and a status bring back.
 	Destinations Destinations
 	Logger       *slog.Logger
@@ -126,7 +130,7 @@ type ServiceParts struct {
 // NewService returns the service.
 func NewService(parts ServiceParts) *Service {
 	return &Service{
-		database: parts.Database, clock: parts.Clock, settings: parts.Settings, recordSink: parts.Sink,
+		database: parts.Database, clock: parts.Clock, settings: parts.Settings,
 		destinations: parts.Destinations, logger: parts.Logger, pollHold: parts.PollHold,
 		connectedNodes: map[int64]*connectedNode{}, protocolByNodeID: map[int64]int{},
 	}

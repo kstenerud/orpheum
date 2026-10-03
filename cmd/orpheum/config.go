@@ -57,8 +57,6 @@ type NodeConfig struct {
 	RootPaths             []string `toml:"root_paths"`
 	FFmpegDir             string   `toml:"ffmpeg_dir"`
 	ConfinementPolicy     string   `toml:"confinement_policy"`
-	VideoExtensions       []string `toml:"video_extensions"`
-	SubtitleExtensions    []string `toml:"subtitle_extensions"`
 	MaxErrorsPerRoot      int      `toml:"max_errors_per_root"`
 	ProbeTimeoutSeconds   int64    `toml:"probe_timeout_seconds"`
 	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
@@ -140,14 +138,6 @@ func nodeConfigKeys() []configKey {
 			`"require" refuses to run FFmpeg unconfined; "report" runs and says so`,
 		},
 		{
-			tableNode, "video_extensions", videoExtensions,
-			"extensions, lower case without the dot, of files the node probes; anything else is skipped",
-		},
-		{
-			tableNode, "subtitle_extensions", `["srt", "ass", "ssa", "vtt"]`,
-			"extensions of text subtitle files, reported as sidecars of their video; .nfo always is one",
-		},
-		{
 			tableNode, "max_errors_per_root", "1000",
 			"errors one root may produce in a scan before the node stops enumerating it (D40)",
 		},
@@ -209,11 +199,6 @@ func logConfigKeys() []configKey {
 		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
 	}
 }
-
-// videoExtensions is the starting list of video extensions: what real libraries hold. The
-// extension is only a hint about whether probing is worthwhile (scanner.md).
-const videoExtensions = `["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", ` +
-	`"vob", "flv", "ogv", "3gp"]`
 
 // ConfigReport is what loading the file found besides its values: the keys it lacks, which run on
 // their starting values, and the keys nothing reads. The doctor lists both; run logs them (D202).

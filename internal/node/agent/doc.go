@@ -15,7 +15,7 @@
 //     never from outside the node's roots, and answered with the SHA-256 of what was read
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - Records reach the core in the order of their numbers, numbered on from the core's last,
-//     each as soon as it is written. TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder.
+//     each as soon as it is written. TestAgent_SaysHelloAndStreamsItsStatusInNumberedOrder.
 //   - A job's work reads the device its file is on, and runs only with a reader of it free, its
 //     limit the core's, one when the core named none; a paused run holds its slot but no reader.
 //     TestWorkList_ADevicesReadersAreBoundedByItsLimit,
@@ -33,9 +33,8 @@
 //   - Each hello lists the renditions the prepared directory holds, by their manifests, and the
 //     node evicts those the reply does not keep (D238 §2).
 //     TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted.
-//   - A root is scanned, listed or examined only if the node was configured with it, whatever the
-//     core asks (D107). TestAgent_RefusesToScanARootItWasNotGiven,
-//     TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
+//   - A root is listed or examined only if the node was configured with it, whatever the
+//     core asks (D107). TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
 //     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor.
 //   - A listing or an examining holds no slot, only its device's reader; an examining, which reads in
 //     the node's own process, waits between files while it is paused (D240 §5, §6).
@@ -93,12 +92,12 @@
 //     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
 //     TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
-//     which a cancel and every result name, and a command without one is refused; and it is held
-//     beside its scans, never queued behind one. What waits for a slot of its kind starts the
+//     which a cancel and every result name, and a command without one is refused; and a prepare is
+//     held beside a scan's examining, never queued behind one. What waits for a slot of its kind starts the
 //     highest priority first, the command's, and at one priority the first to come (D234 §3); an
 //     attempt the core sends again while it is held is held once.
 //     TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
-//     TestAgent_APrepareRunsWhileAScanIsStillGoing,
+//     TestAgent_APrepareRunsWhileAnExaminingIsStillGoing,
 //     TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt.
 //   - A finished prepare's report says what made its video and how fast (D225 §3).
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.

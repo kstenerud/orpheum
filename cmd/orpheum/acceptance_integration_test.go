@@ -17,63 +17,81 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// recordingScanner scans for real and keeps every record it emits, for a replay.
+// recordingScanner lists and examines for real and keeps what it answered, for a replay.
 type recordingScanner struct {
-	inner   agent.Scanner
-	mutex   sync.Mutex
-	records []nodeproto.ScanRecord
-}
-
-func (recorder *recordingScanner) Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error {
-	return recorder.inner.Scan(ctx, root, func(record nodeproto.ScanRecord) error {
-		recorder.mutex.Lock()
-		recorder.records = append(recorder.records, record)
-		recorder.mutex.Unlock()
-		return emit(record)
-	})
+	inner agent.Scanner
+	mutex sync.Mutex
+	// listings are each listing's records, by the root listed.
+	listings map[string][]nodeproto.ScanRecord
+	// examined are each file's record, by its path relative to its root.
+	examined map[string]nodeproto.ScanRecord
 }
 
 func (recorder *recordingScanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
 	[]nodeproto.ScanRecord, error,
 ) {
-	return recorder.inner.List(ctx, root, start, depth)
+	records, err := recorder.inner.List(ctx, root, start, depth)
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	if recorder.listings == nil {
+		recorder.listings = map[string][]nodeproto.ScanRecord{}
+	}
+	recorder.listings[root.Path()] = records
+	return records, err
 }
 
 func (recorder *recordingScanner) Examine(
 	ctx context.Context, root *confine.MediaRoot, files []nodeproto.ExamineFile, between func() error,
 ) ([]nodeproto.ScanRecord, error) {
-	return recorder.inner.Examine(ctx, root, files, between)
-}
-
-// replayingScanner emits a recorded scan and touches nothing: the node of plan-deviations P9.
-type replayingScanner struct{ records []nodeproto.ScanRecord }
-
-// List lists nothing: the core asks for no listing yet.
-func (replayingScanner) List(context.Context, *confine.MediaRoot, string, int) ([]nodeproto.ScanRecord, error) {
-	return nil, nil
-}
-
-// Examine examines nothing: the core asks for no examining yet.
-func (replayingScanner) Examine(
-	context.Context, *confine.MediaRoot, []nodeproto.ExamineFile, func() error,
-) ([]nodeproto.ScanRecord, error) {
-	return nil, nil
-}
-
-func (replay replayingScanner) Scan(_ context.Context, _ *confine.MediaRoot, emit scan.Emit) error {
-	for _, record := range replay.records {
-		if err := emit(record); err != nil {
-			return err
-		}
+	records, err := recorder.inner.Examine(ctx, root, files, between)
+	recorder.mutex.Lock()
+	defer recorder.mutex.Unlock()
+	if recorder.examined == nil {
+		recorder.examined = map[string]nodeproto.ScanRecord{}
 	}
-	return nil
+	for _, record := range records {
+		recorder.examined[string(examinedPath(record).Bytes())] = record
+	}
+	return records, err
+}
+
+// examinedPath is the path an examining's record is of.
+func examinedPath(record nodeproto.ScanRecord) nodeproto.Path {
+	switch {
+	case record.Observed != nil:
+		return record.Observed.Path
+	case record.Sidecar != nil:
+		return record.Sidecar.Path
+	case record.Error != nil:
+		return record.Error.Path
+	}
+	return nodeproto.Path{}
+}
+
+// replayingScanner answers with what was recorded and touches nothing: the node of plan-deviations
+// P9.
+type replayingScanner struct{ recorder *recordingScanner }
+
+func (replay replayingScanner) List(_ context.Context, root *confine.MediaRoot, _ string, _ int) (
+	[]nodeproto.ScanRecord, error,
+) {
+	return replay.recorder.listings[root.Path()], nil
+}
+
+func (replay replayingScanner) Examine(
+	_ context.Context, _ *confine.MediaRoot, files []nodeproto.ExamineFile, _ func() error,
+) ([]nodeproto.ScanRecord, error) {
+	records := make([]nodeproto.ScanRecord, 0, len(files))
+	for _, file := range files {
+		records = append(records, replay.recorder.examined[string(file.Path.Bytes())])
+	}
+	return records, nil
 }
 
 // storedFiling is one file's filing as persistent.db holds it.
@@ -126,8 +144,6 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	config, _ := testConfig(t)
 	config.Node.RootPaths = []string{root}
 	config.Node.FFmpegDir = testutil.FFmpegDirectory(t)
-	config.Node.VideoExtensions = []string{"mkv"}
-	config.Node.SubtitleExtensions = []string{"srt"}
 
 	recorder := &recordingScanner{}
 	first := acceptanceRun(t, config, root, func(captured capturedLog) func(ctx context.Context) error {
@@ -158,7 +174,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 		return func(ctx context.Context) error {
 			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{}}
 			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocketName), hello,
-				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{records: recorder.records}},
+				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{recorder: recorder}},
 				clock.System{}, captured.logger)
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()

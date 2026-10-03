@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
-	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -280,41 +279,47 @@ func TestAgent_APreparesEndTheCoreRefusedArrivesOnRetry(t *testing.T) {
 	}
 }
 
-// blockingScanner begins a scan, says so, and holds it until the session ends.
+// blockingScanner begins an examining, says so, and holds it until its work is stopped, going between
+// files as it is told.
 type blockingScanner struct {
 	fakeScanner
-	scanning chan struct{}
+	examining chan struct{}
 }
 
-func (scanner blockingScanner) Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error {
-	begin := nodeproto.ScanRecord{
-		Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()},
+func (scanner blockingScanner) Examine(
+	ctx context.Context, _ *confine.MediaRoot, _ []nodeproto.ExamineFile, between func() error,
+) ([]nodeproto.ScanRecord, error) {
+	scanner.examining <- struct{}{}
+	for ctx.Err() == nil {
+		if err := between(); err != nil {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Millisecond):
+		}
 	}
-	if err := emit(begin); err != nil {
-		return err
-	}
-	scanner.scanning <- struct{}{}
-	<-ctx.Done()
-	return ctx.Err()
+	return nil, ctx.Err()
 }
 
-// A prepare is held beside a scan, not queued behind it: on devnas a prepare a person asked for
-// waited for a 55-second scan to end (the jobs rebuild's 4d).
-func TestAgent_APrepareRunsWhileAScanIsStillGoing(t *testing.T) {
+// A prepare is held beside a scan's examining, not queued behind it: on devnas a prepare a person asked
+// for waited for a 55-second scan to end (the jobs rebuild's 4d).
+func TestAgent_APrepareRunsWhileAnExaminingIsStillGoing(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	scanner := blockingScanner{scanning: make(chan struct{}, 1)}
+	scanner := blockingScanner{examining: make(chan struct{}, 1)}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
 		Scanner: scanner, Artworker: fakeArtworker{}, Preparer: fakePreparer{},
 	})
-	core.commands <- nodeproto.Command{
-		CommandSeq: 1,
-		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()}},
-	}
-	testutil.Receive(t, scanner.scanning, "the scan beginning")
+	core.commands <- nodeproto.Command{CommandSeq: 1, JobID: 1, Work: nodeproto.Work{
+		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{
+			RootPath: root.Path(), Files: []nodeproto.ExamineFile{{Path: nodeproto.Path{Text: "a.mkv"}}},
+		},
+	}}
+	testutil.Receive(t, scanner.examining, "the examining beginning")
 	core.sendPrepare(2, preparableFilm(t, root), "3/remux/0123456789abcdef")
 	if final := finalPrepareReport(t, core); final.JobID != 2 || final.State != nodeproto.PrepareDone {
-		t.Errorf("while the scan went on, the prepare ended %+v, want job 2 done", final)
+		t.Errorf("while the examining went on, the prepare ended %+v, want job 2 done", final)
 	}
 }
 

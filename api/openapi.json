@@ -1779,6 +1779,7 @@
               "convert_fetched_subtitle",
               "measure_loudness",
               "scan",
+              "examine",
               "backup"
             ],
             "type": "string"
@@ -1803,6 +1804,14 @@
             "type": "string"
           },
           "renditionId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scanBatchId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "scanId": {
             "format": "int64",
             "type": "integer"
           },

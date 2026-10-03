@@ -36,34 +36,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// recordingSink keeps every batch it was handed, and says when one arrives.
-type recordingSink struct {
-	mutex   sync.Mutex
-	batches [][]nodeproto.Record
-	arrived chan struct{}
-}
-
-func (sink *recordingSink) IngestRecords(_ context.Context, _ int64, records []nodeproto.Record) error {
-	sink.mutex.Lock()
-	sink.batches = append(sink.batches, append([]nodeproto.Record(nil), records...))
-	sink.mutex.Unlock()
-	select {
-	case sink.arrived <- struct{}{}:
-	default:
-	}
-	return nil
-}
-
-func (sink *recordingSink) all() []nodeproto.Record {
-	sink.mutex.Lock()
-	defer sink.mutex.Unlock()
-	var records []nodeproto.Record
-	for _, batch := range sink.batches {
-		records = append(records, batch...)
-	}
-	return records
-}
-
 // recordingDestinations are the job queue's parked destinations, keeping each one unparked.
 type recordingDestinations struct {
 	mutex    sync.Mutex
@@ -86,7 +58,6 @@ type fixture struct {
 	database     *store.Database
 	settings     *settings.Service
 	service      *Service
-	sink         *recordingSink
 	destinations *recordingDestinations
 	server       *httptest.Server
 	clock        *clocktest.Fake
@@ -97,16 +68,15 @@ func newFixture(t *testing.T, pollHold time.Duration) *fixture {
 	database := storetest.OpenMigrated(t)
 	settingsService := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	sink := &recordingSink{arrived: make(chan struct{}, 1)}
 	destinations := &recordingDestinations{}
 	service := NewService(ServiceParts{
-		Database: database, Clock: fakeClock, Settings: settingsService, Sink: sink, Destinations: destinations,
+		Database: database, Clock: fakeClock, Settings: settingsService, Destinations: destinations,
 		Logger: slog.New(slog.DiscardHandler), PollHold: pollHold,
 	})
 	server := httptest.NewServer(service.Handler())
 	t.Cleanup(server.Close)
 	return &fixture{
-		database: database, settings: settingsService, service: service, sink: sink, destinations: destinations,
+		database: database, settings: settingsService, service: service, destinations: destinations,
 		server: server, clock: fakeClock,
 	}
 }
@@ -219,6 +189,8 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
 	librarytest.LibraryOn(t, harness.database, local,
 		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
 	first := harness.hello(t, nodeproto.Hello{
 		Name: "local", RootPaths: []string{"/media/films", "/media/everything", "/media/shows"},
 	})
@@ -228,35 +200,50 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 		t.Errorf("node ids %d, %d, %d: want one id per name (D207)", first.NodeID, again.NodeID, other.NodeID)
 	}
 
-	commands, status := harness.poll(t, first.NodeID, 0)
-	var roots []string
-	for _, command := range commands.Commands {
-		if command.Type != nodeproto.CommandScan {
-			t.Errorf("command %+v, want a scan", command)
-			continue
-		}
-		roots = append(roots, command.Scan.RootPath)
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if strings.Join(scans.roots, ",") != "/media/films,/media/shows,/media/films" ||
+		slices.ContainsFunc(scans.priorities, func(priority int64) bool {
+			return priority != jobs.PriorityBackground
+		}) {
+		t.Errorf("scans asked for of %q at %v; want one per root a library covers in each hello, no person waiting",
+			scans.roots, scans.priorities)
 	}
-	if status != http.StatusOK || strings.Join(roots, ",") != "/media/films,/media/shows,/media/films" {
-		t.Errorf("status %d, scans of %q; want one scan per root a library covers in each hello", status, roots)
-	}
-	if seqs := []int64{commands.Commands[0].CommandSeq, commands.Commands[2].CommandSeq}; seqs[0] != 1 || seqs[1] != 3 {
-		t.Errorf("command numbers %v, want 1 then 3", seqs)
-	}
+}
+
+// recordingScans keeps the scans asked of it.
+type recordingScans struct {
+	mutex      sync.Mutex
+	roots      []string
+	priorities []int64
+}
+
+func (scans *recordingScans) Request(_ context.Context, _ int64, root string, priority int64) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	scans.roots = append(scans.roots, root)
+	scans.priorities = append(scans.priorities, priority)
+	return nil
 }
 
 func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
-	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
-	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); len(commands.Commands) != 0 {
-		t.Errorf("commands %+v, want none", commands.Commands)
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
+	if len(scans.roots) != 0 {
+		t.Errorf("scans asked for of %v, want none", scans.roots)
 	}
 }
 
-func scanOf(root string) nodeproto.Command {
-	return nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}}}
+// cancelOf is a command the core sends as it is: a cancel of job jobID's attempt.
+func cancelOf(jobID int64) nodeproto.Command {
+	return nodeproto.Command{JobID: jobID, AttemptToken: "attempt", Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
 }
 
 func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *testing.T) {
@@ -272,12 +259,12 @@ func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *test
 	}()
 	// The poll is held until a command is queued; Enqueue before the poll starts is also
 	// answered at once, so the order of these two does not matter.
-	harness.service.Enqueue(reply.NodeID, scanOf("/a"))
+	harness.service.Enqueue(reply.NodeID, cancelOf(1))
 	first := testutil.Receive(t, got, "the long-poll's answer")
-	if len(first.Commands) != 1 || first.Commands[0].Scan.RootPath != "/a" {
-		t.Fatalf("the long-poll answered %+v, want the scan of /a", first)
+	if len(first.Commands) != 1 || first.Commands[0].JobID != 1 {
+		t.Fatalf("the long-poll answered %+v, want the cancel of job 1", first)
 	}
-	harness.service.Enqueue(reply.NodeID, scanOf("/b"))
+	harness.service.Enqueue(reply.NodeID, cancelOf(2))
 	commands, _ := harness.poll(t, reply.NodeID, 1)
 	if len(commands.Commands) != 1 || commands.Commands[0].CommandSeq != 2 {
 		t.Errorf("after acknowledging 1: %+v, want only command 2", commands.Commands)
@@ -319,44 +306,26 @@ func jsonl(t *testing.T, records []nodeproto.Record) io.Reader {
 	return &body
 }
 
-func TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) {
+func TestServeReport_KeepsTheLastStatusAndRecordsHowFarItGot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	records := make([]nodeproto.Record, 0, 300)
-	for index := range 299 {
+	for index := range 300 {
 		records = append(records, nodeproto.Record{
-			ReportSeq: reply.LastIngestedReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
-			Skip: &nodeproto.Skip{Path: nodeproto.Path{Text: fmt.Sprintf("f%d", index)}, Rule: nodeproto.SkipExtension},
+			ReportSeq: reply.LastIngestedReportSeq + int64(index) + 1, Type: nodeproto.RecordStatus,
+			Status: &nodeproto.Status{SentAt: int64(index) + 1},
 		})
 	}
-	records = append(records, nodeproto.Record{
-		ReportSeq: 300, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{SentAt: 1, Activity: "idle"},
-	})
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
 	if response.status != http.StatusNoContent {
 		t.Fatalf("the report answered %d %s", response.status, response.body)
-	}
-	got := harness.sink.all()
-	if len(got) != 300 || got[0].ReportSeq != 1 || got[299].ReportSeq != 300 {
-		t.Fatalf("the sink got %d records", len(got))
-	}
-	// How the body is split in transit decides where quiet moments fall, so assert the bounds:
-	// batched, and never more than batchRecords at once.
-	if len(harness.sink.batches) > 30 {
-		t.Errorf("%d batches for 300 records; the ingest is not batched", len(harness.sink.batches))
-	}
-	for _, batch := range harness.sink.batches {
-		if len(batch) > maxBatchRecords {
-			t.Errorf("a batch of %d, over %d", len(batch), maxBatchRecords)
-		}
 	}
 	node, err := harness.database.Read().GetNodeStatus(t.Context(), reply.NodeID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"activity":"idle"`) {
+	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"sentAt":300`) {
 		t.Errorf("the node's status is %v, want the last status record", node.LastStatusJSON)
 	}
 	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastIngestedReportSeq != 300 {
@@ -373,8 +342,8 @@ func TestServeReport_RefusesARecordOutOfSequence(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	records := []nodeproto.Record{
-		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
-		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
+		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 1}},
+		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 2}},
 	}
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
 	if response.status != http.StatusBadRequest || !strings.Contains(string(response.body), "only rises") {
@@ -382,25 +351,29 @@ func TestServeReport_RefusesARecordOutOfSequence(t *testing.T) {
 	}
 }
 
-func TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
+func TestServeReport_AStatusIsTakenWhileTheReportIsStillOpen(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	reader, writer := io.Pipe()
 	done := make(chan httpAnswer, 1)
 	go func() { done <- harness.post(t, nodeproto.PathReport, reply.NodeID, reader) }()
-	record := nodeproto.Record{
-		ReportSeq: 1, Type: nodeproto.RecordScanBegin,
-		ScanBegin: &nodeproto.ScanBegin{RootPath: "/m"},
-	}
+	record := nodeproto.Record{ReportSeq: 1, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{SentAt: 7}}
 	if err := json.NewEncoder(writer).Encode(record); err != nil {
 		t.Fatal(err)
 	}
-	// The stream stays open and nothing else is written: the record must still arrive, because a
-	// quiet stream is flushed rather than held for a full batch.
-	testutil.Receive(t, harness.sink.arrived, "the record to reach the ingest")
-	if got := harness.sink.all(); len(got) != 1 || got[0].Type != nodeproto.RecordScanBegin {
-		t.Errorf("the ingest has %+v, want the scan_begin", got)
+	// The stream stays open and nothing else is written: the status must still be taken, as it
+	// arrives.
+	deadline := time.Now().Add(5 * time.Second) //nolint:forbidigo // a real request, not the fake clock
+	for {
+		facts, found := harness.service.Facts("local")
+		if found && facts.Status != nil && facts.Status.SentAt == 7 {
+			break
+		}
+		if time.Now().After(deadline) { //nolint:forbidigo // as above
+			t.Fatalf("the status was not taken while the report was open: %+v", facts.Status)
+		}
+		time.Sleep(time.Millisecond)
 	}
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
@@ -609,7 +582,7 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 	usage := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	status := []nodeproto.Record{{
 		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
+		Status: &nodeproto.Status{PreparedUsage: &usage},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 		http.StatusNoContent {
@@ -638,7 +611,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
 	status := []nodeproto.Record{{
 		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Activity: "idle", Disks: []nodeproto.Disk{disk}},
+		Status: &nodeproto.Status{Disks: []nodeproto.Disk{disk}},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 		http.StatusNoContent {

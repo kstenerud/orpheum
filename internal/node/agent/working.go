@@ -80,7 +80,7 @@ type workList struct {
 	// readerLimits are how many may read each device at once, by its key; a device not named has
 	// one. Guarded by mutex.
 	readerLimits map[string]int
-	// changed is closed and replaced at each change of what runs, for a scan waiting on its device.
+	// changed is closed and replaced at each change of what runs, for work waiting to be continued.
 	// Guarded by mutex.
 	changed chan struct{}
 }
@@ -206,27 +206,6 @@ func (list *workList) pauseBackgroundFor(device string, ordered []*heldWork) {
 		}
 		if work.device == device && !work.isPlayDriven && work.isReading() {
 			work.pausing.Pause()
-		}
-	}
-}
-
-// waitForPlayOn waits while play-driven work runs on a device, for a scan reading it, until ctx
-// ends.
-func (list *workList) waitForPlayOn(ctx context.Context, device string) error {
-	for {
-		list.mutex.Lock()
-		isPlaying := slices.ContainsFunc(list.held, func(work *heldWork) bool {
-			return work.device == device && work.isPlayDriven && work.isRunning()
-		})
-		changed := list.changed
-		list.mutex.Unlock()
-		if !isPlaying || device == "" {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("waiting for play-driven work on %s: %w", device, ctx.Err())
-		case <-changed:
 		}
 	}
 }

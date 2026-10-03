@@ -25,7 +25,7 @@ func (noWork) CancelRetired(context.Context, jobs.RetiredWork) (int, error) { re
 // of kind and source over another root of the node, which the test library is from then on.
 func (lib *testLibrary) deleteAndStartAnother(kind, source string) {
 	lib.t.Helper()
-	admin := library.NewAdmin(lib.database, lib.clock, nil, library.Retirement{Work: noWork{}, Titles: lib.pass})
+	admin := library.NewAdmin(lib.database, lib.clock, nil, nil, library.Retirement{Work: noWork{}, Titles: lib.pass})
 	if _, err := admin.Delete(lib.t.Context(), lib.libraryID); err != nil {
 		lib.t.Fatal(err)
 	}

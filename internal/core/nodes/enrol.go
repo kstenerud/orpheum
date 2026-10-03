@@ -74,15 +74,9 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.destinations.Unpark(ctx, jobs.ReaderDestination(node.ID, device.Key))
 	}
 	if scanOnHello {
-		roots, rootsErr := service.coveredRoots(ctx, node.ID, hello.RootPaths)
-		if rootsErr != nil {
-			service.fail(ctx, writer, "read the libraries' roots", rootsErr)
+		if scansErr := service.askForScans(ctx, node.ID, hello.RootPaths); scansErr != nil {
+			service.fail(ctx, writer, "ask for the roots' scans", scansErr)
 			return
-		}
-		for _, root := range roots {
-			service.Enqueue(node.ID, nodeproto.Command{
-				Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}},
-			})
 		}
 	}
 	limits, err := service.readerLimits(ctx, node.ID, hello.Devices)
@@ -94,6 +88,24 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq,
 		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions), DeviceReaderLimits: limits,
 	})
+}
+
+// askForScans asks for a scan of each of a node's roots a live library covers on it, no person
+// waiting for it (D240 §1).
+func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths []string) error {
+	if service.scans == nil {
+		return nil
+	}
+	roots, err := service.coveredRoots(ctx, nodeID, rootPaths)
+	if err != nil {
+		return fmt.Errorf("read the libraries' roots: %w", err)
+	}
+	for _, root := range roots {
+		if err := service.scans.Request(ctx, nodeID, root, jobs.PriorityBackground); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // coveredRoots are the roots, of those a node's hello names, that a live library covers on it: a

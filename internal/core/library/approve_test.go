@@ -14,7 +14,7 @@ import (
 func adminOf(world *harness) (*Admin, *fakeNodes, int64) {
 	world.t.Helper()
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
-	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(&fakeWork{}))
+	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(world.t.Context())
 	if err != nil || len(libraries) != 1 {
 		world.t.Fatalf("List = %+v, %v", libraries, err)
@@ -36,8 +36,8 @@ func TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly(t *testing.T) {
 		t.Errorf("approving a root the library lacks: %v", err)
 	}
 	scanned, err := admin.ApproveRemovals(t.Context(), libraryID, "local", root)
-	if err != nil || !scanned || !slices.Equal(scannedRoots(nodes.queued), []string{root}) {
-		t.Fatalf("ApproveRemovals = %v, %v; queued %v", scanned, err, nodes.queued)
+	if err != nil || !scanned || !slices.Equal(nodes.scanned, []string{root}) {
+		t.Fatalf("ApproveRemovals = %v, %v; asked for scans of %v", scanned, err, nodes.scanned)
 	}
 	world.scan(filmRecords(19), true)
 	if live := len(world.liveFilesByPath()); live != 19 {
@@ -60,8 +60,8 @@ func TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	admin, _, libraryID := adminOf(world)
-	withDisk := func(mounted bool) []nodeproto.Record {
-		var records []nodeproto.Record
+	withDisk := func(mounted bool) []nodeproto.ScanRecord {
+		var records []nodeproto.ScanRecord
 		if mounted {
 			records = append(records, mountRecord("disk1", 21))
 			records = append(records, inDirectory("disk1", filmRecords(2))...)

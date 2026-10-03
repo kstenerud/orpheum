@@ -13,8 +13,8 @@ import (
 )
 
 // withDisk is thirty films in the root, and two more on disk1, mounted inside it, when it is.
-func withDisk(isMounted bool) []nodeproto.Record {
-	var records []nodeproto.Record
+func withDisk(isMounted bool) []nodeproto.ScanRecord {
+	var records []nodeproto.ScanRecord
 	if isMounted {
 		records = append(records, mountRecord("disk1", 21))
 		records = append(records, inDirectory("disk1", filmRecords(2))...)
@@ -35,7 +35,7 @@ func newRetiringAdmin(world *harness) retiringAdmin {
 	world.t.Helper()
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, database: world.database, clock: world.clock}
 	work := &fakeWork{}
-	admin := NewAdmin(world.database, world.clock, nodes, retirementOf(work))
+	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(work))
 	libraries, err := admin.List(world.t.Context())
 	if err != nil || len(libraries) != 1 {
 		world.t.Fatalf("List = %+v, %v", libraries, err)

@@ -321,7 +321,7 @@ func (service *Service) LoudnessAssignee(runner nodes.Resolver) nodes.Assignee {
 			return nil
 		},
 		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
-			return unansweredOutcome(job, err, keepFailure(ctx, attempt))
+			return nodes.UnansweredOutcome(job, err, keepFailure(ctx, attempt))
 		},
 	}
 }

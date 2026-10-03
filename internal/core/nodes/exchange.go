@@ -130,6 +130,25 @@ const attemptTokenBytes = 16
 // otherwise. The tool's failure, not the work's (D233 §6, D238 §3).
 var ErrWorkLost = errors.New("the node no longer holds the work it was given")
 
+// UnansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that no
+// longer holds the work, having started again or lost it otherwise (ErrWorkLost), is the tool's
+// failure, as a stall is: tried again at no cost of an attempt (jobs.MarkInterrupted), and the
+// target's failure, kept by keepFailure when it is not nil, when its last attempt's tool failed too
+// (D238 §3, D233 §6). Any other err is as it is.
+func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string) error) error {
+	if !errors.Is(err, ErrWorkLost) {
+		return err
+	}
+	if !job.PreviousAttemptToolFailed {
+		return jobs.MarkInterrupted(err)
+	}
+	if keepFailure == nil {
+		return jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, err))
+	}
+	failure := jobs.ToolFailedTwice + err.Error()
+	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
+}
+
 // ErrNodeRestarted is a node that started again while it held a job's work, which it held in
 // memory and has lost (D238 §3).
 var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)

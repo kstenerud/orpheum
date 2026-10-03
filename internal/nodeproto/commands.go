@@ -9,7 +9,6 @@ type CommandType string
 
 // The command types.
 const (
-	CommandScan CommandType = "scan"
 	// CommandCancel stops the attempt the command names (Command.AttemptToken) that the node is
 	// working on: its FFmpeg is stopped, and nothing more is reported for it (cut-a §5.3).
 	CommandCancel CommandType = "cancel"
@@ -44,7 +43,6 @@ type Command struct {
 // (Result.Work). It names no job: the envelope does.
 type Work struct {
 	Type CommandType `json:"type"`
-	Scan *Scan       `json:"scan,omitempty"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *ArtworkBatch `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.
@@ -57,11 +55,6 @@ type Work struct {
 	List *List `json:"list,omitempty"`
 	// Examine is set for CommandExamine.
 	Examine *Examine `json:"examine,omitempty"`
-}
-
-// Scan asks the node to scan one of its roots.
-type Scan struct {
-	RootPath string `json:"rootPath"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none

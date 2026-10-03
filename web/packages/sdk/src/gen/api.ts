@@ -1680,7 +1680,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "examine" | "backup";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -1690,6 +1690,10 @@ export interface components {
             reason: string;
             /** Format: int64 */
             renditionId?: number;
+            /** Format: int64 */
+            scanBatchId?: number;
+            /** Format: int64 */
+            scanId?: number;
             /** @enum {string} */
             state: "queued" | "running" | "done" | "failed" | "cancelled";
             /** Format: int64 */

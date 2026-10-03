@@ -229,7 +229,9 @@ func (all *prepares) assignee(runner nodes.Resolver) nodes.Assignee {
 			if runErr != nil {
 				return jobs.MarkPermanent(runErr)
 			}
-			return unansweredOutcome(job, err, func(failure string) error { return all.failMaking(ctx, run, failure) })
+			return nodes.UnansweredOutcome(job, err, func(failure string) error {
+				return all.failMaking(ctx, run, failure)
+			})
 		},
 		Progress: all.takeProgress,
 		Cancelled: func(ctx context.Context, attempt nodes.Attempt) error {

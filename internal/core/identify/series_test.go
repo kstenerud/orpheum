@@ -37,7 +37,7 @@ var orbitoramaFiles = []string{"Orbitorama/Season 02/Orbitorama - S02E10.mkv", "
 
 func (lib *testLibrary) scanAll(rels ...string) identify.Report {
 	lib.t.Helper()
-	records := make([]nodeproto.Record, 0, len(rels))
+	records := make([]nodeproto.ScanRecord, 0, len(rels))
 	for _, rel := range rels {
 		records = append(records, videoRecord(rel))
 	}

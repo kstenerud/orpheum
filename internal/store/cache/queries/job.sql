@@ -3,17 +3,17 @@
 -- JobStorage, which internal/platform/jobqueue drives (D231 section 2).
 
 -- name: InsertJob :one
-INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, reason,
+INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, runnable_at, reason,
   destination, created_at)
 VALUES (sqlc.arg(kind), sqlc.arg(item_id), sqlc.arg(rendition_id), sqlc.arg(stream_id), sqlc.arg(fetched_subtitle_id),
-        sqlc.arg(file_id), sqlc.arg(args_json), sqlc.arg(priority), sqlc.arg(runnable_at), sqlc.arg(reason),
+        sqlc.arg(file_id), sqlc.arg(scan_id), sqlc.arg(scan_batch_id), sqlc.arg(args_json), sqlc.arg(priority), sqlc.arg(runnable_at), sqlc.arg(reason),
         sqlc.arg(destination), sqlc.arg(created_at))
 RETURNING id;
 
 -- name: ListEveryOpenJob :many
 -- Every queued, running and assigned job: what a retire action looks through for the work it
 -- cancels (D231 section 7).
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE state IN ('queued', 'running', 'assigned')
@@ -22,11 +22,12 @@ ORDER BY id;
 -- name: ListOpenJobs :many
 -- The queued and running jobs of this kind for this target, an assigned job counting as running: at
 -- most one of each (D231 section 8).
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE kind = sqlc.arg(kind) AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
   AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
+  AND scan_id IS sqlc.arg(scan_id) AND scan_batch_id IS sqlc.arg(scan_batch_id)
   AND state IN ('queued', 'running', 'assigned')
 ORDER BY id;
 
@@ -52,7 +53,7 @@ LIMIT 1;
 -- A claim: the job runs, and its attempt is counted.
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = sqlc.arg(id) AND state = 'queued'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until;
 
@@ -83,7 +84,7 @@ WHERE id = sqlc.arg(id) AND state = 'running';
 -- time running out takes it.
 UPDATE job SET state = 'running'
 WHERE id = sqlc.arg(id) AND state = 'assigned'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until;
 
@@ -93,7 +94,7 @@ UPDATE job SET state = 'running'
 WHERE id = (SELECT overdue.id FROM job AS overdue
             WHERE overdue.state = 'assigned' AND overdue.kind = sqlc.arg(kind) AND overdue.assigned_until <= sqlc.arg(now)
             ORDER BY overdue.assigned_until, overdue.id LIMIT 1)
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until;
 
@@ -116,7 +117,7 @@ WHERE state = 'running';
 
 -- name: ListJobs :many
 -- The job view, newest first.
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 ORDER BY id DESC
@@ -128,7 +129,8 @@ LIMIT sqlc.arg(max_rows);
 UPDATE job SET wanted_until = MAX(COALESCE(wanted_until, 0), CAST(sqlc.arg(until) AS INTEGER))
 WHERE kind = sqlc.arg(kind) AND state IN ('queued', 'running', 'assigned')
   AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
-  AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id);
+  AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)
+  AND scan_id IS sqlc.arg(scan_id) AND scan_batch_id IS sqlc.arg(scan_batch_id);
 
 -- name: DemoteUnwantedJobs :many
 -- The open jobs no person waits for any more, fallen to background priority (D234 section 3).

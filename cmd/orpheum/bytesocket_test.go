@@ -26,11 +26,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// ignoringReports takes a node's report records and parked destinations, and does nothing with them.
+// ignoringReports takes a node's parked destinations, and does nothing with them.
 type ignoringReports struct{}
 
-func (ignoringReports) IngestRecords(context.Context, int64, []nodeproto.Record) error { return nil }
-func (ignoringReports) Unpark(context.Context, jobs.Destination)                       {}
+func (ignoringReports) Unpark(context.Context, jobs.Destination) {}
 
 // takenResults keeps the results the node channel hands on.
 type takenResults struct{ results []nodeproto.Result }
@@ -50,7 +49,7 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	database := storetest.OpenMigrated(t)
 	service := nodes.NewService(nodes.ServiceParts{
 		Database: database, Clock: clock.System{}, Settings: settingstest.Seeded(t, database),
-		Sink: ignoringReports{}, Destinations: ignoringReports{}, Logger: slog.New(slog.DiscardHandler),
+		Destinations: ignoringReports{}, Logger: slog.New(slog.DiscardHandler),
 		PollHold: time.Second,
 	})
 	taken := &takenResults{}

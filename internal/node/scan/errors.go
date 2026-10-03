@@ -23,7 +23,7 @@ var errTooManyErrors = errors.New("too many errors; the node stopped enumerating
 // collapses repeats of one code and scope in one directory into one record with a count, and
 // stops the root after too many (D40).
 type errorLog struct {
-	emit             Emit
+	emit             emitFunc
 	maxErrors        int
 	pending          *nodeproto.ScanError
 	pendingDirectory string
@@ -33,7 +33,7 @@ type errorLog struct {
 	emitErr error
 }
 
-func newErrorLog(emit Emit, maxErrors int) *errorLog {
+func newErrorLog(emit emitFunc, maxErrors int) *errorLog {
 	return &errorLog{emit: emit, maxErrors: maxErrors}
 }
 

@@ -25,7 +25,7 @@ const (
 // looks like a lost disk rather than deleted files (D41, D208 §3). Tombstones, root_scan and
 // root_state are written in this batch's transaction, together.
 func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, complete *nodeproto.ScanComplete) error {
-	delete(batch.ingester.scanByNodeID, batch.nodeID)
+	delete(batch.ingester.scans, batch.key)
 	if complete.RootPath != scan.root {
 		return fmt.Errorf("scan_complete names %s, but the scan in progress is of %s", complete.RootPath, scan.root)
 	}

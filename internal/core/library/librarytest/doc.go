@@ -21,5 +21,5 @@
 //
 // # Where to change
 //
-//   - fixture.go: Node, LibraryOn and NodeWithLibrary, and Reports, which numbers a scan's records.
+//   - fixture.go: Node, LibraryOn and NodeWithLibrary, and Scan, which frames a scan's records.
 package librarytest

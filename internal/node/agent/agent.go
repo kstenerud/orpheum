@@ -22,7 +22,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
-	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
@@ -37,10 +36,8 @@ const nodeHeader = "Orpheum-Node-ID"
 // connects to the core's socket.
 const coreURL = "http://orpheum-core"
 
-// Scanner walks one media root, lists under one and examines files there; scan.Scanner is the real
-// one.
+// Scanner lists under a media root and examines files there; scan.Scanner is the real one.
 type Scanner interface {
-	Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error
 	List(ctx context.Context, root *confine.MediaRoot, start string, depth int) ([]nodeproto.ScanRecord, error)
 	Examine(ctx context.Context, root *confine.MediaRoot, files []nodeproto.ExamineFile, between func() error) (
 		[]nodeproto.ScanRecord, error)
@@ -109,8 +106,7 @@ type Agent struct {
 	takenCommandSeq atomic.Int64
 	answerRetry     answerRetry
 
-	mutex    sync.Mutex
-	activity string
+	mutex sync.Mutex
 	// devices are what the roots are on, as the last hello found them. Guarded by mutex.
 	devices nodeproto.Devices
 }
@@ -134,7 +130,7 @@ func New(
 	return &Agent{
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
-		clock:   clockSource, logger: logger, activity: "idle", work: newWorkList(hello.Capacity),
+		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity),
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
 	}
@@ -176,14 +172,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	stream := newRecordStream(reply.LastIngestedReportSeq)
-	// The long-poll hands over a batch of commands at a time; a buffer of a batch or so lets it go
-	// back for the next while the session starts the last scan. Only its size is chosen: a full
-	// buffer holds the poll, never drops a command.
-	scanQueue := make(chan nodeproto.Scan, 16)
 	var sessionTasks sync.WaitGroup
 	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
-	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, nodeCtx, reply.NodeID, scanQueue)) })
-	sessionTasks.Go(func() { cancel(agent.runScansInOrder(ctx, scanQueue, stream)) })
+	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, nodeCtx, reply.NodeID)) })
 	sessionTasks.Go(func() {
 		for {
 			select {
@@ -258,11 +249,9 @@ func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodepr
 	return reply, err
 }
 
-// pollCommands long-polls for commands. Work is held by the node, beside its scans, which are
-// queued for the session to run one at a time; a cancel is carried out as it arrives.
-func (agent *Agent) pollCommands(
-	ctx, nodeCtx context.Context, nodeID int64, scanQueue chan<- nodeproto.Scan,
-) error {
+// pollCommands long-polls for commands. Work is held by the node; a cancel or a reprioritize is
+// carried out as it arrives.
+func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) error {
 	var lastTakenCommandSeq int64
 	agent.takenCommandSeq.Store(0)
 	for {
@@ -276,27 +265,30 @@ func (agent *Agent) pollCommands(
 			agent.work.setReaderLimits(answer.DeviceReaderLimits)
 		}
 		for _, command := range answer.Commands {
-			switch {
-			case command.Type == nodeproto.CommandCancel:
-				if !agent.work.cancel(command.AttemptToken) {
-					agent.logger.InfoContext(ctx, "a cancel came for an attempt this node does not hold", "jobId",
-						command.JobID, "attemptToken", command.AttemptToken)
-				}
-			case command.Type == nodeproto.CommandReprioritize:
-				agent.work.reprioritize(command.AttemptToken, command.Priority, command.IsPlayDriven)
-			case command.Type == nodeproto.CommandScan && command.Scan != nil:
-				select {
-				case scanQueue <- *command.Scan:
-				case <-ctx.Done():
-					return fmt.Errorf("stopped while queueing command %d: %w", command.CommandSeq, ctx.Err())
-				}
-			default:
+			if !agent.takeOrder(ctx, command) {
 				agent.holdCommand(ctx, nodeCtx, nodeID, command)
 			}
 			lastTakenCommandSeq = command.CommandSeq
 			agent.takenCommandSeq.Store(lastTakenCommandSeq)
 		}
 	}
+}
+
+// takeOrder carries out a command that orders the work the node holds, a cancel or a reprioritize, and
+// reports whether it was one.
+func (agent *Agent) takeOrder(ctx context.Context, command nodeproto.Command) bool {
+	if command.Type == nodeproto.CommandCancel {
+		if !agent.work.cancel(command.AttemptToken) {
+			agent.logger.InfoContext(ctx, "a cancel came for an attempt this node does not hold", "jobId",
+				command.JobID, "attemptToken", command.AttemptToken)
+		}
+		return true
+	}
+	if command.Type == nodeproto.CommandReprioritize {
+		agent.work.reprioritize(command.AttemptToken, command.Priority, command.IsPlayDriven)
+		return true
+	}
+	return false
 }
 
 // holdCommand holds a command's work until a slot of its kind is free (workList), on nodeCtx, the
@@ -358,55 +350,6 @@ func (agent *Agent) workFor(
 		return agent.examineWork(nodeCtx, nodeID, held, *command.Examine), true
 	}
 	return heldWork{}, false
-}
-
-// runScansInOrder runs scans one at a time, until the session's ctx ends.
-func (agent *Agent) runScansInOrder(ctx context.Context, scanQueue <-chan nodeproto.Scan, stream *recordStream) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("the scans stopped: %w", ctx.Err())
-		case queued := <-scanQueue:
-			agent.runScan(ctx, queued, stream)
-		}
-	}
-}
-
-// runScan scans one root. A root the node was not configured with is refused, whatever the core
-// asks (D107).
-func (agent *Agent) runScan(ctx context.Context, command nodeproto.Scan, stream *recordStream) {
-	root, known := agent.roots[command.RootPath]
-	if !known {
-		agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath", command.RootPath)
-		return
-	}
-	agent.setActivity("scanning " + root.Path())
-	defer agent.setActivity("idle")
-	device := agent.deviceOf(root.Path())
-	emit := func(record nodeproto.ScanRecord) error {
-		// Once a scan says it is complete, the node is idle: a status record sent after the
-		// completion must not still say it is scanning.
-		if record.Type == nodeproto.RecordScanComplete {
-			agent.setActivity("idle")
-		}
-		if err := stream.emit(ctx, reportRecordOf(record)); err != nil {
-			return err
-		}
-		// Between one file and the next, the scan gives its device to play-driven work (D240 §6).
-		return agent.work.waitForPlayOn(ctx, device)
-	}
-	err := agent.workers.Scanner.Scan(ctx, root, emit)
-	if err != nil && ctx.Err() == nil {
-		agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
-	}
-}
-
-// reportRecordOf is a scan's record as the report stream carries it.
-func reportRecordOf(record nodeproto.ScanRecord) nodeproto.Record {
-	return nodeproto.Record{
-		Type: record.Type, ScanBegin: record.ScanBegin, Observed: record.Observed, Skip: record.Skip,
-		Error: record.Error, ScanComplete: record.ScanComplete, Mount: record.Mount, Sidecar: record.Sidecar,
-	}
 }
 
 // refuseUnknown answers a command this node does not know, or whose payload or attempt token is
@@ -496,18 +439,12 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	return holder.ReadFile(holderRelativePath, maxImageBytes)
 }
 
-func (agent *Agent) setActivity(activity string) {
-	agent.mutex.Lock()
-	defer agent.mutex.Unlock()
-	agent.activity = activity
-}
-
 func (agent *Agent) status() nodeproto.Record {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
 	status := &nodeproto.Status{
-		SentAt: agent.clock.Now().UnixMilli(), Activity: agent.activity, Disks: disks, Held: agent.held(),
+		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: agent.held(),
 		TakenCommandSeq: agent.takenCommandSeq.Load(),
 	}
 	if agent.workers.PreparedShelf != nil {

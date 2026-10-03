@@ -124,19 +124,29 @@ func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) e
 // ownerVideoIDOf is the id of the video a sidecar at sidecarPath belongs to, or nil.
 func ownerVideoIDOf(sidecarPath string, videos []sqlcgen.ListLiveFilesForAttachingRow) *int64 {
 	name := path.Base(sidecarPath)
-	var owner *int64
-	longest := 0
-	for _, video := range videos {
-		stem := strings.TrimSuffix(path.Base(video.Path), path.Ext(video.Path))
-		// The longest stem wins, so "Film - 720p.srt" goes to "Film - 720p.mkv", not "Film.mkv".
-		if strings.HasPrefix(name, stem+".") && len(stem) > longest {
-			id := video.ID
-			owner, longest = &id, len(stem)
-		}
+	videoNames := make([]string, len(videos))
+	for index, video := range videos {
+		videoNames[index] = path.Base(video.Path)
 	}
-	if owner == nil && strings.EqualFold(name, "movie.nfo") && len(videos) == 1 {
-		id := videos[0].ID
-		owner = &id
+	if owner := ownerIndexOf(name, videoNames); owner >= 0 {
+		return &videos[owner].ID
+	}
+	if strings.EqualFold(name, "movie.nfo") && len(videos) == 1 {
+		return &videos[0].ID
+	}
+	return nil
+}
+
+// ownerIndexOf is the index, among videoNames, of the video a file named name is named for: the one
+// whose name without its extension the file's begins with, then a dot, the longest when several do,
+// so "Film - 720p.srt" goes to "Film - 720p.mkv", not "Film.mkv"; or -1 for none.
+func ownerIndexOf(name string, videoNames []string) int {
+	owner, longest := -1, 0
+	for index, videoName := range videoNames {
+		stem := strings.TrimSuffix(videoName, path.Ext(videoName))
+		if strings.HasPrefix(name, stem+".") && len(stem) > longest {
+			owner, longest = index, len(stem)
+		}
 	}
 	return owner
 }

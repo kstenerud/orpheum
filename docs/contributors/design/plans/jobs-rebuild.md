@@ -615,6 +615,17 @@ built.*
   as answers arrive. Progress shows beside the root: *"Scanning… N files found so far"*, then the
   files examined (D236 §2); a scan asked for while one runs schedules one rescan after it, *"Scan
   again when this one ends"* (D236 §3, D38).
+*Built 2026-10-03, 4e.1 to 4e.3 but their progress on the library screen:* the node lists
+(`CommandList`) and examines (`CommandExamine`), each holding only its device's reader, an examining
+waiting between files while it is paused for play (node protocol 14, then 15 without the scan
+command, the scan's records on the report, or the status's activity). A scan is a `scan` job, which
+lists the root, compares the listing by the library's rules (`scan_video_extensions`,
+`scan_subtitle_extensions`) and queues `examine` jobs of `scan_examine_batch_videos` videos of one
+folder each; it completes, applying its removals, after the last, and one asked for meanwhile runs
+once more after it (D236 §3). `cache.db`'s `scan` and `scan_batch` hold a scan in progress (version
+26); a scan whose listing the core had taken when it stopped starts again. The node's
+`video_extensions` and `subtitle_extensions` are gone from its config.
+
 - **4e.4 The report stream goes.** The status becomes a post of its own, and the walk, its records
   and the ingest's batch path are removed (D234 §8).
 

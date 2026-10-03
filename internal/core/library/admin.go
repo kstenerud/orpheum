@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -32,11 +32,15 @@ var (
 )
 
 // Nodes is what the admin service asks of the node channel: the roots a connected node named, by
-// name (D207), a command queued to it, and removing a node an admin retired.
+// name (D207), and removing a node an admin retired.
 type Nodes interface {
 	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
-	Enqueue(nodeID int64, command nodeproto.Command)
 	RemoveNode(ctx context.Context, nodeID int64) error
+}
+
+// ScanRequests are how an admin asks for a root's scan: Scans (D240).
+type ScanRequests interface {
+	Request(ctx context.Context, nodeID int64, root string, priority int64) error
 }
 
 // Admin is what an admin does with libraries: create one, list them, ask for a scan, and see
@@ -45,12 +49,16 @@ type Admin struct {
 	database   *store.Database
 	clock      clock.Clock
 	nodes      Nodes
+	scans      ScanRequests
 	retirement Retirement
 }
 
-// NewAdmin returns the admin service; retirement is what a retire asks of other packages.
-func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes, retirement Retirement) *Admin {
-	return &Admin{database: database, clock: clockSource, nodes: nodes, retirement: retirement}
+// NewAdmin returns the admin service; scans is how it asks for a scan, and retirement what a retire
+// asks of other packages.
+func NewAdmin(
+	database *store.Database, clockSource clock.Clock, nodes Nodes, scans ScanRequests, retirement Retirement,
+) *Admin {
+	return &Admin{database: database, clock: clockSource, nodes: nodes, scans: scans, retirement: retirement}
 }
 
 // NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what
@@ -104,9 +112,9 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 		return 0, err
 	}
 	for _, root := range library.Roots {
-		admin.nodes.Enqueue(nodeID, nodeproto.Command{
-			Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}},
-		})
+		if err := admin.scans.Request(ctx, nodeID, root, jobs.PriorityPersonsRequest); err != nil {
+			return id, err
+		}
 	}
 	return id, nil
 }
@@ -186,7 +194,11 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	}
 	asked := 0
 	for _, root := range roots {
-		if admin.rescan(ctx, root) {
+		isAsked, err := admin.rescan(ctx, root)
+		if err != nil {
+			return asked, err
+		}
+		if isAsked {
 			asked++
 		}
 	}
@@ -246,7 +258,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeNa
 	if err != nil {
 		return false, fmt.Errorf("approve %s's removals: %w", path, err)
 	}
-	return admin.rescan(ctx, root), nil
+	return admin.rescan(ctx, root)
 }
 
 // ForgetMount is the admin saying a disk missing from a mount point inside a root is gone for
@@ -284,7 +296,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 	if err != nil {
 		return false, fmt.Errorf("forget %s: %w", mountPath, err)
 	}
-	return admin.rescan(ctx, root), nil
+	return admin.rescan(ctx, root)
 }
 
 // libraryRoots are a live library's roots with their states.
@@ -332,14 +344,14 @@ func (admin *Admin) libraryNodeIDByName(ctx context.Context, libraryID int64, no
 	return 0, fmt.Errorf("node %s: %w", nodeName, ErrNoSuchRoot)
 }
 
-// rescan asks a root's node to scan it, if the node is connected, and reports whether it did.
-func (admin *Admin) rescan(ctx context.Context, root sqlcgen.ListLibraryRootStatesRow) bool {
+// rescan asks for a root's scan, if its node is connected, and reports whether it did.
+func (admin *Admin) rescan(ctx context.Context, root sqlcgen.ListLibraryRootStatesRow) (bool, error) {
 	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(ctx, root.NodeName)
 	if !connected || nodeID != root.NodeID {
-		return false
+		return false, nil
 	}
-	admin.nodes.Enqueue(nodeID, nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.RootPath}},
-	})
-	return true
+	if err := admin.scans.Request(ctx, nodeID, root.RootPath, jobs.PriorityPersonsRequest); err != nil {
+		return false, err
+	}
+	return true, nil
 }

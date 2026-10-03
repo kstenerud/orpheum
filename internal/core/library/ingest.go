@@ -32,7 +32,7 @@ type Ingester struct {
 	logger   *slog.Logger
 
 	mutex        sync.Mutex
-	scanByNodeID map[int64]*scanState // by node: a node scans one root at a time
+	scans        map[scanKey]*scanState // by node and root: guarded by mutex
 	onScanEnded  func(ctx context.Context, libraryID int64)
 	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
 	onNewFiles   func(ctx context.Context)
@@ -57,6 +57,12 @@ func (ingester *Ingester) SetOnPathsFound(onPathsFound func(ctx context.Context,
 // identification, which reads what the scan stored.
 func (ingester *Ingester) SetOnScanEnded(onScanEnded func(ctx context.Context, libraryID int64)) {
 	ingester.onScanEnded = onScanEnded
+}
+
+// scanKey names a scan in progress: its node, and the root it scans.
+type scanKey struct {
+	nodeID int64
+	root   string
 }
 
 // scanState is one scan in progress: which root and library, when it began, the moves it has
@@ -96,12 +102,36 @@ func NewIngester(
 ) *Ingester {
 	return &Ingester{
 		database: database, clock: clockSource, settings: settingsService, logger: logger,
-		scanByNodeID: map[int64]*scanState{},
+		scans: map[scanKey]*scanState{},
 	}
 }
 
-// IngestRecords stores one batch of a node's report in one transaction.
-func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
+// IngestScan stores records of the scan of a node's root in one transaction: scan_begin starts it,
+// and scan_complete ends it, applying its removals (D39).
+func (ingester *Ingester) IngestScan(
+	ctx context.Context, nodeID int64, root string, records []nodeproto.ScanRecord,
+) error {
+	return ingester.write(ctx, scanKey{nodeID: nodeID, root: root}, func(batch *ingestBatch) error {
+		for index, record := range records {
+			if err := batch.ingestRecord(ctx, cleanRecord(record)); err != nil {
+				return fmt.Errorf("record %d (%s): %w", index, record.Type, err)
+			}
+		}
+		return nil
+	})
+}
+
+// AbandonScan forgets the scan of a node's root, which will not complete: nothing it did not see is
+// removed.
+func (ingester *Ingester) AbandonScan(nodeID int64, root string) {
+	ingester.mutex.Lock()
+	defer ingester.mutex.Unlock()
+	delete(ingester.scans, scanKey{nodeID: nodeID, root: root})
+}
+
+// write runs ingest in one transaction for the scan of key, then says what it stored to those who
+// asked: new files, paths found, scans ended.
+func (ingester *Ingester) write(ctx context.Context, key scanKey, ingest func(batch *ingestBatch) error) error {
 	ingester.mutex.Lock()
 	defer ingester.mutex.Unlock()
 	nowMs := ingester.clock.Now().UnixMilli()
@@ -109,11 +139,9 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 	var foundPaths []string
 	hasNewFiles := false
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		batch := &ingestBatch{ingester: ingester, queries: queries, nodeID: nodeID, nowMs: nowMs}
-		for _, record := range records {
-			if err := batch.ingestRecord(ctx, cleanRecord(record)); err != nil {
-				return fmt.Errorf("record %d (%s): %w", record.ReportSeq, record.Type, err)
-			}
+		batch := &ingestBatch{ingester: ingester, queries: queries, key: key, nodeID: key.nodeID, nowMs: nowMs}
+		if err := ingest(batch); err != nil {
+			return err
 		}
 		endedLibraryIDs, foundPaths, hasNewFiles = batch.endedLibraryIDs, batch.foundPaths, batch.hasNewFiles
 		return nil
@@ -121,6 +149,7 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 	if err != nil {
 		return err
 	}
+	nodeID := key.nodeID
 	if ingester.onNewFiles != nil && hasNewFiles {
 		ingester.onNewFiles(ctx)
 	}
@@ -135,10 +164,11 @@ func (ingester *Ingester) IngestRecords(ctx context.Context, nodeID int64, recor
 	return nil
 }
 
-// ingestBatch is one transaction's worth of records from one node.
+// ingestBatch is one transaction's worth of records of one scan.
 type ingestBatch struct {
 	ingester        *Ingester
 	queries         *sqlcgen.Queries
+	key             scanKey
 	nodeID          int64
 	nowMs           int64
 	endedLibraryIDs []int64 // libraries whose scan ended in this batch
@@ -149,7 +179,7 @@ type ingestBatch struct {
 	hasNewFiles bool
 }
 
-func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Record) error {
+func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.ScanRecord) error {
 	switch record.Type {
 	case nodeproto.RecordScanBegin:
 		return batch.beginScan(ctx, record.ScanBegin)
@@ -179,14 +209,16 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Rec
 			scan.mounts[mountPath] = record.Mount.FilesystemDevice
 		}
 	case nodeproto.RecordStatus, nodeproto.RecordListed:
+		// Neither is a scan's record here: a status is the node's, and a listing is compared
+		// (TakeListing).
 	}
 	return nil
 }
 
-// scanInProgress is the node's scan in progress, or nil for a record outside one or under a root no
+// scanInProgress is the batch's scan in progress, or nil for a record outside one or under a root no
 // library covers.
 func (batch *ingestBatch) scanInProgress() *scanState {
-	scan := batch.ingester.scanByNodeID[batch.nodeID]
+	scan := batch.ingester.scans[batch.key]
 	if scan == nil || scan.libraryID == 0 {
 		return nil
 	}
@@ -196,19 +228,22 @@ func (batch *ingestBatch) scanInProgress() *scanState {
 // beginScan starts a scan of a root. A root no library covers is noted once and its records are
 // not stored: a file row belongs to a library (schema.md).
 func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBegin) error {
+	if begin.RootPath != batch.key.root {
+		return fmt.Errorf("scan_begin names %s, but the scan is of %s", begin.RootPath, batch.key.root)
+	}
 	libraryID, err := store.OrNotFound(batch.queries.GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
 		NodeID: batch.nodeID, RootPath: begin.RootPath,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		batch.ingester.logger.WarnContext(ctx, "a node scanned a root no library covers; what it saw is not stored",
 			"nodeId", batch.nodeID, "rootPath", begin.RootPath)
-		batch.ingester.scanByNodeID[batch.nodeID] = &scanState{root: begin.RootPath}
+		batch.ingester.scans[batch.key] = &scanState{root: begin.RootPath}
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	batch.ingester.scanByNodeID[batch.nodeID] = &scanState{
+	batch.ingester.scans[batch.key] = &scanState{
 		root: begin.RootPath, libraryID: libraryID, startedAt: batch.nowMs,
 		facts:  rootFacts{FilesystemDevice: begin.FilesystemDevice, IsMountPoint: begin.IsMountPoint},
 		mounts: map[string]uint64{},

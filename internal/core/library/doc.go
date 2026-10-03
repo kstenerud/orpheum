@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package library is the library model: Title, Edition, Version and File, extras, collections, and
-// what the scanner saw. It ingests the node's reports, gives every observed file a filing with a
-// reason, and serves browse and search. Identity is the media payload hash, not the path or the
-// bytes.
+// what the scanner saw. It runs the scans of the nodes' roots, a listing it compares and the batches
+// of files it has the node read (D240), ingests what they find, gives every observed file a filing
+// with a reason, and serves browse and search. Identity is the media payload hash, not the path or
+// the bytes.
 //
 // # Invariants
 //
@@ -19,6 +20,27 @@
 //
 //   - Never opens a media path; it knows files only from node reports. Enforced by the forbidigo
 //     rule tagged [core-fs]; M2's test runs the core with the media root unreadable to it.
+//
+//   - The library's rules for what a scan reads are the core's: a listing's trash, samples,
+//     AppleDouble files and extensions it does not read are filed skipped, an image beside the media
+//     is recorded as listed and not read, and the rest is read (D40, D215, D240 §3).
+//     TestTakeListing_FilesEachEntryByTheLibrarysRules,
+//     TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt.
+//
+//   - A file whose size and modified time are as stored, and which was read whole, is seen and not
+//     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. A listing the node
+//     stopped removes nothing (D39). TestTakeListing_AListingThatWasStoppedEndsUnreadable.
+//
+//   - A scan has its node read what it found new or changed in batches of one folder's videos, each
+//     with the files named for it, and completes, applying its removals, once the last is read; a
+//     batch given up leaves its files unread, removing none (D240 §8, D40).
+//     TestBatchesOf_CutsEachFolderIntoBatchesOfVideosWithTheFilesNamedForThem,
+//     TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead,
+//     TestScans_ABatchGivenUpRemovesNoneOfItsFiles, TestScans_AScanWhoseListingFailsIsGivenUp.
+//
+//   - A scan asked for while one of its root runs starts none; one more runs after it (D236 §3).
+//     TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt. A scan the core stopped during
+//     after taking its listing starts again. TestScans_AScanTheCoreStoppedDuringStartsAgain.
 //
 //   - Every path a scan enumerated has a row with its filing and reason (D163).
 //     TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason.
@@ -127,11 +149,14 @@
 //   - D173: a replaced file is a deletion and an addition; tombstones, not deletes.
 //   - D179: a file's identity is a hash of its media payload.
 //   - D42: nodes are sensors; the core is the only thing that decides.
+//   - D240: a scan is a listing the core compares, and the batches it has the node read.
 //   - docs/contributors/design/plans/library-model.md, docs/contributors/design/plans/scanner.md.
 //
 // # Where to change
 //
-//   - ingest.go, observe.go, complete.go, sidecar.go: the report ingest; streams.go: the stream rows a probe
+//   - scans.go: a scan's jobs, from its request to its end; compare.go: a listing compared with what
+//     is stored, by the library's rules; batches.go: the batches a scan's node reads;
+//   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;

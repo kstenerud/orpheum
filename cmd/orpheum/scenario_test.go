@@ -124,7 +124,6 @@ type jobsWorld struct {
 	runner    *jobs.Runner
 	libraryID int64
 	nodeID    int64
-	reports   librarytest.Reports
 	ingester  *library.Ingester
 }
 
@@ -179,11 +178,11 @@ func (world *jobsWorld) wireQueue(cache *store.Cache) {
 // addFilms lands a copy of count films and has their first matches queued, as a scan's pass does.
 func (world *jobsWorld) addFilms(first, count int) {
 	world.t.Helper()
-	records := make([]nodeproto.Record, 0, count)
+	records := make([]nodeproto.ScanRecord, 0, count)
 	for number := first; number < first+count; number++ {
 		path := fmt.Sprintf("Film %03d (2001).mkv", number)
 		sum := sha256.Sum256([]byte(path))
-		records = append(records, nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+		records = append(records, nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 			Path: nodeproto.Path{Text: path}, SizeBytes: 1, ModifiedAt: 1,
 			Identity: nodeproto.Identity{
 				Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hex.EncodeToString(sum[:]),
@@ -191,8 +190,8 @@ func (world *jobsWorld) addFilms(first, count int) {
 			Probe: nodeproto.Probe{Format: nodeproto.ProbeFormat{DurationMs: 5_000}},
 		}})
 	}
-	all := world.reports.Scan(nodeproto.ScanBegin{RootPath: "/media"}, records, true)
-	if err := world.ingester.IngestRecords(world.t.Context(), world.nodeID, all); err != nil {
+	all := librarytest.Scan(nodeproto.ScanBegin{RootPath: "/media"}, records, true)
+	if err := world.ingester.IngestScan(world.t.Context(), world.nodeID, "/media", all); err != nil {
 		world.t.Fatal(err)
 	}
 	report, err := world.pass.IdentifyLibrary(world.t.Context(), world.libraryID)

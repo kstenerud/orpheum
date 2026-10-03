@@ -68,8 +68,8 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		alien.Device == 0 {
 		t.Errorf("listed %+v, want its size, modified time and device", alien)
 	}
-	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.ObservedCount != 0 {
-		t.Errorf("scan_complete = %+v, want 11 listed and nothing observed", complete)
+	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.SkippedCount != 1 {
+		t.Errorf("scan_complete = %+v, want 11 listed and 1 skipped", complete)
 	}
 	if begin := records[0].ScanBegin; begin.FilesystemDevice == 0 {
 		t.Errorf("scan_begin = %+v, want the root's device, as a scan's", begin)
@@ -112,25 +112,46 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 
 func TestList_ListsALinkOnlyIntoAMediaRoot(t *testing.T) {
 	t.Parallel()
-	outside := writeTree(t, map[string]string{"secret.mkv": "not ours"})
-	root := writeTree(t, map[string]string{"Movies/Metropolis.mkv": "heat"})
-	if err := os.Symlink(filepath.Join(root, "Movies"), filepath.Join(root, "Films")); err != nil {
-		t.Fatal(err)
+	films := writeTree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
+	shows := writeTree(t, map[string]string{"Shared/Wing.mkv": "alien"})
+	elsewhere := writeTree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
+	links := map[string]string{
+		"into another root.mkv": filepath.Join(shows, "Shared", "Wing.mkv"),
+		"a whole directory":     filepath.Join(shows, "Shared"),
+		"out of the roots.mkv":  filepath.Join(elsewhere, "secret.mkv"),
+		"etc shadow.mkv":        filepath.Join(elsewhere, "shadow"),
+		"loop":                  films,
+		"dangling.mkv":          filepath.Join(films, "gone.mkv"),
 	}
-	if err := os.Symlink(filepath.Join(outside, "secret.mkv"), filepath.Join(root, "Secret.mkv")); err != nil {
-		t.Fatal(err)
+	for name, target := range links {
+		if err := os.Symlink(target, filepath.Join(films, name)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	media := nodetest.OpenMediaRoot(t, root)
-	records, err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).List(t.Context(), media, ".", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	filmsRoot, showsRoot := nodetest.OpenMediaRoot(t, films), nodetest.OpenMediaRoot(t, shows)
+	scanner := NewScanner([]*confine.MediaRoot{filmsRoot, showsRoot}, &fakeProber{}, options)
+	// A directory reached again through a link is listed, and not walked twice (D206).
 	want := []string{
-		"scan_begin", "listed Films/", "listed Films/Metropolis.mkv", "listed Movies/",
-		"skip Secret.mkv symlink_outside_roots", "scan_complete",
+		"scan_begin",
+		"listed Metropolis (1995)/",
+		"listed Metropolis (1995)/Metropolis.mkv",
+		"listed a whole directory/",
+		"listed a whole directory/Wing.mkv",
+		"error dangling.mkv entry not_found",
+		"skip etc shadow.mkv symlink_outside_roots",
+		"listed into another root.mkv",
+		"listed loop/",
+		"skip out of the roots.mkv symlink_outside_roots",
+		"scan_complete",
 	}
-	if got := summary(records); !slices.Equal(got, want) {
+	if got := summary(listAll(t, scanner, filmsRoot)); !slices.Equal(got, want) {
 		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+	// What a link into another root names is read there; what leads out of the roots is not read.
+	examined := summary(examineAll(t, scanner, filmsRoot, video("into another root.mkv"), video("etc shadow.mkv")))
+	if want := []string{"observed into another root.mkv", "error etc shadow.mkv entry io_error"}; !slices.Equal(
+		examined, want) {
+		t.Errorf("examined %v, want %v (D206)", examined, want)
 	}
 }
 

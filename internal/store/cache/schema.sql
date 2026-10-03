@@ -3,19 +3,22 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 25
+-- cache schema version 26
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
-  -- measure_loudness a file. At most one is set; scan and backup, not yet jobs, set none.
+  -- measure_loudness a file, scan a scan (its listing), examine a scan's batch. At most one is set;
+  -- backup, not yet a job, sets none.
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
+  scan_id             INTEGER,
+  scan_batch_id       INTEGER,
   -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
@@ -46,9 +49,36 @@ CREATE TABLE job (                                         -- the one work queue
   -- asks for it moves it on; past it, the job falls to background priority. NULL for other work.
   wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
-         (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
+         (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
+         (scan_batch_id IS NOT NULL) <= 1)
 );
 CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
+
+CREATE TABLE scan (                                        -- D240: a root's scan in progress
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  node_id     INTEGER NOT NULL,          -- persistent.db's node, whose root it is
+  root_path   TEXT NOT NULL,
+  priority    INTEGER NOT NULL,          -- its jobs': a person's request, or the queue's own
+  started_at  INTEGER NOT NULL,
+  -- When its listing was taken, NULL before: from then the ingest holds what it compared, which a
+  -- restart loses, so such a scan starts again.
+  listed_at   INTEGER,
+  listed_count  INTEGER NOT NULL DEFAULT 0,  -- the files its listing found (D236 section 2)
+  examine_count INTEGER NOT NULL DEFAULT 0,  -- of them, those it needs read
+  examined_count INTEGER NOT NULL DEFAULT 0, -- and of those, read
+  -- Whether a scan was asked for while this one ran: one more follows it (D236 section 3).
+  is_scan_again INTEGER NOT NULL DEFAULT 0 CHECK (is_scan_again IN (0, 1)),
+  UNIQUE (node_id, root_path)
+);
+
+CREATE TABLE scan_batch (                                  -- D240 section 8: a batch to examine
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  scan_id     INTEGER NOT NULL REFERENCES scan(id) ON DELETE CASCADE,
+  files_json  TEXT NOT NULL,             -- the files, as the examine command names them
+  file_count  INTEGER NOT NULL,
+  is_done     INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1))
+);
+CREATE INDEX scan_batch_of_scan ON scan_batch(scan_id);
 
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
   item_id     INTEGER NOT NULL,          -- a film, or a series (D209)

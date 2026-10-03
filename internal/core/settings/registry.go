@@ -43,6 +43,9 @@ const (
 	PlayWantedSeconds                              Key = "play_wanted_seconds"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
+	ScanVideoExtensions                            Key = "scan_video_extensions"
+	ScanSubtitleExtensions                         Key = "scan_subtitle_extensions"
+	ScanExamineBatchVideos                         Key = "scan_examine_batch_videos"
 	JobAttemptLimit                                Key = "job_attempt_limit"
 	JobFirstRetryDelaySeconds                      Key = "job_first_retry_delay_seconds"
 	ProviderTimeoutSeconds                         Key = "provider_timeout_seconds"
@@ -187,7 +190,32 @@ func Registry() []Definition {
 		sourced(integerSetting(ScanWithholdRemovalsOverFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
 			"D208 §3: the owner's twenty, 2026-09-24"),
-	}, slices.Concat(jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions())...)
+	}, slices.Concat(
+		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
+	)...)
+}
+
+// scanDefinitions are what a scan reads, and how much of it a node reads in one go (D240 §8).
+func scanDefinitions() []Definition {
+	return []Definition{
+		sourced(Definition{
+			Key: ScanVideoExtensions, Kind: KindString,
+			StartJSON: json.RawMessage(`"mkv,mp4,m4v,avi,mov,wmv,ts,m2ts,mts,webm,mpg,mpeg,vob,flv,ogv,3gp"`),
+			Pattern:   regexp.MustCompile(extensionsPattern),
+			Description: "the extensions, lower case and comma-separated, of the files a scan reads as " +
+				"videos (D240 §8)",
+		}, "the node's video_extensions as the development config had them, which this setting replaced"),
+		sourced(Definition{
+			Key: ScanSubtitleExtensions, Kind: KindString, StartJSON: json.RawMessage(`"srt,ass,ssa,vtt"`),
+			Pattern: regexp.MustCompile(extensionsPattern),
+			Description: "the extensions, lower case and comma-separated, of the text subtitle files a scan " +
+				"reads beside their videos (D240 §8)",
+		}, "the node's subtitle_extensions as the development config had them, which this setting replaced"),
+		sourced(integerSetting(ScanExamineBatchVideos, "10", 1, 1000,
+			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
+				"is read again (D240 §8)"),
+			"the owner's choice, 2026-10-03: a folder of a few dozen loose films is a few of them"),
+	}
 }
 
 // deviceDefinitions are how many may read a node's device of each kind at once, and how much more
@@ -379,6 +407,10 @@ func sourced(definition Definition, startSource string) Definition {
 	definition.StartSource = startSource
 	return definition
 }
+
+// extensionsPattern is a setting's list of file extensions: lower case, without the dot,
+// comma-separated.
+const extensionsPattern = `^[a-z0-9]{1,10}(,[a-z0-9]{1,10}){0,99}$`
 
 // day is the unit of a setting whose key ends _days.
 const day = 24 * time.Hour

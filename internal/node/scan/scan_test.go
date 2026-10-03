@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -57,28 +56,7 @@ func writeTree(t *testing.T, files map[string]string) string {
 	return root
 }
 
-var options = Options{
-	VideoExtensions: []string{"mkv", "mp4"}, SubtitleExtensions: []string{"srt"}, MaxErrors: 100, UID: 1000, GID: 1000,
-}
-
-// scanAll scans root and returns every record, failing the test if the scan fails.
-func scanAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.ScanRecord {
-	t.Helper()
-	records, err := scanRecords(t.Context(), scanner, root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return records
-}
-
-func scanRecords(ctx context.Context, scanner *Scanner, root *confine.MediaRoot) ([]nodeproto.ScanRecord, error) {
-	var records []nodeproto.ScanRecord
-	err := scanner.Scan(ctx, root, func(record nodeproto.ScanRecord) error {
-		records = append(records, record)
-		return nil
-	})
-	return records, err
-}
+var options = Options{MaxErrors: 100, UID: 1000, GID: 1000}
 
 // summary is one line per record, "type path detail", for comparing whole reports.
 func summary(records []nodeproto.ScanRecord) []string {
@@ -113,74 +91,6 @@ func summary(records []nodeproto.ScanRecord) []string {
 	return lines
 }
 
-func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
-	t.Parallel()
-	root := writeTree(t, map[string]string{
-		"Movies/Wing (1979)/Wing (1979).mkv":    "alien",
-		"Movies/Wing (1979)/Wing (1979).nfo":    "<movie/>",
-		"Movies/Wing (1979)/Wing (1979).en.srt": "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
-		"Movies/Wing (1979)/sample.mkv":          "debris",
-		"Movies/Metropolis (1995)/metropolis-SAMPLE.mp4":      "debris",
-		"Movies/Metropolis (1995)/Metropolis.mkv":             "heat",
-		"Movies/Metropolis (1995)/Sample/clip.mkv":      "debris",
-		"Movies/Metropolis (1995)/x.sample.mkv":         "debris",
-		"Movies/Metropolis (1995)/._Metropolis.mkv":           "\x00\x05\x16\x07",
-		".trash/2026-09-01/old.mkv":               "old",
-		"Shows/.trash/kept.mkv":                   "only the root's .trash is ours",
-	})
-	if err := syscall.Mkfifo(filepath.Join(root, "Movies", "pipe.mkv"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	media := nodetest.OpenMediaRoot(t, root)
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
-	want := []string{
-		"scan_begin",
-		"skip .trash trash",
-		"sidecar Movies/Wing (1979)/Wing (1979).en.srt subtitle",
-		"observed Movies/Wing (1979)/Wing (1979).mkv",
-		"sidecar Movies/Wing (1979)/Wing (1979).nfo nfo",
-		"skip Movies/Wing (1979)/sample.mkv sample",
-		"skip Movies/Metropolis (1995)/._Metropolis.mkv appledouble",
-		"observed Movies/Metropolis (1995)/Metropolis.mkv",
-		"skip Movies/Metropolis (1995)/Sample sample",
-		"skip Movies/Metropolis (1995)/metropolis-SAMPLE.mp4 sample",
-		"skip Movies/Metropolis (1995)/x.sample.mkv sample",
-		"skip Movies/pipe.mkv not_regular",
-		"observed Shows/.trash/kept.mkv",
-		"scan_complete",
-	}
-	if got := summary(records); !slices.Equal(got, want) {
-		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
-	}
-	checkCountsAndFacts(t, records)
-	checkSidecarBodies(t, records)
-	observed := records[3].Observed
-	if observed.SizeBytes != int64(len("alien")) || observed.Identity.Scheme == "" ||
-		observed.Identity.PayloadHash == "" ||
-		len(observed.Probe.Format.FormatNames) == 0 {
-		t.Errorf("observed = %+v", observed)
-	}
-}
-
-func checkCountsAndFacts(t *testing.T, records []nodeproto.ScanRecord) {
-	t.Helper()
-	complete := records[len(records)-1].ScanComplete
-	if complete.ObservedCount != 3 || complete.SidecarCount != 2 || complete.SkippedCount != 7 ||
-		complete.ErrorCount != 0 ||
-		complete.IsStoppedByErrors {
-		t.Errorf("scan_complete = %+v", complete)
-	}
-	begin := records[0].ScanBegin
-	if begin.UID != 1000 || begin.GID != 1000 {
-		t.Errorf("scan_begin = %+v, want the node's ids", begin)
-	}
-	// A test's temporary directory is never a mount point, and it is on some device: the facts
-	// the core compares to catch an unmounted disk (D208).
-	if begin.FilesystemDevice == 0 || begin.IsMountPoint {
-		t.Errorf("scan_begin = %+v, want the root's device and that it is not a mount point", begin)
-	}
-}
-
 func checkSidecarBodies(t *testing.T, records []nodeproto.ScanRecord) {
 	t.Helper()
 	for _, record := range records {
@@ -211,180 +121,172 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 	}
 }
 
-func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
+// listAll lists all of root and returns every record, failing the test if the listing fails.
+func listAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.ScanRecord {
+	t.Helper()
+	records, err := scanner.List(t.Context(), root, ".", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return records
+}
+
+// examineAll examines files under root and returns every record, failing the test if it stops.
+func examineAll(
+	t *testing.T, scanner *Scanner, root *confine.MediaRoot, files ...nodeproto.ExamineFile,
+) []nodeproto.ScanRecord {
+	t.Helper()
+	records, err := scanner.Examine(t.Context(), root, files, func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return records
+}
+
+// video, nfo and subtitle name a file to examine, by its path relative to the root.
+func video(path string) nodeproto.ExamineFile {
+	return nodeproto.ExamineFile{Path: nodeproto.Path{Text: path}, Kind: nodeproto.ExamineVideo}
+}
+
+func nfo(path string) nodeproto.ExamineFile {
+	return nodeproto.ExamineFile{Path: nodeproto.Path{Text: path}, Kind: nodeproto.ExamineNFO}
+}
+
+func TestExamine_RefusesAnNFOPastTheBound(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{"Film/film.nfo": strings.Repeat("x", maxNFOBytes+1)})
 	media := nodetest.OpenMediaRoot(t, root)
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
-	want := []string{"scan_begin", "error Film/film.nfo entry io_error", "scan_complete"}
+	records := examineAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media,
+		nfo("Film/film.nfo"))
+	want := []string{"error Film/film.nfo entry io_error"}
 	if got := summary(records); !slices.Equal(got, want) {
-		t.Errorf("report %q, want %q", got, want)
+		t.Errorf("examined %q, want %q", got, want)
 	}
-	if detail := records[1].Error.PlatformError.Text; !strings.Contains(detail, "larger than the node sends") {
+	if detail := records[0].Error.PlatformError.Text; !strings.Contains(detail, "larger than the node sends") {
 		t.Errorf("the error says %q, want the bound named", detail)
 	}
 }
 
-func TestScan_FollowsASymlinkOnlyIntoAMediaRoot(t *testing.T) {
-	t.Parallel()
-	films := writeTree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
-	shows := writeTree(t, map[string]string{"Shared/Wing.mkv": "alien"})
-	elsewhere := writeTree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
-	links := map[string]string{
-		"into another root.mkv": filepath.Join(shows, "Shared", "Wing.mkv"),
-		"a whole directory":     filepath.Join(shows, "Shared"),
-		"out of the roots.mkv":  filepath.Join(elsewhere, "secret.mkv"),
-		"etc shadow.mkv":        filepath.Join(elsewhere, "shadow"),
-		"loop":                  films,
-		"dangling.mkv":          filepath.Join(films, "gone.mkv"),
-	}
-	for name, target := range links {
-		if err := os.Symlink(target, filepath.Join(films, name)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	filmsRoot, showsRoot := nodetest.OpenMediaRoot(t, films), nodetest.OpenMediaRoot(t, shows)
-	prober := &fakeProber{}
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{filmsRoot, showsRoot}, prober, options), filmsRoot)
-
-	want := []string{
-		"scan_begin",
-		"observed Metropolis (1995)/Metropolis.mkv",
-		"observed a whole directory/Wing.mkv",
-		"error dangling.mkv entry not_found",
-		"skip etc shadow.mkv symlink_outside_roots",
-		"observed into another root.mkv",
-		"skip out of the roots.mkv symlink_outside_roots",
-		"scan_complete",
-	}
-	if got := summary(records); !slices.Equal(got, want) {
-		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
-	}
-	for _, probed := range prober.probed {
-		if strings.HasPrefix(probed, elsewhere) {
-			t.Errorf("probed %s, outside every media root (D206)", probed)
-		}
-	}
-}
-
-func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
+func TestList_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 	t.Parallel()
 	if os.Geteuid() == 0 {
-		testutil.Require(t, "unprivileged-user", errors.New("the tests run as root, which can read a mode-000 file"))
+		testutil.Require(t, "unprivileged-user",
+			errors.New("the tests run as root, which can read a mode-000 directory"))
 	}
-	root := writeTree(t, map[string]string{
-		"Locked/a.mkv": "a", "Locked/b.mkv": "b", "Locked/c.mkv": "c", "Open/d.mkv": "d",
-		"Closed/e.mkv": "e",
-	})
+	root := writeTree(t, map[string]string{"Open/d.mkv": "d", "Closed/e.mkv": "e"})
+	if err := os.Mkdir(filepath.Join(root, "Broken"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// Each link in Broken leads nowhere, so none of them can be described; Closed cannot be listed.
 	for _, name := range []string{"a.mkv", "b.mkv", "c.mkv"} {
-		if err := os.Chmod(filepath.Join(root, "Locked", name), 0o000); err != nil {
+		if err := os.Symlink(filepath.Join(root, "gone", name), filepath.Join(root, "Broken", name)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.Chmod(filepath.Join(root, "Closed"), 0o000); err != nil {
+	closed := filepath.Join(root, "Closed")
+	if err := os.Chmod(closed, 0o000); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := os.Chmod(filepath.Join(root, "Closed"), 0o700); err != nil { //nolint:gosec // a directory needs x
+		if err := os.Chmod(closed, 0o700); err != nil { //nolint:gosec // a directory needs x
 			t.Error(err)
 		}
 	})
 	media := nodetest.OpenMediaRoot(t, root)
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
+	records := listAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 
 	want := []string{
 		"scan_begin",
+		"listed Broken/",
+		"error Broken/a.mkv entry not_found",
+		"listed Closed/",
 		"error Closed subtree permission_denied",
-		"error Locked/a.mkv entry permission_denied",
-		"observed Open/d.mkv",
+		"listed Open/",
+		"listed Open/d.mkv",
 		"scan_complete",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
-		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
-	locked := records[2].Error
-	if locked.OccurrenceCount != 3 || locked.PlatformError.ModeText != "----------" ||
-		locked.PlatformError.OwnerUID != os.Getuid() ||
-		locked.PlatformError.Text == "" {
-		t.Errorf("the collapsed error = %+v, want a count of 3 with owner and mode", locked)
+	if closed := records[4].Error; closed.PlatformError.ModeText != "d---------" ||
+		closed.PlatformError.OwnerUID != os.Getuid() || closed.PlatformError.Text == "" {
+		t.Errorf("the closed directory's error = %+v, want its owner and mode", closed)
 	}
-	if complete := records[len(records)-1].ScanComplete; complete.ErrorCount != 4 || complete.ObservedCount != 1 {
-		t.Errorf("scan_complete = %+v, want 4 errors and 1 observed: a scan that could not read is not clean", complete)
+	if broken := records[2].Error; broken.OccurrenceCount != 3 || broken.PlatformError.Text == "" {
+		t.Errorf("the collapsed error = %+v, want a count of 3 with the platform's words", broken)
+	}
+	if complete := records[len(records)-1].ScanComplete; complete.ErrorCount != 4 || complete.ListedCount != 4 {
+		t.Errorf("scan_complete = %+v, want 4 errors and 4 listed: a listing that could not read is not clean",
+			complete)
 	}
 }
 
-func TestScan_StopsARootThatKeepsFailing(t *testing.T) {
+func TestList_StopsARootThatKeepsFailing(t *testing.T) {
 	t.Parallel()
+	if os.Geteuid() == 0 {
+		testutil.Require(t, "unprivileged-user",
+			errors.New("the tests run as root, which can read a mode-000 directory"))
+	}
 	files := map[string]string{}
 	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
 		files["Dir"+name+"/"+name+".mkv"] = name
 	}
 	root := writeTree(t, files)
-	failing := map[string]error{}
 	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
-		failing[name+".mkv"] = errors.New("Invalid data found when processing input")
+		closed := filepath.Join(root, "Dir"+name)
+		if err := os.Chmod(closed, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := os.Chmod(closed, 0o700); err != nil { //nolint:gosec // a directory needs x
+				t.Error(err)
+			}
+		})
 	}
 	media := nodetest.OpenMediaRoot(t, root)
 	limited := options
 	limited.MaxErrors = 3
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{failing: failing}, limited), media)
+	records := listAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, limited), media)
 
 	want := []string{
 		"scan_begin",
-		"error Dira/a.mkv entry probe_failed",
-		"error Dirb/b.mkv entry probe_failed",
-		"error Dirc/c.mkv entry probe_failed",
-		"error . root probe_failed",
+		"listed Dira/",
+		"error Dira subtree permission_denied",
+		"listed Dirb/",
+		"error Dirb subtree permission_denied",
+		"listed Dirc/",
+		"error Dirc subtree permission_denied",
+		"error . root permission_denied",
 		"scan_complete",
 	}
 	if got := summary(records); !slices.Equal(got, want) {
-		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+		t.Errorf("listing:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	if complete := records[len(records)-1].ScanComplete; !complete.IsStoppedByErrors || complete.ErrorCount != 3 {
 		t.Errorf("scan_complete = %+v, want stopped after 3 errors", complete)
 	}
 }
 
-func TestScan_ACancelledScanNeverSaysComplete(t *testing.T) {
+func TestList_ACancelledListingNeverSaysComplete(t *testing.T) {
 	t.Parallel()
 	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b", "c.mkv": "c"})
 	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	cancel()
 	media := nodetest.OpenMediaRoot(t, root)
-	scanner := NewScanner([]*confine.MediaRoot{media}, &fakeProber{onProbe: cancel}, options)
-	records, err := scanRecords(ctx, scanner, media)
+	records, err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).List(ctx, media, ".", 0)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", err)
 	}
 	got := summary(records)
 	if slices.Contains(got, "scan_complete") {
-		t.Errorf("a cancelled scan said complete: %q; the core would apply removals (D39)", got)
+		t.Errorf("a cancelled listing said complete: %q; the core would apply removals (D39)", got)
 	}
 	if last := got[len(got)-1]; last != "error . run cancelled" {
-		t.Errorf("the report ends %q, want a run-scoped cancelled error", last)
+		t.Errorf("the listing ends %q, want a run-scoped cancelled error", last)
 	}
 }
 
-func TestScan_StopsWhenNobodyIsListening(t *testing.T) {
-	t.Parallel()
-	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b"})
-	media := nodetest.OpenMediaRoot(t, root)
-	gone := errors.New("the core hung up")
-	sent := 0
-	err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).Scan(t.Context(), media,
-		func(nodeproto.ScanRecord) error {
-			sent++
-			if sent == 2 {
-				return gone
-			}
-			return nil
-		})
-	if !errors.Is(err, gone) || sent != 2 {
-		t.Errorf("error %v after %d records, want the emit error after 2", err, sent)
-	}
-}
-
-func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
+func TestListAndExamine_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	name := "Am\xe9lie.mkv" // Latin-1, as an old Windows copy leaves it
@@ -392,43 +294,25 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	media := nodetest.OpenMediaRoot(t, root)
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
-	observed := records[1].Observed
-	if observed == nil || string(observed.Path.Raw) != name || observed.Path.Text != "Am�lie.mkv" {
-		t.Errorf("observed = %+v, want the raw bytes beside a readable text form (D49)", observed)
+	scanner := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options)
+	listed := listAll(t, scanner, media)[1].Listed
+	if listed == nil || string(listed.Path.Raw) != name || listed.Path.Text != "Am\ufffdlie.mkv" {
+		t.Fatalf("listed = %+v, want the raw bytes beside a readable text form (D49)", listed)
+	}
+	examined := examineAll(t, scanner, media, nodeproto.ExamineFile{Path: listed.Path, Kind: nodeproto.ExamineVideo})
+	if observed := examined[0].Observed; observed == nil || string(observed.Path.Raw) != name {
+		t.Errorf("examined %+v, want the file read by its raw bytes and reported by them", examined)
 	}
 }
 
-func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
-	t.Parallel()
-	root := writeTree(t, map[string]string{
-		"Film (1999)/poster.jpg": "jpeg", "Film (1999)/Film (1999)-fanart.PNG": "png", "Film (1999)/notes.gif": "gif",
-	})
-	media := nodetest.OpenMediaRoot(t, root)
-	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
-	var images []string
-	for _, record := range records {
-		if sidecar := record.Sidecar; sidecar != nil && sidecar.Kind == nodeproto.SidecarImage {
-			images = append(images, sidecar.Path.Text)
-			if sidecar.NFOBody != nil || sidecar.SizeBytes == 0 {
-				t.Errorf("%s: body %q, size %d; an image's bytes never travel in a record (D215)",
-					sidecar.Path.Text, sidecar.NFOBody, sidecar.SizeBytes)
-			}
-		}
-	}
-	slices.Sort(images)
-	if want := []string{"Film (1999)/Film (1999)-fanart.PNG", "Film (1999)/poster.jpg"}; !slices.Equal(images, want) {
-		t.Errorf("images %v, want %v (a GIF is not artwork anyone saves)", images, want)
-	}
-}
-
-func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
+func TestExamine_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
 	t.Parallel()
 	body := strings.Repeat("orpheum!", 25_000) // 200,000 bytes, past OpenSubtitles' 128 KiB floor
 	root := writeTree(t, map[string]string{"Movies/Big.mkv": body, "Movies/Small.mkv": "small"})
 	media := nodetest.OpenMediaRoot(t, root)
 	hashes := map[string]string{}
-	for _, record := range scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media) {
+	for _, record := range examineAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media,
+		video("Movies/Big.mkv"), video("Movies/Small.mkv")) {
 		if record.Type == nodeproto.RecordObserved {
 			hashes[record.Observed.Path.Text] = record.Observed.OpensubtitlesHash
 		}

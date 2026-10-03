@@ -266,14 +266,10 @@ func (reader *reportReader) takeLine(ctx context.Context, line []byte) error {
 	return nil
 }
 
-// flush hands the batch to the sink, then records how far the core has ingested and the node's
-// latest status.
+// flush records how far the core has taken the node's report, and the node's latest status.
 func (reader *reportReader) flush(ctx context.Context) error {
 	if len(reader.batch) == 0 {
 		return nil
-	}
-	if err := reader.service.recordSink.IngestRecords(ctx, reader.nodeID, reader.batch); err != nil {
-		return fmt.Errorf("ingest: %w", err)
 	}
 	lastBatchSeq := reader.batch[len(reader.batch)-1].ReportSeq
 	reader.batch = reader.batch[:0]

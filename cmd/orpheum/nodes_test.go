@@ -33,16 +33,16 @@ func TestAskForAPassOnNewFiles_AFilmFoundMidScanAsksForTheIdentificationPasses(t
 	ingester := library.NewIngester(database, fakeClock, seeded, slog.New(slog.DiscardHandler))
 	sweeps := &requestedSweeps{}
 	askForAPassOnNewFiles(ingester, sweeps)
-	var reports librarytest.Reports
-	film := nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+	film := nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path: nodeproto.Path{Text: "Film (2020)/Film (2020).mkv"}, SizeBytes: 1, ModifiedAt: 1,
 		Identity: nodeproto.Identity{
 			Scheme: "payload-v1", Anchor: "whole-file", PayloadBytes: 1,
 			PayloadHash: "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
 		},
 	}}
-	stillScanning := reports.Scan(nodeproto.ScanBegin{RootPath: "/media/films"}, []nodeproto.Record{film}, false)
-	if err := ingester.IngestRecords(t.Context(), nodeID, stillScanning); err != nil {
+	stillScanning := librarytest.Scan(
+		nodeproto.ScanBegin{RootPath: "/media/films"}, []nodeproto.ScanRecord{film}, false)
+	if err := ingester.IngestScan(t.Context(), nodeID, "/media/films", stillScanning); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Equal(sweeps.names, []string{sweepPasses}) {

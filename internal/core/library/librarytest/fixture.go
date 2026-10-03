@@ -66,25 +66,13 @@ func NodeWithLibrary(t *testing.T, database *store.Database, library Library) (n
 	return nodeID, LibraryOn(t, database, nodeID, library)
 }
 
-// Reports numbers what one node reports, as the node does: every record carries the next
-// ReportSeq. The zero value is a node that has reported nothing.
-type Reports struct {
-	lastReportSeq int64
-}
-
-// Scan is one scan as the node sends it: begin, the records, and complete unless the scan was
-// cut off, each numbered after the last record these Reports numbered.
-func (reports *Reports) Scan(
-	begin nodeproto.ScanBegin, records []nodeproto.Record, isComplete bool,
-) []nodeproto.Record {
-	all := append([]nodeproto.Record{{Type: nodeproto.RecordScanBegin, ScanBegin: &begin}}, records...)
+// Scan is one scan's records as the ingest takes them: begin, the records, and complete unless the
+// scan was cut off.
+func Scan(begin nodeproto.ScanBegin, records []nodeproto.ScanRecord, isComplete bool) []nodeproto.ScanRecord {
+	all := append([]nodeproto.ScanRecord{{Type: nodeproto.RecordScanBegin, ScanBegin: &begin}}, records...)
 	if isComplete {
 		complete := &nodeproto.ScanComplete{RootPath: begin.RootPath}
-		all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: complete})
-	}
-	for index := range all {
-		reports.lastReportSeq++
-		all[index].ReportSeq = reports.lastReportSeq
+		all = append(all, nodeproto.ScanRecord{Type: nodeproto.RecordScanComplete, ScanComplete: complete})
 	}
 	return all
 }

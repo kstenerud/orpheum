@@ -29,6 +29,9 @@ var wireShapeByVersion = map[int]string{
 	13: "25647d5faba4f24b0c1beeab4ee49f9087895d6f5192418ea1fd9968bacc5b0d",
 	// 14 adds the list and examine commands, their results and the listed record (D240 §2, §4).
 	14: "2a89ff73d174a3e775f283925b9c5d8873e5bdf29c6e3c4c43537468564ca5b0",
+	// 15 drops the scan command and the scan's records from the report, which carries the status alone,
+	// and the status's activity (D240 §2).
+	15: "31e1c26d35d69851f52a022f653d214c2e2e6d51cbb97af4254d424430c6ce1c",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

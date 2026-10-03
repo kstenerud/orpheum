@@ -159,9 +159,7 @@ func openAndWire(
 		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
 	}
 	if err == nil {
-		opened.nodes = newNodeService(opened, logger)
-		opened.exchanges = openExchanges(opened, logger)
-		opened.jobServices.exchanges = opened.exchanges
+		opened = openNodeWork(opened, logger)
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err != nil {
@@ -169,9 +167,10 @@ func openAndWire(
 	}
 	dependencies.Chooser = opened.jobServices.chooser
 	dependencies.Refresher = opened.jobServices.refresher
-	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes, library.Retirement{
-		Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
-	})
+	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes, opened.jobServices.scans,
+		library.Retirement{
+			Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
+		})
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Artwork = opened.jobServices.artwork
 	dependencies.Playback = playback.NewService(playback.Parts{
@@ -202,6 +201,27 @@ func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges 
 	})
 	opened.nodes.SetResultSink(exchanges)
 	return exchanges
+}
+
+// openNodeWork opens the node channel's service, the exchanges that give the nodes their work, and the
+// scans of their roots.
+func openNodeWork(opened openedServices, logger *slog.Logger) openedServices {
+	var ingester *library.Ingester
+	opened.nodes, ingester = newNodeService(opened, logger)
+	opened.exchanges = openExchanges(opened, logger)
+	opened.jobServices.exchanges = opened.exchanges
+	opened.jobServices.scans = openScans(opened, ingester, logger)
+	return opened
+}
+
+// openScans are the scans of the nodes' roots, which a node's hello asks for (D240).
+func openScans(opened openedServices, ingester *library.Ingester, logger *slog.Logger) *library.Scans {
+	scans := library.NewScans(library.ScansParts{
+		Cache: opened.cache, Ingester: ingester, Jobs: opened.jobServices.queue, Assigner: opened.exchanges,
+		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
+	})
+	opened.nodes.SetScans(scans)
+	return scans
 }
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, and

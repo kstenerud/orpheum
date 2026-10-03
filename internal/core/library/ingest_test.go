@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -31,7 +32,7 @@ type harness struct {
 	clock    *clocktest.Fake
 	nodeID   int64
 	rootPath string // the library's one root, as its node names it
-	reports  librarytest.Reports
+	settings *settings.Service
 }
 
 // newHarness is a database with a node and one library covering root, and the ingest.
@@ -47,9 +48,10 @@ func newHarnessAt(t *testing.T, rootPath string) *harness {
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	nodeID, _ := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: rootPath})
+	seeded := settingstest.Seeded(t, database)
 	return &harness{
-		t: t, database: database, clock: fakeClock, nodeID: nodeID, rootPath: rootPath,
-		ingester: NewIngester(database, fakeClock, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler)),
+		t: t, database: database, clock: fakeClock, nodeID: nodeID, rootPath: rootPath, settings: seeded,
+		ingester: NewIngester(database, fakeClock, seeded, slog.New(slog.DiscardHandler)),
 	}
 }
 
@@ -59,8 +61,8 @@ func hashOf(content string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func observedRecord(path, content string) nodeproto.Record {
-	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+func observedRecord(path, content string) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path: nodeproto.Path{Text: path}, SizeBytes: int64(len(content)), ModifiedAt: 1,
 		Identity: nodeproto.Identity{
 			Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: 1,
@@ -77,14 +79,14 @@ func observedRecord(path, content string) nodeproto.Record {
 	}}
 }
 
-func skipRecord(path string, rule nodeproto.SkipRule) nodeproto.Record {
-	return nodeproto.Record{
+func skipRecord(path string, rule nodeproto.SkipRule) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{
 		Type: nodeproto.RecordSkip, Skip: &nodeproto.Skip{Path: nodeproto.Path{Text: path}, Rule: rule},
 	}
 }
 
-func errorRecord(path string, scope nodeproto.ErrorScope) nodeproto.Record {
-	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.ScanError{
+func errorRecord(path string, scope nodeproto.ErrorScope) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordError, Error: &nodeproto.ScanError{
 		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, OccurrenceCount: 1,
 		PlatformError: nodeproto.PlatformError{
 			Text: "permission denied", OwnerUID: 0, GroupGID: 0,
@@ -94,18 +96,18 @@ func errorRecord(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 }
 
 // scan sends one scan of the root: begin, the records, and complete unless the scan is cut off.
-func (world *harness) scan(records []nodeproto.Record, isComplete bool) {
+func (world *harness) scan(records []nodeproto.ScanRecord, isComplete bool) {
 	world.t.Helper()
 	facts := nodeproto.ScanBegin{RootPath: world.rootPath, FilesystemDevice: 7, IsMountPoint: true}
 	world.scanOn(facts, records, isComplete)
 }
 
 // scanOn is scan with the root's filesystem facts as the node reports them.
-func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.Record, isComplete bool) {
+func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.ScanRecord, isComplete bool) {
 	world.t.Helper()
 	world.clock.Advance(time.Minute)
-	all := world.reports.Scan(facts, records, isComplete)
-	if err := world.ingester.IngestRecords(world.t.Context(), world.nodeID, all); err != nil {
+	all := librarytest.Scan(facts, records, isComplete)
+	if err := world.ingester.IngestScan(world.t.Context(), world.nodeID, facts.RootPath, all); err != nil {
 		world.t.Fatal(err)
 	}
 }
@@ -137,7 +139,7 @@ func (world *harness) paths() []string {
 func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("Wing (1979)/Wing.mkv", "alien"),
 		skipRecord("Wing (1979)/notes.txt", nodeproto.SkipExtension),
 		errorRecord("Broken.mkv", nodeproto.ScopeEntry),
@@ -176,13 +178,13 @@ func (world *harness) checkStreams(fileID int64) {
 func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("Wing.mkv", "alien"), observedRecord("Metropolis.mkv", "heat"), observedRecord("Gone.mkv", "gone"),
 		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
 	before := world.liveFilesByPath()
 
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("Wing.mkv", "alien"),                     // same path, same payload: the same file
 		observedRecord("Crime/Metropolis (1995).mkv", "heat"),          // a new path, a payload not seen yet: moved
 		observedRecord("Nosferatu.mkv", "ronin, the director's cut"), // same path, a new payload: replaced
@@ -209,10 +211,10 @@ func TestIngest_D179MatchesAFileByItsPayloadWhereverItIs(t *testing.T) {
 func TestIngest_ACopyIsADuplicateAndTheRecordedPathKeepsTheIdentity(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "alien")}, true)
 	original := world.liveFilesByPath()[root+"/a.mkv"].ID
 	// "a-copy.mkv" sorts before "a.mkv", so the copy arrives while the original is still unseen.
-	world.scan([]nodeproto.Record{observedRecord("a-copy.mkv", "alien"), observedRecord("a.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a-copy.mkv", "alien"), observedRecord("a.mkv", "alien")}, true)
 	live := world.liveFilesByPath()
 	copied := live[root+"/a-copy.mkv"].ID
 	if live[root+"/a.mkv"].ID != original || copied == 0 || copied == original {
@@ -223,24 +225,24 @@ func TestIngest_ACopyIsADuplicateAndTheRecordedPathKeepsTheIdentity(t *testing.T
 func TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	everything := []nodeproto.Record{
+	everything := []nodeproto.ScanRecord{
 		observedRecord("Locked/a.mkv", "a"), observedRecord("Locked/b.mkv", "b"),
 		observedRecord("Open/c.mkv", "c"), observedRecord("d.mkv", "d"),
 	}
 	world.scan(everything, true)
 
-	world.scan([]nodeproto.Record{observedRecord("Open/c.mkv", "c")}, false) // cut off: nothing may go
+	world.scan([]nodeproto.ScanRecord{observedRecord("Open/c.mkv", "c")}, false) // cut off: nothing may go
 	if got := len(world.paths()); got != 4 {
 		t.Fatalf("%d live files after a scan that never completed, want all 4 (D39)", got)
 	}
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		errorRecord("Locked", nodeproto.ScopeSubtree), observedRecord("Open/c.mkv", "c"),
 	}, true)
 	want := []string{"Locked", "Locked/a.mkv", "Locked/b.mkv", "Open/c.mkv"}
 	if got := world.paths(); !slices.Equal(got, want) {
 		t.Errorf("live %q, want %q: d.mkv gone, the unreadable Locked/ kept whole (D40)", got, want)
 	}
-	world.scan([]nodeproto.Record{errorRecord(".", nodeproto.ScopeRoot)}, true)
+	world.scan([]nodeproto.ScanRecord{errorRecord(".", nodeproto.ScopeRoot)}, true)
 	if got := world.paths(); !slices.Equal(got, want) {
 		t.Errorf("live %q after the root could not be read, want nothing removed", got)
 	}
@@ -249,7 +251,8 @@ func TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead(t *testing.
 func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scanOn(nodeproto.ScanBegin{RootPath: "/media/elsewhere"}, []nodeproto.Record{observedRecord("x.mkv", "x")},
+	world.scanOn(nodeproto.ScanBegin{RootPath: "/media/elsewhere"},
+		[]nodeproto.ScanRecord{observedRecord("x.mkv", "x")},
 		true)
 	if got := world.liveFilesByPath(); len(got) != 0 {
 		t.Errorf("stored %v for a root no library covers", got)
@@ -260,7 +263,7 @@ func TestIngest_APathIsStoredInNFCBesideItsBytes(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	decomposed := "Fièvre.mkv" // as macOS writes it
-	world.scan([]nodeproto.Record{observedRecord(decomposed, "fievre")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord(decomposed, "fievre")}, true)
 	row, found := world.liveFilesByPath()[root+"/Fièvre.mkv"]
 	if !found || string(row.ReportedPathRaw) != root+"/"+decomposed {
 		t.Errorf("rows %+v: want the NFC path, with the decomposed bytes beside it (D49)", world.liveFilesByPath())
@@ -285,12 +288,13 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	world.scan([]nodeproto.Record{observedRecord("Film.mkv", "same bytes")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Film.mkv", "same bytes")}, true)
 	film := world.liveFilesByPath()[root+"/Film.mkv"]
 
 	// The shows root holds a file with the film's payload. The film was not seen by this scan
 	// only because it is in another root, so it is not absent: this is a duplicate, not a move.
-	world.scanOn(nodeproto.ScanBegin{RootPath: shows}, []nodeproto.Record{observedRecord("Episode.mkv", "same bytes")},
+	world.scanOn(nodeproto.ScanBegin{RootPath: shows},
+		[]nodeproto.ScanRecord{observedRecord("Episode.mkv", "same bytes")},
 		true)
 	live := world.liveFilesByPath()
 	if kept, found := live[root+"/Film.mkv"]; !found || kept.ID != film.ID || kept.LibraryID != film.LibraryID {
@@ -305,7 +309,7 @@ func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
 	return sqlcgen.GetRootStateParams{NodeID: nodeID, RootPath: root}
 }
 
-func sidecarRecord(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
+func sidecarRecord(path string, kind nodeproto.SidecarKind, body string) nodeproto.ScanRecord {
 	record := &nodeproto.Sidecar{
 		Path: nodeproto.Path{Text: path}, Kind: kind, SizeBytes: int64(len(body)),
 		ModifiedAt: 1,
@@ -313,13 +317,13 @@ func sidecarRecord(path string, kind nodeproto.SidecarKind, body string) nodepro
 	if kind == nodeproto.SidecarNFO {
 		record.NFOBody = []byte(body)
 	}
-	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record}
+	return nodeproto.ScanRecord{Type: nodeproto.RecordSidecar, Sidecar: record}
 }
 
 func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		// Sidecars before their videos, as byte order often sends them.
 		sidecarRecord("Metropolis (1995)/Metropolis (1995) - 720p.en.srt", nodeproto.SidecarSubtitle, "1\n"),
 		sidecarRecord("Metropolis (1995)/Metropolis (1995).nfo", nodeproto.SidecarNFO, "<movie><title>Metropolis</title></movie>"),
@@ -376,11 +380,11 @@ func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
 	world := newHarness(t)
 	var handed []int64
 	world.ingester.SetOnScanEnded(func(_ context.Context, libraryID int64) { handed = append(handed, libraryID) })
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, false)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
 	if len(handed) != 0 {
 		t.Errorf("a scan that never ended handed on %v", handed)
 	}
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, true)
 	if len(handed) != 1 || handed[0] != world.liveFilesByPath()[root+"/a.mkv"].LibraryID {
 		t.Errorf("handed on %v, want the scanned library once", handed)
 	}
@@ -391,15 +395,15 @@ func TestIngest_ABatchThatAddsAFileAsksForAPassBeforeTheScanEnds(t *testing.T) {
 	world := newHarness(t)
 	asked := 0
 	world.ingester.SetOnNewFiles(func(context.Context) { asked++ })
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, false)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
 	if asked != 1 {
 		t.Errorf("a scan still going that found a new film asked for %d passes, want 1", asked)
 	}
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a")}, false)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
 	if asked != 1 {
 		t.Errorf("the same film read again unchanged asked for a pass (%d asked), want none", asked)
 	}
-	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b")}, true)
 	if asked != 2 {
 		t.Errorf("a second film asked for %d passes in all, want 2", asked)
 	}
@@ -414,7 +418,7 @@ func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
 	// "é" as one code point and as e plus a combining accent: one NFC text, two files on ext4.
 	composed, decomposed := observedRecord("café.mkv", "third"), observedRecord("café.mkv", "fourth")
 	for range 2 {
-		world.scan([]nodeproto.Record{invalid1, invalid2, composed, decomposed}, true)
+		world.scan([]nodeproto.ScanRecord{invalid1, invalid2, composed, decomposed}, true)
 		rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
 		if err != nil || len(rows) != 4 {
 			t.Fatalf("%d live files (%v), want 4: each keeps its own row across scans", len(rows), err)
@@ -428,7 +432,7 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 	world := newHarness(t)
 	hostile := observedRecord("evil\u202Evkm.mkv", "hostile")
 	hostile.Observed.Probe.Streams[1].ContainerTitle = "Commentary\u2066\u0007\u200B"
-	world.scan([]nodeproto.Record{hostile}, true)
+	world.scan([]nodeproto.ScanRecord{hostile}, true)
 	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("files %+v, %v", rows, err)
@@ -453,7 +457,7 @@ func TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape(t *testing.T) {
 	hashed.Observed.OpensubtitlesHash = "8e245d9679d31e12"
 	hostile := observedRecord("hostile.mkv", "hostile")
 	hostile.Observed.OpensubtitlesHash = "8e245d9679d31e12&moviehash_match=only"
-	world.scan([]nodeproto.Record{hashed, hostile}, true)
+	world.scan([]nodeproto.ScanRecord{hashed, hostile}, true)
 	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("files %+v, %v", rows, err)

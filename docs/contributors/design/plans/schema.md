@@ -908,20 +908,25 @@ reference scale, and removes a failure mode.
 > no runner waiting for it (D234 §7, Phase 4.0); version 24 `node_attempt`, each job given to a node by
 > its attempt token, so its node's word resolves it after a restart too (Phase 4c); version 25 a job's
 `wanted_until`, past which play-driven work no person waits for falls to background priority (D234
-§3, Phase 4d).
+§3, Phase 4d); version 26 `scan` and `scan_batch`, a root's scan in progress and the batches of files
+it has its node read, and a job's `scan_id` and `scan_batch_id`, the targets of the `scan` and
+`examine` kinds (D240, Phase 4e).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
-  -- measure_loudness a file. At most one is set; scan and backup, not yet jobs, set none.
+  -- measure_loudness a file, scan a scan (its listing), examine a scan's batch. At most one is set;
+  -- backup, not yet a job, sets none.
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
+  scan_id             INTEGER,
+  scan_batch_id       INTEGER,
   -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
@@ -936,13 +941,13 @@ CREATE TABLE job (                                         -- the one work queue
   -- Whether a queued job waits for a time it was given (a rate limit, a hold), which a repeat
   -- request never brings forward; 0 when it waits on its start or its back-off (D231 section 8).
   is_snoozed  INTEGER NOT NULL DEFAULT 0 CHECK (is_snoozed IN (0, 1)),
-  attempt_count    INTEGER NOT NULL DEFAULT 0,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
   -- Whether its last attempt ended with the tool failing (a stall, a panic): a second in a row is
   -- the job's own failure (D233 section 6).
   last_attempt_tool_failed INTEGER NOT NULL DEFAULT 0 CHECK (last_attempt_tool_failed IN (0, 1)),
   progress_fraction REAL,                -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
-  last_failure  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
+  last_failure TEXT,                     -- FFmpeg's exit and stderr tail, the provider's reply
   created_at  INTEGER NOT NULL,
   finished_at INTEGER,
   -- When an assigned job's time runs out, after which it is its own failure; kept while its
@@ -952,9 +957,34 @@ CREATE TABLE job (                                         -- the one work queue
   -- asks for it moves it on; past it, the job falls to background priority. NULL for other work.
   wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
-         (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) <= 1)
+         (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
+         (scan_batch_id IS NOT NULL) <= 1)
 );
 CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
+CREATE TABLE scan (                                        -- D240: a root's scan in progress
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  node_id     INTEGER NOT NULL,          -- persistent.db's node, whose root it is
+  root_path   TEXT NOT NULL,
+  priority    INTEGER NOT NULL,          -- its jobs': a person's request, or the queue's own
+  started_at  INTEGER NOT NULL,
+  -- When its listing was taken, NULL before: from then the ingest holds what it compared, which a
+  -- restart loses, so such a scan starts again.
+  listed_at   INTEGER,
+  listed_count  INTEGER NOT NULL DEFAULT 0,  -- the files its listing found (D236 section 2)
+  examine_count INTEGER NOT NULL DEFAULT 0,  -- of them, those it needs read
+  examined_count INTEGER NOT NULL DEFAULT 0, -- and of those, read
+  -- Whether a scan was asked for while this one ran: one more follows it (D236 section 3).
+  is_scan_again INTEGER NOT NULL DEFAULT 0 CHECK (is_scan_again IN (0, 1)),
+  UNIQUE (node_id, root_path)
+);
+CREATE TABLE scan_batch (                                  -- D240 section 8: a batch to examine
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  scan_id     INTEGER NOT NULL REFERENCES scan(id) ON DELETE CASCADE,
+  files_json  TEXT NOT NULL,             -- the files, as the examine command names them
+  file_count  INTEGER NOT NULL,
+  is_done     INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1))
+);
+CREATE INDEX scan_batch_of_scan ON scan_batch(scan_id);
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
   item_id     INTEGER NOT NULL,          -- a film, or a series (D209)
   rank        INTEGER NOT NULL,
@@ -1116,6 +1146,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |
+| `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
+| `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
 | `prepared_rendition` | cache.db | `internal/core/playback` | |
 
 ## Not in Cut A, and additive

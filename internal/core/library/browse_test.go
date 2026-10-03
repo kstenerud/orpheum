@@ -99,7 +99,7 @@ func entryNames(page Page) []string {
 func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("z.mkv", "z"), observedRecord("o.mkv", "o"), observedRecord("a.mkv", "a"),
 	}, true)
 	world.fileAsFilm("Destiny", "z.mkv")
@@ -128,7 +128,7 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"), observedRecord("c.mkv", "c"),
 	}, true)
 	world.fileAsFilm("First", "a.mkv")
@@ -148,7 +148,7 @@ func TestBrowse_FilmsNewestFirst(t *testing.T) {
 func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observedRecord("metropolis.mkv", "heat")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("metropolis.mkv", "heat")}, true)
 	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
 	detail, err := world.browser.Title(t.Context(), heat)
 	if err != nil || detail.Name == nil || *detail.Name != "Metropolis" || len(detail.Versions) != 1 {
@@ -166,7 +166,7 @@ func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("b.mkv", "b"), observedRecord("s.mkv", "s"),
 		observedRecord("u.mkv", "u"), observedRecord("h.mkv", "h"),
 	}, true)
@@ -195,14 +195,14 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observedRecord("h.mkv", "h"), observedRecord("u.mkv", "u")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("h.mkv", "h"), observedRecord("u.mkv", "u")}, true)
 	world.fileAsFilm("Metropolis", "h.mkv")
 	world.fileAsFilm("Up", "u.mkv")
 	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 1 {
 		t.Fatalf("Search(heat) with its file = %+v, %v; want Metropolis", hits, err)
 	}
 	// A complete scan without h.mkv removes its file; the film is kept, with its history, unlisted.
-	world.scan([]nodeproto.Record{observedRecord("u.mkv", "u")}, true)
+	world.scan([]nodeproto.ScanRecord{observedRecord("u.mkv", "u")}, true)
 	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 0 {
 		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
 	}
@@ -211,7 +211,7 @@ func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{
 		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
 		observedRecord("interview.mkv", "interview"),
 	}, true)
@@ -233,7 +233,9 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A complete scan without the interview removes its file; its title is kept, unlisted.
-	world.scan([]nodeproto.Record{observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer")}, true)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
+	}, true)
 	detail, err := world.browser.Title(t.Context(), heat)
 	if err != nil {
 		t.Fatal(err)

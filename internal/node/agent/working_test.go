@@ -154,8 +154,7 @@ func TestWorkList_ADevicesReadersAreBoundedByItsLimit(t *testing.T) {
 }
 
 // Play-driven work that finds its device's readers taken pauses the background work reading it, and
-// starts; once it ends, the paused work continues. A scan on the device waits for it meanwhile
-// (D240 §6).
+// starts; once it ends, the paused work continues (D240 §6).
 func TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds(t *testing.T) {
 	t.Parallel()
 	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1})
@@ -167,19 +166,9 @@ func TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds(t *te
 	if stateOf(list, 1) != "paused" {
 		t.Errorf("the measurement on the play's device is %s, want paused", stateOf(list, 1))
 	}
-	scanned := make(chan error, 1)
-	go func() { scanned <- list.waitForPlayOn(t.Context(), "zfs:tank") }()
-	select {
-	case err := <-scanned:
-		t.Errorf("a scan of the play's device went on (%v) while the play-driven work ran", err)
-	case <-time.After(50 * time.Millisecond):
-	}
 	close(play.release)
 	if err := testutil.Receive(t, play.ended, "the play-driven prepare's end"); err != nil {
 		t.Errorf("the play-driven prepare ended %v, want released", err)
-	}
-	if err := testutil.Receive(t, scanned, "the scan going on"); err != nil {
-		t.Errorf("the scan's wait ended %v, want it to go on", err)
 	}
 	if state := stateOf(list, 1); state != "running" {
 		t.Errorf("once the play-driven work ended the measurement is %s, want running again", state)
