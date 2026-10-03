@@ -74,9 +74,9 @@ func TestSend_ACommandToANodeNotConnectedParksItsJobAndSendsNothing(t *testing.T
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	ctx := t.Context()
-	scan := nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}},
-	}
+	scan := nodeproto.Command{JobID: 3, Work: nodeproto.Work{
+		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: "/media", Path: "."},
+	}}
 	err := harness.service.Send(ctx, 7, scan)
 	parking, isParked := jobqueue.ParkingOf(err)
 	if !isParked || parking.Destination != jobs.NodeDestination(7) || !parking.AwaitsSignal ||
@@ -155,7 +155,7 @@ func TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory(t *
 		}
 		status := []nodeproto.Record{{
 			ReportSeq: seq, Type: nodeproto.RecordStatus,
-			Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
+			Status: &nodeproto.Status{PreparedUsage: &usage},
 		}}
 		if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 			http.StatusNoContent {
@@ -219,9 +219,9 @@ func TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated(t 
 	if connection, _ := harness.service.NodeConnection(ctx, connected.NodeID); connection != NeedsUpdate {
 		t.Errorf("the refused node is %s, want %s", connection, NeedsUpdate)
 	}
-	scan := nodeproto.Command{
-		Work: nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/media"}},
-	}
+	scan := nodeproto.Command{JobID: 3, Work: nodeproto.Work{
+		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: "/media", Path: "."},
+	}}
 	parking, isParked := jobqueue.ParkingOf(harness.service.Send(ctx, connected.NodeID, scan))
 	if !isParked || parking.Destination != jobs.NodeDestination(connected.NodeID) ||
 		parking.Reason != jobs.ReasonNeedsUpdate || !parking.AwaitsSignal {
@@ -249,7 +249,7 @@ func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *test
 	held := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "taken", State: nodeproto.HeldRunning}}
 	status := []nodeproto.Record{{
 		ReportSeq: 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Activity: "idle", Held: held, TakenCommandSeq: 1},
+		Status: &nodeproto.Status{Held: held, TakenCommandSeq: 1},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 		http.StatusNoContent {

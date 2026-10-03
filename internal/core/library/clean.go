@@ -11,7 +11,7 @@ import (
 // D211): what a container's tags and a platform's error text say is attacker-controlled —
 // a track title, a chapter name, stderr quoting a filename — and past here every one of them is
 // safe to store, relate and show. Paths are cleaned by nodePath, which also keeps their bytes.
-func cleanRecord(record nodeproto.Record) nodeproto.Record {
+func cleanRecord(record nodeproto.ScanRecord) nodeproto.ScanRecord {
 	if record.Observed != nil {
 		observed := *record.Observed
 		observed.Probe = cleanProbe(observed.Probe)

@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -40,7 +41,7 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		// What the root is on: some device, of a kind, mounted at or above it (D240 §5).
 		`"devices":[{"key":`,
 		`"msg":"a node finished a scan"`,
-		`"observedCount":1,"sidecarCount":0,"skippedCount":1,"errorCount":0`,
+		`"listedCount":2,"examinedCount":1,"errorCount":0`,
 		`"msg":"identified a library"`,
 	} {
 		if !strings.Contains(log, want) {
@@ -87,9 +88,18 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 
 func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	t.Parallel()
-	scanned := scanOnce(t, "tmdb", "queued fetches")
-	config := scanned.config
-	if log := scanned.log.String(); !strings.Contains(log, `"awaitingMatch":1`) {
+	shelved := filmOnNode(t, "tmdb")
+	config := shelved.config
+	// The film's match is queued by the identification a new file asks for, while the scan goes on,
+	// or by the one at its end, whichever comes first (D236 §1).
+	const identified, queued = "identified a library", "queued fetches"
+	captured := newCapturedLog("ready", identified, queued)
+	server := serveWithNode(t, config, captured, identified)
+	testutil.Receive(t, captured.signals[queued], "the film's match queued")
+	if stopped := server.stop(); stopped != nil {
+		t.Errorf("serve returned %v", stopped)
+	}
+	if log := captured.String(); !strings.Contains(log, `"awaitingMatch":1`) {
 		t.Errorf("the log does not say one film awaits its match:\n%s", log)
 	}
 	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
@@ -101,7 +111,8 @@ func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs) != 1 || jobs[0].Kind != "fetch_metadata" || jobs[0].State == "failed" {
+	fetches := slices.DeleteFunc(jobs, func(job cachegen.Job) bool { return job.Kind != "fetch_metadata" })
+	if len(fetches) != 1 || fetches[0].State == "failed" {
 		t.Errorf("cache.db holds %+v; want one fetch_metadata job, waiting (no TMDB key is set)", jobs)
 	}
 }
@@ -148,7 +159,6 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 	fake := testutil.InstallFakeFFmpeg(t, reply)
 	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = fake.Directory
-	config.Node.VideoExtensions = []string{"mkv"}
 	nodeID := enrolNodeWithLibrary(t, config, media,
 		libraryShape{name: "Films", kind: "movies", metadataSource: metadataSource})
 	return filmFixture{config: config, configPath: configPath, media: media, nodeID: nodeID}

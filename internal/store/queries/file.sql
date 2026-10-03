@@ -235,3 +235,16 @@ UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path W
 -- name: SetFileFiling :exec
 -- How identification filed a file, and why (D163).
 UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason) WHERE id = sqlc.arg(id);
+
+-- name: ListFilesToCompare :many
+-- The live files of a library on a node, with what a listing is compared with (D240 section 3): a
+-- file whose size and modified time are as stored, and which was read whole, needs nothing.
+SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
+       CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
+       CAST(nfo_body IS NOT NULL AS INTEGER) AS has_nfo_body
+FROM file
+WHERE node_id = sqlc.arg(node_id) AND library_id = sqlc.arg(library_id) AND removed_at IS NULL;
+
+-- name: SetFileSeen :exec
+-- A file a listing found as stored: it was seen, and nothing else changed.
+UPDATE file SET last_seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);

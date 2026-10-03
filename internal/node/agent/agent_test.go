@@ -24,7 +24,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
-	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -130,7 +129,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			core.mutex.Lock()
 			isTokenless := core.tokenlessJobIDs[command.JobID]
 			core.mutex.Unlock()
-			if command.AttemptToken == "" && command.Type != nodeproto.CommandScan && !isTokenless {
+			if command.AttemptToken == "" && !isTokenless {
 				command.AttemptToken = tokenOf(command.JobID)
 			}
 			answer := nodeproto.Commands{Commands: []nodeproto.Command{command}}
@@ -316,20 +315,8 @@ func (core *fakeCore) helloCount() int {
 	return len(core.hellos)
 }
 
-// fakeScanner reports a fixed scan of whatever root it is given.
+// fakeScanner lists and examines as the node's scanner does (listing_test.go).
 type fakeScanner struct{}
-
-func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Emit) error {
-	for _, record := range []nodeproto.ScanRecord{
-		{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()}},
-		{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: root.Path()}},
-	} {
-		if err := emit(record); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // fakeArtworker answers every artwork command with one size, the source's bytes reversed, and a
 // cancelled one with a refusal.
@@ -399,48 +386,23 @@ func receiveRecord(t *testing.T, core *fakeCore) nodeproto.Record {
 	}
 }
 
-func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T) {
+func TestAgent_SaysHelloAndStreamsItsStatusInNumberedOrder(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	root, tick := startAgent(t, socket)
-
-	core.commands <- nodeproto.Command{
-		CommandSeq: 1,
-		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root.Path()}},
-	}
-	begin, complete := receiveRecord(t, core), receiveRecord(t, core)
-	if begin.Type != nodeproto.RecordScanBegin || begin.ReportSeq != 41 ||
-		complete.Type != nodeproto.RecordScanComplete ||
-		complete.ReportSeq != 42 {
-		t.Errorf("heard %s #%d then %s #%d; want the scan numbered on from the core's 40",
-			begin.Type, begin.ReportSeq, complete.Type, complete.ReportSeq)
-	}
-	// A status record reaches the core while the report is still open: each record is sent as
-	// it is written, not when the request ends.
-	tick <- time.Time{}
-	if status := receiveRecord(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != 43 ||
-		status.Status.Activity != "idle" {
-		t.Errorf("heard %+v, want status #43, idle", status)
+	// Each status reaches the core while the report is still open, numbered on from the core's 40:
+	// each record is sent as it is written, not when the request ends.
+	for _, want := range []int64{41, 42} {
+		tick <- time.Time{}
+		if status := receiveRecord(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != want {
+			t.Errorf("heard %+v, want status #%d", status, want)
+		}
 	}
 	core.mutex.Lock()
 	hello := core.hellos[0]
 	core.mutex.Unlock()
 	if hello.Name != "local" || len(hello.RootPaths) != 1 || hello.RootPaths[0] != root.Path() {
 		t.Errorf("the hello was %+v, want the node's name and its root", hello)
-	}
-}
-
-func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
-	t.Parallel()
-	core, socket := startFakeCore(t)
-	_, tick := startAgent(t, socket)
-	core.commands <- nodeproto.Command{
-		CommandSeq: 1,
-		Work:       nodeproto.Work{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: "/etc"}},
-	}
-	tick <- time.Time{}
-	if record := receiveRecord(t, core); record.Type != nodeproto.RecordStatus {
-		t.Errorf("heard %s before the status; a scan of /etc ran (D107)", record.Type)
 	}
 }
 
@@ -776,7 +738,7 @@ func TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello(t *testin
 	core.commands <- nodeproto.Command{
 		CommandSeq: 2,
 		JobID:      32,
-		Work:       nodeproto.Work{Type: nodeproto.CommandScan},
+		Work:       nodeproto.Work{Type: nodeproto.CommandList},
 	} // no payload
 	// Each refusal is posted beside the node's other work, so they may arrive in either order.
 	var refusedJobIDs []int64

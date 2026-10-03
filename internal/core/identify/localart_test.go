@@ -12,8 +12,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-func imageRecord(path string) nodeproto.Record {
-	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
+func imageRecord(path string) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
 		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarImage, SizeBytes: 100, ModifiedAt: 7,
 	}}
 }

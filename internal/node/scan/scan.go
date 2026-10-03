@@ -4,8 +4,6 @@ package scan
 
 import (
 	"context"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/fs"
 	"path"
@@ -13,9 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
 // Prober looks inside one file; probe.Prober is the real one.
@@ -23,66 +19,40 @@ type Prober interface {
 	Probe(ctx context.Context, absolutePath string) (nodeproto.Probe, error)
 }
 
-// Emit sends one record on. An error stops the scan: nobody is listening.
-type Emit func(record nodeproto.ScanRecord) error
+// emitFunc takes one record of a listing or an examining.
+type emitFunc func(record nodeproto.ScanRecord) error
 
 // Options are the scanner's settings, from the node's config file.
 type Options struct {
-	// VideoExtensions are the extensions, lower case and without the dot, of files worth
-	// probing. Anything that is neither a video nor a sidecar is skipped with the rule
-	// "extension".
-	VideoExtensions []string
-	// SubtitleExtensions are the extensions of text subtitle files, reported as sidecars.
-	SubtitleExtensions []string
-	// MaxErrors is how many errors one root may produce before the scanner stops enumerating
-	// it and reports the root as unreadable (D40: a dead share must not flood the report).
+	// MaxErrors is how many errors one root may produce before the scanner stops listing it and
+	// reports the root as unreadable (D40: a dead share must not flood the listing).
 	MaxErrors int
 	// UID and GID are the node's effective ids, reported so an error can be read against them.
 	UID, GID int
 }
 
-// Scanner walks media roots and reports what it finds (scanner.md). It reports; the core
-// decides.
+// Scanner lists under media roots and examines the files the core names (D240). It reports; the
+// core decides.
 type Scanner struct {
-	roots              []*confine.MediaRoot
-	prober             Prober
-	videoExtensions    map[string]bool
-	subtitleExtensions map[string]bool
-	options            Options
+	roots   []*confine.MediaRoot
+	prober  Prober
+	options Options
 }
-
-// maxNFOBytes bounds the NFO a sidecar record carries. Real ones are a few kilobytes; a larger
-// one is refused with an error record rather than sent.
-const maxNFOBytes = 1 << 20
-
-// errNFOTooLarge is an NFO past maxNFOBytes.
-var errNFOTooLarge = errors.New("an NFO file larger than the node sends")
 
 // NewScanner returns a scanner over roots, every configured media root: a symlink is followed
 // only into one of them (D206).
 func NewScanner(roots []*confine.MediaRoot, prober Prober, options Options) *Scanner {
-	return &Scanner{
-		roots: roots, prober: prober, videoExtensions: lowerSet(options.VideoExtensions),
-		subtitleExtensions: lowerSet(options.SubtitleExtensions), options: options,
-	}
-}
-
-func lowerSet(values []string) map[string]bool {
-	set := make(map[string]bool, len(values))
-	for _, value := range values {
-		set[strings.ToLower(value)] = true
-	}
-	return set
+	return &Scanner{roots: roots, prober: prober, options: options}
 }
 
 // location is where an entry is read from — a media root and a path inside it — and the path
-// it is reported under, relative to the root being scanned. They differ below a followed link.
+// it is reported under, relative to the root being listed. They differ below a followed link.
 type location struct {
 	mediaRoot    *confine.MediaRoot
 	relativePath string
 	reportedPath string
 	device       uint64 // the directory's device, for spotting a mount boundary below it
-	level        int    // how far below where the walk started: its entries are 1
+	level        int    // how far below where the listing started: its entries are 1
 }
 
 func (place location) child(name string) location {
@@ -95,22 +65,10 @@ func (place location) child(name string) location {
 
 func (place location) absolute() string { return path.Join(place.mediaRoot.Path(), place.relativePath) }
 
-// Scan walks root and emits scan_begin, then a record for everything it finds, then
-// scan_complete. A cancelled scan ends with a run-scoped error and no scan_complete, so the
-// core applies no removals from it (D39).
-func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit Emit) error {
-	walk := &walk{
-		scanner: scanner,
-		ctx:     ctx,
-		emit:    emit,
-		visited: map[string]bool{},
-		errors:  newErrorLog(emit, scanner.options.MaxErrors),
-	}
-	return walk.run(root, ".")
-}
-
 // List lists what is under start, a path relative to root, to depth levels below it, 0 for the whole
-// tree, and returns its records (nodeproto.Listing says which): it reads no file (D240 §2).
+// tree, and returns its records (nodeproto.Listing says which): it reads no file (D240 §2). A
+// cancelled listing ends with a run-scoped error and no scan_complete, so the core removes nothing
+// for it (D39).
 func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
 	[]nodeproto.ScanRecord, error,
 ) {
@@ -121,27 +79,22 @@ func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, start
 	}
 	walk := &walk{
 		scanner: scanner, ctx: ctx, emit: emit, visited: map[string]bool{},
-		errors: newErrorLog(emit, scanner.options.MaxErrors), isListing: true, depth: depth,
+		errors: newErrorLog(emit, scanner.options.MaxErrors), depth: depth,
 	}
 	err := walk.run(root, path.Clean(start))
 	return records, err
 }
 
-// walk is one scan in progress.
+// walk is one listing in progress.
 type walk struct {
-	scanner       *Scanner
-	ctx           context.Context //nolint:containedctx // one walk is one call's context
-	emit          Emit
-	visited       map[string]bool
-	errors        *errorLog
-	observedCount int
-	sidecarCount  int
-	skippedCount  int
-	listedCount   int
-	// isListing lists each entry with its stat and reads no file, leaving every rule but the node's
-	// own to the core: a link out of the roots, what is neither a file nor a directory (D240 §3).
-	isListing bool
-	// depth is how many levels below its start a listing goes, 0 for all of them.
+	scanner      *Scanner
+	ctx          context.Context //nolint:containedctx // one walk is one call's context
+	emit         emitFunc
+	visited      map[string]bool
+	errors       *errorLog
+	skippedCount int
+	listedCount  int
+	// depth is how many levels below its start the listing goes, 0 for all of them.
 	depth int
 }
 
@@ -158,7 +111,7 @@ func (walk *walk) run(root *confine.MediaRoot, start string) error {
 	}
 	if factsErr != nil {
 		// Without the facts the core cannot tell an unmounted disk from an empty one, so the
-		// root is not enumerated: a root error withholds every removal (D40, D41).
+		// root is not listed: a root error withholds every removal (D40, D41).
 		walk.errors.record(".", nodeproto.ScopeRoot, factsErr, nil)
 	} else {
 		err = walk.walkStart(location{
@@ -176,12 +129,10 @@ func (walk *walk) run(root *confine.MediaRoot, start string) error {
 		if flushErr := walk.errors.flush(); flushErr != nil {
 			return flushErr
 		}
-		return fmt.Errorf("scan %s: %w", root.Path(), ctx.Err())
+		return fmt.Errorf("list %s: %w", root.Path(), ctx.Err())
 	}
 	return emit(nodeproto.ScanRecord{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{
 		RootPath:          root.Path(),
-		ObservedCount:     walk.observedCount,
-		SidecarCount:      walk.sidecarCount,
 		SkippedCount:      walk.skippedCount,
 		ListedCount:       walk.listedCount,
 		ErrorCount:        walk.errors.errorCount,
@@ -189,8 +140,8 @@ func (walk *walk) run(root *confine.MediaRoot, start string) error {
 	}})
 }
 
-// walkStart walks where the walk starts: the root, or a directory under it a listing names, whose
-// device a mount below it is told from.
+// walkStart walks where the listing starts: the root, or a directory under it, whose device a mount
+// below it is told from.
 func (walk *walk) walkStart(start location) error {
 	if start.relativePath == "." {
 		return walk.walkDirectory(start)
@@ -205,7 +156,7 @@ func (walk *walk) walkStart(start location) error {
 	return walk.walkDirectory(start)
 }
 
-// walkDirectory reports everything below place, once per real directory however many links reach it.
+// walkDirectory lists everything below place, once per real directory however many links reach it.
 func (walk *walk) walkDirectory(place location) error {
 	if walk.visited[place.absolute()] {
 		return nil
@@ -223,7 +174,7 @@ func (walk *walk) walkDirectory(place location) error {
 		if walk.ctx.Err() != nil || walk.errors.isStopped {
 			return walk.errors.emitErr
 		}
-		if err := walk.reportEntry(place, entry.Name()); err != nil {
+		if err := walk.listEntry(place, entry.Name()); err != nil {
 			return err
 		}
 	}
@@ -234,12 +185,9 @@ func (walk *walk) walkDirectory(place location) error {
 	return walk.errors.emitErr
 }
 
-// reportEntry reports one directory entry.
-func (walk *walk) reportEntry(parent location, name string) error {
+// listEntry lists one directory entry.
+func (walk *walk) listEntry(parent location, name string) error {
 	place := parent.child(name)
-	if !walk.isListing && parent.reportedPath == "." && name == ".trash" {
-		return walk.skip(place, nodeproto.SkipTrash)
-	}
 	info, err := place.mediaRoot.Lstat(place.relativePath)
 	if err != nil {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, nil)
@@ -248,26 +196,19 @@ func (walk *walk) reportEntry(parent location, name string) error {
 	case mode&fs.ModeSymlink != 0:
 		return walk.followSymlink(place)
 	case mode.IsDir():
-		if !walk.isListing && isSampleDirectory(name) {
-			return walk.skip(place, nodeproto.SkipSample)
-		}
 		return walk.enter(place, info)
-	case mode.IsRegular() && walk.isListing:
-		return walk.list(place, info)
 	case mode.IsRegular():
-		return walk.reportFile(place, info)
+		return walk.list(place, info)
 	default:
 		return walk.skip(place, nodeproto.SkipNotRegular)
 	}
 }
 
-// enter walks a directory, first reporting it as a mount boundary when it is on another device
-// than its parent (D42, D208).
+// enter lists a directory, then reports it as a mount boundary when it is on another device than
+// its parent (D42, D208), then lists what is in it, as deep as the listing goes.
 func (walk *walk) enter(place location, info fs.FileInfo) error {
-	if walk.isListing {
-		if err := walk.list(place, info); err != nil {
-			return err
-		}
+	if err := walk.list(place, info); err != nil {
+		return err
 	}
 	if device, known := confine.DeviceOf(info); known && device != place.device {
 		place.device = device
@@ -278,13 +219,13 @@ func (walk *walk) enter(place location, info fs.FileInfo) error {
 			return err
 		}
 	}
-	if walk.isListing && walk.depth > 0 && place.level >= walk.depth {
+	if walk.depth > 0 && place.level >= walk.depth {
 		return nil
 	}
 	return walk.walkDirectory(place)
 }
 
-// list reports an entry a listing found, with its stat.
+// list reports an entry with its stat.
 func (walk *walk) list(place location, info fs.FileInfo) error {
 	device, _ := confine.DeviceOf(info)
 	walk.listedCount++
@@ -298,123 +239,43 @@ func (walk *walk) list(place location, info fs.FileInfo) error {
 // all (D206). Below a followed link, entries are read from the target and reported under the
 // link's path.
 func (walk *walk) followSymlink(place location) error {
-	resolved, err := place.mediaRoot.Resolve(place.relativePath)
+	target, isInside, err := walk.scanner.resolve(place)
 	if err != nil {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, nil)
 	}
-	for _, media := range walk.scanner.roots {
-		relativePath, inside := media.RelativeIfInside(resolved)
-		if !inside {
-			continue
-		}
-		target := location{
-			mediaRoot: media, relativePath: relativePath, reportedPath: place.reportedPath, device: place.device,
-			level: place.level,
-		}
-		info, err := media.Lstat(relativePath)
-		if err != nil {
-			return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, nil)
-		}
-		switch {
-		case info.IsDir():
-			return walk.enter(target, info)
-		case info.Mode().IsRegular() && walk.isListing:
-			return walk.list(place, info)
-		case info.Mode().IsRegular():
-			return walk.reportFile(target, info)
-		default:
-			return walk.skip(place, nodeproto.SkipNotRegular)
-		}
+	if !isInside {
+		return walk.skip(place, nodeproto.SkipSymlinkOutsideRoots)
 	}
-	return walk.skip(place, nodeproto.SkipSymlinkOutsideRoots)
-}
-
-// reportFile probes and hashes a video file, or skips anything else.
-func (walk *walk) reportFile(place location, info fs.FileInfo) error {
-	name := path.Base(place.reportedPath)
-	if strings.HasPrefix(name, "._") {
-		return walk.skip(place, nodeproto.SkipAppleDouble)
+	info, err := target.mediaRoot.Lstat(target.relativePath)
+	if err != nil {
+		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, nil)
 	}
-	extension := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
 	switch {
-	case extension == "nfo":
-		return walk.reportSidecar(place, info, nodeproto.SidecarNFO)
-	case walk.scanner.subtitleExtensions[extension]:
-		return walk.reportSidecar(place, info, nodeproto.SidecarSubtitle)
-	case isImage(extension):
-		return walk.reportSidecar(place, info, nodeproto.SidecarImage)
-	case !walk.scanner.videoExtensions[extension]:
-		return walk.skip(place, nodeproto.SkipExtension)
+	case info.IsDir():
+		return walk.enter(target, info)
+	case info.Mode().IsRegular():
+		return walk.list(place, info)
+	default:
+		return walk.skip(place, nodeproto.SkipNotRegular)
 	}
-	if isSampleFile(name) {
-		return walk.skip(place, nodeproto.SkipSample)
-	}
-	return walk.observe(place, info)
 }
 
-// observe probes and hashes a video.
-func (walk *walk) observe(place location, info fs.FileInfo) error {
-	identity, err := walk.payloadIdentity(place, info.Size())
+// resolve is where place's links lead, reported under place's path, and false when that is inside no
+// media root (D206).
+func (scanner *Scanner) resolve(place location) (location, bool, error) {
+	resolved, err := place.mediaRoot.Resolve(place.relativePath)
 	if err != nil {
-		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
+		return location{}, false, fmt.Errorf("follow %s: %w", place.reportedPath, err)
 	}
-	moviehash, err := walk.openSubtitlesHash(place, info.Size())
-	if err != nil {
-		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
+	for _, media := range append([]*confine.MediaRoot{place.mediaRoot}, scanner.roots...) {
+		if relativePath, inside := media.RelativeIfInside(resolved); inside {
+			return location{
+				mediaRoot: media, relativePath: relativePath, reportedPath: place.reportedPath,
+				device: place.device, level: place.level,
+			}, true, nil
+		}
 	}
-	probed, err := walk.scanner.prober.Probe(walk.ctx, place.absolute())
-	if err != nil {
-		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, fmt.Errorf("%w: %w", errProbe, err), info)
-	}
-	walk.observedCount++
-	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path:       toNodePath(place.reportedPath),
-		SizeBytes:  info.Size(),
-		ModifiedAt: info.ModTime().UnixMilli(),
-		Identity:   identity,
-		Probe:      probed,
-
-		OpensubtitlesHash: moviehash,
-	}})
-}
-
-// openSubtitlesHash is OpenSubtitles' moviehash of a video, from its first and last 64 KiB
-// (D224 §3).
-func (walk *walk) openSubtitlesHash(place location, size int64) (string, error) {
-	file, err := place.mediaRoot.Open(place.relativePath)
-	if err != nil {
-		return "", fmt.Errorf("open for the OpenSubtitles hash: %w", err)
-	}
-	hashed, hashErr := hash.OpenSubtitlesHash(file, size)
-	closeErr := file.Close()
-	if hashErr != nil {
-		return "", fmt.Errorf("hash for OpenSubtitles: %w", hashErr)
-	}
-	if closeErr != nil {
-		return "", fmt.Errorf("close after the OpenSubtitles hash: %w", closeErr)
-	}
-	return hashed, nil
-}
-
-func (walk *walk) payloadIdentity(place location, size int64) (nodeproto.Identity, error) {
-	file, err := place.mediaRoot.Open(place.relativePath)
-	if err != nil {
-		return nodeproto.Identity{}, fmt.Errorf("open for the payload hash: %w", err)
-	}
-	identity, hashErr := hash.PayloadIdentity(file, size)
-	closeErr := file.Close()
-	if hashErr != nil {
-		return nodeproto.Identity{}, fmt.Errorf("payload hash: %w", hashErr)
-	}
-	if closeErr != nil {
-		return nodeproto.Identity{}, fmt.Errorf("close after the payload hash: %w", closeErr)
-	}
-	return nodeproto.Identity{
-		Scheme:       hash.Scheme,
-		Anchor:       string(identity.Anchor),
-		PayloadHash:  hex.EncodeToString(identity.PayloadHash[:]),
-		PayloadBytes: identity.PayloadBytes,
-	}, nil
+	return location{}, false, nil
 }
 
 // fail records an error and returns what stops the walk, if anything does.
@@ -423,47 +284,8 @@ func (walk *walk) fail(reported string, scope nodeproto.ErrorScope, cause error,
 	return walk.errors.emitErr
 }
 
-// reportSidecar reports a metadata or subtitle file, with an NFO's bytes.
-func (walk *walk) reportSidecar(place location, info fs.FileInfo, kind nodeproto.SidecarKind) error {
-	record := &nodeproto.Sidecar{
-		Path: toNodePath(place.reportedPath), Kind: kind, SizeBytes: info.Size(),
-		ModifiedAt: info.ModTime().UnixMilli(),
-	}
-	switch kind {
-	case nodeproto.SidecarNFO:
-		body, err := walk.readNFO(place, info.Size())
-		if err != nil {
-			return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
-		}
-		record.NFOBody = body
-	case nodeproto.SidecarSubtitle:
-		identity, err := walk.payloadIdentity(place, info.Size())
-		if err != nil {
-			return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
-		}
-		record.Identity = &identity
-	case nodeproto.SidecarImage:
-	}
-	walk.sidecarCount++
-	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordSidecar, Sidecar: record})
-}
-
-func (walk *walk) readNFO(place location, size int64) ([]byte, error) {
-	if size > maxNFOBytes {
-		return nil, fmt.Errorf("%w: %d bytes, at most %d", errNFOTooLarge, size, maxNFOBytes)
-	}
-	body, err := place.mediaRoot.ReadFile(place.relativePath, maxNFOBytes)
-	if errors.Is(err, bounded.ErrTooLarge) {
-		return nil, fmt.Errorf("%w: it grew past %d bytes while read", errNFOTooLarge, maxNFOBytes)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read the NFO: %w", err)
-	}
-	return body, nil
-}
-
 // send emits a record after any error still pending, so every record keeps its place in the
-// enumeration: an error's position says what was and was not covered around it (D40).
+// listing: an error's position says what was and was not covered around it (D40).
 func (walk *walk) send(record nodeproto.ScanRecord) error {
 	if err := walk.errors.flush(); err != nil {
 		return err
@@ -478,33 +300,13 @@ func (walk *walk) skip(place location, rule nodeproto.SkipRule) error {
 	}})
 }
 
-// toNodePath is a path as the report carries it: exact when it is UTF-8, and with its bytes
+// toNodePath is a path as a record carries it: exact when it is UTF-8, and with its bytes
 // alongside when it is not (D49).
 func toNodePath(reported string) nodeproto.Path {
 	if utf8.ValidString(reported) {
 		return nodeproto.Path{Text: reported}
 	}
 	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Raw: []byte(reported)}
-}
-
-// isImage is an image extension a poster or backdrop beside the media is saved with (D215).
-func isImage(extension string) bool {
-	switch extension {
-	case "jpg", "jpeg", "png", "webp", "tbn":
-		return true
-	}
-	return false
-}
-
-// isSampleDirectory is a directory named sample, in any case (D162).
-func isSampleDirectory(name string) bool {
-	return strings.EqualFold(name, "sample")
-}
-
-// isSampleFile is sample.mkv, x.sample.mkv or x-sample.mkv, in any case (D162).
-func isSampleFile(name string) bool {
-	stem := strings.ToLower(strings.TrimSuffix(name, path.Ext(name)))
-	return stem == "sample" || strings.HasSuffix(stem, ".sample") || strings.HasSuffix(stem, "-sample")
 }
 
 // stat describes a directory for an error record, when it can be described at all.

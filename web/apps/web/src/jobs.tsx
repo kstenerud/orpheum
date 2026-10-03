@@ -28,7 +28,15 @@ export async function cancelJob(api: Api, jobId: number): Promise<void> {
 
 /** The id of what a job works on: the one field its kind sets (D227). */
 export function targetId(job: Job): number | undefined {
-  return job.itemId ?? job.renditionId ?? job.streamId ?? job.fetchedSubtitleId ?? job.fileId;
+  return (
+    job.itemId ??
+    job.renditionId ??
+    job.streamId ??
+    job.fetchedSubtitleId ??
+    job.fileId ??
+    job.scanId ??
+    job.scanBatchId
+  );
 }
 
 /** A destination that is down, which a job waits for (D231 §12). */

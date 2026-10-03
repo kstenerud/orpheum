@@ -35,8 +35,12 @@ const (
 	KindConvertFetchedSubtitle Kind = "convert_fetched_subtitle"
 	// KindMeasureLoudness measures a video's audio tracks; its target is the file (D226 §2).
 	KindMeasureLoudness Kind = "measure_loudness"
-	KindScan            Kind = "scan"
-	KindBackup          Kind = "backup"
+	// KindScan lists a root for its scan and compares what it found; its target is the scan (D240).
+	KindScan Kind = "scan"
+	// KindExamine reads a batch of the files a scan found new or changed; its target is the batch
+	// (D240 §8).
+	KindExamine Kind = "examine"
+	KindBackup  Kind = "backup"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -44,16 +48,16 @@ const (
 func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle,
-		KindMeasureLoudness, KindScan, KindBackup,
+		KindMeasureLoudness, KindScan, KindExamine, KindBackup,
 	}
 }
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for measure_loudness. A job is queued with exactly one set
-// and the others zero; Enqueue refuses any other target with ErrNotOneTarget. The job table
-// allows at most one, but scan and backup have no target yet, so no job of those kinds can be
-// queued until M4 says what they work on.
+// convert_fetched_subtitle, a file for measure_loudness, a scan for scan and a scan's batch for
+// examine. A job is queued with exactly one set and the others zero; Enqueue refuses any other
+// target with ErrNotOneTarget. The job table allows at most one, but backup has no target yet, so
+// no job of that kind can be queued until it says what it works on.
 type Target = store.JobTarget
 
 // ErrNotOneTarget is a job that names no target, or more than one.
@@ -64,6 +68,7 @@ func requireOneTarget(target Target) error {
 	setCount := 0
 	for _, id := range []int64{
 		target.ItemID, target.RenditionID, target.StreamID, target.FetchedSubtitleID, target.FileID,
+		target.ScanID, target.ScanBatchID,
 	} {
 		if id != 0 {
 			setCount++

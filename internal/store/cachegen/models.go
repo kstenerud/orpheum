@@ -17,6 +17,8 @@ type Job struct {
 	StreamID              *int64
 	FetchedSubtitleID     *int64
 	FileID                *int64
+	ScanID                *int64
+	ScanBatchID           *int64
 	ArgsJSON              string
 	Priority              int64
 	State                 string
@@ -72,4 +74,25 @@ type PreparedRendition struct {
 	AudioLanguagesJSON   string
 	CreatedAt            int64
 	FinishedAt           *int64
+}
+
+type Scan struct {
+	ID            int64
+	NodeID        int64
+	RootPath      string
+	Priority      int64
+	StartedAt     int64
+	ListedAt      *int64
+	ListedCount   int64
+	ExamineCount  int64
+	ExaminedCount int64
+	IsScanAgain   int64
+}
+
+type ScanBatch struct {
+	ID        int64
+	ScanID    int64
+	FilesJSON string
+	FileCount int64
+	IsDone    int64
 }

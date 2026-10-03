@@ -144,7 +144,7 @@ func newHarness(t *testing.T) testHarness {
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
 		Chooser:   identify.NewChooser(matcher, pass),
-		Libraries: library.NewAdmin(database, now, nodes, library.Retirement{Work: queue, Titles: pass}),
+		Libraries: library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
 		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
 		Browser:   library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{

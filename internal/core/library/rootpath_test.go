@@ -43,7 +43,7 @@ func TestIngest_UnderARootNotInNFCOrOfSlashAScanMovesRemovesKeepsAndAttaches(t *
 	t.Parallel()
 	for _, rootPath := range []string{decomposedRoot, "/"} {
 		world := newHarnessAt(t, rootPath)
-		world.scan([]nodeproto.Record{
+		world.scan([]nodeproto.ScanRecord{
 			observedRecord("Locked/e.mkv", "e"), observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"),
 			observedRecord("c.mkv", "c"), sidecarRecord("c.en.srt", nodeproto.SidecarSubtitle, "1\n"),
 			observedRecord("d.mkv", "d"),
@@ -53,7 +53,7 @@ func TestIngest_UnderARootNotInNFCOrOfSlashAScanMovesRemovesKeepsAndAttaches(t *
 			textOf = func(relative string) string { return "/" + relative }
 		}
 		before := world.liveFilesByPath()
-		world.scan([]nodeproto.Record{
+		world.scan([]nodeproto.ScanRecord{
 			errorRecord("Locked", nodeproto.ScopeSubtree), observedRecord("Moved/a.mkv", "a"),
 			observedRecord("c.mkv", "c"), sidecarRecord("c.en.srt", nodeproto.SidecarSubtitle, "1\n"),
 			observedRecord("d.mkv", "d"),

@@ -9,17 +9,18 @@
 //
 //   - The core never reaches os/exec, and starts no process. Enforced by the depguard rule
 //     core-boundary and TestArch_CoreNeverExecs.
-//   - A node is enrolled once per name (D207), and its hello scans each of its roots a library
-//     covers, and no other: a folder is scanned only once it is in a library, which says what kind
-//     of thing it holds (the owner, 2026-10-02).
-//     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers.
+//   - A node is enrolled once per name (D207), and its hello asks for a scan of each of its roots a
+//     library covers, and no other, when should_scan_on_node_hello says so: a folder is scanned only
+//     once it is in a library, which says what kind of thing it holds (the owner, 2026-10-02).
+//     TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers,
+//     TestHello_ScansNothingWhenTheSettingSaysNot.
 //   - What a node's machine can do is its config's, told in its hello: after each hello the
 //     prepare slots of every node that said one are added up for whoever runs prepares, and each
 //     node's slowest read is kept for waiting on its measurements (nodeproto.Capacity).
 //     TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads.
-//   - A report's records reach the ingest in order, batched, and as soon as the stream goes
-//     quiet; a record out of sequence is refused. TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
-//     TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
+//   - A report's status is taken as it arrives, the last kept with how far the report got; a record
+//     out of sequence is refused. TestServeReport_KeepsTheLastStatusAndRecordsHowFarItGot,
+//     TestServeReport_AStatusIsTakenWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
 //   - A node silent for node_silent_after_seconds is reported as silent; restarting a node that
 //     hangs or exits is its service manager's (D234 §4).
 //     TestNodeConnection_IsConnectedWhileItPollsOrWasHeardLatelyAndSilentOtherwise.

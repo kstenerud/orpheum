@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,6 +31,8 @@ import (
 type fakeNodes struct {
 	roots  []string
 	queued []nodeproto.Command
+	// scanned are the roots whose scan was asked for.
+	scanned []string
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
 	// build is what its hello said it was built from.
@@ -185,7 +188,7 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		},
 	}
 	if nodes.prepared != nil || nodes.disks != nil {
-		facts.Status = &nodeproto.Status{Activity: "idle", PreparedUsage: nodes.prepared, Disks: nodes.disks}
+		facts.Status = &nodeproto.Status{PreparedUsage: nodes.prepared, Disks: nodes.disks}
 	}
 	return facts, true
 }
@@ -217,6 +220,12 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 		return
 	}
 	nodes.queued = append(nodes.queued, command)
+}
+
+// Request keeps a root whose scan was asked for.
+func (nodes *fakeNodes) Request(_ context.Context, _ int64, root string, _ int64) error {
+	nodes.scanned = append(nodes.scanned, root)
+	return nil
 }
 
 // commandWait bounds a test's wait for the node's next command: long past any honest wait on a
@@ -290,8 +299,8 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	if created.status != http.StatusCreated || !strings.Contains(created.body, `"id":`) {
 		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
 	}
-	if len(harness.nodes.queued) != 1 || harness.nodes.queued[0].Scan.RootPath != "/media/shows" {
-		t.Errorf("queued %+v, want a scan of the new root", harness.nodes.queued)
+	if !slices.Equal(harness.nodes.scanned, []string{"/media/shows"}) {
+		t.Errorf("scans asked for of %v, want the new root", harness.nodes.scanned)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
 		http.StatusConflict, CodeConflict)

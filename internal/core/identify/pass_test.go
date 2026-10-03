@@ -44,7 +44,6 @@ type testLibrary struct {
 	nodeID    int64
 	libraryID int64
 	rootPath  string // the library's one root, as its node names it
-	reports   librarytest.Reports
 }
 
 func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
@@ -74,9 +73,9 @@ func newTestLibraryAt(t *testing.T, kind, source, rootPath string) *testLibrary 
 	return created
 }
 
-func videoRecord(path string) nodeproto.Record {
+func videoRecord(path string) nodeproto.ScanRecord {
 	sum := sha256.Sum256([]byte(path))
-	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+	return nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path: nodeproto.Path{Text: path}, SizeBytes: 1, ModifiedAt: 1,
 		Identity: nodeproto.Identity{
 			Scheme: "payload-v1", Anchor: "whole-file",
@@ -87,25 +86,25 @@ func videoRecord(path string) nodeproto.Record {
 }
 
 // videoMoved is videoRecord at a new path with the payload it had at from.
-func videoMoved(from, to string) nodeproto.Record {
+func videoMoved(from, to string) nodeproto.ScanRecord {
 	record := videoRecord(from)
 	record.Observed.Path.Text = to
 	return record
 }
 
-func nfoRecord(path, body string) nodeproto.Record {
-	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
+func nfoRecord(path, body string) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
 		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, SizeBytes: int64(len(body)), ModifiedAt: 1,
 		NFOBody: []byte(body),
 	}}
 }
 
 // scan ingests a complete scan of the root, then runs the pass.
-func (lib *testLibrary) scan(records ...nodeproto.Record) identify.Report {
+func (lib *testLibrary) scan(records ...nodeproto.ScanRecord) identify.Report {
 	lib.t.Helper()
 	lib.clock.Advance(time.Minute)
-	all := lib.reports.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, records, true)
-	if err := lib.ingester.IngestRecords(lib.t.Context(), lib.nodeID, all); err != nil {
+	all := librarytest.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, records, true)
+	if err := lib.ingester.IngestScan(lib.t.Context(), lib.nodeID, lib.rootPath, all); err != nil {
 		lib.t.Fatal(err)
 	}
 	report, err := lib.pass.IdentifyLibrary(lib.t.Context(), lib.libraryID)
@@ -247,7 +246,7 @@ func TestPass_ASeriesWhoseFoldersSpellItsNameTwoWaysIsOneSeries(t *testing.T) {
 func TestPass_ANewFolderSpellingAFiledSeriesNameAnotherWayJoinsIt(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "nfo")
-	filed := []nodeproto.Record{
+	filed := []nodeproto.ScanRecord{
 		nfoRecord("Agents/tvshow.nfo", `<tvshow><title>Lantern's Agents</title></tvshow>`),
 		videoRecord("Agents/Season 01/Agents - S01E01.mkv"),
 	}
@@ -279,7 +278,7 @@ func TestPass_AFilmSpelledAnotherWayWithItsYearIsTheSameFilm(t *testing.T) {
 func TestPass_RunningAgainChangesNothing(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo")
-	records := []nodeproto.Record{
+	records := []nodeproto.ScanRecord{
 		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
 			`<movie><title>Metropolis</title></movie>`),
 		videoRecord("Metropolis (1995)/trailers/Metropolis trailer.mkv"),
@@ -352,11 +351,11 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	// ...and arrives in Kids.
 	lib.clock.Advance(time.Minute)
-	records := lib.reports.Scan(nodeproto.ScanBegin{RootPath: kids}, []nodeproto.Record{
+	records := librarytest.Scan(nodeproto.ScanBegin{RootPath: kids}, []nodeproto.ScanRecord{
 		videoRecord("The Kid (2014)/The Kid (2014).mkv"),
 		nfoRecord("The Kid (2014)/The Kid (2014).nfo", body),
 	}, true)
-	if ingestErr := lib.ingester.IngestRecords(t.Context(), lib.nodeID, records); ingestErr != nil {
+	if ingestErr := lib.ingester.IngestScan(t.Context(), lib.nodeID, kids, records); ingestErr != nil {
 		t.Fatal(ingestErr)
 	}
 	if _, passErr := lib.pass.IdentifyLibrary(t.Context(), kidsID); passErr != nil {

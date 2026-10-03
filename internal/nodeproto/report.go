@@ -19,19 +19,13 @@ const (
 	RecordSidecar      RecordType = "sidecar"
 )
 
-// Record is one line of a JSONL report. Type says which one field is set; ReportSeq is the
-// node's sequence number, increasing by one per record across the node's life.
+// Record is one line of a JSONL report: the node's status, now that a scan's records travel in its
+// listing and examining (ScanRecord). ReportSeq is the node's sequence number, increasing by one per
+// record across the node's life.
 type Record struct {
-	ReportSeq    int64         `json:"reportSeq"`
-	Type         RecordType    `json:"type"`
-	ScanBegin    *ScanBegin    `json:"scanBegin,omitempty"`
-	Observed     *Observed     `json:"observed,omitempty"`
-	Skip         *Skip         `json:"skip,omitempty"`
-	Error        *ScanError    `json:"error,omitempty"`
-	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
-	Status       *Status       `json:"status,omitempty"`
-	Mount        *Mount        `json:"mount,omitempty"`
-	Sidecar      *Sidecar      `json:"sidecar,omitempty"`
+	ReportSeq int64      `json:"reportSeq"`
+	Type      RecordType `json:"type"`
+	Status    *Status    `json:"status,omitempty"`
 }
 
 // SidecarKind is what a sidecar file is for.
@@ -77,8 +71,6 @@ type Mount struct {
 type Status struct {
 	// SentAt is when the node sent it, by the node's clock, in Unix milliseconds.
 	SentAt int64 `json:"sentAt"`
-	// Activity is what the node is busy with: "idle", or "scanning <root>".
-	Activity string `json:"activity"`
 	// PreparedUsage is what the node's prepared directory holds against its budget, absent when the
 	// node prepares nothing (D217 §5).
 	PreparedUsage *PreparedUsage `json:"preparedUsage,omitempty"`
@@ -268,10 +260,8 @@ type PlatformError struct {
 // ScanComplete closes a scan: the moment the core may apply removals in the regions no error
 // left unknown (D39, D40). A scan with errors is complete, and says how many.
 type ScanComplete struct {
-	RootPath      string `json:"rootPath"`
-	ObservedCount int    `json:"observedCount"`
-	SidecarCount  int    `json:"sidecarCount"`
-	SkippedCount  int    `json:"skippedCount"`
+	RootPath     string `json:"rootPath"`
+	SkippedCount int    `json:"skippedCount"`
 	// ListedCount is how many entries a listing listed.
 	ListedCount int `json:"listedCount"`
 	ErrorCount  int `json:"errorCount"`

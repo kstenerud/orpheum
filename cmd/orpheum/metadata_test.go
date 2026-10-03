@@ -122,7 +122,7 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		}
 	}
 	for _, kind := range jobs.Kinds() {
-		if !run[kind] && kind != jobs.KindScan && kind != jobs.KindBackup {
+		if !run[kind] && kind != jobs.KindBackup {
 			t.Errorf("no runner works %s", kind)
 		}
 	}
@@ -133,13 +133,14 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 	}
 }
 
-// checkDerivation fails unless a kind's work is derived by sweeps that exist, or asked for by a play.
+// checkDerivation fails unless a kind's work is derived by sweeps that exist, or asked for by a play or
+// a scan's request.
 func checkDerivation(t *testing.T, kind jobs.Kind, derivedBy []string, sweepNames map[string]bool) {
 	t.Helper()
 	if len(derivedBy) == 0 {
 		t.Errorf("%s's work is derived by nothing: a job lost with cache.db would be lost for good (D231 §3)", kind)
 	}
-	if slices.Equal(derivedBy, derivedByAPlay()) {
+	if slices.Equal(derivedBy, derivedByAPlay()) || slices.Equal(derivedBy, derivedByAScanRequest()) {
 		return
 	}
 	for _, name := range derivedBy {

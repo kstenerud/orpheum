@@ -309,16 +309,12 @@ type nodeCapabilities struct {
 	gpus          []nodeproto.GPU
 }
 
-// newScanner scans the roots, probing each file with runner; an error it reports names the user
-// and group the hello gives, so it can be read against them.
+// newScanner lists under the roots and examines their files, probing each video with runner; an error
+// it reports names the user and group the hello gives, so it can be read against them.
 func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello) *scan.Scanner {
 	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
 	return scan.NewScanner(roots, prober, scan.Options{
-		VideoExtensions:    config.Node.VideoExtensions,
-		SubtitleExtensions: config.Node.SubtitleExtensions,
-		MaxErrors:          config.Node.MaxErrorsPerRoot,
-		UID:                hello.UID,
-		GID:                hello.GID,
+		MaxErrors: config.Node.MaxErrorsPerRoot, UID: hello.UID, GID: hello.GID,
 	})
 }
 

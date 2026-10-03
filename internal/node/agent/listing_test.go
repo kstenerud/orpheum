@@ -87,7 +87,7 @@ func (fakeScanner) Examine(
 
 // realScanner is the node's scanner over no other roots, probing nothing.
 func realScanner() *scan.Scanner {
-	return scan.NewScanner(nil, matroskaProber{}, scan.Options{VideoExtensions: []string{"mkv"}})
+	return scan.NewScanner(nil, matroskaProber{}, scan.Options{})
 }
 
 // matroskaProber finds every file a Matroska.

@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
@@ -41,6 +42,8 @@ type jobServices struct {
 	nodes *nodes.Service
 	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
 	exchanges *nodes.Exchanges
+	// scans run the scans of the nodes' roots: a listing, then the batches it leaves (D240).
+	scans *library.Scans
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -162,6 +165,10 @@ type jobRunner struct {
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
+// derivedByAScanRequest names what derives a scan's work: a scan asked for by an admin or a node's
+// hello, which a lost scan is asked for again by (D240).
+func derivedByAScanRequest() []string { return []string{"the next scan asked for"} }
+
 // runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
 // by the caller: one fetch per provider; a node's job is given to its node and answered at once,
 // the core holding each node to its slots and devices (D234 §7, D240 §5). A prepare records no
@@ -196,6 +203,14 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 		{
 			jobs.KindPrepare, services.playback.HandlePrepare, nil, nil, 1, derivedByAPlay(),
 			services.playback.PrepareAssignee,
+		},
+		{
+			jobs.KindScan, services.scans.HandleScan, services.scans.RecordScanFailure, nil, 1,
+			derivedByAScanRequest(), services.scans.ScanAssignee,
+		},
+		{
+			jobs.KindExamine, services.scans.HandleExamine, services.scans.RecordExamineFailure, nil, 1,
+			derivedByAScanRequest(), services.scans.ExamineAssignee,
 		},
 	}
 }
@@ -301,6 +316,9 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		return nil, err
 	}
 	if err := services.exchanges.Load(ctx); err != nil {
+		return nil, err
+	}
+	if err := services.scans.Resume(ctx); err != nil {
 		return nil, err
 	}
 	services.queue.OnCancel(services.exchanges.Cancelled)

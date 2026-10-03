@@ -27,8 +27,8 @@ func TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThem
 		}
 		return missing, isMissing
 	}
-	onDisk := func(isMounted bool) []nodeproto.Record {
-		var records []nodeproto.Record
+	onDisk := func(isMounted bool) []nodeproto.ScanRecord {
+		var records []nodeproto.ScanRecord
 		if isMounted {
 			records = append(records, mountRecord("disk1", 21))
 		}
@@ -52,7 +52,7 @@ func TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThem
 		t.Error("a file beside the unplugged disk, not on it, is missing")
 	}
 
-	world.scan([]nodeproto.Record{errorRecord(".", nodeproto.ScopeRoot)}, true)
+	world.scan([]nodeproto.ScanRecord{errorRecord(".", nodeproto.ScopeRoot)}, true)
 	if missing, isMissing := unavailable(root + "/Elsewhere.mkv"); !isMissing || missing.Path != root {
 		t.Errorf("a file under a root that could not be read: %+v (%v), want the root missing", missing, isMissing)
 	}

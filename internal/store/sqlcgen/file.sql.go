@@ -431,6 +431,66 @@ func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) (
 	return items, nil
 }
 
+const listFilesToCompare = `-- name: ListFilesToCompare :many
+SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
+       CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
+       CAST(nfo_body IS NOT NULL AS INTEGER) AS has_nfo_body
+FROM file
+WHERE node_id = ?1 AND library_id = ?2 AND removed_at IS NULL
+`
+
+type ListFilesToCompareParams struct {
+	NodeID    int64
+	LibraryID int64
+}
+
+type ListFilesToCompareRow struct {
+	ID                  int64
+	ReportedPathRaw     []byte
+	SizeBytes           *int64
+	ModifiedAt          *int64
+	Filing              string
+	SidecarKind         *string
+	IsIdentityConfirmed int64
+	HasPayloadHash      int64
+	HasNFOBody          int64
+}
+
+// The live files of a library on a node, with what a listing is compared with (D240 section 3): a
+// file whose size and modified time are as stored, and which was read whole, needs nothing.
+func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompareParams) ([]ListFilesToCompareRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesToCompare, arg.NodeID, arg.LibraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFilesToCompareRow{}
+	for rows.Next() {
+		var i ListFilesToCompareRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReportedPathRaw,
+			&i.SizeBytes,
+			&i.ModifiedAt,
+			&i.Filing,
+			&i.SidecarKind,
+			&i.IsIdentityConfirmed,
+			&i.HasPayloadHash,
+			&i.HasNFOBody,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibraryRootsOnNode = `-- name: ListLibraryRootsOnNode :many
 SELECT root_path
 FROM library_root
@@ -813,6 +873,21 @@ type SetFileFilingParams struct {
 // How identification filed a file, and why (D163).
 func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) error {
 	_, err := q.db.ExecContext(ctx, setFileFiling, arg.Filing, arg.FilingReason, arg.ID)
+	return err
+}
+
+const setFileSeen = `-- name: SetFileSeen :exec
+UPDATE file SET last_seen_at = ?1 WHERE id = ?2
+`
+
+type SetFileSeenParams struct {
+	SeenAt int64
+	ID     int64
+}
+
+// A file a listing found as stored: it was seen, and nothing else changed.
+func (q *Queries) SetFileSeen(ctx context.Context, arg SetFileSeenParams) error {
+	_, err := q.db.ExecContext(ctx, setFileSeen, arg.SeenAt, arg.ID)
 	return err
 }
 

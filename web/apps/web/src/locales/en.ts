@@ -386,7 +386,8 @@ export const en = {
       extractSubtitle: "Extracting subtitles",
       measureLoudness: "Measuring loudness",
       convertFetchedSubtitle: "Converting a downloaded subtitle",
-      scan: "Scanning",
+      scan: "Listing a folder",
+      examine: "Reading new files",
       backup: "Backing up",
     },
     state: {

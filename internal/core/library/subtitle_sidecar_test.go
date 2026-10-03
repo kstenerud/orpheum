@@ -45,7 +45,7 @@ func TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName(t *testing.T)
 }
 
 // subtitleSidecarRecord is a subtitle file's record, with the payload hash a scan gives it.
-func subtitleSidecarRecord(path, content string) nodeproto.Record {
+func subtitleSidecarRecord(path, content string) nodeproto.ScanRecord {
 	record := sidecarRecord(path, nodeproto.SidecarSubtitle, content)
 	record.Sidecar.Identity = &nodeproto.Identity{
 		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: int64(len(content)),
@@ -57,8 +57,8 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 	t.Parallel()
 	world := newHarness(t)
 	// A subtitle file that belongs to no video is recorded, with no track, and the scan goes on.
-	world.scan([]nodeproto.Record{subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n")}, true)
-	records := []nodeproto.Record{
+	world.scan([]nodeproto.ScanRecord{subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n")}, true)
+	records := []nodeproto.ScanRecord{
 		subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n"),
 		observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat"),
 	}

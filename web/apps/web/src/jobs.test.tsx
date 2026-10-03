@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { camelKey } from "./catalogue-key.ts";
 import { i18n } from "./i18n.ts";
-import { Jobs, type Job } from "./jobs.tsx";
+import { Jobs, targetId, type Job } from "./jobs.tsx";
 import { parseRoute, routeHref } from "./router.ts";
 import { click, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
@@ -24,6 +24,7 @@ const everyKind = [
   "convert_fetched_subtitle",
   "measure_loudness",
   "scan",
+  "examine",
   "backup",
 ] as const satisfies readonly Job["kind"][];
 
@@ -174,6 +175,13 @@ describe("the job view", () => {
 });
 
 describe("each kind of job", () => {
+  it("names what it works on: a scan's listing its scan, its reading the batch", () => {
+    const started = { state: "running", reason: "a scan", attemptCount: 1, createdAt: 1 } as const;
+    const scanning: Job = { ...started, id: 6, kind: "scan", scanId: 4 };
+    const examining: Job = { ...started, id: 7, kind: "examine", scanBatchId: 9 };
+    expect([targetId(scanning), targetId(examining)]).toEqual([4, 9]);
+  });
+
   it("has words on the jobs screen", () => {
     expect(isEveryKind).toBe(true);
     for (const kind of everyKind) {

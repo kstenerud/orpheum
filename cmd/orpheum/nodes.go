@@ -13,7 +13,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
@@ -52,10 +51,10 @@ func runNodeChannel(
 	}, nil
 }
 
-// newNodeService builds the core's side of the node channel: the ingest, which hands each scanned
-// library to identification and brings back the work parked on each root or disk a scan finds.
-// It serves nothing until runNodeChannel listens.
-func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
+// newNodeService builds the core's side of the node channel, and the ingest, which hands each scanned
+// library to identification and brings back the work parked on each root or disk a scan finds. It
+// serves nothing until runNodeChannel listens.
+func newNodeService(opened openedServices, logger *slog.Logger) (*nodes.Service, *library.Ingester) {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
 	pass := opened.jobServices.pass
 	ingester.SetOnScanEnded(func(ctx context.Context, libraryID int64) {
@@ -76,11 +75,11 @@ func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 			queue.Unpark(ctx, jobs.RootDestination(nodeID, path)) // a root back is a root's probe (D231 §6)
 		}
 	})
-	sink := reportSink{ingester: ingester, logger: logger}
-	return nodes.NewService(nodes.ServiceParts{
-		Database: opened.database, Clock: clock.System{}, Settings: opened.settings, Sink: sink, Destinations: queue,
+	service := nodes.NewService(nodes.ServiceParts{
+		Database: opened.database, Clock: clock.System{}, Settings: opened.settings, Destinations: queue,
 		Logger: logger, PollHold: commandPollHold,
 	})
+	return service, ingester
 }
 
 // sweepRequester asks for sweeps to run soon: the job queue.
@@ -93,40 +92,4 @@ type sweepRequester interface {
 // runs it within a minute, once however many batches asked.
 func askForAPassOnNewFiles(ingester *library.Ingester, sweeps sweepRequester) {
 	ingester.SetOnNewFiles(func(context.Context) { sweeps.RequestSweeps(sweepPasses) })
-}
-
-// reportSink stores what a node reports in persistent.db, then logs the scan's milestones.
-type reportSink struct {
-	ingester *library.Ingester
-	logger   *slog.Logger
-}
-
-func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
-	if err := sink.ingester.IngestRecords(ctx, nodeID, records); err != nil {
-		return err
-	}
-	counts := map[nodeproto.RecordType]int{}
-	for _, record := range records {
-		counts[record.Type]++
-		switch record.Type {
-		case nodeproto.RecordScanBegin:
-			sink.logger.InfoContext(ctx, "a node began a scan", "nodeId", nodeID, "rootPath", record.ScanBegin.RootPath)
-		case nodeproto.RecordScanComplete:
-			scanComplete := record.ScanComplete
-			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "rootPath", scanComplete.RootPath,
-				"observedCount", scanComplete.ObservedCount, "sidecarCount", scanComplete.SidecarCount,
-				"skippedCount", scanComplete.SkippedCount, "errorCount", scanComplete.ErrorCount,
-				"isStoppedByErrors", scanComplete.IsStoppedByErrors)
-		case nodeproto.RecordError:
-			failure := record.Error
-			sink.logger.WarnContext(ctx, "a node could not read something", "nodeId", nodeID,
-				"path", failure.Path.Text, "scope", failure.Scope, "code", failure.Code,
-				"occurrenceCount", failure.OccurrenceCount, "platformText", failure.PlatformError.Text)
-		case nodeproto.RecordObserved, nodeproto.RecordSkip, nodeproto.RecordStatus, nodeproto.RecordMount,
-			nodeproto.RecordSidecar, nodeproto.RecordListed:
-		}
-	}
-	sink.logger.DebugContext(ctx, "a node reported", "nodeId", nodeID, "recordCount", len(records),
-		"observedCount", counts[nodeproto.RecordObserved], "skippedCount", counts[nodeproto.RecordSkip])
-	return nil
 }
