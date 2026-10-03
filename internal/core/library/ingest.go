@@ -208,9 +208,8 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Sca
 			mountPath := resolveReportedPath(scan.root, record.Mount.Path).text
 			scan.mounts[mountPath] = record.Mount.FilesystemDevice
 		}
-	case nodeproto.RecordStatus, nodeproto.RecordListed:
-		// Neither is a scan's record here: a status is the node's, and a listing is compared
-		// (TakeListing).
+	case nodeproto.RecordListed:
+		// A listing is compared, not ingested (TakeListing).
 	}
 	return nil
 }

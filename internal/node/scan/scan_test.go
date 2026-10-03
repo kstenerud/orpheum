@@ -74,8 +74,6 @@ func summary(records []nodeproto.ScanRecord) []string {
 			lines = append(lines, "error "+failure.Path.Text+" "+string(failure.Scope)+" "+string(failure.Code))
 		case nodeproto.RecordScanComplete:
 			lines = append(lines, "scan_complete")
-		case nodeproto.RecordStatus:
-			lines = append(lines, "status")
 		case nodeproto.RecordMount:
 			lines = append(lines, "mount "+record.Mount.Path.Text)
 		case nodeproto.RecordSidecar:

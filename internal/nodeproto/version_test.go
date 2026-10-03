@@ -32,6 +32,9 @@ var wireShapeByVersion = map[int]string{
 	// 15 drops the scan command and the scan's records from the report, which carries the status alone,
 	// and the status's activity (D240 §2).
 	15: "31e1c26d35d69851f52a022f653d214c2e2e6d51cbb97af4254d424430c6ce1c",
+	// 16 posts the status on its own (PathStatus), and the report stream, its records and the hello
+	// reply's report sequence are gone (the jobs rebuild's 4e.4).
+	16: "47fd403d76a5339300ab5ee965b6d80a4f01e7be57d651caba02532794805719",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -52,7 +55,7 @@ func wireShape() string {
 	var fields []string
 	for _, message := range []reflect.Type{
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
-		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Record](),
+		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

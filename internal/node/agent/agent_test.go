@@ -34,21 +34,21 @@ type fakeCore struct {
 	mutex    sync.Mutex
 	hellos   []nodeproto.Hello
 	commands chan nodeproto.Command
-	records  chan nodeproto.Record
+	statuses chan nodeproto.Status
 	// The node's results, each on its kind's channel: a Result carrying its job id and one payload.
 	artwork        chan nodeproto.Result
 	prepareReports chan nodeproto.Result
 	// progress is the node's words on where its attempts are, dropped when the test reads none.
-	progress      chan nodeproto.Progress
-	subtitles     chan nodeproto.Result
-	loudness      chan nodeproto.Result
-	refusals      chan nodeproto.Result
-	held          chan nodeproto.Result
-	scans         chan nodeproto.Result
-	reportsToDrop int                // the first reports it ends at once, as a core that went away would
-	postsToRefuse map[resultKind]int // by kind, the first results it refuses, as a busy core would
-	refusedPosts  chan struct{}      // sent on, while it has room, at each result it refuses
-	stopped       chan struct{}      // closed at teardown: a handler stops handing on what it heard
+	progress         chan nodeproto.Progress
+	subtitles        chan nodeproto.Result
+	loudness         chan nodeproto.Result
+	refusals         chan nodeproto.Result
+	held             chan nodeproto.Result
+	scans            chan nodeproto.Result
+	statusesToRefuse int                // the first statuses it refuses, as a core that went away would
+	postsToRefuse    map[resultKind]int // by kind, the first results it refuses, as a busy core would
+	refusedPosts     chan struct{}      // sent on, while it has room, at each result it refuses
+	stopped          chan struct{}      // closed at teardown: a handler stops handing on what it heard
 	// endSession, sent on, ends the session it reaches: the open long-poll answers 503, as a core
 	// that went away does.
 	endSession chan struct{}
@@ -91,7 +91,7 @@ func handOn[T any](core *fakeCore, into chan<- T, value T) bool {
 func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
-		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
+		commands: make(chan nodeproto.Command, 4), statuses: make(chan nodeproto.Status, 64),
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), loudness: make(chan nodeproto.Result, 4),
@@ -114,9 +114,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		default:
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
-			NodeID:                7,
-			LastIngestedReportSeq: 40,
-			KeptRenditionDirs:     kept,
+			NodeID:            7,
+			KeptRenditionDirs: kept,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -142,39 +141,37 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		case <-core.stopped:
 		}
 	})
-	mux.HandleFunc("POST "+nodeproto.PathReport, core.receiveReport(t))
+	mux.HandleFunc("POST "+nodeproto.PathStatus, core.receiveStatus(t))
 	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
 	mux.HandleFunc("POST "+nodeproto.PathProgress, core.receiveProgress(t))
 	socket := core.serve(t, mux)
 	return core, socket
 }
 
-// receiveReport hands the test each record of a report, dropping the first reportsToDrop.
-func (core *fakeCore) receiveReport(t *testing.T) http.HandlerFunc {
+// receiveStatus hands the test each status the node posts, refusing the first statusesToRefuse.
+func (core *fakeCore) receiveStatus(t *testing.T) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get(nodeHeader) != "7" {
-			t.Errorf("a report named node %q, want the 7 the hello answered", request.Header.Get(nodeHeader))
+			t.Errorf("a status named node %q, want the 7 the hello answered", request.Header.Get(nodeHeader))
 		}
 		core.mutex.Lock()
-		drop := core.reportsToDrop > 0
-		core.reportsToDrop--
+		refuse := core.statusesToRefuse > 0
+		core.statusesToRefuse--
 		core.mutex.Unlock()
-		if drop {
+		if refuse {
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		decoder := json.NewDecoder(request.Body)
-		for {
-			var record nodeproto.Record
-			err := decoder.Decode(&record)
-			if isMalformed(err) {
-				t.Error(err)
-			}
-			if err != nil || !handOn(core, core.records, record) {
-				return
-			}
+		var status nodeproto.Status
+		err := json.NewDecoder(request.Body).Decode(&status)
+		if isMalformed(err) {
+			t.Error(err)
 		}
+		if err != nil || !handOn(core, core.statuses, status) {
+			return
+		}
+		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
 }
 
@@ -375,27 +372,14 @@ func startAgentWithWorkers(
 	return root, tick
 }
 
-func receiveRecord(t *testing.T, core *fakeCore) nodeproto.Record {
-	t.Helper()
-	select {
-	case record := <-core.records:
-		return record
-	case <-t.Context().Done():
-		t.Fatal("the test ended before the core heard a record")
-		return nodeproto.Record{}
-	}
-}
-
-func TestAgent_SaysHelloAndStreamsItsStatusInNumberedOrder(t *testing.T) {
+func TestAgent_SaysHelloAndPostsItsStatusEachTick(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	root, tick := startAgent(t, socket)
-	// Each status reaches the core while the report is still open, numbered on from the core's 40:
-	// each record is sent as it is written, not when the request ends.
-	for _, want := range []int64{41, 42} {
+	for range 2 {
 		tick <- time.Time{}
-		if status := receiveRecord(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != want {
-			t.Errorf("heard %+v, want status #%d", status, want)
+		if status := testutil.Receive(t, core.statuses, "a status"); status.SentAt == 0 {
+			t.Errorf("heard %+v, want a status saying when it was sent", status)
 		}
 	}
 	core.mutex.Lock()
@@ -409,10 +393,10 @@ func TestAgent_SaysHelloAndStreamsItsStatusInNumberedOrder(t *testing.T) {
 func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	core.reportsToDrop = 1
+	core.statusesToRefuse = 1
 	_, tick := startAgent(t, socket)
-	// Tick until the core hears something: the first session fails at once, a tick starts the
-	// next, and a later one becomes a status record in it.
+	// Tick until the core hears something: the first status is refused, which ends the session, a
+	// tick starts the next, and a later one posts a status in it.
 	ticking, stop := context.WithCancel(t.Context())
 	defer stop()
 	go func() {
@@ -424,9 +408,7 @@ func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 			}
 		}
 	}()
-	if record := receiveRecord(t, core); record.Type != nodeproto.RecordStatus {
-		t.Errorf("heard %s, want a status in the second session", record.Type)
-	}
+	testutil.Receive(t, core.statuses, "a status in the second session")
 	if count := core.helloCount(); count != 2 {
 		t.Errorf("%d hellos, want 2: one per session", count)
 	}
@@ -631,7 +613,7 @@ func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 	usage := prepared.Usage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{PreparedShelf: fakePreparedShelf{usage}},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	got := node.status().Status.PreparedUsage
+	got := node.status().PreparedUsage
 	want := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	if got == nil || *got != want {
 		t.Errorf("the status's prepared usage = %+v, want %+v (D217 §5)", got, want)
@@ -645,7 +627,7 @@ func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root},
 		Workers{PreparedDirectory: gone},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	disks := node.status().Status.Disks
+	disks := node.status().Disks
 	if len(disks) != 2 || disks[0].Path != root.Path() || disks[0].TotalBytes <= 0 || disks[0].Failure != "" {
 		t.Fatalf("the status's disks = %+v; want the root's measured, then the prepared directory's (D225)", disks)
 	}

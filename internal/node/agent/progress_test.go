@@ -85,16 +85,9 @@ func TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook(t *testing.T
 	}}
 	testutil.Receive(t, artworker.holding, "job 1's re-encode starting")
 	tick <- time.Time{}
-	for {
-		record := testutil.Receive(t, core.records, "a status record")
-		if record.Type != nodeproto.RecordStatus {
-			continue
-		}
-		status := record.Status
-		if status.TakenCommandSeq != 1 || len(status.Held) != 1 || status.Held[0].JobID != 1 ||
-			status.Held[0].AttemptToken != tokenOf(1) || status.Held[0].State != nodeproto.HeldRunning {
-			t.Errorf("the status = %+v, want job 1's attempt running, and command 1 the last taken", status)
-		}
-		return
+	status := testutil.Receive(t, core.statuses, "a status")
+	if status.TakenCommandSeq != 1 || len(status.Held) != 1 || status.Held[0].JobID != 1 ||
+		status.Held[0].AttemptToken != tokenOf(1) || status.Held[0].State != nodeproto.HeldRunning {
+		t.Errorf("the status = %+v, want job 1's attempt running, and command 1 the last taken", status)
 	}
 }

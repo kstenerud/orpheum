@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands, runs its scans one at a time and holds the rest of its work in memory (D238 §3), each
-// job starting once a slot of its kind is free, and streams its report — scan records, and a status
-// record every tick — as one JSONL request whose records reach the core as they are written. When
-// the core goes away it says hello again at the next tick, and numbers its records on from the last
-// one the core ingested.
+// commands and holds the work they give it in memory (D238 §3), each job starting once a slot of its
+// kind and a reader of its device are free, and posts its status every tick. When the core goes
+// away it says hello again at the next tick.
 //
 // # Invariants
 //
@@ -14,14 +12,14 @@
 //   - An artwork command naming an image beside the media is read through the root it is under,
 //     never from outside the node's roots, and answered with the SHA-256 of what was read
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
-//   - Records reach the core in the order of their numbers, numbered on from the core's last,
-//     each as soon as it is written. TestAgent_SaysHelloAndStreamsItsStatusInNumberedOrder.
+//   - The node posts its status every tick, for the core to square with what it gave the node
+//     (D234 §6). TestAgent_SaysHelloAndPostsItsStatusEachTick.
 //   - A job's work reads the device its file is on, and runs only with a reader of it free, its
 //     limit the core's, one when the core named none; a paused run holds its slot but no reader.
 //     TestWorkList_ADevicesReadersAreBoundedByItsLimit,
 //     TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackground.
 //   - Play-driven work that finds its device's readers taken pauses the background work reading
-//     it, which continues once it ends; a scan of the device waits between files meanwhile; a device
+//     it, which continues once it ends; an examining of the device waits between files meanwhile; a device
 //     with room for both pauses nothing (D240 §6). The status says what is paused.
 //     TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds,
 //     TestWorkList_ADeviceWithRoomForBothPausesNothing.
@@ -41,8 +39,8 @@
 //     TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice,
 //     TestWorkList_PausedWorkWaitsBetweenFilesUntilItIsContinued.
 //   - Losing the core ends the session and the next tick starts another.
-//     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, the report
-//     stream and the command poll, end it. A job's result is posted beside the node's other work,
+//     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, a status and
+//     the command poll, end it. A job's result is posted beside the node's other work,
 //     holding no slot, until the core acknowledges it, with a doubling wait and at once at the next
 //     hello, and never given up while the node runs (D234 §5); it never stops the session or the
 //     work running beside it. A session that ends stops none of the node's work: a prepare,
@@ -93,8 +91,8 @@
 //     TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,
 //     which a cancel and every result name, and a command without one is refused; and a prepare is
-//     held beside a scan's examining, never queued behind one. What waits for a slot of its kind starts the
-//     highest priority first, the command's, and at one priority the first to come (D234 §3); an
+//     held beside a scan's examining, never queued behind one. What waits for a slot of its kind
+//     starts the highest priority first, the command's, and at one priority the first to come (D234 §3); an
 //     attempt the core sends again while it is held is held once.
 //     TestWorkList_StartsWhatWaitsByPriorityThenArrivalAndHoldsAJobOnce,
 //     TestAgent_APrepareRunsWhileAnExaminingIsStillGoing,
@@ -133,7 +131,8 @@
 //
 // # Where to change
 //
-//   - agent.go: the session and its four parts, the commands and scans; report.go: numbering;
+//   - agent.go: the session, its poll and its status, and the commands; listing.go: listing and
+//     examining;
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
 //     prepare.go: prepares; hello_test.go: the hello's renditions;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;

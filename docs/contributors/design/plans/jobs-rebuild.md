@@ -629,6 +629,10 @@ once more after it (D236 §3). `cache.db`'s `scan` and `scan_batch` hold a scan 
 - **4e.4 The report stream goes.** The status becomes a post of its own, and the walk, its records
   and the ingest's batch path are removed (D234 §8).
 
+*4e.4 built 2026-10-03:* a node posts its status to `/node/v1/status` each tick, and the report
+stream, its numbered records and the hello reply's report sequence are gone (node protocol 16);
+step 0031 drops `node.last_ingested_report_seq`, and step 0030 folds into the baseline (D228).
+
 S90 moves to a small step of its own with its schema change; S79 and S80 move to Phase 5.
 
 **The owner's answers** (2026-10-01, every one as proposed). Each number is a best guess and a

@@ -26,7 +26,7 @@ func (q *Queries) ClearDeviceReaderLimit(ctx context.Context, arg ClearDeviceRea
 
 const getLiveNodeByName = `-- name: GetLiveNodeByName :one
 
-SELECT id, name, enrolled_at, last_ingested_report_seq
+SELECT id, name, enrolled_at
 FROM node
 WHERE name = ? AND removed_at IS NULL
 ORDER BY id
@@ -34,10 +34,9 @@ LIMIT 1
 `
 
 type GetLiveNodeByNameRow struct {
-	ID                    int64
-	Name                  string
-	EnrolledAt            int64
-	LastIngestedReportSeq int64
+	ID         int64
+	Name       string
+	EnrolledAt int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -45,12 +44,7 @@ type GetLiveNodeByNameRow struct {
 func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNodeByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveNodeByName, name)
 	var i GetLiveNodeByNameRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.EnrolledAt,
-		&i.LastIngestedReportSeq,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.EnrolledAt)
 	return i, err
 }
 
@@ -188,20 +182,6 @@ func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderL
 		arg.ReaderLimit,
 		arg.SetAt,
 	)
-	return err
-}
-
-const updateNodeLastIngestedReportSeq = `-- name: UpdateNodeLastIngestedReportSeq :exec
-UPDATE node SET last_ingested_report_seq = ?1 WHERE id = ?2
-`
-
-type UpdateNodeLastIngestedReportSeqParams struct {
-	LastIngestedReportSeq int64
-	ID                    int64
-}
-
-func (q *Queries) UpdateNodeLastIngestedReportSeq(ctx context.Context, arg UpdateNodeLastIngestedReportSeqParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeLastIngestedReportSeq, arg.LastIngestedReportSeq, arg.ID)
 	return err
 }
 

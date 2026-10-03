@@ -2,8 +2,8 @@
 -- One realistic row in every table of the current schema, in reference order, for the backup and restore
 -- tests: a copy that reproduces this reproduces every table. Synthetic titles only (D187).
 
-INSERT INTO node (id, name, enrolled_at, last_ingested_report_seq, last_status_json, last_status_at)
-  VALUES (1, 'nas', 1790000000000, 42, '{"activity":"idle"}', 1790000001000);
+INSERT INTO node (id, name, enrolled_at, last_status_json, last_status_at)
+  VALUES (1, 'nas', 1790000000000, '{"sentAt":1790000001000}', 1790000001000);
 INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
   VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
 INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media/films');

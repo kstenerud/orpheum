@@ -140,7 +140,7 @@ func NewService(parts ServiceParts) *Service {
 func (service *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, service.hello)
-	mux.HandleFunc("POST "+nodeproto.PathReport, service.serveReport)
+	mux.HandleFunc("POST "+nodeproto.PathStatus, service.takeStatus)
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
 	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
 	mux.HandleFunc("POST "+nodeproto.PathProgress, service.takeProgress)
