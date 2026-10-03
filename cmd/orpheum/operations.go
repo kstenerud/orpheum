@@ -137,12 +137,13 @@ func commandMigrate(ctx context.Context, call invocation) int {
 	return write(call.stdout, report.String(), exitSuccess)
 }
 
-// commandBackup writes a backup with VACUUM INTO; --include-key writes secret.key beside it.
+// commandBackup writes a backup of the instance's persistent directory into its backups directory
+// (D242 §5); --include-key puts secret.key in it.
 func commandBackup(ctx context.Context, call invocation) int {
 	var shouldIncludeKey bool
 	config, configReport, err := call.loadConfigFromFlags("backup", kindCore, func(flags *flag.FlagSet) {
 		flags.BoolVar(&shouldIncludeKey, "include-key", false,
-			"also write secret.key beside the backup, for moving to a new machine")
+			"put secret.key in the backup too, for moving to a new machine")
 	})
 	if err != nil {
 		return call.fail(err)
@@ -156,10 +157,9 @@ func commandBackup(ctx context.Context, call invocation) int {
 	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)
 	}
-	report := fmt.Sprintf("wrote %s (sealed secrets are ciphertext in it)\n", written.DatabasePath)
-	if written.KeyPath != "" {
-		report += fmt.Sprintf("wrote %s: whoever has both files has every secret; keep them apart, or safe\n",
-			written.KeyPath)
+	report := fmt.Sprintf("wrote %s (sealed secrets are ciphertext in it)\n", written.Path)
+	if written.IncludesKey {
+		report += "it holds secret.key: whoever has it has every secret; keep it safe\n"
 	}
 	return write(call.stdout, report, exitSuccess)
 }
@@ -167,11 +167,10 @@ func commandBackup(ctx context.Context, call invocation) int {
 // commandRestore restores a backup, with the server stopped. Without --yes it only says what it
 // would do (backup-restore.md: restore says what it will overwrite before doing it).
 func commandRestore(ctx context.Context, call invocation) int {
-	var backupPath, keyPath string
+	var backupPath string
 	var isConfirmed bool
 	config, configReport, err := call.loadConfigFromFlags("restore", kindCore, func(flags *flag.FlagSet) {
-		flags.StringVar(&backupPath, "from", "", "the backup file to restore (required)")
-		flags.StringVar(&keyPath, "key", "", "a secret.key to install with it, from `backup --include-key`")
+		flags.StringVar(&backupPath, "from", "", "the backup to restore, a .tar.gz `orpheum backup` wrote (required)")
 		flags.BoolVar(&isConfirmed, "yes", false, "restore; without it, only say what would happen")
 	})
 	if err != nil {
@@ -181,18 +180,12 @@ func commandRestore(ctx context.Context, call invocation) int {
 	if backupPath == "" {
 		return call.fail(errors.New("--from is required"))
 	}
-	var keyFileContents []byte
-	if keyPath != "" {
-		// The operator names the key file on the command line; reading it is the point.
-		if keyFileContents, err = os.ReadFile(keyPath); err != nil { //nolint:gosec // G304: see above
-			return call.fail(fmt.Errorf("read the key: %w", err))
-		}
-	}
 	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
 		return call.fail(err)
 	}
-	plan, err := backup.MakePlan(ctx, directories, backupPath, keyFileContents, clock.System{}.Now())
+	now := clock.System{}.Now()
+	plan, err := backup.MakePlan(ctx, directories, backupPath, now)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -203,7 +196,7 @@ func commandRestore(ctx context.Context, call invocation) int {
 	if write(call.stdout, plan.Describe(), exitSuccess) != exitSuccess {
 		return exitWriteFailure
 	}
-	if err = backup.Restore(ctx, directories, plan, keyFileContents, config.openOptions()); err != nil {
+	if err = backup.Restore(ctx, directories, plan, now, config.openOptions()); err != nil {
 		return call.fail(err)
 	}
 	return write(call.stdout, "Restored. Start the server; it migrates an older backup on the way up.\n", exitSuccess)

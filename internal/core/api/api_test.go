@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
+	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
@@ -174,6 +175,7 @@ func newHarness(t *testing.T) testHarness {
 		Playback:    playbackService,
 		Subtitles:   subtitlesService,
 		Renditions:  renditionsService,
+		Backups:     backup.NewService(database, directories, now),
 		Preferences: preferencesService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,

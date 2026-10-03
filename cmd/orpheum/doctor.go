@@ -249,7 +249,7 @@ func checkBackups(directories *datadir.Directories, now time.Time, oldBackupAge 
 		return finding{verdictFailure, "the backup directory cannot be read", err.Error()}
 	}
 	for _, file := range files {
-		if strings.HasPrefix(file.Name, "backup-") && strings.HasSuffix(file.Name, ".sqlite") {
+		if strings.HasPrefix(file.Name, "backup-") && strings.HasSuffix(file.Name, ".tar.gz") {
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
 			if oldBackupAge == nil {
 				return finding{verdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+

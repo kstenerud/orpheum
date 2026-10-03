@@ -52,24 +52,26 @@ func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 
 func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 	t.Parallel()
-	_, sourcePath := startServerOnce(t)
+	source, sourcePath := startServerOnce(t)
 	written := runCommand(t, "backup", "--instance", sourcePath, "--include-key")
-	if written.status != exitSuccess || !strings.Contains(written.stdout, "secret.key") {
+	if written.status != exitSuccess || !strings.Contains(written.stdout, "it holds secret.key") {
 		t.Fatalf("backup --include-key = %+v", written)
 	}
-	fields := strings.Fields(written.stdout)
-	backupFile, keyFile := fields[1], filepath.Join(filepath.Dir(fields[1]),
-		strings.TrimSuffix(filepath.Base(fields[1]), ".sqlite")+".secret.key")
+	backupFile := strings.Fields(written.stdout)[1]
+	if filepath.Dir(backupFile) != source.Instance.BackupsDir || !strings.HasSuffix(backupFile, ".tar.gz") {
+		t.Errorf("the backup is %s; want a tarball in the backups directory (D242 §5)", backupFile)
+	}
 
 	target, targetPath := testConfig(t)
-	dryRun := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile, "--key", keyFile)
-	if dryRun.status != exitUsageError || !strings.Contains(dryRun.stdout, "Nothing was changed") {
-		t.Errorf("restore without --yes = %+v, want exit 2 and nothing changed", dryRun)
+	dryRun := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile)
+	if dryRun.status != exitUsageError || !strings.Contains(dryRun.stdout, "Nothing was changed") ||
+		!strings.Contains(dryRun.stdout, "holds secret.key") {
+		t.Errorf("restore without --yes = %+v, want exit 2, the key named and nothing changed", dryRun)
 	}
 	if _, err := os.Stat(filepath.Join(target.Instance.PersistentDir, "persistent.db")); err == nil {
 		t.Error("restore without --yes wrote the database")
 	}
-	restored := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile, "--key", keyFile, "--yes")
+	restored := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile, "--yes")
 	if restored.status != exitSuccess {
 		t.Fatalf("restore --yes = %+v", restored)
 	}

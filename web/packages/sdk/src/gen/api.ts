@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+    "/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the backups directory, newest first (admin; D242 §5) */
+        get: operations["listBackups"];
+        put?: never;
+        /** Back the persistent directory up now, into the backups directory (admin; D242 §5) */
+        post: operations["makeBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bytes/art/{sourceSha256}/{variant}": {
         parameters: {
             query?: never;
@@ -1200,6 +1218,21 @@ export interface components {
             /** Format: int64 */
             streamId: number;
         };
+        BackupBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            madeAt: number;
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        BackupsOutputBody: {
+            backups: components["schemas"]["BackupBody"][] | null;
+            /** @description Where the backups are, on the server's machine */
+            directory: string;
+        };
         BuildBody: {
             binarySha256?: string;
             /** @description Empty when the build recorded none */
@@ -1796,6 +1829,14 @@ export interface components {
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
             roots?: components["schemas"]["RootBody"][] | null;
+        };
+        MadeBackupOutputBody: {
+            includesKey: boolean;
+            name: string;
+        };
+        MakeBackupInputBody: {
+            /** @description Put secret.key in it, for moving to another machine (D194 §4) */
+            includesKey: boolean;
         };
         MatchInputBody: {
             /** @example tmdb */
@@ -2490,6 +2531,74 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listBackups: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    makeBackup: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MakeBackupInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MadeBackupOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getArt: {
         parameters: {
             query?: never;

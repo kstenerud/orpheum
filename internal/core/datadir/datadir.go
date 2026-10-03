@@ -3,9 +3,9 @@
 package datadir
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -212,23 +212,10 @@ func removeFileIn(directory, name string) (err error) {
 	return nil
 }
 
-// WriteBackupFile writes a file into the backup directory atomically, mode 0600: the key a
-// `backup --include-key` puts beside its database (D194 §4).
-func (directories *Directories) WriteBackupFile(name string, contents []byte) (err error) {
-	if nameErr := checkPlainFileName(name); nameErr != nil {
-		return nameErr
-	}
-	root, err := os.OpenRoot(directories.BackupDirectory())
-	if err != nil {
-		return fmt.Errorf("open the backup directory: %w", err)
-	}
-	defer func() { err = errors.Join(err, errs.WrapIf("close the backup directory", root.Close())) }()
-	return writeAtomically(root, name, contents)
-}
-
 // BackupFile is one file in the backup directory.
 type BackupFile struct {
 	Name       string
+	SizeBytes  int64
 	ModifiedAt time.Time
 }
 
@@ -247,7 +234,7 @@ func (directories *Directories) ListBackups() ([]BackupFile, error) {
 		if infoErr != nil {
 			return nil, fmt.Errorf("read %s: %w", entry.Name(), infoErr)
 		}
-		files = append(files, BackupFile{Name: entry.Name(), ModifiedAt: info.ModTime()})
+		files = append(files, BackupFile{Name: entry.Name(), SizeBytes: info.Size(), ModifiedAt: info.ModTime()})
 	}
 	slices.SortFunc(files, func(first, second BackupFile) int { return second.ModifiedAt.Compare(first.ModifiedAt) })
 	return files, nil
@@ -305,30 +292,13 @@ func openRoot(directory string) (*os.Root, error) {
 }
 
 // writeAtomically writes name under root through a temporary file, synced, then renamed.
-func writeAtomically(root *os.Root, name string, contents []byte) (err error) {
-	temporary := "." + name + "." + rand.Text()
-	handle, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileMode)
-	if err != nil {
-		return fmt.Errorf("create a temporary file for %s: %w", name, err)
-	}
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, ignoreMissing(root.Remove(temporary)))
+func writeAtomically(root *os.Root, name string, contents []byte) error {
+	return writeStreamAtomically(root, name, func(output io.Writer) error {
+		if _, err := output.Write(contents); err != nil {
+			return fmt.Errorf("write %s: %w", name, err)
 		}
-	}()
-	if _, err = handle.Write(contents); err != nil {
-		return errors.Join(fmt.Errorf("write %s: %w", temporary, err), handle.Close())
-	}
-	if err = handle.Sync(); err != nil {
-		return errors.Join(fmt.Errorf("sync %s: %w", temporary, err), handle.Close())
-	}
-	if err = handle.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", temporary, err)
-	}
-	if err = root.Rename(temporary, name); err != nil {
-		return fmt.Errorf("move %s into place: %w", name, err)
-	}
-	return syncRoot(root)
+		return nil
+	})
 }
 
 // syncRoot makes a rename in root's directory durable.
