@@ -3,10 +3,10 @@
 package playback
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -14,21 +14,13 @@ import (
 const stalledTwice = "FFmpeg stalled twice: "
 
 // stallOutcome is a handler's answer to a node's word that the FFmpeg working on job stalled and
-// was stopped. A hang says nothing of the target the first time, so the job is tried again at no
-// cost of an attempt (jobs.MarkStalled); when its last attempt's tool failed too (a stall, or a
-// panic the queue recovered), the stall is the target's failure, which keepFailure keeps, and the
-// job fails. D231's build replaces this with
-// an item fact counted apart from the job's attempts.
+// was stopped: nodes.StallOutcome, with what the node saw.
 func stallOutcome(
 	job jobs.Job, nodeID int64, what string, stall nodeproto.Stall, keepFailure func(failure string) error,
 ) error {
 	stalled := fmt.Errorf("node %d stopped the FFmpeg of %s: %s at %d ms of its output, %d ms without moving, %s: %s",
 		nodeID, what, stall.Cause, stall.LastPositionMs, stall.WithoutAdvanceMs, stall.Condition, stall.Detail)
-	if !job.PreviousAttemptToolFailed {
-		return jobs.MarkStalled(stalled)
-	}
-	failure := stalledTwice + stalled.Error()
-	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
+	return nodes.StallOutcome(job, stalled, stalledTwice, keepFailure)
 }
 
 // refusalError is a node's refusal of work it did not try, which says nothing of the source and is

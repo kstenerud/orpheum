@@ -270,6 +270,10 @@ func MarkStalled(err error) error { return jobqueue.ToolFailed(fmt.Errorf("stall
 // otherwise than by a stall: its node started again while it held the work (D233 §6, D238 §3).
 const ToolFailedTwice = "the tool failed on two attempts in a row: "
 
+// StalledTwice begins the failure of a target whose work stalled on the second of two attempts in a
+// row whose tool failed (D233 §6).
+const StalledTwice = "stalled on two attempts in a row: "
+
 // MarkInterrupted marks a handler's error as a node that started again while it held the job's
 // work, which it lost (D238 §3): the tool's failure, as a stall is (MarkStalled), at no cost of an
 // attempt, and a second tool failure in a row is the handler's to make the target's.

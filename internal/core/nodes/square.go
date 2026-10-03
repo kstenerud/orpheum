@@ -5,6 +5,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -14,7 +15,9 @@ import (
 // job adopted (S82). One it does not hold, waiting, running or with its result on its way, is lost: a
 // broken invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
 // it holds that the core did not give it, or no longer wants, is a broken invariant too, and the
-// node is told to drop it (S91, G4); one whose result is on its way is left to it.
+// node is told to drop it (S91, G4); one whose result is on its way is left to it. One the node says
+// has not moved for movementWindow is stopped, as a stall (ErrNotMoving): the core holds work only
+// while it moves, waiting work moving as the work ahead of it does (D233 §5).
 func (all *Exchanges) Square(
 	ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
 ) {
@@ -47,11 +50,27 @@ func (all *Exchanges) Square(
 		all.brokeAnInvariant(ctx, nodeID, "a node does not hold work given to it", attempt.JobID, attempt.Token)
 		return fmt.Errorf("node %d does not hold %s job %d: %w", nodeID, attempt.Kind, attempt.JobID, ErrWorkLost)
 	}, false)
+	all.stopNotMoving(ctx, nodeID, heldByToken)
 	for _, each := range unknown {
 		all.brokeAnInvariant(ctx, nodeID, "a node holds work no job was given, or no job wants", each.JobID,
 			each.AttemptToken)
 		all.sender.Enqueue(nodeID, CancelCommand(each.JobID, each.AttemptToken))
 	}
+}
+
+// stopNotMoving stops each attempt the node holds that it says has not moved for movementWindow,
+// and resolves it as not moving (ErrNotMoving).
+func (all *Exchanges) stopNotMoving(ctx context.Context, nodeID int64, heldByToken map[string]nodeproto.HeldAttempt) {
+	all.unanswered(ctx, func(attempt heldAttempt) bool {
+		each, isHeld := heldByToken[attempt.Token]
+		return attempt.NodeID == nodeID && isHeld && each.State != nodeproto.HeldEnded &&
+			time.Duration(each.SinceMovedMs)*time.Millisecond >= movementWindow
+	}, func(attempt Attempt) error {
+		each := heldByToken[attempt.Token]
+		return fmt.Errorf("node %d says %s job %d, %s, has not moved for %s: %w", nodeID, attempt.Kind,
+			attempt.JobID, each.State, (time.Duration(each.SinceMovedMs) * time.Millisecond).Round(time.Second),
+			ErrNotMoving)
+	}, true)
 }
 
 // wordOfHeld is the node's word on an attempt its status lists, as its progress would say it, and
