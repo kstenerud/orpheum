@@ -4,6 +4,7 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -329,5 +330,65 @@ func TestPrepare_APlayerAskingForTheRenditionKeepsItsPrepareWanted(t *testing.T)
 	harness.clock.Advance(11 * time.Minute)
 	if demoted, err := harness.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 1 {
 		t.Errorf("ten minutes after the player stopped, demoted %+v (%v), want the prepare", demoted, err)
+	}
+}
+
+// A prepare job that fails for good, whatever ended it, fails its rendition's making: the player is
+// told it failed rather than waiting on a making no job does, and the next play prepares it again
+// (G8).
+func TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	decided := harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	job := jobs.Job{ID: 80, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
+	if err := playback.RecordPrepareFailure(t.Context(), job, "refused five times"); err != nil {
+		t.Fatal(err)
+	}
+	playlist := harness.getBytePath(t, decided.URL, user, true, "")
+	if playlist.status != http.StatusBadGateway || !strings.Contains(playlist.body, `"code":"prepare_failed"`) {
+		t.Errorf("the playlist of a rendition whose job failed: %d %s, want prepare_failed", playlist.status,
+			playlist.body)
+	}
+	if again := harness.play(t, user, chrome(2)); !again.IsPreparing {
+		t.Errorf("the next play = %+v; want the copy prepared again", again)
+	}
+}
+
+// A making restarted while an earlier run's job is with its node gets a job of its own, queued after
+// that one, rather than being taken for the earlier job's work and left with none (G13).
+func TestPrepare_AMakingRestartedWhileItsJobIsWithTheNodeIsQueuedAfterIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	first := newestPrepareJob(t, harness.listedJobs(t, user))
+	if first.State != "running" {
+		t.Fatalf("the first making's job = %+v; want it with the node", first)
+	}
+	// The making fails, as a lost copy would, and the next play makes it again under a new run.
+	lost := jobs.Job{Target: jobs.Target{RenditionID: 1}}
+	if err := playback.RecordPrepareFailure(t.Context(), lost, "lost"); err != nil {
+		t.Fatal(err)
+	}
+	harness.play(t, user, chrome(2))
+	var states []string
+	for _, job := range harness.listedJobs(t, user) {
+		if job.Kind == "prepare" {
+			states = append(states, job.State)
+		}
+	}
+	slices.Sort(states)
+	if !slices.Equal(states, []string{"queued", "running"}) {
+		t.Errorf("the prepare jobs are %v; want the first still with the node and the new run's queued after it",
+			states)
 	}
 }

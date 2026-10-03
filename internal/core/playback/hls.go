@@ -149,6 +149,21 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	return service.prepares.handle(ctx, job, order)
 }
 
+// RecordPrepareFailure records a prepare job that failed for good as its rendition's making failed,
+// whatever ended it: a rendition left being made would have its player wait for it until reloaded,
+// and a failed one is prepared again by the next play (G8). A rendition gone, or made, needs nothing.
+func (service *Service) RecordPrepareFailure(ctx context.Context, job jobs.Job, failure string) error {
+	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
+	}
+	run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
+	return service.prepares.failMaking(ctx, run, failure)
+}
+
 // prepareOrder is a rendition to have made: the node's command, the node that holds the source, and
 // the source's length in milliseconds, or 0 when its probe did not say.
 type prepareOrder struct {

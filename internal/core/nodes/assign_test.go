@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -194,10 +195,15 @@ func TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode(t *testing.T) {
 	if attempt := testutil.Receive(t, cancelled, "the kind told of the cancel"); attempt.JobID != 7 {
 		t.Errorf("the kind was told of job %d's cancel, want job 7's", attempt.JobID)
 	}
-	bench.assign(t)
+	again := bench.assign(t)
+	bench.sender.withdrawn = nil
 	bench.exchanges.Interrupt(t.Context(), 1)
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(answer, nodes.ErrNodeRestarted) {
 		t.Errorf("a node that started again resolved job 7 with %v, want ErrNodeRestarted", answer)
+	}
+	// Its commands not yet taken are withdrawn: the node that started again is not sent them (G4).
+	if !slices.Equal(bench.sender.withdrawn, []string{again.AttemptToken}) {
+		t.Errorf("withdrawn %v after the restart, want job 7's attempt %s", bench.sender.withdrawn, again.AttemptToken)
 	}
 }
 

@@ -254,9 +254,11 @@ func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progres
 }
 
 // Interrupt resolves every attempt given to a node that started again, losing the work it held in
-// memory (D238 §3): its hello named another start than the last one this core heard.
+// memory (D238 §3): its hello named another start than the last one this core heard. Their commands
+// not yet taken are withdrawn, so the node that started again is not sent work whose job ended (G4).
 func (all *Exchanges) Interrupt(ctx context.Context, nodeID int64) {
 	all.unanswered(ctx, func(held heldAttempt) bool { return held.NodeID == nodeID }, func(attempt Attempt) error {
+		all.sender.Withdraw(attempt.NodeID, attempt.Token)
 		all.logger.InfoContext(ctx, "a job's node started again, losing its work", "nodeId", nodeID,
 			"jobId", attempt.JobID, "attemptToken", attempt.Token)
 		return fmt.Errorf("node %d, during %s job %d: %w", nodeID, attempt.Kind, attempt.JobID, ErrNodeRestarted)
