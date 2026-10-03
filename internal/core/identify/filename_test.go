@@ -56,6 +56,8 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		}},
 		{"狂った一頁/Season 01/狂った一頁 S01E02.mkv", ParsedPath{Kind: "episode", Name: "狂った一頁", Season: 1, Episode: 2}},
 		{"Show/Staffel 2/Folge S02E05.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 2, Episode: 5}},
+		// A specials folder is season 0's, and names no series: every show's would be one otherwise.
+		{"Show/Specials/Show - S00E01.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 0, Episode: 1}},
 		{"Show/Season 1/Show - S01E02 - The Pilot.mkv", ParsedPath{
 			Kind: "episode", Name: "Show", Season: 1, Episode: 2,
 		}},
