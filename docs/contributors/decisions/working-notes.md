@@ -17565,7 +17565,9 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    one reader on a spinning disk, in path order, several on an SSD, its own on a network mount. The
    limit is a setting per device, whose starting value is what the node detects, one where it
    cannot tell. Detection follows a pool, array or volume to its member disks and reads each disk's
-   `rotational` flag, spinning if any data disk spins: an md array or LVM volume through
+   `rotational` flag, spinning if any data disk spins, or the drive's rotation rate where udev read
+   one; a disk behind USB whose flag says it spins is unknown, since most bridges hide the drive and
+   the kernel guesses (the owner's USB SSD on devnas, 2026-10-03): an md array or LVM volume through
    `/sys/block/<device>/slaves`, btrfs through `/sys/fs/btrfs`, a ZFS dataset through the mount
    table to its pool and udev's database to the pool's disks, which the node's container reads
    from the host's `/run/udev`, mounted read-only (the owner, 2026-10-02: *"Are you sure we can't

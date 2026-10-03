@@ -16,8 +16,11 @@
 //   - A path is on the device of the longest mount point it is under, and a mount inside it on its
 //     own; a ZFS pool, an md array, an LVM volume and a btrfs filesystem are followed to their whole
 //     disks, spinning when one of them spins, and one whose disks cannot be seen is unknown (D240
-//     §5). TestDevices_FollowsPoolsArraysAndPartitionsToTheirDisksToTellHowEachReads,
-//     TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown.
+//     §5). A disk's drive's rotation rate, when udev read one, says how it reads; without one, a disk
+//     behind USB that the kernel says spins is unknown, the kernel guessing through most bridges.
+//     TestDevices_FollowsPoolsArraysAndPartitionsToTheirDisksToTellHowEachReads,
+//     TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown,
+//     TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown.
 //
 // # Read before changing
 //

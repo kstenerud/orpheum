@@ -3,6 +3,7 @@
 package hardware
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -135,5 +136,46 @@ func TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown(t *testing.T) {
 		devices[1].Key != "unknown:0:30" || devices[1].Kind != nodeproto.DeviceUnknown ||
 		!slices.Equal(devices[1].MountPaths, []string{"/srv/prepared"}) {
 		t.Errorf("found %+v, want the pool and the overlay, both of unknown kind", devices)
+	}
+}
+
+// usbDisk makes a whole disk behind a USB bridge, with its device number, as sysfs shows it.
+func (system fakeSystem) usbDisk(name, majorMinor, rotational string) {
+	system.t.Helper()
+	target := "sys/devices/pci/usb2/2-1/host0/block/" + name
+	system.write(target+"/queue/rotational", rotational+"\n")
+	system.write(target+"/dev", majorMinor+"\n")
+	system.link("sys/block/"+name, target)
+	system.link("sys/class/block/"+name, target)
+	system.link("sys/dev/block/"+majorMinor, target)
+}
+
+// The rotation rate udev read from a drive says best how it reads; without one, a disk behind a USB
+// bridge that the kernel says spins is unknown, since most bridges hide the drive from the kernel
+// (the owner's USB SSD on devnas, 2026-10-03); a disk on its own bus that spins, spins.
+func TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown(t *testing.T) {
+	t.Parallel()
+	system := fakeSystem{t: t, root: t.TempDir()}
+	system.write("proc/self/mountinfo", `30 1 8:32 / /usb-ssd rw - ext4 /dev/sdc rw
+31 1 8:48 / /usb-told rw - ext4 /dev/sdd rw
+32 1 8:64 / /sata rw - ext4 /dev/sde rw
+`)
+	system.usbDisk("sdc", "8:32", "1")
+	system.usbDisk("sdd", "8:48", "1")
+	system.write("run/udev/data/b8:48", "E:ID_BUS=usb\nE:ID_ATA_ROTATION_RATE_RPM=0\n")
+	system.disk("sde", "8:64", "1", nil)
+	devices, err := devicesUnder(system.root, []string{"/usb-ssd", "/usb-told", "/sata"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]nodeproto.DeviceKind{}
+	for _, device := range devices {
+		kinds[device.Key] = device.Kind
+	}
+	want := map[string]nodeproto.DeviceKind{
+		"disk:sdc": nodeproto.DeviceUnknown, "disk:sdd": nodeproto.DeviceSSD, "disk:sde": nodeproto.DeviceSpinning,
+	}
+	if !maps.Equal(kinds, want) {
+		t.Errorf("the disks read as %v, want %v", kinds, want)
 	}
 }
