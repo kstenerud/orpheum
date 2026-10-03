@@ -407,3 +407,47 @@ func TestPreparedBudget_IsTheNodesConfig(t *testing.T) {
 		t.Errorf("the prepared budget = %+v; want 2 GiB, kept 3 h, 90%% full at most and 100 MiB kept free", budget)
 	}
 }
+
+// hangingListings lists nothing, as a listing of a disk that does not answer, until its job ends or
+// the test does.
+type hangingListings struct {
+	agent.Scanner
+	testCtx context.Context //nolint:containedctx // the test's, which bounds the hang
+}
+
+func (scanner hangingListings) List(ctx context.Context, _ *confine.MediaRoot, _ string, _ int) (
+	[]nodeproto.ScanRecord, error,
+) {
+	// Answered as stalled, its job is ended, which ends ctx: the stall is answered first.
+	select {
+	case <-ctx.Done():
+	case <-scanner.testCtx.Done():
+	}
+	return nil, nil
+}
+
+// A listing whose reading stops moving is answered as stalled on its disk, and the server makes the
+// root unavailable and asks for a scan of it: the stall reaches the scans through the exchanges
+// (D233 §10).
+func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
+	t.Parallel()
+	shelved := filmOnNode(t, "nfo")
+	config := shelved.config
+	config.Node.StatusIntervalSeconds = 1
+	const stalled = "work stalled on a root's disk; it is unavailable until a scan reads it"
+	captured := newCapturedLog("ready", stalled)
+	seams := fakeFFmpegSeams
+	seams.readStallWindow = 100 * time.Millisecond
+	seams.wrapScanner = func(inner agent.Scanner) agent.Scanner {
+		return hangingListings{Scanner: inner, testCtx: t.Context()}
+	}
+	server := startServing(t, config, captured, stalled, func(ctx context.Context) error {
+		return runNodeWith(ctx, config, captured.logger, seams)
+	})
+	if stopped := server.stop(); stopped != nil {
+		t.Errorf("serve returned %v", stopped)
+	}
+	if log := captured.String(); !strings.Contains(log, `"rootPath":"`+shelved.media) {
+		t.Errorf("the log does not name the stalled root, %s:\n%s", shelved.media, log)
+	}
+}

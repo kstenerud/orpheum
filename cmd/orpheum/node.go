@@ -3,6 +3,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -85,6 +86,9 @@ type nodeSeams struct {
 	// isUnconfined runs the tools as they are, not through the shim: a test's fake FFmpeg is a
 	// shell script that records each run in its own directory, which no confined run may do.
 	isUnconfined bool
+	// readStallWindow, when set, stands in for the node's read window, minutes long, so a test can see
+	// a reading that stops moving answered as stalled.
+	readStallWindow time.Duration
 }
 
 // checkConfinement is what the machine can confine FFmpeg with (D112): each mechanism missing is
@@ -182,6 +186,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		PreparedShelf:    preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
 	}
 	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
+	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
