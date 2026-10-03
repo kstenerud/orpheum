@@ -128,10 +128,17 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, service)}}
 	ended := start(job)
 	command := testutil.Receive(t, node.sent, "the prepare command")
+	// The exchanges look for silence at each tick, as the server's do.
+	tick := make(chan time.Time)
+	go service.exchanges.Watch(t.Context(), tick)
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		clockSource.Advance(silence / 2)
 		service.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+		select {
+		case tick <- clockSource.Now():
+		case <-t.Context().Done():
+		}
 	}
 	service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
