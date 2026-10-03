@@ -22,7 +22,9 @@
 //   - A restore refuses a backup below the baseline schema, which the server would refuse at
 //     start (D228). Enforced by TestMakePlan_RefusesABackupOlderThanTheBaseline.
 //   - A restore says what it will overwrite, keeps it, and runs only with the server stopped; its
-//     plan changes nothing. Enforced by TestRestore_KeepsTheDatabaseItReplaces,
+//     plan changes nothing. It takes a backup, or the database snapshot the migration runner keeps
+//     before it migrates, which replaces the database alone (D181).
+//     TestRestore_TakesTheDatabaseSnapshotKeptBeforeAMigration, Enforced by TestRestore_KeepsTheDatabaseItReplaces,
 //     TestRestore_RefusesWhileTheServerRuns and TestMakePlan_LeavesNothingBehind.
 //   - A backup holds ciphertext only, and secret.key only when asked for; restoring without the
 //     key marks secrets as needing re-entry and loses nothing else. Enforced by
