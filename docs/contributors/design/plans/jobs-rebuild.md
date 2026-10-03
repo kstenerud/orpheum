@@ -660,13 +660,40 @@ setting, read where it is used (D200):
 
 ## Phase 5 — the watchdog's second stage
 
-D233 §5.
+D233 §5, §6, §10; D241.
 
 - A stall classified from `/proc` (CPU time, bytes read and written, process state, for every
   process in the group): deadlocked, spinning, or waiting on a disk, which parks on that root.
 - Output growth as a second signal; loudness and extraction report progress; the core's lease on a
   running job renewed only by movement, waiting for a slot bounded on its own (replacing the
   5-minute silence limit and `maxSlotWait`); a stall recorded as a fact, not a failure's prefix.
+
+**Cut** (2026-10-03, after the owner's answers recorded as D233 §10):
+
+- **5a — the node says why a run stalled.** The watchdog samples `/proc` for each process in the
+  run's group at each check: state, CPU time, and bytes read and written. A stalled run is
+  *waiting on the disk* when a process is in uninterruptible sleep (`D`), *spinning* when its CPU
+  time grew while its position did not, and *stuck* otherwise. Bytes written, or the output a
+  caller names growing, is movement as the position is. A run whose group outlives `SIGKILL` (a
+  process in `D` ignores it) is answered as stalled once the kill's grace has passed, its slot
+  freed, and its process kept in a list of stuck processes until it exits; the node's status
+  carries the list. `Stall` carries the condition. Node protocol 17.
+- **5b — all the node's work moves or stalls.** A probe and an artwork run get a deadline and are
+  stopped as stalled past it. Hashing and listing, which run in the node's own process, say each
+  chunk read or entry listed; one that does not move for its window is answered as stalled on the
+  disk, its goroutine left to return when the disk does. Every attempt's progress says how long
+  since it moved, as the node counts it, paused time apart; a waiting attempt moves when the work
+  ahead of it does, so a wait lasts only while something moves.
+- **5c — the core holds work only while it moves.** An attempt whose node says it has not moved
+  for the core's window, longer than any of the node's own, is stopped and answered as the tool's
+  failure; silence still means the node went away. `maxSlotWait` and the prepare's own wait bound
+  go. A stall's failure is a fact with its kind (`stalled`, `unreadable`) beside FFmpeg's words,
+  not a prefix of them.
+- **5d — a disk stall parks its root.** The first stall on the disk makes the file's root
+  unavailable, asks for a scan of it, and parks the job on it; the scan that reads it brings it
+  back. A second disk stall on the same file after that is the file's own failure, "the disk could
+  not read this file". The System page lists a node's stuck processes. `TestScenario_S79_…` and
+  `TestScenario_S80_…`.
 
 ## Phase 6 — what a person sees, and the rest of F2
 
