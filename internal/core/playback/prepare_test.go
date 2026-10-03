@@ -170,3 +170,30 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 			row.VideoEncoder, row.RealtimeFactor)
 	}
 }
+
+// A prepare its node holds waiting for a slot has no cap of its own: however long it waits, saying
+// so, it is not given up here. Whether the work ahead of it moves is the core's to judge, by the
+// node's status (internal/core/nodes, D233 §5).
+func TestHandle_APrepareWaitingForASlotIsNotGivenUpForHowLongItWaits(t *testing.T) {
+	t.Parallel()
+	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
+	clockSource := clocktest.NewFake(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC))
+	all, start := preparesOnAFakeNode(t, node, clockSource)
+	all.maxSilence = 365 * 24 * time.Hour
+	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
+	command := testutil.Receive(t, node.sent, "the prepare command")
+	for range 24 {
+		all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+		clockSource.Advance(time.Hour)
+	}
+	all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+	select {
+	case err := <-ended:
+		t.Errorf("a prepare waiting a day for a slot ended %v; want it held", err)
+	default:
+	}
+	all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
+		t.Errorf("the prepare that waited a day ended %v, want done", err)
+	}
+}
