@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/providers"
@@ -368,7 +369,8 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return providerRefusal(ReasonLoginRefused,
 			"OpenSubtitles refused the login; an admin can change it in Settings")
 	case errors.Is(err, outbound.ErrUnavailable):
-		return providerRefusal(ReasonUnavailable, "OpenSubtitles is not answering; try again later")
+		return server.providerNotAnswering(ctx, jobs.DestinationOpenSubtitles,
+			"OpenSubtitles is not answering; try again later")
 	case isSpent:
 		failure := newDetailedError(http.StatusTooManyRequests,
 			"the OpenSubtitles account's downloads for today are spent",

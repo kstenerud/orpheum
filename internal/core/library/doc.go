@@ -98,6 +98,7 @@
 //   - A library root its node's hello no longer names is unavailable from then, nothing removed
 //     (D241 §2). TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt. Whether a file
 //     can be read now, its node away or its root or disk missing, has one answer: UnreadableFile.
+//
 //   - One file that cannot be read now is gone on the admin's word, a tombstone keeping its history;
 //     one that can be read is refused (D241 §5). A root that moved is repointed: it and its live
 //     files take the new path with their history, their modified times forgotten so the next scan,

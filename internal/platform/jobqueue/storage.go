@@ -29,6 +29,9 @@ type Queueing[T comparable] interface {
 	// DemoteUnwanted gives every open job whose wanted time is before now the given priority, forgets
 	// its time, and returns it.
 	DemoteUnwanted(ctx context.Context, now time.Time, priority int64) ([]Row[T], error)
+	// PruneFinished forgets the jobs that ended, done, failed or cancelled, before a time, and says
+	// how many.
+	PruneFinished(ctx context.Context, before time.Time) (int64, error)
 }
 
 // Working is the part of Storage that runners use.

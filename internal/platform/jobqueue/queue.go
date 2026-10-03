@@ -159,6 +159,15 @@ func (queue *Queue[T]) KeepWanted(ctx context.Context, kind Kind, target T, unti
 	return nil
 }
 
+// PruneFinished forgets the jobs that ended longer ago than keptFor, and says how many (D233 §8).
+func (queue *Queue[T]) PruneFinished(ctx context.Context, keptFor time.Duration) (int64, error) {
+	pruned, err := queue.storage.PruneFinished(ctx, queue.clock.Now().Add(-keptFor))
+	if err != nil {
+		return 0, fmt.Errorf("forget the jobs that ended: %w", err)
+	}
+	return pruned, nil
+}
+
 // DemoteUnwanted gives the open jobs no person waits for any more the given priority, background
 // work's (D234 §3), and returns them: a job given to another machine is that machine's to be told.
 func (queue *Queue[T]) DemoteUnwanted(ctx context.Context, priority int64) ([]Row[T], error) {

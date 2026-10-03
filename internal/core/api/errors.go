@@ -3,12 +3,14 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -152,6 +154,10 @@ func (QuotaExhaustedDetailBody) problemCode() Code { return CodeQuotaExhausted }
 // providerReasons, which the document enumerates so a client can have words for each.
 type ProviderRefusalDetailBody struct {
 	Reason ProviderReason `json:"reason"`
+	// Since and NextCheckAt are, for a provider not answering, since when, and when it is next
+	// looked at, in Unix milliseconds; absent when not known (D231 §12).
+	Since       int64 `json:"since,omitempty"`
+	NextCheckAt int64 `json:"nextCheckAt,omitempty"`
 }
 
 // ProviderReason is why an outside provider refused, as provider_error's detail says it.
@@ -376,6 +382,28 @@ func codeForStatus(status int) Code {
 		return CodeInternal
 	}
 	return CodeInvalidRequest
+}
+
+// providerNotAnswering is an outside provider, at destination, not answering: since when, and when
+// it is next looked at, as its provider service says (D231 §12).
+func (server *Server) providerNotAnswering(ctx context.Context, destination jobs.Destination, message string) error {
+	detail := ProviderRefusalDetailBody{Reason: ReasonUnavailable}
+	if dependencies := server.dependencies.Load(); dependencies != nil {
+		for _, provider := range dependencies.Providers {
+			state := provider.State(ctx)
+			parked := state.Parked
+			if state.Destination != destination || parked == nil {
+				continue
+			}
+			detail.Since = parked.Since.UnixMilli()
+			if !parked.NextProbeAt.IsZero() {
+				detail.NextCheckAt = parked.NextProbeAt.UnixMilli()
+			}
+		}
+	}
+	failure := newDetailedError(http.StatusServiceUnavailable, message, detail)
+	failure.ErrorBody.Error.FailedHop = HopProvider
+	return failure
 }
 
 // providerRefusal is a provider's refusal as the API says it: provider_error, why in

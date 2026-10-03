@@ -2006,8 +2006,12 @@ export interface components {
             waitUntil?: number;
         };
         ProviderRefusalDetailBody: {
+            /** Format: int64 */
+            nextCheckAt?: number;
             /** @enum {string} */
             reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
+            /** Format: int64 */
+            since?: number;
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime_ms are whole numbers */
@@ -2054,6 +2058,7 @@ export interface components {
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
             isQueued: boolean;
+            waitingFor?: components["schemas"]["DestinationBody"];
         };
         RegisterInputBody: {
             device: components["schemas"]["NewDeviceBody"];

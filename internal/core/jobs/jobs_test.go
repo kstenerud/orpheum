@@ -479,3 +479,35 @@ func TestNewRunner_AHandlerIsToldItsJobsPriority(t *testing.T) {
 			told, PriorityPersonsRequest)
 	}
 }
+
+// A job that ended is forgotten once finished_jobs_kept_days have passed since; an open one, and one
+// that ended lately, are kept (D233 §8).
+func TestPruneFinished_ForgetsWhatEndedLongerAgoThanTheSettingKeeps(t *testing.T) {
+	t.Parallel()
+	fixed := newFixture(t)
+	settingstest.Set(t, fixed.config, settings.FinishedJobsKeptDays, "30")
+	runner := fixed.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error { return nil })
+	fixed.enqueue(t, 1, PriorityBackground)
+	fixed.runDue(t, runner)
+	fixed.clock.Advance(20 * 24 * time.Hour)
+	fixed.enqueue(t, 2, PriorityBackground)
+	fixed.runDue(t, runner)
+	fixed.enqueue(t, 3, PriorityBackground) // still queued: the runner is not run again
+	fixed.clock.Advance(11 * 24 * time.Hour)
+	pruned, err := fixed.queue.PruneFinished(t.Context())
+	if err != nil || pruned != 1 {
+		t.Fatalf("PruneFinished = %d, %v; want the one job that ended 31 days ago", pruned, err)
+	}
+	listed, err := fixed.cache.Read().ListJobs(t.Context(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var left []int64
+	for _, job := range listed {
+		left = append(left, *job.ItemID)
+	}
+	slices.Sort(left)
+	if !slices.Equal(left, []int64{2, 3}) {
+		t.Errorf("the jobs left are for items %v; want 2, which ended 11 days ago, and 3, still queued", left)
+	}
+}

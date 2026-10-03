@@ -47,6 +47,7 @@ const (
 	ScanSubtitleExtensions                         Key = "scan_subtitle_extensions"
 	ScanExamineBatchVideos                         Key = "scan_examine_batch_videos"
 	JobAttemptLimit                                Key = "job_attempt_limit"
+	FinishedJobsKeptDays                           Key = "finished_jobs_kept_days"
 	JobFirstRetryDelaySeconds                      Key = "job_first_retry_delay_seconds"
 	ProviderTimeoutSeconds                         Key = "provider_timeout_seconds"
 	DestinationFirstProbeDelaySeconds              Key = "destination_first_probe_delay_seconds"
@@ -252,6 +253,10 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 		sourced(integerSetting(JobAttemptLimit, "5", 1, 100,
 			"how many times a background job that failed is tried before it is marked failed"),
 			"best guess (M2): enough to ride out a short outage, few enough to stop a hopeless job"),
+		sourced(durationSetting(FinishedJobsKeptDays, 24*time.Hour, "30", 1, 3650,
+			"days the job view keeps a job that ended, done, failed or cancelled; an item's own failure is kept "+
+				"apart from it"),
+			"D233 §8, the owner's: a month of what ended"),
 		sourced(durationSetting(JobFirstRetryDelaySeconds, time.Second, "30", 1, 86400,
 			"seconds before a failed job's first retry; each later retry waits twice as long, up to a day"),
 			"best guess (M2): doubling from 30 s reaches the day cap in about a dozen tries"),

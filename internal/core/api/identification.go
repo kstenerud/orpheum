@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
@@ -114,6 +115,9 @@ type RefreshOutput struct {
 	Status int
 	Body   struct {
 		IsQueued bool `doc:"False when a fetch for it was already waiting" json:"isQueued"`
+		// WaitingFor says, while TMDB is not answering, what the refresh waits for and since when;
+		// absent when it is answering (D231 §12).
+		WaitingFor *DestinationBody `json:"waitingFor,omitempty"`
 	}
 }
 
@@ -217,6 +221,10 @@ func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*R
 	}
 	output := &RefreshOutput{Status: http.StatusAccepted}
 	output.Body.IsQueued = isQueued
+	if parked, isParked := dependencies.Jobs.DestinationState(jobs.DestinationTMDBAPI); isParked {
+		waiting := destinationBody(parked, server.nodeNamer(ctx, dependencies))
+		output.Body.WaitingFor = &waiting
+	}
 	return output, nil
 }
 
@@ -281,7 +289,8 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 		return providerRefusal(ReasonKeyRefused,
 			"the metadata provider refused its key; an admin can change it in Settings")
 	case errors.Is(err, outbound.ErrUnavailable):
-		return providerRefusal(ReasonUnavailable, "the metadata provider is not answering; try again later")
+		return server.providerNotAnswering(ctx, jobs.DestinationTMDBAPI,
+			"the metadata provider is not answering; try again later")
 	}
 	return server.logInternalError(ctx, action, err)
 }

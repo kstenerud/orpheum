@@ -79,6 +79,21 @@ func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
 	return err
 }
 
+const deleteFinishedJobs = `-- name: DeleteFinishedJobs :execrows
+DELETE FROM job
+WHERE state IN ('done', 'failed', 'cancelled') AND finished_at < CAST(?1 AS INTEGER)
+`
+
+// The jobs that ended before a time, done, failed or cancelled: the job view keeps what ended
+// lately, and an item's own failure is a fact kept elsewhere (D231 section 4, D233 section 8).
+func (q *Queries) DeleteFinishedJobs(ctx context.Context, before int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteFinishedJobs, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const demoteUnwantedJobs = `-- name: DemoteUnwantedJobs :many
 UPDATE job SET priority = ?1, wanted_until = NULL
 WHERE wanted_until IS NOT NULL AND wanted_until < CAST(?2 AS INTEGER) AND state IN ('queued', 'running', 'assigned')
