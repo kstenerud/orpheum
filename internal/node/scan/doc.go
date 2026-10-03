@@ -43,6 +43,9 @@
 //     TestExamine_StopsWhenToldToBetweenFiles. An NFO is read to a bound, and a subtitle carries
 //     its payload hash. TestExamine_RefusesAnNFOPastTheBound. A video carries its OpenSubtitles
 //     moviehash (D224 §3). TestExamine_ReportsEachVideosOpenSubtitlesHash.
+//   - A listing moves with each entry it lists, and an examining with each read of a hash too
+//     (execx.Moved), so the node tells a reading stalled on its disk from one still working (D233 §5).
+//     TestListAndExamine_MoveWithEachRecordAndEachRead.
 //
 // # Read before changing
 //

@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
@@ -383,11 +384,15 @@ func TestNewStartID_IsEightRandomBytesInHex(t *testing.T) {
 func TestWorkPacing_IsTheNodesConfig(t *testing.T) {
 	t.Parallel()
 	var config Config
-	config.Node.ProgressEverySeconds, config.Node.EndedWorkKeptHours = 3, 5
-	if progressEvery, endedWorkKept := workPacing(config); progressEvery != 3*time.Second ||
-		endedWorkKept != 5*time.Hour {
+	config.Node.ProgressEverySeconds, config.Node.EndedWorkKeptHours, config.Node.ProbeTimeoutSeconds = 3, 5, 60
+	progressEvery, endedWorkKept, readStallWindow := workPacing(config)
+	if progressEvery != 3*time.Second || endedWorkKept != 5*time.Hour {
 		t.Errorf("the node's pacing = %v, %v; want 3s from progress_every_seconds and 5h from ended_work_kept_hours",
 			progressEvery, endedWorkKept)
+	}
+	// An examining does not move while ffprobe reads one file, so its read window outlasts the probe.
+	if readStallWindow != agent.ReadStallWindowFor(time.Minute) || readStallWindow <= time.Minute {
+		t.Errorf("the node's read window = %v; want past probe_timeout_seconds' minute", readStallWindow)
 	}
 }
 

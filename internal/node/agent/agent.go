@@ -79,6 +79,21 @@ type Workers struct {
 	// Stuck is the work the node gave up on that has not ended, for its status (D233 §10):
 	// StuckOf the runner's. Nil has none.
 	Stuck func() []nodeproto.Stuck
+	// ReadStallWindow is how long a listing's or an examining's own reading may go without moving
+	// before the node answers it as stalled on its disk (D233 §10): ReadStallWindowFor the probe's
+	// timeout. Zero is defaultReadStallWindow.
+	ReadStallWindow time.Duration
+}
+
+// defaultReadStallWindow is the least time a reading in the node's own process may go without
+// moving: a listing lists each entry and an examining reads a hash in chunks, so minutes without
+// either is a disk not answering, not a slow one.
+const defaultReadStallWindow = 5 * time.Minute
+
+// ReadStallWindowFor is the read window of a node whose ffprobe may take up to probeTimeout on one
+// file, during which an examining does not move: defaultReadStallWindow past it.
+func ReadStallWindowFor(probeTimeout time.Duration) time.Duration {
+	return defaultReadStallWindow + probeTimeout
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
@@ -104,6 +119,8 @@ type Agent struct {
 
 	work  *workList
 	ended *endedAttempts
+	// stuckReads are the readings the node answered as stalled that have not ended.
+	stuckReads stuckReads
 	// takenCommandSeq is the last command this session took, which the status says.
 	takenCommandSeq atomic.Int64
 	answerRetry     answerRetry
@@ -132,7 +149,7 @@ func New(
 	return &Agent{
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
-		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity),
+		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity, clockSource),
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
 	}
@@ -180,6 +197,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 			case <-ctx.Done():
 				return
 			case <-tick:
+				agent.work.stallStillReads(agent.readStallWindow())
 				if err := agent.postStatus(ctx, reply.NodeID); err != nil {
 					cancel(err)
 					return
@@ -190,6 +208,14 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	})
 	sessionTasks.Wait()
 	return context.Cause(ctx)
+}
+
+// readStallWindow is how long the node's own reading may go without moving (Workers.ReadStallWindow).
+func (agent *Agent) readStallWindow() time.Duration {
+	if agent.workers.ReadStallWindow > 0 {
+		return agent.workers.ReadStallWindow
+	}
+	return defaultReadStallWindow
 }
 
 // helloNow is the node's hello with the devices its roots are on and the renditions its prepared
@@ -460,6 +486,7 @@ func (agent *Agent) status() nodeproto.Status {
 	if agent.workers.Stuck != nil {
 		status.Stuck = agent.workers.Stuck()
 	}
+	status.Stuck = append(status.Stuck, agent.stuckReads.all()...)
 	if agent.workers.PreparedShelf != nil {
 		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
 			status.PreparedUsage = &nodeproto.PreparedUsage{
@@ -485,7 +512,9 @@ func (agent *Agent) held() []nodeproto.HeldAttempt {
 		case each.isRunning:
 			state = nodeproto.HeldRunning
 		}
-		held = append(held, nodeproto.HeldAttempt{JobID: each.jobID, AttemptToken: each.token, State: state})
+		held = append(held, nodeproto.HeldAttempt{
+			JobID: each.jobID, AttemptToken: each.token, State: state, SinceMovedMs: each.sinceMoved.Milliseconds(),
+		})
 	}
 	return append(held, agent.ended.awaitingAcknowledgement()...)
 }

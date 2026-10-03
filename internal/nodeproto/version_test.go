@@ -38,6 +38,9 @@ var wireShapeByVersion = map[int]string{
 	// 17 adds a stall's condition and whether its process was left running, and the status's stuck
 	// processes (D233 §5, §10).
 	17: "fe3a6d405ae55bec7709edec6df30a7b3e0f5c1a04e89a034049bb677b03e82a",
+	// 18 adds how long each held attempt has not moved, and a listing's and an examining's stall
+	// (D233 §5, §10).
+	18: "c53b7595df6102deff942ada4eb498b1b3fb7eb995e1556731f69a7b4dada729",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

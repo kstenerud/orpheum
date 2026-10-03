@@ -46,6 +46,9 @@ type Listing struct {
 	Records []ScanRecord `json:"records"`
 	// Refusal says why the node listed nothing: a root it was not given (D107).
 	Refusal string `json:"refusal,omitempty"`
+	// Stall is a listing whose reading did not move for its window, waiting on its disk: the node
+	// answered it so and left its reading to end when the disk answers (D233 §10).
+	Stall *Stall `json:"stall,omitempty"`
 }
 
 // Listed is an entry a listing found.
@@ -90,4 +93,6 @@ type Examined struct {
 	Records []ScanRecord `json:"records"`
 	// Refusal says why the node examined nothing: a root it was not given (D107).
 	Refusal string `json:"refusal,omitempty"`
+	// Stall is an examining whose reading did not move for its window, as a listing's (Listing.Stall).
+	Stall *Stall `json:"stall,omitempty"`
 }

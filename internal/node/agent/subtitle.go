@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -41,14 +42,28 @@ type answeringJob struct {
 	// makeAnswer makes the result, the attempt it answers left for answeringWork to name, and says why
 	// nothing was made: a refusal or a failure.
 	makeAnswer func(ctx context.Context) (result nodeproto.Result, refusalOrFailure string)
+	// stalledAnswer, for a job that reads in the node's own process, is its answer when its reading
+	// stops moving for the node's read window: the node answers it so and leaves the reading, which it
+	// cannot stop, to end when its disk answers (D233 §10); reading names where. Nil for a job whose
+	// FFmpeg execx watches.
+	stalledAnswer func(stall nodeproto.Stall) nodeproto.Result
+	reading       string
 }
 
 // answeringWork is the work of a job that posts its answer to the core when it ends; a job
 // cancelled meanwhile posts nothing.
 func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeringJob) heldWork {
-	return heldWork{run: func(jobCtx context.Context) {
+	var stalls chan time.Duration
+	if job.stalledAnswer != nil {
+		stalls = make(chan time.Duration, 1)
+	}
+	return heldWork{stalls: stalls, run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
-		result, refusalOrFailure := job.makeAnswer(jobCtx)
+		result, refusalOrFailure, isAnswered := agent.answerUnlessStalled(jobCtx, job, stalls)
+		if !isAnswered {
+			agent.postResult(ctx, nodeID, job.jobKind, job.named(result))
+			return
+		}
 		result = job.named(result)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a job was cancelled", "jobKind", job.jobKind, "jobId", job.jobID)
@@ -60,6 +75,50 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 		}
 		agent.postResult(ctx, nodeID, job.jobKind, result)
 	}}
+}
+
+// answerUnlessStalled makes the job's answer, unless its reading stops moving first: then its
+// answer is that it stalled on its disk, isAnswered is false, and its reading is listed as stuck
+// until it ends, its own answer dropped. A job without a stalled answer is answered as it ends.
+func (agent *Agent) answerUnlessStalled(
+	ctx context.Context, job answeringJob, stalls <-chan time.Duration,
+) (result nodeproto.Result, refusalOrFailure string, isAnswered bool) {
+	if stalls == nil {
+		result, refusalOrFailure = job.makeAnswer(ctx)
+		return result, refusalOrFailure, true
+	}
+	type answer struct {
+		result           nodeproto.Result
+		refusalOrFailure string
+	}
+	answered := make(chan answer, 1)
+	go func() {
+		result, refusalOrFailure := job.makeAnswer(ctx)
+		answered <- answer{result, refusalOrFailure}
+	}()
+	select {
+	case made := <-answered:
+		return made.result, made.refusalOrFailure, true
+	case <-ctx.Done():
+		// Cancelled: the job ends now, its reading left to end on its own.
+		return nodeproto.Result{}, ctx.Err().Error(), true
+	case stood := <-stalls:
+		agent.stuckReads.add(job.token, nodeproto.Stuck{
+			Tool: stuckReadTool, Paths: []string{job.reading}, Since: agent.clock.Now().UnixMilli(),
+		})
+		go func() {
+			<-answered
+			agent.stuckReads.remove(job.token)
+		}()
+		detail := fmt.Sprintf("%s of %s did not move for %s: its disk is not answering", job.jobKind, job.reading,
+			stood.Round(time.Second))
+		agent.logger.WarnContext(ctx, "a job's reading stalled and is left to end", "jobKind", job.jobKind,
+			"jobId", job.jobID, "reading", job.reading, "withoutMovingFor", stood)
+		return job.stalledAnswer(nodeproto.Stall{
+			Cause: nodeproto.StallStoodStill, Condition: nodeproto.ConditionWaitingOnDisk, IsLeftRunning: true,
+			WithoutAdvanceMs: stood.Milliseconds(), Detail: detail,
+		}), "", false
+	}
 }
 
 // notTriedError is an extraction the node did not try: it says nothing of the source's bytes.

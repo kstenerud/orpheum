@@ -209,7 +209,7 @@ type Ran struct {
 func (runner *Runner) RunWatched(ctx context.Context, run WatchedRun) (Ran, error) {
 	streams := pipes{
 		stdin: run.Input, stdout: io.Discard, stderrTailLimitBytes: stderrTailBytes, watch: &run.Watch,
-		pausing: pausingOf(ctx),
+		pausing: pausingOf(ctx), moved: movedOf(ctx),
 	}
 	var stdout *limitedBuffer
 	if run.StdoutLimitBytes > 0 {
@@ -255,6 +255,7 @@ type pipes struct {
 	stderrTailLimitBytes int
 	watch                *Watch
 	pausing              *Pausing
+	moved                func()
 }
 
 // runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
@@ -300,6 +301,7 @@ func (runner *Runner) runToExit(
 	}
 	if progress != nil {
 		dog := newWatchdog(runner.clock, *streams.watch)
+		dog.moved = streams.moved
 		if streams.pausing != nil {
 			streams.pausing.attach(command.Process.Pid, dog)
 			defer streams.pausing.detach()
@@ -310,13 +312,7 @@ func (runner *Runner) runToExit(
 	if runner.onStarted != nil {
 		runner.onStarted()
 	}
-	waited := make(chan error, 1)
-	go func() {
-		err := command.Wait()
-		close(ending.exited)
-		progress.finishReading()
-		waited <- err
-	}()
+	waited := waitInBackground(command, ending, progress)
 	select {
 	case err := <-waited:
 		if ended := outcome(ctx, runCtx, tool, command, stderr, err); ended != nil {
@@ -327,6 +323,19 @@ func (runner *Runner) runToExit(
 		left := leftRun{tool: tool, reading: access.Read, pid: command.Process.Pid, stderr: stderr, waited: waited}
 		return nil, runner.leaveRunning(ctx, runCtx, left)
 	}
+}
+
+// waitInBackground waits for the started command's end apart from its caller, which may stop
+// waiting for one that outlives its kill: the answer comes when it ends, once its progress is read.
+func waitInBackground(command *exec.Cmd, ending runEnding, progress *progressPipe) <-chan error {
+	waited := make(chan error, 1)
+	go func() {
+		err := command.Wait()
+		close(ending.exited)
+		progress.finishReading()
+		waited <- err
+	}()
+	return waited
 }
 
 // runEnding is how a run's end is told: exited closes once its process has ended, and leftRunning

@@ -188,6 +188,8 @@ type watchdog struct {
 	// furthestStorageBytes and furthestStdoutBytes are the most seen. Guarded by mutex.
 	furthestStorageBytes int64
 	furthestStdoutBytes  int64
+	// moved, when set, is told of each movement (WithMoved).
+	moved func()
 }
 
 func newWatchdog(clockSource clock.Clock, watch Watch) *watchdog {
@@ -228,10 +230,13 @@ func (dog *watchdog) observeGroup(sample groupSample, stdoutBytes int64) {
 	}
 }
 
-// advanced records movement now. The caller holds the mutex.
+// advanced records movement now, and tells the run's movement hook. The caller holds the mutex.
 func (dog *watchdog) advanced() {
 	dog.lastAdvanceAt = dog.clock.Now()
 	dog.cpuTicksAtAdvance = dog.latest.cpuTicks
+	if dog.moved != nil {
+		dog.moved()
+	}
 }
 
 // cpuSecondsSinceAdvance is the processor time the group used since it last moved. The caller

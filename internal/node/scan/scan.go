@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -286,10 +287,13 @@ func (walk *walk) fail(reported string, scope nodeproto.ErrorScope, cause error,
 
 // send emits a record after any error still pending, so every record keeps its place in the
 // listing: an error's position says what was and was not covered around it (D40).
+// send emits a record, after the errors before it. Each record is movement: a listing or an
+// examining that sends none for its window has stalled on its disk (D233 §5).
 func (walk *walk) send(record nodeproto.ScanRecord) error {
 	if err := walk.errors.flush(); err != nil {
 		return err
 	}
+	execx.Moved(walk.ctx)
 	return walk.emit(record)
 }
 

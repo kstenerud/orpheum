@@ -224,3 +224,26 @@ func TestWatchdog_BytesReadOrWrittenAreMovementThoughThePositionStands(t *testin
 		t.Errorf("a run that read only before its first sample: %+v; want never moved", stalled)
 	}
 }
+
+// Each movement of a watched run, its position's or its bytes', is told to the movement hook its
+// context carries, by which the node's work list counts how long a job has not moved.
+func TestWatchdog_TellsTheMovementHookOfEachMovement(t *testing.T) {
+	t.Parallel()
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	dog := newWatchdog(clockSource, testWatch)
+	moves := 0
+	dog.moved = func() { moves++ }
+	dog.observe(Progress{Position: time.Second})
+	dog.observe(Progress{Position: time.Second}) // no movement
+	dog.observeGroup(groupSample{processCount: 1, storageBytes: 10}, 0)
+	dog.observeGroup(groupSample{processCount: 1, storageBytes: 20}, 0)
+	if moves != 2 {
+		t.Errorf("the hook was told of %d movements, want 2: the position's, then the bytes'", moves)
+	}
+	ctx := WithMoved(t.Context(), func() { moves++ })
+	Moved(ctx)
+	Moved(t.Context()) // no hook: nothing
+	if moves != 3 {
+		t.Errorf("Moved told the hook %d times in all, want 3", moves)
+	}
+}
