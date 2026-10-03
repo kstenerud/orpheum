@@ -200,15 +200,66 @@ func (system sysTree) kindOf(disks []string) nodeproto.DeviceKind {
 	}
 	kind := nodeproto.DeviceSSD
 	for _, disk := range disks {
-		flag, err := os.ReadFile(system.path("sys/block", disk, "queue/rotational"))
-		switch {
-		case err != nil:
-			return nodeproto.DeviceUnknown
-		case strings.TrimSpace(string(flag)) == "1":
-			kind = nodeproto.DeviceSpinning
+		switch system.diskKind(disk) {
+		case nodeproto.DeviceSpinning:
+			return nodeproto.DeviceSpinning
+		case nodeproto.DeviceUnknown:
+			kind = nodeproto.DeviceUnknown
+		case nodeproto.DeviceSSD, nodeproto.DeviceNetwork:
 		}
 	}
 	return kind
+}
+
+// diskKind is how one whole disk reads. The rotation rate udev read from the drive, when it could,
+// says best: 0 is a solid-state disk. Else the kernel's rotational flag, except that behind a USB
+// bridge, which most often hides the drive from the kernel, a flag that says it spins is a guess, and
+// the disk is unknown (the owner's USB SSD on devnas, 2026-10-03).
+func (system sysTree) diskKind(disk string) nodeproto.DeviceKind {
+	if rpm, isKnown := system.udevRotationRPM(disk); isKnown {
+		if rpm == "0" {
+			return nodeproto.DeviceSSD
+		}
+		return nodeproto.DeviceSpinning
+	}
+	flag, err := os.ReadFile(system.path("sys/block", disk, "queue/rotational"))
+	switch {
+	case err != nil:
+		return nodeproto.DeviceUnknown
+	case strings.TrimSpace(string(flag)) == "0":
+		return nodeproto.DeviceSSD
+	case system.isBehindUSB(disk):
+		return nodeproto.DeviceUnknown
+	}
+	return nodeproto.DeviceSpinning
+}
+
+// udevRotationRPM is the rotation rate udev's database says a disk's drive told it, and whether it
+// says one.
+func (system sysTree) udevRotationRPM(disk string) (string, bool) {
+	majorMinor, err := os.ReadFile(system.path("sys/block", disk, "dev"))
+	if err != nil {
+		return "", false
+	}
+	entry := system.path("run/udev/data", "b"+strings.TrimSpace(string(majorMinor)))
+	content, err := os.ReadFile(entry) //nolint:gosec // udev's own database, named by the kernel's number
+	if err != nil {
+		return "", false
+	}
+	for line := range strings.SplitSeq(string(content), "\n") {
+		if rpm, isRate := strings.CutPrefix(line, "E:ID_ATA_ROTATION_RATE_RPM="); isRate {
+			return rpm, true
+		}
+	}
+	return "", false
+}
+
+// isBehindUSB is whether a disk hangs off a USB bus, as its place among the system's devices says.
+func (system sysTree) isBehindUSB(disk string) bool {
+	target, err := os.Readlink(system.path("sys/class/block", disk))
+	return err == nil && slices.ContainsFunc(strings.Split(target, "/"), func(part string) bool {
+		return strings.HasPrefix(part, "usb")
+	})
 }
 
 // disksOfMount are the whole disks a block filesystem is on: through its device number, or, where
