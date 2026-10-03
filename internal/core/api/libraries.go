@@ -26,6 +26,19 @@ type RootBody struct {
 	// MissingMountPaths are the mount points inside the root whose disk a scan found missing
 	// (D208): each is the path POST /libraries/{id}/mounts/gone takes.
 	MissingMountPaths []string `doc:"Mount points inside the root whose disk a scan found missing; each is what POST /libraries/{id}/mounts/gone takes (D208)" json:"missingMountPaths"` //nolint:lll // one struct tag
+	// Scan is the root's scan in progress, absent when none is (D236 §2).
+	Scan *RootScanBody `json:"scan,omitempty"`
+}
+
+// RootScanBody is how far a root's scan in progress is (D236 §2): listing the root, then reading
+// the files it found new or changed; and whether one more runs after it, asked for meanwhile
+// (D236 §3).
+type RootScanBody struct {
+	IsListed      bool  `doc:"Whether the root's listing is in; before it, the scan is listing" json:"isListed"`
+	ListedCount   int64 `doc:"The files the listing found" json:"listedCount"`
+	ExamineCount  int64 `doc:"Of them, those new or changed, to read" json:"examineCount"`
+	ExaminedCount int64 `doc:"Of those, read" json:"examinedCount"`
+	IsScanAgain   bool  `doc:"Whether one more scan runs after this one" json:"isScanAgain"`
 }
 
 // LibraryBody is a library: its three answers (D184), and for an admin its roots and its files
@@ -302,12 +315,24 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 					LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
 					LastScanAt:      ptr.ValueOrZero(root.LastScanAt),
 					WithheldReason:  ptr.ValueOrZero(root.WithheldReason), MissingMountPaths: root.MissingMountPaths,
+					Scan: scanBodyOf(root.Scan),
 				})
 			}
 		}
 		output.Body.Libraries = append(output.Body.Libraries, body)
 	}
 	return output, nil
+}
+
+// scanBodyOf is a root's scan in progress as the API says it, or nil for none.
+func scanBodyOf(progress *library.ScanProgress) *RootScanBody {
+	if progress == nil {
+		return nil
+	}
+	return &RootScanBody{
+		IsListed: progress.IsListed, ListedCount: progress.ListedCount, ExamineCount: progress.ExamineCount,
+		ExaminedCount: progress.ExaminedCount, IsScanAgain: progress.IsScanAgain,
+	}
 }
 
 func (server *Server) postLibraryScan(ctx context.Context, input *LibraryInput) (*ScanOutput, error) {

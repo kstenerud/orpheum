@@ -17447,7 +17447,9 @@ start playing the already scanned movies while it's still scanning."*
    one ends"*, and any number of presses during a scan schedule one rescan after it. In Phase 4,
    with §2.
 
-**Status:** Decided 2026-10-01. §1 is for now; §2 and §3 are owed to the jobs rebuild's Phase 4.
+**Status:** Decided 2026-10-01. §1 is for now; §2 and §3 built 2026-10-03 with the jobs rebuild's
+4e: a scan's listing comes whole (D240 §8), so the root shows *"Scanning… listing the folders"* until
+it is in, then *"Scanning… 312 files found, 12 of 40 new or changed read"*.
 
 ## D237 — A screen showing what the server changes in the background asks again, backing off while nothing changes, to 30 s
 

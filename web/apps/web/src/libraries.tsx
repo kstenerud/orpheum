@@ -81,6 +81,7 @@ export function RootLine(props: {
     <li>
       <code>{t("libraries.root", { node: root.nodeName, path: root.rootPath })}</code>{" "}
       {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
+      {root.scan === undefined ? null : <ScanProgress scan={root.scan} />}
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
       {root.lastScanOutcome === "withheld" ? (
         <button
@@ -118,8 +119,29 @@ export function RootLine(props: {
 }
 
 /**
- * One library: its name, its roots, its files by filing, asking it to scan, and deleting it,
- * confirmed first (D231 §7).
+ * A root's scan in progress (D236 §2): listing the root, then the files it found and how many of
+ * the new or changed ones are read; and that one more runs after it, when one was asked for (§3).
+ */
+function ScanProgress(props: { readonly scan: NonNullable<Root["scan"]> }): JSX.Element {
+  const { t } = useTranslation();
+  const { scan } = props;
+  return (
+    <output>
+      {scan.isListed
+        ? t("libraries.scanReading", {
+            count: scan.listedCount,
+            read: scan.examinedCount,
+            total: scan.examineCount,
+          })
+        : t("libraries.scanListing")}
+      {scan.isScanAgain ? ` ${t("libraries.scanThenAgain")}` : null}
+    </output>
+  );
+}
+
+/**
+ * One library: its name, its roots, its files by filing, asking it to scan — again once the scan
+ * running ends, while one does (D236 §3) — and deleting it, confirmed first (D231 §7).
  */
 export function LibraryCard(props: {
   readonly library: Library;
@@ -158,7 +180,9 @@ export function LibraryCard(props: {
       <p>
         <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
         <button type="button" onClick={props.onScan}>
-          {t("libraries.scan")}
+          {(library.roots ?? []).some((root) => root.scan !== undefined)
+            ? t("libraries.scanAgainAfter")
+            : t("libraries.scan")}
         </button>{" "}
         <ConfirmButton
           label={t("libraries.delete")}

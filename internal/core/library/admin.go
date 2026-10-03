@@ -38,9 +38,10 @@ type Nodes interface {
 	RemoveNode(ctx context.Context, nodeID int64) error
 }
 
-// ScanRequests are how an admin asks for a root's scan: Scans (D240).
+// ScanRequests are how an admin asks for a root's scan, and sees those in progress: Scans (D240).
 type ScanRequests interface {
 	Request(ctx context.Context, nodeID int64, root string, priority int64) error
+	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
 }
 
 // Admin is what an admin does with libraries: create one, list them, ask for a scan, and see
@@ -126,10 +127,12 @@ type Summary struct {
 	FileCountByFiling map[string]int64
 }
 
-// RootSummary is a root's last scan, and the mount points inside it whose disk a scan found
-// missing: each is what ForgetMount takes, when the admin says that disk is gone (D208).
+// RootSummary is a root's last scan, the one in progress, if one is, and the mount points inside it
+// whose disk a scan found missing: each is what ForgetMount takes, when the admin says that disk is
+// gone (D208).
 type RootSummary struct {
 	sqlcgen.ListLibraryRootStatesRow
+	Scan              *ScanProgress
 	MissingMountPaths []string
 }
 
@@ -140,11 +143,20 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list libraries: %w", err)
 	}
+	scanning, err := admin.scans.InProgress(ctx)
+	if err != nil {
+		return nil, err
+	}
 	summaries := make([]Summary, 0, len(libraries))
 	for _, library := range libraries {
 		roots, err := rootSummaries(ctx, queries, library.ID)
 		if err != nil {
 			return nil, err
+		}
+		for index, root := range roots {
+			if progress, isScanning := scanning[ScanRoot{NodeID: root.NodeID, RootPath: root.RootPath}]; isScanning {
+				roots[index].Scan = &progress
+			}
 		}
 		counts, err := queries.CountLibraryFilings(ctx, library.ID)
 		if err != nil {

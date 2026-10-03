@@ -62,6 +62,59 @@ describe("libraries", () => {
     expect(markup).toContain("<output>Asked 1 roots to scan.</output>");
   });
 
+  it("shows a root's scan as it runs, and offers one more after it (D236 §2, §3)", () => {
+    const card = (scan: Root["scan"]): string =>
+      renderToStaticMarkup(
+        withServices(
+          <LibraryCard
+            note=""
+            onScan={ignore}
+            onAnswer={ignore}
+            onDelete={ignore}
+            library={{
+              id: 3,
+              name: "Films",
+              kind: "movies",
+              metadataSource: "nfo_then_tmdb",
+              changeDetection: "manual",
+              isWritable: false,
+              createdAt: 1,
+              roots: [
+                {
+                  nodeName: "local",
+                  rootPath: "/media/films",
+                  lastScanOutcome: "complete",
+                  missingMountPaths: [],
+                  ...(scan === undefined ? {} : { scan }),
+                },
+              ],
+            }}
+          />,
+        ),
+      );
+    const idle = card(undefined);
+    expect(idle).toContain("Scan now");
+    expect(idle).not.toContain("Scanning");
+    const listing = card({
+      isListed: false,
+      listedCount: 0,
+      examineCount: 0,
+      examinedCount: 0,
+      isScanAgain: false,
+    });
+    expect(listing).toContain("Scanning… listing the folders.");
+    expect(listing).toContain("Scan again when this one ends");
+    const reading = card({
+      isListed: true,
+      listedCount: 312,
+      examineCount: 40,
+      examinedCount: 12,
+      isScanAgain: true,
+    });
+    expect(reading).toContain("Scanning… 312 files found, 12 of 40 new or changed read.");
+    expect(reading).toContain("It scans again when this one ends.");
+  });
+
   it("says a disk is gone by its mount point's path, and approves removals by the root's (D208)", () => {
     const root: Root = {
       nodeName: "local",

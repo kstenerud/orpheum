@@ -615,7 +615,7 @@ built.*
   as answers arrive. Progress shows beside the root: *"Scanning… N files found so far"*, then the
   files examined (D236 §2); a scan asked for while one runs schedules one rescan after it, *"Scan
   again when this one ends"* (D236 §3, D38).
-*Built 2026-10-03, 4e.1 to 4e.3 but their progress on the library screen:* the node lists
+*Built 2026-10-03, 4e.1 to 4e.3, with their progress on the library screen (D236 §2, §3):* the node lists
 (`CommandList`) and examines (`CommandExamine`), each holding only its device's reader, an examining
 waiting between files while it is paused for play (node protocol 14, then 15 without the scan
 command, the scan's records on the report, or the status's activity). A scan is a `scan` job, which

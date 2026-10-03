@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -33,6 +34,8 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 	// scanned are the roots whose scan was asked for.
 	scanned []string
+	// scanning are the scans in progress.
+	scanning map[library.ScanRoot]library.ScanProgress
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
 	// build is what its hello said it was built from.
@@ -222,6 +225,11 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 	nodes.queued = append(nodes.queued, command)
 }
 
+// InProgress is the scans in progress the test set.
+func (nodes *fakeNodes) InProgress(context.Context) (map[library.ScanRoot]library.ScanProgress, error) {
+	return nodes.scanning, nil
+}
+
 // Request keeps a root whose scan was asked for.
 func (nodes *fakeNodes) Request(_ context.Context, _ int64, root string, _ int64) error {
 	nodes.scanned = append(nodes.scanned, root)
@@ -276,6 +284,29 @@ func newShows(root string) map[string]any {
 	return map[string]any{
 		"name": "Shows", "kind": "shows", "metadataSource": "tmdb", "changeDetection": "manual",
 		"isWritable": false, "nodeName": "local", "rootPaths": []string{root},
+	}
+}
+
+// An admin sees a root's scan in progress beside it: how far it is, and whether one more follows
+// (D236 §2, §3).
+func TestLibraries_AnAdminSeesARootsScanInProgress(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	harness.nodes.scanning = map[library.ScanRoot]library.ScanProgress{
+		{NodeID: 1, RootPath: "/media/shows"}: {
+			IsListed: true, ListedCount: 40, ExamineCount: 3, ExaminedCount: 1, IsScanAgain: true,
+		},
+	}
+	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"scan":{"isListed":true,"listedCount":40,"examineCount":3,`+
+		`"examinedCount":1,"isScanAgain":true}`) {
+		t.Errorf("an admin's GET /libraries = %s, want the root's scan in progress", listed.body)
 	}
 }
 
