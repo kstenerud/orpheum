@@ -7,15 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
-	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -37,47 +35,21 @@ type Settings interface {
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
-// Nodes is how playback reaches the nodes: nodes.Service. Send parks a job on a node that is not
-// connected, and Unanswered a job whose node went away while it waited (D231 §11); a cancel is
-// queued as it is.
+// Nodes is what playback asks of the node channel, whether a file can be read now: nodes.Service.
 type Nodes interface {
-	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
-	Enqueue(nodeID int64, command nodeproto.Command)
-	IsConnected(ctx context.Context, nodeID int64) bool
-	// NodeConnection is whether a node is connected, and when it was last heard.
-	NodeConnection(ctx context.Context, nodeID int64) (nodes.Connection, time.Time)
-	Unanswered(ctx context.Context, nodeID int64, err error) error
-	// SlowestReadBytesPerSecond is the slowest a node reads a whole file, as its hello said;
-	// zero when not known.
-	SlowestReadBytesPerSecond(nodeID int64) int64
-}
-
-// Queue is the job queue: jobs.Queue.
-type Queue interface {
-	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
-	SetProgress(ctx context.Context, id int64, fraction float64) error
-	// KeepWanted says a person still waits for a job's work: a player asking for a rendition being
-	// prepared (D234 §3).
-	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
+	library.NodeConnections
 }
 
 // Parts are what the playback service is built from.
 type Parts struct {
 	Database *store.Database
-	Cache    *store.Cache
-	Queue    Queue
 	Nodes    Nodes
-	// Exchanges are how a job asks a node for work and waits for its results; the node channel
-	// hands them the results (nodes.Service.SetResultSink).
-	Exchanges *nodes.Exchanges
-	Settings  Settings
-	Clock     clock.Clock
-	// Random makes media tokens and the run ids of renditions.
+	Settings Settings
+	Clock    clock.Clock
+	// Random makes media tokens.
 	Random io.Reader
-	Logger *slog.Logger
-	// MaxSilence is how long a running prepare or extraction may go without a word from its node
-	// before it is given up and retried.
-	MaxSilence time.Duration
+	// Renditions are a prepared playback's copies, made by its node.
+	Renditions *renditions.Service
 	// Subtitles are a played video's subtitles, made by its node, and those fetched on request.
 	Subtitles *subtitles.Service
 	// Preferences keeps a person's choices, which a playback starts with (D230).
@@ -93,18 +65,13 @@ type Loudness interface {
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
 type Service struct {
-	database   *store.Database
-	cache      *store.Cache
-	queue      Queue
-	nodes      Nodes
-	settings   Settings
-	clock      clock.Clock
-	random     io.Reader
-	maxSilence time.Duration
-	tokens     *tokens
-	prepares   *prepares
-	// exchanges are the jobs waiting on a node: a prepare, an extraction, a measurement.
-	exchanges   *nodes.Exchanges
+	database    *store.Database
+	nodes       Nodes
+	settings    Settings
+	clock       clock.Clock
+	random      io.Reader
+	tokens      *tokens
+	renditions  *renditions.Service
 	subtitles   *subtitles.Service
 	preferences *preferences.Service
 	loudness    Loudness
@@ -112,15 +79,12 @@ type Service struct {
 
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
-	exchanges := parts.Exchanges
-	service := &Service{
-		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
-		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
-		tokens: newTokens(), prepares: newPrepares(parts, exchanges), exchanges: exchanges,
+	return &Service{
+		database: parts.Database, nodes: parts.Nodes, settings: parts.Settings,
+		clock: parts.Clock, random: parts.Random,
+		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 	}
-	service.recordResults(exchanges)
-	return service
 }
 
 // Request is what a client asks to play, and what it can play (D21, D217 §1).
@@ -141,7 +105,7 @@ type Started struct {
 	// IsPreparing is whether a prepared playback's rendition is still being made.
 	IsPreparing bool
 	// AudioRenditions are a prepared playback's audio renditions, in the master playlist's order.
-	AudioRenditions []AudioRendition
+	AudioRenditions []renditions.AudioRendition
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
 	Subtitles []subtitles.Track
 	// AudioTracks are the file's own audio tracks, by their place among them.
@@ -251,13 +215,11 @@ func (service *Service) wantPrepared(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, levels decide.Levels,
 	profile nodeproto.PrepareProfile, started *Started,
 ) error {
-	rendition, err := service.prepares.want(ctx, file, profile)
+	wanted, err := service.renditions.Want(ctx, file, probe, levels, profile)
 	if err != nil {
 		return err
 	}
-	started.IsPreparing = rendition.State != renditionComplete
-	started.AudioRenditions = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, profile, "", probe))
-	levelAudio(started.AudioRenditions, levels, probe, rendition.CarriedGainsDBJSON)
+	started.IsPreparing, started.AudioRenditions = wanted.IsPreparing, wanted.Audio
 	if played := started.StartingAudio; played != nil {
 		started.Levelling = levels[decide.SoundKey{StreamIndex: played.StreamIndex, Mix: decide.MixStereo}]
 	}

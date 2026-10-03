@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package renditions
 
 import (
 	"context"
@@ -24,38 +24,41 @@ import (
 )
 
 // preparesOnAFakeNode is a prepare runner whose node is node, whose clock is clockSource, and
-// which never gives up for silence within a test; and start, which runs a prepare of testOrder and
+// which gives up for silence after maxSilence; and start, which runs a prepare of testOrder and
 // returns where the answer its node's word resolves it with arrives.
 func preparesOnAFakeNode(
-	t *testing.T, node fakeNodes, clockSource *clocktest.Fake,
-) (all *prepares, start func(job jobs.Job) <-chan error) {
+	t *testing.T, node fakeNodes, clockSource *clocktest.Fake, maxSilence time.Duration,
+) (service *Service, start func(job jobs.Job) <-chan error) {
 	t.Helper()
 	cache := storetest.OpenCache(t)
-	all = &prepares{
+	service = &Service{
 		cache: cache, queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		clock: clockSource,
 		exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: 12 * time.Hour,
+			Cache: cache, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)), MaxSilence: maxSilence,
 		}),
 		logger: slog.New(slog.DiscardHandler),
 	}
-	all.exchanges.Record(nodeproto.CommandPrepare, all.recordPrepare)
+	service.exchanges.Record(nodeproto.CommandPrepare, service.recordPrepare)
 	resolver := nodestest.NewResolver()
-	all.exchanges.Handle(jobs.KindPrepare, all.assignee(resolver.Of(nil)))
-	return all, func(job jobs.Job) <-chan error {
+	service.exchanges.Handle(jobs.KindPrepare, service.Assignee(resolver.Of(nil)))
+	return service, func(job jobs.Job) <-chan error {
 		job.Kind = jobs.KindPrepare
 		return resolver.Start(t, func(ctx context.Context, job jobs.Job) error {
-			return all.handle(ctx, job, testOrder)
+			return service.handle(ctx, job, testOrder)
 		}, job)
 	}
 }
 
+// neverSilent is a silence limit no test reaches.
+const neverSilent = 12 * time.Hour
+
 // insertRendition records a rendition being made, and returns its id.
-func insertRendition(t *testing.T, all *prepares) int64 {
+func insertRendition(t *testing.T, service *Service) int64 {
 	t.Helper()
 	var rendition int64
-	err := all.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+	err := service.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
 		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
 			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "remux", NodeID: 1, SegmentLengthSeconds: 2,
@@ -72,8 +75,9 @@ func insertRendition(t *testing.T, all *prepares) int64 {
 func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
-	rendition := insertRendition(t, all)
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	service, start := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	rendition := insertRendition(t, service)
 	stall := &nodeproto.Stall{
 		Cause: nodeproto.StallStoodStill, Condition: nodeproto.ConditionSpinning, LastPositionMs: 4000,
 		WithoutAdvanceMs: 180_000,
@@ -84,20 +88,20 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 		}
 		ended := start(job)
 		command := testutil.Receive(t, node.sent, "the prepare command")
-		all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
+		service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareStalled, Stall: stall})
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") ||
 		!strings.Contains(err.Error(), "stood_still at 4000 ms") || !strings.Contains(err.Error(), "spinning") {
 		t.Errorf("a first stall ended %v; want it tried again as a stall, saying what the node saw", err)
 	}
-	if row := renditionRow(t, all, rendition); row.State == renditionFailed {
+	if row := renditionRow(t, service, rendition); row.State == renditionFailed {
 		t.Errorf("after one stall the rendition is %+v; want it not failed, the hang not its source's fault", row)
 	}
 	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), nodes.FFmpegStalledTwice) {
 		t.Errorf("a second stall in a row ended %v; want the rendition's failure", err)
 	}
-	if row := renditionRow(t, all, rendition); row.State != renditionFailed || row.Failure == nil ||
+	if row := renditionRow(t, service, rendition); row.State != renditionFailed || row.Failure == nil ||
 		!strings.HasPrefix(*row.Failure, nodes.FFmpegStalledTwice) {
 		t.Errorf("after two stalls the rendition is %+v; want failed, saying FFmpeg stalled twice", row)
 	}
@@ -108,27 +112,28 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
-	rendition := insertRendition(t, all)
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	service, start := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	rendition := insertRendition(t, service)
 	prepareAfter := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
 			ID: 7, Target: jobs.Target{RenditionID: rendition}, PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
 		ended := start(job)
 		testutil.Receive(t, node.sent, "the prepare command")
-		all.exchanges.Interrupt(t.Context(), 1)
+		service.exchanges.Interrupt(t.Context(), 1)
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {
 		t.Errorf("a first restart of the node ended %v; want it tried again as the tool's failure", err)
 	}
-	if row := renditionRow(t, all, rendition); row.State == renditionFailed {
+	if row := renditionRow(t, service, rendition); row.State == renditionFailed {
 		t.Errorf("after one restart the rendition is %+v; want it not failed", row)
 	}
 	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), jobs.ToolFailedTwice) {
 		t.Errorf("a second tool failure in a row ended %v; want the rendition's failure", err)
 	}
-	if row := renditionRow(t, all, rendition); row.State != renditionFailed || row.Failure == nil ||
+	if row := renditionRow(t, service, rendition); row.State != renditionFailed || row.Failure == nil ||
 		!strings.HasPrefix(*row.Failure, jobs.ToolFailedTwice) {
 		t.Errorf("after two tool failures the rendition is %+v; want failed, saying so", row)
 	}
@@ -139,10 +144,11 @@ func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreThe
 func TestHandle_APrepareTheNodesStatusNoLongerHoldsIsTriedAgainAsTheToolsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all, start := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)))
-	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
+	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	service, start := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, service)}})
 	testutil.Receive(t, node.sent, "the prepare command")
-	all.exchanges.Square(t.Context(), 1, nil, nil)
+	service.exchanges.Square(t.Context(), 1, nil, nil)
 	err := testutil.Receive(t, ended, "the prepare job to end")
 	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
 		!strings.HasPrefix(err.Error(), "interrupted: ") {
@@ -159,9 +165,9 @@ func TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline(t *testing.T)
 	}
 }
 
-func renditionRow(t *testing.T, all *prepares, rendition int64) cachegen.PreparedRendition {
+func renditionRow(t *testing.T, service *Service, rendition int64) cachegen.PreparedRendition {
 	t.Helper()
-	row, err := all.cache.Read().GetRenditionByID(t.Context(), rendition)
+	row, err := service.cache.Read().GetRenditionByID(t.Context(), rendition)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,13 +181,14 @@ func TestHandle_APrepareThatWaitsHasNotBegunItsMaking(t *testing.T) {
 	away := jobs.Park(jobs.Parking{Destination: jobs.NodeDestination(1), Reason: "not connected"},
 		errors.New("node 1 is not connected"))
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1), notReady: away}
-	all, _ := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
-	rendition := insertRendition(t, all)
-	answer := all.handle(t.Context(), jobs.Job{ID: 7, Target: jobs.Target{RenditionID: rendition}}, testOrder)
+	clockSource := clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))
+	service, _ := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	rendition := insertRendition(t, service)
+	answer := service.handle(t.Context(), jobs.Job{ID: 7, Target: jobs.Target{RenditionID: rendition}}, testOrder)
 	if _, isParked := jobqueue.ParkingOf(answer); !isParked {
 		t.Fatalf("a prepare for a node away was answered %v, want it parked", answer)
 	}
-	if row := renditionRow(t, all, rendition); row.State != renditionQueued {
+	if row := renditionRow(t, service, rendition); row.State != renditionQueued {
 		t.Errorf("the rendition of a prepare that waits is %s, want still queued", row.State)
 	}
 }
@@ -192,8 +199,9 @@ func TestHandle_APrepareThatWaitsHasNotBegunItsMaking(t *testing.T) {
 func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
-	all, _ := preparesOnAFakeNode(t, node, clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)))
-	rendition := insertRendition(t, all)
+	clockSource := clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))
+	service, _ := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	rendition := insertRendition(t, service)
 	doneBy := func(run renditionRun) {
 		t.Helper()
 		command := nodeproto.Command{
@@ -203,25 +211,26 @@ func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.
 				Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{RenditionDir: run.dir()},
 			},
 		}
-		all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+		service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	}
 	earlier := renditionRun{fileID: testRun.fileID, profile: testRun.profile, runID: "fedcba9876543210"}
 	doneBy(earlier)
-	if row := renditionRow(t, all, rendition); row.State == "complete" {
+	if row := renditionRow(t, service, rendition); row.State == "complete" {
 		t.Errorf("an earlier making's end completed the rendition: %+v; want it left to its own run", row)
 	}
 	doneBy(testRun)
-	if row := renditionRow(t, all, rendition); row.State != "complete" || row.SizeBytes == nil || *row.SizeBytes != 10 {
+	row := renditionRow(t, service, rendition)
+	if row.State != "complete" || row.SizeBytes == nil || *row.SizeBytes != 10 {
 		t.Errorf("the making's end, with no job waiting, left the rendition %+v; want it complete, 10 bytes", row)
 	}
 	// Progress heard after the end, and a job that gave up on the making, do not undo it.
-	if err := all.recordRunning(t.Context(), testRun, 5000); err != nil {
+	if err := service.recordRunning(t.Context(), testRun, 5000); err != nil {
 		t.Fatal(err)
 	}
-	if err := all.failMaking(t.Context(), testRun, "cancelled"); err != nil {
+	if err := service.failMaking(t.Context(), testRun, "cancelled"); err != nil {
 		t.Fatal(err)
 	}
-	if row := renditionRow(t, all, rendition); row.State != "complete" {
+	if row := renditionRow(t, service, rendition); row.State != "complete" {
 		t.Errorf("after late progress and a job giving up, the rendition is %+v; want it still complete", row)
 	}
 }

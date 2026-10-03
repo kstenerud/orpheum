@@ -65,8 +65,8 @@ func TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks(t *te
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, user, chrome(2)) // queues its prepare, a person waiting
 	harness.missingMedia(t)
-	playback := harness.server.dependencies.Load().Playback
-	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+	prepares := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
+	if err := prepares.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	prepare := newestPrepareJob(t, harness.listedJobs(t, user))
@@ -190,9 +190,8 @@ func TestPrepare_APrepareOfAFileUnderAMissingRootParksOnItAndSendsNothing(t *tes
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, user, chrome(2))
 	harness.missingMedia(t)
-	playback := harness.server.dependencies.Load().Playback
 	prepare := jobs.Job{ID: 81, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	err := playback.HandlePrepare(t.Context(), prepare)
+	err := harness.renditions.HandlePrepare(t.Context(), prepare)
 	if parking, isParked := jobqueue.ParkingOf(err); !isParked ||
 		parking.Destination != jobs.RootDestination(1, "/media") || len(harness.nodes.commanded) != 0 {
 		t.Errorf("a prepare under a missing root: %v; want it parked on the root and nothing sent (D231 §5)", err)

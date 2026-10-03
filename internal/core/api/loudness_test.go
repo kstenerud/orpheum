@@ -111,7 +111,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		t.Fatalf("prepared: %+v; want both mixes at the stereo mix's gain, capped by its peak, and none carried yet",
 			decided)
 	}
-	prepared := harness.handle(t, harness.server.dependencies.Load().Playback.HandlePrepare,
+	prepared := harness.handle(t, harness.renditions.HandlePrepare,
 		jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	command := harness.nextCommand(t)
 	if command.Prepare == nil || len(command.Prepare.AudioTracks) != 1 ||

@@ -162,6 +162,7 @@ cmd/orpheum/        # main: flags → run | core | node | migrate | backup | res
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
   auth/  secrets/  library/  identify/  decide/  playback/  together/  turn/  jobs/  backup/  settings/
+  loudness/  subtitles/  renditions/   # out of playback, 2026-10-03 (architecture map F2)
   datadir/          # the only core package that touches the filesystem
 internal/node/      # GPL. Imports nothing from core
   scan/  probe/  hash/  prepare/  byteserver/  execx/ (the only exec.Command)  confine/

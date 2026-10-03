@@ -4,63 +4,12 @@ package playback
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"path"
-	"strconv"
 
-	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
-
-// AudioRendition is one audio rendition of a prepared playback: a source track's standard mix,
-// or its boosted one (D217 §3).
-type AudioRendition struct {
-	// AudioTrackIndex is the source audio track's place among its audio tracks.
-	AudioTrackIndex int
-	Language        string
-	IsBoosted       bool
-	// Levelling is the gain that brings the track's stereo sound to the level; the boosted mix
-	// plays with the standard one's (D226 §3).
-	Levelling decide.Levelling
-	// CarriedGainDB is the gain the rendition's sound already carries, which the player takes
-	// from the levelling it applies (D226 §4).
-	CarriedGainDB float64
-}
-
-// levelAudio gives each audio rendition of a prepared playback its levelling, which is its track's
-// stereo sound's, and the gain its sound carries, by its track's place in carried: what the
-// rendition's making put in (D226 §4).
-func levelAudio(renditions []AudioRendition, levels decide.Levels, probe nodeproto.Probe, carriedGainsJSON string) {
-	var gains []float64
-	_ = json.Unmarshal([]byte(carriedGainsJSON), &gains) //nolint:errcheck // its own record; unreadable is none
-	for index := range renditions {
-		rendition := &renditions[index]
-		rendition.Levelling = decide.StereoLevelling(levels, probe, rendition.AudioTrackIndex)
-		if rendition.AudioTrackIndex < len(gains) {
-			rendition.CarriedGainDB = gains[rendition.AudioTrackIndex]
-		}
-	}
-}
-
-// audioRenditions lists a prepare's audio renditions in the order the master playlist has them.
-func audioRenditions(command nodeproto.Prepare) []AudioRendition {
-	var renditions []AudioRendition
-	for _, track := range command.AudioTracks {
-		standard := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language}
-		renditions = append(renditions, standard)
-		if track.ChannelCount > 2 {
-			boosted := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language, IsBoosted: true}
-			renditions = append(renditions, boosted)
-		}
-	}
-	return renditions
-}
 
 // HLSSource is where one file of a prepared playback's rendition is, and how far the rendition is.
 type HLSSource struct {
@@ -83,137 +32,21 @@ func (service *Service) HLSSourceOf(
 	if !found || playback.profile == "" {
 		return HLSSource{}, ErrNoToken
 	}
-	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionOfFileAndProfile(ctx,
-		cachegen.GetRenditionOfFileAndProfileParams{
-			SourceFile: playback.fileID, Profile: string(playback.profile),
-		}))
-	if errors.Is(err, store.ErrNotFound) {
+	file, err := service.renditions.FileOf(ctx, playback.fileID, playback.profile, name)
+	if errors.Is(err, renditions.ErrNoRendition) {
 		return HLSSource{}, ErrNoToken
 	}
 	if err != nil {
-		return HLSSource{}, fmt.Errorf("read the rendition: %w", err)
+		return HLSSource{}, err
 	}
-	readiness := jobs.Preparing
-	switch rendition.State {
-	case renditionComplete:
-		readiness = jobs.Complete
-	case renditionFailed:
-		readiness = jobs.Failed
-	}
-	if readiness == jobs.Preparing {
-		// The player asking for it is a person still waiting for it (D234 §3).
-		err = service.queue.KeepWanted(ctx, jobs.KindPrepare, jobs.Target{RenditionID: rendition.ID})
-		if err != nil {
-			return HLSSource{}, err
-		}
-	}
-	target := nodeproto.PathBytesPrepared + strconv.FormatInt(playback.fileID, 10) + "/" +
-		string(playback.profile) + "/" + rendition.RunID + "/" + name
 	return HLSSource{
-		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsContentType(name)},
-		Readiness: readiness, fileID: playback.fileID, profile: playback.profile,
+		Source:    Source{NodeID: file.NodeID, Target: file.Target, ContentType: file.ContentType},
+		Readiness: file.Readiness, fileID: playback.fileID, profile: playback.profile,
 	}, nil
 }
 
 // PrepareAgain prepares a complete rendition again when its node no longer has it: evicted, or its
 // directory lost (D217 §5). The player is told it is too early, and waits as for a new one.
 func (service *Service) PrepareAgain(ctx context.Context, source HLSSource) error {
-	file, err := library.PlayableFile(ctx, service.database.Read(), source.fileID)
-	if err != nil {
-		return err
-	}
-	return service.prepares.redo(ctx, file, source.profile)
-}
-
-// hlsContentType is a rendition file's media type, by its name.
-func hlsContentType(name string) string {
-	switch path.Ext(name) {
-	case ".m3u8":
-		return "application/vnd.apple.mpegurl"
-	case ".m4s":
-		return "video/iso.segment"
-	}
-	return "video/mp4"
-}
-
-// HandlePrepare runs one prepare job (jobs.KindPrepare): the node that holds the source makes the
-// rendition, and this waits for it.
-func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
-	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
-	if errors.Is(err, store.ErrNotFound) {
-		return jobs.MarkPermanent(fmt.Errorf("no rendition %d", job.RenditionID))
-	}
-	if err != nil {
-		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
-	}
-	order, err := service.prepareOrderFor(ctx, job, rendition)
-	if errors.Is(err, library.ErrNoFile) || errors.As(err, new(*library.UnreadableError)) {
-		run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
-		return jobs.MarkPermanent(errors.Join(err, service.prepares.failMaking(ctx, run, err.Error())))
-	}
-	if err != nil {
-		return err
-	}
-	return service.prepares.handle(ctx, job, order)
-}
-
-// RecordPrepareFailure records a prepare job that failed for good as its rendition's making failed,
-// whatever ended it: a rendition left being made would have its player wait for it until reloaded,
-// and a failed one is prepared again by the next play (G8). A rendition gone, or made, needs nothing.
-func (service *Service) RecordPrepareFailure(ctx context.Context, job jobs.Job, failure string) error {
-	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
-	}
-	run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
-	return service.prepares.failMaking(ctx, run, failure)
-}
-
-// prepareOrder is a rendition to have made: the node's command, the node that holds the source, and
-// the source's length in milliseconds, or 0 when its probe did not say.
-type prepareOrder struct {
-	// run is the making the command is for, which its answer is recorded by.
-	run        renditionRun
-	command    nodeproto.Prepare
-	nodeID     int64
-	durationMs int64
-	// carriedGainsJSON is the gains its audio tracks carry, as JSON, as its rendition records
-	// them (D226 §4).
-	carriedGainsJSON string
-}
-
-// prepareOrderFor is what a rendition's making needs.
-func (service *Service) prepareOrderFor(
-	ctx context.Context, job jobs.Job, rendition cachegen.PreparedRendition,
-) (prepareOrder, error) {
-	file, err := library.PlayableFile(ctx, service.database.Read(), rendition.SourceFile)
-	if err != nil {
-		return prepareOrder{}, err
-	}
-	probe, err := library.ProbeOf(file.ProbeJSON)
-	if err != nil {
-		return prepareOrder{}, err
-	}
-	parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, library.LocatedOf(file))
-	if parked != nil {
-		return prepareOrder{}, parked
-	}
-	source, err := library.BytesFileOf(ctx, service.database.Read(), library.LocatedOf(file))
-	if err != nil {
-		return prepareOrder{}, err
-	}
-	run := renditionRun{fileID: file.ID, profile: rendition.Profile, runID: rendition.RunID}
-	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
-	command.SegmentLengthSeconds = int(rendition.SegmentLengthSeconds)
-	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
-	if err != nil {
-		return prepareOrder{}, err
-	}
-	gains := decide.LevelPrepare(&command, levels, probe)
-	return prepareOrder{
-		run: run, command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
-	}, nil
+	return service.renditions.PrepareAgain(ctx, source.fileID, source.profile)
 }

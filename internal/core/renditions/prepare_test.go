@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package renditions
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func (queue *progressQueue) SetProgress(_ context.Context, id int64, fraction fl
 func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 	t.Parallel()
 	queue := &progressQueue{progress: map[int64]float64{}}
-	all := &prepares{cache: storetest.OpenCache(t), queue: queue}
+	service := &Service{cache: storetest.OpenCache(t), queue: queue}
 	for _, step := range []struct {
 		job                           int64
 		preparedThroughMs, durationMs int64
@@ -47,7 +47,7 @@ func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 		{job: 3, preparedThroughMs: 1_000, durationMs: 0},
 	} {
 		job := jobs.Job{ID: step.job, Target: jobs.Target{RenditionID: 9}}
-		err := all.recordProgress(t.Context(), job.ID, testRun, step.preparedThroughMs, step.durationMs)
+		err := service.recordProgress(t.Context(), job.ID, testRun, step.preparedThroughMs, step.durationMs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,17 +95,17 @@ func (fakeNodes) SlowestReadBytesPerSecond(int64) int64 { return 20 << 20 }
 
 // progressed hands node 1's word on where the attempt command made is to the job waiting for it, as
 // the node channel does.
-func (all *prepares) progressed(ctx context.Context, command nodeproto.Command, state nodeproto.ProgressState) {
-	all.exchanges.DeliverProgress(ctx, 1, nodeproto.Progress{
+func (service *Service) progressed(ctx context.Context, command nodeproto.Command, state nodeproto.ProgressState) {
+	service.exchanges.DeliverProgress(ctx, 1, nodeproto.Progress{
 		JobID: command.JobID, AttemptToken: command.AttemptToken, State: state,
 	})
 }
 
 // reported hands node 1's report on how the attempt command made ended to its recorder and the job
 // waiting for it, as the node channel does, and fails the test if it is not taken.
-func (all *prepares) reported(t *testing.T, command nodeproto.Command, report nodeproto.PrepareReport) {
+func (service *Service) reported(t *testing.T, command nodeproto.Command, report nodeproto.PrepareReport) {
 	t.Helper()
-	err := all.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
+	err := service.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
 		JobID: command.JobID, AttemptToken: command.AttemptToken, Work: &command.Work, Prepare: &report,
 	})
 	if err != nil {
@@ -124,17 +124,16 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	const silence = time.Minute
 	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
 	clockSource := clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))
-	all, start := preparesOnAFakeNode(t, node, clockSource)
-	all.maxSilence = silence
-	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}}
+	service, start := preparesOnAFakeNode(t, node, clockSource, silence)
+	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, service)}}
 	ended := start(job)
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		clockSource.Advance(silence / 2)
-		all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+		service.progressed(t.Context(), command, nodeproto.ProgressWaiting)
 	}
-	all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+	service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}
@@ -143,7 +142,7 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	t.Parallel()
 	cache := storetest.OpenCache(t)
-	all := &prepares{cache: cache, clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))}
+	service := &Service{cache: cache, clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))}
 	var rendition int64
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
@@ -161,7 +160,7 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 		RealtimeFactor: 6.5,
 	}
 	run := renditionRun{fileID: 3, profile: "h264-8m", runID: "0123456789abcdef"}
-	if isCurrent, finishErr := all.finish(t.Context(), run, &done, ""); finishErr != nil || !isCurrent {
+	if isCurrent, finishErr := service.finish(t.Context(), run, &done, ""); finishErr != nil || !isCurrent {
 		t.Fatalf("finishing the making = %v, %v; want it recorded", isCurrent, finishErr)
 	}
 	row, err := cache.Read().GetRenditionByID(t.Context(), rendition)
@@ -182,21 +181,20 @@ func TestHandle_APrepareWaitingForASlotIsNotGivenUpForHowLongItWaits(t *testing.
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 2)}
 	clockSource := clocktest.NewFake(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC))
-	all, start := preparesOnAFakeNode(t, node, clockSource)
-	all.maxSilence = 365 * 24 * time.Hour
-	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, all)}})
+	service, start := preparesOnAFakeNode(t, node, clockSource, neverSilent)
+	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, service)}})
 	command := testutil.Receive(t, node.sent, "the prepare command")
 	for range 24 {
-		all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+		service.progressed(t.Context(), command, nodeproto.ProgressWaiting)
 		clockSource.Advance(time.Hour)
 	}
-	all.progressed(t.Context(), command, nodeproto.ProgressWaiting)
+	service.progressed(t.Context(), command, nodeproto.ProgressWaiting)
 	select {
 	case err := <-ended:
 		t.Errorf("a prepare waiting a day for a slot ended %v; want it held", err)
 	default:
 	}
-	all.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
+	service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("the prepare that waited a day ended %v, want done", err)
 	}

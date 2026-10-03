@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -66,6 +67,8 @@ type Dependencies struct {
 	Playback *playback.Service
 	// Subtitles lists the subtitles a person can fetch for a file (D224).
 	Subtitles *subtitles.Service
+	// Renditions says what each node's prepares made, for the System page (D225 §3).
+	Renditions *renditions.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.

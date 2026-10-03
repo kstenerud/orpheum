@@ -16,10 +16,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/playback"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -38,8 +38,8 @@ type jobServices struct {
 	refresher *identify.Refresher
 	settings  *settings.Service
 	artwork   *artwork.Service
-	// playback runs the prepare jobs, which share the one queue (cut-a §5.3).
-	playback *playback.Service
+	// renditions runs the prepare jobs, which share the one queue (cut-a §5.3).
+	renditions *renditions.Service
 	// loudness measures each file's sounds (D226).
 	loudness *loudness.Service
 	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
@@ -207,8 +207,8 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.loudness.Assignee,
 		},
 		{
-			jobs.KindPrepare, services.playback.HandlePrepare, services.playback.RecordPrepareFailure, nil, 1,
-			derivedByAPlay(), services.playback.PrepareAssignee,
+			jobs.KindPrepare, services.renditions.HandlePrepare, services.renditions.RecordPrepareFailure, nil, 1,
+			derivedByAPlay(), services.renditions.Assignee,
 		},
 		{
 			jobs.KindScan, services.scans.HandleScan, services.scans.RecordScanFailure, nil, 1,

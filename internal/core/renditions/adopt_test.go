@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package renditions
 
 import (
 	"errors"
@@ -47,9 +47,9 @@ func TestAdoptRenditions_RebuildsTheIndexFromTheNodesManifestsAndKeepsOnlyWhatIt
 	}
 	cache := storetest.OpenCache(t)
 	clockSource := clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))
-	service := &Service{prepares: &prepares{
+	service := &Service{
 		database: database, cache: cache, clock: clockSource, logger: slog.New(slog.DiscardHandler),
-	}}
+	}
 	unknown := renditionRun{fileID: 3, profile: "remux", runID: "aaaaaaaaaaaaaaaa"}
 	unheard := renditionRun{fileID: 4, profile: "remux", runID: "bbbbbbbbbbbbbbbb"}
 	remade := renditionRun{fileID: 5, profile: "remux", runID: "cccccccccccccccc"}
