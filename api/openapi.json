@@ -2914,6 +2914,9 @@
           "rootPath": {
             "type": "string"
           },
+          "scan": {
+            "$ref": "#/components/schemas/RootScanBody"
+          },
           "withheldReason": {
             "description": "Why the last scan's removals wait for an admin",
             "type": "string"
@@ -2924,6 +2927,42 @@
           "rootPath",
           "lastScanOutcome",
           "missingMountPaths"
+        ],
+        "type": "object"
+      },
+      "RootScanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "examineCount": {
+            "description": "Of them, those new or changed, to read",
+            "format": "int64",
+            "type": "integer"
+          },
+          "examinedCount": {
+            "description": "Of those, read",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isListed": {
+            "description": "Whether the root's listing is in; before it, the scan is listing",
+            "type": "boolean"
+          },
+          "isScanAgain": {
+            "description": "Whether one more scan runs after this one",
+            "type": "boolean"
+          },
+          "listedCount": {
+            "description": "The files the listing found",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "isListed",
+          "listedCount",
+          "examineCount",
+          "examinedCount",
+          "isScanAgain"
         ],
         "type": "object"
       },

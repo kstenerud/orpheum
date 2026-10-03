@@ -22,6 +22,8 @@ type fakeNodes struct {
 	roots []string
 	// scanned are the roots a person asked to scan.
 	scanned []string
+	// scanning are the scans in progress.
+	scanning map[ScanRoot]ScanProgress
 	// removed are the nodes an admin retired.
 	removed []int64
 	// database is where a retired node is removed, as the node service does, at clock's time.
@@ -60,6 +62,10 @@ func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int6
 		return 0, nil, false
 	}
 	return nodes.id, nodes.roots, true
+}
+
+func (nodes *fakeNodes) InProgress(context.Context) (map[ScanRoot]ScanProgress, error) {
+	return nodes.scanning, nil
 }
 
 func (nodes *fakeNodes) Request(_ context.Context, nodeID int64, root string, priority int64) error {
@@ -120,6 +126,28 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	}
 	if films.FileCountByFiling["skipped"] != 1 || len(films.FileCountByFiling) != 2 {
 		t.Errorf("filings %v, want one skipped and one other", films.FileCountByFiling)
+	}
+}
+
+// A root's scan in progress is listed with it, how far it is and whether one more follows (D236).
+func TestAdmin_ListsARootsScanInProgress(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	progress := ScanProgress{IsListed: true, ListedCount: 40, ExamineCount: 3, ExaminedCount: 1, IsScanAgain: true}
+	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, scanning: map[ScanRoot]ScanProgress{
+		{NodeID: world.nodeID, RootPath: root}: progress, {NodeID: world.nodeID, RootPath: "/media/other"}: {},
+	}}
+	libraries, err := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).List(t.Context())
+	if err != nil || len(libraries) != 1 || len(libraries[0].Roots) != 1 {
+		t.Fatalf("List = %+v, %v", libraries, err)
+	}
+	if got := libraries[0].Roots[0].Scan; got == nil || *got != progress {
+		t.Errorf("the root's scan is %+v, want %+v", got, progress)
+	}
+	nodes.scanning = nil
+	libraries, err = NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).List(t.Context())
+	if err != nil || libraries[0].Roots[0].Scan != nil {
+		t.Errorf("with no scan in progress the root lists %+v (%v), want none", libraries[0].Roots[0].Scan, err)
 	}
 }
 

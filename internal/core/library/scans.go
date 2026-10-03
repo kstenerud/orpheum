@@ -153,6 +153,38 @@ func (scans *Scans) Resume(ctx context.Context) error {
 	return nil
 }
 
+// ScanRoot names a root by its node.
+type ScanRoot struct {
+	NodeID   int64
+	RootPath string
+}
+
+// ScanProgress is how far a root's scan in progress is (D236 §2): listing, or listed and reading
+// the files its listing found new or changed; and whether one more runs after it (D236 §3).
+type ScanProgress struct {
+	IsListed      bool
+	ListedCount   int64
+	ExamineCount  int64
+	ExaminedCount int64
+	IsScanAgain   bool
+}
+
+// InProgress is every scan in progress, by its root.
+func (scans *Scans) InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error) {
+	rows, err := scans.cache.Read().ListScans(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the scans in progress: %w", err)
+	}
+	progress := make(map[ScanRoot]ScanProgress, len(rows))
+	for _, row := range rows {
+		progress[ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}] = ScanProgress{
+			IsListed: row.ListedAt != nil, ListedCount: row.ListedCount, ExamineCount: row.ExamineCount,
+			ExaminedCount: row.ExaminedCount, IsScanAgain: row.IsScanAgain != 0,
+		}
+	}
+	return progress, nil
+}
+
 // HandleScan runs one scan job (jobs.KindScan): the root's node lists it. A scan that ended, or whose
 // listing is taken, needs nothing more.
 func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {

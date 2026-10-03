@@ -2023,8 +2023,30 @@ export interface components {
             missingMountPaths: string[] | null;
             nodeName: string;
             rootPath: string;
+            scan?: components["schemas"]["RootScanBody"];
             /** @description Why the last scan's removals wait for an admin */
             withheldReason?: string;
+        };
+        RootScanBody: {
+            /**
+             * Format: int64
+             * @description Of them, those new or changed, to read
+             */
+            examineCount: number;
+            /**
+             * Format: int64
+             * @description Of those, read
+             */
+            examinedCount: number;
+            /** @description Whether the root's listing is in; before it, the scan is listing */
+            isListed: boolean;
+            /** @description Whether one more scan runs after this one */
+            isScanAgain: boolean;
+            /**
+             * Format: int64
+             * @description The files the listing found
+             */
+            listedCount: number;
         };
         ScanOutputBody: {
             /** Format: int64 */

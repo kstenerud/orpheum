@@ -38,6 +38,10 @@
 //     TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead,
 //     TestScans_ABatchGivenUpRemovesNoneOfItsFiles, TestScans_AScanWhoseListingFailsIsGivenUp.
 //
+//   - A root's scan in progress is listed with it: listing, or how many files it found and how many
+//     of those new or changed it has read; and whether one more follows (D236 §2).
+//     TestAdmin_ListsARootsScanInProgress.
+//
 //   - A scan asked for while one of its root runs starts none; one more runs after it (D236 §3).
 //     TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt. A scan the core stopped during
 //     after taking its listing starts again. TestScans_AScanTheCoreStoppedDuringStartsAgain.
