@@ -24,7 +24,7 @@ type Prober interface {
 }
 
 // Emit sends one record on. An error stops the scan: nobody is listening.
-type Emit func(record nodeproto.Record) error
+type Emit func(record nodeproto.ScanRecord) error
 
 // Options are the scanner's settings, from the node's config file.
 type Options struct {
@@ -82,13 +82,14 @@ type location struct {
 	relativePath string
 	reportedPath string
 	device       uint64 // the directory's device, for spotting a mount boundary below it
+	level        int    // how far below where the walk started: its entries are 1
 }
 
 func (place location) child(name string) location {
 	return location{
 		mediaRoot: place.mediaRoot, relativePath: path.Join(place.relativePath, name),
 		reportedPath: path.Join(place.reportedPath, name),
-		device:       place.device,
+		device:       place.device, level: place.level + 1,
 	}
 }
 
@@ -105,8 +106,50 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		visited: map[string]bool{},
 		errors:  newErrorLog(emit, scanner.options.MaxErrors),
 	}
+	return walk.run(root, ".")
+}
+
+// List lists what is under start, a path relative to root, to depth levels below it, 0 for the whole
+// tree, and returns its records (nodeproto.Listing says which): it reads no file (D240 §2).
+func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
+	[]nodeproto.ScanRecord, error,
+) {
+	var records []nodeproto.ScanRecord
+	emit := func(record nodeproto.ScanRecord) error {
+		records = append(records, record)
+		return nil
+	}
+	walk := &walk{
+		scanner: scanner, ctx: ctx, emit: emit, visited: map[string]bool{},
+		errors: newErrorLog(emit, scanner.options.MaxErrors), isListing: true, depth: depth,
+	}
+	err := walk.run(root, path.Clean(start))
+	return records, err
+}
+
+// walk is one scan in progress.
+type walk struct {
+	scanner       *Scanner
+	ctx           context.Context //nolint:containedctx // one walk is one call's context
+	emit          Emit
+	visited       map[string]bool
+	errors        *errorLog
+	observedCount int
+	sidecarCount  int
+	skippedCount  int
+	listedCount   int
+	// isListing lists each entry with its stat and reads no file, leaving every rule but the node's
+	// own to the core: a link out of the roots, what is neither a file nor a directory (D240 §3).
+	isListing bool
+	// depth is how many levels below its start a listing goes, 0 for all of them.
+	depth int
+}
+
+// run walks start, under root, between scan_begin and scan_complete.
+func (walk *walk) run(root *confine.MediaRoot, start string) error {
+	ctx, emit, scanner := walk.ctx, walk.emit, walk.scanner
 	facts, factsErr := root.Facts()
-	err := emit(nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
+	err := emit(nodeproto.ScanRecord{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
 		RootPath: root.Path(), UID: scanner.options.UID, GID: scanner.options.GID,
 		FilesystemDevice: facts.FilesystemDevice, IsMountPoint: facts.IsMountPoint, IsReadOnly: facts.IsReadOnly,
 	}})
@@ -118,8 +161,9 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		// root is not enumerated: a root error withholds every removal (D40, D41).
 		walk.errors.record(".", nodeproto.ScopeRoot, factsErr, nil)
 	} else {
-		start := location{mediaRoot: root, relativePath: ".", reportedPath: ".", device: facts.FilesystemDevice}
-		err = walk.walkDirectory(start)
+		err = walk.walkStart(location{
+			mediaRoot: root, relativePath: start, reportedPath: start, device: facts.FilesystemDevice,
+		})
 	}
 	if flushErr := walk.errors.flush(); err == nil {
 		err = flushErr
@@ -134,26 +178,31 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		}
 		return fmt.Errorf("scan %s: %w", root.Path(), ctx.Err())
 	}
-	return emit(nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{
+	return emit(nodeproto.ScanRecord{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{
 		RootPath:          root.Path(),
 		ObservedCount:     walk.observedCount,
 		SidecarCount:      walk.sidecarCount,
 		SkippedCount:      walk.skippedCount,
+		ListedCount:       walk.listedCount,
 		ErrorCount:        walk.errors.errorCount,
 		IsStoppedByErrors: walk.errors.isStopped,
 	}})
 }
 
-// walk is one scan in progress.
-type walk struct {
-	scanner       *Scanner
-	ctx           context.Context //nolint:containedctx // one walk is one call's context
-	emit          Emit
-	visited       map[string]bool
-	errors        *errorLog
-	observedCount int
-	sidecarCount  int
-	skippedCount  int
+// walkStart walks where the walk starts: the root, or a directory under it a listing names, whose
+// device a mount below it is told from.
+func (walk *walk) walkStart(start location) error {
+	if start.relativePath == "." {
+		return walk.walkDirectory(start)
+	}
+	info, err := start.mediaRoot.Lstat(start.relativePath)
+	if err != nil {
+		return walk.fail(start.reportedPath, nodeproto.ScopeRoot, err, nil)
+	}
+	if device, known := confine.DeviceOf(info); known {
+		start.device = device
+	}
+	return walk.walkDirectory(start)
 }
 
 // walkDirectory reports everything below place, once per real directory however many links reach it.
@@ -188,7 +237,7 @@ func (walk *walk) walkDirectory(place location) error {
 // reportEntry reports one directory entry.
 func (walk *walk) reportEntry(parent location, name string) error {
 	place := parent.child(name)
-	if parent.reportedPath == "." && name == ".trash" {
+	if !walk.isListing && parent.reportedPath == "." && name == ".trash" {
 		return walk.skip(place, nodeproto.SkipTrash)
 	}
 	info, err := place.mediaRoot.Lstat(place.relativePath)
@@ -199,10 +248,12 @@ func (walk *walk) reportEntry(parent location, name string) error {
 	case mode&fs.ModeSymlink != 0:
 		return walk.followSymlink(place)
 	case mode.IsDir():
-		if isSampleDirectory(name) {
+		if !walk.isListing && isSampleDirectory(name) {
 			return walk.skip(place, nodeproto.SkipSample)
 		}
 		return walk.enter(place, info)
+	case mode.IsRegular() && walk.isListing:
+		return walk.list(place, info)
 	case mode.IsRegular():
 		return walk.reportFile(place, info)
 	default:
@@ -213,16 +264,34 @@ func (walk *walk) reportEntry(parent location, name string) error {
 // enter walks a directory, first reporting it as a mount boundary when it is on another device
 // than its parent (D42, D208).
 func (walk *walk) enter(place location, info fs.FileInfo) error {
+	if walk.isListing {
+		if err := walk.list(place, info); err != nil {
+			return err
+		}
+	}
 	if device, known := confine.DeviceOf(info); known && device != place.device {
 		place.device = device
-		err := walk.send(nodeproto.Record{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
+		err := walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
 			Path: toNodePath(place.reportedPath), FilesystemDevice: device,
 		}})
 		if err != nil {
 			return err
 		}
 	}
+	if walk.isListing && walk.depth > 0 && place.level >= walk.depth {
+		return nil
+	}
 	return walk.walkDirectory(place)
+}
+
+// list reports an entry a listing found, with its stat.
+func (walk *walk) list(place location, info fs.FileInfo) error {
+	device, _ := confine.DeviceOf(info)
+	walk.listedCount++
+	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
+		Path: toNodePath(place.reportedPath), IsDirectory: info.IsDir(), SizeBytes: info.Size(),
+		ModifiedAt: info.ModTime().UnixMilli(), Device: device,
+	}})
 }
 
 // followSymlink follows a link whose target lies inside a media root, and skips one that leaves them
@@ -240,6 +309,7 @@ func (walk *walk) followSymlink(place location) error {
 		}
 		target := location{
 			mediaRoot: media, relativePath: relativePath, reportedPath: place.reportedPath, device: place.device,
+			level: place.level,
 		}
 		info, err := media.Lstat(relativePath)
 		if err != nil {
@@ -248,6 +318,8 @@ func (walk *walk) followSymlink(place location) error {
 		switch {
 		case info.IsDir():
 			return walk.enter(target, info)
+		case info.Mode().IsRegular() && walk.isListing:
+			return walk.list(place, info)
 		case info.Mode().IsRegular():
 			return walk.reportFile(target, info)
 		default:
@@ -277,6 +349,11 @@ func (walk *walk) reportFile(place location, info fs.FileInfo) error {
 	if isSampleFile(name) {
 		return walk.skip(place, nodeproto.SkipSample)
 	}
+	return walk.observe(place, info)
+}
+
+// observe probes and hashes a video.
+func (walk *walk) observe(place location, info fs.FileInfo) error {
 	identity, err := walk.payloadIdentity(place, info.Size())
 	if err != nil {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
@@ -290,7 +367,7 @@ func (walk *walk) reportFile(place location, info fs.FileInfo) error {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, fmt.Errorf("%w: %w", errProbe, err), info)
 	}
 	walk.observedCount++
-	return walk.send(nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
+	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path:       toNodePath(place.reportedPath),
 		SizeBytes:  info.Size(),
 		ModifiedAt: info.ModTime().UnixMilli(),
@@ -368,7 +445,7 @@ func (walk *walk) reportSidecar(place location, info fs.FileInfo, kind nodeproto
 	case nodeproto.SidecarImage:
 	}
 	walk.sidecarCount++
-	return walk.send(nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record})
+	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordSidecar, Sidecar: record})
 }
 
 func (walk *walk) readNFO(place location, size int64) ([]byte, error) {
@@ -387,7 +464,7 @@ func (walk *walk) readNFO(place location, size int64) ([]byte, error) {
 
 // send emits a record after any error still pending, so every record keeps its place in the
 // enumeration: an error's position says what was and was not covered around it (D40).
-func (walk *walk) send(record nodeproto.Record) error {
+func (walk *walk) send(record nodeproto.ScanRecord) error {
 	if err := walk.errors.flush(); err != nil {
 		return err
 	}
@@ -396,7 +473,7 @@ func (walk *walk) send(record nodeproto.Record) error {
 
 func (walk *walk) skip(place location, rule nodeproto.SkipRule) error {
 	walk.skippedCount++
-	return walk.send(nodeproto.Record{Type: nodeproto.RecordSkip, Skip: &nodeproto.Skip{
+	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordSkip, Skip: &nodeproto.Skip{
 		Path: toNodePath(place.reportedPath), Rule: rule,
 	}})
 }

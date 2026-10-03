@@ -23,9 +23,10 @@ type HeldResult struct {
 	Sha256 string `json:"sha256"`
 }
 
-// Result is the node's word on a job the core gave it, by the job's id and the attempt's token: one of a
-// prepare's reports, a subtitle's text, a loudness measurement or an artwork re-encode. Exactly
-// one is set, the one that answers the command the job sent, or none and a Refusal.
+// Result is the node's word on a job the core gave it, by the job's id and the attempt's token: one of
+// a prepare's reports, a subtitle's text, a loudness measurement, an artwork re-encode, a listing or
+// an examining. Exactly one is set, the one that answers the command the job sent, or none and a
+// Refusal.
 type Result struct {
 	JobID int64 `json:"jobId"`
 	// AttemptToken is the command's (Command.AttemptToken), echoed: the attempt this answers.
@@ -44,4 +45,6 @@ type Result struct {
 	Subtitle *SubtitleText       `json:"subtitle,omitempty"`
 	Loudness *LoudnessResult     `json:"loudness,omitempty"`
 	Artwork  *ArtworkBatchResult `json:"artwork,omitempty"`
+	Listing  *Listing            `json:"listing,omitempty"`
+	Examined *Examined           `json:"examined,omitempty"`
 }

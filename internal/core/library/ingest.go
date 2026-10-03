@@ -178,7 +178,7 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Rec
 			mountPath := resolveReportedPath(scan.root, record.Mount.Path).text
 			scan.mounts[mountPath] = record.Mount.FilesystemDevice
 		}
-	case nodeproto.RecordStatus:
+	case nodeproto.RecordStatus, nodeproto.RecordListed:
 	}
 	return nil
 }

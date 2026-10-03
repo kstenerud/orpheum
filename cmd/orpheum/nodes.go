@@ -123,7 +123,7 @@ func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records 
 				"path", failure.Path.Text, "scope", failure.Scope, "code", failure.Code,
 				"occurrenceCount", failure.OccurrenceCount, "platformText", failure.PlatformError.Text)
 		case nodeproto.RecordObserved, nodeproto.RecordSkip, nodeproto.RecordStatus, nodeproto.RecordMount,
-			nodeproto.RecordSidecar:
+			nodeproto.RecordSidecar, nodeproto.RecordListed:
 		}
 	}
 	sink.logger.DebugContext(ctx, "a node reported", "nodeId", nodeID, "recordCount", len(records),

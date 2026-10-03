@@ -83,7 +83,7 @@ func (log *errorLog) flush() error {
 	}
 	pending := log.pending
 	log.pending = nil
-	return log.emit(nodeproto.Record{Type: nodeproto.RecordError, Error: pending})
+	return log.emit(nodeproto.ScanRecord{Type: nodeproto.RecordError, Error: pending})
 }
 
 // classify maps an error to the project's closed vocabulary (D40).

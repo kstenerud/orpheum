@@ -33,8 +33,14 @@
 //   - Each hello lists the renditions the prepared directory holds, by their manifests, and the
 //     node evicts those the reply does not keep (D238 §2).
 //     TestAgent_TheHelloListsTheRenditionsHeldAndThoseTheCoreDoesNotKeepAreEvicted.
-//   - A root is scanned only if the node was configured with it, whatever the core asks (D107).
-//     TestAgent_RefusesToScanARootItWasNotGiven.
+//   - A root is scanned, listed or examined only if the node was configured with it, whatever the
+//     core asks (D107). TestAgent_RefusesToScanARootItWasNotGiven,
+//     TestAgent_RefusesToListOrExamineARootItWasNotGiven. Listing and examining:
+//     TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor.
+//   - A listing or an examining holds no slot, only its device's reader; an examining, which reads in
+//     the node's own process, waits between files while it is paused (D240 §5, §6).
+//     TestWorkList_WorkHoldingNoSlotWaitsOnlyForItsDevice,
+//     TestWorkList_PausedWorkWaitsBetweenFilesUntilItIsContinued.
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, the report
 //     stream and the command poll, end it. A job's result is posted beside the node's other work,

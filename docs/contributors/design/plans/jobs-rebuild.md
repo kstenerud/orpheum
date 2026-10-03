@@ -601,19 +601,20 @@ built.*
 #### 4e — a scan is a listing the core compares
 
 - **4e.1 The listing.** The node lists under a path, within its roots, to a depth: each entry's raw
-  path, kind, size, modified time, device and inode, or its error, with the root's filesystem facts;
-  a large tree in pages. The core can ask for its roots again. It serves the library folder picker
-  when that comes.
-- **4e.2 The comparison.** A scan lists a library's root and compares: unchanged needs nothing;
-  new or changed is examined; a move (device, inode and size at a new path) is kept; a removal
-  follows D208. The skip rules (D40) move to the core. `persistent.db`'s file gains its device and
-  inode.
-- **4e.3 Examining, one folder at a time.** The core sends a folder's work, bounded in files: probe
-  and hash each video, read each NFO, hash each subtitle. The node answers each file as it is done;
-  the core acknowledges and ingests each answer, and asks again for the files of a folder a node lost.
-  Identification runs as answers arrive. Progress shows beside the root: *"Scanning… N files found
-  so far"*, then the files examined (D236 §2); a scan asked for while one runs schedules one rescan
-  after it, *"Scan again when this one ends"* (D236 §3, D38).
+  path, kind, size, modified time and device, or its error, with the root's filesystem facts and its
+  mount points. It comes whole, fetched from the byte socket (D240 §8). The core can ask for its
+  roots again. It serves the library folder picker when that comes.
+- **4e.2 The comparison.** A scan lists a library's root and compares: a file whose size and
+  modified time are as stored needs nothing; new or changed is examined; a removal follows D208. The
+  skip rules (D40) and the extension lists move to the core as settings. A move is still told by its
+  payload hash, once the file at its new path is examined (D240 §8).
+- **4e.3 Examining, a batch at a time.** The core sends a folder's work in batches of up to a
+  setting's count of videos, each with the sidecars named for it: probe and hash each video, read
+  each NFO, hash each subtitle. A batch is answered whole and acknowledged (D240 §8); the core
+  ingests it through the existing rules and asks again for a batch a node lost. Identification runs
+  as answers arrive. Progress shows beside the root: *"Scanning… N files found so far"*, then the
+  files examined (D236 §2); a scan asked for while one runs schedules one rescan after it, *"Scan
+  again when this one ends"* (D236 §3, D38).
 - **4e.4 The report stream goes.** The status becomes a post of its own, and the walk, its records
   and the ingest's batch path are removed (D234 §8).
 

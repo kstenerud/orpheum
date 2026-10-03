@@ -28,11 +28,11 @@ import (
 type recordingScanner struct {
 	inner   agent.Scanner
 	mutex   sync.Mutex
-	records []nodeproto.Record
+	records []nodeproto.ScanRecord
 }
 
 func (recorder *recordingScanner) Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error {
-	return recorder.inner.Scan(ctx, root, func(record nodeproto.Record) error {
+	return recorder.inner.Scan(ctx, root, func(record nodeproto.ScanRecord) error {
 		recorder.mutex.Lock()
 		recorder.records = append(recorder.records, record)
 		recorder.mutex.Unlock()
@@ -40,8 +40,32 @@ func (recorder *recordingScanner) Scan(ctx context.Context, root *confine.MediaR
 	})
 }
 
+func (recorder *recordingScanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
+	[]nodeproto.ScanRecord, error,
+) {
+	return recorder.inner.List(ctx, root, start, depth)
+}
+
+func (recorder *recordingScanner) Examine(
+	ctx context.Context, root *confine.MediaRoot, files []nodeproto.ExamineFile, between func() error,
+) ([]nodeproto.ScanRecord, error) {
+	return recorder.inner.Examine(ctx, root, files, between)
+}
+
 // replayingScanner emits a recorded scan and touches nothing: the node of plan-deviations P9.
-type replayingScanner struct{ records []nodeproto.Record }
+type replayingScanner struct{ records []nodeproto.ScanRecord }
+
+// List lists nothing: the core asks for no listing yet.
+func (replayingScanner) List(context.Context, *confine.MediaRoot, string, int) ([]nodeproto.ScanRecord, error) {
+	return nil, nil
+}
+
+// Examine examines nothing: the core asks for no examining yet.
+func (replayingScanner) Examine(
+	context.Context, *confine.MediaRoot, []nodeproto.ExamineFile, func() error,
+) ([]nodeproto.ScanRecord, error) {
+	return nil, nil
+}
 
 func (replay replayingScanner) Scan(_ context.Context, _ *confine.MediaRoot, emit scan.Emit) error {
 	for _, record := range replay.records {
