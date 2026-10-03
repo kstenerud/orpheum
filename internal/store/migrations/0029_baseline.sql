@@ -1,16 +1,16 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds ed9e4cc7c65b95a7d8fb79a917915800d0418ee834bde4b59cb4b02d6ce4cfa5
--- The baseline (D228): library.db's schema at version 28 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0028 (D185's first schema, the steps
+-- orpheum:baseline folds 54526cb7e46d85119dd739f3a9e56c351c147aded573a305d289fd668e2771a1
+-- The baseline (D228): persistent.db's schema at version 29 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0029 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
--- and 0028's choices that follow the work, D230), and builds the schema and the seeded rows they
--- built; the checksum above is 0028_choices_follow_the_work.sql's, which a database migrated
--- through that step recorded. Until the owner declares migrations live, a schema change folds
--- the last step into this file, which moves up to its version, and adds the change as the one
--- step after it. The tables are documented in docs/contributors/design/plans/schema.md.
--- The runner owns application_id, user_version and compatible_version; this file holds DDL and
--- the two built-in roles only.
+-- 0028's choices that follow the work, D230, and 0029's facts that were job rows, D231), and builds
+-- the schema and the seeded rows they built; the checksum above is 0029_facts_not_job_rows.sql's,
+-- which a database migrated through that step recorded. Until the owner declares migrations live,
+-- a schema change folds the last step into this file, which moves up to its version, and adds the
+-- change as the one step after it. The tables are documented in
+-- docs/contributors/design/plans/schema.md. The runner owns application_id, user_version and
+-- compatible_version; this file holds DDL and the two built-in roles only.
 
 CREATE TABLE schema_meta (
   id                 INTEGER PRIMARY KEY CHECK (id = 1),
@@ -454,10 +454,12 @@ CREATE TABLE device (                                      -- class A
 );
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
 
-CREATE TABLE "grant" (                                     -- class A (D154)
+CREATE TABLE "grant" (                                   -- class A (D154)
   secret_sha256 BLOB PRIMARY KEY,        -- SHA-256 of the secret; never the secret
+  -- issued_secret: a secret handed to a person to pass on, a registration invitation or a device
+  -- code, which its scope names.
   kind        TEXT NOT NULL CHECK (kind IN ('session','link','cast','join','api_key',
-                'adapter','node','relay','invite')),
+                'adapter','node','relay','issued_secret')),
   user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL,
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
@@ -570,3 +572,55 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
 INSERT INTO role (name, is_builtin, capabilities, predicate) VALUES
   ('admin', 1, 'administer,delete_media,download,edit_metadata,host_watch_together,remote_access', NULL),
   ('user', 1, 'host_watch_together,remote_access', NULL);
+
+-- What step 0029 added (D231 sections 3, 4 and 7; the architecture map's F1).
+-- A film's or series' own failure to be fetched, not its provider's being down (D231 section
+-- 4): the fetch sweeps pass it over, its page shows it, and a person's refresh, which is "try
+-- again", clears it, as a fetch that succeeds does.
+CREATE TABLE fetch_failure (                               -- class F
+  item_id   INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  failure   TEXT NOT NULL,               -- what the provider or the job said
+  failed_at INTEGER NOT NULL
+);
+
+-- A person's request to fetch a film or series again (D231 section 4, D213 section 2): a sweep
+-- queues its fetch until one that began after it succeeds, or fails as the item's own failure.
+CREATE TABLE refresh_request (                             -- class A
+  item_id      INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  requested_at INTEGER NOT NULL,
+  -- Whether to ask again for the item's images that were missing or refused.
+  should_fetch_images INTEGER NOT NULL CHECK (should_fetch_images IN (0, 1))
+);
+
+-- An image that could not be stored: when, why, and whether its source said it was not there,
+-- a 404 that is rechecked once, a CDN's 404 lifetime later (D213 section 1). NULL on the images
+-- refused before this step, which are not rechecked.
+ALTER TABLE artwork ADD COLUMN refused_at INTEGER;
+ALTER TABLE artwork ADD COLUMN refusal TEXT;
+ALTER TABLE artwork ADD COLUMN is_missing_at_source INTEGER NOT NULL DEFAULT 0
+  CHECK (is_missing_at_source IN (0, 1));
+
+-- An admin retired the root (D231 section 7): its files are tombstones, with their history on
+-- their titles (D173), its work is cancelled, and it is scanned no more.
+ALTER TABLE library_root ADD COLUMN retired_at INTEGER;
+
+-- Since when scans have found a root unavailable, and a disk inside one missing: the first scan
+-- that did, kept until one finds it again (D41, D231 section 7).
+ALTER TABLE root_state ADD COLUMN unavailable_since INTEGER;
+ALTER TABLE root_mount ADD COLUMN missing_since INTEGER;
+
+-- The text of a subtitle track, as the node made it (D217 section 6, D224 section 5): kept here
+-- rather than in cache.db, since making it again reads a whole video (the architecture map's F1).
+-- Kept by what it was made from: the payload hash of the file an embedded track's bytes are in,
+-- as it was when extracted (D179), or the SHA-256 of a fetched subtitle's stored body_gzip. A row
+-- outlives its file and serves the same bytes if they come back.
+CREATE TABLE subtitle_text (                               -- class O: what the node made
+  source_hash  BLOB NOT NULL,
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
+  ass          BLOB,                     -- for JASSUB; NULL when it could not be made
+  vtt          BLOB,                     -- for the cast receiver; NULL when it could not be made
+  failure      TEXT,                     -- why it could not be made: FFmpeg's exit and stderr tail
+  made_at      INTEGER NOT NULL,
+  PRIMARY KEY (source_hash, stream_index),
+  CHECK ((failure IS NULL) = (ass IS NOT NULL AND vtt IS NOT NULL))
+);

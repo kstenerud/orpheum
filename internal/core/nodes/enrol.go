@@ -85,7 +85,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 			})
 		}
 	}
-	limits, err := service.readerLimits(ctx, hello.Devices)
+	limits, err := service.readerLimits(ctx, node.ID, hello.Devices)
 	if err != nil {
 		service.fail(ctx, writer, "read the devices' reader limits", err)
 		return
@@ -94,71 +94,6 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq,
 		KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions), DeviceReaderLimits: limits,
 	})
-}
-
-// readerSetting is the setting that says how many may read a device of a kind at once: an unknown
-// device's for a kind this core does not know.
-func readerSetting(kind nodeproto.DeviceKind) settings.Key {
-	switch kind {
-	case nodeproto.DeviceSpinning:
-		return settings.DeviceReadersSpinning
-	case nodeproto.DeviceSSD:
-		return settings.DeviceReadersSSD
-	case nodeproto.DeviceNetwork:
-		return settings.DeviceReadersNetwork
-	case nodeproto.DeviceUnknown:
-	}
-	return settings.DeviceReadersUnknown
-}
-
-// Unpark brings back the work parked on a destination (Sender).
-func (service *Service) Unpark(ctx context.Context, destination jobs.Destination) {
-	service.destinations.Unpark(ctx, destination)
-}
-
-// Resources are what a connected node can run at once, as its last hello said and the settings say
-// now (D240 §5), and false for a node not connected.
-func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources, bool, error) {
-	service.mutex.Lock()
-	node, isConnected := service.connectedNodes[nodeID]
-	var hello nodeproto.Hello
-	if isConnected {
-		hello = node.hello
-	}
-	service.mutex.Unlock()
-	if !isConnected {
-		return Resources{}, false, nil
-	}
-	limits, err := service.readerLimits(ctx, hello.Devices)
-	if err != nil {
-		return Resources{}, false, err
-	}
-	return Resources{Capacity: hello.Capacity, Devices: hello.Devices, ReaderLimits: limits}, true, nil
-}
-
-// devicesOf are the devices a connected node's last hello listed.
-func (service *Service) devicesOf(nodeID int64) []nodeproto.Device {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	if node, isConnected := service.connectedNodes[nodeID]; isConnected {
-		return node.hello.Devices
-	}
-	return nil
-}
-
-// readerLimits are how many may read each of a hello's devices at once, by its key: the setting
-// for its kind, and an unknown device's for a kind this core does not know (D240 §5).
-func (service *Service) readerLimits(ctx context.Context, devices []nodeproto.Device) (map[string]int, error) {
-	limits := make(map[string]int, len(devices))
-	for _, device := range devices {
-		key := readerSetting(device.Kind)
-		limit, err := service.settings.Int(ctx, key)
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", key, err)
-		}
-		limits[device.Key] = int(limit)
-	}
-	return limits, nil
 }
 
 // coveredRoots are the roots, of those a node's hello names, that a live library covers on it: a

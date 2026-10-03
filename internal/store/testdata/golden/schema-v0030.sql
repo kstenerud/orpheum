@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 28
--- compatible_version 28
+-- user_version 30
+-- compatible_version 29
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -80,7 +80,8 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   source_sha256 BLOB,                    -- the SHA-256 of the source image; its sizes live in cache/ under it
   is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
-);
+, refused_at INTEGER, refusal TEXT, is_missing_at_source INTEGER NOT NULL DEFAULT 0
+  CHECK (is_missing_at_source IN (0, 1)));
 
 -- table collection
 CREATE TABLE collection (                                  -- class A or O
@@ -122,6 +123,15 @@ CREATE TABLE device (                                      -- class A
   removed_at    INTEGER
 );
 
+-- table device_reader_limit
+CREATE TABLE device_reader_limit (                          -- D240 section 5
+  node_id      INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+  device_key   TEXT NOT NULL,             -- the node's name for it: 'zfs:tank', 'disk:sdc'
+  reader_limit INTEGER NOT NULL CHECK (reader_limit BETWEEN 1 AND 64),
+  set_at       INTEGER NOT NULL,
+  PRIMARY KEY (node_id, device_key)
+) WITHOUT ROWID;
+
 -- table edition
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,6 +166,13 @@ CREATE TABLE extra_relation (                              -- class O, or A when
 CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+
+-- table fetch_failure
+CREATE TABLE fetch_failure (                               -- class F
+  item_id   INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  failure   TEXT NOT NULL,               -- what the provider or the job said
+  failed_at INTEGER NOT NULL
+);
 
 -- table fetched_subtitle
 CREATE TABLE fetched_subtitle (                            -- class A: quota-limited, kept
@@ -219,10 +236,12 @@ CREATE TABLE file (                                        -- class I (identity 
 );
 
 -- table grant
-CREATE TABLE "grant" (                                     -- class A (D154)
+CREATE TABLE "grant" (                                   -- class A (D154)
   secret_sha256 BLOB PRIMARY KEY,        -- SHA-256 of the secret; never the secret
+  -- issued_secret: a secret handed to a person to pass on, a registration invitation or a device
+  -- code, which its scope names.
   kind        TEXT NOT NULL CHECK (kind IN ('session','link','cast','join','api_key',
-                'adapter','node','relay','invite')),
+                'adapter','node','relay','issued_secret')),
   user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL,
   parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
@@ -338,7 +357,7 @@ CREATE TABLE library (                                     -- class A
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
   library_id INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root_path  TEXT NOT NULL,
+  root_path  TEXT NOT NULL, retired_at INTEGER,
   PRIMARY KEY (library_id, node_id, root_path)
 );
 
@@ -456,6 +475,14 @@ CREATE TABLE provider_response (                           -- class F: the store
   PRIMARY KEY (item_id, provider, part)
 );
 
+-- table refresh_request
+CREATE TABLE refresh_request (                             -- class A
+  item_id      INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  requested_at INTEGER NOT NULL,
+  -- Whether to ask again for the item's images that were missing or refused.
+  should_fetch_images INTEGER NOT NULL CHECK (should_fetch_images IN (0, 1))
+);
+
 -- table role
 CREATE TABLE role (                                        -- class A (D130)
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -471,7 +498,7 @@ CREATE TABLE root_mount (                                  -- class O
   root_path         TEXT NOT NULL,
   mount_path        TEXT NOT NULL,       -- NFC, absolute on the node, like file.path
   filesystem_device INTEGER NOT NULL,    -- st_dev when it was last seen where expected
-  is_present        INTEGER NOT NULL CHECK (is_present IN (0, 1)),
+  is_present        INTEGER NOT NULL CHECK (is_present IN (0, 1)), missing_since INTEGER,
   PRIMARY KEY (node_id, mount_path)
 );
 
@@ -494,7 +521,7 @@ CREATE TABLE root_state (                                  -- class O
   withheld_scan_started_at INTEGER,      -- the withheld scan's start: what it did not see goes
   withheld_reason   TEXT,                --   once the admin confirms
   are_removals_approved INTEGER NOT NULL DEFAULT 0
-    CHECK (are_removals_approved IN (0, 1)),  -- class A: the admin said the files are gone
+    CHECK (are_removals_approved IN (0, 1)), unavailable_since INTEGER,  -- class A: the admin said the files are gone
   PRIMARY KEY (node_id, root_path)
 );
 
@@ -562,6 +589,18 @@ CREATE TABLE stream (                                      -- class O; not "trac
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
+);
+
+-- table subtitle_text
+CREATE TABLE subtitle_text (                               -- class O: what the node made
+  source_hash  BLOB NOT NULL,
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that file; 0 for a fetched subtitle
+  ass          BLOB,                     -- for JASSUB; NULL when it could not be made
+  vtt          BLOB,                     -- for the cast receiver; NULL when it could not be made
+  failure      TEXT,                     -- why it could not be made: FFmpeg's exit and stderr tail
+  made_at      INTEGER NOT NULL,
+  PRIMARY KEY (source_hash, stream_index),
+  CHECK ((failure IS NULL) = (ass IS NOT NULL AND vtt IS NOT NULL))
 );
 
 -- table tag

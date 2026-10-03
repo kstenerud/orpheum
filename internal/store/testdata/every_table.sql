@@ -106,3 +106,4 @@ INSERT INTO refresh_request (item_id, requested_at, should_fetch_images) VALUES 
 INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at)
   VALUES (X'0102', 3, CAST('[Script Info]' AS BLOB), CAST('WEBVTT' AS BLOB), NULL, 1790000600000),
          (X'0103', 0, NULL, NULL, 'Invalid data found when processing input', 1790000600000);
+INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdc', 4, 1790000700000);

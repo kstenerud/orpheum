@@ -393,3 +393,38 @@ func TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads(t *testing.T) {
 		t.Errorf("a node that has not said hello reads at %d, want 0: not known", rate)
 	}
 }
+
+// A device's reader limit an admin set wins over its kind's setting, in the hello's reply, each poll's
+// answer and the device's state; cleared, the device takes its kind's again; a node no live node is
+// named is refused (D240 §5).
+func TestSetReaderLimit_ADevicesSetLimitWinsOverItsKindsUntilCleared(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	devices := []nodeproto.Device{
+		{Key: "disk:sdc", Kind: nodeproto.DeviceUnknown}, {Key: "zfs:tank", Kind: nodeproto.DeviceSpinning},
+	}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: devices})
+	four := 4
+	if err := harness.service.SetReaderLimit(t.Context(), "local", "disk:sdc", &four); err != nil {
+		t.Fatal(err)
+	}
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); commands.DeviceReaderLimits["disk:sdc"] != 4 ||
+		commands.DeviceReaderLimits["zfs:tank"] != 1 {
+		t.Errorf("the poll's limits are %v, want sdc's set 4 and tank's kind's 1", commands.DeviceReaderLimits)
+	}
+	states, err := harness.service.DeviceStates(t.Context(), reply.NodeID)
+	if err != nil || len(states) != 2 || states[0].ReaderLimit != 4 || !states[0].IsReaderLimitSet ||
+		states[1].ReaderLimit != 1 || states[1].IsReaderLimitSet {
+		t.Errorf("the device states are %+v (%v), want sdc at its set 4 and tank at its kind's 1", states, err)
+	}
+	if err := harness.service.SetReaderLimit(t.Context(), "local", "disk:sdc", nil); err != nil {
+		t.Fatal(err)
+	}
+	again := harness.hello(t, nodeproto.Hello{Name: "local", Devices: devices})
+	if again.DeviceReaderLimits["disk:sdc"] != 1 {
+		t.Errorf("once cleared, sdc's limit is %d, want its kind's 1", again.DeviceReaderLimits["disk:sdc"])
+	}
+	if err := harness.service.SetReaderLimit(t.Context(), "attic", "disk:sdc", &four); !errors.Is(err, ErrNoNode) {
+		t.Errorf("setting a limit on attic, no node, answered %v; want ErrNoNode", err)
+	}
+}

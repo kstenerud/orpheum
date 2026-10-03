@@ -753,6 +753,31 @@
         },
         "type": "object"
       },
+      "DeviceReaderLimitInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceKey": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeName": {
+            "description": "The node's configured name",
+            "minLength": 1,
+            "type": "string"
+          },
+          "readerLimit": {
+            "format": "int64",
+            "maximum": 64,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodeName",
+          "deviceKey"
+        ],
+        "type": "object"
+      },
       "DevicesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2010,6 +2035,65 @@
           "name",
           "isConnected",
           "rootPaths"
+        ],
+        "type": "object"
+      },
+      "NodeDeviceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "disks": {
+            "description": "The whole disks it reads from; none when the node cannot see them",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "filesystem": {
+            "type": "string"
+          },
+          "isReaderLimitSet": {
+            "description": "Whether an admin set its reader limit, over its kind's",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "The node's name for it: zfs:tank, disk:sdc",
+            "type": "string"
+          },
+          "kind": {
+            "description": "How it reads, as the node found it",
+            "enum": [
+              "spinning",
+              "ssd",
+              "network",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "mountPaths": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "readerLimit": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "filesystem",
+          "disks",
+          "mountPaths",
+          "readerLimit",
+          "isReaderLimitSet"
         ],
         "type": "object"
       },
@@ -3540,6 +3624,15 @@
             ],
             "type": "string"
           },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/NodeDeviceBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "disks": {
             "items": {
               "$ref": "#/components/schemas/DiskBody"
@@ -3606,7 +3699,8 @@
           "gid",
           "confinement",
           "disks",
-          "recentPrepares"
+          "recentPrepares",
+          "devices"
         ],
         "type": "object"
       },
@@ -6354,6 +6448,51 @@
         "summary": "The nodes, and the roots each connected one configured, for a new library (admin)",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/nodes/device-reader-limit": {
+      "put": {
+        "operationId": "putDeviceReaderLimit",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceReaderLimitInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240)",
+        "tags": [
+          "Running it"
         ]
       }
     },

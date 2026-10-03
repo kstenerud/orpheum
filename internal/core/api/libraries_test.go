@@ -48,6 +48,10 @@ type fakeNodes struct {
 	isReadRateUnknown bool
 	// awayNodeID is another node than 1, enrolled and away while node 1 is connected; 0 for none.
 	awayNodeID int64
+	// devices are what its hello said its roots are on, with their reader limits.
+	devices []corenodes.DeviceState
+	// readerLimitsSet are the reader limits set, by "node/device"; a cleared one is 0.
+	readerLimitsSet map[string]int
 	// database is where a retired node is removed, at clock's time.
 	database *store.Database
 	clock    clock.Clock
@@ -147,6 +151,24 @@ func (nodes *fakeNodes) ConnectedNodeRoots(_ context.Context, name string) (int6
 }
 
 // Facts are what node 1 said: its hello, and a status once it said anything a status carries.
+func (nodes *fakeNodes) DeviceStates(context.Context, int64) ([]corenodes.DeviceState, error) {
+	return nodes.devices, nil
+}
+
+func (nodes *fakeNodes) SetReaderLimit(_ context.Context, nodeName, deviceKey string, limit *int) error {
+	if nodeName != "local" {
+		return corenodes.ErrNoNode
+	}
+	if nodes.readerLimitsSet == nil {
+		nodes.readerLimitsSet = map[string]int{}
+	}
+	nodes.readerLimitsSet[nodeName+"/"+deviceKey] = 0
+	if limit != nil {
+		nodes.readerLimitsSet[nodeName+"/"+deviceKey] = *limit
+	}
+	return nil
+}
+
 func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 	if name != "local" || nodes.roots == nil {
 		return corenodes.Facts{}, false

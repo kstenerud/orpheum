@@ -47,7 +47,7 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 	answer := func(ctx context.Context, pending []nodeproto.Command) {
 		// Each answer carries the reader limits as the settings say now, so a change reaches the
 		// node within a poll's hold (D240 §5).
-		limits, err := service.readerLimits(ctx, service.devicesOf(nodeID))
+		limits, err := service.readerLimits(ctx, nodeID, service.devicesOf(nodeID))
 		if err != nil {
 			service.logger.WarnContext(ctx, "could not read the devices' reader limits; the node keeps its last",
 				"nodeId", nodeID, "err", err)
