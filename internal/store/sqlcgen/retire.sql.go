@@ -9,6 +9,49 @@ import (
 	"context"
 )
 
+const forgetRootMounts = `-- name: ForgetRootMounts :exec
+DELETE FROM root_mount WHERE node_id = ?1 AND root_path = ?2
+`
+
+type ForgetRootMountsParams struct {
+	NodeID   int64
+	RootPath string
+}
+
+func (q *Queries) ForgetRootMounts(ctx context.Context, arg ForgetRootMountsParams) error {
+	_, err := q.db.ExecContext(ctx, forgetRootMounts, arg.NodeID, arg.RootPath)
+	return err
+}
+
+const forgetRootScan = `-- name: ForgetRootScan :exec
+DELETE FROM root_scan WHERE node_id = ?1 AND root_path = ?2
+`
+
+type ForgetRootScanParams struct {
+	NodeID   int64
+	RootPath string
+}
+
+func (q *Queries) ForgetRootScan(ctx context.Context, arg ForgetRootScanParams) error {
+	_, err := q.db.ExecContext(ctx, forgetRootScan, arg.NodeID, arg.RootPath)
+	return err
+}
+
+const forgetRootState = `-- name: ForgetRootState :exec
+DELETE FROM root_state WHERE node_id = ?1 AND root_path = ?2
+`
+
+type ForgetRootStateParams struct {
+	NodeID   int64
+	RootPath string
+}
+
+// A repointed root's state at its old place: its scans, its facts and the disks mounted inside it.
+func (q *Queries) ForgetRootState(ctx context.Context, arg ForgetRootStateParams) error {
+	_, err := q.db.ExecContext(ctx, forgetRootState, arg.NodeID, arg.RootPath)
+	return err
+}
+
 const listFetchedSubtitleIDsOfFiles = `-- name: ListFetchedSubtitleIDsOfFiles :many
 SELECT id FROM fetched_subtitle
 WHERE video_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
@@ -208,6 +251,60 @@ type RemoveNodeParams struct {
 // enrols a new node.
 func (q *Queries) RemoveNode(ctx context.Context, arg RemoveNodeParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, removeNode, arg.RemovedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const repointFile = `-- name: RepointFile :exec
+UPDATE file SET node_id = ?1, path = ?2, reported_path_raw = ?3,
+  modified_at = NULL
+WHERE id = ?4
+`
+
+type RepointFileParams struct {
+	NodeID          int64
+	Path            string
+	ReportedPathRaw []byte
+	ID              int64
+}
+
+// A live file of a repointed root, at its new place: its modified time is forgotten, so the next
+// scan reads it again and confirms it by its payload hash before it counts as there.
+func (q *Queries) RepointFile(ctx context.Context, arg RepointFileParams) error {
+	_, err := q.db.ExecContext(ctx, repointFile,
+		arg.NodeID,
+		arg.Path,
+		arg.ReportedPathRaw,
+		arg.ID,
+	)
+	return err
+}
+
+const repointLibraryRoot = `-- name: RepointLibraryRoot :execrows
+UPDATE library_root SET node_id = ?1, root_path = ?2
+WHERE library_id = ?3 AND node_id = ?4 AND root_path = ?5
+  AND retired_at IS NULL
+`
+
+type RepointLibraryRootParams struct {
+	NewNodeID   int64
+	NewRootPath string
+	LibraryID   int64
+	NodeID      int64
+	RootPath    string
+}
+
+// A library root an admin says is now at another path, on the same or another node (D241 section 6).
+func (q *Queries) RepointLibraryRoot(ctx context.Context, arg RepointLibraryRootParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, repointLibraryRoot,
+		arg.NewNodeID,
+		arg.NewRootPath,
+		arg.LibraryID,
+		arg.NodeID,
+		arg.RootPath,
+	)
 	if err != nil {
 		return 0, err
 	}

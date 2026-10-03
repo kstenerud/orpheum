@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChanges } from "./polling.ts";
-import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
+import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -46,7 +47,11 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
 }
 
 /** A title's page: its art, name, year and length, what it is about, its versions and extras. */
-export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
+export function TitleView(props: {
+  readonly title: TitleDetail;
+  /** Says one file that cannot be read now is gone for good (D241 §5); an admin's. */
+  readonly onRetireFile?: (fileId: number) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
   return (
@@ -65,7 +70,11 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
       {title.unavailable === undefined ? null : (
         <output className="title__unavailable">{unavailableText(t, title.unavailable)}</output>
       )}
-      <Versions versions={title.versions ?? []} isPlayable={title.unavailable === undefined} />
+      <Versions
+        versions={title.versions ?? []}
+        isPlayable={title.unavailable === undefined}
+        {...(props.onRetireFile === undefined ? {} : { onRetireFile: props.onRetireFile })}
+      />
       <Extras extras={title.extras ?? []} />
     </article>
   );
@@ -123,6 +132,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
 function Versions(props: {
   readonly versions: readonly components["schemas"]["VersionBody"][];
   readonly isPlayable: boolean;
+  readonly onRetireFile?: (fileId: number) => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { versions } = props;
@@ -143,6 +153,17 @@ function Versions(props: {
                 </Link>
               ) : null}
               {file.path === undefined ? null : <code>{file.path}</code>}
+              {/* An admin sees the path, and says a file that cannot be read now is gone (D241 §5). */}
+              {props.isPlayable ||
+              file.path === undefined ||
+              props.onRetireFile === undefined ? null : (
+                <ConfirmButton
+                  label={t("title.retireFile")}
+                  consequence={t("title.retireFileConsequence")}
+                  confirmLabel={t("title.retireFileConfirm")}
+                  onConfirm={() => props.onRetireFile?.(file.id)}
+                />
+              )}
               <ul>
                 {(file.streams ?? []).map((stream) => (
                   <StreamLine key={stream.id} stream={stream} />
@@ -207,10 +228,21 @@ export function Loaded<T>(props: {
 /** A title's page, loaded by its id. */
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [title] = useResource(
+  const [title, reload] = useResource(
     `title/${String(props.id)}`,
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
     useBackgroundChanges(),
   );
-  return <Loaded resource={title} render={(value) => <TitleView title={value} />} />;
+  const retireFile = (fileId: number): void => {
+    api
+      .POST("/files/{id}/retire", { params: { path: { id: fileId } } })
+      .then(throwIfRefused)
+      .then(reload, reload);
+  };
+  return (
+    <Loaded
+      resource={title}
+      render={(value) => <TitleView title={value} onRetireFile={retireFile} />}
+    />
+  );
 }

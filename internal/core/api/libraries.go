@@ -217,6 +217,15 @@ func (server *Server) registerLibraries() {
 		Summary: "Retire a root for good: its files become tombstones and their work is cancelled (admin; D231 §7)",
 	}, server.postLibraryRootRetire)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postLibraryRootRepoint", Method: http.MethodPost, Path: "/libraries/{id}/roots/repoint",
+		Tags:    tags,
+		Summary: "Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6)", //nolint:lll // one summary
+	}, server.postLibraryRootRepoint)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postFileRetire", Method: http.MethodPost, Path: "/files/{id}/retire", Tags: tags,
+		Summary: "Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5)",
+	}, server.postFileRetire)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "deleteLibrary", Method: http.MethodDelete, Path: "/libraries/{id}", Tags: tags,
 		Summary: "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
 	}, server.deleteLibrary)
@@ -389,6 +398,58 @@ func (server *Server) postLibraryRootRetire(ctx context.Context, input *RootActi
 	return retiredOutput(retired), nil
 }
 
+// RepointInput names a root of a library, by node and path, and where it is now.
+type RepointInput struct {
+	AuthorizationHeader
+	ID   int64 `path:"id"`
+	Body struct {
+		NodeName    string `doc:"The root's node" json:"nodeName" minLength:"1"`
+		Path        string `doc:"The root's path" json:"path" minLength:"1"`
+		NewNodeName string `doc:"The node it is on now: the same, or another" json:"newNodeName" minLength:"1"`
+		NewPath     string `doc:"Where it is now: one of that node's configured roots" json:"newPath" minLength:"1"`
+	}
+}
+
+// RepointedOutput says how many files a repoint moved.
+type RepointedOutput struct {
+	Body struct {
+		// MovedFileCount is how many live files took the new path; the next scan confirms each.
+		MovedFileCount int `json:"movedFileCount"`
+	}
+}
+
+func (server *Server) postLibraryRootRepoint(ctx context.Context, input *RepointInput) (*RepointedOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	repointed, err := dependencies.Libraries.RepointRoot(ctx, library.Repoint{
+		LibraryID: input.ID, NodeName: input.Body.NodeName, Path: input.Body.Path,
+		NewNodeName: input.Body.NewNodeName, NewPath: input.Body.NewPath,
+	})
+	if errors.Is(err, library.ErrNotANodeRoot) || errors.Is(err, library.ErrRootCovered) {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.newPath", err.Error())
+	}
+	if err != nil {
+		return nil, server.libraryError(ctx, "repoint a root", err)
+	}
+	output := &RepointedOutput{}
+	output.Body.MovedFileCount = repointed.MovedFileCount
+	return output, nil
+}
+
+func (server *Server) postFileRetire(ctx context.Context, input *ItemInput) (*RetiredOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	retired, err := dependencies.Libraries.RetireFile(ctx, input.ID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "retire a file", err)
+	}
+	return retiredOutput(retired), nil
+}
+
 func (server *Server) deleteLibrary(ctx context.Context, input *LibraryInput) (*RetiredOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
@@ -476,8 +537,11 @@ func (server *Server) libraryError(ctx context.Context, action string, err error
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.rootPaths", err.Error())
 	case errors.Is(err, library.ErrNoSuchRoot): // a root's answer names it by path
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.path", err.Error())
-	case errors.Is(err, library.ErrNothingWithheld), errors.Is(err, library.ErrMountNotMissing):
+	case errors.Is(err, library.ErrNothingWithheld), errors.Is(err, library.ErrMountNotMissing),
+		errors.Is(err, library.ErrFileReadable):
 		return newError(http.StatusConflict, CodeConflict, err.Error())
+	case errors.Is(err, library.ErrNoFile):
+		return newError(http.StatusNotFound, CodeNotFound, "no such file")
 	}
 	return server.logInternalError(ctx, action, err)
 }

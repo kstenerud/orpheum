@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,6 +13,7 @@ import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { CreateLibrary } from "./create-library.tsx";
+import { RepointRoot, type Place } from "./repoint-root.tsx";
 
 /** A library, as an admin sees it. */
 export type Library = components["schemas"]["LibraryBody"];
@@ -74,6 +75,9 @@ export function rootAnswerRequest(
 export function RootLine(props: {
   readonly root: Root;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
+  /** Where it can move to, and saying it did (D241 §6). */
+  readonly places?: readonly Place[];
+  readonly onRepoint?: (root: Root, to: Place) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { root } = props;
@@ -113,6 +117,11 @@ export function RootLine(props: {
         onConfirm={() => {
           props.onAnswer(root, { kind: "retire" });
         }}
+      />{" "}
+      <RepointRoot
+        from={{ nodeName: root.nodeName, path: root.rootPath }}
+        places={props.places ?? []}
+        onRepoint={(to) => props.onRepoint?.(root, to)}
       />
     </li>
   );
@@ -149,6 +158,8 @@ export function LibraryCard(props: {
   readonly onScan: () => void;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   readonly onDelete: () => void;
+  readonly places?: readonly Place[];
+  readonly onRepoint?: (root: Root, to: Place) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
@@ -162,6 +173,8 @@ export function LibraryCard(props: {
             key={`${root.nodeName}:${root.rootPath}`}
             root={root}
             onAnswer={props.onAnswer}
+            places={props.places ?? []}
+            {...(props.onRepoint === undefined ? {} : { onRepoint: props.onRepoint })}
           />
         ))}
       </ul>
@@ -202,6 +215,7 @@ function useLibraryActions(reload: () => void): {
   readonly scan: (libraryId: number) => void;
   readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: (libraryId: number) => void;
+  readonly repoint: (libraryId: number, root: Root, to: Place) => void;
 } {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -211,20 +225,20 @@ function useLibraryActions(reload: () => void): {
   const setNote = (libraryId: number, note: string): void => {
     setNotesByLibraryId((previous) => new Map(previous).set(libraryId, note));
   };
+  const noteProblem =
+    (libraryId: number) =>
+    (cause: unknown): void => {
+      setNote(libraryId, problemText(t, cause));
+    };
   return {
     notesByLibraryId,
     scan: (libraryId) => {
       api
         .POST("/libraries/{id}/scan", { params: { path: { id: libraryId } } })
         .then(dataOrThrow)
-        .then(
-          (scanAnswer) => {
-            setNote(libraryId, t("libraries.scanning", { count: scanAnswer.askedRootCount }));
-          },
-          (cause: unknown) => {
-            setNote(libraryId, problemText(t, cause));
-          },
-        );
+        .then((scanAnswer) => {
+          setNote(libraryId, t("libraries.scanning", { count: scanAnswer.askedRootCount }));
+        }, noteProblem(libraryId));
     },
     answerAboutRoot: (libraryId, root, answer) => {
       const request = rootAnswerRequest(root, answer);
@@ -234,19 +248,48 @@ function useLibraryActions(reload: () => void): {
           body: request.body,
         })
         .then(throwIfRefused)
-        .then(reload, (cause: unknown) => {
-          setNote(libraryId, problemText(t, cause));
-        });
+        .then(reload, noteProblem(libraryId));
+    },
+    repoint: (libraryId, root, to) => {
+      repointRoot(api, { libraryId, root, to }).then((movedFileCount) => {
+        setNote(libraryId, t("libraries.repointed", { count: movedFileCount }));
+        reload();
+      }, noteProblem(libraryId));
     },
     deleteLibrary: (libraryId) => {
       api
         .DELETE("/libraries/{id}", { params: { path: { id: libraryId } } })
         .then(throwIfRefused)
-        .then(reload, (cause: unknown) => {
-          setNote(libraryId, problemText(t, cause));
-        });
+        .then(reload, noteProblem(libraryId));
     },
   };
+}
+
+/** Says a library's root moved to another place, and how many files went with it (D241 §6). */
+async function repointRoot(
+  api: Api,
+  move: { readonly libraryId: number; readonly root: Root; readonly to: Place },
+): Promise<number> {
+  const { libraryId, root, to } = move;
+  const moved = dataOrThrow(
+    await api.POST("/libraries/{id}/roots/repoint", {
+      params: { path: { id: libraryId } },
+      body: {
+        nodeName: root.nodeName,
+        path: root.rootPath,
+        newNodeName: to.nodeName,
+        newPath: to.path,
+      },
+    }),
+  );
+  return moved.movedFileCount;
+}
+
+/** Every place a root can move to: each connected node's configured roots. */
+function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
+  return (answer.nodes ?? [])
+    .filter((node) => node.isConnected)
+    .flatMap((node) => (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path })));
 }
 
 /** The libraries, each with its roots and files, and a form to create another. */
@@ -262,6 +305,10 @@ export function Libraries(): JSX.Element {
     useBackgroundChanges(),
   );
   const actions = useLibraryActions(reload);
+  const [places] = useResource("library-places", async () =>
+    placesOf(dataOrThrow(await api.GET("/nodes"))),
+  );
+  const placeList = places.state === "loaded" ? places.value : [];
   const renderCard = (library: Library): JSX.Element => (
     <LibraryCard
       key={library.id}
@@ -275,6 +322,10 @@ export function Libraries(): JSX.Element {
       }}
       onDelete={() => {
         actions.deleteLibrary(library.id);
+      }}
+      places={placeList}
+      onRepoint={(root, to) => {
+        actions.repoint(library.id, root, to);
       }}
     />
   );

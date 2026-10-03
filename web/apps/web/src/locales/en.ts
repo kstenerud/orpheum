@@ -197,6 +197,10 @@ export const en = {
     episodeLabel: "{{number}}. {{name}}",
     unavailable: "not on disk",
     unavailableNow: "Cannot be played now",
+    retireFile: "This file is gone for good…",
+    retireFileConsequence:
+      "It leaves the library; what was watched is kept, and if it comes back it is found again.",
+    retireFileConfirm: "Retire the file",
     specials: "Specials",
     play: "Play",
   },
@@ -499,6 +503,13 @@ export const en = {
     retireRoot: "This folder is gone for good…",
     retireRootConsequence:
       "Its films leave the library and it is never scanned again; what was watched is kept.",
+    repoint: "This folder moved…",
+    repointTo: "It is now at",
+    repointConsequence:
+      "Its files move there with what was watched; the next scan reads each again to make sure it is the same.",
+    repointConfirm: "Move it",
+    repointKeep: "Keep it where it is",
+    repointed: "Moved, with {{count}} files. A scan of the new place is under way.",
     retireRootConfirm: "Retire the folder",
     delete: "Delete the library…",
     deleteConsequence:

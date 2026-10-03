@@ -278,6 +278,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire one file that cannot be read now: it becomes a tombstone, its history kept (admin; D241 §5) */
+        post: operations["postFileRetire"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/{id}/subtitle-candidates": {
         parameters: {
             query?: never;
@@ -567,6 +584,23 @@ export interface paths {
         put?: never;
         /** Approve a root's withheld removals; its next scan removes what it does not see (admin; D208) */
         post: operations["postLibraryRemovals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/libraries/{id}/roots/repoint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say a root moved: it and its files take the new path with their history, and a scan confirms each (admin; D241 §6) */
+        post: operations["postLibraryRootRepoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2029,6 +2063,20 @@ export interface components {
         RenamePersonInputBody: {
             name: string;
         };
+        RepointedOutputBody: {
+            /** Format: int64 */
+            movedFileCount: number;
+        };
+        RepointInputBody: {
+            /** @description The node it is on now: the same, or another */
+            newNodeName: string;
+            /** @description Where it is now: one of that node's configured roots */
+            newPath: string;
+            /** @description The root's node */
+            nodeName: string;
+            /** @description The root's path */
+            path: string;
+        };
         ReportInputBody: {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
@@ -3086,6 +3134,40 @@ export interface operations {
             };
         };
     };
+    postFileRetire: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetiredOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getSubtitleCandidates: {
         parameters: {
             query: {
@@ -3757,6 +3839,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RescanOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postLibraryRootRepoint: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepointInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepointedOutputBody"];
                 };
             };
             /** @description Error */
