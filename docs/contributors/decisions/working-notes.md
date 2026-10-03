@@ -17606,3 +17606,47 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
 in use the protocol and both databases change freely: their one user is the owner, testing (the
 owner, 2026-10-02: *"I don't care about protocol changes or format changes or anything that causes
 incompatibilities or requires migrations at this point"*).
+
+## D241 — What goes missing stays listed as unavailable until an admin says it is gone, and a play of it fails at once
+
+**Decided** (2026-10-03), by the project owner, after asking what happens when a node reconnects
+naming a different set of roots. **Amends** D231 §5, §6 and §12 for play-driven work, and D231 §7
+with a per-file retire and a root's repoint.
+
+1. **Why.** A root the node stops naming in its hello is never scanned, so nothing marks it missing:
+   its films look playable, a play fails with the node's bare "not under my roots", and the library
+   screen shows nothing wrong, so the admin is never led to retire it. The owner: *"it should still
+   show up, but marked as unavailable. This would be a general pattern for things that go
+   transiently missing until the admin marks something permanently gone (either one at a time, or
+   bulk through a 'this root is now gone')."*
+2. **A root the hello does not name is missing.** At a node's hello, each of its library roots the
+   hello does not name is marked missing from that moment, as a scan marks one whose folder or disk
+   is gone (D41, D208). Nothing is removed on an absence. When a hello names it again, its scan
+   runs and finds it.
+3. **Unavailable is shown, not hidden.** A Title whose every live copy is under a missing root or
+   disk, or on a node that is not connected, stays in every list and on its page, marked
+   unavailable with the reason and since when. This is the one pattern for whatever goes missing
+   for a while: it lasts until the admin says it is gone.
+4. **A play of what is known unavailable fails at once and queues nothing.** The owner: *"If a
+   request comes in to play something that's already known unavailable, it should fail immediately
+   with appropriate messaging, and NOT queue any jobs. The user can't see the video, so the
+   priority and even necessity of such a job is gone."* The answer names what is missing (the
+   folder or disk and its node, or the node) and since when. This replaces, for play-driven work,
+   D231 §12's "waiting for <destination>": a person is not kept waiting on a source known to be
+   gone. A play-driven job already queued when its source goes missing is cancelled, as nobody can
+   be waiting for it. Background work (loudness, artwork from the file, extraction for the sweep)
+   still parks under D231 §5–§6, and the job view says why.
+5. **Gone is the admin's word, one at a time or in bulk.** Retiring a root (D231 §7) is the bulk
+   "this root is now gone". A file marked unavailable can also be retired by itself: its file is
+   tombstoned, keeping the Title's history (D173). Unless that or a scan's confirmed removal happens,
+   an unavailable file stays unavailable.
+6. **A moved root is repointed, not recreated.** The admin can tell the core that a root, missing
+   or reported moved, is now at another path on the same or another node. The root and its files'
+   paths move with their history. The next scan confirms each file by its payload hash (D179) before
+   it counts as present again, and treats one it cannot confirm as a removal under D208.
+7. **Later.** "Rescan to find missing media": the core asks a node for the full tree of each of its
+   roots and matches missing files by name, then confirms candidates by payload hash. It is not in
+   Cut A.
+
+**Status:** Decided 2026-10-03; to be built in the jobs rebuild's Phase 6, beside D231 §12's other
+answers to a person.
