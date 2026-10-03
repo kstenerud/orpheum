@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -110,7 +111,7 @@ func (service *Service) HLSSourceOf(
 // PrepareAgain prepares a complete rendition again when its node no longer has it: evicted, or its
 // directory lost (D217 §5). The player is told it is too early, and waits as for a new one.
 func (service *Service) PrepareAgain(ctx context.Context, source HLSSource) error {
-	file, err := service.playableFile(ctx, service.database.Read(), source.fileID)
+	file, err := library.PlayableFile(ctx, service.database.Read(), source.fileID)
 	if err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
 	}
 	order, err := service.prepareOrderFor(ctx, job, rendition)
-	if errors.Is(err, ErrNoFile) || errors.As(err, new(*UnreadableError)) {
+	if errors.Is(err, library.ErrNoFile) || errors.As(err, new(*library.UnreadableError)) {
 		run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
 		return jobs.MarkPermanent(errors.Join(err, service.prepares.failMaking(ctx, run, err.Error())))
 	}
@@ -181,18 +182,19 @@ type prepareOrder struct {
 func (service *Service) prepareOrderFor(
 	ctx context.Context, job jobs.Job, rendition cachegen.PreparedRendition,
 ) (prepareOrder, error) {
-	file, err := service.playableFile(ctx, service.database.Read(), rendition.SourceFile)
+	file, err := library.PlayableFile(ctx, service.database.Read(), rendition.SourceFile)
 	if err != nil {
 		return prepareOrder{}, err
 	}
-	probe, err := decodeProbe(file.ProbeJSON)
+	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
 		return prepareOrder{}, err
 	}
-	if parked := service.parkIfUnavailable(ctx, job, locatedOf(file)); parked != nil {
+	parked := library.ParkIfUnavailable(ctx, service.database.Read(), service.nodes, job, library.LocatedOf(file))
+	if parked != nil {
 		return prepareOrder{}, parked
 	}
-	source, err := service.bytesFileOf(ctx, locatedOf(file))
+	source, err := library.BytesFileOf(ctx, service.database.Read(), library.LocatedOf(file))
 	if err != nil {
 		return prepareOrder{}, err
 	}

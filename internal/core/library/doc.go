@@ -99,6 +99,12 @@
 //     (D241 §2). TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt. Whether a file
 //     can be read now, its node away or its root or disk missing, has one answer: UnreadableFile.
 //
+//   - A playable file, its probe, where its bytes are on its node's byte socket, and whether a job
+//     reading it waits, ends or goes ahead have one answer each, which the play, the prepares, the
+//     extractions and the measurements share (playable.go): PlayableFile, ProbeOf, BytesFileOf,
+//     RefuseUnreadable, ParkIfUnavailable. A file under a root of "/" is named by its root:
+//     TestBytesFileOf_NamesAFileUnderARootOfSlash.
+//
 //   - One file that cannot be read now is gone on the admin's word, a tombstone keeping its history;
 //     one that can be read is refused (D241 §5). A root that moved is repointed: it and its live
 //     files take the new path with their history, their modified times forgotten so the next scan,

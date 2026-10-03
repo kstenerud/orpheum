@@ -22,7 +22,7 @@ import (
 // deciding on what is gone. A track the file does not have is preferences.ErrNoTrack.
 func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64, choice preferences.Used) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		if _, err := service.playableFile(ctx, queries, fileID); err != nil {
+		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
 			return err
 		}
 		tracks, err := service.textTracksOf(ctx, queries, fileID)
@@ -37,7 +37,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 // work's unwatched files follow by its language (D230 §5), as ChooseSubtitle does.
 func (service *Service) ChooseAudio(ctx context.Context, userID, fileID int64, track preferences.TrackRef) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		if _, err := service.playableFile(ctx, queries, fileID); err != nil {
+		if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
 			return err
 		}
 		audio, err := audioTracksOf(ctx, queries, fileID)
@@ -64,7 +64,7 @@ func (service *Service) SetSubtitleOffset(ctx context.Context, userID, fileID, o
 func (service *Service) keepSubtitleOffset(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID, offsetMs int64,
 ) error {
-	if _, err := service.playableFile(ctx, queries, fileID); err != nil {
+	if _, err := library.PlayableFile(ctx, queries, fileID); err != nil {
 		return err
 	}
 	return service.preferences.KeepSubtitleOffset(ctx, queries, userID, fileID, offsetMs)

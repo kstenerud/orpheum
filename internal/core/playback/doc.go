@@ -134,7 +134,7 @@
 //     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
 //
 //   - A play of a file that cannot be read now, its node away or its root or a disk inside it
-//     missing, is refused before anything is queued (UnreadableError, library.UnreadableFile), and a
+//     missing, is refused before anything is queued (library.RefuseUnreadable), and a
 //     play-driven job whose file cannot be read ends rather than parks (D241 §4).
 //     TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing,
 //     TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing,

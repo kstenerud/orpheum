@@ -11,7 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -109,7 +109,7 @@ func (MediaUnreachableDetailBody) problemCode() Code { return CodeMediaUnreachab
 
 // mediaUnreachable is a play refused because its file cannot be read now, its node named by
 // nodeName (D241 §4).
-func mediaUnreachable(unreadable *playback.UnreadableError, nodeName func(nodeID int64) string) error {
+func mediaUnreachable(unreadable *library.UnreadableError, nodeName func(nodeID int64) string) error {
 	detail := MediaUnreachableDetailBody(*unavailableBody(&unreadable.Unreadable, nodeName))
 	return newDetailedError(http.StatusServiceUnavailable, "this file cannot be read now: "+unreadable.Error(), detail)
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/providers"
@@ -220,7 +221,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
-	if unreadable, isUnreadable := errors.AsType[*playback.UnreadableError](err); isUnreadable {
+	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
 	}
 	if err != nil {
@@ -348,7 +349,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return invalidRequestAt(http.StatusBadRequest, "body.playableFormats", err.Error())
 	case errors.Is(err, playback.ErrBadReport):
 		return invalidRequestAt(http.StatusBadRequest, "body", err.Error())
-	case errors.Is(err, playback.ErrNoFile):
+	case errors.Is(err, library.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
 	case errors.Is(err, playback.ErrNoToken):
 		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")

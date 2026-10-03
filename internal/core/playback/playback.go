@@ -3,9 +3,7 @@
 package playback
 
 import (
-	"cmp"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -28,8 +26,6 @@ import (
 
 // The errors a playback's caller distinguishes.
 var (
-	// ErrNoFile is a file that is not there to play: never seen, gone, or not a video.
-	ErrNoFile = errors.New("no such file to play")
 	// ErrNoToken is a media token that refers to no playback of this person's session.
 	ErrNoToken = errors.New("no such playback")
 )
@@ -163,15 +159,16 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err := request.PlayableFormats.Validate(); err != nil {
 		return Started{}, err
 	}
-	file, err := service.playableFile(ctx, service.database.Read(), request.FileID)
+	file, err := library.PlayableFile(ctx, service.database.Read(), request.FileID)
 	if err != nil {
 		return Started{}, err
 	}
 	// Nothing is queued for a file that cannot be read now: the person is told why at once (D241 §4).
-	if refused := service.refuseUnreadable(ctx, file.NodeID, file.ReportedPathRaw); refused != nil {
+	refused := library.RefuseUnreadable(ctx, service.database.Read(), service.nodes, file.NodeID, file.ReportedPathRaw)
+	if refused != nil {
 		return Started{}, refused
 	}
-	probe, err := decodeProbe(file.ProbeJSON)
+	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
 		return Started{}, err
 	}
@@ -340,53 +337,25 @@ func (service *Service) DirectSource(
 	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}
-	file, err := service.playableFile(ctx, service.database.Read(), playback.fileID)
+	file, err := library.PlayableFile(ctx, service.database.Read(), playback.fileID)
 	if err != nil {
 		return Source{}, err
 	}
-	bytesFile, err := service.bytesFileOf(ctx, locatedOf(file))
+	bytesFile, err := library.BytesFileOf(ctx, service.database.Read(), library.LocatedOf(file))
 	if err != nil {
 		return Source{}, err
 	}
-	probe, err := decodeProbe(file.ProbeJSON)
+	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
 		return Source{}, err
 	}
 	return Source{NodeID: file.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format)}, nil
 }
 
-// located is where a file's bytes are: its library, its node, the path its node reported, and
-// its payload hash. Its subject names what was located, "file 12" or "stream 40", for an error.
-type located struct {
-	subject         string
-	libraryID       int64
-	nodeID          int64
-	reportedPathRaw []byte
-	payloadHash     []byte
-}
-
-func locatedOf(file sqlcgen.GetPlayableFileRow) located {
-	return located{
-		subject: fmt.Sprintf("file %d", file.ID), libraryID: file.LibraryID, nodeID: file.NodeID,
-		reportedPathRaw: file.ReportedPathRaw, payloadHash: file.PayloadHash,
-	}
-}
-
-// UnreadableError is a play of a file that cannot be read now: its node away, or its root or a disk
-// inside it missing (D241 §4).
-type UnreadableError struct {
-	library.Unreadable
-}
-
-func (unreadable *UnreadableError) Error() string {
-	return fmt.Sprintf("node %d's file cannot be read: %s %s, since %s", unreadable.NodeID, unreadable.Reason,
-		cmp.Or(unreadable.Path, "-"), unreadable.Since.UTC().Format(time.RFC3339))
-}
-
-// Unreadable is why a file cannot be read now, or nil when it can (D241 §7); ErrNoFile for a file
-// that is not a live one to play.
+// Unreadable is why a file cannot be read now, or nil when it can (D241 §7); library.ErrNoFile for
+// a file that is not a live one to play.
 func (service *Service) Unreadable(ctx context.Context, fileID int64) (*library.Unreadable, error) {
-	file, err := service.playableFile(ctx, service.database.Read(), fileID)
+	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return nil, err
 	}
@@ -398,85 +367,12 @@ func (service *Service) Unreadable(ctx context.Context, fileID int64) (*library.
 	return &unreadable, nil
 }
 
-// refuseUnreadable refuses a play of the file a node reported at reportedPath when it cannot be read
-// now (UnreadableError); nil when it can.
-func (service *Service) refuseUnreadable(ctx context.Context, nodeID int64, reportedPath []byte) error {
-	unreadable, isUnreadable, err := library.UnreadableFile(ctx, service.database.Read(), service.nodes, nodeID,
-		reportedPath)
-	if err != nil {
-		return fmt.Errorf("ask whether the file can be read: %w", err)
-	}
-	if isUnreadable {
-		return &UnreadableError{unreadable}
-	}
-	return nil
-}
-
-// parkIfUnavailable answers that a job reading file waits, at no cost of an attempt, while the
-// root or the mounted disk that holds it is missing, until a scan finds it (D231 §5); nil when
-// it is there. A play-driven job whose file cannot be read ends instead, its node away included: no
-// one can watch it, so no one waits for its work (D241 §4).
-func (service *Service) parkIfUnavailable(ctx context.Context, job jobs.Job, file located) error {
-	if job.Priority >= jobs.PriorityPlayNow {
-		err := service.refuseUnreadable(ctx, file.nodeID, file.reportedPathRaw)
-		if errors.As(err, new(*UnreadableError)) {
-			return jobs.MarkPermanent(fmt.Errorf("no one can watch %s: %w", file.subject, err))
-		}
-		return err
-	}
-	missing, isMissing, err := library.UnavailableUnder(ctx, service.database.Read(), file.nodeID, file.reportedPathRaw)
-	if err != nil || !isMissing {
-		return err
-	}
-	return jobs.ParkOnMissingRoot(file.nodeID, missing.Path, missing.Since, fmt.Errorf("%s is under it", file.subject))
-}
-
-// bytesFileOf names a file on its node's byte socket: the library root it is under, its path
-// relative to that root, and its payload hash.
-func (service *Service) bytesFileOf(ctx context.Context, file located) (nodeproto.BytesFile, error) {
-	roots, err := service.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: file.libraryID, NodeID: file.nodeID,
-	})
-	if err != nil {
-		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
-	}
-	root, relative, found := library.RootHolding(file.reportedPathRaw, roots)
-	if !found {
-		return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.subject)
-	}
-	return nodeproto.BytesFile{RootPath: root, Path: relative, PayloadHash: hex.EncodeToString(file.payloadHash)}, nil
-}
-
-func (service *Service) playableFile(
-	ctx context.Context, queries *sqlcgen.Queries, fileID int64,
-) (sqlcgen.GetPlayableFileRow, error) {
-	file, err := store.OrNotFound(queries.GetPlayableFile(ctx, fileID))
-	if errors.Is(err, store.ErrNotFound) {
-		return file, ErrNoFile
-	}
-	if err != nil {
-		return file, fmt.Errorf("read file %d: %w", fileID, err)
-	}
-	if file.ProbeJSON == nil || file.PayloadHash == nil {
-		return file, fmt.Errorf("%w: file %d was never probed and hashed", ErrNoFile, fileID)
-	}
-	return file, nil
-}
-
 func (service *Service) tokenIdleExpiry(ctx context.Context) (time.Duration, error) {
 	idleExpiry, err := service.settings.Duration(ctx, settings.MediaTokenIdleExpiryHours)
 	if err != nil {
 		return 0, fmt.Errorf("read the media token's idle time: %w", err)
 	}
 	return idleExpiry, nil
-}
-
-// decodeProbe is a file's stored probe; a file never probed is ErrNoFile.
-func decodeProbe(stored *string) (nodeproto.Probe, error) {
-	if stored == nil {
-		return nodeproto.Probe{}, ErrNoFile
-	}
-	return library.DecodeProbe(*stored)
 }
 
 // contentType is what a browser is told a file is, by its container.

@@ -94,11 +94,11 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 	if row := renditionRow(t, all, rendition); row.State == renditionFailed {
 		t.Errorf("after one stall the rendition is %+v; want it not failed, the hang not its source's fault", row)
 	}
-	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), stalledTwice) {
+	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), nodes.FFmpegStalledTwice) {
 		t.Errorf("a second stall in a row ended %v; want the rendition's failure", err)
 	}
 	if row := renditionRow(t, all, rendition); row.State != renditionFailed || row.Failure == nil ||
-		!strings.HasPrefix(*row.Failure, stalledTwice) {
+		!strings.HasPrefix(*row.Failure, nodes.FFmpegStalledTwice) {
 		t.Errorf("after two stalls the rendition is %+v; want failed, saying FFmpeg stalled twice", row)
 	}
 }
@@ -230,11 +230,11 @@ func TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits(t *testing.
 // says so, and that the next scan of its root ends the job (S74).
 func TestRefusalError_SaysAFileChangedSinceTheScanApart(t *testing.T) {
 	t.Parallel()
-	changed := refusalError(1, "prepare 3/remux/0123456789abcdef", "not the one named", nodeproto.RefusedChanged)
+	changed := nodes.RefusalError(1, "prepare 3/remux/0123456789abcdef", "not the one named", nodeproto.RefusedChanged)
 	if !strings.Contains(changed.Error(), "changed since the scan") || !strings.Contains(changed.Error(), "next scan") {
 		t.Errorf("a changed file's refusal says %q, want it said apart, with what ends the job", changed)
 	}
-	other := refusalError(1, "prepare 3/remux/0123456789abcdef", "this node does not prepare", "")
+	other := nodes.RefusalError(1, "prepare 3/remux/0123456789abcdef", "this node does not prepare", "")
 	if strings.Contains(other.Error(), "changed since the scan") {
 		t.Errorf("another refusal says %q, want it not taken for a changed file", other)
 	}

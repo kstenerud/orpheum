@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package library_test
 
 import (
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -16,10 +17,9 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/"})
-	service := &Service{database: database}
-	named, err := service.bytesFileOf(t.Context(), located{
-		subject: "file 1", libraryID: libraryID, nodeID: nodeID, reportedPathRaw: []byte("/Film.mkv"),
-		payloadHash: []byte{0x0c},
+	named, err := library.BytesFileOf(t.Context(), database.Read(), library.Located{
+		Subject: "file 1", LibraryID: libraryID, NodeID: nodeID, ReportedPathRaw: []byte("/Film.mkv"),
+		PayloadHash: []byte{0x0c},
 	})
 	if err != nil || named.RootPath != "/" || string(named.Path) != "Film.mkv" || named.PayloadHash != "0c" {
 		t.Errorf("a file under / is named %+v, %v; want root / and path Film.mkv", named, err)

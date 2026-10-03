@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
@@ -65,7 +66,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if service.subtitler == nil {
 		return SubtitleOffer{}, ErrNoSubtitler
 	}
-	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
+	if _, err := library.PlayableFile(ctx, service.database.Read(), fileID); err != nil {
 		return SubtitleOffer{}, err
 	}
 	query, hasIDs, err := service.subtitleQuery(ctx, fileID, language)
@@ -181,7 +182,7 @@ func (service *Service) FetchSubtitle(
 	if service.subtitler == nil {
 		return Fetched{}, ErrNoSubtitler
 	}
-	file, err := service.playableFile(ctx, service.database.Read(), fileID)
+	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return Fetched{}, err
 	}
