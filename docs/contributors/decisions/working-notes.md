@@ -17699,8 +17699,10 @@ not clear which things need to be kept when I want to back up orpheum."* **Amend
    - `backups/`: the backups, outside `persistent/` so a backup holds no earlier ones;
    - `run/`: what only a running instance needs, never backed up: the node sockets, the server
      lock and the one-time setup code.
-   The pointers let a distribution put the cache on another disk. The log goes to standard output,
-   for the distribution to keep.
+   The pointers let a distribution put the cache on another disk. Where the log is written is a key
+   of the full config: standard output, or a file the admin names (the owner, 2026-10-03: *"I also
+   want to support specifying where the log should be written to"*); `default-config` writes
+   standard output.
 4. **`orpheum default-config <dir>` makes an instance.** The owner: *"The user should be able to
    generate a default config with something like 'orpheum default-config /path/to/dir' (config must
    not exist yet)."* It writes the top-level config and the full config with every key's starting
@@ -17714,7 +17716,7 @@ not clear which things need to be kept when I want to back up orpheum."* **Amend
    admin asks for it, for moving to another machine, as D194 §4 says: a backup with the key
    decrypts the sealed secrets, and a restore without it loses only those.
 
-The owner agreed (2026-10-03, *"Agreed"*) to points 3's `run/` and the log, 5's snapshot and the
+The owner agreed (2026-10-03, *"Agreed"*) to points 3's `run/`, 5's snapshot and the
 key left out by default, and one instance directory over separate system directories; points 2 and
 4 are the owner's stipulation.
 
