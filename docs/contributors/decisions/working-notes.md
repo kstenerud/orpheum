@@ -17738,5 +17738,7 @@ key left out by default, and one instance directory over separate system directo
    `server.data_dir`, `server.cache_dir`, `server.socket_dir` and `node.prepared_dir`. (Both
    agreed by the owner, 2026-10-03: *"Yes, go ahead"*.)
 
-**Status:** Decided 2026-10-03; to be built after the jobs rebuild's Phase 6, before the pre-M4
-audit.
+**Status:** Built 2026-10-03: the instance directory, `--instance` and `default-config`, the
+node's own instance and its byte socket named in its hello (protocol 19), and `log.destination`
+; the backup as a tarball of `persistent/`, restored from one, and made from the System
+page. M4's scheduled backups make them too, when M4 builds them.
