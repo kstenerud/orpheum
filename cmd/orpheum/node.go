@@ -40,11 +40,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
-// coreSocketName is the core's socket's name in server.socket_dir (cut-a §2).
+// coreSocketName is the core's socket's name in its instance's run directory (cut-a §2, D242 §7).
 const coreSocketName = "core.sock"
 
-// nodeSocketName is the node's byte socket's name in server.socket_dir, from which the core reads
-// media bytes (cut-a §4, D193 §1).
+// nodeSocketName is the node's byte socket's name in its instance's run directory, from which the
+// core reads media bytes (cut-a §4, D193 §1); the node's hello says where it is (D242 §7).
 const nodeSocketName = "node.sock"
 
 // errConfinementRequired refuses to run FFmpeg without every confinement mechanism in force.
@@ -53,14 +53,15 @@ var errConfinementRequired = errors.New("node.confinement_policy is \"require\",
 
 // commandNode runs a media node: the child `run` starts, or a node on its own.
 func commandNode(ctx context.Context, call invocation) int {
-	config, configReport, err := call.loadConfigFromFlags("node", nil)
+	config, configReport, err := call.loadConfigFromFlags("node", kindNode, nil)
 	if err != nil {
 		return call.fail(err)
 	}
-	logger, err := call.logger(config)
+	logger, closeLog, err := call.logger(config)
 	if err != nil {
 		return call.fail(err)
 	}
+	defer closeLog() //nolint:errcheck // nothing is logged after it
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}
@@ -165,11 +166,12 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		}
 	}
 	heldResults := agent.NewHeldResults()
-	stopBytes, err := serveBytes(ctx, config, roots, directory, heldResults, logger)
+	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory, heldResults, logger)
 	if err != nil {
 		return err
 	}
 	defer stopBytes()
+	hello.ByteSocketPath = byteSocketPath
 	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
@@ -191,8 +193,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		workers.PreparedDirectory = directory.root.Path()
 	}
 	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
-	coreSocketPath := filepath.Join(config.Server.SocketDir, coreSocketName)
-	return agent.New(coreSocketPath, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+	return agent.New(config.Node.CoreSocket, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
 }
 
 // stuckOf is what the node's status says of the processes runner left running (D233 §10).
@@ -250,12 +251,14 @@ func preparedBudget(config Config) prepared.Budget {
 	}
 }
 
-// openPreparedDirectory makes the node's prepared directory if it is missing, and opens it.
+// openPreparedDirectory makes the node's prepared directory, in its instance's cache directory
+// (D242 §3), if it is missing, and opens it.
 func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
-	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
+	path := config.Instance.preparedDir()
+	if err := os.MkdirAll(path, 0o750); err != nil {
 		return preparedDirectory{}, fmt.Errorf("make the prepared directory: %w", err)
 	}
-	root, err := confine.OpenMediaRoot(config.Node.PreparedDir)
+	root, err := confine.OpenMediaRoot(path)
 	if err != nil {
 		return preparedDirectory{}, err
 	}
@@ -267,21 +270,24 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	return preparedDirectory{root: root, preparer: preparer, shelf: shelf}, nil
 }
 
-// serveBytes serves the node's byte socket until the returned stop is called.
+// serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop
+// is called, and says where the socket is.
 func serveBytes(
 	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory,
 	heldResults *agent.HeldResults, logger *slog.Logger,
-) (func(), error) {
-	listener, err := unixsocket.Listen(config.Server.SocketDir, nodeSocketName)
+) (stop func(), socketPath string, err error) {
+	listener, err := unixsocket.Listen(config.Instance.RunDir, nodeSocketName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	server := byteserver.New(roots, directory.root).ServingResults(heldResults)
 	if directory.shelf != nil {
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}
 	handler := server.Handler()
-	httpServer := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
+	httpServer := &http.Server{
+		Handler: handler, ReadHeaderTimeout: time.Duration(config.Node.ReadHeaderTimeoutSeconds) * time.Second,
+	}
 	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
 	var serving sync.WaitGroup
 	serving.Go(func() {
@@ -293,7 +299,7 @@ func serveBytes(
 		// A player's reads end with the node; the core answers them with node_silent.
 		_ = httpServer.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
 		serving.Wait()
-	}, nil
+	}, listener.Addr().String(), nil
 }
 
 // openRoots opens each configured media root. One that cannot be opened is logged and left out

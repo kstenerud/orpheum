@@ -52,19 +52,25 @@ func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 	}
 }
 
-func TestDispatch_BuiltSubcommandsNeedTheirConfig(t *testing.T) {
+// Every subcommand that runs on an instance needs its directory, and has no default for it (D242
+// §2); default-config needs the directory to make one in.
+func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 	t.Parallel()
 	for _, planned := range plannedSubcommands() {
 		if planned.implementation == nil || planned.name == "openapi" || planned.name == "dev" {
 			continue
 		}
+		want := "--instance is required"
+		if planned.name == "default-config" {
+			want = "usage: orpheum default-config [--node] <instance directory>"
+		}
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
 			status := dispatch(t.Context(), []string{planned.name}, noEnvironment, &stdout, &stderr)
-			if status == exitSuccess || !strings.Contains(stderr.String(), "--config is required") {
-				t.Errorf("without --config: status %d, stderr %q; want a failure naming --config",
-					status, stderr.String())
+			if status == exitSuccess || !strings.Contains(stderr.String(), want) {
+				t.Errorf("without its instance: status %d, stderr %q; want a failure saying %q",
+					status, stderr.String(), want)
 			}
 		})
 	}
@@ -122,7 +128,7 @@ func TestDispatch_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
 func TestShimIfAsked_OnlyTheShimsArgumentMakesThisProcessTheShim(t *testing.T) {
 	t.Parallel()
 	var stderr strings.Builder
-	for _, arguments := range [][]string{{"orpheum"}, {"orpheum", "run"}, {"orpheum", "node", "--config"}} {
+	for _, arguments := range [][]string{{"orpheum"}, {"orpheum", "run"}, {"orpheum", "node", "--instance"}} {
 		if _, isShim := shimIfAsked(arguments, &stderr); isShim {
 			t.Errorf("%q made this process the shim", arguments)
 		}

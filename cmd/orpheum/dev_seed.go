@@ -28,6 +28,8 @@ import (
 
 // seedFile is deploy/dev/seed.toml (cut-a §2a).
 type seedFile struct {
+	// NodeName is the node the libraries are on: the dev node instance's node.name.
+	NodeName  string         `toml:"node_name"`
 	Users     []seedUser     `toml:"user"`
 	Libraries []seedLibrary  `toml:"library"`
 	Settings  map[string]any `toml:"settings"`
@@ -66,14 +68,14 @@ func devSecrets() []struct {
 	}
 }
 
-// commandDev runs `orpheum dev seed --config <file> --seed <file>`.
+// commandDev runs `orpheum dev seed --instance <dir> --seed <file>`.
 func commandDev(ctx context.Context, call invocation) int {
 	if len(call.arguments) == 0 || call.arguments[0] != "seed" {
-		return write(call.stderr, "Usage: orpheum dev seed --config <file> --seed <file>\n", exitUsageError)
+		return write(call.stderr, "Usage: orpheum dev seed --instance <dir> --seed <file>\n", exitUsageError)
 	}
 	call.arguments = call.arguments[1:]
 	var seedPath string
-	config, configReport, err := call.loadConfigFromFlags("dev seed", func(flags *flag.FlagSet) {
+	config, configReport, err := call.loadConfigFromFlags("dev seed", kindCore, func(flags *flag.FlagSet) {
 		flags.StringVar(&seedPath, "seed", "", "the seed file, deploy/dev/seed.toml rendered (required)")
 	})
 	if err != nil {
@@ -102,7 +104,7 @@ func commandDev(ctx context.Context, call invocation) int {
 func applySeed(ctx context.Context, call invocation, config Config, seed seedFile, report *strings.Builder) (
 	err error,
 ) {
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
 		return err
 	}
@@ -111,10 +113,11 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 		return err
 	}
 	defer func() { err = errors.Join(err, database.Close()) }()
-	logger, err := call.logger(config)
+	logger, closeLog, err := call.logger(config)
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Join(err, closeLog()) }()
 	// Every setting gets its starting value first: hashing a password reads argon2id's costs.
 	settingsService := settings.NewService(database, clock.System{}, logger)
 	if _, err = settingsService.Seed(ctx); err != nil { // the server logs what the seed found at start
@@ -137,10 +140,10 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	return seedLibraries(ctx, database, config.Node.Name, seed.Libraries, report)
+	return seedLibraries(ctx, database, seed.NodeName, seed.Libraries, report)
 }
 
-// seedLibraries creates each library that does not exist yet, on the node the config names,
+// seedLibraries creates each library that does not exist yet, on the node the seed names,
 // which it enrols if the node has not said hello. A root is recorded as the node reports it:
 // with symlinks resolved.
 func seedLibraries(
@@ -148,6 +151,9 @@ func seedLibraries(
 ) error {
 	if len(libraries) == 0 {
 		return nil
+	}
+	if nodeName == "" {
+		return errors.New("the seed has libraries and no node_name: name the node they are on")
 	}
 	nodeID, err := nodes.Enrol(ctx, database, clock.System{}, nodeName)
 	if err != nil {

@@ -103,7 +103,8 @@ func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	if log := captured.String(); !strings.Contains(log, `"awaitingMatch":1`) {
 		t.Errorf("the log does not say one film awaits its match:\n%s", log)
 	}
-	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
+	cachePath := filepath.Join(config.Instance.CacheDir, "cache.db")
+	cache, err := store.OpenCache(t.Context(), cachePath, config.openOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +189,7 @@ type libraryShape struct {
 // a link (macOS's /var).
 func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape libraryShape) int64 {
 	t.Helper()
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +222,7 @@ func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape librar
 
 func openDatabase(t *testing.T, config Config) *store.Database {
 	t.Helper()
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +282,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	case early := <-done:
 		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
 	}
-	socket := filepath.Join(config.Server.SocketDir, nodeSocketName)
+	socket := filepath.Join(config.Instance.RunDir, nodeSocketName)
 	client := &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
@@ -318,7 +319,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	config.Node.PreparedDir = filepath.Join(blocker, "prepared")
+	config.Instance.CacheDir = blocker // its prepared directory cannot be made under a file
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
 	config.Node.FFmpegDir = fake.Directory
 	const listening, cannot = "serving the byte socket", "this node cannot prepare; it serves files as they are"

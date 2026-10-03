@@ -41,7 +41,7 @@ func Write(
 	if !includeKey {
 		return written, nil
 	}
-	keyFileContents, err := directories.ReadStateFile(secrets.KeyFileName)
+	keyFileContents, err := directories.ReadPersistentFile(secrets.KeyFileName)
 	if err != nil {
 		return written, fmt.Errorf("include the key: %w", err)
 	}
@@ -136,7 +136,7 @@ func MakePlan(
 func Restore(
 	ctx context.Context, directories *datadir.Directories, plan Plan, keyFileContents []byte, options store.OpenOptions,
 ) (err error) {
-	lock, err := directories.LockState()
+	lock, err := directories.LockInstance()
 	if err != nil {
 		return err
 	}
@@ -147,11 +147,11 @@ func Restore(
 			return err
 		}
 	}
-	err = directories.RemoveStateFile(restoringName)
+	err = directories.RemovePersistentFile(restoringName)
 	if err != nil {
 		return err
 	}
-	restoringPath, err := directories.StatePath(restoringName)
+	restoringPath, err := directories.PersistentPath(restoringName)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func Restore(
 		return err
 	}
 	if plan.InstallsKey {
-		err = directories.WriteStateFile(secrets.KeyFileName, keyFileContents)
+		err = directories.WritePersistentFile(secrets.KeyFileName, keyFileContents)
 		if err != nil {
 			return fmt.Errorf("install the key: %w", err)
 		}

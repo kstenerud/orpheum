@@ -73,7 +73,8 @@ background, never as a to-do list.
 │         · probe, payload hash, subtitle extraction · prepare jobs         │
 │         · every FFmpeg run confined per invocation (§7)                   │
 └───────────────────────────────────────────────────────────────────────────┘
-   /media (ro)      /var/lib/orpheum (persistent.db — backed up)      /var/cache/orpheum (cache.db, prepared/, art/)
+   /media (ro)      core instance: persistent/ (backed up) · cache/ · backups/ · run/
+                    node instance: persistent/ (its config) · cache/prepared/ · run/      (D242)
 ```
 
 - **One binary, two processes.** `orpheum run` starts the core, and the core supervises the node as
@@ -83,11 +84,13 @@ background, never as a to-do list.
   runtime starts and restarts; `run` and the core's supervisor are gone, and the dev loop runs the
   two as two processes.*
 - **Two sockets, each in one direction, and each for one purpose:**
-  - **The node connects to the core** on `/run/orpheum/core.sock`. Over it the node posts reports and
-    long-polls for commands, so commands always travel on a connection the node opened
+  - **The node connects to the core** on `core.sock` in the core instance's `run/`, which the
+    node's `node.core_socket` names (D242 §7). Over it the node posts reports and long-polls for
+    commands, so commands always travel on a connection the node opened
     ([D107](../../decisions/working-notes.md)).
-  - **The core reads bytes from the node** on `/run/orpheum/node.sock`. This socket serves `GET`
-    only: file ranges and prepared-output files, no commands.
+  - **The core reads bytes from the node** on `node.sock` in the node instance's `run/`, which
+    the node's hello names. This socket serves `GET` only: file ranges and prepared-output files,
+    no commands.
   - **Both sockets are mode 0600, owned by the service user.** The permissions are the
     authentication; there is no enrolment credential in Cut A (schema.md, `node`).
 - **Where it runs:**
@@ -111,18 +114,22 @@ other debugging targets (`dev-server`, `dev-lan`, `dev-reset`, `dev-db`, `dev-lo
 `dev-debug`, `pprof`, `probe`, `test-one`, `cover`). **What the server must implement for the
 loop to work:**
 
-- **`orpheum run --config <file>`** (since Phase 4a, `orpheum core` and `orpheum node`, each with
-  `--config <file>`), reading TOML with exactly the keys in
-  [`deploy/dev/orpheum.dev.toml`](../../../../deploy/dev/orpheum.dev.toml); nothing defaults in code
-  ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
-  - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_seconds`,
-    `shutdown_grace_seconds`
-  - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
-  - `[node]`: `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
-    `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
+- **`orpheum core --instance <dir>` and `orpheum node --instance <dir>`** (since D242, built
+  2026-10-03; before it `orpheum run --config <file>`, and from Phase 4a `--config` on each). An
+  instance is one directory: its top-level `orpheum.toml` says its kind and where its
+  `persistent/`, `cache/`, `backups/` (a core's) and `run/` are, and the full config,
+  `persistent/config.toml`, holds the keys of its kind, those of
+  [`deploy/dev/core.dev.toml`](../../../../deploy/dev/core.dev.toml) and
+  [`deploy/dev/node.dev.toml`](../../../../deploy/dev/node.dev.toml); nothing defaults in code
+  ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)).
+  `orpheum default-config [--node] <dir>` makes one. Paths arrive absolute.
+  - a core's `[server]`: `listen`, `read_header_timeout_seconds`, `shutdown_grace_seconds`
+  - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
+  - a node's `[node]`: `core_socket`, `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which
+    is `"require"` or `"report"`; a production install writes `"require"`. `prepared_budget_gib`
     (200), `prepared_kept_after_play_hours` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
-    renditions within D217 §5's budget.
-  - `[log]`: `level`, `format` (`text` or `json`)
+    renditions, in its instance's `cache/prepared/`, within D217 §5's budget.
+  - both's `[log]`: `level`, `format` (`text` or `json`), `destination` (`stderr` or a file)
 
   A missing key with a starting value runs on it, and doctor lists it; one with none refuses
   start (D202).
@@ -131,7 +138,7 @@ loop to work:**
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
   lesson 11). pprof and `/metrics` are the `should_serve_debug_pprof` and `should_serve_debug_metrics` settings, served on
   the listen address only when it is loopback; every opinionated value is a setting (D200).
-- **`orpheum dev seed --config <file> --seed <file>`, in `-tags dev` builds only** (M1 for the
+- **`orpheum dev seed --instance <dir> --seed <file>`, in `-tags dev` builds only** (M1 for the
   users and settings, M2 for the libraries). It applies [`deploy/dev/seed.toml`](../../../../deploy/dev/seed.toml):
   - the two users with their public dev passwords;
   - the two libraries, with D184's three questions answered;
@@ -377,9 +384,9 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   than as HLS renditions in Cut A.
 - **The boost matrix** is one fixed matrix whose centre gain is set in M3 by listening test on a
   television, and recorded as an `assumptions/` test.
-- **Where the output lives:** `<file_id>/<profile>/<run_id>/` under the node's own prepared directory, a
-  node configuration key whose default is `/var/cache/orpheum/prepared/`. The node owns it and is
-  the only thing that deletes there (D217 §5).
+- **Where the output lives:** `<file_id>/<profile>/<run_id>/` under the node's own prepared directory,
+  `cache/prepared/` in its instance (D242 §3; before it, the `prepared_dir` key). The node owns it
+  and is the only thing that deletes there (D217 §5).
 - **The `prepared_rendition` row** is written when the job starts and marked complete when it
   ends. Play state records against the source file
   ([D180](../../decisions/working-notes.md)).

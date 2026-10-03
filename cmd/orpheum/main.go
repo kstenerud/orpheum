@@ -70,6 +70,10 @@ func plannedSubcommands() []subcommand {
 			name: "node", summary: "run a media node, a service of its own beside the core (D233 §2)",
 			implementation: commandNode,
 		},
+		{
+			name: "default-config", summary: "make an instance directory, a core's or with --node a node's (D242)",
+			implementation: commandDefaultConfig,
+		},
 		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
 		{name: "backup", summary: "write a backup of the database", implementation: commandBackup},
 		{name: "restore", summary: "restore a backup, with the server stopped", implementation: commandRestore},
@@ -149,14 +153,15 @@ func dispatch(
 // commandCore runs the core. Its nodes are services of their own (`orpheum node`), which dial its
 // socket: the core starts none (D233 §2, D235 §4).
 func commandCore(ctx context.Context, call invocation) int {
-	config, configReport, err := call.loadConfigFromFlags("core", nil)
+	config, configReport, err := call.loadConfigFromFlags("core", kindCore, nil)
 	if err != nil {
 		return call.fail(err)
 	}
-	logger, err := call.logger(config)
+	logger, closeLog, err := call.logger(config)
 	if err != nil {
 		return call.fail(err)
 	}
+	defer closeLog() //nolint:errcheck // nothing is logged after it
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}

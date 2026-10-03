@@ -40,7 +40,7 @@ type finding struct {
 // commandDoctor reports what is wrong and how to fix it. It names secrets, never their values
 // (D194 §5), and exits 1 if anything failed.
 func commandDoctor(ctx context.Context, call invocation) int {
-	config, configReport, err := call.loadConfigFromFlags("doctor", nil)
+	config, configReport, err := call.loadConfigFromFlags("doctor", kindCore, nil)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -85,14 +85,14 @@ func configFindings(report ConfigReport) []finding {
 	return findings
 }
 
-// diagnose runs every check that needs only the state directory, and probes what this machine can
-// confine FFmpeg with.
+// diagnose runs every check that needs only the instance's directories, and probes what this
+// machine can confine FFmpeg with.
 func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.Time) []finding {
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
-		return []finding{{verdictFailure, "state directory " + config.Server.DataDir, err.Error()}}
+		return []finding{{verdictFailure, "the instance's directories", err.Error()}}
 	}
-	findings := []finding{checkWritable(directories, config.Server.DataDir)}
+	findings := []finding{checkWritable(directories, config.Instance.PersistentDir)}
 	key, keyFinding := checkSecretKey(directories)
 	findings = append(findings, keyFinding)
 	databaseFindings, oldBackupAge := checkDatabase(ctx, directories, key, config.openOptions(), logger)
@@ -116,7 +116,8 @@ func confinementOfThisMachine(states []confine.State) finding {
 func checkWritable(directories *datadir.Directories, path string) finding {
 	const probeFileName = "doctor-probe"
 	err := errors.Join(
-		directories.WriteStateFile(probeFileName, []byte("probe")), directories.RemoveStateFile(probeFileName))
+		directories.WritePersistentFile(probeFileName, []byte("probe")),
+		directories.RemovePersistentFile(probeFileName))
 	if err != nil {
 		return finding{verdictFailure, "state directory " + path + " is not writable", err.Error()}
 	}
@@ -124,7 +125,7 @@ func checkWritable(directories *datadir.Directories, path string) finding {
 }
 
 func checkSecretKey(directories *datadir.Directories) (*secrets.Key, finding) {
-	contents, err := directories.ReadStateFile(secrets.KeyFileName)
+	contents, err := directories.ReadPersistentFile(secrets.KeyFileName)
 	if errors.Is(err, datadir.ErrNotFound) {
 		return nil, finding{
 			verdictWarning, "secret.key is missing",

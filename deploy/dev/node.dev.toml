@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The development node's full config. The dev loop (scripts/dev.py) makes the node's own instance
+# in .dev/node with `orpheum default-config --node` (D242 §6), then writes this file over its
+# persistent/config.toml, filling in {root} (the repository) and {ffmpeg_dir} (the pinned FFmpeg
+# from `make ffmpeg`). Its prepared renditions are in its instance's cache/prepared, and its byte
+# socket in its run directory, which its hello names to the core (D242 §7).
+#
+# Every value here is a choice for debugging, not a production default:
+#   - confinement reported but not required, so the loop runs on a machine without Landlock
+#     and says so (D112).
+#   - media read-only, from the generated dev library (make dev-media).
+#   - debug logs as text, because a person reads them.
+
+[node]
+name = "local"
+core_socket = "{root}/.dev/core/run/core.sock"   # the dev core instance's run directory
+root_paths = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per library in deploy/dev/seed.toml
+ffmpeg_dir = "{ffmpeg_dir}"
+confinement_policy = "report"   # "require" refuses to start unconfined; "report" runs and says so
+max_errors_per_root = 1000
+probe_timeout_seconds = 60
+status_interval_seconds = 10
+progress_every_seconds = 2
+ended_work_kept_hours = 168
+read_header_timeout_seconds = 10
+prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
+prepared_kept_after_play_hours = 72
+prepared_disk_used_limit_percent = 95
+min_free_mib = 100
+encode_slot_count = 1
+remux_slot_count = 2
+slowest_read_mib_per_second = 20
+
+[log]
+level = "debug"
+format = "text"
+destination = "stderr"

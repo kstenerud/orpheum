@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -128,11 +127,11 @@ func openAndWire(
 	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,
 	logger *slog.Logger,
 ) (opened openedServices, err error) {
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	directories, err := datadir.Prepare(config.Instance.paths())
 	if err != nil {
 		return opened, err
 	}
-	opened.lock, err = directories.LockState()
+	opened.lock, err = directories.LockInstance()
 	if err != nil {
 		return opened, err
 	}
@@ -181,12 +180,12 @@ func openAndWire(
 	dependencies.Subtitles, dependencies.Renditions = opened.jobServices.subtitles, opened.jobServices.renditions
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
-	dependencies.NodeBytes = openByteSocket(opened.nodes, config)
+	dependencies.NodeBytes = openByteSocket(opened.nodes)
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
-		Build: thisBuild(), StartedAt: clock.System{}.Now(), DataDirectory: config.Server.DataDir,
-		CacheDirectory: config.Server.CacheDir, PersistentDatabase: database, CacheDatabase: opened.cache,
+		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
+		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,
 	}
 	server.Ready(dependencies)
 	return opened, nil
@@ -255,8 +254,8 @@ func openScans(opened openedServices, ingester *library.Ingester, logger *slog.L
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, and
 // results the node holds, too large to post, for the node channel (D234 §5).
-func openByteSocket(service *nodes.Service, config Config) *nodes.ByteSocketClient {
-	byteSocket := nodes.NewByteSocketClient(service, filepath.Join(config.Server.SocketDir, nodeSocketName))
+func openByteSocket(service *nodes.Service) *nodes.ByteSocketClient {
+	byteSocket := nodes.NewByteSocketClient(service)
 	service.SetHeldResultReader(byteSocket)
 	return byteSocket
 }
@@ -330,7 +329,7 @@ func buildDependencies(
 		return api.Dependencies{}, err
 	}
 	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
-	codes := stateSetupCodes{directories: directories}
+	codes := runSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
 		return api.Dependencies{}, err
@@ -349,7 +348,7 @@ func buildDependencies(
 // loadOrCreateSecretKey reads secret.key, or writes a new one on first start. A key replaced or
 // lost leaves every sealed secret "needs re-entering" and nothing else lost (D194 §4).
 func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger) (secrets.Key, error) {
-	contents, err := directories.ReadStateFile(secrets.KeyFileName)
+	contents, err := directories.ReadPersistentFile(secrets.KeyFileName)
 	if err == nil {
 		return secrets.ParseKeyFile(contents)
 	}
@@ -360,7 +359,7 @@ func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger
 	if err != nil {
 		return secrets.Key{}, err
 	}
-	err = directories.WriteStateFile(secrets.KeyFileName, key.EncodeKeyFile())
+	err = directories.WritePersistentFile(secrets.KeyFileName, key.EncodeKeyFile())
 	if err != nil {
 		return secrets.Key{}, err
 	}
@@ -368,25 +367,25 @@ func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger
 	return key, nil
 }
 
-// stateSetupCodes keeps the setup code in the state directory, mode 0600.
-type stateSetupCodes struct {
+// runSetupCodes keeps the setup code in the instance's run directory, mode 0600 (D242 §3).
+type runSetupCodes struct {
 	directories *datadir.Directories
 }
 
-func (codes stateSetupCodes) Read() (string, error) {
-	contents, err := codes.directories.ReadStateFile(auth.SetupCodeFileName)
+func (codes runSetupCodes) Read() (string, error) {
+	contents, err := codes.directories.ReadRunFile(auth.SetupCodeFileName)
 	if errors.Is(err, datadir.ErrNotFound) {
 		return "", auth.ErrNoSetupCode
 	}
 	return string(contents), err
 }
 
-func (codes stateSetupCodes) Write(code string) error {
-	return codes.directories.WriteStateFile(auth.SetupCodeFileName, []byte(code))
+func (codes runSetupCodes) Write(code string) error {
+	return codes.directories.WriteRunFile(auth.SetupCodeFileName, []byte(code))
 }
 
-func (codes stateSetupCodes) Remove() error {
-	return codes.directories.RemoveStateFile(auth.SetupCodeFileName)
+func (codes runSetupCodes) Remove() error {
+	return codes.directories.RemoveRunFile(auth.SetupCodeFileName)
 }
 
 // mountDebug serves pprof on the API's mux when the should_serve_debug_pprof setting says so, and only on a

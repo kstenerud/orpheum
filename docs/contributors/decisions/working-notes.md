@@ -17704,9 +17704,9 @@ not clear which things need to be kept when I want to back up orpheum."* **Amend
    - `run/`: what only a running instance needs, never backed up: the node sockets, the server
      lock and the one-time setup code.
    The pointers let a distribution put the cache on another disk. Where the log is written is a key
-   of the full config: standard output, or a file the admin names (the owner, 2026-10-03: *"I also
-   want to support specifying where the log should be written to"*); `default-config` writes
-   standard output.
+   of the full config: standard error, where the log has always gone, or a file the admin names
+   (the owner, 2026-10-03: *"I also want to support specifying where the log should be written
+   to"*); `default-config` writes standard error.
 4. **`orpheum default-config <dir>` makes an instance.** The owner: *"The user should be able to
    generate a default config with something like 'orpheum default-config /path/to/dir' (config must
    not exist yet)."* It writes the top-level config and the full config with every key's starting
@@ -17723,6 +17723,20 @@ not clear which things need to be kept when I want to back up orpheum."* **Amend
 The owner agreed (2026-10-03, *"Agreed"*) to points 3's `run/`, 5's snapshot and the
 key left out by default, and one instance directory over separate system directories; points 2 and
 4 are the owner's stipulation.
+
+6. **A node is an instance of its own** (the owner, 2026-10-03: *"The node should use its own
+   instance"*). The top-level `orpheum.toml` says which kind an instance is, `core` or `node`;
+   `orpheum core` refuses a node instance and `orpheum node` a core one. A node keeps no database,
+   so its instance has `persistent/` (its full config), `cache/` (its prepared renditions, in
+   `cache/prepared/`) and `run/` (its byte socket), and no `backups/`. `orpheum default-config
+   <dir>` makes a core instance and `orpheum default-config --node <dir>` a node instance. The
+   flag every subcommand takes is `--instance <dir>`.
+7. **A core and a node find each other's sockets without sharing a directory.** The node's full
+   config names the core's socket (`node.core_socket`, an absolute path): the node is the side
+   that calls in. The node says where its byte socket is in its hello, as it says its roots, so
+   the core needs no key per node. The keys the instance directories replace go:
+   `server.data_dir`, `server.cache_dir`, `server.socket_dir` and `node.prepared_dir`. (Both
+   agreed by the owner, 2026-10-03: *"Yes, go ahead"*.)
 
 **Status:** Decided 2026-10-03; to be built after the jobs rebuild's Phase 6, before the pre-M4
 audit.

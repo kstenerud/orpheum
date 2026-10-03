@@ -3,6 +3,9 @@
 # library with Cut A's two people already in it. Dev builds only (-tags dev): these passwords
 # are public, and a release binary has no command that could create them.
 
+# The node the libraries are on: the dev node instance's node.name (deploy/dev/node.dev.toml).
+node_name = "local"
+
 # The two users Cut A is for (D178): the owner at home, and one person remote.
 [[user]]
 name = "owner"

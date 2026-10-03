@@ -66,7 +66,7 @@ VOLUMES = {
 # Names a directory of the host to keep the caches in, one subdirectory per volume, in place of the
 # named volumes: what CI saves between runs (the jobs rebuild's step 4a′).
 CACHE_DIR_ENV = "ORPHEUM_DEV_CACHE_DIR"
-# The dev loop's ports: the server's (deploy/dev/orpheum.dev.toml's listen) and Vite's (scripts/dev.py).
+# The dev loop's ports: the server's (deploy/dev/core.dev.toml's listen) and Vite's (scripts/dev.py).
 SERVER_PORT = 8432
 VITE_PORT = 5173
 # Inside the container the loop listens on every interface, or a published port reaches nothing;

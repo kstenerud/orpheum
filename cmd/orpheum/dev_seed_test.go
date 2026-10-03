@@ -35,8 +35,8 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	}
 	runSeed := func() (int, string) {
 		var stdout, stderr bytes.Buffer
-		status := dispatch(t.Context(), []string{"dev", "seed", "--config", configPath, "--seed", seedPath}, lookupEnv,
-			&stdout, &stderr)
+		arguments := []string{"dev", "seed", "--instance", configPath, "--seed", seedPath}
+		status := dispatch(t.Context(), arguments, lookupEnv, &stdout, &stderr)
 		return status, stdout.String() + stderr.String()
 	}
 	status, output := runSeed()

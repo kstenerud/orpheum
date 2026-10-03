@@ -170,10 +170,14 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	t.Cleanup(func() { _ = os.Chmod(root, 0o700) }) //nolint:errcheck,gosec // so the temporary directory can go
 	replayConfig, _ := testConfig(t)
 	replayConfig.Node = config.Node
+	replayConfig.Node.CoreSocket = filepath.Join(replayConfig.Instance.RunDir, coreSocketName)
 	second := acceptanceRun(t, replayConfig, root, func(captured capturedLog) func(ctx context.Context) error {
 		return func(ctx context.Context) error {
-			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{}}
-			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocketName), hello,
+			hello := nodeproto.Hello{
+				Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{},
+				ByteSocketPath: filepath.Join(replayConfig.Instance.RunDir, nodeSocketName),
+			}
+			node := agent.New(replayConfig.Node.CoreSocket, hello,
 				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{recorder: recorder}},
 				clock.System{}, captured.logger)
 			ticker := time.NewTicker(time.Second)

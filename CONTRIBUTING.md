@@ -58,8 +58,9 @@ make dev          # the app on http://127.0.0.1:5173, rebuilt on every change
 
 The first run fetches the pinned FFmpeg and generates a small synthetic library, then prints
 every setting it chose: users `owner`/`owner` and `partner`/`partner`, debug logs, pprof, the
-race detector. The choices live in `deploy/dev/orpheum.dev.toml` and `deploy/dev/seed.toml`; all
-state lives in `.dev/`, which `make dev-reset` and `make dev-clean` throw away. The debugging targets —
+race detector. The choices live in `deploy/dev/core.dev.toml`, `deploy/dev/node.dev.toml` and
+`deploy/dev/seed.toml`; all state lives in `.dev/`, in the core's and the node's instances
+`.dev/core` and `.dev/node` (D242), which `make dev-reset` and `make dev-clean` throw away. The debugging targets —
 `dev-db`, `dev-logs`, `dev-debug`, `pprof`, `probe`, `test-one`, `cover` and more — are in
 `make help` and [D197](docs/contributors/decisions/working-notes.md).
 

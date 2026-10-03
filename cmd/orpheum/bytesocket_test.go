@@ -61,9 +61,8 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	var config Config
-	config.Server.SocketDir = filepath.Join(t.TempDir(), "run")
-	listener, err := unixsocket.Listen(config.Server.SocketDir, nodeSocketName)
+	runDir := filepath.Join(t.TempDir(), "run")
+	listener, err := unixsocket.Listen(runDir, nodeSocketName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +71,7 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	}), ReadHeaderTimeout: time.Second}
 	go func() { _ = nodeSocket.Serve(listener) }() //nolint:errcheck // closed at cleanup
 	t.Cleanup(func() { _ = nodeSocket.Close() })   //nolint:errcheck // as above
-	openByteSocket(service, config)
+	openByteSocket(service)
 	channel := httptest.NewServer(service.Handler())
 	t.Cleanup(channel.Close)
 	post := func(path string, nodeID int64, body any) (int, []byte) {
@@ -101,7 +100,10 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 		return response.StatusCode, answer
 	}
 	var reply nodeproto.HelloReply
-	_, hello := post(nodeproto.PathHello, 0, nodeproto.Hello{Name: "local", ProtocolVersion: nodeproto.ProtocolVersion})
+	_, hello := post(nodeproto.PathHello, 0, nodeproto.Hello{
+		Name: "local", ProtocolVersion: nodeproto.ProtocolVersion,
+		ByteSocketPath: filepath.Join(runDir, nodeSocketName),
+	})
 	if err := json.Unmarshal(hello, &reply); err != nil {
 		t.Fatal(err)
 	}

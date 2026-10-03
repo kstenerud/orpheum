@@ -41,6 +41,8 @@ var wireShapeByVersion = map[int]string{
 	// 18 adds how long each held attempt has not moved, and a listing's and an examining's stall
 	// (D233 §5, §10).
 	18: "c53b7595df6102deff942ada4eb498b1b3fb7eb995e1556731f69a7b4dada729",
+	// 19 adds where the node's byte socket is to its hello (D242 §7).
+	19: "821d42fb4c9c3edb01da3df1ac6eb2d61ee05a4a4a45b6d100addb3b3feba80c",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

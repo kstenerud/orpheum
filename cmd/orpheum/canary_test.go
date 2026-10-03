@@ -61,15 +61,15 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	doctor := runCommand(t, "doctor", "--config", configPath)
-	written := runCommand(t, "backup", "--config", configPath)
+	doctor := runCommand(t, "doctor", "--instance", configPath)
+	written := runCommand(t, "backup", "--instance", configPath)
 	backupFile := strings.Fields(written.stdout)[1]
 	backupBytes := readFile(t, backupFile)
-	databaseBytes := readFile(t, filepath.Join(config.Server.DataDir, "persistent.db"))
+	databaseBytes := readFile(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"))
 	channels := []channel{
 		{"API responses", responses.String(), adminName},
 		{"the log", captured.String(), setupCode},
-		{"doctor's output", doctor.stdout + doctor.stderr, config.Server.DataDir},
+		{"doctor's output", doctor.stdout + doctor.stderr, config.Instance.PersistentDir},
 		{"a backup", string(backupBytes), adminName},
 		{"persistent.db", string(databaseBytes), adminName},
 	}

@@ -55,11 +55,13 @@
 //   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and wires dependencies.
-//   - config.go: the config file (cut-a §2a), every key required, each with a starting value or
-//     none (D200, D201). configfill.go: running a missing key on its starting value (D202). serve.go:
-//     orpheum core, which seeds the settings at start. operations.go: migrate, backup, restore,
-//     setup-code and openapi. doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum
-//     dev seed, in dev builds only.
+//   - instance.go: an instance directory's top-level config, its kind and its directories, and
+//     making one (default-config, D242). config.go: its full config (cut-a §2a), the keys of its
+//     kind, each with a starting value or none (D200, D201). configfill.go: running a missing key
+//     on its starting value (D202). serve.go: orpheum core, which seeds the settings at start.
+//     operations.go: default-config, migrate, backup, restore, setup-code and openapi.
+//     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
+//     builds only.
 //   - metadata.go: the background jobs and loops the core starts. artwork.go: the artwork service
 //     and its cache's upkeep. nodes.go: the core's side of the node channel. node.go: orpheum node,
 //     the media node itself.

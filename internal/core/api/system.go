@@ -43,9 +43,9 @@ type System struct {
 	// Build is what the server's binary was built from.
 	Build     build.Provenance
 	StartedAt time.Time
-	// DataDirectory and CacheDirectory are the server's own, whose disks the page shows.
-	DataDirectory  string
-	CacheDirectory string
+	// PersistentDirectory and CacheDirectory are the server's own, whose disks the page shows.
+	PersistentDirectory string
+	CacheDirectory      string
 	// PersistentDatabase and CacheDatabase are persistent.db and cache.db, measured when the page asks.
 	PersistentDatabase Sized
 	CacheDatabase      Sized
@@ -377,7 +377,7 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 	facts := ServerBody{
 		Build: buildBody(system.Build), Host: hostBody(host.Describe()), GoVersion: runtime.Version(),
 		StartedAt: system.StartedAt.UnixMilli(),
-		Disks:     []DiskBody{measureDisk(system.DataDirectory), measureDisk(system.CacheDirectory)},
+		Disks:     []DiskBody{measureDisk(system.PersistentDirectory), measureDisk(system.CacheDirectory)},
 	}
 	for _, database := range []struct {
 		name     string
