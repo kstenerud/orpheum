@@ -22,6 +22,20 @@ const (
 	socketMode          = 0o600
 )
 
+// ErrPathTooLong is a socket path longer than a Unix socket's may be.
+var ErrPathTooLong = errors.New("a Unix socket's path is too long")
+
+// CheckPath refuses a socket path, name in directory, longer than a Unix socket's may be: the one
+// check Listen makes, for a caller that must know before it listens (D242: default-config).
+func CheckPath(directory, name string) error {
+	path := filepath.Join(directory, name)
+	if len(path) > maxSocketPathBytes {
+		return fmt.Errorf("socket path %s is %d bytes, and may have at most %d: %w", path, len(path),
+			maxSocketPathBytes, ErrPathTooLong)
+	}
+	return nil
+}
+
 // Listen listens on the Unix socket name in directory, which it creates with mode 0700 if it
 // is missing. The socket is mode 0600: its permissions are the node channel's authentication
 // (cut-a §2, D107). A socket a crash left behind is removed first; anything else at that path is
@@ -30,11 +44,10 @@ func Listen(directory, name string) (*net.UnixListener, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("socket directory %q: want an absolute path", directory)
 	}
-	path := filepath.Join(directory, name)
-	if len(path) > maxSocketPathBytes {
-		return nil, fmt.Errorf("socket path %s is %d bytes; a Unix socket's path may have at most %d",
-			path, len(path), maxSocketPathBytes)
+	if err := CheckPath(directory, name); err != nil {
+		return nil, err
 	}
+	path := filepath.Join(directory, name)
 	if err := os.MkdirAll(directory, socketDirectoryMode); err != nil {
 		return nil, fmt.Errorf("create the socket directory %s: %w", directory, err)
 	}

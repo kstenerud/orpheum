@@ -122,7 +122,9 @@ loop to work:**
   [`deploy/dev/core.dev.toml`](../../../../deploy/dev/core.dev.toml) and
   [`deploy/dev/node.dev.toml`](../../../../deploy/dev/node.dev.toml); nothing defaults in code
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)).
-  `orpheum default-config [--node] <dir>` makes one. Paths arrive absolute.
+  `orpheum default-config [--node] [--run-dir <dir>] <dir>` makes one, and refuses one whose
+  socket's path would be past a Unix socket's 103 bytes: `--run-dir` puts its run directory
+  somewhere shorter, as `/run/orpheum`. Paths arrive absolute.
   - a core's `[server]`: `listen`, `read_header_timeout_seconds`, `shutdown_grace_seconds`
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - a node's `[node]`: `core_socket`, `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which

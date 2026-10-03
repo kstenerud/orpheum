@@ -253,17 +253,20 @@ func commandDefaultConfig(_ context.Context, call invocation) int {
 	flags := flag.NewFlagSet("orpheum default-config", flag.ContinueOnError)
 	flags.SetOutput(call.stderr)
 	isNode := flags.Bool("node", false, "make a node's instance rather than a core's")
+	runDir := flags.String("run-dir", "",
+		"put its run directory, which holds its socket, here rather than inside it: a socket's path is short")
 	if err := flags.Parse(call.arguments); err != nil {
 		return exitUsageError
 	}
 	if flags.NArg() != 1 {
-		return write(call.stderr, "usage: orpheum default-config [--node] <instance directory>\n", exitUsageError)
+		return write(call.stderr, "usage: orpheum default-config [--node] [--run-dir <dir>] <instance directory>\n",
+			exitUsageError)
 	}
 	kind := kindCore
 	if *isNode {
 		kind = kindNode
 	}
-	instance, err := makeInstance(flags.Arg(0), kind, version)
+	instance, err := makeInstance(flags.Arg(0), kind, *runDir, version)
 	if err != nil {
 		return call.fail(err)
 	}

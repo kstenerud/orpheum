@@ -3,6 +3,7 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
 // instanceFileName is the top-level config's name in an instance directory (D242 §3).
@@ -138,8 +140,10 @@ func kindFlag(kind instanceKind) string {
 
 // makeInstance makes an instance of kind in dir (D242 §4): its directories, the top-level config
 // pointing at them, and the full config with every key, each at its starting value, and those
-// with none left for the admin to fill in. It refuses a directory that already holds an instance.
-func makeInstance(dir string, kind instanceKind, writtenBy string) (Instance, error) {
+// with none left for the admin to fill in. Its run directory is runDir when that is set, else
+// inside dir. It refuses a directory that already holds an instance, and a run directory whose
+// socket's path would be too long for a Unix socket, before it makes anything.
+func makeInstance(dir string, kind instanceKind, runDir, writtenBy string) (Instance, error) {
 	if !filepath.IsAbs(dir) {
 		absolute, err := filepath.Abs(dir)
 		if err != nil {
@@ -156,7 +160,14 @@ func makeInstance(dir string, kind instanceKind, writtenBy string) (Instance, er
 	inside := datadir.PathsIn(dir)
 	instance := Instance{
 		OrpheumVersion: writtenBy, Kind: kind, PersistentDir: inside.Persistent, CacheDir: inside.Cache,
-		RunDir: inside.Run, directory: dir,
+		RunDir: cmp.Or(runDir, inside.Run), directory: dir,
+	}
+	if !filepath.IsAbs(instance.RunDir) {
+		return Instance{}, fmt.Errorf("the run directory %q: want an absolute path", instance.RunDir)
+	}
+	if err := unixsocket.CheckPath(instance.RunDir, socketNameOf(kind)); err != nil {
+		return Instance{}, fmt.Errorf("%w; make the instance with --run-dir somewhere shorter, such as "+
+			"/run/orpheum", err)
 	}
 	if kind == kindCore {
 		instance.BackupsDir = inside.Backups
@@ -181,6 +192,14 @@ func makeInstance(dir string, kind instanceKind, writtenBy string) (Instance, er
 	header := "# An Orpheum instance (D242). Start it with `orpheum " + string(kind) + " --instance " + dir +
 		"`.\n# The full config is " + instance.fullConfigPath() + ".\n"
 	return instance, writeNewFile(filepath.Join(dir, instanceFileName), header+string(topLevel))
+}
+
+// socketNameOf is the socket an instance of kind listens on in its run directory.
+func socketNameOf(kind instanceKind) string {
+	if kind == kindNode {
+		return nodeSocketName
+	}
+	return coreSocketName
 }
 
 // defaultFullConfig is a new instance's full config: every key of kind, by table, with its
