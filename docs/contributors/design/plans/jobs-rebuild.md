@@ -774,6 +774,52 @@ D231 §12; D233 §8; D241; F2.
   scenario-tier tests for every scenario the phases closed, S79 and S80 among them; D231's and
   D233's Status lines.
 
+**Built** (2026-10-03), 6a–6d:
+
+- 6a: `library.UnreadableFile` is the one answer to whether a file can be read now (its
+  node away, its root or a disk inside it missing); `POST /playback` refuses one that cannot with
+  `media_unreachable`, naming the machine, the folder or disk and since when, before anything is
+  queued; a play-driven job whose file cannot be read ends rather than parks; a hello makes each
+  library root on its node that it does not name unavailable. S29's test changed with D241 §4.
+- 6b: every list, the title page, a series' episodes and Continue Watching carry
+  `unavailable` for a title none of whose files can be read now (`library.Readability`, read once a
+  page), and the web marks them and offers no play; `GET /files/{id}/availability` is what a player
+  whose playback failed asks, and it says why instead of its own words. VQ18.
+- 6c: `POST /files/{id}/retire` retires one file that cannot be read now;
+  `POST /libraries/{id}/roots/repoint` moves a root and its files, with their history, to another
+  of a connected node's roots, forgetting their modified times so the scan asked for reads and
+  confirms each; the title page and the library screen offer them to an admin.
+- 6d: provider_error's unavailable detail carries since and nextCheckAt; a
+  refresh's answer says what it waits for while TMDB is down; jobs that ended longer ago than
+  `finished_jobs_kept_days` (30) are forgotten hourly; `useRequest` counts down a host's wait and asks
+  again, says it is still waiting past two seconds, and calls the try after a host was not answering
+  its check (`RequestWait`), used by the subtitle search and the match chooser; the System page lists
+  what is not answering and each outside service.
+
+- 6e, in part: an audit of the gaps still marked open found three, now closed (G8: a prepare that
+  fails for good fails its rendition; G13: a making restarted while an earlier run's job is with its
+  node gets its own job; G4: a node that started again is not sent the commands of the jobs its
+  restart ended). scenarios.md's gap table and the statuses of S26–S28, S72, S74, S75, S79 and S80
+  are read back against the code and name their tests; D231's and D233's Status lines say what built
+  them.
+
+**Deviations, for the owner:**
+
+- 6e's `internal/core/playback` split is not done: it adds packages to cut-a §3's layout, which waits
+  on the owner. A stall's failure as a fact with its kind is not built either: nothing reads one, and
+  the failure's words say its kind for the admin's job view. The scenarios this rebuild closed hold by
+  the tests their statuses name, most of them below the scenario tier, rather than by a
+  `TestScenario_*` of their own each.
+- A job failed by `assigned_job_limit_hours` does not tell its node to stop (G4's remainder).
+- A player whose fetch fails is told why at once, while the browser plays what it holds, rather than
+  only when the picture stops; and a failure the server says was passing leaves the player's own words
+  rather than trying again on its own (the owner allowed the order; the retry is left).
+- A play-driven prepare already given to its node when the node goes silent still parks on the node;
+  only one not yet given ends at once. The next play, or the player's next fetch, asks again and is
+  told why.
+- Repointing a root to another node forgets the work parked on the old place for the sweeps to derive
+  again, rather than moving it.
+
 ## After Phase 6 — one instance directory
 
 D242: the instance directory with its small top-level config, `persistent/`, `cache/`, `backups/`

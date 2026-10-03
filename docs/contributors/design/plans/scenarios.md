@@ -378,7 +378,12 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231: the node's hello is its recovery signal and wakes its destination. The
   design does not yet say that a hello also ends the jobs that were **running** on the node.
   Those should go back to the queue at no cost.
-- **Status:** **gap G5**, **G8**.
+- **Status:** **holds** (2026-10-03, the jobs rebuild's Phases 4–6). A hello from another start ends the jobs
+  running on the node at no cost of an attempt, tried again after the first retry delay; a long
+  absence parks them until the hello (`TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt`,
+  `TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure`);
+  a prepare that fails for good fails its rendition (`TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`);
+  the commands of the jobs it ended are withdrawn (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
 
 ### S27 — A node restarts with commands queued for jobs that already gave up
 
@@ -394,7 +399,13 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     unless `want` restarts the row). An orphaned run and its retry can therefore write one
     directory at once, and the node's `startJob` overwrites the first cancel func.
 - **Design:** the research (§3.5), within D231: drop commands whose jobs have ended.
-- **Status:** **gap G4**.
+- **Status:** **holds** (2026-10-03). An ended job's commands are withdrawn before the node takes them, a node
+  does not run an attempt it ended again, work it holds that no job wants is cancelled at its next
+  status (`TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem`,
+  `TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain`,
+  `TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds`), and a node that started again is not sent
+  the commands of the jobs its restart ended (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
+  Left: a job failed by `assigned_job_limit_hours` does not tell its node to stop.
 
 ### S28 — A full disk on a node
 
@@ -408,10 +419,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - The System page shows the disk (D225), but nothing links it to the waiting job.
 - **Design:** silent. D231's "down" covers an unreachable node, not a node that answers "no
   room".
-- **Status:** **gap G8**. Q8's "no room" is built (2026-09-30): the node names the refusal, and the
-  node's prepares park on its prepared directory until its status shows room
+- **Status:** **holds** (2026-10-03). The node refuses a prepare for want of room; the core parks the node's
+  prepares on its prepared directory at no cost until a status shows room
   (`TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRoom`,
-  `TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory`).
+  `TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory`); other kinds use other
+  slots and destinations.
 
 ### S29 — A person presses play while the file's node is parked
 
@@ -497,8 +509,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     Hellos then scan and run the pass again.
 - **Design:** D231 §7: destination state lives in memory, and the first due job after a restart
   probes.
-- **Status:** **holds** for running and retrying jobs; parked state is held in memory, and the first
-  job for a destination after a restart probes it (2026-09-30, the jobs rebuild's Phase 2).
+- **Status:** **holds** (2026-10-03). Assigned node jobs stay assigned through a core restart, their attempts
+  reloaded and adopted at the node's next status; running core jobs are requeued; retry times live in
+  cache.db; parking is probed again (`TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart`,
+  `TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord`,
+  `TestRequeueRunning_ReturnsWhatACrashLeftRunning`).
 
 ### S73 — The TMDB key is removed or refused while fetches are queued
 
@@ -530,8 +545,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     - Its subtitle job ends permanently.
     - The new file row gets measured by the next sweep, and prepared and extracted on its next
       play.
-- **Status:** once scanned, **holds on paper**. Before a scan: **gap G8** and **question Q8**
-  (a changed-file refusal should ask for a rescan of that path).
+- **Status:** **holds** (2026-10-03). Before a scan the node refuses a changed file, retried on back-off; after
+  a scan the prepare finds no file and fails its making (`TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting`);
+  a prepare that fails for good at its limit fails its rendition
+  (`TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`), so the player is told.
 
 ### S75 — OpenSubtitles' daily quota is spent while conversions are queued
 
@@ -539,7 +556,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Today:** a conversion is node work on a body already stored in persistent.db, and never calls
   OpenSubtitles. Search and download are synchronous, and running out of quota returns
   `quota_exhausted`.
-- **Status:** **holds**. OpenSubtitles stays a reserved destination (D231).
+- **Status:** **holds** (2026-10-03). A conversion reads the fetched body from persistent.db and never calls
+  OpenSubtitles; a spent quota answers with when it resets
+  (`TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt`,
+  `TestSubtitleCandidates_SayWhyInTheProvidersTerms`). The regression test of a conversion running at
+  a quota of zero is not written.
 
 ### S76 — Two nodes, one down
 
@@ -744,9 +765,16 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   alive. *Expected:* the node's watchdog kills it within about 2 minutes and answers "stalled";
   the core retries at no cost to the item; the slot frees; other encodes proceed. A second stall
   on the same file records an item fact with "stalled twice". *Today:* a livelock (#4).
+  **Holds** (2026-10-03, the jobs rebuild's Phase 5), its window three minutes mid-run, and "stalled
+  twice" a failure's words rather than an item fact (`TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot`,
+  `TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure`,
+  `TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds`).
 - **S80 — A hung loudness measurement.** *Expected:* as S79. The item is not failed for a hang,
   and the node's measure slot comes back. *Today:* the slot is gone until the node restarts, and
-  the file is eventually blamed.
+  the file is eventually blamed. **Holds** (2026-10-03): the measurement has its own watchdog, and a
+  stall is free the first time (`TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled`,
+  `TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed`,
+  `TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure`).
 - **S81 — A finished prepare's `done` is lost in flight.** *Expected:* the outbox redelivers it;
   the core accepts it by run id even if the job gave up; nothing is re-encoded. *Today:* the core
   waits 5 minutes, then re-encodes over the complete rendition.
@@ -793,16 +821,16 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
 | **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
 | **G3** | **Closed 2026-09-30** (the jobs rebuild's Phase 2): a down destination parks its work at no cost and is probed; the node table is truthful; the per-runner holds and the artwork breaker are gone. Was: down-class failures spent attempts; node jobs never checked the node; `IsConnected` meant "said hello since the core started"; blocked and `RetryAt` were per runner | S23, S25, S29, S70, S76 |
-| **G4** | A reconnected node is sent the commands of jobs that have ended; a job that gives up on silence sends no cancel; a retry can run a second FFmpeg in the same rendition directory | S26, S27 |
-| **G5** | A node's hello does not return the jobs that were running on it to the queue; they wait out `maxSilence` and spend an attempt | S26 |
+| **G4** | **Closed 2026-10-03** (the jobs rebuild's Phases 4 and 6): an ended job's commands are withdrawn or cancelled, a node does not run an ended attempt again, and a node that started again is not sent the commands of the jobs its restart ended. Left: a job failed by `assigned_job_limit_hours` does not tell its node to stop. Was: a reconnected node was sent the commands of jobs that had ended; a job that gave up on silence sent no cancel | S26, S27 |
+| **G5** | **Closed 2026-10-01** (the jobs rebuild's Phase 4): a hello from another start ends the jobs running on the node at no cost of an attempt. Was: they waited out `maxSilence` and spent an attempt | S26 |
 | **G6** | **Closed 2026-09-30:** a root or disk a scan found missing is a destination; its files' jobs park on it and the loudness sweep passes them over. Was: its files' jobs ran and refused, and the sweep queued them again every hour | S22 |
 | **G7** | **Closed 2026-09-30** but for the weekly reminder (P39: no channel to the admin exists yet): a root, a node and a library each have a retire action that cancels their work, and the System page says since when storage is offline. Was: no retire action; no "offline since" or reminder | S22, S23, S24 |
-| **G8** | A prepare that fails for good on silence or refusals leaves its rendition `running`; the player shows "preparing" until it is reloaded | S26, S28, S29, S74 |
+| **G8** | **Closed 2026-10-03** (the jobs rebuild's Phase 6): a prepare job that fails for good, whatever ended it, fails its rendition, which the next play prepares again. Was: one that failed on silence or refusals left its rendition `running`, and the player showed "preparing" until reloaded | S26, S28, S29, S74 |
 | **G9** | **Closed 2026-09-30:** a refused image beside the media is owed again once a scan has seen its file since. Was: a node's refusal to read a local image (its disk offline) was the image's permanent refusal | S22, S76 |
 | **G10** | **Closed 2026-09-30:** a first match is owed until the item has an answer, and a failure of its own is a fact. Was: a lost first match was never queued again (`EverQueued`); a failed match looked the same as one not yet tried | S25, S78 |
 | **G11** | **Closed 2026-09-30** (the jobs rebuild's Phase 1): a repeat request raises the priority, wakes a job in back-off, and merges its arguments. Was: it was dropped | S70, S71 |
 | **G12** | **Closed 2026-09-30:** the core's storage is a destination that parks the queue, logged once, with an unwritten outcome written when there is room; a paid download's link is kept. Was: a failed `writeFinish` left a job `running`; runners logged every second | S77 |
-| **G13** | A rendition restarted while its job runs is marked complete under the new run id, with nothing in that directory | S71 |
+| **G13** | **Closed 2026-10-03:** a making's end is recorded by its run, and a making restarted while an earlier run's job is with its node gets a job of its own, queued after it. Was: the earlier run's end completed the new run, and later the new run was left with no job | S71 |
 | **G14** | **Closed 2026-09-30:** the D213 §1 recheck is derived from the refused image. Was: it existed only as a future-dated job, lost on a discard and dropped next to an open fetch | S71, S78 |
 | **G15** | **Closed 2026-09-30:** a person's refresh is a fact the sweep queues until a fetch that read it ends. Was: it existed only as a job row, lost on a discard and merged away by an open rolling refresh | S70, S78 |
 | **Q5** | Answered by D231 (2026-09-30): A principle is missing: is work edge-triggered or level-triggered? | S22–S29, S70–S78 |

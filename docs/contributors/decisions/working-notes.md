@@ -17236,7 +17236,9 @@ host that asked us to wait. Two names now say what they hold: the setting
 `new_library_scan_every_hours`, and the retire answers' `removedFileCount`, which counts
 tombstoned files, is `tombstonedFileCount`.
 
-**Status:** Decided 2026-09-30.
+**Status:** Decided 2026-09-30. Built by the jobs rebuild's Phases 1–3, and §12 by Phase 6
+(2026-10-03), as D241 revised it for a play of what cannot be read
+([jobs-rebuild.md](../design/plans/jobs-rebuild.md)).
 
 ## D232 — What makes two names the same work is one identity fold, derived from the search fold
 
@@ -17332,7 +17334,9 @@ pass missed it.
       its slot, so one dead disk does not block a node's other work, and lists the process as stuck
       until it exits, which the System page shows.
 
-**Status:** Decided 2026-09-30. Since 2026-09-30, §3, §5 and §7 are revised by D234.
+**Status:** Decided 2026-09-30. Since 2026-09-30, §3, §5 and §7 are revised by D234. Built by the
+jobs rebuild's Phases 4 and 5 (2026-10-03): §5's second stage and §10 by Phase 5; §8's System page
+and pruning by Phase 6 ([jobs-rebuild.md](../design/plans/jobs-rebuild.md)).
 
 ## D234 — The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 
