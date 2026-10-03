@@ -49,6 +49,7 @@ const report: SystemReport = {
       confinement: [],
       disks: [],
       recentPrepares: [],
+      devices: [],
     },
   ],
   destinations: [],

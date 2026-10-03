@@ -727,6 +727,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nodes/device-reader-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240) */
+        put: operations["putDeviceReaderLimit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nodes/retire": {
         parameters: {
             query?: never;
@@ -1327,6 +1344,13 @@ export interface components {
              */
             userId?: number;
         };
+        DeviceReaderLimitInputBody: {
+            deviceKey: string;
+            /** @description The node's configured name */
+            nodeName: string;
+            /** Format: int64 */
+            readerLimit?: number;
+        };
         DevicesOutputBody: {
             devices: components["schemas"]["DeviceBody"][] | null;
         };
@@ -1730,6 +1754,23 @@ export interface components {
             name: string;
             /** @description Its configured roots; empty while it is not connected */
             rootPaths: string[] | null;
+        };
+        NodeDeviceBody: {
+            /** @description The whole disks it reads from; none when the node cannot see them */
+            disks: string[] | null;
+            filesystem: string;
+            /** @description Whether an admin set its reader limit, over its kind's */
+            isReaderLimitSet: boolean;
+            /** @description The node's name for it: zfs:tank, disk:sdc */
+            key: string;
+            /**
+             * @description How it reads, as the node found it
+             * @enum {string}
+             */
+            kind: "spinning" | "ssd" | "network" | "unknown";
+            mountPaths: string[] | null;
+            /** Format: int64 */
+            readerLimit: number;
         };
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
@@ -2204,6 +2245,7 @@ export interface components {
             confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @enum {string} */
             connection: "connected" | "silent" | "awaiting_hello" | "needs_update";
+            devices: components["schemas"]["NodeDeviceBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegSha256?: string;
             ffmpegVersion?: string;
@@ -3951,6 +3993,40 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NodesOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    putDeviceReaderLimit: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceReaderLimitInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

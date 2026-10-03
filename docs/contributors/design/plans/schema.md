@@ -106,6 +106,16 @@ CREATE TABLE node (                                        -- class I + O (the l
   last_status_at   INTEGER                      -- when it arrived; liveness is judged from this
 );
 
+-- How many may read one of a node's devices at once, as an admin set it for that device, over the
+-- setting for its kind (D240 section 5); a device with no row takes its kind's. Migration 0030.
+CREATE TABLE device_reader_limit (                          -- class A
+  node_id      INTEGER NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+  device_key   TEXT NOT NULL,             -- the node's name for it: 'zfs:tank', 'disk:sdc'
+  reader_limit INTEGER NOT NULL CHECK (reader_limit BETWEEN 1 AND 64),
+  set_at       INTEGER NOT NULL,
+  PRIMARY KEY (node_id, device_key)
+) WITHOUT ROWID;
+
 CREATE TABLE library (                                     -- class A
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   name             TEXT NOT NULL,
@@ -1055,6 +1065,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `collection` | persistent.db | `internal/core/identify` | |
 | `collection_member` | persistent.db | `internal/core/identify` | |
 | `device` | persistent.db | `internal/core/auth` | |
+| `device_reader_limit` | persistent.db | `internal/core/nodes` | an admin's limit on one of a node's devices (D240 §5) |
 | `edition` | persistent.db | none yet | |
 | `edition_text` | persistent.db | none yet | |
 | `extra_relation` | persistent.db | `internal/core/identify` | |

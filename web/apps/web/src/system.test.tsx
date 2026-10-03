@@ -61,6 +61,7 @@ const connected: SystemNode = {
       finishedAt: 1_790_000_000_000,
     },
   ],
+  devices: [],
 };
 
 function report(node: SystemNode): SystemReport {
@@ -171,6 +172,7 @@ it("the System page says a machine that stopped answering is silent, and when it
     confinement: [],
     disks: [],
     recentPrepares: [],
+    devices: [],
   });
   expect(silent).toContain("Not answering. Last heard from at");
   expect(silent).not.toContain("FFmpeg runs");
@@ -185,6 +187,7 @@ it("the System page says a machine that stopped answering is silent, and when it
     confinement: [],
     disks: [],
     recentPrepares: [],
+    devices: [],
   });
   expect(awaiting).toContain("Not heard from since the server started.");
 });
@@ -200,6 +203,7 @@ it("the System page says a machine on another version of Orpheum needs updating 
     confinement: [],
     disks: [],
     recentPrepares: [],
+    devices: [],
   });
   expect(older).toContain("The media machine needs updating");
   expect(older).not.toContain("Not heard from since the server started.");

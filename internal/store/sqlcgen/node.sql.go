@@ -9,6 +9,21 @@ import (
 	"context"
 )
 
+const clearDeviceReaderLimit = `-- name: ClearDeviceReaderLimit :exec
+DELETE FROM device_reader_limit WHERE node_id = ?1 AND device_key = ?2
+`
+
+type ClearDeviceReaderLimitParams struct {
+	NodeID    int64
+	DeviceKey string
+}
+
+// A device's limit given back to its kind's setting.
+func (q *Queries) ClearDeviceReaderLimit(ctx context.Context, arg ClearDeviceReaderLimitParams) error {
+	_, err := q.db.ExecContext(ctx, clearDeviceReaderLimit, arg.NodeID, arg.DeviceKey)
+	return err
+}
+
 const getLiveNodeByName = `-- name: GetLiveNodeByName :one
 
 SELECT id, name, enrolled_at, last_ingested_report_seq
@@ -82,6 +97,39 @@ func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) (int64, 
 	return id, err
 }
 
+const listDeviceReaderLimits = `-- name: ListDeviceReaderLimits :many
+SELECT device_key, reader_limit FROM device_reader_limit WHERE node_id = ?1 ORDER BY device_key
+`
+
+type ListDeviceReaderLimitsRow struct {
+	DeviceKey   string
+	ReaderLimit int64
+}
+
+// The reader limits an admin set for a node's devices.
+func (q *Queries) ListDeviceReaderLimits(ctx context.Context, nodeID int64) ([]ListDeviceReaderLimitsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDeviceReaderLimits, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDeviceReaderLimitsRow{}
+	for rows.Next() {
+		var i ListDeviceReaderLimitsRow
+		if err := rows.Scan(&i.DeviceKey, &i.ReaderLimit); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveNodes = `-- name: ListLiveNodes :many
 SELECT id, name, enrolled_at
 FROM node
@@ -117,6 +165,30 @@ func (q *Queries) ListLiveNodes(ctx context.Context) ([]ListLiveNodesRow, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDeviceReaderLimit = `-- name: SetDeviceReaderLimit :exec
+INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (node_id, device_key) DO UPDATE SET reader_limit = excluded.reader_limit, set_at = excluded.set_at
+`
+
+type SetDeviceReaderLimitParams struct {
+	NodeID      int64
+	DeviceKey   string
+	ReaderLimit int64
+	SetAt       int64
+}
+
+// How many may read one of a node's devices at once, as an admin set it (D240 section 5).
+func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderLimitParams) error {
+	_, err := q.db.ExecContext(ctx, setDeviceReaderLimit,
+		arg.NodeID,
+		arg.DeviceKey,
+		arg.ReaderLimit,
+		arg.SetAt,
+	)
+	return err
 }
 
 const updateNodeLastIngestedReportSeq = `-- name: UpdateNodeLastIngestedReportSeq :exec

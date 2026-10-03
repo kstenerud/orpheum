@@ -100,6 +100,9 @@
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot,
 //     TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow,
 //     TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs.
+//   - A device's reader limit an admin set wins over its kind's setting until cleared, in the hello's
+//     reply, each poll's answer and the System page (D240 §5).
+//     TestSetReaderLimit_ADevicesSetLimitWinsOverItsKindsUntilCleared.
 //   - The reply to a hello gives each device it lists the reader limit of its kind's setting
 //     (device_readers_*), an unknown kind's for one the core does not know (D240 §5).
 //     TestHello_RepliesWithEachDevicesReaderLimitByItsKind.

@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -25,6 +26,11 @@ type NodeReports interface {
 	Facts(name string) (nodes.Facts, bool)
 	// NodeConnection is whether a node is connected and when it was last heard (D231 §11).
 	NodeConnection(ctx context.Context, nodeID int64) (nodes.Connection, time.Time)
+	// DeviceStates are the devices a connected node's last hello listed, with their reader limits.
+	DeviceStates(ctx context.Context, nodeID int64) ([]nodes.DeviceState, error)
+	// SetReaderLimit sets how many may read one of a node's devices at once, or, nil, gives it back
+	// to its kind's setting (D240 §5).
+	SetReaderLimit(ctx context.Context, nodeName, deviceKey string, limit *int) error
 }
 
 // Sized is a database that can say how large it is: store.Database, store.Cache.
@@ -166,6 +172,22 @@ type SystemNodeBody struct {
 	Disks []DiskBody `json:"disks"`
 	// RecentPrepares are its latest finished prepares, newest first, each with what made it.
 	RecentPrepares []FinishedPrepareBody `json:"recentPrepares"`
+	// Devices are what its roots and prepared directory are on, with how many may read each at once
+	// (D240 §5); none while it is not connected.
+	Devices []NodeDeviceBody `json:"devices"`
+}
+
+// NodeDeviceBody is one of a node's devices: a disk, or a pool, array or volume over several.
+type NodeDeviceBody struct {
+	Key        string   `doc:"The node's name for it: zfs:tank, disk:sdc" json:"key"`
+	Kind       string   `doc:"How it reads, as the node found it" enum:"spinning,ssd,network,unknown" json:"kind"`
+	Filesystem string   `json:"filesystem"`
+	Disks      []string `doc:"The whole disks it reads from; none when the node cannot see them" json:"disks"`
+	// MountPaths are where it is mounted at or inside the node's roots and prepared directory.
+	MountPaths []string `json:"mountPaths"`
+	// ReaderLimit is how many may read it at once: the limit an admin set, else its kind's setting.
+	ReaderLimit      int  `json:"readerLimit"`
+	IsReaderLimitSet bool `doc:"Whether an admin set its reader limit, over its kind's" json:"isReaderLimitSet"`
 }
 
 // ConfinementBody is one mechanism on a node: in force, or not, why, and what would put it there.
@@ -230,6 +252,39 @@ func (server *Server) registerSystem() {
 		OperationID: "getSystem", Method: http.MethodGet, Path: "/system", Tags: []string{tagRunningIt},
 		Summary: "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
 	}, server.getSystem)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "putDeviceReaderLimit", Method: http.MethodPut, Path: "/nodes/device-reader-limit",
+		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
+		Summary: "Set how many may read one of a node's devices at once, or give it back to its kind's (admin; D240)",
+	}, server.putDeviceReaderLimit)
+}
+
+// DeviceReaderLimitInput sets one of a node's devices' reader limit.
+type DeviceReaderLimitInput struct {
+	AuthorizationHeader
+	Body struct {
+		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
+		// DeviceKey is the node's name for the device, as the System page lists it.
+		DeviceKey string `json:"deviceKey" minLength:"1"`
+		// ReaderLimit is how many may read it at once; absent gives it back to its kind's setting.
+		ReaderLimit *int `json:"readerLimit,omitempty" maximum:"64" minimum:"1"`
+	}
+}
+
+func (server *Server) putDeviceReaderLimit(ctx context.Context, input *DeviceReaderLimitInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	body := input.Body
+	err = dependencies.NodeReports.SetReaderLimit(ctx, body.NodeName, body.DeviceKey, body.ReaderLimit)
+	if errors.Is(err, nodes.ErrNoNode) {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such node")
+	}
+	if err != nil {
+		return nil, server.logInternalError(ctx, "set a device's reader limit", err)
+	}
+	return &struct{}{}, nil
 }
 
 func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader) (*SystemOutput, error) {
@@ -274,7 +329,18 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	for _, node := range listed {
 		body := SystemNodeBody{
 			Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
-			RecentPrepares: []FinishedPrepareBody{},
+			RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{},
+		}
+		devices, err := dependencies.NodeReports.DeviceStates(ctx, node.ID)
+		if err != nil {
+			return nil, server.logInternalError(ctx, "list a node's devices", err)
+		}
+		for _, device := range devices {
+			body.Devices = append(body.Devices, NodeDeviceBody{
+				Key: device.Key, Kind: string(device.Kind), Filesystem: device.Filesystem,
+				Disks: append([]string{}, device.Disks...), MountPaths: append([]string{}, device.MountPaths...),
+				ReaderLimit: device.ReaderLimit, IsReaderLimitSet: device.IsReaderLimitSet,
+			})
 		}
 		connection, lastHeard := dependencies.NodeReports.NodeConnection(ctx, node.ID)
 		body.Connection, body.IsConnected = string(connection), connection == nodes.Connected

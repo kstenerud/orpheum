@@ -274,7 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-func TestMigrate_Step0029NamesAnIssuedSecretAndKeepsSinceWhenARootOrDiskIsMissing(t *testing.T) {
+// Step 0030 keeps the reader limit an admin sets for one of a node's devices (D240 §5), one per
+// device, within its bounds, gone with its node.
+func TestMigrate_Step0030KeepsADevicesReaderLimitPerNodeAndDevice(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -284,42 +286,26 @@ func TestMigrate_Step0029NamesAnIssuedSecretAndKeepsSinceWhenARootOrDiskIsMissin
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	// An invitation and a session derived from another, a root a scan could not read at 50, one
-	// read at 60 with a disk inside it missing, and one read cleanly at 70.
-	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
-		`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at) VALUES
-		 (X'01', 'invite', 1, 'register', 1), (X'02', 'session', 1, 'role', 2)`,
-		`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, parent_secret_sha256, issued_at) VALUES
-		 (X'03', 'cast', 1, 'role', X'02', 3)`,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at) VALUES
-		 (1, '/gone', 'unreadable', 50), (1, '/disks', 'complete', 60), (1, '/fine', 'complete', 70)`,
-		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES
-		 (1, '/disks', '/disks/a', 7, 0), (1, '/disks', '/disks/b', 8, 1)`)
+	execRaw(t, database, "INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1), (2, 'attic', 1)")
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	for _, check := range []struct {
-		query   string
-		columns int
-		want    string
-	}{
-		{
-			`SELECT hex(secret_sha256), kind, ifnull(hex(parent_secret_sha256), '') FROM "grant" ORDER BY 1`, 3,
-			"[[01 issued_secret ] [02 session ] [03 cast 02]]",
-		},
-		{
-			"SELECT root_path, ifnull(unavailable_since, 0) FROM root_state ORDER BY 1", 2,
-			"[[/disks 0] [/fine 0] [/gone 50]]",
-		},
-		{
-			"SELECT mount_path, ifnull(missing_since, 0) FROM root_mount ORDER BY 1", 2,
-			"[[/disks/a 60] [/disks/b 0]]",
-		},
+	execRaw(t, database,
+		`INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES
+		 (1, 'disk:sdc', 4, 1), (1, 'zfs:tank', 1, 1), (2, 'disk:sdc', 2, 1)`)
+	for _, refused := range []string{
+		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdc', 3, 2)",
+		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (1, 'disk:sdd', 0, 2)",
+		"INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at) VALUES (9, 'disk:sdd', 1, 2)",
 	} {
-		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
-			t.Errorf("after step 0029, %s =\n%s\nwant\n%s (D231)", check.query, got, check.want)
+		if _, execErr := database.writer.ExecContext(t.Context(), refused); execErr == nil {
+			t.Errorf("%s was taken; want it refused: one limit per device, within 1 to 64, of a node", refused)
 		}
+	}
+	execRaw(t, database, "DELETE FROM node WHERE id = 2")
+	got := fmt.Sprint(queryRows(t, database,
+		"SELECT node_id, device_key, reader_limit FROM device_reader_limit ORDER BY 1, 2", 3))
+	if want := "[[1 disk:sdc 4] [1 zfs:tank 1]]"; got != want {
+		t.Errorf("the limits are %s, want %s: attic's gone with it", got, want)
 	}
 }

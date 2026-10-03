@@ -65,9 +65,8 @@
 //     TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne,
 //     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
 //     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
-//   - Every data-transforming step has a test on its rows, until a fold takes it into the
-//     baseline (D228): step 0029 in
-//     TestMigrate_Step0029NamesAnIssuedSecretAndKeepsSinceWhenARootOrDiskIsMissing.
+//   - Every step has a test on its rows, until a fold takes it into the baseline (D228): step 0030
+//     in TestMigrate_Step0030KeepsADevicesReaderLimitPerNodeAndDevice.
 //     The runner's handling of such a step, and of a rebuild, is tested on synthetic steps in
 //     TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion and
 //     TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence.
