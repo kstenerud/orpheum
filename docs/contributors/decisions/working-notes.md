@@ -17676,3 +17676,47 @@ can be repointed to another node (§6).
 
 **Status:** Decided 2026-10-03; to be built in the jobs rebuild's Phase 6, beside D231 §12's other
 answers to a person.
+
+## D242 — An Orpheum instance is one directory: a small top-level config pointing at persistent, cache, backups and run, and a backup is a tarball of persistent
+
+**Decided** (2026-10-03), by the project owner, after seeing the development data directory: *"It's
+not clear which things need to be kept when I want to back up orpheum."* **Amends** D204 §1 (what
+`--config` names) and D198's state directory, which becomes `persistent/`; D194 §4 stands.
+
+1. **Why.** The owner: *"backing up is simply making a tarball of persistent. It could even be a
+   function via the admin interface (put them in the backups dir)."*
+2. **Orpheum is started with the instance directory, and with nothing else that says where things
+   are.** The owner: *"orpheum must be started with a pointer to the dir containing the minimal
+   top-level config. Everything else gets configured from there."* Every subcommand that needs an
+   instance takes its directory as a flag, which is required and has no default. *"We make no
+   assumptions about where anything lives, or any env variables. That's for the distribution to
+   choose."* D204's rule of no ambient configuration stands.
+3. **The top-level config is small.** `orpheum.toml` in the instance directory says the Orpheum
+   version that wrote it and where each of the four directories is, as absolute paths:
+   - `persistent/`: `persistent.db`, `secret.key`, and the full config file, which holds every
+     other key that must exist before the database opens (D200);
+   - `cache/`: `cache.db`, prepared renditions and artwork, all of which can be rebuilt (D238);
+   - `backups/`: the backups, outside `persistent/` so a backup holds no earlier ones;
+   - `run/`: what only a running instance needs, never backed up: the node sockets, the server
+     lock and the one-time setup code.
+   The pointers let a distribution put the cache on another disk. The log goes to standard output,
+   for the distribution to keep.
+4. **`orpheum default-config <dir>` makes an instance.** The owner: *"The user should be able to
+   generate a default config with something like 'orpheum default-config /path/to/dir' (config must
+   not exist yet)."* It writes the top-level config and the full config with every key's starting
+   value, creates the four directories, and refuses a directory that already holds an
+   `orpheum.toml`.
+5. **A backup is the server's: a tarball of `persistent/` in `backups/`.** A live `persistent.db`
+   can be copied half-written, so the server takes the database's snapshot with `VACUUM INTO`
+   (backup-restore.md) and tars it with the rest of `persistent/`. An admin makes one from the
+   admin interface or the command line, and M4's scheduled backups make them too. Copying
+   `persistent/` by hand is safe only with the server stopped. `secret.key` is left out unless the
+   admin asks for it, for moving to another machine, as D194 §4 says: a backup with the key
+   decrypts the sealed secrets, and a restore without it loses only those.
+
+The owner agreed (2026-10-03, *"Agreed"*) to points 3's `run/` and the log, 5's snapshot and the
+key left out by default, and one instance directory over separate system directories; points 2 and
+4 are the owner's stipulation.
+
+**Status:** Decided 2026-10-03; to be built after the jobs rebuild's Phase 6, before the pre-M4
+audit.
