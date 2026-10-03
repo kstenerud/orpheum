@@ -76,12 +76,33 @@ class DevMedia(unittest.TestCase):
 
 
 class DevLoop(unittest.TestCase):
-    def test_the_loop_runs_the_core_and_the_node_each_on_the_dev_config(self):
-        commands = dev.role_commands(Path("/b/orpheum"), Path("/c/orpheum.toml"))
+    def test_the_loop_runs_the_core_and_the_node_each_on_its_own_instance(self):
+        commands = dev.role_commands(Path("/b/orpheum"), Path("/r/.dev"))
         self.assertEqual(commands, {
-            "core": ["/b/orpheum", "core", "--config", "/c/orpheum.toml"],
-            "node": ["/b/orpheum", "node", "--config", "/c/orpheum.toml"],
+            "core": ["/b/orpheum", "core", "--instance", "/r/.dev/core"],
+            "node": ["/b/orpheum", "node", "--instance", "/r/.dev/node"],
         })
+
+    def test_a_dev_from_before_instances_is_moved_into_them_once(self):
+        """D242: .dev/state and .dev/cache became the core's and the node's instances."""
+        dev_dir = Path(tempfile.mkdtemp())
+        for name in ("state/persistent.db", "state/secret.key", "state/backups/backup-1.sqlite",
+                     "cache/cache.db", "cache/prepared/1/remux/a/master.m3u8", "run/core.sock",
+                     "orpheum.toml"):
+            (dev_dir / name).parent.mkdir(parents=True, exist_ok=True)
+            (dev_dir / name).write_text(name)
+        for made in ("core/persistent", "core/backups", "core/cache", "core/run", "node/cache"):
+            (dev_dir / made).mkdir(parents=True)
+        dev.move_old_layout(dev_dir)
+        for old, new in (("state/persistent.db", "core/persistent/persistent.db"),
+                         ("state/secret.key", "core/persistent/secret.key"),
+                         ("state/backups/backup-1.sqlite", "core/backups/backup-1.sqlite"),
+                         ("cache/cache.db", "core/cache/cache.db"),
+                         ("cache/prepared/1/remux/a/master.m3u8",
+                          "node/cache/prepared/1/remux/a/master.m3u8")):
+            self.assertEqual((dev_dir / new).read_text(), old)
+        for leftover in ("state", "cache", "run", "orpheum.toml"):
+            self.assertFalse((dev_dir / leftover).exists(), leftover)
 
     def test_config_rendering_and_listen_override(self):
         template = 'listen = "127.0.0.1:8432"\nroots = ["{root}/.dev/media"]\nffmpeg_dir = "{ffmpeg_dir}"\n'
@@ -92,7 +113,7 @@ class DevLoop(unittest.TestCase):
 
     def test_your_media_is_a_root_the_node_offers_and_none_is_added_without_it(self):
         """A library could not be made of ORPHEUM_DEV_MEDIA: no root named it (2026-10-01)."""
-        template = (dev.ROOT / "deploy" / "dev" / "orpheum.dev.toml").read_text()
+        template = (dev.ROOT / "deploy" / "dev" / "node.dev.toml").read_text()
         config = dev.render_config(template, Path("/r"), Path("/f"), None)
         self.assertEqual(dev.with_media_root(config, None), config)
         roots = tomllib.loads(dev.with_media_root(config, "/tank/media"))["node"]["root_paths"]
@@ -112,7 +133,7 @@ class DevLoop(unittest.TestCase):
         self.assertEqual(dev.web_url("[fd00::2]:8432", lan), "http://[fd00::2]:5173")
 
     def test_the_real_templates_leave_no_placeholder(self):
-        for name in ("orpheum.dev.toml", "seed.toml"):
+        for name in ("core.dev.toml", "node.dev.toml", "seed.toml"):
             template = (dev.ROOT / "deploy" / "dev" / name).read_text()
             text = dev.render_config(template, Path("/r"), Path("/f"), None)
             self.assertNotIn("{root}", text)

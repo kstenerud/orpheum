@@ -138,25 +138,30 @@ function freePort(): Promise<number> {
   });
 }
 
-function serverConfigToml(paths: {
-  root: string;
-  library: string;
-  ffmpegDirectory: string;
-  port: number;
-}): string {
-  const { root, library, ffmpegDirectory, port } = paths;
+/** The core instance's full config (D242): where it listens, and its log. */
+function coreConfigToml(port: number): string {
   return `[server]
 listen = "127.0.0.1:${String(port)}"
-data_dir = "${root}/state"
-cache_dir = "${root}/cache"
-socket_dir = "${root}/run"
 
-[node]
+[log]
+level = "info"
+format = "text"
+`;
+}
+
+/** The node instance's full config: the core's socket it dials, its media and its FFmpeg. */
+function nodeConfigToml(paths: {
+  coreSocket: string;
+  library: string;
+  ffmpegDirectory: string;
+}): string {
+  const { coreSocket, library, ffmpegDirectory } = paths;
+  return `[node]
 name = "browser-test"
+core_socket = "${coreSocket}"
 root_paths = ["${library}"]
 ffmpeg_dir = "${ffmpegDirectory}"
 confinement_policy = "report"
-prepared_dir = "${root}/cache/prepared"
 prepared_budget_gib = 1
 
 [log]
@@ -166,7 +171,9 @@ format = "text"
 }
 
 function seedToml(library: string): string {
-  return `[[user]]
+  return `node_name = "browser-test"
+
+[[user]]
 name = "${owner.name}"
 password = "${owner.password}"
 role = "admin"
@@ -210,24 +217,51 @@ async function waitForHealth(
   throw new Error(`the server did not answer /health within 60 s:\n${readLog()}`);
 }
 
-/** How a role is started: the binary, its config, and where its output goes. */
+/** How a role is started: the binary, the instances, and where its output goes. */
 interface Launch {
   readonly binary: string;
-  readonly configPath: string;
+  readonly instances: { readonly core: string; readonly node: string };
   readonly appendToLog: (chunk: Buffer) => void;
 }
 
-/** Starts one of orpheum's roles on the config, its output appended to the log. */
+/** Starts one of orpheum's roles on its own instance, its output appended to the log. */
 function startRole(
   role: "core" | "node",
-  { binary, configPath, appendToLog }: Launch,
+  { binary, instances, appendToLog }: Launch,
 ): ChildProcess {
-  const started = spawn(binary, [role, "--config", configPath], {
+  const started = spawn(binary, [role, "--instance", instances[role]], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   started.stdout.on("data", appendToLog);
   started.stderr.on("data", appendToLog);
   return started;
+}
+
+/**
+ * Makes the core's and the node's instances, each of its own (D242), as an admin makes them, with
+ * their full configs written for the test.
+ */
+function makeInstances(paths: {
+  binary: string;
+  root: string;
+  library: string;
+  ffmpegDirectory: string;
+  port: number;
+}): Launch["instances"] {
+  const { binary, root, library, ffmpegDirectory, port } = paths;
+  const instances = { core: path.join(root, "core"), node: path.join(root, "node") };
+  execFileSync(binary, ["default-config", instances.core]);
+  execFileSync(binary, ["default-config", "--node", instances.node]);
+  writeFileSync(path.join(instances.core, "persistent", "config.toml"), coreConfigToml(port));
+  writeFileSync(
+    path.join(instances.node, "persistent", "config.toml"),
+    nodeConfigToml({
+      coreSocket: path.join(instances.core, "run", "core.sock"),
+      library,
+      ffmpegDirectory,
+    }),
+  );
+  return instances;
 }
 
 /**
@@ -258,17 +292,16 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   });
 
   const port = await freePort();
-  const configPath = path.join(root, "orpheum.toml");
+  const instances = makeInstances({ binary, root, library, ffmpegDirectory, port });
   const seedPath = path.join(root, "seed.toml");
-  writeFileSync(configPath, serverConfigToml({ root, library, ffmpegDirectory, port }));
   writeFileSync(seedPath, seedToml(library));
-  execFileSync(binary, ["dev", "seed", "--config", configPath, "--seed", seedPath]);
+  execFileSync(binary, ["dev", "seed", "--instance", instances.core, "--seed", seedPath]);
 
   let log = "";
   const appendToLog = (chunk: Buffer): void => {
     log += chunk.toString();
   };
-  const launch: Launch = { binary, configPath, appendToLog };
+  const launch: Launch = { binary, instances, appendToLog };
   const server = startRole("core", launch);
   const url = `http://127.0.0.1:${String(port)}`;
   // The spec reads the address from here: Playwright hands a global setup's environment to its

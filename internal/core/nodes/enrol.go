@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -40,12 +41,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "enrol the node", err)
 		return
 	}
-	if !service.speaksThisProtocol(node.ID, hello.ProtocolVersion) {
-		service.logger.WarnContext(ctx, "refused a node that speaks another version of the node protocol",
-			"nodeName", hello.Name, "nodeId", node.ID, "nodeProtocol", hello.ProtocolVersion,
-			"coreProtocol", nodeproto.ProtocolVersion, "build", hello.Build.String())
-		http.Error(writer, fmt.Sprintf("this core speaks node protocol %d, and this node %d: update it",
-			nodeproto.ProtocolVersion, hello.ProtocolVersion), http.StatusConflict)
+	if service.isRefused(ctx, writer, node.ID, hello) {
 		return
 	}
 	scanOnHello, err := service.settings.Bool(ctx, settings.ShouldScanOnNodeHello)
@@ -62,6 +58,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
 		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
+		"byteSocket", hello.ByteSocketPath,
 		"confinement", hello.Confinement, "capacity", hello.Capacity, "devices", hello.Devices)
 	// A hello is the node's probe: the work parked on it, and on any node, resumes (D231 §6).
 	service.destinations.Unpark(ctx, jobs.NodeDestination(node.ID))
@@ -95,6 +92,28 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		NodeID: node.ID, KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
 		DeviceReaderLimits: limits,
 	})
+}
+
+// isRefused answers a hello the core cannot take, and says so: one in another version of the
+// protocol, whose node waits for an update (D233 §9), or one that does not say where its byte
+// socket is, from which the core reads every byte of the node's (D242 §7).
+func (service *Service) isRefused(
+	ctx context.Context, writer http.ResponseWriter, nodeID int64, hello nodeproto.Hello,
+) bool {
+	if !service.speaksThisProtocol(nodeID, hello.ProtocolVersion) {
+		service.logger.WarnContext(ctx, "refused a node that speaks another version of the node protocol",
+			"nodeName", hello.Name, "nodeId", nodeID, "nodeProtocol", hello.ProtocolVersion,
+			"coreProtocol", nodeproto.ProtocolVersion, "build", hello.Build.String())
+		http.Error(writer, fmt.Sprintf("this core speaks node protocol %d, and this node %d: update it",
+			nodeproto.ProtocolVersion, hello.ProtocolVersion), http.StatusConflict)
+		return true
+	}
+	if !filepath.IsAbs(hello.ByteSocketPath) {
+		http.Error(writer, "a hello says where its node's byte socket is, as an absolute path",
+			http.StatusBadRequest)
+		return true
+	}
+	return false
 }
 
 // askForScans asks for a scan of each of a node's roots a live library covers on it, no person

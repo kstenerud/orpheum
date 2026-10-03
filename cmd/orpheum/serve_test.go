@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -95,55 +96,58 @@ func (captured capturedLog) String() string {
 	return captured.buffer.String()
 }
 
-// testConfig is a config with its directories in a temporary directory, written to a file too.
+// testConfig is a core instance in a temporary directory, made by default-config with its full
+// config written for a test, loaded as the core loads it, and returned with its directory. The
+// returned config also carries a node's table, for a test that runs a node beside the core in this
+// process: its sockets and prepared directory are then the core instance's run and cache
+// directories, and it dials the core's socket there.
 func testConfig(t *testing.T) (Config, string) {
 	t.Helper()
 	root := t.TempDir()
-	path := filepath.Join(root, "orpheum.toml")
-	text := fmt.Sprintf(`[server]
+	dir := filepath.Join(root, "i")
+	instance, err := makeInstance(dir, kindCore, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A Unix socket's path is at most 103 bytes, and t.TempDir's carries the test's name: the run
+	// directory is pointed outside the instance, as a distribution may point it, at the shortest
+	// path there is.
+	topLevel := filepath.Join(dir, instanceFileName)
+	text := strings.Replace(string(readFile(t, topLevel)), strconv.Quote(instance.RunDir),
+		strconv.Quote(filepath.Join(root, "r")), 1)
+	if err = os.WriteFile(topLevel, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	text = `[server]
 listen = "127.0.0.1:0"
-data_dir = %q
-cache_dir = %q
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
-socket_dir = %q
 
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3
 
-[node]
-name = "local"
-root_paths = []
-ffmpeg_dir = %q
-confinement_policy = "report"
-max_errors_per_root = 1000
-probe_timeout_seconds = 60
-status_interval_seconds = 10
-progress_every_seconds = 2
-ended_work_kept_hours = 168
-prepared_dir = %q
-prepared_budget_gib = 1
-prepared_kept_after_play_hours = 72
-prepared_disk_used_limit_percent = 95
-min_free_mib = 100
-encode_slot_count = 1
-remux_slot_count = 2
-slowest_read_mib_per_second = 20
-
 [log]
 level = "debug"
 format = "json"
-`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "r"), filepath.Join(root, "ffmpeg"),
-		filepath.Join(root, "prepared"))
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+destination = "stderr"
+`
+	if err = os.WriteFile(instance.fullConfigPath(), []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	config, report, err := loadConfig(path)
+	config, report, err := loadInstanceConfig(dir, kindCore)
 	if err != nil || len(report.Notes()) != 0 {
 		t.Fatalf("the test config does not load cleanly: %v, %v", err, report.Notes())
 	}
-	return config, path
+	config.Node = NodeConfig{
+		Name: "local", CoreSocket: filepath.Join(config.Instance.RunDir, coreSocketName), RootPaths: []string{},
+		FFmpegDir: filepath.Join(dir, "ffmpeg"), ConfinementPolicy: "report", MaxErrorsPerRoot: 1000,
+		ProbeTimeoutSeconds: 60, StatusIntervalSeconds: 10, ProgressEverySeconds: 2, EndedWorkKeptHours: 168,
+		ReadHeaderTimeoutSeconds: 10, PreparedBudgetGiB: 1, PreparedKeptAfterPlayHours: 72,
+		PreparedDiskUsedLimitPercent: 95, MinFreeMiB: 100, EncodeSlotCount: 1, RemuxSlotCount: 2,
+		SlowestReadMiBPerSecond: 20,
+	}
+	return config, dir
 }
 
 // runningServer is a server started by serve on a loopback listener.
@@ -263,7 +267,7 @@ const ownerPassword = "pw"
 // with ownerPassword, and returns the code.
 func setUpOwner(t *testing.T, server runningServer, configPath, name string) string {
 	t.Helper()
-	code := runCommand(t, "setup-code", "--config", configPath)
+	code := runCommand(t, "setup-code", "--instance", configPath)
 	setupCode := strings.TrimSpace(code.stdout)
 	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
 		map[string]string{"setupCode": setupCode, "name": name, "password": ownerPassword})
@@ -386,10 +390,10 @@ func TestServe_AnswersTheClientsAddressesAtTheRoot(t *testing.T) {
 func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
-	if err := os.MkdirAll(config.Server.DataDir, 0o700); err != nil {
+	if err := os.MkdirAll(config.Instance.PersistentDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	foreign := filepath.Join(config.Server.DataDir, "persistent.db")
+	foreign := filepath.Join(config.Instance.PersistentDir, "persistent.db")
 	if err := os.WriteFile(foreign, []byte("SQLite format 3\x00"+strings.Repeat("\x00", 84)), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +419,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
 		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE key = 'should_serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
@@ -433,7 +437,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	}
 	// As a database looks after an upgrade that changed two starting values: one row nobody
 	// touched still holds the old value; the other was set by a person.
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
 		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
 		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
 	captured := newCapturedLog("ready")
@@ -448,7 +452,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
-	doctor := runCommand(t, "doctor", "--config", path)
+	doctor := runCommand(t, "doctor", "--instance", path)
 	if strings.Contains(doctor.stdout, "is unused") || strings.Contains(doctor.stderr, "had no row") {
 		t.Errorf("after the start swept, doctor found work to do:\n%s%s", doctor.stdout, doctor.stderr)
 	}
@@ -461,7 +465,7 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	if err := first.stop(); err != nil {
 		t.Fatal(err)
 	}
-	cachePath := filepath.Join(config.Server.CacheDir, "cache.db")
+	cachePath := filepath.Join(config.Instance.CacheDir, "cache.db")
 	storetest.ExecRaw(t, cachePath, "PRAGMA user_version = 999",
 		"INSERT INTO job (kind, runnable_at, created_at) VALUES ('fetch_metadata', 0, 0)")
 	captured := newCapturedLog("ready")
@@ -508,8 +512,8 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 	}
 	facts := page.Server
 	if facts.Build.Name != version || facts.Host.Platform == "" || len(facts.Disks) != 2 ||
-		facts.Disks[0].Path != config.Server.DataDir ||
-		facts.Disks[1].Path != config.Server.CacheDir || facts.Disks[0].TotalBytes <= 0 ||
+		facts.Disks[0].Path != config.Instance.PersistentDir ||
+		facts.Disks[1].Path != config.Instance.CacheDir || facts.Disks[0].TotalBytes <= 0 ||
 		len(facts.Databases) != 2 || facts.Databases[0].SizeBytes <= 0 || facts.StartedAt <= 0 {
 		t.Errorf("the System page's server = %+v; want this build, its data and cache disks, and both databases "+
 			"(D225)", facts)

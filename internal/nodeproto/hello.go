@@ -25,7 +25,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 18
+const ProtocolVersion = 19
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -42,6 +42,9 @@ type Hello struct {
 	Build build.Provenance `json:"build"`
 	// Host is the node's operating system, as lsb_release shows it, and its kernel (D225).
 	Host host.System `json:"host"`
+	// ByteSocketPath is where the node's byte socket is, in its instance's run directory, from which
+	// the core reads its media bytes and the results it holds (cut-a §4, D242 §7).
+	ByteSocketPath string `json:"byteSocketPath"`
 	// RootPaths are the media roots configured on the node, never remotely (D107).
 	RootPaths     []string `json:"rootPaths"`
 	FFmpegVersion string   `json:"ffmpegVersion"`

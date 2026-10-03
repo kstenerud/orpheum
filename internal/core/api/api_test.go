@@ -109,8 +109,7 @@ func newHarness(t *testing.T) testHarness {
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
-	stateDirectory, cacheDirectory := t.TempDir(), t.TempDir()
-	directories, err := datadir.Prepare(stateDirectory, cacheDirectory)
+	directories, err := datadir.Prepare(datadir.PathsIn(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +184,7 @@ func newHarness(t *testing.T) testHarness {
 		NodeReports: nodes,
 		System: System{
 			Build: harnessServerBuild, StartedAt: now.Now(),
-			DataDirectory: stateDirectory, CacheDirectory: cacheDirectory,
+			PersistentDirectory: directories.PersistentDirectory(), CacheDirectory: directories.CacheDirectory(),
 			PersistentDatabase: database, CacheDatabase: cache,
 		},
 		ConfigFileKeys: []ConfigFileKey{{

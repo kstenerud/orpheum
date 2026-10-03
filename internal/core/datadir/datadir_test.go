@@ -15,7 +15,7 @@ import (
 func prepareTemporaryDirectories(t *testing.T) *Directories {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := Prepare(filepath.Join(root, "state"), filepath.Join(root, "cache"))
+	directories, err := Prepare(PathsIn(root))
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
 	}
@@ -26,7 +26,8 @@ func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
 	for _, directory := range []string{
-		directories.stateDirectory, directories.cacheDirectory, directories.BackupDirectory(),
+		directories.persistentDirectory, directories.cacheDirectory, directories.backupsDirectory,
+		directories.runDirectory,
 	} {
 		info, err := os.Stat(directory)
 		if err != nil {
@@ -36,57 +37,72 @@ func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 			t.Errorf("%s has mode %v, want %v", directory, info.Mode().Perm(), os.FileMode(directoryMode))
 		}
 	}
-	if _, err := Prepare("relative/state", t.TempDir()); err == nil {
-		t.Error("Prepare accepted a relative state directory")
+	elsewhere := t.TempDir()
+	if _, err := Prepare(Paths{
+		Persistent: "relative/persistent", Cache: elsewhere, Backups: elsewhere,
+		Run: elsewhere,
+	}); err == nil {
+		t.Error("Prepare accepted a relative persistent directory")
 	}
 }
 
-func TestWriteStateFile_ReplacesAtomicallyWithMode0600(t *testing.T) {
+func TestWritePersistentFile_ReplacesAtomicallyWithMode0600(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
 	for _, contents := range []string{"first", "second"} {
-		if err := directories.WriteStateFile("secret.key", []byte(contents)); err != nil {
+		if err := directories.WritePersistentFile("secret.key", []byte(contents)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, err := directories.ReadStateFile("secret.key")
+	got, err := directories.ReadPersistentFile("secret.key")
 	if err != nil || string(got) != "second" {
-		t.Errorf("ReadStateFile = %q, %v; want the second write", got, err)
+		t.Errorf("ReadPersistentFile = %q, %v; want the second write", got, err)
 	}
-	info, err := os.Stat(filepath.Join(directories.stateDirectory, "secret.key"))
+	info, err := os.Stat(filepath.Join(directories.persistentDirectory, "secret.key"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Mode().Perm() != fileMode {
 		t.Errorf("secret.key has mode %v, want 0600", info.Mode().Perm())
 	}
-	entries, err := os.ReadDir(directories.stateDirectory)
+	entries, err := os.ReadDir(directories.persistentDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if entry.Name() != "secret.key" && entry.Name() != backupDirectoryName {
-			t.Errorf("the state directory holds %q; an atomic write leaves no temporary file", entry.Name())
+		if entry.Name() != "secret.key" {
+			t.Errorf("the persistent directory holds %q; an atomic write leaves no temporary file", entry.Name())
 		}
 	}
 }
 
-func TestStateFiles_RefuseAnythingButAPlainName(t *testing.T) {
+func TestPersistentAndRunFiles_RefuseAnythingButAPlainName(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
 	for _, name := range []string{"", "../escape", "sub/file", ".hidden", "/etc/passwd"} {
-		if err := directories.WriteStateFile(name, []byte("x")); err == nil {
-			t.Errorf("WriteStateFile(%q) succeeded, want a refusal", name)
+		if err := directories.WritePersistentFile(name, []byte("x")); err == nil {
+			t.Errorf("WritePersistentFile(%q) succeeded, want a refusal", name)
 		}
-		if _, err := directories.ReadStateFile(name); err == nil {
-			t.Errorf("ReadStateFile(%q) succeeded, want a refusal", name)
+		if _, err := directories.ReadPersistentFile(name); err == nil {
+			t.Errorf("ReadPersistentFile(%q) succeeded, want a refusal", name)
 		}
 	}
-	if _, err := directories.ReadStateFile("setup-code"); !errors.Is(err, ErrNotFound) {
-		t.Errorf("ReadStateFile(missing) error = %v, want ErrNotFound", err)
+	if _, err := directories.ReadPersistentFile("setup-code"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("ReadPersistentFile(missing) error = %v, want ErrNotFound", err)
 	}
-	if err := directories.RemoveStateFile("setup-code"); err != nil {
-		t.Errorf("RemoveStateFile(missing) = %v, want nil", err)
+	if err := directories.RemovePersistentFile("setup-code"); err != nil {
+		t.Errorf("RemovePersistentFile(missing) = %v, want nil", err)
+	}
+	for _, name := range []string{"", "../escape", "sub/file", ".hidden"} {
+		if err := directories.WriteRunFile(name, []byte("x")); err == nil {
+			t.Errorf("WriteRunFile(%q) succeeded, want a refusal", name)
+		}
+	}
+	if err := directories.WriteRunFile("setup-code", []byte("code")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(directories.runDirectory, "setup-code")); err != nil {
+		t.Errorf("a run file is not in the run directory: %v", err)
 	}
 }
 
@@ -99,7 +115,7 @@ func TestReplacePersistentDatabase_RemovesTheOldWAL(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	restoredPath := filepath.Join(directories.stateDirectory, "persistent.db.restoring")
+	restoredPath := filepath.Join(directories.persistentDirectory, "persistent.db.restoring")
 	if err := os.WriteFile(restoredPath, []byte("restored"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -116,24 +132,24 @@ func TestReplacePersistentDatabase_RemovesTheOldWAL(t *testing.T) {
 		}
 	}
 	if err := directories.ReplacePersistentDatabase("../elsewhere.db"); err == nil {
-		t.Error("ReplacePersistentDatabase accepted a copy outside the state directory")
+		t.Error("ReplacePersistentDatabase accepted a copy outside the persistent directory")
 	}
 }
 
-func TestLockState_RefusesASecondHolder(t *testing.T) {
+func TestLockInstance_RefusesASecondHolder(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
-	server, err := directories.LockState()
+	server, err := directories.LockInstance()
 	if err != nil {
 		t.Fatalf("the first lock: %v", err)
 	}
-	if _, err = directories.LockState(); !errors.Is(err, ErrInUse) {
+	if _, err = directories.LockInstance(); !errors.Is(err, ErrInUse) {
 		t.Errorf("a second lock while the first is held: error = %v, want ErrInUse", err)
 	}
 	if err = server.Release(); err != nil {
 		t.Fatal(err)
 	}
-	restore, err := directories.LockState()
+	restore, err := directories.LockInstance()
 	if err != nil {
 		t.Fatalf("a lock after release: %v", err)
 	}

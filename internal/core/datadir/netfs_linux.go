@@ -36,7 +36,7 @@ func refuseNetworkFilesystem(directory string) error {
 func refuseNetworkFilesystemType(directory string, magic int64) error {
 	if name, isNetwork := networkFilesystemNameByMagic()[magic]; isNetwork {
 		return fmt.Errorf("%s is on %s, a network filesystem; SQLite's locking is not reliable there, so the "+
-			"state directory must be on a local disk (D31)", directory, name)
+			"persistent directory must be on a local disk (D31)", directory, name)
 	}
 	return nil
 }

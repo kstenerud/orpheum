@@ -37,7 +37,7 @@ type server struct {
 func newServer(t *testing.T) server {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := datadir.Prepare(filepath.Join(root, "state"), filepath.Join(root, "cache"))
+	directories, err := datadir.Prepare(datadir.PathsIn(root))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func newServer(t *testing.T) server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = directories.WriteStateFile(secrets.KeyFileName, key.EncodeKeyFile()); err != nil {
+	if err = directories.WritePersistentFile(secrets.KeyFileName, key.EncodeKeyFile()); err != nil {
 		t.Fatal(err)
 	}
 	return server{directories: directories, database: openAt(t, directories), key: key}
@@ -92,7 +92,7 @@ func (server server) populate(t *testing.T) {
 func emptyDataDirectory(t *testing.T) *datadir.Directories {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := datadir.Prepare(filepath.Join(root, "state"), filepath.Join(root, "cache"))
+	directories, err := datadir.Prepare(datadir.PathsIn(root))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 	if plan := restore(t, target, written.DatabasePath, key); !plan.InstallsKey {
 		t.Error("the plan does not say it installs the key")
 	}
-	installed, err := target.ReadStateFile(secrets.KeyFileName)
+	installed, err := target.ReadPersistentFile(secrets.KeyFileName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := emptyDataDirectory(t)
-	running, err := target.LockState()
+	running, err := target.LockInstance()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func runNodeChannel(
 	ctx context.Context, config Config, opened openedServices, logger *slog.Logger,
 ) (stop func() error, err error) {
 	service := opened.nodes
-	listener, err := unixsocket.Listen(config.Server.SocketDir, coreSocketName)
+	listener, err := unixsocket.Listen(config.Instance.RunDir, coreSocketName)
 	if err != nil {
 		return nil, err
 	}

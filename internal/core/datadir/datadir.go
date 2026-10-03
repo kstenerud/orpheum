@@ -15,30 +15,52 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
-// The names of the files and directories this package owns under the state and cache
-// directories, and the modes it makes them with.
+// The names of the files this package owns in the instance's directories, and the modes it makes
+// them with.
 const (
 	persistentDatabaseName = "persistent.db"
 	cacheDatabaseName      = "cache.db"
-	backupDirectoryName    = "backups"
 	directoryMode          = 0o700
 	fileMode               = 0o600
 )
 
-// ErrNotFound is returned when a state file or a stored artwork file does not exist.
-var ErrNotFound = errors.New("state file not found")
+// ErrNotFound is returned when a persistent or run file, or a stored artwork file, does not exist.
+var ErrNotFound = errors.New("file not found")
 
-// Directories are the server's state directory (persistent.db, secret.key, backups) and cache
-// directory. Both are created on first use with mode 0700.
-type Directories struct {
-	stateDirectory string
-	cacheDirectory string
+// Paths are where a core instance's directories are, as its top-level config says (D242 §3).
+type Paths struct {
+	// Persistent holds what a backup keeps: persistent.db, secret.key and the full config.
+	Persistent string
+	// Cache holds what can be rebuilt: cache.db and the artwork.
+	Cache string
+	// Backups is where backups and pre-migration snapshots go, outside Persistent.
+	Backups string
+	// Run holds what only a running server needs: its lock and the setup code.
+	Run string
 }
 
-// Prepare creates the state and cache directories if they are missing and refuses a state
+// PathsIn are the directories an instance keeps inside its own directory, as `orpheum
+// default-config` makes them: persistent, cache, backups and run (D242 §3).
+func PathsIn(instanceDirectory string) Paths {
+	return Paths{
+		Persistent: filepath.Join(instanceDirectory, "persistent"), Cache: filepath.Join(instanceDirectory, "cache"),
+		Backups: filepath.Join(instanceDirectory, "backups"), Run: filepath.Join(instanceDirectory, "run"),
+	}
+}
+
+// Directories are a core instance's directories (D242 §3), each created on first use with mode
+// 0700.
+type Directories struct {
+	persistentDirectory string
+	cacheDirectory      string
+	backupsDirectory    string
+	runDirectory        string
+}
+
+// Prepare creates the instance's directories if they are missing and refuses a persistent
 // directory on a network filesystem, where SQLite's locking cannot be trusted (D31).
-func Prepare(stateDirectory, cacheDirectory string) (*Directories, error) {
-	for _, directory := range []string{stateDirectory, cacheDirectory} {
+func Prepare(paths Paths) (*Directories, error) {
+	for _, directory := range []string{paths.Persistent, paths.Cache, paths.Backups, paths.Run} {
 		if !filepath.IsAbs(directory) {
 			return nil, fmt.Errorf("directory %q: want an absolute path", directory)
 		}
@@ -46,18 +68,28 @@ func Prepare(stateDirectory, cacheDirectory string) (*Directories, error) {
 			return nil, fmt.Errorf("create directory %s: %w", directory, err)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(stateDirectory, backupDirectoryName), directoryMode); err != nil {
-		return nil, fmt.Errorf("create the backup directory: %w", err)
-	}
-	if err := refuseNetworkFilesystem(stateDirectory); err != nil {
+	if err := refuseNetworkFilesystem(paths.Persistent); err != nil {
 		return nil, err
 	}
-	return &Directories{stateDirectory: stateDirectory, cacheDirectory: cacheDirectory}, nil
+	return &Directories{
+		persistentDirectory: paths.Persistent, cacheDirectory: paths.Cache, backupsDirectory: paths.Backups,
+		runDirectory: paths.Run,
+	}, nil
+}
+
+// PersistentDirectory is the directory a backup keeps.
+func (directories *Directories) PersistentDirectory() string {
+	return directories.persistentDirectory
+}
+
+// CacheDirectory is the directory of what can be rebuilt.
+func (directories *Directories) CacheDirectory() string {
+	return directories.cacheDirectory
 }
 
 // PersistentDatabasePath is the path of persistent.db.
 func (directories *Directories) PersistentDatabasePath() string {
-	return filepath.Join(directories.stateDirectory, persistentDatabaseName)
+	return filepath.Join(directories.persistentDirectory, persistentDatabaseName)
 }
 
 // CacheDatabasePath is the path of cache.db.
@@ -84,7 +116,7 @@ func (directories *Directories) DiscardCacheDatabase() (err error) {
 
 // BackupDirectory is where backups and pre-migration snapshots are written.
 func (directories *Directories) BackupDirectory() string {
-	return filepath.Join(directories.stateDirectory, backupDirectoryName)
+	return directories.backupsDirectory
 }
 
 // PersistentDatabaseExists reports whether persistent.db is there.
@@ -99,53 +131,83 @@ func (directories *Directories) PersistentDatabaseExists() (bool, error) {
 	return false, fmt.Errorf("look for %s: %w", directories.PersistentDatabasePath(), err)
 }
 
-// ReadStateFile reads a file this package keeps directly in the state directory.
-func (directories *Directories) ReadStateFile(name string) (contents []byte, err error) {
+// ReadPersistentFile reads a file this package keeps directly in the persistent directory.
+func (directories *Directories) ReadPersistentFile(name string) ([]byte, error) {
+	return readFileIn(directories.persistentDirectory, name)
+}
+
+// WritePersistentFile replaces a persistent file atomically, mode 0600: it writes a temporary file
+// beside it, syncs it, and renames it into place, so a crash leaves the old file or the new one.
+func (directories *Directories) WritePersistentFile(name string, contents []byte) error {
+	return writeFileIn(directories.persistentDirectory, name, contents)
+}
+
+// RemovePersistentFile removes a persistent file; a file already gone is not an error.
+func (directories *Directories) RemovePersistentFile(name string) error {
+	return removeFileIn(directories.persistentDirectory, name)
+}
+
+// ReadRunFile reads a file this package keeps directly in the run directory: the setup code.
+func (directories *Directories) ReadRunFile(name string) ([]byte, error) {
+	return readFileIn(directories.runDirectory, name)
+}
+
+// WriteRunFile replaces a run file atomically, mode 0600, as WritePersistentFile does.
+func (directories *Directories) WriteRunFile(name string, contents []byte) error {
+	return writeFileIn(directories.runDirectory, name, contents)
+}
+
+// RemoveRunFile removes a run file; a file already gone is not an error.
+func (directories *Directories) RemoveRunFile(name string) error {
+	return removeFileIn(directories.runDirectory, name)
+}
+
+// readFileIn reads the plain name in directory.
+func readFileIn(directory, name string) (contents []byte, err error) {
 	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nil, nameErr
 	}
-	root, err := directories.openStateRoot()
+	root, err := openRoot(directory)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close "+directory, root.Close())) }()
 	contents, err = root.ReadFile(name)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%s: %w", filepath.Join(directories.stateDirectory, name), ErrNotFound)
+		return nil, fmt.Errorf("%s: %w", filepath.Join(directory, name), ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", filepath.Join(directories.stateDirectory, name), err)
+		return nil, fmt.Errorf("read %s: %w", filepath.Join(directory, name), err)
 	}
 	return contents, nil
 }
 
-// WriteStateFile replaces a state file atomically, mode 0600: it writes a temporary file beside
-// it, syncs it, and renames it into place, so a crash leaves the old file or the new one.
-func (directories *Directories) WriteStateFile(name string, contents []byte) (err error) {
+// writeFileIn replaces the plain name in directory atomically, mode 0600.
+func writeFileIn(directory, name string, contents []byte) (err error) {
 	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openStateRoot()
+	root, err := openRoot(directory)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close "+directory, root.Close())) }()
 	return writeAtomically(root, name, contents)
 }
 
-// RemoveStateFile removes a state file; a file already gone is not an error.
-func (directories *Directories) RemoveStateFile(name string) (err error) {
+// removeFileIn removes the plain name in directory; a file already gone is not an error.
+func removeFileIn(directory, name string) (err error) {
 	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openStateRoot()
+	root, err := openRoot(directory)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close "+directory, root.Close())) }()
 	err = root.Remove(name)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", filepath.Join(directories.stateDirectory, name), err)
+		return fmt.Errorf("remove %s: %w", filepath.Join(directory, name), err)
 	}
 	return nil
 }
@@ -191,7 +253,7 @@ func (directories *Directories) ListBackups() ([]BackupFile, error) {
 	return files, nil
 }
 
-// ReplacePersistentDatabase moves a restored copy, already written into the state directory under
+// ReplacePersistentDatabase moves a restored copy, already written into the persistent directory under
 // the name restoredName, into place as persistent.db. The old database's WAL and shared-memory files
 // are removed first: a stale WAL beside a different database is replayed into it. The caller
 // has already snapshotted the old database.
@@ -199,11 +261,11 @@ func (directories *Directories) ReplacePersistentDatabase(restoredName string) (
 	if nameErr := checkPlainFileName(restoredName); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openStateRoot()
+	root, err := openRoot(directories.persistentDirectory)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the persistent directory", root.Close())) }()
 	for _, walFile := range []string{persistentDatabaseName + "-wal", persistentDatabaseName + "-shm"} {
 		if err = ignoreMissing(root.Remove(walFile)); err != nil {
 			return fmt.Errorf("remove %s: %w", walFile, err)
@@ -215,17 +277,17 @@ func (directories *Directories) ReplacePersistentDatabase(restoredName string) (
 	return syncRoot(root)
 }
 
-// StatePath is the path of a state file, for a caller that must hand a path to SQLite (a
+// PersistentPath is the path of a persistent file, for a caller that must hand a path to SQLite (a
 // restored copy written by VACUUM INTO). It refuses anything but a plain name.
-func (directories *Directories) StatePath(name string) (string, error) {
+func (directories *Directories) PersistentPath(name string) (string, error) {
 	if err := checkPlainFileName(name); err != nil {
 		return "", err
 	}
-	return filepath.Join(directories.stateDirectory, name), nil
+	return filepath.Join(directories.persistentDirectory, name), nil
 }
 
 // checkPlainFileName refuses a name that is not a plain file name. An os.Root already keeps every
-// operation inside the state directory; this also keeps out hidden and temporary names.
+// operation inside its directory; this also keeps out hidden and temporary names.
 func checkPlainFileName(name string) error {
 	if name == "" || name != filepath.Base(name) || strings.HasPrefix(name, ".") {
 		return fmt.Errorf("file %q: want a plain file name", name)
@@ -233,10 +295,11 @@ func checkPlainFileName(name string) error {
 	return nil
 }
 
-func (directories *Directories) openStateRoot() (*os.Root, error) {
-	root, err := os.OpenRoot(directories.stateDirectory)
+// openRoot opens directory as an os.Root.
+func openRoot(directory string) (*os.Root, error) {
+	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return nil, fmt.Errorf("open the state directory: %w", err)
+		return nil, fmt.Errorf("open %s: %w", directory, err)
 	}
 	return root, nil
 }

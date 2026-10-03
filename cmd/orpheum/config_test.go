@@ -18,54 +18,70 @@ func writeConfig(t *testing.T, text string) string {
 	return path
 }
 
-func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
+func TestLoadConfig_ReadsTheDevFilesAndReportsUnknownKeys(t *testing.T) {
 	t.Parallel()
-	template, err := os.ReadFile(filepath.Join("..", "..", "deploy", "dev", "orpheum.dev.toml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	rendered := strings.NewReplacer("{root}", "/srv/orpheum", "{ffmpeg_dir}", "/opt/ffmpeg").Replace(string(template))
-	config, report, err := loadConfig(writeConfig(t, rendered+"\n[server.extra]\nsurprise = 1\n"))
-	if err != nil {
-		t.Fatalf("the dev config does not load: %v", err)
-	}
-	if config.Server.DataDir != "/srv/orpheum/.dev/state" || config.Node.ConfinementPolicy != "report" ||
-		config.Log.Format != "text" {
-		t.Errorf("the dev config read as %+v", config)
-	}
-	if len(report.Unknown) != 1 || report.Unknown[0] != "server.extra.surprise" || len(report.OnStartingValue) != 0 {
-		t.Errorf("report = %+v, want the one unknown key reported, not fatal", report)
+	for kind, name := range map[instanceKind]string{kindCore: "core.dev.toml", kindNode: "node.dev.toml"} {
+		template, err := os.ReadFile(filepath.Join("..", "..", "deploy", "dev", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rendered := strings.NewReplacer("{root}", "/srv/orpheum", "{ffmpeg_dir}", "/opt/ffmpeg").
+			Replace(string(template))
+		config, report, err := loadConfig(writeConfig(t, rendered+"\n[log.extra]\nsurprise = 1\n"), kind)
+		if err != nil {
+			t.Fatalf("the dev %s config does not load: %v", kind, err)
+		}
+		if config.Log.Format != "text" {
+			t.Errorf("the dev %s config read as %+v", kind, config)
+		}
+		if kind == kindNode && (config.Node.ConfinementPolicy != "report" ||
+			config.Node.CoreSocket != "/srv/orpheum/.dev/core/run/core.sock") {
+			t.Errorf("the dev node config read as %+v", config.Node)
+		}
+		if len(report.Unknown) != 1 || report.Unknown[0] != "log.extra.surprise" || len(report.OnStartingValue) != 0 {
+			t.Errorf("%s: report = %+v, want the one unknown key reported, not fatal", kind, report)
+		}
 	}
 }
 
 func TestLoadConfig_RunsAMissingKeyOnItsStartingValueOrRefusesOneWithNone(t *testing.T) {
 	t.Parallel()
-	complete, report, err := loadConfig(writeConfig(t, validConfigText))
-	if err != nil || len(report.OnStartingValue) != 0 {
-		t.Fatalf("a complete config: %+v, %v", report, err)
-	}
-	for _, key := range configKeys() {
-		path := writeConfig(t, withoutKey(validConfigText, key))
-		loaded, report, err := loadConfig(path)
-		if key.startingValue == "" {
-			want := key.path() + " is required and has no starting value"
-			if err == nil || !strings.Contains(err.Error(), want) {
-				t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
-			}
-			continue
+	for kind, text := range validConfigTexts {
+		complete, report, err := loadConfig(writeConfig(t, text), kind)
+		if err != nil || len(report.OnStartingValue) != 0 {
+			t.Fatalf("a complete %s config: %+v, %v", kind, report, err)
 		}
-		if err != nil || len(report.OnStartingValue) != 1 || report.OnStartingValue[0].path() != key.path() {
-			t.Errorf("without %s: %+v, %v; want it loaded on its starting value and reported", key.path(), report, err)
+		for _, key := range configKeys(kind) {
+			checkWithoutKey(t, kind, text, key)
 		}
-		if got := string(readFile(t, path)); strings.Contains(got, startingValueMarker) {
-			t.Errorf("loading without %s rewrote the file", key.path())
-		}
-		if key.path() == "log.level" && loaded.Log.Level != "info" {
-			t.Errorf("without log.level, the level is %q, want its starting value", loaded.Log.Level)
+		if kind == kindCore && complete.Database.ReadConnectionsMinimum != 4 {
+			t.Errorf("the complete config read read_connections_minimum as %d",
+				complete.Database.ReadConnectionsMinimum)
 		}
 	}
-	if complete.Database.ReadConnectionsMinimum != 4 {
-		t.Errorf("the complete config read read_connections_minimum as %d", complete.Database.ReadConnectionsMinimum)
+}
+
+// checkWithoutKey loads text of kind without key: refused when the key has no starting value,
+// else loaded on it, reported, and the file not rewritten.
+func checkWithoutKey(t *testing.T, kind instanceKind, text string, key configKey) {
+	t.Helper()
+	path := writeConfig(t, withoutKey(text, key))
+	loaded, report, err := loadConfig(path, kind)
+	if key.startingValue == "" {
+		want := key.path() + " is required and has no starting value"
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
+		}
+		return
+	}
+	if err != nil || len(report.OnStartingValue) != 1 || report.OnStartingValue[0].path() != key.path() {
+		t.Errorf("without %s: %+v, %v; want it loaded on its starting value and reported", key.path(), report, err)
+	}
+	if got := string(readFile(t, path)); strings.Contains(got, startingValueMarker) {
+		t.Errorf("loading without %s rewrote the file", key.path())
+	}
+	if key.path() == "log.level" && loaded.Log.Level != "info" {
+		t.Errorf("without log.level, the level is %q, want its starting value", loaded.Log.Level)
 	}
 }
 
@@ -87,44 +103,58 @@ func withoutKey(text string, key configKey) string {
 
 func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 	t.Parallel()
-	cases := map[string]struct{ text, names string }{
-		"relative state": {
-			strings.Replace(validConfigText, `data_dir = "/a"`, `data_dir = "state"`, 1),
-			"server.data_dir",
-		},
+	core, node := validConfigTexts[kindCore], validConfigTexts[kindNode]
+	cases := map[string]struct {
+		kind        instanceKind
+		text, names string
+	}{
 		"bad listen": {
-			strings.Replace(validConfigText, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
+			kindCore, strings.Replace(core, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
+		},
+		"relative core socket": {
+			kindNode, strings.Replace(node, `core_socket = "/srv/core/run/core.sock"`, `core_socket = "core.sock"`, 1),
+			"node.core_socket",
 		},
 		"bad confinement": {
-			strings.Replace(validConfigText, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
+			kindNode, strings.Replace(node, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
 			"node.confinement_policy",
 		},
-		"bad log level":    {strings.Replace(validConfigText, `level = "info"`, `level = "loud"`, 1), "log.level"},
-		"bad log format":   {strings.Replace(validConfigText, `format = "json"`, `format = "xml"`, 1), "log format"},
-		"not TOML at all":  {"server = [", "config"},
-		"a wrong key type": {"[server]\nlisten = 8432\n", "listen"},
+		"bad log level":  {kindCore, strings.Replace(core, `level = "info"`, `level = "loud"`, 1), "log.level"},
+		"bad log format": {kindCore, strings.Replace(core, `format = "json"`, `format = "xml"`, 1), "log format"},
+		"relative log": {
+			kindNode, strings.Replace(node, `destination = "stderr"`, `destination = "orpheum.log"`, 1),
+			"log.destination",
+		},
+		"not TOML at all":  {kindCore, "server = [", "config"},
+		"a wrong key type": {kindCore, "[server]\nlisten = 8432\n", "listen"},
 	}
 	for name, tc := range cases {
-		if _, _, err := loadConfig(writeConfig(t, tc.text)); err == nil || !strings.Contains(err.Error(), tc.names) {
+		if _, _, err := loadConfig(writeConfig(t, tc.text), tc.kind); err == nil ||
+			!strings.Contains(err.Error(), tc.names) {
 			t.Errorf("%s: error = %v, want a refusal naming %s", name, err, tc.names)
 		}
 	}
 }
 
-const validConfigText = `[server]
+// validConfigTexts are a complete full config of each kind.
+var validConfigTexts = map[instanceKind]string{
+	kindCore: `[server]
 listen = "127.0.0.1:8432"
-data_dir = "/a"
-cache_dir = "/b"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
-socket_dir = "/run/orpheum"
 
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3
 
-[node]
+[log]
+level = "info"
+format = "json"
+destination = "stderr"
+`,
+	kindNode: `[node]
 name = "local"
+core_socket = "/srv/core/run/core.sock"
 root_paths = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement_policy = "require"
@@ -133,7 +163,7 @@ probe_timeout_seconds = 60
 status_interval_seconds = 10
 progress_every_seconds = 2
 ended_work_kept_hours = 168
-prepared_dir = "/var/cache/orpheum/prepared"
+read_header_timeout_seconds = 10
 prepared_budget_gib = 1
 prepared_kept_after_play_hours = 72
 prepared_disk_used_limit_percent = 95
@@ -145,7 +175,9 @@ slowest_read_mib_per_second = 20
 [log]
 level = "info"
 format = "json"
-`
+destination = "stderr"
+`,
+}
 
 func TestIsLoopback(t *testing.T) {
 	t.Parallel()

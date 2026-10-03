@@ -20,29 +20,28 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// Config is the file read before the database opens: only what must exist by then, or must not
-// be changeable by someone holding only an admin account (D182 §3, D200); everything else is a
-// setting in the database. Its keys are exactly those of deploy/dev/orpheum.dev.toml (cut-a §2a) and
-// configKeys, which gives each its starting value: a key the file lacks runs on it and says so
-// (D202).
+// Config is an instance's full config, the file read before the database opens: only what must
+// exist by then, or must not be changeable by someone holding only an admin account (D182 §3,
+// D200); everything else is a setting in the database. Its keys are those configKeys gives the
+// instance's kind, each with its starting value: a key the file lacks runs on it and says so
+// (D202). Where the instance's directories are is its top-level config's (D242).
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
 	Database DatabaseConfig `toml:"database"`
 	Node     NodeConfig     `toml:"node"`
 	Log      LogConfig      `toml:"log"`
 
+	// Instance is the instance directory's top-level config: its kind and its directories.
+	Instance Instance `toml:"-"`
 	// path is the file's absolute path.
 	path string
 }
 
-// ServerConfig is where the server listens and keeps its state, and its HTTP timeouts.
+// ServerConfig is where the core listens, and its HTTP timeouts.
 type ServerConfig struct {
 	Listen                   string `toml:"listen"`
-	DataDir                  string `toml:"data_dir"`
-	CacheDir                 string `toml:"cache_dir"`
 	ReadHeaderTimeoutSeconds int64  `toml:"read_header_timeout_seconds"`
 	ShutdownGraceSeconds     int64  `toml:"shutdown_grace_seconds"`
-	SocketDir                string `toml:"socket_dir"`
 }
 
 // DatabaseConfig is what the store needs before the database opens.
@@ -53,7 +52,9 @@ type DatabaseConfig struct {
 
 // NodeConfig is the media node's.
 type NodeConfig struct {
-	Name                  string   `toml:"name"`
+	Name string `toml:"name"`
+	// CoreSocket is the core's socket, which the node dials (D242 §7).
+	CoreSocket            string   `toml:"core_socket"`
 	RootPaths             []string `toml:"root_paths"`
 	FFmpegDir             string   `toml:"ffmpeg_dir"`
 	ConfinementPolicy     string   `toml:"confinement_policy"`
@@ -62,7 +63,9 @@ type NodeConfig struct {
 	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
 	ProgressEverySeconds  int64    `toml:"progress_every_seconds"`
 	EndedWorkKeptHours    int64    `toml:"ended_work_kept_hours"`
-	PreparedDir           string   `toml:"prepared_dir"`
+	// ReadHeaderTimeoutSeconds is how long the core has to send a request's headers to the byte
+	// socket.
+	ReadHeaderTimeoutSeconds int64 `toml:"read_header_timeout_seconds"`
 	// PreparedBudgetGiB, PreparedKeptAfterPlayHours and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
@@ -77,11 +80,16 @@ type NodeConfig struct {
 	SlowestReadMiBPerSecond int64 `toml:"slowest_read_mib_per_second"`
 }
 
-// LogConfig is how the server logs.
+// LogConfig is how the instance logs, and where.
 type LogConfig struct {
 	Level  string `toml:"level"`
 	Format string `toml:"format"`
+	// Destination is "stderr", or the absolute path of a file the log is appended to (D242 §3).
+	Destination string `toml:"destination"`
 }
+
+// logToStderr is the log destination that writes to standard error.
+const logToStderr = "stderr"
 
 // The file's tables.
 const (
@@ -104,18 +112,21 @@ func (key configKey) path() string {
 	return key.table + "." + key.name
 }
 
-// configKeys is every key of the file, in the order the file is written.
-func configKeys() []configKey {
-	return append([]configKey{
+// configKeys is every key of the full config of an instance of kind, in the order the file is
+// written: the core's server and database, or the node's, and the log.
+func configKeys(kind instanceKind) []configKey {
+	if kind == kindNode {
+		return append(nodeConfigKeys(), logConfigKeys()...)
+	}
+	return append(coreConfigKeys(), logConfigKeys()...)
+}
+
+// coreConfigKeys are the full config's keys for the core, in the order the file is written.
+func coreConfigKeys() []configKey {
+	return []configKey{
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
-		{tableServer, "data_dir", "", "where persistent.db, secret.key and backups live on this machine"},
-		{tableServer, "cache_dir", "", "where cache.db and the artwork cache live on this machine"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
-		{
-			tableServer, "socket_dir", `"/run/orpheum"`,
-			"where the core's and the node's sockets live; systemd's RuntimeDirectory makes /run/orpheum",
-		},
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
@@ -124,13 +135,17 @@ func configKeys() []configKey {
 			tableDatabase, "migrate_free_space_db_multiple", "3",
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
 		},
-	}, append(nodeConfigKeys(), logConfigKeys()...)...)
+	}
 }
 
 // nodeConfigKeys are the file's keys for the media node, in the order the file is written.
 func nodeConfigKeys() []configKey {
 	return []configKey{
 		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
+		{
+			tableNode, "core_socket", "",
+			"the core's socket, in its instance's run directory, which this node dials (D242 §7)",
+		},
 		{tableNode, "root_paths", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
@@ -155,8 +170,8 @@ func nodeConfigKeys() []configKey {
 			"hours the node remembers work whose result the core took, so the same command is not run twice (D238 §2)",
 		},
 		{
-			tableNode, "prepared_dir", `"/var/cache/orpheum/prepared"`,
-			"where this node's prepared renditions live; the node alone deletes there (D217 §5)",
+			tableNode, "read_header_timeout_seconds", "10",
+			"seconds the core has to send a request's headers to this node's byte socket",
 		},
 		{
 			tableNode, "prepared_budget_gib", "200",
@@ -197,6 +212,10 @@ func logConfigKeys() []configKey {
 	return []configKey{
 		{tableLog, "level", `"info"`, "debug, info, warn or error"},
 		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
+		{
+			tableLog, "destination", `"stderr"`,
+			`"stderr", or the absolute path of a file the log is appended to (D242 §3)`,
+		},
 	}
 }
 
@@ -207,11 +226,23 @@ type ConfigReport struct {
 	Unknown         []string
 }
 
-// loadConfig reads and checks the config file. A missing key that has a starting value runs on it,
-// in memory — the file is never rewritten — and is reported; a missing key with none is refused,
-// because it is specific to this machine (D202). Keys nothing reads are reported and ignored,
-// never fatal (packaging-history.md lesson 11).
-func loadConfig(path string) (Config, ConfigReport, error) {
+// loadInstanceConfig reads the instance directory dir's top-level config, refusing an instance of
+// another kind, and then its full config (loadConfig).
+func loadInstanceConfig(dir string, kind instanceKind) (Config, ConfigReport, error) {
+	instance, err := loadInstance(dir, kind)
+	if err != nil {
+		return Config{}, ConfigReport{}, err
+	}
+	config, report, err := loadConfig(instance.fullConfigPath(), kind)
+	config.Instance = instance
+	return config, report, err
+}
+
+// loadConfig reads and checks the full config of an instance of kind. A missing key that has a
+// starting value runs on it, in memory — the file is never rewritten — and is reported; a missing
+// key with none is refused, because it is specific to this machine (D202). Keys nothing reads are
+// reported and ignored, never fatal (packaging-history.md lesson 11).
+func loadConfig(path string, kind instanceKind) (Config, ConfigReport, error) {
 	var report ConfigReport
 	text, err := os.ReadFile(path) //nolint:gosec // G304: the operator names the config file
 	if err != nil {
@@ -223,7 +254,7 @@ func loadConfig(path string) (Config, ConfigReport, error) {
 	}
 	report.Unknown = unknownKeys(metadata)
 	var missingRequired []error
-	for _, key := range missingKeys(metadata) {
+	for _, key := range missingKeys(metadata, kind) {
 		if key.startingValue == "" {
 			missingRequired = append(missingRequired,
 				fmt.Errorf("%s is required and has no starting value: it is %s; add it to "+
@@ -245,7 +276,7 @@ func loadConfig(path string) (Config, ConfigReport, error) {
 	if _, err = toml.Decode(full, &config); err != nil {
 		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 	}
-	if err = config.check(); err != nil {
+	if err = config.check(kind); err != nil {
 		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 	}
 	if config.path, err = filepath.Abs(path); err != nil {
@@ -282,10 +313,10 @@ func unknownKeys(metadata toml.MetaData) []string {
 	return unknown
 }
 
-// missingKeys lists the keys the file lacks.
-func missingKeys(metadata toml.MetaData) []configKey {
+// missingKeys lists the keys of kind the file lacks.
+func missingKeys(metadata toml.MetaData, kind instanceKind) []configKey {
 	var missing []configKey
-	for _, key := range configKeys() {
+	for _, key := range configKeys(kind) {
 		if !metadata.IsDefined(key.table, key.name) {
 			missing = append(missing, key)
 		}
@@ -293,56 +324,93 @@ func missingKeys(metadata toml.MetaData) []configKey {
 	return missing
 }
 
-// check refuses, naming the key, a value the server cannot start without or cannot use.
-func (config *Config) check() error {
+// check refuses, naming the key, a value an instance of kind cannot start without or cannot use.
+func (config *Config) check(kind instanceKind) error {
+	problems := []error{config.Log.check()}
+	if kind == kindNode {
+		problems = append(problems, config.Node.check())
+	} else {
+		problems = append(problems, config.Server.check(), config.Database.check())
+	}
+	return errors.Join(problems...)
+}
+
+// check refuses what the core cannot listen with.
+func (server ServerConfig) check() error {
 	var problems []error
-	for key, value := range map[string]string{
-		"server.data_dir": config.Server.DataDir, "server.cache_dir": config.Server.CacheDir,
-		"server.socket_dir": config.Server.SocketDir,
-	} {
-		if !filepath.IsAbs(value) {
-			problems = append(problems, fmt.Errorf("%s must be an absolute path, not %q", key, value))
-		}
+	if _, _, err := net.SplitHostPort(server.Listen); err != nil {
+		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", server.Listen))
 	}
-	if _, _, err := net.SplitHostPort(config.Server.Listen); err != nil {
-		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", config.Server.Listen))
+	problems = append(problems, atLeastOne(map[string]int64{
+		"server.read_header_timeout_seconds": server.ReadHeaderTimeoutSeconds,
+		"server.shutdown_grace_seconds":      server.ShutdownGraceSeconds,
+	}))
+	return errors.Join(problems...)
+}
+
+// check refuses database choices the store cannot use.
+func (database DatabaseConfig) check() error {
+	return atLeastOne(map[string]int64{
+		"database.read_connections_minimum":       int64(database.ReadConnectionsMinimum),
+		"database.migrate_free_space_db_multiple": int64(database.MigrateFreeSpaceDBMultiple),
+	})
+}
+
+// check refuses what a node cannot run with.
+func (node NodeConfig) check() error {
+	problems := []error{atLeastOne(map[string]int64{
+		"node.max_errors_per_root":            int64(node.MaxErrorsPerRoot),
+		"node.probe_timeout_seconds":          node.ProbeTimeoutSeconds,
+		"node.status_interval_seconds":        node.StatusIntervalSeconds,
+		"node.progress_every_seconds":         node.ProgressEverySeconds,
+		"node.ended_work_kept_hours":          node.EndedWorkKeptHours,
+		"node.read_header_timeout_seconds":    node.ReadHeaderTimeoutSeconds,
+		"node.min_free_mib":                   node.MinFreeMiB,
+		"node.prepared_budget_gib":            node.PreparedBudgetGiB,
+		"node.prepared_kept_after_play_hours": node.PreparedKeptAfterPlayHours,
+		"node.encode_slot_count":              node.EncodeSlotCount,
+		"node.remux_slot_count":               node.RemuxSlotCount,
+		"node.slowest_read_mib_per_second":    node.SlowestReadMiBPerSecond,
+	})}
+	if !filepath.IsAbs(node.CoreSocket) {
+		problems = append(problems, fmt.Errorf("node.core_socket must be an absolute path, not %q", node.CoreSocket))
 	}
-	for key, value := range map[string]int64{
-		"server.read_header_timeout_seconds":      config.Server.ReadHeaderTimeoutSeconds,
-		"server.shutdown_grace_seconds":           config.Server.ShutdownGraceSeconds,
-		"database.read_connections_minimum":       int64(config.Database.ReadConnectionsMinimum),
-		"database.migrate_free_space_db_multiple": int64(config.Database.MigrateFreeSpaceDBMultiple),
-		"node.max_errors_per_root":                int64(config.Node.MaxErrorsPerRoot),
-		"node.probe_timeout_seconds":              config.Node.ProbeTimeoutSeconds,
-		"node.status_interval_seconds":            config.Node.StatusIntervalSeconds,
-		"node.progress_every_seconds":             config.Node.ProgressEverySeconds,
-		"node.ended_work_kept_hours":              config.Node.EndedWorkKeptHours,
-		"node.min_free_mib":                       config.Node.MinFreeMiB,
-		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
-		"node.prepared_kept_after_play_hours":     config.Node.PreparedKeptAfterPlayHours,
-		"node.encode_slot_count":                  config.Node.EncodeSlotCount,
-		"node.remux_slot_count":                   config.Node.RemuxSlotCount,
-		"node.slowest_read_mib_per_second":        config.Node.SlowestReadMiBPerSecond,
-	} {
+	if limit := node.PreparedDiskUsedLimitPercent; limit < 1 || limit > 100 {
+		problems = append(problems, fmt.Errorf("node.prepared_disk_used_limit_percent is %d; want 1 to 100", limit))
+	}
+	if node.Name == "" {
+		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))
+	}
+	if node.ConfinementPolicy != "require" && node.ConfinementPolicy != "report" {
+		problems = append(problems, fmt.Errorf("node.confinement_policy %q: want \"require\" or \"report\"",
+			node.ConfinementPolicy))
+	}
+	return errors.Join(problems...)
+}
+
+// check refuses a log level, format or destination the logger cannot use.
+func (log LogConfig) check() error {
+	var problems []error
+	if _, err := parseLevel(log.Level); err != nil {
+		problems = append(problems, err)
+	}
+	if _, err := slogx.ParseFormat(log.Format); err != nil {
+		problems = append(problems, err)
+	}
+	if log.Destination != logToStderr && !filepath.IsAbs(log.Destination) {
+		problems = append(problems, fmt.Errorf("log.destination %q: want \"stderr\" or an absolute path",
+			log.Destination))
+	}
+	return errors.Join(problems...)
+}
+
+// atLeastOne refuses, naming each, the keys whose value is below 1.
+func atLeastOne(values map[string]int64) error {
+	var problems []error
+	for key, value := range values {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
 		}
-	}
-	if limit := config.Node.PreparedDiskUsedLimitPercent; limit < 1 || limit > 100 {
-		problems = append(problems, fmt.Errorf("node.prepared_disk_used_limit_percent is %d; want 1 to 100", limit))
-	}
-	if config.Node.Name == "" {
-		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))
-	}
-	if config.Node.ConfinementPolicy != "require" && config.Node.ConfinementPolicy != "report" {
-		problems = append(problems, fmt.Errorf("node.confinement_policy %q: want \"require\" or \"report\"",
-			config.Node.ConfinementPolicy))
-	}
-	if _, err := parseLevel(config.Log.Level); err != nil {
-		problems = append(problems, err)
-	}
-	if _, err := slogx.ParseFormat(config.Log.Format); err != nil {
-		problems = append(problems, err)
 	}
 	return errors.Join(problems...)
 }
@@ -404,7 +472,7 @@ func configFileKeys(config Config, report ConfigReport) ([]api.ConfigFileKey, er
 		isOnStartingValue[key.path()] = true
 	}
 	keys := []api.ConfigFileKey{}
-	for _, key := range configKeys() {
+	for _, key := range configKeys(config.Instance.Kind) {
 		value, err := json.Marshal(tables[key.table][key.name])
 		if err != nil {
 			return nil, fmt.Errorf("render %s: %w", key.path(), err)

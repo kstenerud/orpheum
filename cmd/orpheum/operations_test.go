@@ -30,16 +30,21 @@ func startServerOnce(t *testing.T) (Config, string) {
 func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	if got := runCommand(t, "setup-code", "--config", path); got.status == exitSuccess {
+	if got := runCommand(t, "setup-code", "--instance", path); got.status == exitSuccess {
 		t.Errorf("before the first start: %+v, want a failure saying to start the server", got)
 	}
 	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
-	code := runCommand(t, "setup-code", "--config", path)
+	code := runCommand(t, "setup-code", "--instance", path)
 	if code.status != exitSuccess || len(strings.TrimSpace(code.stdout)) != len("AAAA-BBBB-CCCC") {
 		t.Fatalf("setup-code = %+v", code)
 	}
+	// It is the running server's, so it is kept in the run directory, which no backup holds (D242 §3).
+	if kept := readFile(t, filepath.Join(config.Instance.RunDir, "setup-code")); string(kept) !=
+		strings.TrimSpace(code.stdout) {
+		t.Errorf("the run directory keeps %q as the setup code; want %q", kept, code.stdout)
+	}
 	setUpOwner(t, server, path, "owner")
-	after := runCommand(t, "setup-code", "--config", path)
+	after := runCommand(t, "setup-code", "--instance", path)
 	if after.status == exitSuccess || !strings.Contains(after.stdout, "setup is complete") {
 		t.Errorf("after setup: %+v, want it to say setup is complete, and not succeed", after)
 	}
@@ -48,7 +53,7 @@ func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 	t.Parallel()
 	_, sourcePath := startServerOnce(t)
-	written := runCommand(t, "backup", "--config", sourcePath, "--include-key")
+	written := runCommand(t, "backup", "--instance", sourcePath, "--include-key")
 	if written.status != exitSuccess || !strings.Contains(written.stdout, "secret.key") {
 		t.Fatalf("backup --include-key = %+v", written)
 	}
@@ -57,22 +62,22 @@ func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 		strings.TrimSuffix(filepath.Base(fields[1]), ".sqlite")+".secret.key")
 
 	target, targetPath := testConfig(t)
-	dryRun := runCommand(t, "restore", "--config", targetPath, "--from", backupFile, "--key", keyFile)
+	dryRun := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile, "--key", keyFile)
 	if dryRun.status != exitUsageError || !strings.Contains(dryRun.stdout, "Nothing was changed") {
 		t.Errorf("restore without --yes = %+v, want exit 2 and nothing changed", dryRun)
 	}
-	if _, err := os.Stat(filepath.Join(target.Server.DataDir, "persistent.db")); err == nil {
+	if _, err := os.Stat(filepath.Join(target.Instance.PersistentDir, "persistent.db")); err == nil {
 		t.Error("restore without --yes wrote the database")
 	}
-	restored := runCommand(t, "restore", "--config", targetPath, "--from", backupFile, "--key", keyFile, "--yes")
+	restored := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile, "--key", keyFile, "--yes")
 	if restored.status != exitSuccess {
 		t.Fatalf("restore --yes = %+v", restored)
 	}
-	doctor := runCommand(t, "doctor", "--config", targetPath)
+	doctor := runCommand(t, "doctor", "--instance", targetPath)
 	if doctor.status != exitSuccess || !strings.Contains(doctor.stdout, "every sealed secret opens") {
 		t.Errorf("doctor after a restore with the key = %+v", doctor)
 	}
-	missing := runCommand(t, "restore", "--config", targetPath, "--from", backupFile+".typo", "--yes")
+	missing := runCommand(t, "restore", "--instance", targetPath, "--from", backupFile+".typo", "--yes")
 	if missing.status == exitSuccess {
 		t.Errorf("restore from a missing file = %+v, want a failure", missing)
 	}
@@ -81,11 +86,11 @@ func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 func TestMigrate_FromTheCommandLine(t *testing.T) {
 	t.Parallel()
 	_, path := testConfig(t)
-	first := runCommand(t, "migrate", "--config", path)
+	first := runCommand(t, "migrate", "--instance", path)
 	if first.status != exitSuccess || !strings.Contains(first.stdout, "migrating: step 1 of") {
 		t.Errorf("the first migrate = %+v, want it to report each step", first)
 	}
-	again := runCommand(t, "migrate", "--config", path)
+	again := runCommand(t, "migrate", "--instance", path)
 	if again.status != exitSuccess || strings.Contains(again.stdout, "migrating:") {
 		t.Errorf("migrating a current database = %+v, want no steps", again)
 	}
@@ -94,7 +99,7 @@ func TestMigrate_FromTheCommandLine(t *testing.T) {
 func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 	t.Parallel()
 	_, path := testConfig(t)
-	fresh := runCommand(t, "doctor", "--config", path)
+	fresh := runCommand(t, "doctor", "--instance", path)
 	for _, want := range []string{
 		"there is no persistent.db yet", "start the server with `orpheum core`", "secret.key is missing",
 		"there is no backup yet",
@@ -104,10 +109,11 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 		}
 	}
 	config, path := startServerOnce(t)
-	if err := os.WriteFile(filepath.Join(config.Server.DataDir, "secret.key"), []byte("damaged"), 0o600); err != nil {
+	keyPath := filepath.Join(config.Instance.PersistentDir, "secret.key")
+	if err := os.WriteFile(keyPath, []byte("damaged"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	damaged := runCommand(t, "doctor", "--config", path)
+	damaged := runCommand(t, "doctor", "--instance", path)
 	if damaged.status != exitFailure || !strings.Contains(damaged.stdout, "FAIL  secret.key is damaged") {
 		t.Errorf("doctor with a damaged key = %+v, want a failure naming it", damaged)
 	}
@@ -120,9 +126,9 @@ func TestDoctor_FailsADatabaseBelowTheBaselineRatherThanPromisingAMigration(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "persistent.db"),
+	storetest.ExecRaw(t, filepath.Join(config.Instance.PersistentDir, "persistent.db"),
 		"PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
-	doctor := runCommand(t, "doctor", "--config", path)
+	doctor := runCommand(t, "doctor", "--instance", path)
 	if doctor.status != exitFailure || !strings.Contains(doctor.stdout, "below the baseline") {
 		t.Errorf("doctor on a database the release would refuse = %+v, want a failure saying why", doctor)
 	}
@@ -140,15 +146,16 @@ func TestOpenAPI_PrintsTheDocument(t *testing.T) {
 func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T) {
 	t.Parallel()
 	config, path := startServerOnce(t)
-	database := filepath.Join(config.Server.DataDir, "persistent.db")
+	database := filepath.Join(config.Instance.PersistentDir, "persistent.db")
 	storetest.ExecRaw(t, database,
 		"INSERT INTO setting (key, value_json, set_at) VALUES ('backup_age_warn_h', '24', 1)")
-	text := strings.Replace(string(readFile(t, path)),
+	fullConfig := config.Instance.fullConfigPath()
+	text := strings.Replace(string(readFile(t, fullConfig)),
 		"shutdown_grace_seconds = 10\n", "shutdwn_grace_seconds = 5\n", 1)
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+	if err := os.WriteFile(fullConfig, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	doctor := runCommand(t, "doctor", "--config", path)
+	doctor := runCommand(t, "doctor", "--instance", path)
 	for _, want := range []string{
 		"config: server.shutdown_grace_seconds is not in the file; the server runs on its starting value, 10",
 		"config: server.shutdwn_grace_seconds is in the file, but nothing reads it",
@@ -159,7 +166,7 @@ func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T
 			t.Errorf("doctor does not say %q:\n%s", want, doctor.stdout)
 		}
 	}
-	if got := string(readFile(t, path)); got != text {
+	if got := string(readFile(t, fullConfig)); got != text {
 		t.Errorf("doctor changed the config file:\n%s", got)
 	}
 }
@@ -167,17 +174,15 @@ func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T
 func TestLoadConfig_RefusesOnlyWhatHasNoStartingValue(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	text := strings.Replace(string(readFile(t, path)), "data_dir = ", "# data_dir = ", 1)
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+	fullConfig := config.Instance.fullConfigPath()
+	text := strings.Replace(string(readFile(t, fullConfig)), "listen = ", "# listen = ", 1)
+	if err := os.WriteFile(fullConfig, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	refused := runCommand(t, "doctor", "--config", path)
+	refused := runCommand(t, "doctor", "--instance", path)
 	if refused.status == exitSuccess || !strings.Contains(refused.stderr,
-		"server.data_dir is required and has no starting value") {
-		t.Errorf("with data_dir removed, doctor = %+v; want a refusal: it has no starting value", refused)
-	}
-	if config.Server.DataDir == "" {
-		t.Fatal("the test config has no data directory")
+		"server.listen is required and has no starting value") {
+		t.Errorf("with listen removed, doctor = %+v; want a refusal: it has no starting value", refused)
 	}
 }
 

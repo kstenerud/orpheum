@@ -22,6 +22,16 @@ func (service *Service) SlowestReadBytesPerSecond(nodeID int64) int64 {
 	return 0
 }
 
+// byteSocketPath is where a node's last hello said its byte socket is; false before its first.
+func (service *Service) byteSocketPath(nodeID int64) (string, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, found := service.connectedNodes[nodeID]; found {
+		return node.hello.ByteSocketPath, true
+	}
+	return "", false
+}
+
 // Facts are what a node last said about itself since the core started: its hello, its last
 // status (nil before the first) and when it was last heard, with its id (D225).
 type Facts struct {

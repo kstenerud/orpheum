@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
@@ -20,21 +21,36 @@ import (
 // not answer.
 var ErrNodeSilent = errors.New("the node is not answering")
 
-// ByteSocketClient reads from a node's byte socket (cut-a §4): the core's only way to a media file's bytes,
-// since it never opens one itself (D193 §1). In Cut A the one node is the co-located child, whose
-// socket is beside the core's.
+// ByteSocketClient reads from a node's byte socket (cut-a §4): the core's only way to a media file's
+// bytes, since it never opens one itself (D193 §1). Where each node's socket is, its hello says
+// (D242 §7).
 type ByteSocketClient struct {
-	service    *Service
-	httpClient *http.Client
+	service *Service
+
+	mutex sync.Mutex
+	// clientBySocket is a client for each socket a node's hello named; guarded by mutex.
+	clientBySocket map[string]*http.Client
 }
 
-// NewByteSocketClient reads from the node socket at socketPath, for nodes the service has heard from.
-func NewByteSocketClient(service *Service, socketPath string) *ByteSocketClient {
-	transport := unixsocket.Transport(socketPath)
-	// A player's reads come one range after another; keep the connection for the next. Four is a
-	// few players at once, each with a request in flight; more would only hold idle sockets.
-	transport.MaxIdleConnsPerHost = 4
-	return &ByteSocketClient{service: service, httpClient: &http.Client{Transport: transport}}
+// NewByteSocketClient reads from the byte sockets of the nodes the service has heard from.
+func NewByteSocketClient(service *Service) *ByteSocketClient {
+	return &ByteSocketClient{service: service, clientBySocket: map[string]*http.Client{}}
+}
+
+// clientFor is the client for the socket at socketPath, made on first use.
+func (socketClient *ByteSocketClient) clientFor(socketPath string) *http.Client {
+	socketClient.mutex.Lock()
+	defer socketClient.mutex.Unlock()
+	client, found := socketClient.clientBySocket[socketPath]
+	if !found {
+		transport := unixsocket.Transport(socketPath)
+		// A player's reads come one range after another; keep the connection for the next. Four is
+		// a few players at once, each with a request in flight; more would only hold idle sockets.
+		transport.MaxIdleConnsPerHost = 4
+		client = &http.Client{Transport: transport}
+		socketClient.clientBySocket[socketPath] = client
+	}
+	return client
 }
 
 // Do sends one GET or HEAD to the node's byte socket, for the path and query in target. The
@@ -42,7 +58,8 @@ func NewByteSocketClient(service *Service, socketPath string) *ByteSocketClient 
 func (socketClient *ByteSocketClient) Do(ctx context.Context, nodeID int64, method, target string, header http.Header) (
 	*http.Response, error,
 ) {
-	if !socketClient.service.IsConnected(ctx, nodeID) {
+	socketPath, found := socketClient.service.byteSocketPath(nodeID)
+	if !found || !socketClient.service.IsConnected(ctx, nodeID) {
 		return nil, ErrNodeSilent
 	}
 	request, err := http.NewRequestWithContext(ctx, method, "http://node"+target, http.NoBody)
@@ -50,7 +67,7 @@ func (socketClient *ByteSocketClient) Do(ctx context.Context, nodeID int64, meth
 		return nil, fmt.Errorf("build a request to the node: %w", err)
 	}
 	request.Header = header
-	response, err := socketClient.httpClient.Do(request)
+	response, err := socketClient.clientFor(socketPath).Do(request)
 	if err != nil {
 		return nil, errors.Join(ErrNodeSilent, err)
 	}

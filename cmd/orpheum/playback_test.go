@@ -185,7 +185,7 @@ func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *
 	made := strconv.FormatInt(filmFileID, 10) + "/remux/0123456789abcdef"
 	unfinished := strconv.FormatInt(filmFileID, 10) + "/h264-8m/fedcba9876543210"
 	for _, dir := range []string{made, unfinished} {
-		writeFile(t, filepath.Join(config.Node.PreparedDir, dir, "master.m3u8"), "#EXTM3U")
+		writeFile(t, filepath.Join(config.Instance.preparedDir(), dir, "master.m3u8"), "#EXTM3U")
 	}
 	manifest, err := json.Marshal(nodeproto.RenditionManifest{
 		Prepare: nodeproto.Prepare{
@@ -197,13 +197,14 @@ func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(config.Node.PreparedDir, made, nodeproto.ManifestName), string(manifest))
+	writeFile(t, filepath.Join(config.Instance.preparedDir(), made, nodeproto.ManifestName), string(manifest))
 	const evicted = "evicted the renditions the core does not keep"
 	again := serveWithNode(t, config, newCapturedLog("ready", evicted), evicted)
 	if err = again.stop(); err != nil {
 		t.Fatal(err)
 	}
-	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
+	cachePath := filepath.Join(config.Instance.CacheDir, "cache.db")
+	cache, err := store.OpenCache(t.Context(), cachePath, config.openOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,10 +214,10 @@ func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *
 	if err != nil || adopted.State != "complete" || adopted.RunID != "0123456789abcdef" {
 		t.Errorf("the film's remux in the index is %+v (%v), want the node's adopted complete", adopted, err)
 	}
-	if _, err := os.Stat(filepath.Join(config.Node.PreparedDir, unfinished)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(config.Instance.preparedDir(), unfinished)); !os.IsNotExist(err) {
 		t.Errorf("the unfinished making is still on the node's disk: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(config.Node.PreparedDir, made, "master.m3u8")); err != nil {
+	if _, err := os.Stat(filepath.Join(config.Instance.preparedDir(), made, "master.m3u8")); err != nil {
 		t.Errorf("the adopted rendition is gone from the node's disk: %v", err)
 	}
 }

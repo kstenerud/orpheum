@@ -321,12 +321,13 @@ fmt: ## Format Go and web sources in place
 
 # ---------------------------------------------------------------------------------------------
 # Development and debugging. Opinionated on purpose: every choice is printed by `make dev` and
-# written in deploy/dev/orpheum.dev.toml and deploy/dev/seed.toml, never hidden (D183). All state lives in
+# written in deploy/dev/core.dev.toml, deploy/dev/node.dev.toml and deploy/dev/seed.toml, never
+# hidden (D183). The core and the node are instances of their own, .dev/core and .dev/node (D242). All state lives in
 # .dev/, which is disposable.
 # ---------------------------------------------------------------------------------------------
 
 DEV_DIR := .dev
-DEV_CONFIG := $(DEV_DIR)/orpheum.toml
+DEV_CORE := $(DEV_DIR)/core
 DEV_LISTEN ?=
 FFMPEG_DIR = $(shell $(PYTHON) scripts/fetch_ffmpeg.py)
 MKVTOOLNIX_DIR = $(shell $(PYTHON) scripts/fetch_mkvtoolnix.py)
@@ -362,7 +363,7 @@ dev-lan: ## Like dev-server, but listening on the LAN so a phone or TV can reach
 	@$(PYTHON) scripts/dev.py loop --no-web --listen 0.0.0.0:8432
 
 .PHONY: dev-config
-dev-config: ## Render and print the dev config (.dev/orpheum.toml) — the settings dev runs with
+dev-config: ## Make the dev instances (.dev/core, .dev/node) and print their full configs — the settings dev runs with
 	@$(PYTHON) scripts/dev.py config
 
 .PHONY: dev-media
@@ -375,8 +376,8 @@ dev-seed: ## Seed the dev database from deploy/dev/seed.toml, even if it is not 
 
 .PHONY: dev-reset
 dev-reset: ## Delete the dev database and caches (keeps the media and FFmpeg); next `make dev` re-seeds
-	@rm -rf $(DEV_DIR)/state $(DEV_DIR)/cache $(DEV_DIR)/orpheum.log
-	@echo "dev-reset: removed .dev/state, .dev/cache and the log"
+	@rm -rf $(DEV_DIR)/core $(DEV_DIR)/node $(DEV_DIR)/orpheum.log
+	@echo "dev-reset: removed the instances .dev/core and .dev/node, and the log"
 
 .PHONY: dev-clean
 dev-clean: ## Delete everything under .dev/, including the generated media
@@ -388,20 +389,20 @@ dev-logs: ## Follow the dev server's log
 
 .PHONY: dev-db
 dev-db: ## Open the dev database in an SQL shell (python3 -m sqlite3; stop the server before writing)
-	@test -f $(DEV_DIR)/state/persistent.db || { echo "no dev database yet: run make dev"; exit 1; }
-	@$(PYTHON) -m sqlite3 $(DEV_DIR)/state/persistent.db
+	@test -f $(DEV_CORE)/persistent/persistent.db || { echo "no dev database yet: run make dev"; exit 1; }
+	@$(PYTHON) -m sqlite3 $(DEV_CORE)/persistent/persistent.db
 
 .PHONY: dev-doctor
 dev-doctor: ## Run `orpheum doctor` against the dev config
 	@go build -tags dev -o $(DEV_DIR)/bin/orpheum ./cmd/orpheum
-	@$(DEV_DIR)/bin/orpheum doctor --config $(DEV_CONFIG)
+	@$(DEV_DIR)/bin/orpheum doctor --instance $(DEV_CORE)
 
 .PHONY: dev-debug
 dev-debug: ## Run the dev server under delve, headless on 127.0.0.1:2345, for an IDE to attach
 	@dlv version 2>/dev/null | grep -qx "Version: $(DELVE_VERSION)" || go install github.com/go-delve/delve/cmd/dlv@v$(DELVE_VERSION)
 	@$(PYTHON) scripts/dev.py config >/dev/null
 	@dlv debug ./cmd/orpheum --build-flags="-tags=dev" --headless --listen=127.0.0.1:2345 \
-	  --api-version=2 --accept-multiclient -- run --config $(DEV_CONFIG)
+	  --api-version=2 --accept-multiclient -- core --instance $(DEV_CORE)
 
 .PHONY: pprof
 pprof: ## Take a 30 s CPU profile of the running dev server and open it in the browser

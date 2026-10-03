@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The development core's full config: opinionated, local, and loud. The dev loop (scripts/dev.py)
+# makes the core instance in .dev/core with `orpheum default-config`, then writes this file over
+# its persistent/config.toml, filling in {root} (the repository). It holds only what must exist
+# before the database opens (D182 §3, D200); a key the file lacks runs on its starting value and
+# doctor lists it (D202). Everything else is a setting in the database, and dev's values come from
+# deploy/dev/seed.toml. Where the instance's directories are is its top-level orpheum.toml's (D242).
+#
+# Every value here is a choice for debugging, not a production default:
+#   - listen on loopback only, plain HTTP. Browsers treat localhost as a secure context, so the
+#     microphone works here; a phone on the LAN needs the real HTTPS name (cut-a §2).
+#   - debug logs as text, not JSON, because a person reads them; the loop copies them to
+#     .dev/orpheum.log.
+
+[server]
+listen = "127.0.0.1:8432"
+read_header_timeout_seconds = 10
+shutdown_grace_seconds = 10
+
+[database]
+read_connections_minimum = 4
+migrate_free_space_db_multiple = 3
+
+[log]
+level = "debug"
+format = "text"
+destination = "stderr"

@@ -120,6 +120,9 @@ func (harness *fixture) hello(t *testing.T, hello nodeproto.Hello) nodeproto.Hel
 	if hello.ProtocolVersion == 0 {
 		hello.ProtocolVersion = nodeproto.ProtocolVersion
 	}
+	if hello.ByteSocketPath == "" {
+		hello.ByteSocketPath = "/run/orpheum-test/node.sock"
+	}
 	encoded, err := json.Marshal(hello)
 	if err != nil {
 		t.Fatal(err)
@@ -688,12 +691,13 @@ func TestTakeHeld_TakesOnlyTheBytesThePostNamedForItsAttempt(t *testing.T) {
 func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	socketDir := filepath.Join(t.TempDir(), "run")
+	// The core reads from the socket the node's hello names (D242 §7).
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
 	encoded, err := json.Marshal(nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	socketDir := filepath.Join(t.TempDir(), "run")
 	listener, err := unixsocket.Listen(socketDir, "node.sock")
 	if err != nil {
 		t.Fatal(err)
@@ -709,7 +713,7 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	posted := nodeproto.Result{JobID: 4, AttemptToken: "a4", Held: &nodeproto.HeldResult{
 		SizeBytes: int64(len(encoded)), Sha256: hex.EncodeToString(sum[:]),
 	}}
-	client := NewByteSocketClient(harness.service, filepath.Join(socketDir, "node.sock"))
+	client := NewByteSocketClient(harness.service)
 	result, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted)
 	if err != nil || result.Loudness == nil || result.JobID != 4 {
 		t.Errorf("the held result = %+v, %v; want job 4's measurement", result, err)
@@ -717,5 +721,24 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	posted.AttemptToken = "a5"
 	if _, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted); err == nil {
 		t.Error("a result the node does not hold was taken")
+	}
+}
+
+// A hello says where its node's byte socket is, as an absolute path, or it is refused: the core
+// reads every byte of the node's from there (D242 §7).
+func TestHello_RefusesOneThatDoesNotSayWhereItsByteSocketIs(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	for _, socketPath := range []string{"", "run/node.sock"} {
+		encoded, err := json.Marshal(nodeproto.Hello{
+			Name: "local", ProtocolVersion: nodeproto.ProtocolVersion, ByteSocketPath: socketPath,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response := harness.post(t, nodeproto.PathHello, 0, bytes.NewReader(encoded)); response.status !=
+			http.StatusBadRequest {
+			t.Errorf("a hello whose byte socket is %q answered %d; want 400", socketPath, response.status)
+		}
 	}
 }

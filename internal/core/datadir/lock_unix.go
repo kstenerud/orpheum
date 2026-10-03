@@ -14,28 +14,29 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
-// lockFileName is the state directory's lock, held by a running server for its whole life.
+// lockFileName is the instance's lock, in its run directory, held by a running server for its
+// whole life.
 const lockFileName = "server.lock"
 
-// ErrInUse is returned when another process holds the state directory's lock: a running server.
-var ErrInUse = errors.New("the state directory is in use by a running server; stop it first")
+// ErrInUse is returned when another process holds the instance's lock: a running server.
+var ErrInUse = errors.New("the instance is in use by a running server; stop it first")
 
-// Lock is an exclusive hold on the state directory.
+// Lock is an exclusive hold on the instance.
 type Lock struct {
 	file *os.File
 }
 
-// LockState takes the state directory's lock without waiting. A running server holds it, so
+// LockInstance takes the instance's lock without waiting. A running server holds it, so
 // `orpheum restore`, which must run with the server stopped, cannot replace a database in use.
 // The kernel drops the lock when the process ends, however it ends.
-func (directories *Directories) LockState() (*Lock, error) {
-	path := filepath.Join(directories.stateDirectory, lockFileName)
-	root, err := directories.openStateRoot()
+func (directories *Directories) LockInstance() (*Lock, error) {
+	path := filepath.Join(directories.runDirectory, lockFileName)
+	root, err := openRoot(directories.runDirectory)
 	if err != nil {
 		return nil, err
 	}
 	file, err := root.OpenFile(lockFileName, os.O_RDWR|os.O_CREATE, fileMode)
-	err = errors.Join(errs.WrapIf("open "+path, err), errs.WrapIf("close the state directory", root.Close()))
+	err = errors.Join(errs.WrapIf("open "+path, err), errs.WrapIf("close the run directory", root.Close()))
 	if err != nil {
 		if file != nil {
 			err = errors.Join(err, file.Close())
@@ -55,7 +56,7 @@ func (directories *Directories) LockState() (*Lock, error) {
 // Release gives the lock up.
 func (lock *Lock) Release() error {
 	if err := lock.file.Close(); err != nil {
-		return fmt.Errorf("release the state lock: %w", err)
+		return fmt.Errorf("release the instance lock: %w", err)
 	}
 	return nil
 }
