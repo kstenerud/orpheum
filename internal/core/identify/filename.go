@@ -127,11 +127,11 @@ func findEpisode(stem string) (episodeMarker, bool) {
 	return episodeMarker{}, false
 }
 
-// seriesFromFolders names a series from the folders above an episode: "Show/Season 01/x.mkv"
-// is Show.
+// seriesFromFolders names a series from the folders above an episode: "Show/Season 01/x.mkv" and
+// "Show/Specials/x.mkv" are Show.
 func seriesFromFolders(folder string) (name string, year int) {
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
-		if part == "" || seasonFolderPattern.MatchString(strings.TrimSpace(part)) {
+		if part == "" || isSeasonFolder(strings.TrimSpace(part)) {
 			continue
 		}
 		return cleanTitle(part)
