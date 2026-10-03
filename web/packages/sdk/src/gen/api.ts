@@ -1741,6 +1741,19 @@ export interface components {
             provider: string;
             providerId: string;
         };
+        MediaUnreachableDetailBody: {
+            /** @description The machine that holds the file */
+            nodeName: string;
+            /** @description The folder or disk missing on it; absent for a machine away */
+            path?: string;
+            /** @enum {string} */
+            reason: "node_away" | "root_missing" | "disk_missing";
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when not known
+             */
+            since?: number;
+        };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
             name: string;
@@ -1888,6 +1901,17 @@ export interface components {
             /** @enum {string} */
             code: "provider_error";
             detail?: components["schemas"]["ProviderRefusalDetailBody"];
+            /**
+             * @description The leg of the request that failed, for reachability errors
+             * @enum {string}
+             */
+            failedHop?: "node" | "provider";
+            /** @description For developers, in English */
+            message: string;
+        } | {
+            /** @enum {string} */
+            code: "media_unreachable";
+            detail?: components["schemas"]["MediaUnreachableDetailBody"];
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}

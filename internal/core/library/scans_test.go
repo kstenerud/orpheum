@@ -345,3 +345,24 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 		t.Errorf("after a scan read the root, a file under it is missing: %t, %v; want it back", isMissing, err)
 	}
 }
+
+// A library root its node's hello no longer names is unavailable from then, nothing under it
+// removed, until a scan reads it again (D241 §2).
+func TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	ctx := t.Context()
+	goneAt := bench.clock.Now()
+	if err := bench.scans.RootNotNamed(ctx, bench.nodeID, root); err != nil {
+		t.Fatal(err)
+	}
+	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
+	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(goneAt) {
+		t.Errorf("a file under the root no longer named: %+v, %t, %v; want it under the root unavailable since then",
+			missing, isMissing, err)
+	}
+	if _, isLive := bench.liveFilesByPath()[root+"/Wing.mkv"]; !isLive {
+		t.Error("a file under a root no longer named was removed; want it kept")
+	}
+}

@@ -5,8 +5,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -18,56 +18,80 @@ import (
 
 // These tests are scenarios from docs/contributors/design/plans/scenarios.md, named by their ids.
 
-// S29: the partner starts a film whose node is down. Direct play is refused at once
-// (TestPlayback_SaysWhichLegFailed); a prepare is queued at the
-// highest priority and waits for the node without spending attempts, and the job view says it
-// waits for that node and since when; the node's hello brings it back (D231 §6, §11, §12). What
-// the player says while it waits is Phase 6's.
-func TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor(t *testing.T) {
+// S29: the partner starts a film whose node is down. The play is refused at once, saying the
+// machine is away and since when, and nothing is queued: no one can watch it, so no work for it is
+// wanted (D241 §4). Once the node is back, the same play starts.
+func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	partner := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.nodes.roots = []string{"/media"} // shelveFilms enrolled node 1, "local"
-	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.nodes.isAway.Store(true)
-	decided := harness.play(t, partner, chrome(2))
-	if !decided.IsPreparing {
-		t.Fatalf("the decision = %+v, want a copy being prepared", decided)
+	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
+	var problem struct {
+		Error struct {
+			Code   Code                       `json:"code"`
+			Detail MediaUnreachableDetailBody `json:"detail"`
+		} `json:"error"`
 	}
-	playback := harness.server.dependencies.Load().Playback
-	runner := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare)
-	for range 3 {
-		if err := runner.RunDue(t.Context()); err != nil {
-			t.Fatal(err)
-		}
-		harness.clock.Advance(time.Hour) // any while: nothing but its hello brings the node back
-	}
-	prepare := newestPrepareJob(t, harness.listedJobs(t, partner))
-	if prepare.State != "queued" || prepare.AttemptCount != 0 || prepare.WaitingFor == nil ||
-		prepare.WaitingFor.Name != "node local" || prepare.WaitingFor.Reason != "not connected" ||
-		prepare.WaitingFor.Since != fakeNodeLastHeard.UnixMilli() || len(harness.nodes.commanded) != 0 {
-		t.Errorf("the prepare while its node is down: %+v, waiting for %+v; want it waiting for node local, not "+
-			"connected since it was last heard, no attempt spent and nothing sent", prepare, prepare.WaitingFor)
-	}
-	harness.nodes.isAway.Store(false)
-	harness.queue.Unpark(t.Context(), jobs.NodeDestination(1)) // the node's hello
-	// The prepare is given to the node, and ends when its answer is taken.
-	answered := make(chan struct{})
-	go func() {
-		defer close(answered)
-		command, isSent := harness.commandWithin(t)
-		if !isSent {
-			return
-		}
-		harness.answerPrepare(t, command.JobID, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 9})
-	}()
-	if err := runner.RunDue(t.Context()); err != nil {
+	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
 		t.Fatal(err)
 	}
-	testutil.Receive(t, answered, "the node's answer")
-	if done := newestPrepareJob(t, harness.listedJobs(t, partner)); done.State != "done" || done.AttemptCount != 1 {
-		t.Errorf("once the node said hello the prepare is %+v; want it done at its first attempt", done)
+	want := MediaUnreachableDetailBody{Reason: "node_away", NodeName: "local", Since: fakeNodeLastHeard.UnixMilli()}
+	if refused.status != http.StatusServiceUnavailable || problem.Error.Code != CodeMediaUnreachable ||
+		problem.Error.Detail != want {
+		t.Errorf("a play whose node is away: %d %s; want media_unreachable, node local away since it was last heard",
+			refused.status, refused.body)
+	}
+	if listed := harness.listedJobs(t, partner); len(listed) != 0 {
+		t.Errorf("a refused play queued %+v; want nothing", listed)
+	}
+	harness.nodes.isAway.Store(false)
+	if decided := harness.play(t, partner, chrome(2)); !decided.IsPreparing {
+		t.Errorf("once its node is back the play = %+v, want a copy being prepared", decided)
+	}
+}
+
+// A play-driven prepare whose root goes missing after it was queued ends, and its rendition with it,
+// rather than parking on the root: no one can watch it, so no one waits for it (D241 §4). A
+// background one parks.
+func TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	harness.play(t, user, chrome(2)) // queues its prepare, a person waiting
+	harness.missingMedia(t)
+	playback := harness.server.dependencies.Load().Playback
+	if err := harness.queue.NewRunner(jobs.KindPrepare, playback.HandlePrepare).RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	prepare := newestPrepareJob(t, harness.listedJobs(t, user))
+	if prepare.State != "failed" || prepare.WaitingFor != nil ||
+		!strings.Contains(prepare.LastFailure, "root_missing") || len(harness.nodes.commanded) != 0 {
+		t.Errorf("a play-driven prepare under a missing root: %+v; want it ended, saying the root is missing, "+
+			"nothing sent", prepare)
+	}
+}
+
+// A play of a file under a root its node cannot read is refused at once, naming the root and since
+// when, and queues nothing (D241 §4).
+func TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	partner := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.missingMedia(t)
+	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
+	const want = `"detail":{"reason":"root_missing","nodeName":"local","path":"/media","since":5000}`
+	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, want) {
+		t.Errorf("a play under a missing root: %d %s; want media_unreachable naming /media on local, since 5000",
+			refused.status, refused.body)
+	}
+	if listed := harness.listedJobs(t, partner); len(listed) != 0 {
+		t.Errorf("a refused play queued %+v; want nothing", listed)
 	}
 }
 

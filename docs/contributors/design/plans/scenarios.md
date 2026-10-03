@@ -427,10 +427,12 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Design:** D231: a person's request wakes its job and tries to unpark its destination. For a
   node there is no probe to send, since the hello is the signal. The design does not say what
   the waiting player is shown.
-- **Status:** direct play **holds**; the prepare **holds** in the queue
-  (`TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`, 2026-09-30: it waits for the node at
-  no cost, the job view says "waiting for node local: not connected since …", and the hello brings
-  it back). What the player says (Q11) is Phase 6's; **gap G8** stays.
+- **Status:** **holds**, as D241 §4 revised it (2026-10-03): a play whose node is away is refused
+  at once with `media_unreachable`, naming the machine and since when, and queues nothing; once the
+  node is back the same play starts (`TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing`).
+  A play-driven prepare whose source goes missing after it was queued ends rather than parks
+  (`TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks`). Before, from 2026-09-30,
+  the prepare waited for the node at no cost. What the player says mid-play is the jobs rebuild's 6b.
 
 ### S70 — A person asks "look again" while TMDB is parked
 

@@ -98,9 +98,10 @@ func (nodes *fakeNodes) IsConnected(_ context.Context, nodeID int64) bool {
 	return !nodes.isAway.Load() && (nodes.awayNodeID == 0 || nodeID != nodes.awayNodeID)
 }
 
-// NodeConnection is node 1's: connected unless it is away, last heard when its facts say.
+// NodeConnection is node 1's: connected unless it is away, as IsConnected says, last heard when its
+// facts say; any other node has not said hello.
 func (nodes *fakeNodes) NodeConnection(_ context.Context, nodeID int64) (corenodes.Connection, time.Time) {
-	if nodeID != 1 || nodes.roots == nil {
+	if nodeID != 1 {
 		return corenodes.AwaitingHello, time.Time{}
 	}
 	if nodes.isAway.Load() {

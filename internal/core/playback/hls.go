@@ -138,8 +138,8 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	if err != nil {
 		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
 	}
-	order, err := service.prepareOrderFor(ctx, rendition)
-	if errors.Is(err, ErrNoFile) {
+	order, err := service.prepareOrderFor(ctx, job, rendition)
+	if errors.Is(err, ErrNoFile) || errors.As(err, new(*UnreadableError)) {
 		run := renditionRun{fileID: rendition.SourceFile, profile: rendition.Profile, runID: rendition.RunID}
 		return jobs.MarkPermanent(errors.Join(err, service.prepares.failMaking(ctx, run, err.Error())))
 	}
@@ -164,7 +164,7 @@ type prepareOrder struct {
 
 // prepareOrderFor is what a rendition's making needs.
 func (service *Service) prepareOrderFor(
-	ctx context.Context, rendition cachegen.PreparedRendition,
+	ctx context.Context, job jobs.Job, rendition cachegen.PreparedRendition,
 ) (prepareOrder, error) {
 	file, err := service.playableFile(ctx, service.database.Read(), rendition.SourceFile)
 	if err != nil {
@@ -174,7 +174,7 @@ func (service *Service) prepareOrderFor(
 	if err != nil {
 		return prepareOrder{}, err
 	}
-	if parked := service.parkIfUnavailable(ctx, locatedOf(file)); parked != nil {
+	if parked := service.parkIfUnavailable(ctx, job, locatedOf(file)); parked != nil {
 		return prepareOrder{}, parked
 	}
 	source, err := service.bytesFileOf(ctx, locatedOf(file))

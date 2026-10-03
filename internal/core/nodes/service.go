@@ -31,6 +31,9 @@ type Settings interface {
 // ScanRequester asks for a scan of a node's root: library.Scans (D240).
 type ScanRequester interface {
 	Request(ctx context.Context, nodeID int64, root string, priority int64) error
+	// RootNotNamed makes a library root its node's hello no longer names unavailable from now
+	// (D241 §2).
+	RootNotNamed(ctx context.Context, nodeID int64, root string) error
 }
 
 // ResultSink receives a node's word on a job, to hand to the job that asked: Exchanges. It is the

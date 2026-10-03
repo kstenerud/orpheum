@@ -79,6 +79,10 @@ func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Co
 
 func (fakeNodes) IsConnected(context.Context, int64) bool { return true }
 
+func (fakeNodes) NodeConnection(context.Context, int64) (nodes.Connection, time.Time) {
+	return nodes.Connected, time.Time{}
+}
+
 func (fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (fakeNodes) Unpark(context.Context, jobs.Destination) {}
