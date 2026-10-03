@@ -175,6 +175,19 @@ type SystemNodeBody struct {
 	// Devices are what its roots and prepared directory are on, with how many may read each at once
 	// (D240 §5); none while it is not connected.
 	Devices []NodeDeviceBody `json:"devices"`
+	// Stuck is the work it gave up on that has not ended, waiting on a disk that does not answer
+	// (D233 §10): a program the kernel will not stop until the disk answers, which holds no slot.
+	Stuck []StuckBody `json:"stuck"`
+}
+
+// StuckBody is one piece of work a node gave up on that waits on a disk.
+type StuckBody struct {
+	// Program is the program waiting: ffmpeg, ffprobe, or the node's own reading of a folder.
+	Program string `enum:"ffmpeg,ffprobe,node" json:"program"`
+	// Paths are where it was reading: the disk under one of them is not answering.
+	Paths []string `json:"paths"`
+	// Since is when the node gave up on it, in Unix milliseconds.
+	Since int64 `json:"since"`
 }
 
 // NodeDeviceBody is one of a node's devices: a disk, or a pool, array or volume over several.
@@ -329,7 +342,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	for _, node := range listed {
 		body := SystemNodeBody{
 			Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
-			RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{},
+			RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{}, Stuck: []StuckBody{},
 		}
 		devices, err := dependencies.NodeReports.DeviceStates(ctx, node.ID)
 		if err != nil {
@@ -412,6 +425,9 @@ func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Pr
 		body.Disks = append(body.Disks, DiskBody{
 			Path: disk.Path, TotalBytes: disk.TotalBytes, AvailableBytes: disk.AvailableBytes, Failure: disk.Failure,
 		})
+	}
+	for _, stuck := range facts.Status.Stuck {
+		body.Stuck = append(body.Stuck, StuckBody{Program: stuck.Tool, Paths: stuck.Paths, Since: stuck.Since})
 	}
 }
 

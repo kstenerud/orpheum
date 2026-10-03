@@ -285,7 +285,8 @@ func TestScans_AScanWhoseListingFailsIsGivenUp(t *testing.T) {
 }
 
 // A listing whose reading stalled is the tool's failure, not the root's contents: none of its records
-// are taken, the job is tried again at no cost the first time, and fails the second (D233 §6, §10).
+// are taken, the job is tried again at no cost the first time, and fails the second, its disk
+// unreadable (D233 §6, §10).
 func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)
@@ -308,7 +309,39 @@ func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *tes
 	}
 	job.PreviousAttemptToolFailed = true
 	err = bench.scans.ScanAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID}, stalled)
-	if err == nil || !strings.Contains(err.Error(), jobs.StalledTwice) {
+	if err == nil || !strings.Contains(err.Error(), nodes.UnreadableOnDisk) {
 		t.Errorf("a second stalled listing = %v; want the job's own failure", err)
+	}
+}
+
+// Work that stalls waiting on a root's disk makes the root unavailable from then, so what is under it
+// is said to be so, and asks for a scan of it; the scan that reads it brings it back (D233 §10).
+func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	ctx := t.Context()
+	queuedBefore := len(bench.jobs.requests)
+	stalledAt := bench.clock.Now()
+	since, err := bench.scans.RootStalled(ctx, bench.nodeID, root)
+	if err != nil || !since.Equal(stalledAt) {
+		t.Fatalf("RootStalled = %v, %v; want unavailable since now, %v", since, err, stalledAt)
+	}
+	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
+	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(stalledAt) {
+		t.Errorf("a file under the stalled root: %+v, %t, %v; want it under the root unavailable since the stall",
+			missing, isMissing, err)
+	}
+	if len(bench.jobs.requests) != queuedBefore+1 || bench.jobs.requests[queuedBefore].Kind != jobs.KindScan {
+		t.Fatal("no scan of the stalled root was asked for")
+	}
+	bench.clock.Advance(time.Minute)
+	if again, err := bench.scans.RootStalled(ctx, bench.nodeID, root); err != nil || !again.Equal(stalledAt) {
+		t.Errorf("a second stall = %v, %v; want it unavailable since the first, %v", again, err, stalledAt)
+	}
+	bench.list(listedFile("Wing.mkv", 5, 1))
+	if _, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID,
+		[]byte(root+"/Wing.mkv")); err != nil || isMissing {
+		t.Errorf("after a scan read the root, a file under it is missing: %t, %v; want it back", isMissing, err)
 	}
 }

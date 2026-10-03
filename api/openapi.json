@@ -3499,6 +3499,38 @@
         ],
         "type": "object"
       },
+      "StuckBody": {
+        "additionalProperties": false,
+        "properties": {
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "program": {
+            "enum": [
+              "ffmpeg",
+              "ffprobe",
+              "node"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "program",
+          "paths",
+          "since"
+        ],
+        "type": "object"
+      },
       "SubtitleCandidateBody": {
         "additionalProperties": false,
         "properties": {
@@ -3732,6 +3764,15 @@
               "null"
             ]
           },
+          "stuck": {
+            "items": {
+              "$ref": "#/components/schemas/StuckBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "uid": {
             "description": "The user the node runs as",
             "format": "int64",
@@ -3748,7 +3789,8 @@
           "confinement",
           "disks",
           "recentPrepares",
-          "devices"
+          "devices",
+          "stuck"
         ],
         "type": "object"
       },

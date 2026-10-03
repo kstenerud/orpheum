@@ -50,6 +50,7 @@ const report: SystemReport = {
       disks: [],
       recentPrepares: [],
       devices: [],
+      stuck: [],
     },
   ],
   destinations: [],

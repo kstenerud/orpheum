@@ -46,6 +46,8 @@ type fakeNodes struct {
 	prepared *nodeproto.PreparedUsage
 	// disks are what its last status said of its disks.
 	disks []nodeproto.Disk
+	// stuck is the work local's status says waits on a disk.
+	stuck []nodeproto.Stuck
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
 	// isAway is a node that has not connected.
@@ -191,7 +193,7 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		},
 	}
 	if nodes.prepared != nil || nodes.disks != nil {
-		facts.Status = &nodeproto.Status{PreparedUsage: nodes.prepared, Disks: nodes.disks}
+		facts.Status = &nodeproto.Status{PreparedUsage: nodes.prepared, Disks: nodes.disks, Stuck: nodes.stuck}
 	}
 	return facts, true
 }

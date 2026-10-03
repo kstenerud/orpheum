@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -105,6 +106,20 @@ func (scans *Scans) request(ctx context.Context, nodeID int64, root string, prio
 		return nil
 	}
 	return scans.queueListing(ctx, scanID, nodeID, root, priority)
+}
+
+// RootStalled is the core's answer to work that stalled waiting on a root's disk (D233 §10): the
+// root is unavailable from now, so plays of what is under it fail at once and say so (D241), and a
+// scan of it is asked for, whose reading it brings it back and the work parked on it (D231 §6). It
+// returns since when it is unavailable. A scan already running is asked for again after it ends.
+func (scans *Scans) RootStalled(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
+	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
+	if err != nil {
+		return time.Time{}, err
+	}
+	scans.logger.WarnContext(ctx, "work stalled on a root's disk; it is unavailable until a scan reads it",
+		"nodeId", nodeID, "rootPath", rootPath, "since", since)
+	return since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
 }
 
 // queueListing queues a scan's listing. A scan whose job could not be queued is forgotten, so a
@@ -294,7 +309,8 @@ func scanWorkAssignee(
 		Runner: runner,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
 			answer := answerOf(job, result)
-			if err := takeRecords(job, answer, func() error { return take(ctx, job, answer.records) }); err != nil {
+			taking := func() error { return take(ctx, job, answer.records) }
+			if err := takeRecords(job, attempt.NodeID, answer, taking); err != nil {
 				return fmt.Errorf("node %d: %w", attempt.NodeID, err)
 			}
 			return nil
@@ -319,15 +335,14 @@ type nodeAnswer struct {
 // refused, which fails the job, or its reading stalled, which is the tool's failure: tried again,
 // and the job's own the second time (nodes.StallOutcome). A stalled reading's records are never
 // taken: a listing cut short is not a root's contents.
-func takeRecords(job jobs.Job, answer nodeAnswer, take func() error) error {
+func takeRecords(job jobs.Job, nodeID int64, answer nodeAnswer, take func() error) error {
 	switch {
 	case !answer.isAnswered:
 		return fmt.Errorf("answered %s with something else", answer.about)
 	case answer.refusal != "":
 		return jobs.MarkPermanent(fmt.Errorf("refused %s: %s", answer.about, answer.refusal))
 	case answer.stall != nil:
-		return nodes.StallOutcome(job, fmt.Errorf("%s stalled, %s: %s", answer.about, answer.stall.Condition,
-			answer.stall.Detail), jobs.StalledTwice, nil)
+		return nodes.StallOutcome(job, nodes.StallError(nodeID, answer.about, *answer.stall), jobs.StalledTwice, nil)
 	}
 	return take()
 }

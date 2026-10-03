@@ -18,9 +18,7 @@ const stalledTwice = "FFmpeg stalled twice: "
 func stallOutcome(
 	job jobs.Job, nodeID int64, what string, stall nodeproto.Stall, keepFailure func(failure string) error,
 ) error {
-	stalled := fmt.Errorf("node %d stopped the FFmpeg of %s: %s at %d ms of its output, %d ms without moving, %s: %s",
-		nodeID, what, stall.Cause, stall.LastPositionMs, stall.WithoutAdvanceMs, stall.Condition, stall.Detail)
-	return nodes.StallOutcome(job, stalled, stalledTwice, keepFailure)
+	return nodes.StallOutcome(job, nodes.StallError(nodeID, "the FFmpeg of "+what, stall), stalledTwice, keepFailure)
 }
 
 // refusalError is a node's refusal of work it did not try, which says nothing of the source and is

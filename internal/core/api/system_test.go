@@ -62,6 +62,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	}
 	harness.nodes.build = harnessServerBuild
 	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, AvailableBytes: 1000}}
+	harness.nodes.stuck = []nodeproto.Stuck{{Tool: "ffprobe", PID: 42, Paths: []string{"/media/films/A.mkv"}, Since: 9}}
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
 		UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 75, DiskUsedLimitPercent: 95,
 	}
@@ -118,10 +119,20 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)
 	}
 	checkHardware(t, local.Hardware)
+	checkStuck(t, local.Stuck)
 	if len(local.RecentPrepares) != 1 || local.RecentPrepares[0].SourceFileID != 42 ||
 		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].RealtimeFactor != 6.5 {
 		t.Errorf("local's recent prepares are %+v; want the one it finished, with Quick Sync at 6.5x (D225 §3)",
 			local.RecentPrepares)
+	}
+}
+
+// checkStuck checks the connected node's work waiting on a disk, as the System page shows it.
+func checkStuck(t *testing.T, stuck []StuckBody) {
+	t.Helper()
+	if len(stuck) != 1 || stuck[0].Program != "ffprobe" || stuck[0].Paths[0] != "/media/films/A.mkv" ||
+		stuck[0].Since != 9 {
+		t.Errorf("local's stuck work is %+v; want the ffprobe waiting on /media/films' disk (D233 §10)", stuck)
 	}
 }
 

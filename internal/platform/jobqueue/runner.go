@@ -345,8 +345,12 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 	if parking, isParked := ParkingOf(answer); isParked {
 		parking.IsProbe = slices.Contains(claimed.probesOf, parking.Destination)
 		runner.queue.Park(ctx, parking)
+		// A tool that failed in a way that parks the job, as a stall on a disk parks it on its root, is
+		// still a tool failure: the next attempt knows it.
+		_, isToolFailure := errors.AsType[*toolError](answer) //nolint:errcheck // AsType's second value is a bool
 		return runner.wait(ctx, job, Outcome{
-			At: now, AttemptCount: given, Destination: cmp.Or(parking.Destination, destination),
+			At: now, AttemptCount: given, ToolFailed: isToolFailure,
+			Destination: cmp.Or(parking.Destination, destination),
 		}, answer)
 	}
 	if snooze, isSnooze := errors.AsType[*snoozed](answer); isSnooze {

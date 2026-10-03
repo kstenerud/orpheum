@@ -91,6 +91,10 @@
 //     that work resumes (D231 §5, §6).
 //     TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo.
 //
+//   - Work that stalls waiting on a root's disk makes the root unavailable from then, and asks for a
+//     scan of it, which brings it back (D233 §10).
+//     TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt.
+//
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
 //
