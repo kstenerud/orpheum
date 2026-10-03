@@ -308,7 +308,7 @@ func TestScans_AStalledListingIsTriedAgainAndNeverTakenAsTheRootsContents(t *tes
 	}
 	job.PreviousAttemptToolFailed = true
 	err = bench.scans.ScanAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID}, stalled)
-	if err == nil || !strings.Contains(err.Error(), jobs.ToolFailedTwice) {
+	if err == nil || !strings.Contains(err.Error(), jobs.StalledTwice) {
 		t.Errorf("a second stalled listing = %v; want the job's own failure", err)
 	}
 }

@@ -74,6 +74,10 @@
 //     that no job was given, or wants, is a broken invariant, and the node told to drop it (S91, G4);
 //     work whose result is on its way is left to it. TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds,
 //     TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
+//   - The core holds work only while its node says it moves: work held that the status says has not
+//     moved for movementWindow, past every window the node judges its own work by, is stopped and
+//     resolved as ErrNotMoving, which UnansweredOutcome takes as a stall (D233 §5).
+//     TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
 //   - A node whose hello names another start than its last hello to this core started again and
 //     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
 //     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers

@@ -327,7 +327,7 @@ func takeRecords(job jobs.Job, answer nodeAnswer, take func() error) error {
 		return jobs.MarkPermanent(fmt.Errorf("refused %s: %s", answer.about, answer.refusal))
 	case answer.stall != nil:
 		return nodes.StallOutcome(job, fmt.Errorf("%s stalled, %s: %s", answer.about, answer.stall.Condition,
-			answer.stall.Detail), nil)
+			answer.stall.Detail), jobs.StalledTwice, nil)
 	}
 	return take()
 }

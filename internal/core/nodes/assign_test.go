@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -272,5 +273,45 @@ func TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldPaused}}, nil)
 	if word, _ := bench.exchanges.NodeWordOf(7); word != nodeproto.ProgressPaused {
 		t.Errorf("after its status said paused, job 7's word is %q", word)
+	}
+}
+
+// The core holds work only while its node says it moves: running or waiting work the node says has
+// not moved for the core's window is stopped and answered as not moving, the tool's failure, which a
+// kind's UnansweredOutcome takes as a stall; under the window it is held (D233 §5).
+func TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	resolved := make(answers, 2)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	sent := bench.assign(t)
+	held := func(sinceMoved time.Duration) []nodeproto.HeldAttempt {
+		return []nodeproto.HeldAttempt{{
+			JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldWaiting,
+			SinceMovedMs: sinceMoved.Milliseconds(),
+		}}
+	}
+	bench.exchanges.Square(t.Context(), 1, held(29*time.Minute), nil)
+	select {
+	case answer := <-resolved:
+		t.Fatalf("job 7, not moving for 29 minutes, was resolved with %v; want it held", answer)
+	default:
+	}
+	bench.exchanges.Square(t.Context(), 1, held(30*time.Minute), nil)
+	answer := testutil.Receive(t, resolved, "job 7's answer")
+	if !errors.Is(answer, nodes.ErrNotMoving) {
+		t.Errorf("job 7, not moving for 30 minutes, was resolved with %v, want ErrNotMoving", answer)
+	}
+	if stop := testutil.Receive(t, bench.sender.sent, "the cancel"); stop.Type != nodeproto.CommandCancel ||
+		stop.AttemptToken != sent.AttemptToken {
+		t.Errorf("the node was sent %+v, want told to stop job 7's work", stop)
+	}
+	stalled := nodes.UnansweredOutcome(jobs.Job{ID: 7}, answer, nil)
+	if !strings.HasPrefix(stalled.Error(), "stalled: ") {
+		t.Errorf("a kind's outcome of work not moving = %v; want a stall, tried again at no cost", stalled)
+	}
+	twice := nodes.UnansweredOutcome(jobs.Job{ID: 7, PreviousAttemptToolFailed: true}, answer, nil)
+	if !strings.Contains(twice.Error(), jobs.StalledTwice) {
+		t.Errorf("a second in a row = %v; want the job's own failure", twice)
 	}
 }

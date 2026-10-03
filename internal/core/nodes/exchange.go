@@ -130,12 +130,26 @@ const attemptTokenBytes = 16
 // otherwise. The tool's failure, not the work's (D233 §6, D238 §3).
 var ErrWorkLost = errors.New("the node no longer holds the work it was given")
 
+// ErrNotMoving is work its node says has not moved for the core's window, longer than any of the
+// node's own: the node's watchdog did not catch it, so the core stops it (D233 §5). The tool's
+// failure, as a stall is.
+var ErrNotMoving = errors.New("the node says the work has not moved")
+
+// movementWindow is how long the core holds work its node says has not moved: past every window
+// the node judges its own work by, the longest a subtitle track's ten minutes, and its own reading's
+// five past ffprobe's timeout, so it catches only what the node's watchdog did not.
+const movementWindow = 30 * time.Minute
+
 // UnansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that no
 // longer holds the work, having started again or lost it otherwise (ErrWorkLost), is the tool's
 // failure, as a stall is: tried again at no cost of an attempt (jobs.MarkInterrupted), and the
 // target's failure, kept by keepFailure when it is not nil, when its last attempt's tool failed too
-// (D238 §3, D233 §6). Any other err is as it is.
+// (D238 §3, D233 §6). Work that stopped moving (ErrNotMoving) is a stall (StallOutcome). Any other
+// err is as it is.
 func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string) error) error {
+	if errors.Is(err, ErrNotMoving) {
+		return StallOutcome(job, err, jobs.StalledTwice, keepFailure)
+	}
 	if !errors.Is(err, ErrWorkLost) {
 		return err
 	}
@@ -152,15 +166,15 @@ func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string)
 // StallOutcome is a handler's answer to a node's word that the work stalled and was stopped: a
 // hang says nothing of the target the first time, so the job is tried again at no cost of an
 // attempt (jobs.MarkStalled), and when its last attempt's tool failed too it is the target's
-// failure, kept by keepFailure when it is not nil (D233 §6).
-func StallOutcome(job jobs.Job, stalled error, keepFailure func(failure string) error) error {
+// failure, begun with twice and kept by keepFailure when it is not nil (D233 §6).
+func StallOutcome(job jobs.Job, stalled error, twice string, keepFailure func(failure string) error) error {
 	if !job.PreviousAttemptToolFailed {
 		return jobs.MarkStalled(stalled)
 	}
 	if keepFailure == nil {
-		return jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, stalled))
+		return jobs.MarkPermanent(fmt.Errorf("%s%w", twice, stalled))
 	}
-	failure := jobs.ToolFailedTwice + stalled.Error()
+	failure := twice + stalled.Error()
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }
 
