@@ -18,6 +18,10 @@
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed (internal/core/api).
 //
+//   - A player asking for a text still being made keeps its job wanted, at play's priority, as a
+//     player asking for a rendition does (D234 §3).
+//     TestSubtitles_APlayerAskingForTheTextKeepsItsExtractionWanted (internal/core/api).
+//
 //   - An extraction or a conversion is given to its node, not waited for, and its text, or why
 //     the node could not make it, is recorded as it arrives, by its source's hash, whether or not
 //     its job still waits (D234 §7, D238 §2). A cancelled extraction tells its node to stop.

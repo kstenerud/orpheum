@@ -23,6 +23,9 @@ type Nodes interface {
 // Queue is the job queue: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
+	// KeepWanted says a person still waits for a job's work: a player asking for a text being made
+	// (D234 §3).
+	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 }
 
 // Parts are what the subtitles service is built from.

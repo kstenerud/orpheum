@@ -5,8 +5,10 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -309,5 +311,52 @@ func TestSubtitles_AnExtractionThatGaveUpSaysSoAndTheNextPlayAsksAgain(t *testin
 	again := harness.play(t, user, chrome(2))
 	if early := harness.getBytePath(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
 		t.Errorf("played again: %d, want 425 while it is made again", early.status)
+	}
+}
+
+// demotedKinds are the kinds of the jobs a demotion of unwanted play work moved to the background.
+func demotedKinds(t *testing.T, harness testHarness) []jobs.Kind {
+	t.Helper()
+	demoted, err := harness.queue.DemoteUnwanted(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	views, err := harness.queue.List(t.Context(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kindByID := map[int64]jobs.Kind{}
+	for _, view := range views {
+		kindByID[view.ID] = view.Kind
+	}
+	kinds := make([]jobs.Kind, 0, len(demoted))
+	for _, job := range demoted {
+		kinds = append(kinds, kindByID[job.ID])
+	}
+	return kinds
+}
+
+// A player asking for a text still being extracted is a person waiting for it, so its extraction
+// keeps play's priority while the player asks, and falls to the background only once it stops, as a
+// prepare does (D234 §3).
+func TestSubtitles_APlayerAskingForTheTextKeepsItsExtractionWanted(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	track := offeredASSTrack(t, harness.play(t, user, chrome(2)))
+	for range 3 { // half an hour of a player asking every nine minutes
+		harness.clock.Advance(9 * time.Minute)
+		if early := harness.getBytePath(t, track.ASSURL, user, true, ""); early.status != http.StatusTooEarly {
+			t.Fatalf("the text while it is extracted: %d, want 425", early.status)
+		}
+	}
+	if kinds := demotedKinds(t, harness); slices.Contains(kinds, jobs.KindExtractSubtitle) {
+		t.Errorf("while the player asks, demoted %v; want the extraction kept at play's priority", kinds)
+	}
+	harness.clock.Advance(11 * time.Minute)
+	if kinds := demotedKinds(t, harness); !slices.Contains(kinds, jobs.KindExtractSubtitle) {
+		t.Errorf("ten minutes after the player stopped, demoted %v; want the extraction", kinds)
 	}
 }
