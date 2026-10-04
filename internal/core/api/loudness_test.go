@@ -348,25 +348,6 @@ func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRo
 	}
 }
 
-func TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAgain(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	job := jobs.Job{ID: 91, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
-	if err := harness.loudness.RecordMeasurementFailure(t.Context(), job, "node 1 refused five times"); err != nil {
-		t.Fatal(err)
-	}
-	if files := harness.filesToMeasure(t); !slices.Equal(files, []int64{2}) {
-		t.Errorf("the sweep finds %v to measure; want only file 2, file 1's failure kept (D231 section 10)", files)
-	}
-	rows, err := harness.database.Read().ListLoudnessOfPayload(t.Context(), []byte{0x0a, 0x0b})
-	if err != nil || len(rows) != 1 || rows[0].Failure == nil ||
-		!strings.Contains(*rows[0].Failure, "refused five times") {
-		t.Errorf("file 1's loudness %+v (%v); want its failure and why", rows, err)
-	}
-}
-
 // A root whose disk work stalled is unavailable until a scan reads it again, though its last scan
 // was complete: the sweep passes its files over by the same rule a measurement parks by (D233 §10).
 func TestLoudness_AFileUnderARootWhoseDiskStalledIsNotSwept(t *testing.T) {

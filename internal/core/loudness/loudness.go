@@ -213,28 +213,6 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	})
 }
 
-// RecordMeasurementFailure records a measure_loudness job that failed as its file's own failure
-// (D231 §4, §10): its attempts spent, or its bytes unreadable. It is kept by the file's payload hash
-// as FFmpeg's failure is, so the sweep does not ask again; the file plays unlevelled.
-func (service *Service) RecordMeasurementFailure(ctx context.Context, job jobs.Job, failure string) error {
-	file, err := library.PlayableFile(ctx, service.database.Read(), job.FileID)
-	if errors.Is(err, library.ErrNoFile) {
-		return nil // gone, or never probed: nothing to keep a failure against
-	}
-	if err != nil {
-		return err
-	}
-	probe, err := library.ProbeOf(file.ProbeJSON)
-	if err != nil {
-		return nil //nolint:nilerr // a probe that cannot be read names no track to keep a failure for
-	}
-	var tracks []nodeproto.LoudnessTrack
-	for _, stream := range decide.AudioStreams(probe) {
-		tracks = append(tracks, nodeproto.LoudnessTrack{StreamIndex: stream.StreamIndex})
-	}
-	return service.keep(ctx, file.PayloadHash, tracks, nodeproto.LoudnessResult{Failure: "given up: " + failure})
-}
-
 // Assignee is how a measurement given to a node is resolved; its recorder keeps the measurement, or
 // FFmpeg's word, by the file's payload hash (record).
 func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
