@@ -401,7 +401,7 @@ func TestPreparedBudget_IsTheNodesConfig(t *testing.T) {
 	t.Parallel()
 	var config Config
 	config.Node.PreparedBudgetGiB, config.Node.PreparedKeptAfterPlayHours = 2, 3
-	config.Node.PreparedDiskUsedLimitPercent, config.Node.MinFreeMiB = 90, 100
+	config.Node.PreparedDiskUsedLimitPercent, config.Node.PreparedDiskMinFreeMiB = 90, 100
 	budget := preparedBudget(config)
 	if budget.MaxBytes != 2<<30 || budget.KeptAfterLastPlay != 3*time.Hour || budget.DiskUsedLimitPercent != 90 ||
 		budget.MinFreeBytes != 100<<20 {

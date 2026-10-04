@@ -136,7 +136,7 @@ type PreparedUsage struct {
 	DiskUsedPercent      int   `json:"diskUsedPercent"`
 	DiskUsedLimitPercent int   `json:"diskUsedLimitPercent"`
 	// DiskAvailableBytes is how much of the disk is free, and DiskMinFreeBytes the floor the node
-	// keeps free on it, whatever its percentage (node.min_free_mib).
+	// keeps free on it, whatever its percentage (node.prepared_disk_min_free_mib).
 	DiskAvailableBytes int64 `json:"diskAvailableBytes"`
 	DiskMinFreeBytes   int64 `json:"diskMinFreeBytes"`
 }

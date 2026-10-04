@@ -137,7 +137,7 @@ destination = "stderr"
 		FFmpegDir: filepath.Join(dir, "ffmpeg"), ConfinementPolicy: "report", MaxErrorsPerRoot: 1000,
 		ProbeTimeoutSeconds: 60, StatusIntervalSeconds: 10, ProgressEverySeconds: 2, EndedWorkKeptHours: 168,
 		ReadHeaderTimeoutSeconds: 10, PreparedBudgetGiB: 1, PreparedKeptAfterPlayHours: 72,
-		PreparedDiskUsedLimitPercent: 95, MinFreeMiB: 100, EncodeSlotCount: 1, RemuxSlotCount: 2,
+		PreparedDiskUsedLimitPercent: 95, PreparedDiskMinFreeMiB: 100, EncodeSlotCount: 1, RemuxSlotCount: 2,
 		SlowestReadMiBPerSecond: 20,
 	}
 	return config, dir

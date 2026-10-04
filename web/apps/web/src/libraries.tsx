@@ -140,10 +140,10 @@ function ScanProgress(props: { readonly scan: NonNullable<Root["scan"]> }): JSX.
         ? t("libraries.scanReading", {
             count: scan.listedCount,
             read: scan.examinedCount,
-            total: scan.examineCount,
+            total: scan.toExamineCount,
           })
         : t("libraries.scanListing")}
-      {scan.isScanAgain ? ` ${t("libraries.scanThenAgain")}` : null}
+      {scan.isAnotherScanQueued ? ` ${t("libraries.scanThenAgain")}` : null}
     </output>
   );
 }

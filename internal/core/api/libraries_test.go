@@ -310,12 +310,12 @@ func TestLibraries_AnAdminSeesARootsScanInProgress(t *testing.T) {
 	}
 	harness.nodes.scanning = map[library.ScanRoot]library.ScanProgress{
 		{NodeID: 1, RootPath: "/media/shows"}: {
-			IsListed: true, ListedCount: 40, ExamineCount: 3, ExaminedCount: 1, IsScanAgain: true,
+			IsListed: true, ListedCount: 40, ToExamineCount: 3, ExaminedCount: 1, IsAnotherScanQueued: true,
 		},
 	}
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
-	if !strings.Contains(listed.body, `"scan":{"isListed":true,"listedCount":40,"examineCount":3,`+
-		`"examinedCount":1,"isScanAgain":true}`) {
+	if !strings.Contains(listed.body, `"scan":{"isListed":true,"listedCount":40,"toExamineCount":3,`+
+		`"examinedCount":1,"isAnotherScanQueued":true}`) {
 		t.Errorf("an admin's GET /libraries = %s, want the root's scan in progress", listed.body)
 	}
 }

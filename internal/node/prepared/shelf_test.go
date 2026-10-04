@@ -145,7 +145,7 @@ func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 	}
 }
 
-// The disk keeps its floor of free space whatever its percentage says (node.min_free_mib): below
+// The disk keeps its floor of free space whatever its percentage says (node.prepared_disk_min_free_mib): below
 // it, renditions are evicted, and a prepare with nothing left to evict is refused.
 func TestMakeRoom_KeepsTheDisksFloorOfFreeSpace(t *testing.T) {
 	t.Parallel()

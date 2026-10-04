@@ -247,7 +247,7 @@ func preparedBudget(config Config) prepared.Budget {
 		MaxBytes:             config.Node.PreparedBudgetGiB * diskspace.BytesPerGiB,
 		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayHours) * time.Hour,
 		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
-		MinFreeBytes:         config.Node.MinFreeMiB << 20,
+		MinFreeBytes:         config.Node.PreparedDiskMinFreeMiB << 20,
 	}
 }
 
