@@ -185,9 +185,6 @@ func (queue *Queue) Unpark(ctx context.Context, destination Destination) {
 	queue.queue.Unpark(ctx, destination)
 }
 
-// ProbeNow looks at a parked outside host at once, for a person waiting on its work.
-func (queue *Queue) ProbeNow(destination Destination) { queue.queue.ProbeNow(destination) }
-
 // DestinationState is a destination's state, and whether it is parked.
 func (queue *Queue) DestinationState(destination Destination) (DestinationState, bool) {
 	return queue.queue.DestinationState(destination)

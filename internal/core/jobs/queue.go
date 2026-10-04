@@ -243,9 +243,6 @@ func (queue *Queue) RequeueRunning(ctx context.Context) (int64, error) {
 	return queue.queue.RequeueRunning(ctx)
 }
 
-// Wake tells every runner there may be work before its next tick.
-func (queue *Queue) Wake() { queue.queue.Wake() }
-
 // settingsPolicy reads the queue's retry policy and its probe back-off from the settings.
 type settingsPolicy struct {
 	settings Settings
