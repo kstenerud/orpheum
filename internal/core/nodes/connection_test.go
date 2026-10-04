@@ -318,7 +318,7 @@ func TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay(t
 func TestHello_RepliesWithEachDevicesReaderLimitByItsKind(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	settingstest.Set(t, harness.settings, settings.DeviceReadersSSD, "6")
+	settingstest.Set(t, harness.settings, settings.SSDReaderLimit, "6")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: []nodeproto.Device{
 		{Key: "zfs:tank", Kind: nodeproto.DeviceSpinning},
 		{Key: "disk:sda", Kind: nodeproto.DeviceSSD},
@@ -339,7 +339,7 @@ func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", Devices: []nodeproto.Device{
 		{Key: "zfs:tank", Kind: nodeproto.DeviceSpinning},
 	}})
-	settingstest.Set(t, harness.settings, settings.DeviceReadersSpinning, "2")
+	settingstest.Set(t, harness.settings, settings.SpinningDiskReaderLimit, "2")
 	commands, status := harness.pollThroughHold(t, reply.NodeID, 0)
 	if status != http.StatusOK || commands.DeviceReaderLimits["zfs:tank"] != 2 {
 		t.Errorf("the poll answered %d with limits %v; want zfs:tank's raised to 2", status,
