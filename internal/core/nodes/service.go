@@ -31,9 +31,9 @@ type Settings interface {
 // ScanRequester asks for a scan of a node's root: library.Scans (D240).
 type ScanRequester interface {
 	Request(ctx context.Context, nodeID int64, root string, priority int64) error
-	// RootNotNamed makes a library root its node's hello no longer names unavailable from now
+	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
-	RootNotNamed(ctx context.Context, nodeID int64, root string) error
+	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error
 }
 
 // ResultSink receives a node's word on a job, to hand to the job that asked: Exchanges. It is the
@@ -47,13 +47,13 @@ type ResultSink interface {
 	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
 	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.
 	Interrupt(ctx context.Context, nodeID int64)
-	// Square squares the jobs given to a node with the attempts its status says it holds, but for
+	// Reconcile reconciles the jobs given to a node with the attempts its status says it holds, but for
 	// those whose command, onTheirWay, it has not taken yet (D234 §6).
-	Square(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)
+	Reconcile(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)
 }
 
 // RenditionIndex is the core's index of the renditions its nodes hold: playback's, which owns it. A
-// node's hello lists its renditions by their manifests, and AdoptRenditions squares the index with
+// node's hello lists its renditions by their manifests, and AdoptRenditions reconciles the index with
 // them and returns the directories of those it keeps; the node evicts the others (D238 §2).
 type RenditionIndex interface {
 	AdoptRenditions(ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest) ([]string, error)
@@ -81,8 +81,8 @@ type Service struct {
 	renditionIndex RenditionIndex
 	scans          ScanRequester
 
-	mutex          sync.Mutex
-	connectedNodes map[int64]*connectedNode
+	mutex                sync.Mutex
+	nodesHeardSinceStart map[int64]*connectedNode
 	// protocolByNodeID is the protocol version each node that needs updating last said hello in:
 	// another than this core's, so it was refused (D233 §9). Guarded by mutex.
 	protocolByNodeID map[int64]int
@@ -100,7 +100,7 @@ func (service *Service) SetHeldResultReader(reader HeldResultReader) {
 	service.heldResults = reader
 }
 
-// SetRenditionIndex names the index a node's hello squares its renditions with. Set it before the
+// SetRenditionIndex names the index a node's hello reconciles its renditions with. Set it before the
 // channel serves; with none set, every rendition a node lists is kept.
 func (service *Service) SetRenditionIndex(index RenditionIndex) {
 	service.renditionIndex = index
@@ -135,7 +135,7 @@ func NewService(parts ServiceParts) *Service {
 	return &Service{
 		database: parts.Database, clock: parts.Clock, settings: parts.Settings,
 		destinations: parts.Destinations, logger: parts.Logger, pollHold: parts.PollHold,
-		connectedNodes: map[int64]*connectedNode{}, protocolByNodeID: map[int64]int{},
+		nodesHeardSinceStart: map[int64]*connectedNode{}, protocolByNodeID: map[int64]int{},
 	}
 }
 
@@ -159,7 +159,7 @@ func (service *Service) knownNodeIDOf(writer http.ResponseWriter, request *http.
 		return 0, false
 	}
 	service.mutex.Lock()
-	_, known := service.connectedNodes[id]
+	_, known := service.nodesHeardSinceStart[id]
 	service.mutex.Unlock()
 	if !known {
 		http.Error(writer, "say hello first: the core does not know this node", http.StatusConflict)

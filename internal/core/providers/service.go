@@ -356,7 +356,7 @@ func (service *Service) record(ctx context.Context, err error) {
 		return // the queue records the job's answer
 	}
 	if isDown {
-		_, parking.IsProbe = service.health.DestinationState(service.config.Destination)
+		_, parking.IsProbeFailure = service.health.DestinationState(service.config.Destination)
 		service.health.Park(ctx, parking)
 		return
 	}

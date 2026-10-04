@@ -12,7 +12,7 @@
 //   - An artwork command naming an image beside the media is read through the root it is under,
 //     never from outside the node's roots, and answered with the SHA-256 of what was read
 //     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
-//   - The node posts its status every tick, for the core to square with what it gave the node
+//   - The node posts its status every tick, for the core to reconcile with what it gave the node
 //     (D234 §6). TestAgent_SaysHelloAndPostsItsStatusEachTick.
 //   - A job's work reads the device its file is on, and runs only with a reader of it free, its
 //     limit the core's, one when the core named none; a paused run holds its slot but no reader.
@@ -121,7 +121,7 @@
 //     when the next prepare makes room (D217 §5).
 //     TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget.
 //   - The status lists every attempt the node holds, waiting or running, and every one whose result
-//     the core has not acknowledged, with the last command the node took, for the core to square
+//     the core has not acknowledged, with the last command the node took, for the core to reconcile
 //     (D234 §6). TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook,
 //     TestEndedAttempts_ListTheResultsNotYetAcknowledged.
 //   - The status carries the disk of each root and of the prepared directory, or why one could

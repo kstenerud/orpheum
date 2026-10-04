@@ -135,7 +135,7 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 	}
 	located := resolveReportedPath(scan.root, listed.Path)
 	stored, isStored := listing.stored[string(located.reportedBytes)]
-	if isStored && isUnchanged(stored, kind, listed) {
+	if isStored && isStoredAsListed(stored, kind, listed) {
 		err := listing.batch.queries.SetFileSeen(ctx, sqlcgen.SetFileSeenParams{
 			SeenAt: listing.batch.nowMs, ID: stored.ID,
 		})
@@ -182,11 +182,11 @@ func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.Ski
 	return nodeproto.ExamineVideo, ""
 }
 
-// isUnchanged is whether a stored file is the one listed, read whole, as a file of kind: its size and
+// isStoredAsListed is whether a stored file is the one listed, read whole, as a file of kind: its size and
 // modified time as stored, its identity confirmed (D179), and what reading it gave kept: a video's
 // payload hash, an NFO's bytes, a subtitle's hash. A file that was skipped or could not be read is
 // read again.
-func isUnchanged(stored sqlcgen.ListFilesToCompareRow, kind nodeproto.ExamineKind, listed *nodeproto.Listed) bool {
+func isStoredAsListed(stored sqlcgen.ListFilesToCompareRow, kind nodeproto.ExamineKind, listed *nodeproto.Listed) bool {
 	if !isAsListed(stored, listed) || stored.IsIdentityConfirmed == 0 {
 		return false
 	}

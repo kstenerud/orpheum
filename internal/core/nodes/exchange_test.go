@@ -53,7 +53,7 @@ func (sender *recordingSender) Resources(context.Context, int64) (nodes.Resource
 
 var errParked = errors.New("parked on the node")
 
-func (*recordingSender) Ready(context.Context, int64) error { return nil }
+func (*recordingSender) ParkUnlessConnected(context.Context, int64) error { return nil }
 
 // Withdraw says the work is still queued when the test made it so: the node has not taken it.
 func (sender *recordingSender) Withdraw(_ int64, token string) bool {
@@ -170,7 +170,7 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 		ID: 7, Kind: jobs.KindPrepare,
 		Priority: jobs.PriorityPlayNow,
 	}, prepareCommand)
-	jobqueue.Hand(t.Context(), err)
+	jobqueue.HandOver(t.Context(), err)
 	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
 	if sent.Type != nodeproto.CommandPrepare || sent.JobID != 7 || len(sent.AttemptToken) != 32 ||
 		sent.Priority != jobs.PriorityPlayNow {
@@ -300,7 +300,7 @@ func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
 	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
 	bench.assign(t)
 	elsewhere := bench.exchanges.Assign(t.Context(), 2, jobs.Job{ID: 8, Kind: jobs.KindPrepare}, prepareCommand)
-	jobqueue.Hand(t.Context(), elsewhere)
+	jobqueue.HandOver(t.Context(), elsewhere)
 	sentElsewhere := testutil.Receive(t, bench.sender.sent, "job 8's prepare command")
 	bench.exchanges.Interrupt(t.Context(), 1)
 	if ended := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(ended, nodes.ErrNodeRestarted) {
@@ -438,7 +438,7 @@ func TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot(t *test
 		{ID: 7, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow},
 		{ID: 8, Kind: jobs.KindPrepare, Priority: 0},
 	} {
-		jobqueue.Hand(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, prepareCommand))
+		jobqueue.HandOver(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, prepareCommand))
 		sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
 		if sent.Priority != job.Priority {
 			t.Errorf("job %d at priority %d was sent at priority %d", job.ID, job.Priority, sent.Priority)

@@ -22,7 +22,7 @@ type stalledRoots struct {
 	roots []string
 }
 
-func (stalled *stalledRoots) RootStalled(_ context.Context, _ int64, rootPath string) (time.Time, error) {
+func (stalled *stalledRoots) MarkRootStalled(_ context.Context, _ int64, rootPath string) (time.Time, error) {
 	stalled.roots = append(stalled.roots, rootPath)
 	return stalled.since, nil
 }
@@ -67,7 +67,7 @@ func TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswer
 			Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Wing.mkv")},
 		}}}
 		handed := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, command)
-		jobqueue.Hand(t.Context(), handed)
+		jobqueue.HandOver(t.Context(), handed)
 		sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
 		deliver(t, bench.exchanges, 1, diskStall(sent))
 		answer := testutil.Receive(t, resolved.answers, "job 7's answer")
@@ -120,7 +120,8 @@ func TestExchange_AStallOnThePreparedDirectorysDiskParksOnItAndLeavesTheRoot(t *
 	command := nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 		Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Wing.mkv")},
 	}}}
-	jobqueue.Hand(t.Context(), bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, command))
+	assigned := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, command)
+	jobqueue.HandOver(t.Context(), assigned)
 	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
 	stalled := diskStall(sent)
 	stalled.Prepare.Stall.WaitingOnPath = "/srv/node/cache/prepared/3/remux/a/segment-7.m4s"

@@ -57,8 +57,8 @@ type Listed struct {
 	IsDirectory bool  `json:"isDirectory"`
 	SizeBytes   int64 `json:"sizeBytes"`
 	ModifiedAt  int64 `json:"modifiedAt"`
-	// Device is the filesystem the entry is on.
-	Device uint64 `json:"device"`
+	// FilesystemDevice is the device number of the filesystem the entry is on.
+	FilesystemDevice uint64 `json:"filesystemDevice"`
 }
 
 // ExamineKind is what the node reads of a file it examines.

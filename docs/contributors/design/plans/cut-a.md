@@ -209,7 +209,7 @@ feature code.**
 
 ## 4. The node protocol
 
-*Rewritten from `internal/nodeproto` at protocol version 20 (the pre-M4 audit, 2026-10-04). The
+*Rewritten from `internal/nodeproto` at protocol version 21 (the pre-M4 audit, 2026-10-04). The
 protocol before D234, a JSONL report stream, a `scan` command and a core that restarted its node,
 is in this file's history.* Every message is JSON, and every type is in
 [`internal/nodeproto`](../../../../internal/nodeproto/doc.go), which is the specification; this

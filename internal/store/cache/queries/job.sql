@@ -19,7 +19,7 @@ FROM job
 WHERE state IN ('queued', 'running', 'assigned')
 ORDER BY id;
 
--- name: ListOpenJobs :many
+-- name: ListOpenJobsOfTarget :many
 -- The queued and running jobs of this kind for this target, an assigned job counting as running: at
 -- most one of each (D231 section 8).
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination, runnable_at,

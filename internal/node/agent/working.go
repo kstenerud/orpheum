@@ -149,13 +149,13 @@ func (list *workList) startDue() {
 	slices.SortFunc(ordered, byPriority)
 	list.continuePaused(ordered)
 	for _, work := range ordered {
-		if work.isRunning() || !list.hasSlot(work) {
+		if work.isRunning() || !list.hasFreeSlot(work) {
 			continue
 		}
-		if !list.hasReader(work.device) && work.isPlayDriven {
+		if !list.hasFreeReader(work.device) && work.isPlayDriven {
 			list.pauseBackgroundFor(work.device, ordered)
 		}
-		if !list.hasReader(work.device) {
+		if !list.hasFreeReader(work.device) {
 			continue
 		}
 		list.running[work.slot]++
@@ -170,27 +170,28 @@ func (list *workList) startDue() {
 func (list *workList) continuePaused(ordered []*heldWork) {
 	wantedForPlay := map[string]bool{}
 	for _, work := range ordered {
-		if !work.isRunning() && work.isPlayDriven && work.device != "" && list.hasSlot(work) {
+		if !work.isRunning() && work.isPlayDriven && work.device != "" && list.hasFreeSlot(work) {
 			wantedForPlay[work.device] = true
 		}
 	}
 	for _, work := range ordered {
-		if work.isRunning() && work.pausing.IsPaused() && !wantedForPlay[work.device] && list.hasReader(work.device) {
+		if work.isRunning() && work.pausing.IsPaused() && !wantedForPlay[work.device] &&
+			list.hasFreeReader(work.device) {
 			work.pausing.Continue()
 			work.movement.resume()
 		}
 	}
 }
 
-// hasSlot is whether a slot of the work's kind is free: always, for work that holds none, a listing
+// hasFreeSlot is whether a slot of the work's kind is free: always, for work that holds none, a listing
 // or an examining, which waits only for its device's reader. The caller holds the mutex.
-func (list *workList) hasSlot(work *heldWork) bool {
+func (list *workList) hasFreeSlot(work *heldWork) bool {
 	return work.slot == "" || list.running[work.slot] < list.capacity.SlotCount(work.slot)
 }
 
-// hasReader is whether a device has a reader free: always, for work that reads none. The caller
+// hasFreeReader is whether a device has a reader free: always, for work that reads none. The caller
 // holds the mutex.
-func (list *workList) hasReader(device string) bool {
+func (list *workList) hasFreeReader(device string) bool {
 	if device == "" {
 		return true
 	}
@@ -211,7 +212,7 @@ func (list *workList) hasReader(device string) bool {
 // it has a reader free. The caller holds the mutex.
 func (list *workList) pauseBackgroundFor(device string, ordered []*heldWork) {
 	for _, work := range slices.Backward(ordered) {
-		if list.hasReader(device) {
+		if list.hasFreeReader(device) {
 			return
 		}
 		if work.device == device && !work.isPlayDriven && work.isReading() {

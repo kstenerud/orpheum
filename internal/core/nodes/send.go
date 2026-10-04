@@ -15,17 +15,17 @@ import (
 // node until its hello (D231 §11), or, for one that speaks another version of the node protocol,
 // until it is updated (D233 §9).
 func (service *Service) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
-	if err := service.Ready(ctx, nodeID); err != nil {
+	if err := service.ParkUnlessConnected(ctx, nodeID); err != nil {
 		return err
 	}
 	service.Enqueue(nodeID, command)
 	return nil
 }
 
-// Ready is nil for a node that is connected, and otherwise parks the job on it until its hello
+// ParkUnlessConnected is nil for a node that is connected, and otherwise parks the job on it until its hello
 // (D231 §11), or, for one that speaks another version of the node protocol, until it is updated
 // (D233 §9).
-func (service *Service) Ready(ctx context.Context, nodeID int64) error {
+func (service *Service) ParkUnlessConnected(ctx context.Context, nodeID int64) error {
 	connection, lastHeard := service.NodeConnection(ctx, nodeID)
 	if connection == NeedsUpdate {
 		return jobs.ParkOnNodeNeedingUpdate(nodeID, ErrNodeSilent)
@@ -55,7 +55,7 @@ func (service *Service) Unanswered(ctx context.Context, nodeID int64, err error)
 func (service *Service) Withdraw(nodeID int64, token string) bool {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	node, found := service.connectedNodes[nodeID]
+	node, found := service.nodesHeardSinceStart[nodeID]
 	if !found {
 		return false
 	}
@@ -76,7 +76,7 @@ func (service *Service) Withdraw(nodeID int64, token string) bool {
 func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	node, found := service.connectedNodes[nodeID]
+	node, found := service.nodesHeardSinceStart[nodeID]
 	if !found {
 		return
 	}

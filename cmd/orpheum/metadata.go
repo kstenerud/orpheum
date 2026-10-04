@@ -329,7 +329,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	}
 	services.queue.OnCancel(services.exchanges.Cancelled)
 	services.queue.OnOverdue(services.exchanges.Overdue)
-	services.queue.SetNodeWords(nodeWordsOf(services.exchanges))
+	services.queue.SetReportedProgress(reportedProgressOf(services.exchanges))
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup
 	startRunner := func(runnerSpec jobRunner) {
@@ -438,11 +438,11 @@ func pruneFinished(ctx context.Context, queue *jobs.Queue, tick <-chan time.Time
 	}
 }
 
-// nodeWordsOf has the job view say where the node holding each assigned job's work last said it is
+// reportedProgressOf has the job view say where the node holding each assigned job's work last said it is
 // (D240 §6).
-func nodeWordsOf(exchanges *nodes.Exchanges) jobs.NodeWords {
+func reportedProgressOf(exchanges *nodes.Exchanges) jobs.ReportedProgress {
 	return func(jobID int64) (string, bool) {
-		word, isSaid := exchanges.NodeWordOf(jobID)
+		word, isSaid := exchanges.ReportedProgressOf(jobID)
 		return string(word), isSaid
 	}
 }

@@ -67,7 +67,7 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if alien.SizeBytes != int64(len("alien")) || alien.ModifiedAt != info.ModTime().UnixMilli() ||
-		alien.Device == 0 {
+		alien.FilesystemDevice == 0 {
 		t.Errorf("listed %+v, want its size, modified time and device", alien)
 	}
 	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.SkippedCount != 1 {

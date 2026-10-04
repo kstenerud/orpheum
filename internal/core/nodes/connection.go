@@ -21,7 +21,7 @@ type connectedNode struct {
 	commands       []nodeproto.Command
 	nextCommandSeq int64
 	// seqByToken is the last command sent for each attempt, its work or its cancel, until the
-	// node's status says it took it: the squaring judges no attempt whose command is on its way.
+	// node's status says it took it: the reconciliation judges no attempt whose command is on its way.
 	seqByToken map[string]int64
 	wake       chan struct{}
 	lastHeard  time.Time
@@ -54,7 +54,7 @@ func (service *Service) NodeConnection(ctx context.Context, nodeID int64) (Conne
 	silentAfter := service.silentAfter(ctx)
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	node, found := service.connectedNodes[nodeID]
+	node, found := service.nodesHeardSinceStart[nodeID]
 	_, needsUpdate := service.protocolByNodeID[nodeID]
 	switch {
 	case needsUpdate:
@@ -82,7 +82,7 @@ func (service *Service) ConnectedNodeID(ctx context.Context) (int64, bool) {
 	defer service.mutex.Unlock()
 	var latest time.Time
 	latestNodeID := int64(0)
-	for id, node := range service.connectedNodes {
+	for id, node := range service.nodesHeardSinceStart {
 		if service.isConnectedLocked(node, silentAfter) && (latestNodeID == 0 || node.lastHeard.After(latest)) {
 			latestNodeID, latest = id, node.lastHeard
 		}
@@ -111,7 +111,7 @@ func (service *Service) silentAfter(ctx context.Context) time.Duration {
 func (service *Service) LastHeard(name string) (time.Time, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for _, node := range service.connectedNodes {
+	for _, node := range service.nodesHeardSinceStart {
 		if node.name == name {
 			return node.lastHeard, true
 		}
@@ -123,7 +123,7 @@ func (service *Service) LastHeard(name string) (time.Time, bool) {
 func (service *Service) noteHeard(nodeID int64) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if node, found := service.connectedNodes[nodeID]; found {
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
 		node.lastHeard = service.clock.Now()
 	}
 }
@@ -133,7 +133,7 @@ func (service *Service) noteHeard(nodeID int64) {
 func (service *Service) notePoll(nodeID int64, change int) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if node, found := service.connectedNodes[nodeID]; found {
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
 		node.openPollCount += change
 		node.lastHeard = service.clock.Now()
 	}

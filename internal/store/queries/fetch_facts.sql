@@ -40,7 +40,7 @@ JOIN item ON item.id = refresh_request.item_id AND item.removed_at IS NULL
 WHERE NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = refresh_request.item_id)
 ORDER BY refresh_request.requested_at, refresh_request.item_id;
 
--- name: ListFetchedLibraryIDs :many
+-- name: ListProviderMatchedLibraryIDs :many
 -- The live libraries whose items are matched at a provider, which the first-match sweep looks
 -- through (D170).
 SELECT id FROM library WHERE removed_at IS NULL AND metadata_source <> 'nfo' ORDER BY id;

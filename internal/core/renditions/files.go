@@ -42,14 +42,14 @@ func (service *Service) FileOf(
 	if err != nil {
 		return File{}, fmt.Errorf("read the rendition: %w", err)
 	}
-	readiness := jobs.Preparing
+	readiness := jobs.ReadinessPreparing
 	switch rendition.State {
 	case renditionComplete:
-		readiness = jobs.Complete
+		readiness = jobs.ReadinessComplete
 	case renditionFailed:
-		readiness = jobs.Failed
+		readiness = jobs.ReadinessFailed
 	}
-	if readiness == jobs.Preparing {
+	if readiness == jobs.ReadinessPreparing {
 		err = service.queue.KeepWanted(ctx, jobs.KindPrepare, jobs.Target{RenditionID: rendition.ID})
 		if err != nil {
 			return File{}, err

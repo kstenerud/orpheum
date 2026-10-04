@@ -500,7 +500,7 @@ func (agent *Agent) status() nodeproto.Status {
 }
 
 // held is every attempt the node holds, and every one whose result the core has not acknowledged,
-// for the core to square with what it gave the node (D234 §6).
+// for the core to reconcile with what it gave the node (D234 §6).
 func (agent *Agent) held() []nodeproto.HeldAttempt {
 	states := agent.work.states()
 	held := make([]nodeproto.HeldAttempt, 0, len(states))

@@ -232,7 +232,7 @@ func (walk *walk) list(place location, info fs.FileInfo) error {
 	walk.listedCount++
 	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
 		Path: toNodePath(place.reportedPath), IsDirectory: info.IsDir(), SizeBytes: info.Size(),
-		ModifiedAt: info.ModTime().UnixMilli(), Device: device,
+		ModifiedAt: info.ModTime().UnixMilli(), FilesystemDevice: device,
 	}})
 }
 

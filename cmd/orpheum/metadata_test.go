@@ -196,7 +196,7 @@ func TestScenario_S71_APersonsRefreshBehindARollingOneRunsAtTheirPriorityAndAsks
 
 // The job view hears from the exchanges where the node holding a job's work last said it is: here
 // its status, which lists the attempt paused (D240 §6).
-func TestNodeWordsOf_AreWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testing.T) {
+func TestReportedProgressOf_IsWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testing.T) {
 	t.Parallel()
 	cache := storetest.OpenCache(t)
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
@@ -216,11 +216,11 @@ func TestNodeWordsOf_AreWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testing.T) {
 	if err := exchanges.Load(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	words := nodeWordsOf(exchanges)
+	words := reportedProgressOf(exchanges)
 	if word, isSaid := words(7); isSaid {
 		t.Errorf("before its node spoke of job 7 its word is %q, want none", word)
 	}
-	exchanges.Square(t.Context(), 1,
+	exchanges.Reconcile(t.Context(), 1,
 		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "attempt-7", State: nodeproto.HeldPaused}}, nil)
 	if word, isSaid := words(7); !isSaid || word != "paused" {
 		t.Errorf("once its node's status listed job 7 paused, its word is %q (%v), want paused", word, isSaid)
@@ -234,7 +234,7 @@ func (sender toldSender) Enqueue(_ int64, command nodeproto.Command) { sender.to
 
 func (toldSender) Send(context.Context, int64, nodeproto.Command) error { return nil }
 
-func (toldSender) Ready(context.Context, int64) error { return nil }
+func (toldSender) ParkUnlessConnected(context.Context, int64) error { return nil }
 
 func (toldSender) Withdraw(int64, string) bool { return false }
 

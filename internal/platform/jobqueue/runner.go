@@ -186,7 +186,9 @@ func (runner *Runner[T]) claim(ctx context.Context) (claimedRow[T], bool, error)
 	}
 	row, found, err := queue.storage.Claim(ctx, Claim{Kind: runner.kind, Now: now, Unclaimable: queue.unclaimable(now)})
 	if err != nil && queue.isStorageFailure(err) {
-		queue.Park(ctx, Parking{Destination: storage, Reason: storageReason(err), IsProbe: len(claimed.probesOf) > 0})
+		queue.Park(ctx, Parking{
+			Destination: storage, Reason: storageReason(err), IsProbeFailure: len(claimed.probesOf) > 0,
+		})
 		return claimed, false, nil
 	}
 	if err != nil {
@@ -231,7 +233,7 @@ func (runner *Runner[T]) recordUnrecorded(ctx context.Context) (bool, error) {
 	}
 	err := queue.storage.Record(ctx, *runner.unrecorded)
 	if err != nil && queue.isStorageFailure(err) {
-		queue.Park(ctx, Parking{Destination: storage, Reason: storageReason(err), IsProbe: isProbe})
+		queue.Park(ctx, Parking{Destination: storage, Reason: storageReason(err), IsProbeFailure: isProbe})
 		return false, nil
 	}
 	if err != nil {
@@ -346,13 +348,13 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 			ID: job.ID, State: StateAssigned, At: handOff.until, AttemptCount: job.AttemptNumber,
 		})
 		if err == nil {
-			Hand(ctx, answer)
+			HandOver(ctx, answer)
 		}
 		return err
 	}
 	given := job.AttemptNumber - 1 // the attempt's count, given back
 	if parking, isParked := ParkingOf(answer); isParked {
-		parking.IsProbe = slices.Contains(claimed.probesOf, parking.Destination)
+		parking.IsProbeFailure = slices.Contains(claimed.probesOf, parking.Destination)
 		runner.queue.Park(ctx, parking)
 		// A tool that failed in a way that parks the job, as a stall on a disk parks it on its root, is
 		// still a tool failure: the next attempt knows it.

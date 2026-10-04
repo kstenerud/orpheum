@@ -205,17 +205,17 @@ func (service *Service) TextOf(
 		if keepErr := service.queue.KeepWanted(ctx, kind, target); keepErr != nil {
 			return Text{}, keepErr
 		}
-		return Text{Readiness: jobs.Preparing}, nil
+		return Text{Readiness: jobs.ReadinessPreparing}, nil
 	case err != nil:
 		return Text{}, fmt.Errorf("read the subtitle: %w", err)
 	case row.Failure != nil:
-		return Text{Readiness: jobs.Failed, Failure: *row.Failure}, nil
+		return Text{Readiness: jobs.ReadinessFailed, Failure: *row.Failure}, nil
 	}
 	text := row.ASS
 	if format == FormatWebVTT {
 		text = row.VTT
 	}
-	return Text{Readiness: jobs.Complete, Text: text}, nil
+	return Text{Readiness: jobs.ReadinessComplete, Text: text}, nil
 }
 
 // textKeyOfTrack is where a track of video's text is kept, or ErrNoSubtitle for a track the

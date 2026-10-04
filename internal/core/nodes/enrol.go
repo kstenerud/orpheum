@@ -146,7 +146,7 @@ func (service *Service) markRootsNotNamed(ctx context.Context, nodeID int64, nam
 		if slices.Contains(named, root.RootPath) {
 			continue
 		}
-		if err := service.scans.RootNotNamed(ctx, nodeID, root.RootPath); err != nil {
+		if err := service.scans.MarkRootNotNamed(ctx, nodeID, root.RootPath); err != nil {
 			return err
 		}
 	}
@@ -173,8 +173,8 @@ func (service *Service) coveredRoots(ctx context.Context, nodeID int64, roots []
 	return covered, nil
 }
 
-// keptRenditions squares the index with the renditions a hello lists and returns those it keeps
-// (D238 §2). Without an index, or when it cannot be squared, every one is kept: the node evicts
+// keptRenditions reconciles the index with the renditions a hello lists and returns those it keeps
+// (D238 §2). Without an index, or when it cannot be reconciled, every one is kept: the node evicts
 // nothing for the core's failure.
 func (service *Service) keptRenditions(
 	ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest,
@@ -188,7 +188,7 @@ func (service *Service) keptRenditions(
 	}
 	kept, err := service.renditionIndex.AdoptRenditions(ctx, nodeID, renditions)
 	if err != nil {
-		service.logger.ErrorContext(ctx, "could not square the index with a node's renditions; keeping them all",
+		service.logger.ErrorContext(ctx, "could not reconcile the index with a node's renditions; keeping them all",
 			"nodeId", nodeID, "err", err)
 		return listed
 	}
@@ -238,7 +238,7 @@ func (service *Service) speaksThisProtocol(nodeID int64, protocol int) bool {
 		return true
 	}
 	service.protocolByNodeID[nodeID] = protocol
-	delete(service.connectedNodes, nodeID)
+	delete(service.nodesHeardSinceStart, nodeID)
 	return false
 }
 
@@ -248,10 +248,10 @@ func (service *Service) speaksThisProtocol(nodeID int64, protocol int) bool {
 func (service *Service) connect(nodeID int64, hello nodeproto.Hello) (isRestarted bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	existing, found := service.connectedNodes[nodeID]
+	existing, found := service.nodesHeardSinceStart[nodeID]
 	if !found {
 		existing = &connectedNode{name: hello.Name, nextCommandSeq: 1, wake: make(chan struct{})}
-		service.connectedNodes[nodeID] = existing
+		service.nodesHeardSinceStart[nodeID] = existing
 	}
 	isRestarted = found && existing.hello.StartID != hello.StartID
 	existing.lastHeard = service.clock.Now()
@@ -267,7 +267,7 @@ func (service *Service) RemoveNode(ctx context.Context, nodeID int64) error {
 	}
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	delete(service.connectedNodes, nodeID)
+	delete(service.nodesHeardSinceStart, nodeID)
 	return nil
 }
 

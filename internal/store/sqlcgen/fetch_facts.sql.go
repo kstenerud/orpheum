@@ -40,14 +40,14 @@ func (q *Queries) GetRefreshRequest(ctx context.Context, itemID int64) (RefreshR
 	return i, err
 }
 
-const listFetchedLibraryIDs = `-- name: ListFetchedLibraryIDs :many
+const listProviderMatchedLibraryIDs = `-- name: ListProviderMatchedLibraryIDs :many
 SELECT id FROM library WHERE removed_at IS NULL AND metadata_source <> 'nfo' ORDER BY id
 `
 
 // The live libraries whose items are matched at a provider, which the first-match sweep looks
 // through (D170).
-func (q *Queries) ListFetchedLibraryIDs(ctx context.Context) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listFetchedLibraryIDs)
+func (q *Queries) ListProviderMatchedLibraryIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listProviderMatchedLibraryIDs)
 	if err != nil {
 		return nil, err
 	}

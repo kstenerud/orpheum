@@ -246,7 +246,7 @@ type recordingScans struct {
 	notNamed   []string
 }
 
-func (scans *recordingScans) RootNotNamed(_ context.Context, _ int64, root string) error {
+func (scans *recordingScans) MarkRootNotNamed(_ context.Context, _ int64, root string) error {
 	scans.mutex.Lock()
 	defer scans.mutex.Unlock()
 	scans.notNamed = append(scans.notNamed, root)
@@ -428,18 +428,18 @@ type recordingResultSink struct {
 	interrupted []int64
 	// refusal, when set, is Deliver's error: a result the sink could not record.
 	refusal error
-	// squared are the calls to square what a node holds, in order.
-	squared []squaring
+	// reconciled are the calls to reconcile what a node holds, in order.
+	reconciled []reconciliation
 }
 
-func (sink *recordingResultSink) Square(
+func (sink *recordingResultSink) Reconcile(
 	_ context.Context, _ int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
 ) {
-	sink.squared = append(sink.squared, squaring{held: held, onTheirWay: onTheirWay})
+	sink.reconciled = append(sink.reconciled, reconciliation{held: held, onTheirWay: onTheirWay})
 }
 
-// squaring is one call to square what a node holds.
-type squaring struct {
+// reconciliation is one call to reconcile what a node holds.
+type reconciliation struct {
 	held       []nodeproto.HeldAttempt
 	onTheirWay map[string]bool
 }

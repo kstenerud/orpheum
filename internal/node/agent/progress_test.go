@@ -71,7 +71,7 @@ func (core *fakeCore) receiveProgress(t *testing.T) http.HandlerFunc {
 }
 
 // The status lists every attempt the node holds, by job and token, and the last command it took, so
-// the core can square what it gave the node with what the node has (D234 §6).
+// the core can reconcile what it gave the node with what the node has (D234 §6).
 func TestStatus_ListsTheAttemptsTheNodeHoldsAndTheLastCommandItTook(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)

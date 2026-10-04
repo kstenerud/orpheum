@@ -287,7 +287,7 @@ func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneRespons
 // wiring hands in through SetImageRetrier, so this package never imports it. A refresh asks it
 // when its job's arguments or the person's stored request (refresh_request) say to.
 type ImageRetrier interface {
-	RetryImages(ctx context.Context, itemIDs ...int64) error
+	MarkImagesOwedAgain(ctx context.Context, itemIDs ...int64) error
 }
 
 // SetImageRetrier sets what a refresh that asks for images again calls. Until it is set, a
@@ -302,7 +302,8 @@ func (matcher *Matcher) retryImages(ctx context.Context, itemIDs ...int64) error
 	if matcher.imageRetrier == nil {
 		return nil
 	}
-	return matcher.imageRetrier.RetryImages(ctx, itemIDs...) //nolint:wrapcheck // the artwork service's, wrapped there
+	//nolint:wrapcheck // the artwork service's, wrapped there
+	return matcher.imageRetrier.MarkImagesOwedAgain(ctx, itemIDs...)
 }
 
 func (matcher *Matcher) retrySeriesImages(ctx context.Context, seriesID int64) error {
@@ -424,7 +425,7 @@ func FirstMatchJob(itemID int64) jobs.Request {
 // replaces D170's "once per item"). It says how many it queued.
 func (refresher *Refresher) QueueFirstMatches(ctx context.Context) (int, error) {
 	queries := refresher.database.Read()
-	libraryIDs, err := queries.ListFetchedLibraryIDs(ctx)
+	libraryIDs, err := queries.ListProviderMatchedLibraryIDs(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("list the libraries matched at a provider: %w", err)
 	}

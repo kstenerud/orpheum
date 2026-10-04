@@ -64,7 +64,7 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodeproto.Command, <-chan struct{}) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	node := service.connectedNodes[nodeID]
+	node := service.nodesHeardSinceStart[nodeID]
 	kept := node.commands[:0]
 	for _, command := range node.commands {
 		if command.CommandSeq > ackedSeq {
@@ -79,7 +79,7 @@ func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodep
 // holds, so thousands fit.
 const maxStatusBytes = 4 << 20
 
-// takeStatus takes a known node's status, at most maxStatusBytes of JSON: what it holds is squared
+// takeStatus takes a known node's status, at most maxStatusBytes of JSON: what it holds is reconciled
 // with what it was given (D234 §6), and the last is kept, in memory and in persistent.db, for the
 // System page and the doctor.
 func (service *Service) takeStatus(writer http.ResponseWriter, request *http.Request) {

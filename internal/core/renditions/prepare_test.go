@@ -68,7 +68,7 @@ type fakeNodes struct {
 
 func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
-func (node fakeNodes) Ready(context.Context, int64) error { return node.notReady }
+func (node fakeNodes) ParkUnlessConnected(context.Context, int64) error { return node.notReady }
 
 func (fakeNodes) Withdraw(int64, string) bool { return false }
 

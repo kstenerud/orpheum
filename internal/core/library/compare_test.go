@@ -14,13 +14,13 @@ import (
 // listedFile and listedDirectory are a listing's entries, relative to the root.
 func listedFile(path string, sizeBytes, modifiedAt int64) nodeproto.ScanRecord {
 	return nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
-		Path: nodeproto.Path{Text: path}, SizeBytes: sizeBytes, ModifiedAt: modifiedAt, Device: 7,
+		Path: nodeproto.Path{Text: path}, SizeBytes: sizeBytes, ModifiedAt: modifiedAt, FilesystemDevice: 7,
 	}}
 }
 
 func listedDirectory(path string) nodeproto.ScanRecord {
 	return nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
-		Path: nodeproto.Path{Text: path}, IsDirectory: true, Device: 7,
+		Path: nodeproto.Path{Text: path}, IsDirectory: true, FilesystemDevice: 7,
 	}}
 }
 

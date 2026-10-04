@@ -61,7 +61,7 @@ func (resolver *Resolver) Start(t *testing.T, handler jobs.Handler, job jobs.Job
 	go func() {
 		err := handler(t.Context(), job)
 		if jobqueue.IsAssigned(err) {
-			jobqueue.Hand(t.Context(), err) // as a runner does, once it recorded the job assigned
+			jobqueue.HandOver(t.Context(), err) // as a runner does, once it recorded the job assigned
 			return
 		}
 		resolver.mutex.Lock()
