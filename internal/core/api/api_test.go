@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -183,7 +184,7 @@ func newHarness(t *testing.T) testHarness {
 			tmdb.APIService(queue, now, seeded), tmdb.ImagesService(queue, now, seeded),
 			opensubtitles.Service(queue, now, seeded),
 		},
-		NodeReports: nodes, NodeWork: exchanges,
+		NodeReports: nodes, NodeWork: exchanges, Clock: now,
 		System: System{
 			Build: harnessServerBuild, StartedAt: now.Now(),
 			PersistentDirectory: directories.PersistentDirectory(), CacheDirectory: directories.CacheDirectory(),
@@ -242,6 +243,14 @@ type response struct {
 
 func (harness testHarness) do(t *testing.T, method, path, token string, body any) response {
 	t.Helper()
+	return harness.doWithHeader(t, method, path, token, nil, body)
+}
+
+// doWithHeader is do, with header's fields set on the request too.
+func (harness testHarness) doWithHeader(
+	t *testing.T, method, path, token string, header http.Header, body any,
+) response {
+	t.Helper()
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)
@@ -260,6 +269,7 @@ func (harness testHarness) do(t *testing.T, method, path, token string, body any
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
+	maps.Copy(request.Header, header)
 	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
 		t.Fatal(err)
