@@ -13407,7 +13407,8 @@ Individual fixes are what manual fields are for.
 - **An ambiguous match** (identification.md lists it as unspecified) now has an obvious
   landing place: it is filed on local data, marked, and fixed through this same screen.
 
-**Status:** Decided. Schema and queue due with `library-model.md` and `identification.md`; the
+**Status:** Decided. Built in M2: one source per title, fetched once, and a refetch only a
+person's act; the mechanism revised by D231 (work derived from state), the intent standing. The
 screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface. **Layered by [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question)**: user overrides over one source (an NFO *or* one provider) over local fallbacks. **External scores and the thin-metadata refresh answered by
 [D171](#d171--external-scores-are-a-ranked-list-the-first-source-with-a-score-is-the-one-shown-named-and-the-detail-screen-may-show-several)** (2026-09-23).
 
@@ -16323,7 +16324,9 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
     output; direct play is not, by design. Image subtitles (PGS, VobSub, DVB) are decided with
     M3's subtitle work: rendered by the node into our own bitmaps, or sent as found.
 
-**Status:** Decided; being built in M2.
+**Status:** Decided; built in M2 (2026-09-25 to 2026-09-27), the node re-encoding every image
+and the core keeping its WebP base and cutting JPEG; the artwork service the one writer of
+`artwork` since 2026-09-30 (architecture map F5).
 
 ## D213 — A good netizen: a dead image is checked once more, refresh rolls per provider, and nothing is deleted because a provider dropped it
 
@@ -16377,7 +16380,9 @@ now refreshed on a schedule, and a dead image is looked into once.
    SQLite, Go and the web client's frameworks among them — whether or not their licences ask
    for it, and is where the licence notices that ship with a binary are shown.
 
-**Status:** Decided; being built in M2.
+**Status:** Decided; built in M2. §5's retry and breaker were replaced by D231's parking (a host
+that is down parks its destination), and §1's recheck is derived from the refused image since
+2026-09-30 (G14).
 
 ## D214 — A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 
@@ -16472,7 +16477,8 @@ artwork turned to the images people keep beside their media.
    A: image files beside the media are far more common, and embedded art needs its own
    extraction in the node.
 
-**Status:** Decided; being built in M2.
+**Status:** Decided; built in M2: images beside the media taken in every library, the shown one
+following the library's metadata source. Embedded art still waits, as §4 says.
 
 ## D216 — Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
 
@@ -17238,7 +17244,8 @@ tombstoned files, is `tombstonedFileCount`.
 
 **Status:** Decided 2026-09-30. Built by the jobs rebuild's Phases 1–3, and §12 by Phase 6
 (2026-10-03), as D241 revised it for a play of what cannot be read
-([jobs-rebuild.md](../design/plans/jobs-rebuild.md)).
+([jobs-rebuild.md](../design/plans/jobs-rebuild.md)). Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): built; §5's "changed since the
+scan" is built otherwise, a refused file retried with no rescan, which the owner accepted in 4b.
 
 ## D232 — What makes two names the same work is one identity fold, derived from the search fold
 
@@ -17271,7 +17278,8 @@ rule that identity uses one normalised form.
 4. **Nothing is stored.** The fold keys only what a pass holds in memory, so a change to it
    takes effect at the next pass, and no stored key goes stale.
 
-**Status:** Decided 2026-09-30.
+**Status:** Decided 2026-09-30; built the same day (`textindex.SameWork`, which identify's
+matching uses).
 
 ## D233 — Work handed to a node survives restarts and lost messages: an outbox, reconciliation at hello, results known by what they are, and a watchdog on both sides
 
@@ -17336,7 +17344,9 @@ pass missed it.
 
 **Status:** Decided 2026-09-30. Since 2026-09-30, §3, §5 and §7 are revised by D234. Built by the
 jobs rebuild's Phases 4 and 5 (2026-10-03): §5's second stage and §10 by Phase 5; §8's System page
-and pruning by Phase 6 ([jobs-rebuild.md](../design/plans/jobs-rebuild.md)).
+and pruning by Phase 6 ([jobs-rebuild.md](../design/plans/jobs-rebuild.md)). Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): §8's queue
+health was not on the System page, though this line said so; built 2026-10-04 by D244 §2: each
+kind's queued count, its oldest and the day's failures, and each node's work.
 
 ## D234 — The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 
@@ -17394,8 +17404,10 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
     core lease becomes the expectation of updates; D233 §7's claiming by slots becomes the node's
     own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
 
-**Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4. Since 2026-10-02, §3, §4 and §5
-are revised by D238: the node keeps no database; and §3's window by D240: the core schedules.
+**Status:** Decided 2026-09-30; built as the jobs rebuild's Phase 4 (2026-10-01 to 2026-10-03).
+Since 2026-10-02, §3, §4 and §5 are revised by D238: the node keeps no database; and §3's window
+by D240: the core schedules. Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): built; §4's broken invariants, counted but not shown, are on
+the System page since 2026-10-04 (D244 §2).
 
 ## D235 — Development and deployment run in containers: one image family, one command each, built by GoReleaser
 
@@ -17464,7 +17476,7 @@ start playing the already scanned movies while it's still scanning."*
    one ends"*, and any number of presses during a scan schedule one rescan after it. In Phase 4,
    with §2.
 
-**Status:** Decided 2026-10-01. §1 is for now; §2 and §3 built 2026-10-03 with the jobs rebuild's
+**Status:** Decided 2026-10-01. §1 built 2026-10-01, ahead of Phase 4; §2 and §3 built 2026-10-03 with the jobs rebuild's
 4e: a scan's listing comes whole (D240 §8), so the root shows *"Scanning… listing the folders"* until
 it is in, then *"Scanning… 312 files found, 12 of 40 new or changed read"*.
 
@@ -17491,7 +17503,9 @@ benefit from updated info."*
    `screen_refresh_first_wait_seconds` (2) and `screen_refresh_longest_wait_seconds` (30), read by
    every signed-in client from `GET /client-settings`; D237's waits until they are read.
 
-**Status:** Decided 2026-10-02.
+**Status:** Decided 2026-10-02; built the same day. Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): §1's poller is tested
+(polling.test.ts); §2's "each screen that shows background changes asks again" has no test that
+each such screen does.
 
 ## D238 — Each fact has one owner; the node keeps no database, holding its work in memory and its renditions' facts beside them
 
@@ -17530,7 +17544,8 @@ storage?"*, and *"Agreed"*. It revises D234 §3, §4 and §5.
    "run again or reported interrupted" is the core's, at reconciliation; D234 §5's retention keeps
    identities, not outcomes. The rule that the node never touches a database (D31, D42) stands.
 
-**Status:** Decided 2026-10-02.
+**Status:** Decided 2026-10-02; built with the jobs rebuild's 4.x (2026-10-02 to 2026-10-03):
+the node keeps no database, its work in memory and its renditions' manifests beside them.
 
 ## D239 — `library.db` is `persistent.db`, named for how it is kept beside `cache.db`
 
@@ -17546,7 +17561,7 @@ alone."*
 3. Decisions before this one, and research, keep `library.db` as written: history, not
    specification.
 
-**Status:** Decided 2026-10-02.
+**Status:** Decided 2026-10-02; built the same day.
 
 ## D240 — The core keeps the smarts: a scan is a listing the core compares, the work it implies is the core's to schedule, and the node enforces its devices' limits and pauses background work for play
 
@@ -17619,7 +17634,9 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    - **The listing comes whole.** It is fetched from the node's byte socket as large results are, not
      in pages; paging waits for a library large enough to need it.
 
-**Status:** Decided 2026-10-02; to be built as the jobs rebuild's re-cut 4d and 4e. Until it is
+**Status:** Decided 2026-10-02; built as the jobs rebuild's re-cut 4d and 4e (2026-10-03),
+except what §8 defers and §6's pause, which pauses between files rather than within one; §5's
+System-page control of a device's reader limit was built 2026-10-04 (D244 §2). Until it is
 in use the protocol and both databases change freely: their one user is the owner, testing (the
 owner, 2026-10-02: *"I don't care about protocol changes or format changes or anything that causes
 incompatibilities or requires migrations at this point"*).
@@ -17678,8 +17695,9 @@ the things you filled in"*): a node that is not connected counts as known unavai
 play-driven job is cancelled when its source goes missing (§4); background work parks (§4); a root
 can be repointed to another node (§6).
 
-**Status:** Decided 2026-10-03; to be built in the jobs rebuild's Phase 6, beside D231 §12's other
-answers to a person.
+**Status:** Decided 2026-10-03; built in the jobs rebuild's Phase 6 (2026-10-03), beside D231 §12's
+other answers to a person. Read back at the pre-M4 audit (2026-10-04, [audit-2026-10-03](../design/research/audit-2026-10-03.md) §3): built; §6's repoint to another node, and the scan that
+confirms each file after a repoint, have no test.
 
 ## D242 — An Orpheum instance is one directory: a small top-level config pointing at persistent, cache, backups and run, and a backup is a tarball of persistent
 
