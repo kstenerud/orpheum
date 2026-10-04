@@ -97,7 +97,7 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 
 // windowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
 // work's slot as the node runs at once, and as many reading its device as may read it, each with
-// node_work_window_extra more, so the next starts without waiting for the core. Play-driven work is
+// node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Play-driven work is
 // never held back for its device's readers: the node pauses the background work reading it (D240
 // §6). It is nil while there is room, and for a node whose resources are not known.
 func (all *Exchanges) windowFull(ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool) error {
@@ -105,9 +105,9 @@ func (all *Exchanges) windowFull(ctx context.Context, nodeID int64, work nodepro
 	if err != nil || !isConnected {
 		return err
 	}
-	extra, err := all.settings.Int(ctx, settings.NodeWorkWindowExtra)
+	extra, err := all.settings.Int(ctx, settings.NodeJobsBeyondFreeSlots)
 	if err != nil {
-		return fmt.Errorf("read node_work_window_extra: %w", err)
+		return fmt.Errorf("read node_jobs_beyond_free_slots: %w", err)
 	}
 	slot, device := work.Slot(), resources.deviceOf(work)
 	var inSlot, onDevice int

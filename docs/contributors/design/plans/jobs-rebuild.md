@@ -554,7 +554,7 @@ What the earlier 4d and 4e found still holds:
   hello's reply and again when one changes.
   *4d.1 built 2026-10-02:* the node finds the devices of its roots and prepared directory at each
   hello (`hardware.Devices`) and lists them; the core's reply gives each the reader limit of its
-  kind's setting (`device_readers_spinning` 1, `_ssd` 4, `_network` 2, `_unknown` 1) and logs
+  kind's setting (`spinning_disk_reader_limit` 1, `_ssd` 4, `_network` 2, `_unknown` 1) and logs
   them; `./dev` mounts the host's `/run/udev` read-only. Sending them again when a setting changes comes
   with 4d.2, where the node first uses them. *Since 2026-10-03:* an admin sets a device's limit
   over its kind's (`device_reader_limit`, migration 0030; `PUT /nodes/device-reader-limit`), and
@@ -575,11 +575,11 @@ What the earlier 4d and 4e found still holds:
   since 4c.1. Each poll's answer carries the reader limits as the settings say then. Slots are not
   taken from a running job: only readers. Node protocol 12.
 - **4d.3 The core schedules.** The core hands a node only what its limits can start now, plus one
-  more of each (`node_work_window_extra`, 1), by global priority; a job beyond it waits, parked:
+  more of each (`node_jobs_beyond_free_slots`, 1), by global priority; a job beyond it waits, parked:
   *"Waiting for a free slot on <node>"*, back when one of that node's attempts of its device or
   slot ends. One runner per kind; `runnerPool` and the hello's prepare slots go.
   *4d.3 built 2026-10-02:* `Exchanges.Assign` gives a node only as many jobs of a slot as it runs,
-  and as many reading a device as may read it, each with `node_work_window_extra` (1) more; work
+  and as many reading a device as may read it, each with `node_jobs_beyond_free_slots` (1) more; work
   beyond parks at no cost on the slot or device that is full (`SlotDestination`,
   `ReaderDestination`, *"Waiting for a free slot on node …"*), back when one of the node's jobs
   there ends or it says hello. The slots are `nodeproto.Slot`, the node's and the core's one list.
@@ -592,7 +592,7 @@ What the earlier 4d and 4e found still holds:
   background priority, in the core's queue and on the node, where it pauses nothing.
 - Closes S87, S88.
 
-*4d.4 built 2026-10-02:* a job a person asks for to play is wanted for `play_wanted_seconds` (600)
+*4d.4 built 2026-10-02:* a job a person asks for to play is wanted for `play_priority_kept_seconds` (600)
 from the last ask: a play's request, and each request a player makes for a rendition still being
 prepared (`KeepWanted`, `cache.db`'s `wanted_until`, version 25). Every 30 seconds the jobs past it
 fall to background priority (`DemoteUnwanted`), and the node holding one is told
@@ -622,7 +622,7 @@ built.*
 waiting between files while it is paused for play (node protocol 14, then 15 without the scan
 command, the scan's records on the report, or the status's activity). A scan is a `scan` job, which
 lists the root, compares the listing by the library's rules (`scan_video_extensions`,
-`scan_subtitle_extensions`) and queues `examine` jobs of `scan_examine_batch_videos` videos of one
+`scan_subtitle_extensions`) and queues `examine` jobs of `scan_videos_per_examine_batch` videos of one
 folder each; it completes, applying its removals, after the last, and one asked for meanwhile runs
 once more after it (D236 §3). `cache.db`'s `scan` and `scan_batch` hold a scan in progress (version
 26); a scan whose listing the core had taken when it stopped starts again. The node's

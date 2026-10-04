@@ -19,14 +19,14 @@ import (
 func readerSetting(kind nodeproto.DeviceKind) settings.Key {
 	switch kind {
 	case nodeproto.DeviceSpinning:
-		return settings.DeviceReadersSpinning
+		return settings.SpinningDiskReaderLimit
 	case nodeproto.DeviceSSD:
-		return settings.DeviceReadersSSD
+		return settings.SSDReaderLimit
 	case nodeproto.DeviceNetwork:
-		return settings.DeviceReadersNetwork
+		return settings.NetworkShareReaderLimit
 	case nodeproto.DeviceUnknown:
 	}
-	return settings.DeviceReadersUnknown
+	return settings.UnknownDiskReaderLimit
 }
 
 // Unpark brings back the work parked on a destination (Sender).

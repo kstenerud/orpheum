@@ -194,9 +194,9 @@ describe("libraries", () => {
     expect(withRootChosen(["/a", "/b"], "/a", false)).toEqual(["/b"]);
   });
 
-  it("starts an interval at the server's new_library_scan_every_hours and sends hours only with one", () => {
+  it("starts an interval at the server's new_library_default_scan_every_hours and sends hours only with one", () => {
     const setting = {
-      key: "new_library_scan_every_hours",
+      key: "new_library_default_scan_every_hours",
       kind: "integer" as const,
       value: 6,
       startingValue: 24,
@@ -206,7 +206,7 @@ describe("libraries", () => {
       setAt: 1,
     };
     expect(checkEveryHoursToStart([setting])).toBe(6);
-    expect(() => checkEveryHoursToStart([])).toThrow("new_library_scan_every_hours");
+    expect(() => checkEveryHoursToStart([])).toThrow("new_library_default_scan_every_hours");
     const interval = withChangeDetection(blankLibrary(), "interval", 6);
     expect(interval.checkEveryHours).toBe(6);
     expect(

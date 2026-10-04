@@ -572,9 +572,9 @@ func (scans *Scans) readRules(ctx context.Context) (ScanRules, int, error) {
 	if err != nil {
 		return ScanRules{}, 0, fmt.Errorf("read scan_subtitle_extensions: %w", err)
 	}
-	perBatch, err := scans.settings.Int(ctx, settings.ScanExamineBatchVideos)
+	perBatch, err := scans.settings.Int(ctx, settings.ScanVideosPerExamineBatch)
 	if err != nil {
-		return ScanRules{}, 0, fmt.Errorf("read scan_examine_batch_videos: %w", err)
+		return ScanRules{}, 0, fmt.Errorf("read scan_videos_per_examine_batch: %w", err)
 	}
 	rules := ScanRules{VideoExtensions: extensionSet(videos), SubtitleExtensions: extensionSet(subtitles)}
 	return rules, int(perBatch), nil

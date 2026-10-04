@@ -197,11 +197,11 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 }
 
 // KeepWanted says a person still waits for kind's open job on target: it keeps its play priority
-// for play_wanted_seconds more (D234 §3). A play asks again each time it looks for the work.
+// for play_priority_kept_seconds more (D234 §3). A play asks again each time it looks for the work.
 func (queue *Queue) KeepWanted(ctx context.Context, kind Kind, target Target) error {
-	wanted, err := queue.settings.Duration(ctx, settings.PlayWantedSeconds)
+	wanted, err := queue.settings.Duration(ctx, settings.PlayPriorityKeptSeconds)
 	if err != nil {
-		return fmt.Errorf("read play_wanted_seconds: %w", err)
+		return fmt.Errorf("read play_priority_kept_seconds: %w", err)
 	}
 	return queue.queue.KeepWanted(ctx, kind, target, queue.clock.Now().Add(wanted))
 }

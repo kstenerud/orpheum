@@ -39,7 +39,7 @@ func (bench exchangeBench) assignAt(
 }
 
 // The core gives a node only as many jobs of a slot as it runs at once, one more for the next
-// (node_work_window_extra), and as many reading a device as may read it, one more: work beyond waits
+// (node_jobs_beyond_free_slots), and as many reading a device as may read it, one more: work beyond waits
 // on the slot or device that is full, at no cost, and comes back when one of the node's jobs there
 // ends (D240 §5).
 func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testing.T) {

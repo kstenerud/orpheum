@@ -35,17 +35,17 @@ const (
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
-	DeviceReadersSpinning                          Key = "device_readers_spinning"
-	DeviceReadersSSD                               Key = "device_readers_ssd"
-	DeviceReadersNetwork                           Key = "device_readers_network"
-	DeviceReadersUnknown                           Key = "device_readers_unknown"
-	NodeWorkWindowExtra                            Key = "node_work_window_extra"
-	PlayWantedSeconds                              Key = "play_wanted_seconds"
+	SpinningDiskReaderLimit                        Key = "spinning_disk_reader_limit"
+	SSDReaderLimit                                 Key = "ssd_reader_limit"
+	NetworkShareReaderLimit                        Key = "network_share_reader_limit"
+	UnknownDiskReaderLimit                         Key = "unknown_disk_reader_limit"
+	NodeJobsBeyondFreeSlots                        Key = "node_jobs_beyond_free_slots"
+	PlayPriorityKeptSeconds                        Key = "play_priority_kept_seconds"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles                  Key = "scan_withhold_removals_over_files"
 	ScanVideoExtensions                            Key = "scan_video_extensions"
 	ScanSubtitleExtensions                         Key = "scan_subtitle_extensions"
-	ScanExamineBatchVideos                         Key = "scan_examine_batch_videos"
+	ScanVideosPerExamineBatch                      Key = "scan_videos_per_examine_batch"
 	JobAttemptLimit                                Key = "job_attempt_limit"
 	FinishedJobsKeptDays                           Key = "finished_jobs_kept_days"
 	JobFirstRetryDelaySeconds                      Key = "job_first_retry_delay_seconds"
@@ -69,7 +69,7 @@ const (
 	ResumeMinPercent                               Key = "resume_min_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
-	NewLibraryScanEveryHours                       Key = "new_library_scan_every_hours"
+	NewLibraryDefaultScanEveryHours                Key = "new_library_default_scan_every_hours"
 	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
@@ -212,7 +212,7 @@ func scanDefinitions() []Definition {
 			Description: "the extensions, lower case and comma-separated, of the text subtitle files a scan " +
 				"reads beside their videos (D240 §8)",
 		}, "the node's subtitle_extensions as the development config had them, which this setting replaced"),
-		sourced(integerSetting(ScanExamineBatchVideos, "10", 1, 1000,
+		sourced(integerSetting(ScanVideosPerExamineBatch, "10", 1, 1000,
 			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
 				"is read again (D240 §8)"),
 			"the owner's choice, 2026-10-03: a folder of a few dozen loose films is a few of them"),
@@ -223,24 +223,24 @@ func scanDefinitions() []Definition {
 // than it can start the core gives a node (D240 §5).
 func deviceDefinitions() []Definition {
 	return []Definition{
-		sourced(durationSetting(PlayWantedSeconds, time.Second, "600", 10, 24*3600,
+		sourced(durationSetting(PlayPriorityKeptSeconds, time.Second, "600", 10, 24*3600,
 			"seconds after a play last asked for its work that it keeps play priority; past them, it is "+
 				"background work and pauses nothing (D234 §3)"),
 			"the owner, 2026-10-01: question C, ten minutes"),
-		sourced(integerSetting(NodeWorkWindowExtra, "1", 0, 64,
+		sourced(integerSetting(NodeJobsBeyondFreeSlots, "1", 0, 64,
 			"how many more jobs than its free slots and readers allow the core gives a node of each kind, "+
 				"so the next starts without waiting for the core (D240 §5)"),
 			"D234 §3: a window a little beyond its free slots"),
-		sourced(integerSetting(DeviceReadersSpinning, "1", 1, 64,
+		sourced(integerSetting(SpinningDiskReaderLimit, "1", 1, 64,
 			"how many may read a spinning disk at once, or a pool or array with one among its disks (D240 §5)"),
 			"D240 §5: a second reader makes a spinning disk seek between them"),
-		sourced(integerSetting(DeviceReadersSSD, "4", 1, 64,
+		sourced(integerSetting(SSDReaderLimit, "4", 1, 64,
 			"how many may read a solid-state disk at once, or a pool or array of them only (D240 §5)"),
 			"best guess (D240 §5): an SSD serves several readers without seeking"),
-		sourced(integerSetting(DeviceReadersNetwork, "2", 1, 64,
+		sourced(integerSetting(NetworkShareReaderLimit, "2", 1, 64,
 			"how many may read a filesystem mounted over the network at once (D240 §5)"),
 			"best guess (D240 §5): one reading while another waits on the network"),
-		sourced(integerSetting(DeviceReadersUnknown, "1", 1, 64,
+		sourced(integerSetting(UnknownDiskReaderLimit, "1", 1, 64,
 			"how many may read a device whose disks the node cannot see at once (D240 §5)"),
 			"D240 §5: as for a spinning disk, which it may be"),
 	}
@@ -364,7 +364,7 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
 				"after them while any is still offline (D231 §7)"),
 			"best guess: a weekly reminder, the owner 2026-09-30"),
-		sourced(durationSetting(NewLibraryScanEveryHours, time.Hour, "24", 1, 8760,
+		sourced(durationSetting(NewLibraryDefaultScanEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for changes that a new library checked on an interval starts with; each "+
 				"library keeps its own once made"),
 			"best guess: daily, as metadata_refresh_check_every_hours; the web form had it as its own default"),
