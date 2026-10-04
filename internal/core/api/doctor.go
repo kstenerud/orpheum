@@ -14,18 +14,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
+// Verdict is a doctor finding's weight, the one vocabulary of the running server's doctor and the
+// command's (architecture map F7).
+type Verdict string
+
 // The verdicts a finding gives.
 const (
-	verdictOK   = "ok"
-	verdictWarn = "warn"
+	VerdictOK      Verdict = "ok"
+	VerdictWarning Verdict = "warn"
+	VerdictFailure Verdict = "fail"
 )
 
 // FindingBody is one thing the running server checked, and for anything wrong, what to do.
 type FindingBody struct {
-	Check   string `json:"check"`
-	Verdict string `enum:"ok,warn,fail" json:"verdict"`
-	Detail  string `json:"detail"`
-	Action  string `json:"action,omitempty"`
+	Check   string  `json:"check"`
+	Verdict Verdict `enum:"ok,warn,fail" json:"verdict"`
+	Detail  string  `json:"detail"`
+	Action  string  `json:"action,omitempty"`
 }
 
 // DoctorOutput is what the running server finds wrong with itself (cut-a §5, Running it). The
@@ -83,7 +88,7 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 // limit (D217 §5): a warning when either is past, which eviction could not bring back.
 func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody {
 	finding := FindingBody{
-		Check: "prepared copies on node " + nodeName, Verdict: verdictOK,
+		Check: "prepared copies on node " + nodeName, Verdict: VerdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%, with %d MiB "+
 			"free, its floor %d MiB",
 			float64(usage.UsedBytes)/diskspace.BytesPerGiB, usage.BudgetBytes/diskspace.BytesPerGiB,
@@ -92,7 +97,7 @@ func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody
 	}
 	if usage.DiskUsedPercent > usage.DiskUsedLimitPercent || usage.UsedBytes > usage.BudgetBytes ||
 		usage.DiskAvailableBytes < usage.DiskMinFreeBytes {
-		finding.Verdict = verdictWarn
+		finding.Verdict = VerdictWarning
 		finding.Action = "free space on the disk that holds the prepared directory, or raise " +
 			"node.prepared_budget_gib; new copies are refused while nothing can be evicted"
 	}
@@ -107,7 +112,7 @@ func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody
 // where, reads "node devnas" or "this machine".
 func ConfinementFinding(where string, confinement []nodeproto.Confinement) FindingBody {
 	finding := FindingBody{
-		Check: "FFmpeg confinement on " + where, Verdict: verdictOK,
+		Check: "FFmpeg confinement on " + where, Verdict: VerdictOK,
 		Detail: "every FFmpeg run is confined by Landlock and seccomp",
 	}
 	var missing, remedies []string
@@ -121,7 +126,7 @@ func ConfinementFinding(where string, confinement []nodeproto.Confinement) Findi
 		missing = []string{"no confinement was reported"}
 	}
 	if len(missing) > 0 {
-		finding.Verdict = verdictWarn
+		finding.Verdict = VerdictWarning
 		finding.Detail = "FFmpeg runs without all its confinement: " + strings.Join(missing, "; ")
 		finding.Action = strings.Join(remedies, "; ")
 	}
@@ -133,12 +138,12 @@ func ConfinementFinding(where string, confinement []nodeproto.Confinement) Findi
 func artworkFinding(dependencies *Dependencies) FindingBody {
 	pressure := dependencies.Artwork.Pressure()
 	finding := FindingBody{
-		Check: "artwork cache", Verdict: verdictOK,
+		Check: "artwork cache", Verdict: VerdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB ceiling",
 			float64(pressure.TotalBytes)/diskspace.BytesPerGiB, pressure.CeilingBytes/diskspace.BytesPerGiB),
 	}
 	if pressure.IsHighWater {
-		finding.Verdict = verdictWarn
+		finding.Verdict = VerdictWarning
 		finding.Detail = fmt.Sprintf("the libraries need %.1f GiB of artwork to be shown at once, more than the "+
 			"%d GiB ceiling; artwork beyond it is fetched again when it is opened, which is slower",
 			float64(pressure.RequiredBytes)/diskspace.BytesPerGiB, pressure.CeilingBytes/diskspace.BytesPerGiB)

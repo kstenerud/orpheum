@@ -584,11 +584,11 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 // build of other changes, may not speak the same protocol or behave the same (D225).
 func nodeBuildFinding(nodeName string, nodeBuild, serverBuild build.Provenance) FindingBody {
 	finding := FindingBody{
-		Check: "build on node " + nodeName, Verdict: verdictOK,
+		Check: "build on node " + nodeName, Verdict: VerdictOK,
 		Detail: "the server's own build, " + serverBuild.String(),
 	}
 	if !nodeBuild.IsSame(serverBuild) {
-		finding.Verdict = verdictWarn
+		finding.Verdict = VerdictWarning
 		finding.Detail = fmt.Sprintf("the node runs %s, the server %s", nodeBuild.String(), serverBuild.String())
 		finding.Action = "install the server's build on the node, or the node's on the server, and restart both"
 		if nodeBuild.Commit != "" && nodeBuild.Commit == serverBuild.Commit {
@@ -601,14 +601,14 @@ func nodeBuildFinding(nodeName string, nodeBuild, serverBuild build.Provenance) 
 // hardwareFinding is whether a node's encodes use its GPU: a warning when it has one and no
 // hardware encoder works, with what to do about it (D225 §3).
 func hardwareFinding(nodeName string, hardware nodeproto.Hardware) FindingBody {
-	finding := FindingBody{Check: "hardware encoding on node " + nodeName, Verdict: verdictOK}
+	finding := FindingBody{Check: "hardware encoding on node " + nodeName, Verdict: VerdictOK}
 	switch {
 	case hardware.ChosenEncoder != "" && hardware.ChosenEncoder != "x264":
 		finding.Detail = "encodes use " + hardware.ChosenEncoder
 	case len(hardware.GPUs) == 0:
 		finding.Detail = "no GPU found; encodes use x264, on the processor"
 	default:
-		finding.Verdict = verdictWarn
+		finding.Verdict = VerdictWarning
 		var why []string
 		for _, trial := range hardware.Trials {
 			why = append(why, trial.Encoder+": "+trial.Failure)
