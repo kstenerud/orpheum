@@ -408,7 +408,8 @@ func TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing(t *testing.T) {
 }
 
 // Work a person waits for, to play, is sent play-driven, and pauses the background work on its
-// device; background work is not (D240 §6).
+// device; background work is not (D240 §6). Each command carries its job's priority, by which the
+// node orders what waits (D234 §3).
 func TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
@@ -419,6 +420,9 @@ func TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot(t *test
 	} {
 		jobqueue.Hand(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, prepareCommand))
 		sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+		if sent.Priority != job.Priority {
+			t.Errorf("job %d at priority %d was sent at priority %d", job.ID, job.Priority, sent.Priority)
+		}
 		if wantPlayDriven := job.Priority >= jobs.PriorityPlayNow; sent.IsPlayDriven != wantPlayDriven {
 			t.Errorf("job %d at priority %d was sent play-driven %v, want %v", job.ID, job.Priority,
 				sent.IsPlayDriven, wantPlayDriven)
