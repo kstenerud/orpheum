@@ -27,3 +27,10 @@ WHERE s.id = sqlc.arg(id);
 -- A fetched subtitle its node could not convert, or did not in time while its person waited: only
 -- a subtitle its node converted is kept (D224 section 6). Nothing refers to it yet.
 DELETE FROM fetched_subtitle WHERE id = sqlc.arg(id);
+
+-- name: GetFetchedSubtitleOfProviderFile :one
+-- The subtitle already fetched for a video from a provider's file, which a second ask is given
+-- rather than spending another download (D244 section 4).
+SELECT id FROM fetched_subtitle
+WHERE video_file = sqlc.arg(video_file) AND provider = sqlc.arg(provider)
+  AND provider_file_id = sqlc.arg(provider_file_id);

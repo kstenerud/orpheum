@@ -176,7 +176,9 @@ type Fetched struct {
 // node that is away is found before a download is spent; a subtitle it cannot convert is
 // ErrUnreadable, and one it did not convert in time is nodes.ErrNodeSilent, each kept
 // nowhere. A download whose conversion never came back is not spent again by the next try while
-// its link works (opensubtitles.Client.Download).
+// its link works (opensubtitles.Client.Download). A subtitle already kept for the file is not
+// fetched again: the ask is given it, and a second ask while the first is underway waits for it
+// (D244 §4).
 func (service *Service) Fetch(
 	ctx context.Context, userID, fileID int64, request FetchRequest,
 ) (Fetched, error) {
@@ -186,6 +188,15 @@ func (service *Service) Fetch(
 	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return Fetched{}, err
+	}
+	providerFileID := strconv.FormatInt(request.ProviderFileID, 10)
+	end, err := service.fetchesUnderway.begin(ctx, fetchKey(fileID, providerFileID))
+	if err != nil {
+		return Fetched{}, err
+	}
+	defer end()
+	if kept, isKept, keptErr := service.alreadyFetched(ctx, fileID, providerFileID); keptErr != nil || isKept {
+		return kept, keptErr
 	}
 	if !service.nodes.IsConnected(ctx, file.NodeID) {
 		return Fetched{}, fmt.Errorf("convert a fetched subtitle on node %d: %w", file.NodeID, nodes.ErrNodeSilent)
@@ -203,7 +214,7 @@ func (service *Service) Fetch(
 		var insertErr error
 		id, insertErr = queries.InsertFetchedSubtitle(ctx, sqlcgen.InsertFetchedSubtitleParams{
 			VideoFile: fileID, Provider: providerOpenSubtitles,
-			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Language: langtag.BCP47(request.Language),
+			ProviderFileID: providerFileID, Language: langtag.BCP47(request.Language),
 			Format:   "srt",
 			BodyGzip: body, FetchedByUserID: userID, FetchedAt: service.clock.Now().UnixMilli(),
 			ReleaseName: &downloaded.FileName,
@@ -220,6 +231,31 @@ func (service *Service) Fetch(
 	return Fetched{
 		Track: track, RemainingDownloads: downloaded.RemainingDownloads, DownloadsResetAt: downloaded.DownloadsResetAt,
 	}, nil
+}
+
+// alreadyFetched is the subtitle kept from an earlier fetch of the provider's file for file
+// fileID, with what the account has left, which asking spends nothing; false when there is none
+// (D244 §4).
+func (service *Service) alreadyFetched(
+	ctx context.Context, fileID int64, providerFileID string,
+) (Fetched, bool, error) {
+	id, err := store.OrNotFound(service.database.Read().GetFetchedSubtitleOfProviderFile(ctx,
+		sqlcgen.GetFetchedSubtitleOfProviderFileParams{
+			VideoFile: fileID, Provider: providerOpenSubtitles, ProviderFileID: providerFileID,
+		}))
+	if errors.Is(err, store.ErrNotFound) {
+		return Fetched{}, false, nil
+	}
+	if err != nil {
+		return Fetched{}, false, fmt.Errorf("look for the subtitle already fetched: %w", err)
+	}
+	allowance, err := service.subtitler.Allowance(ctx)
+	if err != nil {
+		return Fetched{}, false, err
+	}
+	return Fetched{
+		Track: preferences.TrackRef{FetchedSubtitleID: id}, RemainingDownloads: allowance.RemainingDownloads,
+	}, true, nil
 }
 
 // convertWhileWaiting queues the job that converts fetched subtitle id at play priority and waits

@@ -287,11 +287,16 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   release_name TEXT                      -- migration 0017: the provider's name for it (D224)
 );
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);  -- migration 0018
+-- Migration 0032 (D244 section 4, S90): one per file and provider's file, since each cost a download.
+CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provider, provider_file_id);
 ```
 
 A fetched subtitle is **stored in the database, not the media tree**: it cost one of the server's
 OpenSubtitles account's daily downloads (20 on a free account, as OpenSubtitles counts them; D224 §4), the library may be read-only ([principles §2](../../principles/README.md)),
 and in the database the ordinary backup carries it with no second file class.
+A subtitle is **fetched for a file once**: a second ask for the same provider's file is given the
+one kept, and one made while the first is underway waits for it, so neither spends a download
+(D244 §4).
 
 **Each audio track's loudness** is measured once by the node (migration 0019,
 [D226](../../decisions/working-notes.md)): as it is when it has more than two channels, which a

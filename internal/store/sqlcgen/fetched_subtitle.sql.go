@@ -47,6 +47,27 @@ func (q *Queries) GetFetchedSubtitle(ctx context.Context, id int64) (GetFetchedS
 	return i, err
 }
 
+const getFetchedSubtitleOfProviderFile = `-- name: GetFetchedSubtitleOfProviderFile :one
+SELECT id FROM fetched_subtitle
+WHERE video_file = ?1 AND provider = ?2
+  AND provider_file_id = ?3
+`
+
+type GetFetchedSubtitleOfProviderFileParams struct {
+	VideoFile      int64
+	Provider       string
+	ProviderFileID string
+}
+
+// The subtitle already fetched for a video from a provider's file, which a second ask is given
+// rather than spending another download (D244 section 4).
+func (q *Queries) GetFetchedSubtitleOfProviderFile(ctx context.Context, arg GetFetchedSubtitleOfProviderFileParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFetchedSubtitleOfProviderFile, arg.VideoFile, arg.Provider, arg.ProviderFileID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertFetchedSubtitle = `-- name: InsertFetchedSubtitle :one
 
 INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, language, format, body_gzip, fetched_by_user_id, fetched_at,

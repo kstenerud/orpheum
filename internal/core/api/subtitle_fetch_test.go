@@ -38,6 +38,8 @@ type fakeSubtitler struct {
 	body string
 	// downloadCount counts the downloads asked for.
 	downloadCount int
+	// downloadHeld, when set, holds each download until it is closed.
+	downloadHeld chan struct{}
 }
 
 // fetchedText is the subtitle the fake gives.
@@ -63,7 +65,17 @@ func (fake *fakeSubtitler) Search(_ context.Context, query opensubtitles.Query) 
 	}, nil
 }
 
-func (fake *fakeSubtitler) Download(context.Context, int64) (opensubtitles.Downloaded, error) {
+func (fake *fakeSubtitler) Download(ctx context.Context, _ int64) (opensubtitles.Downloaded, error) {
+	fake.mutex.Lock()
+	held := fake.downloadHeld
+	fake.mutex.Unlock()
+	if held != nil {
+		select {
+		case <-held:
+		case <-ctx.Done():
+			return opensubtitles.Downloaded{}, fmt.Errorf("the download was held: %w", ctx.Err())
+		}
+	}
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.downloadCount++
@@ -307,6 +319,55 @@ func TestFetchSubtitle_KeepsItsLanguageAsBCP47(t *testing.T) {
 	kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2)
 	if err != nil || len(kept) != 1 || kept[0].ID != fetched.FetchedSubtitleID || kept[0].Language != "de" {
 		t.Errorf("the fetched subtitles are %+v, %v; want the one fetched, its language ger kept as de", kept, err)
+	}
+}
+
+// A subtitle is fetched for a file once, since each fetch spends a download: a second ask is given
+// the one kept, and one made while the first is underway waits for it (D244 §4, S90).
+func TestFetchSubtitle_TheSameSubtitleForAFileIsDownloadedOnce(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.identifyFilm(t)
+	held := make(chan struct{})
+	harness.subtitler.mutex.Lock()
+	harness.subtitler.downloadHeld = held
+	harness.subtitler.mutex.Unlock()
+	answers := make(chan response, 2)
+	for range 2 {
+		go func() {
+			answers <- harness.do(t, http.MethodPost, "/files/2/subtitles", user,
+				map[string]any{"providerFileId": 7, "language": "de"})
+		}()
+	}
+	close(held)
+	ids := map[string]bool{}
+	for range 2 {
+		answer := testutil.Receive(t, answers, "a fetch of the same subtitle")
+		var fetched struct {
+			FetchedSubtitleID int64 `json:"fetchedSubtitleId"`
+		}
+		if err := json.Unmarshal([]byte(answer.body), &fetched); err != nil || answer.status != http.StatusOK {
+			t.Fatalf("POST /files/2/subtitles = %d %s", answer.status, answer.body)
+		}
+		ids[fmt.Sprint(fetched.FetchedSubtitleID)] = true
+	}
+	again := harness.do(t, http.MethodPost, "/files/2/subtitles", user,
+		map[string]any{"providerFileId": 7, "language": "de"})
+	if !strings.Contains(again.body, `"remainingDownloads":20`) {
+		t.Errorf("a fetch of a subtitle already kept = %d %s; want what the account has left, unspent",
+			again.status, again.body)
+	}
+	harness.subtitler.mutex.Lock()
+	spent := harness.subtitler.downloadCount
+	harness.subtitler.mutex.Unlock()
+	kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2)
+	if spent != 1 || len(ids) != 1 || err != nil || len(kept) != 1 ||
+		!ids[fmt.Sprint(kept[0].ID)] ||
+		!strings.Contains(again.body, fmt.Sprintf(`"fetchedSubtitleId":%d`, kept[0].ID)) {
+		t.Errorf("three asks for one subtitle spent %d downloads, answered %v, %s and kept %+v, %v; want one "+
+			"download, one kept, and each ask given it", spent, ids, again.body, kept, err)
 	}
 }
 

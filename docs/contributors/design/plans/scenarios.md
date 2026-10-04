@@ -805,7 +805,9 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   node's work waits, "needs updating"; a command the node cannot read is refused by its job's id,
   which parks the job the same way.
 - **S90 — A double click on "download subtitle".** *Expected:* one quota spent, and the same
-  answer twice. *Today:* two downloads.
+  answer twice. *Closed by D244 §4 (2026-10-04):* each POST carries an Idempotency-Key, and a
+  subtitle is fetched for a file once, a unique index holding it: a second ask is given the one
+  kept and spends nothing (`TestFetchSubtitle_TheSameSubtitleForAFileIsDownloadedOnce`).
 - **S91 — The owner stops the core with a cancel pending for a running node job.** *Expected:* at
   hello, reconciliation tells the node to stop it. *Today:* the cancel is lost with memory (moot
   today only because the node dies too).
