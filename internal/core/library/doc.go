@@ -190,4 +190,7 @@
 //     filings, title kinds and image kinds identification shares; filing.go: FileAs and
 //     PutInVersion, through which identification records how a file is filed and which version
 //     holds it (this package writes the file table, schema.md).
+//   - art.go: the images an item shows; clean.go: cleaning a node's text where it enters (D211);
+//     readable.go: why a file cannot be read now (D241 §3); retire.go: retiring a node, a root
+//     or a file (D231 §7, D241 §5); move.go: a root that moved, repointed (D241 §6).
 package library

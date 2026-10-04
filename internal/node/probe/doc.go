@@ -29,5 +29,7 @@
 //
 // # Where to change
 //
-//   - The ffprobe arguments and the output parser.
+//   - The ffprobe arguments and the output parser: probe.go runs ffprobe, bounded in what it may
+//     say; parse.go reads its output into the record, refusing a file past the bounds on streams
+//     and chapters.
 package probe

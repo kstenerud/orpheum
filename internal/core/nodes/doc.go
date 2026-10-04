@@ -172,4 +172,6 @@
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the exchanges,
 //     and the results and progress nodes send; assign.go: a job given to a node, assigned, and
 //     resolved by its word; square.go: what a node was given squared with what it holds.
+//   - devices.go: how many may read each of a node's devices, by its kind's setting or an admin's
+//     limit (D240 §5); disk.go: work stalled on its disk, which parks its root (D233 §10).
 package nodes

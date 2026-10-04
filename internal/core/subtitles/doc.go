@@ -73,4 +73,5 @@
 //     textwait.go: a fetch waiting for its conversion's text to be kept. record.go: how a node's text
 //     is kept. fetch.go: subtitles fetched on request, and the job that converts one.
 //     service.go: what the service is built from.
+//   - fetchonce.go: one fetch of a subtitle for a file at a time (D244 §4).
 package subtitles

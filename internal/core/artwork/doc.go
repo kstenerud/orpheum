@@ -116,4 +116,6 @@
 //     retry.go: fetching and parking on the host, the retry schedule, a missing image and its
 //     due recheck;
 //     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.
+//   - handoff.go: the make_artwork_sizes job, fetching what each image needs and giving every one
+//     still wanted to a node in one command, answered once for all (Assignee).
 package artwork
