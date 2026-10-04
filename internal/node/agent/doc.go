@@ -146,4 +146,7 @@
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
 //     loudness.go: loudness measurement; working.go: the work held, its slots and priority order,
 //     and cancel.
+//   - held.go: results too large to post, held for the byte socket until acknowledged (D234 §5);
+//     movement.go: when held work last moved, for the watchdog; stall.go: what the core is told
+//     of a run stopped as stalled; stuck.go: a listing's or examining's own reading left stuck.
 package agent

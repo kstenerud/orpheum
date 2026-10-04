@@ -129,4 +129,8 @@
 //   - The error codes and hops live in errors.go, the one list of them. The OpenAPI document
 //     types code and failedHop as plain strings, so the SDK reads them as strings; it has no
 //     generated copy of the list.
+//   - idempotency.go: a POST carrying an Idempotency-Key, done once (D244 §4); backups.go:
+//     listing and making backups (D242 §5); client_settings.go: the settings every client reads
+//     (D237); destinations.go: a destination that is down, as what waits on it says (D231 §12);
+//     offline_reminder.go: the admin's offline banner (D231 §7, P39).
 package api

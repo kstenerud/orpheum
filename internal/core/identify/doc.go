@@ -170,4 +170,6 @@
 //   - identifytest/: the fake TMDB that this package's tests and the API's share. The tests that
 //     drive a library through it are package identify_test (identifytest imports identify);
 //     export_test.go names what they read of the package's own.
+//   - retire.go: hiding a deleted library's titles with their history (D231 §7);
+//     series_return.go: a series found again by a provider id its files give (D208 §2).
 package identify

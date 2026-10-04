@@ -112,4 +112,6 @@
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
 //   - migrate.go's requireSpaceToMigrate: the pre-migration free-space preflight, which measures
 //     through internal/platform/diskspace.
+//   - failure.go: IsStorageFailure, a database's disk failing rather than what was written, which
+//     parks the work that writes (D231 §5).
 package store
