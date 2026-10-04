@@ -13,7 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -88,7 +88,7 @@ func configFindings(report ConfigReport) []finding {
 // diagnose runs every check that needs only the instance's directories, and probes what this
 // machine can confine FFmpeg with.
 func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.Time) []finding {
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return []finding{{verdictFailure, "the instance's directories", err.Error()}}
 	}
@@ -113,7 +113,7 @@ func confinementOfThisMachine(states []confine.State) finding {
 	return checked
 }
 
-func checkWritable(directories *datadir.Directories, path string) finding {
+func checkWritable(directories *instancedir.Directories, path string) finding {
 	const probeFileName = "doctor-probe"
 	err := errors.Join(
 		directories.WritePersistentFile(probeFileName, []byte("probe")),
@@ -124,9 +124,9 @@ func checkWritable(directories *datadir.Directories, path string) finding {
 	return finding{verdictOK, "state directory " + path + " is writable", ""}
 }
 
-func checkSecretKey(directories *datadir.Directories) (*secrets.Key, finding) {
+func checkSecretKey(directories *instancedir.Directories) (*secrets.Key, finding) {
 	contents, err := directories.ReadPersistentFile(secrets.KeyFileName)
-	if errors.Is(err, datadir.ErrNotFound) {
+	if errors.Is(err, instancedir.ErrNotFound) {
 		return nil, finding{
 			verdictWarning, "secret.key is missing",
 			"the server writes a new one at start; secrets sealed under the old one will need re-entering",
@@ -145,7 +145,7 @@ func checkSecretKey(directories *datadir.Directories) (*secrets.Key, finding) {
 // checkDatabase checks persistent.db and returns, from its settings, the age at which a backup is
 // old; nil when the settings cannot be read.
 func checkDatabase(
-	ctx context.Context, directories *datadir.Directories, key *secrets.Key, options store.OpenOptions,
+	ctx context.Context, directories *instancedir.Directories, key *secrets.Key, options store.OpenOptions,
 	logger *slog.Logger,
 ) (
 	[]finding, *time.Duration,
@@ -243,7 +243,7 @@ func checkSecrets(
 	}
 }
 
-func checkBackups(directories *datadir.Directories, now time.Time, oldBackupAge *time.Duration) finding {
+func checkBackups(directories *instancedir.Directories, now time.Time, oldBackupAge *time.Duration) finding {
 	files, err := directories.ListBackups()
 	if err != nil {
 		return finding{verdictFailure, "the backup directory cannot be read", err.Error()}

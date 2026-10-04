@@ -14,7 +14,7 @@
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
-//   - Opens no file and walks no directory; files are internal/core/datadir's. Enforced by the
+//   - Opens no file and walks no directory; files are internal/core/instancedir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -48,18 +48,18 @@ type Written struct {
 // is left out unless includeKey asks for it, for moving to another machine: whoever holds a backup
 // with the key holds the secrets (D194 §4).
 func Write(
-	ctx context.Context, database *store.Database, directories *datadir.Directories, now time.Time, includeKey bool,
+	ctx context.Context, database *store.Database, directories *instancedir.Directories, now time.Time, includeKey bool,
 ) (Written, error) {
 	return write(ctx, database, directories, "backup-"+now.UTC().Format(timestampLayout), includeKey)
 }
 
 // write writes the backup stem.tar.gz, as Write says.
 func write(
-	ctx context.Context, database *store.Database, directories *datadir.Directories, stem string, includeKey bool,
+	ctx context.Context, database *store.Database, directories *instancedir.Directories, stem string, includeKey bool,
 ) (written Written, err error) {
 	leftOut := []string{secrets.KeyFileName}
 	if includeKey {
-		if _, err = directories.ReadPersistentFile(secrets.KeyFileName); errors.Is(err, datadir.ErrNotFound) {
+		if _, err = directories.ReadPersistentFile(secrets.KeyFileName); errors.Is(err, instancedir.ErrNotFound) {
 			return Written{}, ErrNoKeyToInclude
 		} else if err != nil {
 			return Written{}, err
@@ -129,7 +129,7 @@ func (plan Plan) Describe() string {
 // MakePlan checks a backup and says what restoring it would do, changing nothing the instance
 // keeps: it reads the backup's database from a copy in the run directory, and removes it.
 func MakePlan(
-	ctx context.Context, directories *datadir.Directories, sourcePath string, now time.Time,
+	ctx context.Context, directories *instancedir.Directories, sourcePath string, now time.Time,
 ) (Plan, error) {
 	source, err := inspectSource(ctx, directories, sourcePath)
 	if err != nil {
@@ -175,10 +175,10 @@ type inspectedSource struct {
 // migration runner keeps before it migrates (pre-migrate-vN.sqlite). A backup's database is read
 // from a copy in the run directory, removed after.
 func inspectSource(
-	ctx context.Context, directories *datadir.Directories, sourcePath string,
+	ctx context.Context, directories *instancedir.Directories, sourcePath string,
 ) (source inspectedSource, err error) {
-	names, archiveErr := datadir.ListBackupArchive(sourcePath)
-	if errors.Is(archiveErr, datadir.ErrNotABackupArchive) {
+	names, archiveErr := instancedir.ListBackupArchive(sourcePath)
+	if errors.Is(archiveErr, instancedir.ErrNotABackupArchive) {
 		inspected, inspectErr := store.InspectBackup(ctx, sourcePath)
 		if inspectErr != nil {
 			return source, fmt.Errorf("%s is neither a backup nor a database snapshot: %w",
@@ -210,7 +210,7 @@ func preRestoreStem(now time.Time) string {
 // directory. An older backup is migrated by the ordinary runner on the next start; one below the
 // baseline, which the runner cannot migrate, MakePlan has already refused (D228).
 func Restore(
-	ctx context.Context, directories *datadir.Directories, plan Plan, now time.Time, options store.OpenOptions,
+	ctx context.Context, directories *instancedir.Directories, plan Plan, now time.Time, options store.OpenOptions,
 ) (err error) {
 	lock, err := directories.LockInstance()
 	if err != nil {
@@ -230,7 +230,7 @@ func Restore(
 
 // restoreDatabaseOnly replaces the database with a snapshot of one; the config and the key stay as
 // they are.
-func restoreDatabaseOnly(ctx context.Context, directories *datadir.Directories, snapshotPath string) error {
+func restoreDatabaseOnly(ctx context.Context, directories *instancedir.Directories, snapshotPath string) error {
 	if err := directories.RemovePersistentFile(restoringName); err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func restoreDatabaseOnly(ctx context.Context, directories *datadir.Directories, 
 
 // keepWhatIsReplaced backs the persistent directory up, key and all, before a restore replaces it.
 func keepWhatIsReplaced(
-	ctx context.Context, directories *datadir.Directories, now time.Time, options store.OpenOptions,
+	ctx context.Context, directories *instancedir.Directories, now time.Time, options store.OpenOptions,
 ) (err error) {
 	database, err := store.Open(ctx, directories.PersistentDatabasePath(), options)
 	if err != nil {
@@ -256,7 +256,7 @@ func keepWhatIsReplaced(
 	// The key goes in too, when there is one: a backup that holds a key replaces it, and the copy
 	// kept is this machine's own.
 	_, keyErr := directories.ReadPersistentFile(secrets.KeyFileName)
-	if keyErr != nil && !errors.Is(keyErr, datadir.ErrNotFound) {
+	if keyErr != nil && !errors.Is(keyErr, instancedir.ErrNotFound) {
 		return keyErr
 	}
 	if _, err = write(ctx, database, directories, preRestoreStem(now), keyErr == nil); err != nil {
@@ -269,7 +269,7 @@ func keepWhatIsReplaced(
 // (D242 §5), and lists them.
 type Service struct {
 	database    *store.Database
-	directories *datadir.Directories
+	directories *instancedir.Directories
 	clock       clock.Clock
 
 	// mutex makes one backup at a time: two in the same second would share a name.
@@ -277,7 +277,7 @@ type Service struct {
 }
 
 // NewService returns the backup service of the server whose database and directories these are.
-func NewService(database *store.Database, directories *datadir.Directories, clockSource clock.Clock) *Service {
+func NewService(database *store.Database, directories *instancedir.Directories, clockSource clock.Clock) *Service {
 	return &Service{database: database, directories: directories, clock: clockSource}
 }
 
@@ -295,6 +295,6 @@ func (service *Service) Directory() string {
 
 // List lists the backups directory, newest first: the backups, and the copies kept before a
 // restore or a migration.
-func (service *Service) List() ([]datadir.BackupFile, error) {
+func (service *Service) List() ([]instancedir.BackupFile, error) {
 	return service.directories.ListBackups()
 }

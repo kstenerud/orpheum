@@ -17,7 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -94,8 +94,8 @@ func (call invocation) logger(config Config) (logger *slog.Logger, closeLog func
 }
 
 // openExistingDatabase opens an existing persistent.db, refusing to create one where there is none.
-func openExistingDatabase(ctx context.Context, config Config) (*datadir.Directories, *store.Database, error) {
-	directories, err := datadir.Prepare(config.Instance.paths())
+func openExistingDatabase(ctx context.Context, config Config) (*instancedir.Directories, *store.Database, error) {
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -118,7 +118,7 @@ func commandMigrate(ctx context.Context, call invocation) int {
 		return call.fail(err)
 	}
 	call.printConfigNotes(configReport)
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return call.fail(err)
 	}
@@ -180,7 +180,7 @@ func commandRestore(ctx context.Context, call invocation) int {
 	if backupPath == "" {
 		return call.fail(errors.New("--from is required"))
 	}
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return call.fail(err)
 	}
@@ -209,7 +209,7 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 		return call.fail(err)
 	}
 	call.printConfigNotes(configReport)
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return call.fail(err)
 	}

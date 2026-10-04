@@ -14,7 +14,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -41,13 +41,13 @@ type Nodes interface {
 	Unanswered(ctx context.Context, nodeID int64, err error) error
 }
 
-// ArtFiles keeps the images' sizes: datadir.Directories.
+// ArtFiles keeps the images' sizes: instancedir.Directories.
 type ArtFiles interface {
 	WriteArt(sourceSha256Hex, name string, contents []byte) error
 	ReadArt(sourceSha256Hex, name string) ([]byte, error)
 	HasArt(sourceSha256Hex, name string) (bool, error)
 	RemoveArt(sourceSha256Hex, name string) error
-	ListArt() ([]datadir.ArtFile, error)
+	ListArt() ([]instancedir.ArtFile, error)
 }
 
 // Settings are what the service reads from the settings.

@@ -17,7 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -103,7 +103,7 @@ type wiring struct {
 
 // openedServices is what openAndWire opened and serve must close.
 type openedServices struct {
-	lock        *datadir.Lock
+	lock        *instancedir.Lock
 	database    *store.Database
 	cache       *store.Cache
 	settings    *settings.Service
@@ -128,7 +128,7 @@ func openAndWire(
 	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,
 	logger *slog.Logger,
 ) (opened openedServices, err error) {
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return opened, err
 	}
@@ -264,7 +264,7 @@ func openByteSocket(service *nodes.Service) *nodes.ByteSocketClient {
 // openAndMigrate opens persistent.db and migrates it, calling beforeStep, when it is not nil, before
 // each step starts. Serving, the migrate command and the dev seed all open the database this way.
 func openAndMigrate(
-	ctx context.Context, config Config, directories *datadir.Directories, beforeStep func(step, total int),
+	ctx context.Context, config Config, directories *instancedir.Directories, beforeStep func(step, total int),
 ) (*store.Database, error) {
 	database, err := store.Open(ctx, directories.PersistentDatabasePath(), config.openOptions())
 	if err != nil {
@@ -280,7 +280,7 @@ func openAndMigrate(
 // openCache opens cache.db, and discards and rebuilds one from another schema version: it is
 // versioned by discard, and losing it loses nothing (schema.md, cache.db).
 func openCache(
-	ctx context.Context, config Config, directories *datadir.Directories, logger *slog.Logger,
+	ctx context.Context, config Config, directories *instancedir.Directories, logger *slog.Logger,
 ) (*store.Cache, error) {
 	cache, err := store.OpenCache(ctx, directories.CacheDatabasePath(), config.openOptions())
 	if !errors.Is(err, store.ErrCacheOutdated) {
@@ -306,7 +306,7 @@ func reportMigration(setStatus func(api.Status, string, ...string), logger *slog
 // buildDependencies writes any setting that has no row yet, loads the secret key, builds the
 // services and makes sure a server with no users has a setup code, which it logs.
 func buildDependencies(
-	ctx context.Context, directories *datadir.Directories, database *store.Database, logger *slog.Logger,
+	ctx context.Context, directories *instancedir.Directories, database *store.Database, logger *slog.Logger,
 ) (api.Dependencies, error) {
 	systemClock := clock.System{}
 	settingsService := settings.NewService(database, systemClock, logger)
@@ -349,12 +349,12 @@ func buildDependencies(
 
 // loadOrCreateSecretKey reads secret.key, or writes a new one on first start. A key replaced or
 // lost leaves every sealed secret "needs re-entering" and nothing else lost (D194 §4).
-func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger) (secrets.Key, error) {
+func loadOrCreateSecretKey(directories *instancedir.Directories, logger *slog.Logger) (secrets.Key, error) {
 	contents, err := directories.ReadPersistentFile(secrets.KeyFileName)
 	if err == nil {
 		return secrets.ParseKeyFile(contents)
 	}
-	if !errors.Is(err, datadir.ErrNotFound) {
+	if !errors.Is(err, instancedir.ErrNotFound) {
 		return secrets.Key{}, err
 	}
 	key, err := secrets.GenerateKey(rand.Reader)
@@ -371,12 +371,12 @@ func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger
 
 // runSetupCodes keeps the setup code in the instance's run directory, mode 0600 (D242 §3).
 type runSetupCodes struct {
-	directories *datadir.Directories
+	directories *instancedir.Directories
 }
 
 func (codes runSetupCodes) Read() (string, error) {
 	contents, err := codes.directories.ReadRunFile(auth.SetupCodeFileName)
-	if errors.Is(err, datadir.ErrNotFound) {
+	if errors.Is(err, instancedir.ErrNotFound) {
 		return "", auth.ErrNoSetupCode
 	}
 	return string(contents), err

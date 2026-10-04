@@ -13,7 +13,7 @@
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
-//   - Opens no file and walks no directory; files are internal/core/datadir's. Enforced by the
+//   - Opens no file and walks no directory; files are internal/core/instancedir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
@@ -46,7 +46,7 @@
 // # Where to change
 //
 //   - backup.go: Write (orpheum backup, --include-key, and Service.Make for the admin interface),
-//     MakePlan and Restore (orpheum restore). The archive itself is internal/core/datadir's
+//     MakePlan and Restore (orpheum restore). The archive itself is internal/core/instancedir's
 //     (archive.go), the only core package that touches files.
 //     Scheduled backups and pruning are backup jobs, which come in M4 (D223 §6).
 package backup

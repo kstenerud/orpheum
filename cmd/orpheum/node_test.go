@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
@@ -189,7 +189,7 @@ type libraryShape struct {
 // a link (macOS's /var).
 func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape libraryShape) int64 {
 	t.Helper()
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape librar
 
 func openDatabase(t *testing.T, config Config) *store.Database {
 	t.Helper()
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		t.Fatal(err)
 	}

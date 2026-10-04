@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -146,7 +146,7 @@ func (art memoryStore) WriteArt(sourceSha256Hex, name string, contents []byte) e
 func (art memoryStore) ReadArt(sourceSha256Hex, name string) ([]byte, error) {
 	contents, found := art[sourceSha256Hex+"/"+name]
 	if !found {
-		return nil, datadir.ErrNotFound
+		return nil, instancedir.ErrNotFound
 	}
 	return contents, nil
 }
@@ -156,12 +156,12 @@ func (art memoryStore) RemoveArt(sourceSha256Hex, name string) error {
 	return nil
 }
 
-func (art memoryStore) ListArt() ([]datadir.ArtFile, error) {
-	var files []datadir.ArtFile
+func (art memoryStore) ListArt() ([]instancedir.ArtFile, error) {
+	var files []instancedir.ArtFile
 	for key, contents := range art {
 		sourceSha256Hex, name, _ := strings.Cut(key, "/")
 		files = append(files,
-			datadir.ArtFile{SourceSha256Hex: sourceSha256Hex, Name: name, SizeBytes: int64(len(contents))})
+			instancedir.ArtFile{SourceSha256Hex: sourceSha256Hex, Name: name, SizeBytes: int64(len(contents))})
 	}
 	return files, nil
 }

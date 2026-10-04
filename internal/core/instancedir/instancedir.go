@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package datadir
+package instancedir
 
 import (
 	"errors"
@@ -57,9 +57,9 @@ type Directories struct {
 	runDirectory        string
 }
 
-// Prepare creates the instance's directories if they are missing and refuses a persistent
-// directory on a network filesystem, where SQLite's locking cannot be trusted (D31).
-func Prepare(paths Paths) (*Directories, error) {
+// Open creates the instance's directories if they are missing and refuses a persistent directory on
+// a network filesystem, where SQLite's locking cannot be trusted (D31).
+func Open(paths Paths) (*Directories, error) {
 	for _, directory := range []string{paths.Persistent, paths.Cache, paths.Backups, paths.Run} {
 		if !filepath.IsAbs(directory) {
 			return nil, fmt.Errorf("directory %q: want an absolute path", directory)

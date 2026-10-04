@@ -17,7 +17,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
@@ -104,7 +104,7 @@ func commandDev(ctx context.Context, call invocation) int {
 func applySeed(ctx context.Context, call invocation, config Config, seed seedFile, report *strings.Builder) (
 	err error,
 ) {
-	directories, err := datadir.Prepare(config.Instance.paths())
+	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
 		return err
 	}

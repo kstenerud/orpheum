@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package datadir
+package instancedir
 
 import (
 	"errors"
@@ -15,14 +15,14 @@ import (
 func prepareTemporaryDirectories(t *testing.T) *Directories {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := Prepare(PathsIn(root))
+	directories, err := Open(PathsIn(root))
 	if err != nil {
-		t.Fatalf("Prepare: %v", err)
+		t.Fatalf("Open: %v", err)
 	}
 	return directories
 }
 
-func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
+func TestOpen_CreatesPrivateDirectories(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
 	for _, directory := range []string{
@@ -38,11 +38,11 @@ func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 		}
 	}
 	elsewhere := t.TempDir()
-	if _, err := Prepare(Paths{
+	if _, err := Open(Paths{
 		Persistent: "relative/persistent", Cache: elsewhere, Backups: elsewhere,
 		Run: elsewhere,
 	}); err == nil {
-		t.Error("Prepare accepted a relative persistent directory")
+		t.Error("Open accepted a relative persistent directory")
 	}
 }
 
