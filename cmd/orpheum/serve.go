@@ -344,6 +344,7 @@ func buildDependencies(
 		Secrets: secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService), SetupCodes: codes,
 		Preferences: preferences.NewService(database, systemClock),
 		Backups:     backup.NewService(database, directories, systemClock),
+		Clock:       systemClock,
 	}, nil
 }
 

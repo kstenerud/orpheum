@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // Prefix is where the API lives (cut-a §5).
@@ -89,6 +90,8 @@ type Dependencies struct {
 	System System
 	// ConfigFileKeys is the config file's keys as the server runs with them, for /config to show.
 	ConfigFileKeys []ConfigFileKey
+	// Clock is the server's time: how long an answer is kept for a repeat of its Idempotency-Key.
+	Clock clock.Clock
 }
 
 // health is the state /health reports. It is safe for concurrent use.
@@ -107,6 +110,8 @@ type Server struct {
 	logger       *slog.Logger
 	health       health
 	dependencies atomic.Pointer[Dependencies]
+	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
+	answers idempotentAnswers
 }
 
 // NewServer builds the API and registers every operation. UseErrorShape must have been called.
@@ -146,9 +151,9 @@ func NewServer(logger *slog.Logger) *Server {
 	return server
 }
 
-// Handler is the HTTP handler to serve.
+// Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once.
 func (server *Server) Handler() http.Handler {
-	return server.mux
+	return server.idempotent(server.mux)
 }
 
 // Mux is the router, for the composition root to mount debug endpoints beside the API.
