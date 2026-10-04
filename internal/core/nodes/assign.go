@@ -393,18 +393,36 @@ func (all *Exchanges) Watch(ctx context.Context, tick <-chan time.Time) {
 	}
 }
 
+// attemptsOfJob are the attempts at a job's work its nodes hold.
+func (all *Exchanges) attemptsOfJob(jobID int64) []Attempt {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	var held []Attempt
+	for _, each := range all.attempts {
+		if each.JobID == jobID {
+			held = append(held, each.Attempt)
+		}
+	}
+	return held
+}
+
+// Overdue tells the node holding the work of a job whose time ran out (assigned_job_limit_hours)
+// to stop it, and forgets the attempt: the queue has ended it, failed or to be tried again, and a
+// word from the node on it after is a word on work no job waits for (G4, D244 §6). The queue's
+// overdue hook (jobs.Queue.OnOverdue).
+func (all *Exchanges) Overdue(ctx context.Context, jobID int64) {
+	for _, attempt := range all.attemptsOfJob(jobID) {
+		all.stop(ctx, attempt)
+		if err := all.forgetAttempt(ctx, attempt.Token); err != nil {
+			all.logger.WarnContext(ctx, "could not forget an overdue job's work", "jobId", jobID, "err", err)
+		}
+	}
+}
+
 // Cancelled tells the node holding a cancelled job's work to stop it, and its kind that it was
 // cancelled (S91): the queue's cancel hook (jobs.Queue.OnCancel).
 func (all *Exchanges) Cancelled(ctx context.Context, jobID int64) {
-	all.mutex.Lock()
-	var cancelled []Attempt
-	for _, held := range all.attempts {
-		if held.JobID == jobID {
-			cancelled = append(cancelled, held.Attempt)
-		}
-	}
-	all.mutex.Unlock()
-	for _, attempt := range cancelled {
+	for _, attempt := range all.attemptsOfJob(jobID) {
 		all.stop(ctx, attempt)
 		assignee, isHandled := all.assigneeOf(attempt.Kind)
 		var err error

@@ -93,6 +93,17 @@ type Queue[T comparable] struct {
 	// cancelled is told each job a cancel ended, by its id: an assigned job's machine is told to
 	// stop its work there (D234 §6). Guarded by mutex.
 	cancelled func(ctx context.Context, id int64)
+	// overdue is told each assigned job whose time ran out, by its id, once its end is recorded: its
+	// machine is told to stop the work it still holds. Guarded by mutex.
+	overdue func(ctx context.Context, id int64)
+}
+
+// OnOverdue has the queue tell overdue each assigned job whose time ran out, after its end is
+// recorded.
+func (queue *Queue[T]) OnOverdue(overdue func(ctx context.Context, id int64)) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.overdue = overdue
 }
 
 // OnCancel has the queue tell cancelled each job a cancel ended, after it is recorded.

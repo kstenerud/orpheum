@@ -328,6 +328,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		return nil, err
 	}
 	services.queue.OnCancel(services.exchanges.Cancelled)
+	services.queue.OnOverdue(services.exchanges.Overdue)
 	services.queue.SetNodeWords(nodeWordsOf(services.exchanges))
 	loopsContext, cancel := context.WithCancel(ctx)
 	var loops sync.WaitGroup

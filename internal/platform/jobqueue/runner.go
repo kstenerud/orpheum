@@ -149,7 +149,16 @@ func (runner *Runner[T]) failOverdueAssigned(ctx context.Context) (bool, error) 
 		return false, nil
 	}
 	overdue := fmt.Errorf("its machine did not say how it ended by %s", row.AssignedUntil.UTC().Format(time.RFC3339))
-	return true, runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, overdue)
+	if finishErr := runner.finish(ctx, jobOf(row), claimedRow[T]{row: row}, overdue); finishErr != nil {
+		return true, finishErr
+	}
+	queue.mutex.Lock()
+	tell := queue.overdue
+	queue.mutex.Unlock()
+	if tell != nil {
+		tell(ctx, row.ID)
+	}
+	return true, nil
 }
 
 // claimedRow is a claimed job, with the parked destinations it is the probe of: its own, and the

@@ -101,6 +101,8 @@ func TestAssign_AJobWhoseTimeRunsOutFailsAndALateOutcomeIsDropped(t *testing.T) 
 	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
 	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "slow"})
 	var ran []target
+	var toldOverdue []int64
+	jobs.queue.OnOverdue(func(_ context.Context, id int64) { toldOverdue = append(toldOverdue, id) })
 	runner := assigningRunner(jobs, &ran)
 	jobs.runDue(t, runner)
 	id := jobs.row(t, "slow").ID
@@ -131,6 +133,11 @@ func TestAssign_AJobWhoseTimeRunsOutFailsAndALateOutcomeIsDropped(t *testing.T) 
 	}
 	if len(ran) != attemptLimit {
 		t.Errorf("the handler ran %d times, want once for each of its %d attempts", len(ran), attemptLimit)
+	}
+	// Each time it ran out, the queue said so, so its machine can be told to stop the work (G4).
+	if len(toldOverdue) != attemptLimit || toldOverdue[0] != id {
+		t.Errorf("the overdue hook was told %v; want job %d once for each of its %d attempts", toldOverdue, id,
+			attemptLimit)
 	}
 	if jobs.resolve(t, runner, id, nil) {
 		t.Error("an outcome after the job's time ran out was taken")
