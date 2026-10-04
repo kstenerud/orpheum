@@ -25,20 +25,12 @@ func (q *Queries) GetMaxFileID(ctx context.Context) (int64, error) {
 }
 
 const listFilesToMeasure = `-- name: ListFilesToMeasure :many
-SELECT f.id
+SELECT f.id, f.node_id, f.reported_path_raw
 FROM file f
 WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
   AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
   AND (SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
   AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM root_state rs
-    WHERE rs.node_id = f.node_id AND rs.last_scan_outcome <> 'complete'
-      AND substr(f.path, 1, length(rs.root_path) + 1) = rs.root_path || '/')
-  AND NOT EXISTS (
-    SELECT 1 FROM root_mount rm
-    WHERE rm.node_id = f.node_id AND rm.is_present = 0
-      AND substr(f.path, 1, length(rm.mount_path) + 1) = rm.mount_path || '/')
 ORDER BY f.id
 `
 
@@ -47,23 +39,29 @@ type ListFilesToMeasureParams struct {
 	ThroughID int64
 }
 
+type ListFilesToMeasureRow struct {
+	ID              int64
+	NodeID          int64
+	ReportedPathRaw []byte
+}
+
 // The live videos with sound whose bytes have no loudness yet, among the ids after after_id and up to
-// through_id: a sweep reads the files a range of ids at a time, by the primary key, so no one query
-// reads them all. A file under a root, or a disk mounted inside one, that the last scan found
-// missing is not there to measure (D231 section 5).
-func (q *Queries) ListFilesToMeasure(ctx context.Context, arg ListFilesToMeasureParams) ([]int64, error) {
+// through_id, with where each is: a sweep reads the files a range of ids at a time, by the primary
+// key, so no one query reads them all. Whether a file is under a root or disk that is unavailable
+// is the library's one rule (library.Unavailability), which the sweep asks of each.
+func (q *Queries) ListFilesToMeasure(ctx context.Context, arg ListFilesToMeasureParams) ([]ListFilesToMeasureRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToMeasure, arg.AfterID, arg.ThroughID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int64{}
+	items := []ListFilesToMeasureRow{}
 	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var i ListFilesToMeasureRow
+		if err := rows.Scan(&i.ID, &i.NodeID, &i.ReportedPathRaw); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
