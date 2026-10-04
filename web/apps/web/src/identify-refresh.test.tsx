@@ -35,7 +35,7 @@ describe("looking a title up again while TMDB is not answering (D231 §12)", () 
             destination: "tmdb-api",
             name: "TMDB",
             reason: "unreachable",
-            since: 1_790_000_000_000,
+            downAt: 1_790_000_000_000,
             isChecking: false,
           },
         },

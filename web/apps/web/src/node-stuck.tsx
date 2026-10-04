@@ -25,11 +25,11 @@ export function NodeStuckView(props: { readonly stuck: readonly Stuck[] }): JSX.
       <p>{t("system.stuck")}</p>
       <ul className="system__stuck">
         {props.stuck.map((stuck) => (
-          <li key={`${stuck.program}:${String(stuck.since)}:${stuck.paths?.join(":") ?? ""}`}>
+          <li key={`${stuck.program}:${String(stuck.gaveUpAt)}:${stuck.paths?.join(":") ?? ""}`}>
             {t("system.stuckWork", {
               program: t(`system.stuckProgram.${stuck.program}`),
               path: stuck.paths?.[0] ?? "",
-              since: dateTimeText(stuck.since, i18n.language),
+              since: dateTimeText(stuck.gaveUpAt, i18n.language),
             })}
           </li>
         ))}

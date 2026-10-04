@@ -34,7 +34,7 @@ func TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInte
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present, missing_since)
 		 VALUES (1, '/media', '/media/disk1', 21, 0, 3000)`)
 	shown := reminder().Body
-	if !shown.IsShown || shown.RootCount != 1 || shown.DiskCount != 1 || shown.Since != 3000 {
+	if !shown.IsShown || shown.RootCount != 1 || shown.DiskCount != 1 || shown.OfflineAt != 3000 {
 		t.Errorf("reminder = %+v, want it shown: one folder and one disk, since the disk's 3000", shown)
 	}
 	dismissed := harness.do(t, http.MethodPost, "/offline-reminder/dismissal", admin, nil)

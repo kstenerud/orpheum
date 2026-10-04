@@ -1379,6 +1379,8 @@ export interface components {
         };
         DestinationBody: {
             destination: string;
+            /** Format: int64 */
+            downAt: number;
             /** @description Whether it is being looked at now */
             isChecking: boolean;
             name: string;
@@ -1386,11 +1388,6 @@ export interface components {
             nextCheckAt?: number;
             /** @description Why it is down: unreachable, not connected, missing, its key is not set */
             reason: string;
-            /**
-             * Format: int64
-             * @description Since when, Unix milliseconds
-             */
-            since: number;
         };
         DeviceBody: {
             /**
@@ -1850,11 +1847,8 @@ export interface components {
             path?: string;
             /** @enum {string} */
             reason: "node_away" | "root_missing" | "disk_missing";
-            /**
-             * Format: int64
-             * @description Unix milliseconds; absent when not known
-             */
-            since?: number;
+            /** Format: int64 */
+            unavailableAt?: number;
         };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
@@ -1913,24 +1907,18 @@ export interface components {
             /** @description The missing disk's mount point inside the root; absent when the root itself is offline */
             mountPath?: string;
             nodeName: string;
+            /** Format: int64 */
+            offlineAt: number;
             rootPath: string;
-            /**
-             * Format: int64
-             * @description When the first scan that found it missing ran, in Unix milliseconds
-             */
-            since: number;
         };
         OfflineReminderOutputBody: {
             /** Format: int64 */
             diskCount: number;
             isShown: boolean;
             /** Format: int64 */
+            offlineAt?: number;
+            /** Format: int64 */
             rootCount: number;
-            /**
-             * Format: int64
-             * @description Unix milliseconds; absent when nothing is offline
-             */
-            since?: number;
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
@@ -2061,10 +2049,10 @@ export interface components {
         ProviderRefusalDetailBody: {
             /** Format: int64 */
             nextCheckAt?: number;
+            /** Format: int64 */
+            notAnsweringAt?: number;
             /** @enum {string} */
             reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
-            /** Format: int64 */
-            since?: number;
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime_ms are whole numbers */
@@ -2367,11 +2355,11 @@ export interface components {
             language?: string;
         };
         StuckBody: {
+            /** Format: int64 */
+            gaveUpAt: number;
             paths: string[] | null;
             /** @enum {string} */
             program: "ffmpeg" | "ffprobe" | "node";
-            /** Format: int64 */
-            since: number;
         };
         SubtitleCandidateBody: {
             /** Format: int64 */
@@ -2489,11 +2477,8 @@ export interface components {
             path?: string;
             /** @enum {string} */
             reason: "node_away" | "root_missing" | "disk_missing";
-            /**
-             * Format: int64
-             * @description Unix milliseconds; absent when not known
-             */
-            since?: number;
+            /** Format: int64 */
+            unavailableAt?: number;
         };
         UnusedBody: {
             key: string;

@@ -102,7 +102,8 @@ type MediaUnreachableDetailBody struct {
 	Reason   string `enum:"node_away,root_missing,disk_missing" json:"reason"`
 	NodeName string `doc:"The machine that holds the file" json:"nodeName"`
 	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
-	Since    int64  `doc:"Unix milliseconds; absent when not known" json:"since,omitempty"`
+	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.
+	UnavailableAt int64 `json:"unavailableAt,omitempty"`
 }
 
 func (MediaUnreachableDetailBody) problemCode() Code { return CodeMediaUnreachable }
@@ -154,10 +155,10 @@ func (QuotaExhaustedDetailBody) problemCode() Code { return CodeQuotaExhausted }
 // providerReasons, which the document enumerates so a client can have words for each.
 type ProviderRefusalDetailBody struct {
 	Reason ProviderReason `json:"reason"`
-	// Since and NextCheckAt are, for a provider not answering, since when, and when it is next
+	// NotAnsweringAt and NextCheckAt are, for a provider not answering, since when, and when it is next
 	// looked at, in Unix milliseconds; absent when not known (D231 §12).
-	Since       int64 `json:"since,omitempty"`
-	NextCheckAt int64 `json:"nextCheckAt,omitempty"`
+	NotAnsweringAt int64 `json:"notAnsweringAt,omitempty"`
+	NextCheckAt    int64 `json:"nextCheckAt,omitempty"`
 }
 
 // ProviderReason is why an outside provider refused, as provider_error's detail says it.
@@ -395,7 +396,7 @@ func (server *Server) providerNotAnswering(ctx context.Context, destination jobs
 			if state.Destination != destination || parked == nil {
 				continue
 			}
-			detail.Since = parked.Since.UnixMilli()
+			detail.NotAnsweringAt = parked.Since.UnixMilli()
 			if !parked.NextProbeAt.IsZero() {
 				detail.NextCheckAt = parked.NextProbeAt.UnixMilli()
 			}

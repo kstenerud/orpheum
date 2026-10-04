@@ -223,7 +223,7 @@ func TestIdentification_AProviderNotAnsweringSaysSinceWhenAndTheNextCheck(t *tes
 	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"})
 	since, next := harness.clock.Now().UnixMilli(), harness.clock.Now().Add(30*time.Second).UnixMilli()
-	want := fmt.Sprintf(`"detail":{"reason":"unavailable","since":%d,"nextCheckAt":%d}`, since, next)
+	want := fmt.Sprintf(`"detail":{"reason":"unavailable","notAnsweringAt":%d,"nextCheckAt":%d}`, since, next)
 	if answer.status != http.StatusServiceUnavailable || !strings.Contains(answer.body, want) {
 		t.Errorf("a match while TMDB is down = %d %s; want %s", answer.status, answer.body, want)
 	}
@@ -242,7 +242,7 @@ func TestIdentification_ARefreshWhileTMDBIsDownSaysWhatItWaitsFor(t *testing.T) 
 	}
 	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
 	refreshed := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
-	want := fmt.Sprintf(`"waitingFor":{"destination":"tmdb-api","name":"TMDB","reason":"unreachable","since":%d`,
+	want := fmt.Sprintf(`"waitingFor":{"destination":"tmdb-api","name":"TMDB","reason":"unreachable","downAt":%d`,
 		harness.clock.Now().UnixMilli())
 	if refreshed.status != http.StatusAccepted || !strings.Contains(refreshed.body, want) {
 		t.Errorf("a refresh while TMDB is down = %d %s; want %s", refreshed.status, refreshed.body, want)

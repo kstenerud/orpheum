@@ -86,7 +86,7 @@ describe("App", () => {
           "GET /titles": [200, { titles: [], nextCursor: "" }],
           "GET /offline-reminder": [
             200,
-            { isShown: true, rootCount: 1, diskCount: 0, since: Date.UTC(2026, 8, 12) },
+            { isShown: true, rootCount: 1, diskCount: 0, offlineAt: Date.UTC(2026, 8, 12) },
           ],
         },
         heard,

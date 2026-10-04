@@ -183,7 +183,7 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 	}
 	prepare := newestPrepareJob(t, harness.listedJobs(t, admin))
 	wantNode := DestinationBody{
-		Destination: "node:1", Name: "node local", Reason: "not connected", Since: fakeNodeLastHeard.UnixMilli(),
+		Destination: "node:1", Name: "node local", Reason: "not connected", DownAt: fakeNodeLastHeard.UnixMilli(),
 	}
 	if prepare.State != "queued" || prepare.Destination != "node:1" || prepare.WaitingFor == nil ||
 		*prepare.WaitingFor != wantNode {

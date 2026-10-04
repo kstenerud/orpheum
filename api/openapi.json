@@ -701,6 +701,10 @@
           "destination": {
             "type": "string"
           },
+          "downAt": {
+            "format": "int64",
+            "type": "integer"
+          },
           "isChecking": {
             "description": "Whether it is being looked at now",
             "type": "boolean"
@@ -715,18 +719,13 @@
           "reason": {
             "description": "Why it is down: unreachable, not connected, missing, its key is not set",
             "type": "string"
-          },
-          "since": {
-            "description": "Since when, Unix milliseconds",
-            "format": "int64",
-            "type": "integer"
           }
         },
         "required": [
           "destination",
           "name",
           "reason",
-          "since",
+          "downAt",
           "isChecking"
         ],
         "type": "object"
@@ -2112,8 +2111,7 @@
             ],
             "type": "string"
           },
-          "since": {
-            "description": "Unix milliseconds; absent when not known",
+          "unavailableAt": {
             "format": "int64",
             "type": "integer"
           }
@@ -2305,13 +2303,12 @@
           "nodeName": {
             "type": "string"
           },
-          "rootPath": {
-            "type": "string"
-          },
-          "since": {
-            "description": "When the first scan that found it missing ran, in Unix milliseconds",
+          "offlineAt": {
             "format": "int64",
             "type": "integer"
+          },
+          "rootPath": {
+            "type": "string"
           }
         },
         "required": [
@@ -2319,7 +2316,7 @@
           "libraryName",
           "nodeName",
           "rootPath",
-          "since"
+          "offlineAt"
         ],
         "type": "object"
       },
@@ -2333,12 +2330,11 @@
           "isShown": {
             "type": "boolean"
           },
-          "rootCount": {
+          "offlineAt": {
             "format": "int64",
             "type": "integer"
           },
-          "since": {
-            "description": "Unix milliseconds; absent when nothing is offline",
+          "rootCount": {
             "format": "int64",
             "type": "integer"
           }
@@ -2779,6 +2775,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "notAnsweringAt": {
+            "format": "int64",
+            "type": "integer"
+          },
           "reason": {
             "enum": [
               "no_key",
@@ -2790,10 +2790,6 @@
               "unreadable"
             ],
             "type": "string"
-          },
-          "since": {
-            "format": "int64",
-            "type": "integer"
           }
         },
         "required": [
@@ -3779,6 +3775,10 @@
       "StuckBody": {
         "additionalProperties": false,
         "properties": {
+          "gaveUpAt": {
+            "format": "int64",
+            "type": "integer"
+          },
           "paths": {
             "items": {
               "type": "string"
@@ -3795,16 +3795,12 @@
               "node"
             ],
             "type": "string"
-          },
-          "since": {
-            "format": "int64",
-            "type": "integer"
           }
         },
         "required": [
           "program",
           "paths",
-          "since"
+          "gaveUpAt"
         ],
         "type": "object"
       },
@@ -4187,8 +4183,7 @@
             ],
             "type": "string"
           },
-          "since": {
-            "description": "Unix milliseconds; absent when not known",
+          "unavailableAt": {
             "format": "int64",
             "type": "integer"
           }

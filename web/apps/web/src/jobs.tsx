@@ -50,7 +50,7 @@ export function waitingText(t: TFunction, waiting: WaitingFor, language: string)
   const words = {
     name: waiting.name,
     reason: waiting.reason,
-    since: dateTimeText(waiting.since, language),
+    since: dateTimeText(waiting.downAt, language),
   };
   return waiting.nextCheckAt === undefined
     ? t("jobs.waitingForSignal", words)

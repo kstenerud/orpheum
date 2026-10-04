@@ -67,7 +67,7 @@ describe("a play of a file that cannot be read now (D241 §4)", () => {
     const away = new ApiProblem({
       code: "media_unreachable",
       message: "a note for developers",
-      detail: { reason: "node_away", nodeName: "devnas", since: 1_790_000_000_000 },
+      detail: { reason: "node_away", nodeName: "devnas", unavailableAt: 1_790_000_000_000 },
     });
     const folder = new ApiProblem({
       code: "media_unreachable",
@@ -88,7 +88,11 @@ describe("a provider not answering (D231 §12)", () => {
     const knowing = new ApiProblem({
       code: "provider_error",
       message: "a note for developers",
-      detail: { reason: "unavailable", since: 1_790_000_000_000, nextCheckAt: 1_790_000_480_000 },
+      detail: {
+        reason: "unavailable",
+        notAnsweringAt: 1_790_000_000_000,
+        nextCheckAt: 1_790_000_480_000,
+      },
     });
     const unknowing = new ApiProblem({
       code: "provider_error",

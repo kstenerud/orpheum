@@ -54,13 +54,13 @@ export function unavailableText(
     readonly reason: string;
     readonly nodeName: string;
     readonly path?: string;
-    readonly since?: number;
+    readonly unavailableAt?: number;
   },
 ): string {
   const since =
-    detail.since === undefined
+    detail.unavailableAt === undefined
       ? ""
-      : t("problem.sinceWhen", { since: dateTimeText(detail.since, i18n.language) });
+      : t("problem.sinceWhen", { since: dateTimeText(detail.unavailableAt, i18n.language) });
   return t(`problem.mediaReason.${camelKey(detail.reason)}`, {
     node: detail.nodeName,
     path: detail.path ?? "",
@@ -121,15 +121,15 @@ export function providerProblemText(t: TFunction, cause: unknown, reasons: strin
       // A host not answering says since when, and when it is next looked at (D231 §12).
       const when = {
         since:
-          detail.since === undefined
+          detail.notAnsweringAt === undefined
             ? ""
-            : t("problem.sinceWhen", { since: dateTimeText(detail.since, i18n.language) }),
+            : t("problem.sinceWhen", { since: dateTimeText(detail.notAnsweringAt, i18n.language) }),
         next:
           detail.nextCheckAt === undefined
             ? ""
             : t("problem.nextCheck", { at: dateTimeText(detail.nextCheckAt, i18n.language) }),
       };
-      const key = camelKey(detail.reason) + (detail.since === undefined ? "" : "Since");
+      const key = camelKey(detail.reason) + (detail.notAnsweringAt === undefined ? "" : "Since");
       return t(`${reasons}.${key}`, {
         ...when,
         defaultValue: t(`problem.providerReason.${key}`, {

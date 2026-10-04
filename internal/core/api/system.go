@@ -115,7 +115,8 @@ type OfflineBody struct {
 	NodeName    string `json:"nodeName"`
 	RootPath    string `json:"rootPath"`
 	MountPath   string `doc:"The missing disk's mount point inside the root; absent when the root itself is offline" json:"mountPath,omitempty"` //nolint:lll // one struct tag
-	Since       int64  `doc:"When the first scan that found it missing ran, in Unix milliseconds" json:"since"`
+	// OfflineAt is when the first scan that found it missing ran, in Unix milliseconds.
+	OfflineAt int64 `json:"offlineAt"`
 }
 
 // ServerBody is the server's own facts.
@@ -226,8 +227,8 @@ type StuckBody struct {
 	Program string `enum:"ffmpeg,ffprobe,node" json:"program"`
 	// Paths are where it was reading: the disk under one of them is not answering.
 	Paths []string `json:"paths"`
-	// Since is when the node gave up on it, in Unix milliseconds.
-	Since int64 `json:"since"`
+	// GaveUpAt is when the node gave up on it, in Unix milliseconds.
+	GaveUpAt int64 `json:"gaveUpAt"`
 }
 
 // NodeDeviceBody is one of a node's devices: a disk, or a pool, array or volume over several.
@@ -371,7 +372,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	for _, missing := range offline {
 		output.Body.Offline = append(output.Body.Offline, OfflineBody{
 			LibraryID: missing.LibraryID, LibraryName: missing.LibraryName, NodeName: missing.NodeName,
-			RootPath: missing.RootPath, MountPath: missing.MountPath, Since: missing.Since.UnixMilli(),
+			RootPath: missing.RootPath, MountPath: missing.MountPath, OfflineAt: missing.Since.UnixMilli(),
 		})
 	}
 	health, err := dependencies.Jobs.Health(ctx)
@@ -488,7 +489,7 @@ func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Pr
 		})
 	}
 	for _, stuck := range facts.Status.Stuck {
-		body.Stuck = append(body.Stuck, StuckBody{Program: stuck.Tool, Paths: stuck.Paths, Since: stuck.Since})
+		body.Stuck = append(body.Stuck, StuckBody{Program: stuck.Tool, Paths: stuck.Paths, GaveUpAt: stuck.Since})
 	}
 	body.Work = nodeWorkBody(hello.Capacity, *facts.Status)
 }
