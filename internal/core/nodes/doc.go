@@ -75,7 +75,7 @@
 //     work whose result is on its way is left to it. TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds,
 //     TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
 //   - The core holds work only while its node says it moves: work held that the status says has not
-//     moved for movementWindow, past every window the node judges its own work by, is stopped and
+//     moved for MovementWindow, past every window the node judges its own work by, is stopped and
 //     resolved as ErrNotMoving, which UnansweredOutcome takes as a stall (D233 §5).
 //     TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
 //   - A hello makes each library root on its node that it does not name unavailable, whether or not

@@ -16,7 +16,7 @@ import (
 // broken invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
 // it holds that the core did not give it, or no longer wants, is a broken invariant too, and the
 // node is told to drop it (S91, G4); one whose result is on its way is left to it. One the node says
-// has not moved for movementWindow is stopped, as a stall (ErrNotMoving): the core holds work only
+// has not moved for MovementWindow is stopped, as a stall (ErrNotMoving): the core holds work only
 // while it moves, waiting work moving as the work ahead of it does (D233 §5).
 func (all *Exchanges) Square(
 	ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
@@ -58,13 +58,13 @@ func (all *Exchanges) Square(
 	}
 }
 
-// stopNotMoving stops each attempt the node holds that it says has not moved for movementWindow,
+// stopNotMoving stops each attempt the node holds that it says has not moved for MovementWindow,
 // and resolves it as not moving (ErrNotMoving).
 func (all *Exchanges) stopNotMoving(ctx context.Context, nodeID int64, heldByToken map[string]nodeproto.HeldAttempt) {
 	all.unanswered(ctx, func(attempt heldAttempt) bool {
 		each, isHeld := heldByToken[attempt.Token]
 		return attempt.NodeID == nodeID && isHeld && each.State != nodeproto.HeldEnded &&
-			time.Duration(each.SinceMovedMs)*time.Millisecond >= movementWindow
+			time.Duration(each.SinceMovedMs)*time.Millisecond >= MovementWindow
 	}, func(attempt Attempt) error {
 		each := heldByToken[attempt.Token]
 		return fmt.Errorf("node %d says %s job %d, %s, has not moved for %s: %w", nodeID, attempt.Kind,

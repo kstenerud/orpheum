@@ -16,6 +16,8 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -372,6 +374,15 @@ func (node NodeConfig) check() error {
 		"node.remux_slot_count":               node.RemuxSlotCount,
 		"node.slowest_read_mib_per_second":    node.SlowestReadMiBPerSecond,
 	})}
+	// The core stops work its node says has not moved for nodes.MovementWindow, so the node's own
+	// read window, which a probe's timeout lengthens, must end first, or the core stops work the
+	// node still judges sound.
+	if readWindow := agent.ReadStallWindowFor(time.Duration(node.ProbeTimeoutSeconds) * time.Second); readWindow >=
+		nodes.MovementWindow {
+		problems = append(problems, fmt.Errorf("node.probe_timeout_seconds is %d; with the node's read window it "+
+			"must stay under %d, so the core does not stop work the node still judges moving",
+			node.ProbeTimeoutSeconds, int64((nodes.MovementWindow-agent.ReadStallWindowFor(0))/time.Second)))
+	}
 	if !filepath.IsAbs(node.CoreSocket) {
 		problems = append(problems, fmt.Errorf("node.core_socket must be an absolute path, not %q", node.CoreSocket))
 	}
