@@ -325,3 +325,51 @@ func TestSystem_ListsEachNodesDevicesAndAnAdminSetsADevicesReaderLimit(t *testin
 		"nodeName": "local", "deviceKey": "disk:sdc", "readerLimit": 0,
 	}), http.StatusUnprocessableEntity, CodeInvalidRequest)
 }
+
+// The System page shows how the queue is doing, by kind: queued, the oldest of them, and failed in
+// the last day (D233 §8).
+func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	queuedAt := harness.clock.Now()
+	for _, film := range []int64{1, 2} {
+		if _, err := harness.queue.Enqueue(t.Context(), jobs.Request{
+			Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: film}, Reason: "test",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	system := harness.system(t, admin)
+	if len(system.Body.Queue) != 1 || system.Body.Queue[0].Kind != string(jobs.KindMeasureLoudness) ||
+		system.Body.Queue[0].QueuedCount != 2 || system.Body.Queue[0].OldestQueuedAt == nil ||
+		*system.Body.Queue[0].OldestQueuedAt != queuedAt.UnixMilli() {
+		t.Errorf("the queue's health = %+v; want two measurements queued since %v", system.Body.Queue, queuedAt)
+	}
+}
+
+// The System page shows what each node is doing: its slots running work, the work waiting for one,
+// when its running work last moved (D233 §8), and the faults the core saw in what it holds (D234 §4).
+func TestSystem_ShowsWhatEachNodeIsDoing(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/films")
+	harness.nodes.statusSentAt = 1_000_000
+	harness.nodes.held = []nodeproto.HeldAttempt{
+		{JobID: 1, State: nodeproto.HeldRunning, SinceMovedMs: 5000},
+		{JobID: 2, State: nodeproto.HeldRunning, SinceMovedMs: 2000},
+		{JobID: 3, State: nodeproto.HeldWaiting},
+		{JobID: 4, State: nodeproto.HeldEnded},
+	}
+	// The node says it holds work the core never gave it: a broken invariant (D234 §4).
+	harness.exchanges.Square(t.Context(), 1, []nodeproto.HeldAttempt{
+		{JobID: 99, AttemptToken: "never-given", State: nodeproto.HeldRunning},
+	}, nil)
+	work := harness.system(t, admin).Body.Nodes[0].Work
+	if work == nil || work.RunningCount != 2 || work.WaitingCount != 1 || work.SlotCount != 6 ||
+		work.LastMovedAt == nil || *work.LastMovedAt != 1_000_000-2000 || work.BrokenInvariantCount != 1 {
+		t.Errorf("the node's work = %+v; want two of its six slots running, one waiting, last moved 2 s "+
+			"before its status, and the one broken invariant", work)
+	}
+}

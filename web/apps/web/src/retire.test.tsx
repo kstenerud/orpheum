@@ -58,6 +58,7 @@ const report: SystemReport = {
   ],
   destinations: [],
   providers: [],
+  queue: [],
   offline: [
     {
       libraryId: 3,

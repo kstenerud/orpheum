@@ -183,7 +183,7 @@ func newHarness(t *testing.T) testHarness {
 			tmdb.APIService(queue, now, seeded), tmdb.ImagesService(queue, now, seeded),
 			opensubtitles.Service(queue, now, seeded),
 		},
-		NodeReports: nodes,
+		NodeReports: nodes, NodeWork: exchanges,
 		System: System{
 			Build: harnessServerBuild, StartedAt: now.Now(),
 			PersistentDirectory: directories.PersistentDirectory(), CacheDirectory: directories.CacheDirectory(),

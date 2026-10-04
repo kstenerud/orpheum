@@ -12,6 +12,7 @@ import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
 import { SystemBackups } from "./system-backups.tsx";
+import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
 import { byteSizeText, tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
@@ -93,6 +94,7 @@ export function SystemView(props: {
         <Disks disks={server.disks ?? []} />
       </section>
       <Findings findings={props.report.findings ?? []} />
+      <QueueHealth queue={props.report.queue ?? []} />
       <DownDestinations destinations={props.report.destinations ?? []} />
       <OutsideServices providers={props.report.providers ?? []} />
       <OfflineStorage offline={props.report.offline ?? []} />
@@ -303,6 +305,7 @@ function NodeFacts(props: {
       {node.isConnected ? (
         <>
           <NodeSoftware node={node} />
+          <NodeWorkView work={node.work} />
           <NodeConfinementView node={node} />
           {node.hardware === undefined ? null : <HardwareEncoding hardware={node.hardware} />}
           {node.preparedUsage === undefined ? null : (
@@ -316,6 +319,7 @@ function NodeFacts(props: {
             </p>
           )}
           <Disks disks={node.disks ?? []} />
+          <NodeDevices nodeName={node.name} devices={node.devices ?? []} />
           <NodeStuckView stuck={node.stuck ?? []} />
           <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>

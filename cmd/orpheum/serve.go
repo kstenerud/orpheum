@@ -183,7 +183,7 @@ func openAndWire(
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	dependencies.NodeBytes = openByteSocket(opened.nodes)
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
-	dependencies.NodeReports = opened.nodes
+	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
 		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,

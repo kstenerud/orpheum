@@ -100,6 +100,19 @@ func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64)
 	return queue.queue.SetProgress(ctx, id, fraction)
 }
 
+// KindHealth is how one kind's jobs are doing: queued, the oldest of them, and failed in the last
+// day (D233 §8).
+type KindHealth = jobqueue.KindHealth
+
+// healthWindow is how far back the queue's health counts failures: a day, as D233 §8 says.
+const healthWindow = 24 * time.Hour
+
+// Health is each kind's queued jobs, the oldest of them, and its jobs failed in the last day, for
+// the System page (D233 §8).
+func (queue *Queue) Health(ctx context.Context) ([]KindHealth, error) {
+	return queue.queue.Health(ctx, queue.clock.Now().Add(-healthWindow))
+}
+
 // OnOverdue has the queue tell overdue each assigned job whose time, assigned_job_limit_hours, ran
 // out: its node is told to stop the work it still holds (nodes.Exchanges.Overdue).
 func (queue *Queue) OnOverdue(overdue func(ctx context.Context, id int64)) {

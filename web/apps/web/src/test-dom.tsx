@@ -163,6 +163,22 @@ export async function choose(select: Element | null | undefined, value: string):
   });
 }
 
+/**
+ * Types text into an input, as a person does, and lets the requests it made answer. React reads an
+ * input's value through the element's own setter, so the value is set through it.
+ */
+export async function enter(input: Element | null | undefined, text: string): Promise<void> {
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("no input to type in");
+  }
+  await act(async () => {
+    // The prototype's setter, with the input as its receiver: what a person's typing calls.
+    Reflect.set(HTMLInputElement.prototype, "value", text, input);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleAnswers();
+  });
+}
+
 /** The button whose text is text, in container. */
 export function buttonWithText(
   container: HTMLElement,

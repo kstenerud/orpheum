@@ -2238,6 +2238,38 @@
         ],
         "type": "object"
       },
+      "NodeWorkBody": {
+        "additionalProperties": false,
+        "properties": {
+          "brokenInvariantCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastMovedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "runningCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "slotCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "waitingCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runningCount",
+          "slotCount",
+          "waitingCount",
+          "brokenInvariantCount"
+        ],
+        "type": "object"
+      },
       "NodesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2807,6 +2839,32 @@
         },
         "required": [
           "valuesByKey"
+        ],
+        "type": "object"
+      },
+      "QueueKindBody": {
+        "additionalProperties": false,
+        "properties": {
+          "failedLastDayCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "oldestQueuedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "queuedCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "queuedCount",
+          "failedLastDayCount"
         ],
         "type": "object"
       },
@@ -3996,6 +4054,9 @@
             "description": "The user the node runs as",
             "format": "int64",
             "type": "integer"
+          },
+          "work": {
+            "$ref": "#/components/schemas/NodeWorkBody"
           }
         },
         "required": [
@@ -4061,6 +4122,15 @@
               "null"
             ]
           },
+          "queue": {
+            "items": {
+              "$ref": "#/components/schemas/QueueKindBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "server": {
             "$ref": "#/components/schemas/ServerBody"
           }
@@ -4071,7 +4141,8 @@
           "nodes",
           "destinations",
           "providers",
-          "offline"
+          "offline",
+          "queue"
         ],
         "type": "object"
       },

@@ -13,6 +13,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -31,6 +33,13 @@ type NodeReports interface {
 	// SetReaderLimit sets how many may read one of a node's devices at once, or, nil, gives it back
 	// to its kind's setting (D240 §5).
 	SetReaderLimit(ctx context.Context, nodeName, deviceKey string, limit *int) error
+}
+
+// NodeWork is what the core saw of the work it gave each node: nodes.Exchanges.
+type NodeWork interface {
+	// BrokenInvariants is how many times since the core started a node held work it had not given
+	// it, or had ended (D234 §4).
+	BrokenInvariants(nodeID int64) int
 }
 
 // Sized is a database that can say how large it is: store.Database, store.Cache.
@@ -66,7 +75,36 @@ type SystemOutput struct {
 		// offline never ends without an admin, who retires one, or a scan that finds it (D41,
 		// D231 §7).
 		Offline []OfflineBody `json:"offline"`
+		// Queue is how each kind of job is doing: queued, the oldest waiting, and failed in the last
+		// day (D233 §8).
+		Queue []QueueKindBody `json:"queue"`
 	}
+}
+
+// QueueKindBody is how one kind of job is doing.
+type QueueKindBody struct {
+	Kind        string `json:"kind"`
+	QueuedCount int64  `json:"queuedCount"`
+	// OldestQueuedAt is when the oldest of them was queued, in Unix milliseconds; absent when none
+	// is queued.
+	OldestQueuedAt *int64 `json:"oldestQueuedAt,omitempty"`
+	// FailedLastDayCount is how many failed in the last 24 hours.
+	FailedLastDayCount int64 `json:"failedLastDayCount"`
+}
+
+// NodeWorkBody is what a node is doing, as its last status said (D233 §8): how many of its slots
+// run work, how many waits for one, and when its running work last moved.
+type NodeWorkBody struct {
+	RunningCount int `json:"runningCount"`
+	// SlotCount is how many it runs at once, all its slots together.
+	SlotCount    int `json:"slotCount"`
+	WaitingCount int `json:"waitingCount"`
+	// LastMovedAt is when its running work last moved, in Unix milliseconds; absent while nothing
+	// runs.
+	LastMovedAt *int64 `json:"lastMovedAt,omitempty"`
+	// BrokenInvariantCount is how many times since the server started the node held work the core
+	// had not given it, or had ended: each a fault, in the node or the core (D234 §4).
+	BrokenInvariantCount int `json:"brokenInvariantCount"`
 }
 
 // OfflineBody is a root, or a disk mounted inside one, that scans have found missing, and since
@@ -178,6 +216,8 @@ type SystemNodeBody struct {
 	// Stuck is the work it gave up on that has not ended, waiting on a disk that does not answer
 	// (D233 §10): a program the kernel will not stop until the disk answers, which holds no slot.
 	Stuck []StuckBody `json:"stuck"`
+	// Work is what it is doing; absent before its first status.
+	Work *NodeWorkBody `json:"work,omitempty"`
 }
 
 // StuckBody is one piece of work a node gave up on that waits on a disk.
@@ -334,42 +374,63 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 			RootPath: missing.RootPath, MountPath: missing.MountPath, Since: missing.Since.UnixMilli(),
 		})
 	}
+	health, err := dependencies.Jobs.Health(ctx)
+	if err != nil {
+		return nil, server.logInternalError(ctx, "read the queue's health", err)
+	}
+	output.Body.Queue = queueBodies(health)
 	output.Body.Providers = make([]ProviderBody, 0, len(dependencies.Providers))
 	for _, provider := range dependencies.Providers {
 		output.Body.Providers = append(output.Body.Providers, providerBody(provider.State(ctx), nodeName))
 	}
 	output.Body.Nodes = make([]SystemNodeBody, 0, len(listed))
 	for _, node := range listed {
-		body := SystemNodeBody{
-			Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
-			RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{}, Stuck: []StuckBody{},
-		}
-		devices, err := dependencies.NodeReports.DeviceStates(ctx, node.ID)
-		if err != nil {
-			return nil, server.logInternalError(ctx, "list a node's devices", err)
-		}
-		for _, device := range devices {
-			body.Devices = append(body.Devices, NodeDeviceBody{
-				Key: device.Key, Kind: string(device.Kind), Filesystem: device.Filesystem,
-				Disks: append([]string{}, device.Disks...), MountPaths: append([]string{}, device.MountPaths...),
-				ReaderLimit: device.ReaderLimit, IsReaderLimitSet: device.IsReaderLimitSet,
-			})
-		}
-		connection, lastHeard := dependencies.NodeReports.NodeConnection(ctx, node.ID)
-		body.Connection, body.IsConnected = string(connection), connection == nodes.Connected
-		if !lastHeard.IsZero() {
-			body.LastHeardAt = new(lastHeard.UnixMilli())
-		}
-		if facts, found := dependencies.NodeReports.Facts(node.Name); found {
-			body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
-			if err != nil {
-				return nil, server.playbackError(ctx, "list a node's prepares", err)
-			}
-			fillNodeFacts(&body, facts, dependencies.System.Build)
+		body, nodeErr := server.systemNode(ctx, dependencies, node)
+		if nodeErr != nil {
+			return nil, nodeErr
 		}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
 	return output, nil
+}
+
+// systemNode is everything the System page shows of one node.
+func (server *Server) systemNode(
+	ctx context.Context, dependencies *Dependencies, node library.NodeRoots,
+) (SystemNodeBody, error) {
+	body := SystemNodeBody{
+		Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
+		RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{}, Stuck: []StuckBody{},
+	}
+	devices, err := dependencies.NodeReports.DeviceStates(ctx, node.ID)
+	if err != nil {
+		return body, server.logInternalError(ctx, "list a node's devices", err)
+	}
+	for _, device := range devices {
+		body.Devices = append(body.Devices, NodeDeviceBody{
+			Key: device.Key, Kind: string(device.Kind), Filesystem: device.Filesystem,
+			Disks: append([]string{}, device.Disks...), MountPaths: append([]string{}, device.MountPaths...),
+			ReaderLimit: device.ReaderLimit, IsReaderLimitSet: device.IsReaderLimitSet,
+		})
+	}
+	connection, lastHeard := dependencies.NodeReports.NodeConnection(ctx, node.ID)
+	body.Connection, body.IsConnected = string(connection), connection == nodes.Connected
+	if !lastHeard.IsZero() {
+		body.LastHeardAt = new(lastHeard.UnixMilli())
+	}
+	facts, found := dependencies.NodeReports.Facts(node.Name)
+	if !found {
+		return body, nil
+	}
+	body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
+	if err != nil {
+		return body, server.playbackError(ctx, "list a node's prepares", err)
+	}
+	fillNodeFacts(&body, facts, dependencies.System.Build)
+	if body.Work != nil && dependencies.NodeWork != nil {
+		body.Work.BrokenInvariantCount = dependencies.NodeWork.BrokenInvariants(facts.NodeID)
+	}
+	return body, nil
 }
 
 // serverFacts are the server's version, platform, disks and database sizes.
@@ -429,6 +490,47 @@ func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Pr
 	for _, stuck := range facts.Status.Stuck {
 		body.Stuck = append(body.Stuck, StuckBody{Program: stuck.Tool, Paths: stuck.Paths, Since: stuck.Since})
 	}
+	body.Work = nodeWorkBody(hello.Capacity, *facts.Status)
+}
+
+// nodeWorkBody is what a node of capacity is doing, as its status says.
+func nodeWorkBody(capacity nodeproto.Capacity, status nodeproto.Status) *NodeWorkBody {
+	work := &NodeWorkBody{}
+	for _, slot := range capacity.Slots() {
+		work.SlotCount += capacity.SlotCount(slot)
+	}
+	var leastSinceMoved *int64
+	for _, held := range status.Held {
+		switch held.State {
+		case nodeproto.HeldRunning:
+			work.RunningCount++
+			if leastSinceMoved == nil || held.SinceMovedMs < *leastSinceMoved {
+				leastSinceMoved = new(held.SinceMovedMs)
+			}
+		case nodeproto.HeldWaiting, nodeproto.HeldPaused:
+			work.WaitingCount++
+		case nodeproto.HeldEnded:
+		}
+	}
+	if leastSinceMoved != nil {
+		work.LastMovedAt = new(status.SentAt - *leastSinceMoved)
+	}
+	return work
+}
+
+// queueBodies are the queue's health as the System page shows it.
+func queueBodies(health []jobs.KindHealth) []QueueKindBody {
+	bodies := make([]QueueKindBody, 0, len(health))
+	for _, kind := range health {
+		body := QueueKindBody{
+			Kind: string(kind.Kind), QueuedCount: kind.QueuedCount, FailedLastDayCount: kind.FailedCount,
+		}
+		if !kind.OldestQueuedAt.IsZero() {
+			body.OldestQueuedAt = new(kind.OldestQueuedAt.UnixMilli())
+		}
+		bodies = append(bodies, body)
+	}
+	return bodies
 }
 
 // confinementBodies are a node's confinement as the API shows it.

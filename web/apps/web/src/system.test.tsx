@@ -94,6 +94,7 @@ function report(node: SystemNode): SystemReport {
     nodes: [node],
     destinations: [],
     providers: [],
+    queue: [],
     offline: [],
   };
 }

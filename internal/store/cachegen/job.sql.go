@@ -46,6 +46,53 @@ func (q *Queries) CancelJob(ctx context.Context, arg CancelJobParams) (int64, er
 	return result.RowsAffected()
 }
 
+const countJobsByKind = `-- name: CountJobsByKind :many
+SELECT kind,
+       CAST(SUM(state = 'queued') AS INTEGER) AS queued_count,
+       CAST(COALESCE(MIN(CASE WHEN state = 'queued' THEN created_at END), 0) AS INTEGER) AS oldest_queued_at,
+       CAST(SUM(state = 'failed' AND finished_at >= ?1) AS INTEGER) AS failed_count
+FROM job
+GROUP BY kind
+ORDER BY kind
+`
+
+type CountJobsByKindRow struct {
+	Kind           string
+	QueuedCount    int64
+	OldestQueuedAt int64
+	FailedCount    int64
+}
+
+// Each kind's queued jobs, when the oldest of them was queued (0 when none is), and how many failed
+// since a time: the queue's health, as the System page shows it (D233 section 8).
+func (q *Queries) CountJobsByKind(ctx context.Context, failedSince *int64) ([]CountJobsByKindRow, error) {
+	rows, err := q.db.QueryContext(ctx, countJobsByKind, failedSince)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountJobsByKindRow{}
+	for rows.Next() {
+		var i CountJobsByKindRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.QueuedCount,
+			&i.OldestQueuedAt,
+			&i.FailedCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deferJob = `-- name: DeferJob :exec
 UPDATE job SET state = 'queued', runnable_at = ?1, last_failure = ?2,
                attempt_count = ?3, is_snoozed = ?4,
