@@ -161,11 +161,11 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 	quickSync := hardwareFinding("local", nodeproto.Hardware{
 		GPUs: []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128"}}, ChosenEncoder: "h264_qsv",
 	})
-	if quickSync.Verdict != verdictOK || !strings.Contains(quickSync.Detail, "h264_qsv") {
+	if quickSync.Verdict != VerdictOK || !strings.Contains(quickSync.Detail, "h264_qsv") {
 		t.Errorf("a node encoding with Quick Sync: %+v, want ok, naming it", quickSync)
 	}
 	noGPU := hardwareFinding("local", nodeproto.Hardware{ChosenEncoder: "x264"})
-	if noGPU.Verdict != verdictOK || !strings.Contains(noGPU.Detail, "no GPU") {
+	if noGPU.Verdict != VerdictOK || !strings.Contains(noGPU.Detail, "no GPU") {
 		t.Errorf("a node with no GPU: %+v, want ok, saying it has none", noGPU)
 	}
 	blocked := hardwareFinding("local", nodeproto.Hardware{
@@ -173,7 +173,7 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 		Trials:        []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "Failed to initialise VAAPI"}},
 		ChosenEncoder: "x264",
 	})
-	if blocked.Verdict != verdictWarn || !strings.Contains(blocked.Detail, "Failed to initialise VAAPI") ||
+	if blocked.Verdict != VerdictWarning || !strings.Contains(blocked.Detail, "Failed to initialise VAAPI") ||
 		!strings.Contains(blocked.Action, "/dev/dri/renderD128") {
 		t.Errorf("a node whose user cannot open its GPU: %+v, want a warning with the trial's words and the device "+
 			"to give it (D225 §3)", blocked)
@@ -183,17 +183,17 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
 	server := build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h1"}
-	if same := nodeBuildFinding("local", server, server); same.Verdict != verdictOK {
+	if same := nodeBuildFinding("local", server, server); same.Verdict != VerdictOK {
 		t.Errorf("a node on the server's own binary: %+v, want ok", same)
 	}
 	older := nodeBuildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
-	if older.Verdict != verdictWarn || !strings.Contains(older.Detail, "v0.2.0") ||
+	if older.Verdict != VerdictWarning || !strings.Contains(older.Detail, "v0.2.0") ||
 		!strings.Contains(older.Detail, "dev-abc-modified") || older.Action == "" {
 		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
 	}
 	rebuilt := nodeBuildFinding("local",
 		build.Provenance{Version: "dev", Commit: "abc", HasUncommittedChanges: true, BinarySha256: "h2"}, server)
-	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
+	if rebuilt.Verdict != VerdictWarning || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
 	}
 }

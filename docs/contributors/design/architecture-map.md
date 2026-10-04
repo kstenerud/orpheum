@@ -119,7 +119,7 @@ is the evidence. The first column names each package by its path; the check read
 | Periodic sweeps and timers | the queue's sweeps; cmd/orpheum ×4 | **Mostly fixed (D231 §3, the jobs rebuild):** six sweeps are registered with the queue, which runs each at its interval, at start and when a destination comes back. Four loops stay in cmd/orpheum (§1), each with its own period: `demoteUnwantedEvery` (30 s), `pruneFinishedEvery` (1 h), the artwork cache's two settings, and the silence watch's one-second tick. Four sweeps share `derivedWorkSweepEvery`, a constant D231 §3 means to be a setting |
 | Parking a job under an unavailable root | library, artwork | **Fixed 2026-10-04:** `library.ParkIfUnder` is the one. Was: `library.ParkIfUnavailable` (playable.go:107) and `artwork.Service.localFile` (service.go:170) |
 | Waiting for a node's word on a job | nodes (`Exchanges.Watch`), subtitles | `subtitles.convertWhileWaiting` (fetch.go:265) times its person's wait with its own timer at the node-silence limit, beside the exchange's own silence watch. Two clocks on one silence; watch |
-| Doctor findings | cmd/orpheum, api | Still open (F7): cmd/orpheum/doctor.go:25-30 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:24 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` |
+| Doctor findings | cmd/orpheum, api | **Fixed 2026-10-04 (F7):** one `api.Verdict` (`ok`, `warn`, `fail`), which the command's findings use too and print with a failure in capitals. Was: cmd/orpheum/doctor.go's own `verdict` (`FAIL`) against api/doctor.go's strings (`fail`) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
 | Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (cmd/orpheum/artwork.go). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
 | A person's or device's choices | preferences (`preference`); auth (`device.audio_output`) | **Fixed 2026-09-30:** a person's choices live only in internal/core/preferences, and `setting` lost its unused `user` scope and `/me/settings`; how a device makes sound stays on its row, a fact about its speakers. Was: playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 |
@@ -312,8 +312,8 @@ These live in `preference` (with a `device` scope), `device.audio_output`, and a
 `user` that has no definitions. The recommendation: one home for per-person and per-device choices
 (probably `preference`), and either drop the unused user scope or give it a stated purpose.
 
-**F7. A responsibility with two owners: doctor.** *No owner needed; still open at the pre-M4
-audit.*
+**F7. A responsibility with two owners: doctor.** *No owner needed; fixed 2026-10-04: one
+`api.Verdict`.*
 There are two finding types with two verdict spellings ("FAIL" and "fail"). Recommend one
 `Finding` type and one verdict enum, used by the command and by `GET /doctor`. This is rule 11
 work.

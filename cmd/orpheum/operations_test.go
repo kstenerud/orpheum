@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -195,7 +196,7 @@ func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t
 		{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
 		{Mechanism: confine.MechanismSeccomp, IsInForce: true},
 	})
-	if got.verdict != verdictWarning ||
+	if got.verdict != api.VerdictWarning ||
 		!strings.Contains(got.description, confine.MechanismLandlock+": not enabled at boot") ||
 		strings.Contains(got.description, confine.MechanismSeccomp) ||
 		got.remedy != confine.MechanismLandlock+": add landlock to lsm=" {
@@ -204,11 +205,11 @@ func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t
 	confined := confinementOfThisMachine([]confine.State{
 		{Mechanism: confine.MechanismLandlock, IsInForce: true}, {Mechanism: confine.MechanismSeccomp, IsInForce: true},
 	})
-	if confined.verdict != verdictOK || !strings.Contains(confined.description, "this machine") {
+	if confined.verdict != api.VerdictOK || !strings.Contains(confined.description, "this machine") {
 		t.Errorf("both in force: %+v, want ok for this machine", confined)
 	}
 	// A machine that reports no mechanism at all is not confined; the command once said nothing.
-	if none := confinementOfThisMachine(nil); none.verdict != verdictWarning {
+	if none := confinementOfThisMachine(nil); none.verdict != api.VerdictWarning {
 		t.Errorf("no mechanism reported: %+v, want a warning", none)
 	}
 }

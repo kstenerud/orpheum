@@ -21,18 +21,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// verdict is one doctor finding's weight.
-type verdict string
-
-const (
-	verdictOK      verdict = "ok"
-	verdictWarning verdict = "warn"
-	verdictFailure verdict = "FAIL"
-)
+// verdictWord is how the command prints a verdict: a failure in capitals, so it stands out among
+// the lines of a terminal.
+func verdictWord(verdict api.Verdict) string {
+	if verdict == api.VerdictFailure {
+		return strings.ToUpper(string(verdict))
+	}
+	return string(verdict)
+}
 
 // finding is one line of doctor's report: what was checked, and for anything wrong, what to do.
 type finding struct {
-	verdict     verdict
+	verdict     api.Verdict
 	description string
 	remedy      string
 }
@@ -48,14 +48,14 @@ func commandDoctor(ctx context.Context, call invocation) int {
 	findings := append(configFindings(configReport), diagnose(ctx, config, logger, clock.System{}.Now())...)
 	status := exitSuccess
 	for _, doctorFinding := range findings {
-		line := fmt.Sprintf("%-4s  %s", doctorFinding.verdict, doctorFinding.description)
+		line := fmt.Sprintf("%-4s  %s", verdictWord(doctorFinding.verdict), doctorFinding.description)
 		if doctorFinding.remedy != "" {
 			line += " — " + doctorFinding.remedy
 		}
 		if write(call.stdout, line+"\n", exitSuccess) != exitSuccess {
 			return exitWriteFailure
 		}
-		if doctorFinding.verdict == verdictFailure {
+		if doctorFinding.verdict == api.VerdictFailure {
 			status = exitFailure
 		}
 	}
@@ -67,7 +67,7 @@ func configFindings(report ConfigReport) []finding {
 	findings := []finding{}
 	for _, key := range report.OnStartingValue {
 		findings = append(findings, finding{
-			verdictWarning,
+			api.VerdictWarning,
 			fmt.Sprintf("config: %s is not in the file; the server runs on its starting value, %s",
 				key.path(), key.startingValue),
 			"add it to the file to make the value a choice rather than a starting value",
@@ -75,12 +75,12 @@ func configFindings(report ConfigReport) []finding {
 	}
 	for _, key := range report.Unknown {
 		findings = append(findings, finding{
-			verdictWarning, "config: " + key + " is in the file, but nothing reads it",
+			api.VerdictWarning, "config: " + key + " is in the file, but nothing reads it",
 			"a typo, or a key a release removed; delete it if it is not a typo",
 		})
 	}
 	if len(findings) == 0 {
-		findings = append(findings, finding{verdictOK, "config: every key is in the file, and nothing else", ""})
+		findings = append(findings, finding{api.VerdictOK, "config: every key is in the file, and nothing else", ""})
 	}
 	return findings
 }
@@ -90,7 +90,7 @@ func configFindings(report ConfigReport) []finding {
 func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.Time) []finding {
 	directories, err := instancedir.Open(config.Instance.paths())
 	if err != nil {
-		return []finding{{verdictFailure, "the instance's directories", err.Error()}}
+		return []finding{{api.VerdictFailure, "the instance's directories", err.Error()}}
 	}
 	findings := []finding{checkWritable(directories, config.Instance.PersistentDir)}
 	key, keyFinding := checkSecretKey(directories)
@@ -106,9 +106,9 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 // (api.ConfinementFinding, D112).
 func confinementOfThisMachine(states []confine.State) finding {
 	judged := api.ConfinementFinding("this machine", confinementReport(states))
-	checked := finding{verdictOK, judged.Check + ": " + judged.Detail, judged.Action}
-	if judged.Verdict != string(verdictOK) {
-		checked.verdict = verdictWarning
+	checked := finding{api.VerdictOK, judged.Check + ": " + judged.Detail, judged.Action}
+	if judged.Verdict != api.VerdictOK {
+		checked.verdict = api.VerdictWarning
 	}
 	return checked
 }
@@ -119,27 +119,27 @@ func checkWritable(directories *instancedir.Directories, path string) finding {
 		directories.WritePersistentFile(probeFileName, []byte("probe")),
 		directories.RemovePersistentFile(probeFileName))
 	if err != nil {
-		return finding{verdictFailure, "persistent directory " + path + " is not writable", err.Error()}
+		return finding{api.VerdictFailure, "persistent directory " + path + " is not writable", err.Error()}
 	}
-	return finding{verdictOK, "persistent directory " + path + " is writable", ""}
+	return finding{api.VerdictOK, "persistent directory " + path + " is writable", ""}
 }
 
 func checkSecretKey(directories *instancedir.Directories) (*secrets.Key, finding) {
 	contents, err := directories.ReadPersistentFile(secrets.KeyFileName)
 	if errors.Is(err, instancedir.ErrNotFound) {
 		return nil, finding{
-			verdictWarning, "secret.key is missing",
+			api.VerdictWarning, "secret.key is missing",
 			"the server writes a new one at start; secrets sealed under the old one will need re-entering",
 		}
 	}
 	if err != nil {
-		return nil, finding{verdictFailure, "secret.key cannot be read", err.Error()}
+		return nil, finding{api.VerdictFailure, "secret.key cannot be read", err.Error()}
 	}
 	key, err := secrets.ParseKeyFile(contents)
 	if err != nil {
-		return nil, finding{verdictFailure, "secret.key is damaged", err.Error()}
+		return nil, finding{api.VerdictFailure, "secret.key is damaged", err.Error()}
 	}
-	return &key, finding{verdictOK, "secret.key is present", ""}
+	return &key, finding{api.VerdictOK, "secret.key is present", ""}
 }
 
 // checkDatabase checks persistent.db and returns, from its settings, the age at which a backup is
@@ -152,14 +152,16 @@ func checkDatabase(
 ) {
 	exists, err := directories.PersistentDatabaseExists()
 	if err != nil {
-		return []finding{{verdictFailure, "persistent.db", err.Error()}}, nil
+		return []finding{{api.VerdictFailure, "persistent.db", err.Error()}}, nil
 	}
 	if !exists {
-		return []finding{{verdictWarning, "there is no persistent.db yet", "start the server with `orpheum core`"}}, nil
+		return []finding{{
+			api.VerdictWarning, "there is no persistent.db yet", "start the server with `orpheum core`",
+		}}, nil
 	}
 	database, err := store.Open(ctx, directories.PersistentDatabasePath(), options)
 	if err != nil {
-		return []finding{{verdictFailure, "persistent.db does not open", err.Error()}}, nil
+		return []finding{{api.VerdictFailure, "persistent.db does not open", err.Error()}}, nil
 	}
 	defer func() { _ = database.Close() }() //nolint:errcheck // doctor reports; a close error changes no finding
 	findings := []finding{checkSchema(ctx, database)}
@@ -167,14 +169,14 @@ func checkDatabase(
 	count, err := auth.NewService(database, clock.System{}, rand.Reader, settingsService).CountUsers(ctx)
 	switch {
 	case err != nil:
-		findings = append(findings, finding{verdictFailure, "users cannot be counted", err.Error()})
+		findings = append(findings, finding{api.VerdictFailure, "users cannot be counted", err.Error()})
 	case count == 0:
 		findings = append(findings, finding{
-			verdictWarning, "setup is not complete: there is no admin yet",
+			api.VerdictWarning, "setup is not complete: there is no admin yet",
 			"create one with the code `orpheum setup-code` prints",
 		})
 	default:
-		findings = append(findings, finding{verdictOK, fmt.Sprintf("setup is complete; %d users", count), ""})
+		findings = append(findings, finding{api.VerdictOK, fmt.Sprintf("setup is complete; %d users", count), ""})
 	}
 	if key != nil {
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
@@ -183,7 +185,7 @@ func checkDatabase(
 	backupAgeWarning, err := settingsService.Duration(ctx, settings.BackupAgeWarningHours)
 	if err != nil {
 		findings = append(findings, finding{
-			verdictWarning, "the settings cannot be read: " + err.Error(),
+			api.VerdictWarning, "the settings cannot be read: " + err.Error(),
 			"start the server once; it writes every setting's starting value",
 		})
 		return findings, nil
@@ -194,30 +196,32 @@ func checkDatabase(
 func checkSchema(ctx context.Context, database *store.Database) finding {
 	state, err := database.State(ctx)
 	if err != nil {
-		return finding{verdictFailure, "the schema version cannot be read", err.Error()}
+		return finding{api.VerdictFailure, "the schema version cannot be read", err.Error()}
 	}
 	binaryVersion, err := store.SchemaVersion()
 	if err != nil {
-		return finding{verdictFailure, "this binary's schema version", err.Error()}
+		return finding{api.VerdictFailure, "this binary's schema version", err.Error()}
 	}
 	switch {
 	case state.Version == binaryVersion:
-		return finding{verdictOK, fmt.Sprintf("persistent.db opens, pragmas as set, at schema %d", state.Version), ""}
+		return finding{
+			api.VerdictOK, fmt.Sprintf("persistent.db opens, pragmas as set, at schema %d", state.Version), "",
+		}
 	case store.RefuseBeforeBaseline(state) != nil:
 		return finding{
-			verdictFailure, fmt.Sprintf("persistent.db is at schema %d, below the baseline this release "+
+			api.VerdictFailure, fmt.Sprintf("persistent.db is at schema %d, below the baseline this release "+
 				"starts from; no release migrates it (D228)", state.Version),
 			"move it aside and start with an empty one; in development, `make dev-reset`",
 		}
 	case state.Version < binaryVersion:
-		return finding{verdictWarning, fmt.Sprintf("persistent.db is at schema %d; this release migrates it to %d",
+		return finding{api.VerdictWarning, fmt.Sprintf("persistent.db is at schema %d; this release migrates it to %d",
 			state.Version, binaryVersion), "start the server, or run `orpheum migrate`"}
 	case state.UsableBy(binaryVersion):
-		return finding{verdictOK, fmt.Sprintf("persistent.db is at schema %d, from a newer release that left it "+
+		return finding{api.VerdictOK, fmt.Sprintf("persistent.db is at schema %d, from a newer release that left it "+
 			"usable by this one (%d)", state.Version, binaryVersion), ""}
 	}
 	return finding{
-		verdictFailure, fmt.Sprintf("persistent.db is at schema %d and needs a newer release than this "+
+		api.VerdictFailure, fmt.Sprintf("persistent.db is at schema %d and needs a newer release than this "+
 			"one (%d)", state.Version, binaryVersion),
 		"restore the pre-migrate snapshot in the backups directory with `orpheum restore --from`, or upgrade",
 	}
@@ -228,17 +232,17 @@ func checkSecrets(
 ) finding {
 	needing, err := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService).NeedingReentry(ctx)
 	if err != nil {
-		return finding{verdictFailure, "sealed secrets cannot be listed", err.Error()}
+		return finding{api.VerdictFailure, "sealed secrets cannot be listed", err.Error()}
 	}
 	if len(needing) == 0 {
-		return finding{verdictOK, "every sealed secret opens with this secret.key", ""}
+		return finding{api.VerdictOK, "every sealed secret opens with this secret.key", ""}
 	}
 	var names []string
 	for _, status := range needing {
 		names = append(names, string(status.Name))
 	}
 	return finding{
-		verdictWarning, "these secrets need re-entering: " + strings.Join(names, ", "),
+		api.VerdictWarning, "these secrets need re-entering: " + strings.Join(names, ", "),
 		"they were sealed under another secret.key; set them again in settings",
 	}
 }
@@ -246,26 +250,26 @@ func checkSecrets(
 func checkBackups(directories *instancedir.Directories, now time.Time, oldBackupAge *time.Duration) finding {
 	files, err := directories.ListBackups()
 	if err != nil {
-		return finding{verdictFailure, "the backup directory cannot be read", err.Error()}
+		return finding{api.VerdictFailure, "the backup directory cannot be read", err.Error()}
 	}
 	for _, file := range files {
 		if strings.HasPrefix(file.Name, "backup-") && strings.HasSuffix(file.Name, ".tar.gz") {
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
 			if oldBackupAge == nil {
-				return finding{verdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
+				return finding{api.VerdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
 					"backup_age_warning_hours setting", file.Name, age), ""}
 			}
 			if age > *oldBackupAge {
 				return finding{
-					verdictWarning, fmt.Sprintf("the newest backup, %s, is %s old", file.Name, age),
+					api.VerdictWarning, fmt.Sprintf("the newest backup, %s, is %s old", file.Name, age),
 					"run `orpheum backup`",
 				}
 			}
-			return finding{verdictOK, fmt.Sprintf("the newest backup is %s", file.Name), ""}
+			return finding{api.VerdictOK, fmt.Sprintf("the newest backup is %s", file.Name), ""}
 		}
 	}
 	return finding{
-		verdictWarning, "there is no backup yet in " + directories.BackupDirectory(),
+		api.VerdictWarning, "there is no backup yet in " + directories.BackupDirectory(),
 		"run `orpheum backup`; a backup on the same disk does not survive that disk",
 	}
 }
@@ -274,7 +278,7 @@ func checkBackups(directories *instancedir.Directories, now time.Time, oldBackup
 func unusedFindings(ctx context.Context, settingsService *settings.Service) []finding {
 	unused, err := settingsService.Unused(ctx)
 	if err != nil {
-		return []finding{{verdictFailure, "the setting rows cannot be listed", err.Error()}}
+		return []finding{{api.VerdictFailure, "the setting rows cannot be listed", err.Error()}}
 	}
 	findings := []finding{}
 	for _, row := range unused {
@@ -283,7 +287,7 @@ func unusedFindings(ctx context.Context, settingsService *settings.Service) []fi
 			why = fmt.Sprintf("retired in %s: %s", row.Retired.Release, row.Retired.Reason)
 		}
 		findings = append(findings, finding{
-			verdictWarning, "setting " + row.String() + " is unused; " + why,
+			api.VerdictWarning, "setting " + row.String() + " is unused; " + why,
 			"delete it with DELETE /api/v1/config/unused/" + row.Key + " if it is not needed",
 		})
 	}
