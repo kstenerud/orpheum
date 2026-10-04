@@ -190,11 +190,11 @@ type ScanRoot struct {
 // ScanProgress is how far a root's scan in progress is (D236 §2): listing, or listed and reading
 // the files its listing found new or changed; and whether one more runs after it (D236 §3).
 type ScanProgress struct {
-	IsListed      bool
-	ListedCount   int64
-	ExamineCount  int64
-	ExaminedCount int64
-	IsScanAgain   bool
+	IsListed            bool
+	ListedCount         int64
+	ToExamineCount      int64
+	ExaminedCount       int64
+	IsAnotherScanQueued bool
 }
 
 // InProgress is every scan in progress, by its root.
@@ -206,8 +206,8 @@ func (scans *Scans) InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, 
 	progress := make(map[ScanRoot]ScanProgress, len(rows))
 	for _, row := range rows {
 		progress[ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}] = ScanProgress{
-			IsListed: row.ListedAt != nil, ListedCount: row.ListedCount, ExamineCount: row.ExamineCount,
-			ExaminedCount: row.ExaminedCount, IsScanAgain: row.IsScanAgain != 0,
+			IsListed: row.ListedAt != nil, ListedCount: row.ListedCount, ToExamineCount: row.ToExamineCount,
+			ExaminedCount: row.ExaminedCount, IsAnotherScanQueued: row.IsAnotherScanQueued != 0,
 		}
 	}
 	return progress, nil
@@ -411,7 +411,7 @@ func (scans *Scans) keepBatches(
 	err := scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		err := queries.SetScanListed(ctx, cachegen.SetScanListedParams{
 			ListedAt: new(scans.clock.Now().UnixMilli()), ListedCount: int64(taken.ListedCount),
-			ExamineCount: int64(len(taken.ToExamine)), ID: scan.ID,
+			ToExamineCount: int64(len(taken.ToExamine)), ID: scan.ID,
 		})
 		if err != nil {
 			return err
@@ -543,7 +543,7 @@ func (scans *Scans) endThenAgain(ctx context.Context, scan cachegen.Scan) error 
 	if err := scans.end(ctx, scan); err != nil {
 		return err
 	}
-	if scan.IsScanAgain == 0 {
+	if scan.IsAnotherScanQueued == 0 {
 		return nil
 	}
 	return scans.request(ctx, scan.NodeID, scan.RootPath, scan.Priority)

@@ -383,7 +383,7 @@ D238 then revised it (the same day): each fact has one owner, and the node keeps
    and the node starts what waits in priority order.
 8. The "changed since the scan" refusal gets its own code and is retried with back-off as today;
    the scan that notices the change ends the old file's jobs.
-9. A node whose prepared directory's disk has less than `node.min_free_mib` free (a node config key
+9. A node whose prepared directory's disk has less than `node.prepared_disk_min_free_mib` free (a node config key
    starting at 100; the owner, 2026-10-02: "a node balk and report full when less than 100mb space
    remains. Configurable"), beside the directory's own limits (D217 §5), refuses new work that
    writes there with its reason, and the core parks it until the node's status shows room, as
@@ -418,7 +418,7 @@ Node protocol 5.
 
 *4b.4 built 2026-10-02:* a fetched subtitle is converted by its job, at play priority, while the
 fetch waits for its text, at most the silence limit, and is discarded if not converted (D224 §6);
-the prepared directory's disk keeps `node.min_free_mib` free (100), evicting for it and refusing a
+the prepared directory's disk keeps `node.prepared_disk_min_free_mib` free (100), evicting for it and refusing a
 prepare with nothing to evict, and the core's "room" reads the floor too; a refusal for a file
 changed since the scan is named (`changed`) and said apart, tried again as before. Node protocol 7.
 4b is built.

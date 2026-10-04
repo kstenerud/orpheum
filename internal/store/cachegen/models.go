@@ -77,16 +77,16 @@ type PreparedRendition struct {
 }
 
 type Scan struct {
-	ID            int64
-	NodeID        int64
-	RootPath      string
-	Priority      int64
-	StartedAt     int64
-	ListedAt      *int64
-	ListedCount   int64
-	ExamineCount  int64
-	ExaminedCount int64
-	IsScanAgain   int64
+	ID                  int64
+	NodeID              int64
+	RootPath            string
+	Priority            int64
+	StartedAt           int64
+	ListedAt            *int64
+	ListedCount         int64
+	ToExamineCount      int64
+	ExaminedCount       int64
+	IsAnotherScanQueued int64
 }
 
 type ScanBatch struct {

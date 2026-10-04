@@ -98,18 +98,18 @@ describe("libraries", () => {
     const listing = card({
       isListed: false,
       listedCount: 0,
-      examineCount: 0,
+      toExamineCount: 0,
       examinedCount: 0,
-      isScanAgain: false,
+      isAnotherScanQueued: false,
     });
     expect(listing).toContain("Scanning… listing the folders.");
     expect(listing).toContain("Scan again when this one ends");
     const reading = card({
       isListed: true,
       listedCount: 312,
-      examineCount: 40,
+      toExamineCount: 40,
       examinedCount: 12,
-      isScanAgain: true,
+      isAnotherScanQueued: true,
     });
     expect(reading).toContain("Scanning… 312 files found, 12 of 40 new or changed read.");
     expect(reading).toContain("It scans again when this one ends.");

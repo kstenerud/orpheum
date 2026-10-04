@@ -27,7 +27,7 @@
 //     run directory without a manifest, whatever their kept time; never one being written, nor one
 //     made after the listing (the owner, 2026-10-02).
 //     TestReconcile_EvictsWhatTheCoreDoesNotKeepAndUnfinishedMakingsButNeverOneBeingWrittenOrMadeSince.
-//   - The disk keeps its floor of free space, node.min_free_mib, whatever its percentage says:
+//   - The disk keeps its floor of free space, node.prepared_disk_min_free_mib, whatever its percentage says:
 //     below it renditions are evicted, and a prepare with nothing left to evict is refused (the
 //     owner, 2026-10-02). TestMakeRoom_KeepsTheDisksFloorOfFreeSpace.
 //

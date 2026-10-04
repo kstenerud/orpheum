@@ -391,13 +391,13 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || !scan.IsScanAgain {
+	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || !scan.IsAnotherScanQueued {
 		t.Errorf("before its listing, the scan shows %+v (%v); want unlisted, with another asked for", scan,
 			isScanning)
 	}
 	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1))
 	scan, isScanning := bench.inProgressOf()
-	if !isScanning || !scan.IsListed || scan.ListedCount != 1 || scan.ExamineCount != 1 || scan.ExaminedCount != 0 {
+	if !isScanning || !scan.IsListed || scan.ListedCount != 1 || scan.ToExamineCount != 1 || scan.ExaminedCount != 0 {
 		t.Errorf("once listed, the scan shows %+v (%v); want its one file listed and to read", scan, isScanning)
 	}
 	job, _ := bench.examine()
@@ -408,7 +408,7 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || scan.IsScanAgain {
+	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || scan.IsAnotherScanQueued {
 		t.Errorf("once it ended, the root's scan shows %+v (%v); want the one asked for again, fresh", scan,
 			isScanning)
 	}

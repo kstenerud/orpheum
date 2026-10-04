@@ -45,8 +45,8 @@ func (q *Queries) DeleteScan(ctx context.Context, id int64) error {
 }
 
 const getScan = `-- name: GetScan :one
-SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, examine_count, examined_count,
-       is_scan_again
+SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
+       is_another_scan_queued
 FROM scan WHERE id = ?1
 `
 
@@ -61,9 +61,9 @@ func (q *Queries) GetScan(ctx context.Context, id int64) (Scan, error) {
 		&i.StartedAt,
 		&i.ListedAt,
 		&i.ListedCount,
-		&i.ExamineCount,
+		&i.ToExamineCount,
 		&i.ExaminedCount,
-		&i.IsScanAgain,
+		&i.IsAnotherScanQueued,
 	)
 	return i, err
 }
@@ -135,8 +135,8 @@ func (q *Queries) InsertScanBatch(ctx context.Context, arg InsertScanBatchParams
 }
 
 const listScans = `-- name: ListScans :many
-SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, examine_count, examined_count,
-       is_scan_again
+SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
+       is_another_scan_queued
 FROM scan ORDER BY id
 `
 
@@ -158,9 +158,9 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 			&i.StartedAt,
 			&i.ListedAt,
 			&i.ListedCount,
-			&i.ExamineCount,
+			&i.ToExamineCount,
 			&i.ExaminedCount,
-			&i.IsScanAgain,
+			&i.IsAnotherScanQueued,
 		); err != nil {
 			return nil, err
 		}
@@ -176,7 +176,7 @@ func (q *Queries) ListScans(ctx context.Context) ([]Scan, error) {
 }
 
 const setScanAgain = `-- name: SetScanAgain :execrows
-UPDATE scan SET is_scan_again = 1 WHERE node_id = ?1 AND root_path = ?2
+UPDATE scan SET is_another_scan_queued = 1 WHERE node_id = ?1 AND root_path = ?2
 `
 
 type SetScanAgainParams struct {
@@ -208,15 +208,15 @@ func (q *Queries) SetScanBatchDone(ctx context.Context, id int64) (int64, error)
 
 const setScanListed = `-- name: SetScanListed :exec
 UPDATE scan SET listed_at = ?1, listed_count = ?2,
-                examine_count = ?3
+                to_examine_count = ?3
 WHERE id = ?4
 `
 
 type SetScanListedParams struct {
-	ListedAt     *int64
-	ListedCount  int64
-	ExamineCount int64
-	ID           int64
+	ListedAt       *int64
+	ListedCount    int64
+	ToExamineCount int64
+	ID             int64
 }
 
 // A scan's listing taken: how many files it found, and how many of them it needs read.
@@ -224,7 +224,7 @@ func (q *Queries) SetScanListed(ctx context.Context, arg SetScanListedParams) er
 	_, err := q.db.ExecContext(ctx, setScanListed,
 		arg.ListedAt,
 		arg.ListedCount,
-		arg.ExamineCount,
+		arg.ToExamineCount,
 		arg.ID,
 	)
 	return err

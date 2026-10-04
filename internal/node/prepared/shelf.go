@@ -26,7 +26,7 @@ type Budget struct {
 	// fixed budget cannot know what else shares the disk.
 	DiskUsedLimitPercent int
 	// MinFreeBytes is the least the directory's filesystem keeps free, whatever the rest says: on a
-	// large disk a percentage leaves too little, on a small one too much (node.min_free_mib).
+	// large disk a percentage leaves too little, on a small one too much (node.prepared_disk_min_free_mib).
 	MinFreeBytes int64
 }
 

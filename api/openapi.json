@@ -3210,26 +3210,26 @@
       "RootScanBody": {
         "additionalProperties": false,
         "properties": {
-          "examineCount": {
-            "description": "Of them, those new or changed, to read",
-            "format": "int64",
-            "type": "integer"
-          },
           "examinedCount": {
             "description": "Of those, read",
             "format": "int64",
             "type": "integer"
           },
+          "isAnotherScanQueued": {
+            "description": "Whether one more scan runs after this one",
+            "type": "boolean"
+          },
           "isListed": {
             "description": "Whether the root's listing is in; before it, the scan is listing",
             "type": "boolean"
           },
-          "isScanAgain": {
-            "description": "Whether one more scan runs after this one",
-            "type": "boolean"
-          },
           "listedCount": {
             "description": "The files the listing found",
+            "format": "int64",
+            "type": "integer"
+          },
+          "toExamineCount": {
+            "description": "Of them, those new or changed, to read",
             "format": "int64",
             "type": "integer"
           }
@@ -3237,9 +3237,9 @@
         "required": [
           "isListed",
           "listedCount",
-          "examineCount",
+          "toExamineCount",
           "examinedCount",
-          "isScanAgain"
+          "isAnotherScanQueued"
         ],
         "type": "object"
       },

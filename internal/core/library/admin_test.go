@@ -144,7 +144,9 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 func TestAdmin_ListsARootsScanInProgress(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	progress := ScanProgress{IsListed: true, ListedCount: 40, ExamineCount: 3, ExaminedCount: 1, IsScanAgain: true}
+	progress := ScanProgress{
+		IsListed: true, ListedCount: 40, ToExamineCount: 3, ExaminedCount: 1, IsAnotherScanQueued: true,
+	}
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, scanning: map[ScanRoot]ScanProgress{
 		{NodeID: world.nodeID, RootPath: root}: progress, {NodeID: world.nodeID, RootPath: "/media/other"}: {},
 	}}

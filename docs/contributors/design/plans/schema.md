@@ -970,10 +970,10 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   -- restart loses, so such a scan starts again.
   listed_at   INTEGER,
   listed_count  INTEGER NOT NULL DEFAULT 0,  -- the files its listing found (D236 section 2)
-  examine_count INTEGER NOT NULL DEFAULT 0,  -- of them, those it needs read
+  to_examine_count INTEGER NOT NULL DEFAULT 0,  -- of them, those it needs read
   examined_count INTEGER NOT NULL DEFAULT 0, -- and of those, read
   -- Whether a scan was asked for while this one ran: one more follows it (D236 section 3).
-  is_scan_again INTEGER NOT NULL DEFAULT 0 CHECK (is_scan_again IN (0, 1)),
+  is_another_scan_queued INTEGER NOT NULL DEFAULT 0 CHECK (is_another_scan_queued IN (0, 1)),
   UNIQUE (node_id, root_path)
 );
 CREATE TABLE scan_batch (                                  -- D240 section 8: a batch to examine

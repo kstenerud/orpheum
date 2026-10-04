@@ -34,11 +34,11 @@ type RootBody struct {
 // the files it found new or changed; and whether one more runs after it, asked for meanwhile
 // (D236 §3).
 type RootScanBody struct {
-	IsListed      bool  `doc:"Whether the root's listing is in; before it, the scan is listing" json:"isListed"`
-	ListedCount   int64 `doc:"The files the listing found" json:"listedCount"`
-	ExamineCount  int64 `doc:"Of them, those new or changed, to read" json:"examineCount"`
-	ExaminedCount int64 `doc:"Of those, read" json:"examinedCount"`
-	IsScanAgain   bool  `doc:"Whether one more scan runs after this one" json:"isScanAgain"`
+	IsListed            bool  `doc:"Whether the root's listing is in; before it, the scan is listing" json:"isListed"`
+	ListedCount         int64 `doc:"The files the listing found" json:"listedCount"`
+	ToExamineCount      int64 `doc:"Of them, those new or changed, to read" json:"toExamineCount"`
+	ExaminedCount       int64 `doc:"Of those, read" json:"examinedCount"`
+	IsAnotherScanQueued bool  `doc:"Whether one more scan runs after this one" json:"isAnotherScanQueued"`
 }
 
 // LibraryBody is a library: its three answers (D184), and for an admin its roots and its files
@@ -339,8 +339,8 @@ func scanBodyOf(progress *library.ScanProgress) *RootScanBody {
 		return nil
 	}
 	return &RootScanBody{
-		IsListed: progress.IsListed, ListedCount: progress.ListedCount, ExamineCount: progress.ExamineCount,
-		ExaminedCount: progress.ExaminedCount, IsScanAgain: progress.IsScanAgain,
+		IsListed: progress.IsListed, ListedCount: progress.ListedCount, ToExamineCount: progress.ToExamineCount,
+		ExaminedCount: progress.ExaminedCount, IsAnotherScanQueued: progress.IsAnotherScanQueued,
 	}
 }
 

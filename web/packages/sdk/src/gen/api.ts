@@ -2196,23 +2196,23 @@ export interface components {
         RootScanBody: {
             /**
              * Format: int64
-             * @description Of them, those new or changed, to read
-             */
-            examineCount: number;
-            /**
-             * Format: int64
              * @description Of those, read
              */
             examinedCount: number;
+            /** @description Whether one more scan runs after this one */
+            isAnotherScanQueued: boolean;
             /** @description Whether the root's listing is in; before it, the scan is listing */
             isListed: boolean;
-            /** @description Whether one more scan runs after this one */
-            isScanAgain: boolean;
             /**
              * Format: int64
              * @description The files the listing found
              */
             listedCount: number;
+            /**
+             * Format: int64
+             * @description Of them, those new or changed, to read
+             */
+            toExamineCount: number;
         };
         ScanOutputBody: {
             /** Format: int64 */
