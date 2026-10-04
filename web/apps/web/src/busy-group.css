@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A fieldset only for disabling what it holds: no border, no space, no box of its own. */
+.busy-group {
+  display: contents;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}

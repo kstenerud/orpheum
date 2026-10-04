@@ -4,6 +4,9 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -231,49 +234,49 @@ function Secrets(): JSX.Element {
     const secretsBody = dataOrThrow(await api.GET("/secrets"));
     return secretsBody.secrets ?? [];
   });
+  // Each secret's own note says how its change went; the request only makes the buttons wait.
+  const changing = useRequest(() => "");
   /** Shows how a change to a secret went, then loads the secrets again. */
   const noteOutcome = (
     name: string,
     successNote: string,
-    request: Promise<RefusableAnswer>,
+    send: (idempotencyKey: string) => Promise<RefusableAnswer>,
   ): void => {
     const showNote = (text: string): void => {
       setNotes((previous) => new Map(previous).set(name, text));
       reload();
     };
-    request.then(throwIfRefused).then(
-      () => {
+    changing.runRequest(async (idempotencyKey) => {
+      try {
+        throwIfRefused(await send(idempotencyKey));
         showNote(successNote);
-      },
-      (cause: unknown) => {
+      } catch (cause: unknown) {
         showNote(fieldProblemText(t, cause, { fields: { "body.value": t("settings.newValue") } }));
-      },
-    );
+      }
+    });
   };
   return (
-    <Loaded
-      resource={secrets}
-      render={(loadedSecrets) => (
-        <SecretsView
-          secrets={loadedSecrets}
-          notes={notes}
-          onSave={(name, value) => {
-            noteOutcome(
-              name,
-              t("settings.saved"),
-              api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
-            );
-          }}
-          onRemove={(name) => {
-            noteOutcome(
-              name,
-              t("settings.removed"),
-              api.DELETE("/secrets/{name}", { params: { path: { name } } }),
-            );
-          }}
-        />
-      )}
-    />
+    <BusyGroup isBusy={changing.isBusy}>
+      <Loaded
+        resource={secrets}
+        render={(loadedSecrets) => (
+          <SecretsView
+            secrets={loadedSecrets}
+            notes={notes}
+            onSave={(name, value) => {
+              noteOutcome(name, t("settings.saved"), () =>
+                api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
+              );
+            }}
+            onRemove={(name) => {
+              noteOutcome(name, t("settings.removed"), () =>
+                api.DELETE("/secrets/{name}", { params: { path: { name } } }),
+              );
+            }}
+          />
+        )}
+      />
+    </BusyGroup>
   );
 }
 
@@ -286,42 +289,50 @@ function ServerSettings(): JSX.Element {
     const configBody = dataOrThrow(await api.GET("/config"));
     return configBody.settings ?? [];
   });
+  // Each setting's own problem says how its change went; the request only makes the buttons wait.
+  const changing = useRequest(() => "");
   /** Shows a change's refusal beside its setting, or clears it, then loads the settings again. */
-  const showRefusalAndReload = (key: string, request: Promise<RefusableAnswer>): void => {
+  const showRefusalAndReload = (
+    key: string,
+    send: (idempotencyKey: string) => Promise<RefusableAnswer>,
+  ): void => {
     const showProblem = (text: string): void => {
       setProblems((previous) => new Map(previous).set(key, text));
       reload();
     };
-    request.then(throwIfRefused).then(
-      () => {
+    changing.runRequest(async (idempotencyKey) => {
+      try {
+        throwIfRefused(await send(idempotencyKey));
         showProblem("");
-      },
-      (cause: unknown) => {
+      } catch (cause: unknown) {
         showProblem(fieldProblemText(t, cause, { fields: { [`body.valuesByKey.${key}`]: key } }));
-      },
-    );
+      }
+    });
   };
   return (
-    <Loaded
-      resource={settings}
-      render={(loadedSettings) => (
-        <SettingsView
-          settings={loadedSettings}
-          problems={problems}
-          onSave={(key, newValue) => {
-            showRefusalAndReload(
-              key,
-              api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
-            );
-          }}
-          onReset={(key) => {
-            showRefusalAndReload(
-              key,
-              api.POST("/config/{key}/reset", { params: { path: { key } } }),
-            );
-          }}
-        />
-      )}
-    />
+    <BusyGroup isBusy={changing.isBusy}>
+      <Loaded
+        resource={settings}
+        render={(loadedSettings) => (
+          <SettingsView
+            settings={loadedSettings}
+            problems={problems}
+            onSave={(key, newValue) => {
+              showRefusalAndReload(key, () =>
+                api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
+              );
+            }}
+            onReset={(key) => {
+              showRefusalAndReload(key, (idempotencyKey) =>
+                api.POST("/config/{key}/reset", {
+                  params: { path: { key } },
+                  ...idempotent(idempotencyKey),
+                }),
+              );
+            }}
+          />
+        )}
+      />
+    </BusyGroup>
   );
 }

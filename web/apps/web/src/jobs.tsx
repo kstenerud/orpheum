@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api, components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
+import { BusyGroup } from "./busy-group.tsx";
 import { camelKey } from "./catalogue-key.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
@@ -22,8 +25,13 @@ export async function listJobs(api: Api): Promise<Job[]> {
 }
 
 /** Cancels a queued or running job; a node's work is stopped. */
-export async function cancelJob(api: Api, jobId: number): Promise<void> {
-  throwIfRefused(await api.POST("/jobs/{id}/cancel", { params: { path: { id: jobId } } }));
+export async function cancelJob(api: Api, jobId: number, idempotencyKey: string): Promise<void> {
+  throwIfRefused(
+    await api.POST("/jobs/{id}/cancel", {
+      params: { path: { id: jobId } },
+      ...idempotent(idempotencyKey),
+    }),
+  );
 }
 
 /** The id of what a job works on: the one field its kind sets (D227). */
@@ -71,23 +79,22 @@ export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), useBackgroundChanges());
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    problemText(t, cause, { conflict: t("jobs.alreadyEnded") }),
+  );
   const cancel = (job: Job): void => {
-    cancelJob(api, job.id).then(
-      () => {
-        setProblem(undefined);
-        reloadJobs();
-      },
-      (cause: unknown) => {
-        setProblem(problemText(t, cause, { conflict: t("jobs.alreadyEnded") }));
-      },
-    );
+    runRequest(async (idempotencyKey) => {
+      await cancelJob(api, job.id, idempotencyKey);
+      reloadJobs();
+    });
   };
   return (
     <section aria-labelledby="jobs-heading">
       <h1 id="jobs-heading">{t("jobs.heading")}</h1>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
-      <Loaded resource={jobs} render={(value) => <JobList jobs={value} onCancel={cancel} />} />
+      <BusyGroup isBusy={isBusy}>
+        <Loaded resource={jobs} render={(value) => <JobList jobs={value} onCancel={cancel} />} />
+      </BusyGroup>
     </section>
   );
 }

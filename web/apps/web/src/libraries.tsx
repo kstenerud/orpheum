@@ -4,6 +4,9 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import { useBackgroundChanges } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { filingName } from "./files.tsx";
@@ -210,65 +213,116 @@ export function LibraryCard(props: {
 }
 
 /** What an admin does with libraries, and what each last said. */
-function useLibraryActions(reload: () => void): {
+/**
+ * Each library's note, and its actions run one at a time: a library's own note says what went
+ * wrong with it, and the request only makes every library's buttons wait (D244 §4).
+ */
+function useLibraryNotes(): {
   readonly notesByLibraryId: ReadonlyMap<number, string>;
-  readonly scan: (libraryId: number) => void;
-  readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
-  readonly deleteLibrary: (libraryId: number) => void;
-  readonly repoint: (libraryId: number, root: Root, to: Place) => void;
+  readonly setNote: (libraryId: number, note: string) => void;
+  readonly act: (libraryId: number, action: (idempotencyKey: string) => Promise<void>) => void;
+  readonly isActing: boolean;
 } {
   const { t } = useTranslation();
-  const { api } = useServices();
   const [notesByLibraryId, setNotesByLibraryId] = useState<ReadonlyMap<number, string>>(
     () => new Map(),
   );
   const setNote = (libraryId: number, note: string): void => {
     setNotesByLibraryId((previous) => new Map(previous).set(libraryId, note));
   };
-  const noteProblem =
-    (libraryId: number) =>
-    (cause: unknown): void => {
-      setNote(libraryId, problemText(t, cause));
-    };
+  const acting = useRequest(() => "");
+  const act = (libraryId: number, action: (idempotencyKey: string) => Promise<void>): void => {
+    acting.runRequest(async (idempotencyKey) => {
+      try {
+        await action(idempotencyKey);
+      } catch (cause: unknown) {
+        setNote(libraryId, problemText(t, cause));
+      }
+    });
+  };
+  return { notesByLibraryId, setNote, act, isActing: acting.isBusy };
+}
+
+function useLibraryActions(reload: () => void): {
+  readonly notesByLibraryId: ReadonlyMap<number, string>;
+  readonly scan: (libraryId: number) => void;
+  readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
+  readonly deleteLibrary: (libraryId: number) => void;
+  readonly repoint: (libraryId: number, root: Root, to: Place) => void;
+  /** Whether an action runs, which every library's buttons wait for (D244 §4). */
+  readonly isActing: boolean;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const { notesByLibraryId, setNote, act, isActing } = useLibraryNotes();
   return {
     notesByLibraryId,
+    isActing,
     scan: (libraryId) => {
-      api
-        .POST("/libraries/{id}/scan", { params: { path: { id: libraryId } } })
-        .then(dataOrThrow)
-        .then((scanAnswer) => {
-          setNote(libraryId, t("libraries.scanning", { count: scanAnswer.askedRootCount }));
-        }, noteProblem(libraryId));
+      act(libraryId, async (idempotencyKey) => {
+        const askedRootCount = await scanLibrary(api, libraryId, idempotencyKey);
+        setNote(libraryId, t("libraries.scanning", { count: askedRootCount }));
+      });
     },
     answerAboutRoot: (libraryId, root, answer) => {
-      const request = rootAnswerRequest(root, answer);
-      api
-        .POST(request.endpoint, {
-          params: { path: { id: libraryId } },
-          body: request.body,
-        })
-        .then(throwIfRefused)
-        .then(reload, noteProblem(libraryId));
+      act(libraryId, async (idempotencyKey) => {
+        await sendRootAnswer(
+          api,
+          { libraryId, request: rootAnswerRequest(root, answer) },
+          idempotencyKey,
+        );
+        reload();
+      });
     },
     repoint: (libraryId, root, to) => {
-      repointRoot(api, { libraryId, root, to }).then((movedFileCount) => {
+      act(libraryId, async (idempotencyKey) => {
+        const movedFileCount = await repointRoot(api, { libraryId, root, to }, idempotencyKey);
         setNote(libraryId, t("libraries.repointed", { count: movedFileCount }));
         reload();
-      }, noteProblem(libraryId));
+      });
     },
     deleteLibrary: (libraryId) => {
-      api
-        .DELETE("/libraries/{id}", { params: { path: { id: libraryId } } })
-        .then(throwIfRefused)
-        .then(reload, noteProblem(libraryId));
+      act(libraryId, async () => {
+        throwIfRefused(
+          await api.DELETE("/libraries/{id}", { params: { path: { id: libraryId } } }),
+        );
+        reload();
+      });
     },
   };
+}
+
+/** Asks for a scan of a library's roots, and says how many it asked for. */
+async function scanLibrary(api: Api, libraryId: number, idempotencyKey: string): Promise<number> {
+  const scanAnswer = dataOrThrow(
+    await api.POST("/libraries/{id}/scan", {
+      params: { path: { id: libraryId } },
+      ...idempotent(idempotencyKey),
+    }),
+  );
+  return scanAnswer.askedRootCount;
+}
+
+/** Sends the admin's answer about one of a library's roots. */
+async function sendRootAnswer(
+  api: Api,
+  answer: { readonly libraryId: number; readonly request: ReturnType<typeof rootAnswerRequest> },
+  idempotencyKey: string,
+): Promise<void> {
+  throwIfRefused(
+    await api.POST(answer.request.endpoint, {
+      params: { path: { id: answer.libraryId } },
+      body: answer.request.body,
+      ...idempotent(idempotencyKey),
+    }),
+  );
 }
 
 /** Says a library's root moved to another place, and how many files went with it (D241 §6). */
 async function repointRoot(
   api: Api,
   move: { readonly libraryId: number; readonly root: Root; readonly to: Place },
+  idempotencyKey: string,
 ): Promise<number> {
   const { libraryId, root, to } = move;
   const moved = dataOrThrow(
@@ -280,6 +334,7 @@ async function repointRoot(
         newNodeName: to.nodeName,
         newPath: to.path,
       },
+      ...idempotent(idempotencyKey),
     }),
   );
   return moved.movedFileCount;
@@ -332,12 +387,14 @@ export function Libraries(): JSX.Element {
   return (
     <section aria-labelledby="libraries-heading">
       <h1 id="libraries-heading">{t("libraries.heading")}</h1>
-      <Loaded
-        resource={libraries}
-        render={(value) =>
-          value.length === 0 ? <p>{t("libraries.none")}</p> : <>{value.map(renderCard)}</>
-        }
-      />
+      <BusyGroup isBusy={actions.isActing}>
+        <Loaded
+          resource={libraries}
+          render={(value) =>
+            value.length === 0 ? <p>{t("libraries.none")}</p> : <>{value.map(renderCard)}</>
+          }
+        />
+      </BusyGroup>
       <CreateLibrary onCreated={reload} />
     </section>
   );

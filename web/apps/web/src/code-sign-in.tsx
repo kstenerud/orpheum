@@ -9,6 +9,7 @@ import { signInWithCode } from "./accounts.ts";
 import { CredentialsField, CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 
 /**
  * Signs this device in with a code the person made on another device (D218 §4): eight
@@ -18,24 +19,23 @@ export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element 
   const { t } = useTranslation();
   const { api, session, navigation } = useServices();
   const [code, setCode] = useState("");
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, {
+      fields: { "body.code": t("codeSignIn.code") },
+      overrides: { authRequired: t("codeSignIn.badCode") },
+    }),
+  );
   const submit = (): void => {
-    setProblem(undefined);
-    signInWithCode(api, code, session.deviceId()).then(
-      ({ token, user }) => {
-        // A television signed in by code starts at home, not wherever the address last was.
-        navigation.go({ screen: "films" });
-        session.signIn(token, user.device?.id);
-      },
-      (cause: unknown) => {
-        setProblem(
-          fieldProblemText(t, cause, {
-            fields: { "body.code": t("codeSignIn.code") },
-            overrides: { authRequired: t("codeSignIn.badCode") },
-          }),
-        );
-      },
-    );
+    runRequest(async (idempotencyKey) => {
+      const { token, user } = await signInWithCode(
+        api,
+        { code, previousDeviceId: session.deviceId() },
+        idempotencyKey,
+      );
+      // A television signed in by code starts at home, not wherever the address last was.
+      navigation.go({ screen: "films" });
+      session.signIn(token, user.device?.id);
+    });
   };
   return (
     <CredentialsForm heading={t("codeSignIn.heading")} onSubmit={submit}>
@@ -55,7 +55,9 @@ export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element 
         />
       </CredentialsField>
       {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
-      <button type="submit">{t("codeSignIn.submit")}</button>
+      <button type="submit" disabled={isBusy}>
+        {t("codeSignIn.submit")}
+      </button>
       <button type="button" onClick={props.onBack}>
         {t("codeSignIn.back")}
       </button>

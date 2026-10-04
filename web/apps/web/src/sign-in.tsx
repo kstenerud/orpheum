@@ -106,11 +106,14 @@ export function SignIn(): JSX.Element {
     );
   }
   const submit = (): void => {
-    runRequest(
-      signIn(api, { name, password, device: thisDevice(session) }).then(({ token, user }) => {
-        session.signIn(token, user.device?.id);
-      }),
-    );
+    runRequest(async (idempotencyKey) => {
+      const { token, user } = await signIn(
+        api,
+        { name, password, device: thisDevice(session) },
+        idempotencyKey,
+      );
+      session.signIn(token, user.device?.id);
+    });
   };
   return (
     <SignInForm

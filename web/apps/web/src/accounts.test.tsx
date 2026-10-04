@@ -76,11 +76,15 @@ describe("accounts", () => {
       },
       sent,
     );
-    await createAccount(api, "partner", "user");
-    await register(api, { secret: "s", password: "p", device: { name: "Phone", platform: "web" } });
-    await issueDeviceCode(api, { deviceName: "Living room TV" });
-    await issueDeviceCode(api, { deviceName: "Bedroom TV" }, 7);
-    await signInWithCode(api, "abcd-efgh", 7);
+    await createAccount(api, { name: "partner", role: "user" }, "click-1");
+    await register(
+      api,
+      { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },
+      "click-2",
+    );
+    await issueDeviceCode(api, { target: { deviceName: "Living room TV" } }, "click-3");
+    await issueDeviceCode(api, { target: { deviceName: "Bedroom TV" }, userId: 7 }, "click-4");
+    await signInWithCode(api, { code: "abcd-efgh", previousDeviceId: 7 }, "click-5");
     expect(sent).toEqual([
       { methodAndPath: "POST /users", body: { name: "partner", role: "user" } },
       {
@@ -168,7 +172,7 @@ describe("accounts", () => {
     );
     await renameMyDevice(api, 5, "Lounge TV");
     await removeMyDevice(api, 5);
-    await signOutElsewhere(api);
+    await signOutElsewhere(api, "click-6");
     expect(sent).toEqual([
       { methodAndPath: "PUT /me/devices/5", body: { name: "Lounge TV" } },
       { methodAndPath: "DELETE /me/devices/5", body: undefined },

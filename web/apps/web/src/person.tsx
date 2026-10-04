@@ -13,6 +13,7 @@ import {
   type Device,
   type Person,
 } from "./accounts.ts";
+import { BusyGroup } from "./busy-group.tsx";
 import { dateText } from "./date-time-text.ts";
 import { NewDeviceCodeForm } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
@@ -26,6 +27,7 @@ import {
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { DeviceList } from "./your-devices.tsx";
 
@@ -43,52 +45,88 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
   const [devices, reloadDevices] = useResource(`person-devices/${String(props.userId)}`, () =>
     listPersonDevices(api, props.userId),
   );
-  const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
-  const [problem, setProblem] = useState<string | undefined>(undefined);
-  const showProblem = (cause: unknown): void => {
-    setProblem(fieldProblemText(t, cause, personWords(t)));
+  const { actions, issued, isBusy, problem } = usePersonActions(props.userId, {
+    reloadPerson,
+    reloadDevices,
+  });
+  return (
+    <BusyGroup isBusy={isBusy}>
+      <section className="person">
+        <Loaded
+          resource={person}
+          render={(value) => <PersonHead person={value} actions={actions} />}
+        />
+        {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
+        {problem === undefined ? null : <p role="alert">{problem}</p>}
+        <h2>{t("person.devices")}</h2>
+        <Loaded
+          resource={devices}
+          render={(list) => (
+            <DeviceList
+              devices={list}
+              onRemove={actions.remove}
+              onMakeCode={(device) => {
+                actions.issueCode(device.name, { deviceId: device.id });
+              }}
+            />
+          )}
+        />
+      </section>
+    </BusyGroup>
+  );
+}
+
+/** What the admin does to a person, one request at a time, and what it issued and why one failed. */
+function usePersonActions(
+  userId: number,
+  reloads: { readonly reloadPerson: () => void; readonly reloadDevices: () => void },
+): {
+  readonly actions: {
+    readonly rename: (name: string) => void;
+    readonly issueLink: (name: string) => void;
+    readonly issueCode: (
+      name: string,
+      device: { deviceName: string } | { deviceId: number },
+    ) => void;
+    readonly remove: (device: Device) => void;
   };
+  readonly issued: IssuedInvitation | undefined;
+  readonly isBusy: boolean;
+  readonly problem: string | undefined;
+} {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, personWords(t)),
+  );
   const actions = {
     rename: (name: string): void => {
-      renamePerson(api, props.userId, name).then(reloadPerson, showProblem);
+      runRequest(async () => {
+        await renamePerson(api, userId, name);
+        reloads.reloadPerson();
+      });
     },
     issueLink: (name: string): void => {
-      issueRegistrationInvitation(api, props.userId).then((invitation) => {
+      runRequest(async (idempotencyKey) => {
+        const invitation = await issueRegistrationInvitation(api, userId, idempotencyKey);
         setIssued({ kind: "link", name, invitation });
-      }, showProblem);
+      });
     },
     issueCode: (name: string, device: { deviceName: string } | { deviceId: number }): void => {
-      issueDeviceCode(api, device, props.userId).then((invitation) => {
+      runRequest(async (idempotencyKey) => {
+        const invitation = await issueDeviceCode(api, { target: device, userId }, idempotencyKey);
         setIssued({ kind: "code", name, invitation });
-      }, showProblem);
+      });
     },
     remove: (device: Device): void => {
-      removePersonDevice(api, props.userId, device.id).then(reloadDevices, showProblem);
+      runRequest(async () => {
+        await removePersonDevice(api, userId, device.id);
+        reloads.reloadDevices();
+      });
     },
   };
-  return (
-    <section className="person">
-      <Loaded
-        resource={person}
-        render={(value) => <PersonHead person={value} actions={actions} />}
-      />
-      {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
-      <h2>{t("person.devices")}</h2>
-      <Loaded
-        resource={devices}
-        render={(list) => (
-          <DeviceList
-            devices={list}
-            onRemove={actions.remove}
-            onMakeCode={(device) => {
-              actions.issueCode(device.name, { deviceId: device.id });
-            }}
-          />
-        )}
-      />
-    </section>
-  );
+  return { actions, issued, isBusy, problem };
 }
 
 /** A person's name, which can be changed, what they have watched, and what the admin can make. */
@@ -132,6 +170,7 @@ function PersonHead(props: {
         onMakeCode={(deviceName) => {
           props.actions.issueCode(account.name, { deviceName });
         }}
+        isMaking={false}
       />
     </>
   );

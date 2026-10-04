@@ -25,7 +25,9 @@ afterEach(() => {
 });
 
 /** A screen that asks TMDB with request each time its button is pressed. */
-function Asker(props: { readonly request: () => Promise<void> }): React.JSX.Element {
+function Asker(props: {
+  readonly request: (idempotencyKey: string) => Promise<void>;
+}): React.JSX.Element {
   const state = useRequest(() => "it failed");
   return (
     <div>
@@ -123,5 +125,29 @@ describe("a person's request held back says why and until when (D231 §12)", () 
       await Promise.resolve();
     });
     expect(mounted.container.textContent).not.toContain("Checking");
+  });
+
+  it("gives a click's retry the click's key, and the next click a key of its own (D244 §4)", async () => {
+    const keys: string[] = [];
+    const request = (idempotencyKey: string): Promise<void> => {
+      keys.push(idempotencyKey);
+      if (keys.length === 1) {
+        return Promise.reject(
+          new ApiProblem({
+            code: "rate_limited",
+            message: "TMDB asks us to wait",
+            detail: { retryAfterMs: 1000 },
+          }),
+        );
+      }
+      return Promise.resolve();
+    };
+    mounted = await mount(<Asker request={request} />);
+    await click(buttonWithText(mounted.container, "Ask"));
+    await pass(1000);
+    await click(buttonWithText(mounted.container, "Ask"));
+    expect(keys).toHaveLength(3);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
   });
 });

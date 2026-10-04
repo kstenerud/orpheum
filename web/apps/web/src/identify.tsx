@@ -5,6 +5,8 @@ import type { TFunction } from "i18next";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { idempotent } from "./idempotent.ts";
+import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { useBackgroundChanges } from "./polling.ts";
@@ -99,27 +101,27 @@ function WaitingRow(props: {
   const { item } = props;
   const [isChoosing, setIsChoosing] = useState(false);
   const [note, setNote] = useState("");
+  const refreshing = useRequest((cause) => identifyProblemText(t, cause));
   const refresh = (): void => {
-    api
-      .POST("/items/{id}/refresh", { params: { path: { id: item.id } } })
-      .then(dataOrThrow)
-      .then(
-        (answer) => {
-          // While TMDB is not answering, the refresh says what it waits for, and since when (D231 §12).
-          const waiting = answer.waitingFor;
-          setNote(
-            waiting === undefined
-              ? t("identify.refreshed")
-              : t("identify.refreshedWaiting", {
-                  name: waiting.name,
-                  since: dateTimeText(waiting.downAt, i18n.language),
-                }),
-          );
-        },
-        (cause: unknown) => {
-          setNote(identifyProblemText(t, cause));
-        },
+    setNote("");
+    refreshing.runRequest(async (idempotencyKey) => {
+      const answer = dataOrThrow(
+        await api.POST("/items/{id}/refresh", {
+          params: { path: { id: item.id } },
+          ...idempotent(idempotencyKey),
+        }),
       );
+      // While TMDB is not answering, the refresh says what it waits for, and since when (D231 §12).
+      const waiting = answer.waitingFor;
+      setNote(
+        waiting === undefined
+          ? t("identify.refreshed")
+          : t("identify.refreshedWaiting", {
+              name: waiting.name,
+              since: dateTimeText(waiting.downAt, i18n.language),
+            }),
+      );
+    });
   };
   return (
     <div>
@@ -136,10 +138,11 @@ function WaitingRow(props: {
           {t("identify.choose")}
         </button>
       ) : null}{" "}
-      <button type="button" onClick={refresh}>
+      <button type="button" disabled={refreshing.isBusy} onClick={refresh}>
         {t("identify.refresh")}
       </button>
       {note === "" ? null : <output>{note}</output>}
+      {refreshing.problem === undefined ? null : <output>{refreshing.problem}</output>}
       {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
     </div>
   );
@@ -169,11 +172,12 @@ function CandidateChooser(props: {
     // Asked for once, when the chooser opens: runRequest is the same every time.
   }, [api, props.itemId, runRequest]);
   const pick = (provider: string, candidate: Candidate): void => {
-    runRequest(async () => {
+    runRequest(async (idempotencyKey) => {
       throwIfRefused(
         await api.POST("/items/{id}/match", {
           params: { path: { id: props.itemId } },
           body: { provider, providerId: candidate.providerId },
+          ...idempotent(idempotencyKey),
         }),
       );
       props.onChosen();
@@ -182,12 +186,14 @@ function CandidateChooser(props: {
   return (
     <section aria-label={t("identify.candidates")}>
       {found === undefined ? null : (
-        <CandidateList
-          candidates={found.candidates ?? []}
-          onPick={(candidate) => {
-            pick(found.provider ?? "tmdb", candidate);
-          }}
-        />
+        <BusyGroup isBusy={request.isBusy}>
+          <CandidateList
+            candidates={found.candidates ?? []}
+            onPick={(candidate) => {
+              pick(found.provider ?? "tmdb", candidate);
+            }}
+          />
+        </BusyGroup>
       )}
       <RequestWait request={request} provider="TMDB" />
       {request.problem === undefined ? null : <p role="alert">{request.problem}</p>}

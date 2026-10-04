@@ -52,6 +52,7 @@ function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element
         props.deviceCode.makeCode({ deviceName: name }, name);
       }}
       problem={props.deviceCode.problem}
+      isMaking={props.deviceCode.isMaking}
     >
       <h2>{t("account.addDevice")}</h2>
       <p>{t("account.addDeviceExplain")}</p>

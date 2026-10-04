@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { useRequest } from "./use-request.ts";
 import "./sound.css";
 
 import type { Api, components } from "@orpheum/sdk";
@@ -42,18 +43,19 @@ export function SoundQuestion(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const deviceId = session.deviceId();
   const choose = (output: AudioOutput): void => {
     if (deviceId === undefined) {
       return;
     }
-    setMyDeviceAudioOutput(api, deviceId, output).then(props.onAnswered, (cause: unknown) => {
-      setProblem(problemText(t, cause));
+    runRequest(async () => {
+      await setMyDeviceAudioOutput(api, deviceId, output);
+      props.onAnswered();
     });
   };
   return (
-    <fieldset className="sound">
+    <fieldset className="sound" disabled={isBusy}>
       <legend>{t("sound.question")}</legend>
       <p>{t("sound.why")}</p>
       {audioOutputs.map((output) => (
