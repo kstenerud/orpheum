@@ -3,10 +3,9 @@
 package nodeproto
 
 import (
-	"strings"
-
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/host"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // The node channel's paths on the core's socket (cut-a §4). The node dials; the core answers.
@@ -25,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 19
+const ProtocolVersion = 20
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -180,8 +179,7 @@ func (devices Devices) KeyOf(path string) string {
 	key, longest := "", -1
 	for _, device := range devices {
 		for _, mountPath := range device.MountPaths {
-			isUnder := path == mountPath || mountPath == "/" || strings.HasPrefix(path, mountPath+"/")
-			if isUnder && len(mountPath) > longest {
+			if pathtree.IsAtOrUnder(path, mountPath) && len(mountPath) > longest {
 				key, longest = device.Key, len(mountPath)
 			}
 		}

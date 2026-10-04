@@ -86,6 +86,10 @@
 //     target's own failure, its disk unreadable (D233 §10).
 //     TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswerAfter,
 //     TestStallOutcome_ASecondStallOnTheDiskIsTheTargetsUnreadableDisk.
+//   - A prepare whose run waited on a file outside its root, as its node said, waited on its
+//     prepared directory's disk: its root stays available and the node's prepares park on the
+//     prepared directory, probed on the back-off (D244 §6).
+//     TestExchange_AStallOnThePreparedDirectorysDiskParksOnItAndLeavesTheRoot.
 //   - A node whose hello names another start than its last hello to this core started again and
 //     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
 //     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // ErrStalledOnDisk is work that stalled waiting on its disk (D233 §10).
@@ -63,6 +64,9 @@ func (all *Exchanges) parkOnStalledDisk(
 	if stall == nil || stall.Condition != nodeproto.ConditionWaitingOnDisk || !readsMedia || disks == nil {
 		return false, nil
 	}
+	if stall.WaitingOnPath != "" && !pathtree.IsAtOrUnder(stall.WaitingOnPath, file.RootPath) {
+		return parkOnStalledPreparedDisk(attempt, *stall)
+	}
 	since, err := disks.RootStalled(ctx, attempt.NodeID, file.RootPath)
 	if err != nil {
 		return true, fmt.Errorf("make root %s unavailable after a stall on its disk: %w", file.RootPath, err)
@@ -72,6 +76,21 @@ func (all *Exchanges) parkOnStalledDisk(
 	}
 	stalled := StallError(attempt.NodeID, fmt.Sprintf("%s job %d", attempt.Kind, attempt.JobID), *stall)
 	return true, jobs.ParkOnMissingRoot(attempt.NodeID, file.RootPath, since, jobs.MarkStalled(stalled))
+}
+
+// parkOnStalledPreparedDisk answers a prepare whose run waited on a disk that is not its source's,
+// as its node said: the disk it writes, the prepared directory's. Its root stays available, and the
+// node's prepares park on the prepared directory, a probe on the back-off finding when it answers
+// again, at no cost of an attempt. A stall of other work outside its root is its kind's to answer.
+func parkOnStalledPreparedDisk(attempt Attempt, stall nodeproto.Stall) (bool, error) {
+	if attempt.Work.Prepare == nil {
+		return false, nil
+	}
+	stalled := StallError(attempt.NodeID, fmt.Sprintf("%s job %d", attempt.Kind, attempt.JobID), stall)
+	return true, jobs.Park(jobs.Parking{
+		Destination: jobs.PreparedDirectoryDestination(attempt.NodeID),
+		Reason:      "its prepared directory's disk did not answer",
+	}, jobs.MarkStalled(stalled))
 }
 
 // FFmpegStalledTwice begins the failure kept for a target whose FFmpeg stalled on two attempts in a row.

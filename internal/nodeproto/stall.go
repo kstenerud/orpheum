@@ -38,6 +38,10 @@ type Stall struct {
 	// IsLeftRunning is a run whose process outlived its kill, waiting on a device: the node lists
 	// it in its status's Stuck until it ends, and it holds no slot.
 	IsLeftRunning bool `json:"isLeftRunning,omitempty"`
+	// WaitingOnPath is, for a run waiting on its disk, the file it was blocked on, which says
+	// whose disk did not answer: its source's, or its prepared directory's; empty when the node
+	// could not tell.
+	WaitingOnPath string `json:"waitingOnPath,omitempty"`
 	// LastPositionMs is the furthest FFmpeg said it had written, in milliseconds of its output.
 	LastPositionMs int64 `json:"lastPositionMs"`
 	// WithoutAdvanceMs is how long the position had not moved when the run was stopped.

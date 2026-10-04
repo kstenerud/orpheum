@@ -43,6 +43,8 @@ var wireShapeByVersion = map[int]string{
 	18: "c53b7595df6102deff942ada4eb498b1b3fb7eb995e1556731f69a7b4dada729",
 	// 19 adds where the node's byte socket is to its hello (D242 §7).
 	19: "821d42fb4c9c3edb01da3df1ac6eb2d61ee05a4a4a45b6d100addb3b3feba80c",
+	// 20 adds, to a stall waiting on the disk, the file the run was blocked on (D244 §6).
+	20: "7ef9e0f76c3122e4e8bdeb3c4ce62a5be3f9d80d632f756a0a56e5b73910df73",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

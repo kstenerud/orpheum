@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/pathtree"
 )
 
 // isNetworkFilesystem is whether a filesystem type is mounted over the network.
@@ -118,17 +119,12 @@ func unescapeMountField(field string) string {
 	return unescaped.String()
 }
 
-// isUnder is whether path is at or under directory.
-func isUnder(path, directory string) bool {
-	return path == directory || directory == "/" || strings.HasPrefix(path, directory+"/")
-}
-
 // mountHolding is the mount path is on: the one with the longest mount point it is under.
 func mountHolding(mounts []mount, path string) (mount, bool) {
 	var holding mount
 	found := false
 	for _, each := range mounts {
-		if isUnder(path, each.mountPoint) && (!found || len(each.mountPoint) > len(holding.mountPoint)) {
+		if pathtree.IsAtOrUnder(path, each.mountPoint) && (!found || len(each.mountPoint) > len(holding.mountPoint)) {
 			holding, found = each, true
 		}
 	}
@@ -139,7 +135,7 @@ func mountHolding(mounts []mount, path string) (mount, bool) {
 func mountsInside(mounts []mount, path string) []mount {
 	var inside []mount
 	for _, each := range mounts {
-		if each.mountPoint != path && isUnder(each.mountPoint, path) {
+		if each.mountPoint != path && pathtree.IsAtOrUnder(each.mountPoint, path) {
 			inside = append(inside, each)
 		}
 	}

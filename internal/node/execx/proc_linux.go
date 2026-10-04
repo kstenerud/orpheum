@@ -33,11 +33,47 @@ func sampleGroup(pgid int) groupSample {
 			continue
 		}
 		sample.processCount++
-		sample.isWaitingOnDevice = sample.isWaitingOnDevice || stat.state == "D"
+		if stat.state == "D" {
+			sample.isWaitingOnDevice = true
+			if sample.waitingOnPath == "" {
+				sample.waitingOnPath = blockedPathOf(entry.Name())
+			}
+		}
 		sample.cpuTicks += stat.cpuTicks
 		sample.storageBytes += storageBytesOf(pid)
 	}
 	return sample
+}
+
+// blockedPathOf is the file a process, by its /proc entry's name, is blocked on: the file its
+// blocked call's first argument, a file descriptor, names (proc(5): /proc/<pid>/syscall, then
+// /proc/<pid>/fd/<fd>); empty when it is not a file's path or /proc does not say.
+func blockedPathOf(pid string) string {
+	raw, err := os.ReadFile("/proc/" + pid + "/syscall") //nolint:gosec // G304: a process's own /proc entry
+	if err != nil {
+		return ""
+	}
+	return blockedPathFrom(string(raw), func(fd int64) (string, error) {
+		return os.Readlink("/proc/" + pid + "/fd/" + strconv.FormatInt(fd, 10))
+	})
+}
+
+// blockedPathFrom reads /proc/<pid>/syscall's text, its call's number and arguments, and is the
+// absolute path its first argument names as a file descriptor, by linkOf; empty otherwise.
+func blockedPathFrom(syscall string, linkOf func(fd int64) (string, error)) string {
+	fields := strings.Fields(syscall)
+	if len(fields) < 2 || fields[0] == "running" || strings.HasPrefix(fields[0], "-") {
+		return ""
+	}
+	fd, err := strconv.ParseInt(strings.TrimPrefix(fields[1], "0x"), 16, 64)
+	if err != nil || fd < 0 {
+		return ""
+	}
+	path, err := linkOf(fd)
+	if err != nil || !strings.HasPrefix(path, "/") {
+		return ""
+	}
+	return path
 }
 
 // procStat is what a process's /proc/<pid>/stat says that a stall is judged by.

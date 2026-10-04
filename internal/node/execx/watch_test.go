@@ -166,7 +166,9 @@ func TestWatchdog_AStallSaysWhetherItWaitedOnTheDiskSpunOrWasStuck(t *testing.T)
 	}{
 		{
 			"a process in D",
-			groupSample{processCount: 1, isWaitingOnDevice: true, cpuTicks: 100},
+			groupSample{
+				processCount: 1, isWaitingOnDevice: true, cpuTicks: 100, waitingOnPath: "/cache/prepared/a.m4s",
+			},
 			ConditionWaitingOnDisk,
 		},
 		// Two minutes without moving, 100 s of processor time used: a loop.
@@ -183,6 +185,10 @@ func TestWatchdog_AStallSaysWhetherItWaitedOnTheDiskSpunOrWasStuck(t *testing.T)
 		stalled := dog.verdict(FFmpeg)
 		if stalled == nil || stalled.Condition != check.want {
 			t.Errorf("%s: %+v; want stalled, %s", check.name, stalled, check.want)
+		}
+		// A run waiting on its disk says which file it was blocked on, whose disk did not answer.
+		if stalled != nil && stalled.WaitingOnPath != check.later.waitingOnPath {
+			t.Errorf("%s: waiting on %q, want %q", check.name, stalled.WaitingOnPath, check.later.waitingOnPath)
 		}
 	}
 }
