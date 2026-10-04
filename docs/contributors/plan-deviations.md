@@ -177,6 +177,10 @@ counted:
 
 ### P36 — The code outgrew cut-a's layout, lists and counts, and the frozen text still shows the old ones (M3, 2026-09-29) · plan-gap
 
+> **Resolved 2026-10-04, at the pre-M4 audit:** cut-a's §2a, §3, §4, §5 and §5.3 were rewritten
+> from the code, as the audit proposed and the owner agreed; what follows is the record of how
+> they had drifted.
+
 - **Planned:** cut-a.md, frozen by D193 §8, fixes the repository layout (§3), the config file's
   keys (§2a), the node protocol's messages (§4), the client API's endpoints and error model
   (§5) and the job slots (§5.3). Names D227 renamed are corrected in place; these are not names,

@@ -60,16 +60,16 @@ background, never as a to-do list.
           port-forward 443 (+ TURN)  │  or IPv6  │  or a standard tunnel to a VPS
                         │
 ┌───────────────────────▼───────────────────────────────────────────────────┐
-│ orpheum run — one Go binary, one systemd unit, in a Debian LXC on nas     │
+│ orpheum core + orpheum node — one image, two services, on nas (D235)      │
 │                                                                           │
 │  core   HTTPS listener · REST API · Watch Together hub (WebSocket)        │
 │         · embedded TURN (pion/turn) · sessions/grants · identification    │
 │         · job queue · backup · serves the embedded web client and the     │
 │         cast receiver · relays media bytes from the node                  │
 │    │  ▲                                                                   │
-│    │  │ node dials core: reports (JSONL) + command long-poll   (D127)     │
+│    │  │ node dials core: status, results + command long-poll   (D234)     │
 │    ▼  │ core reads bytes from node's read-only socket          (D193 §1)  │
-│  node   child process · reads the media (read-only bind mount)            │
+│  node   its own service · reads the media (read-only bind mount)          │
 │         · probe, payload hash, subtitle extraction · prepare jobs         │
 │         · every FFmpeg run confined per invocation (§7)                   │
 └───────────────────────────────────────────────────────────────────────────┘
@@ -127,10 +127,15 @@ loop to work:**
   somewhere shorter, as `/run/orpheum`. Paths arrive absolute.
   - a core's `[server]`: `listen`, `read_header_timeout_seconds`, `shutdown_grace_seconds`
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
-  - a node's `[node]`: `core_socket`, `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which
-    is `"require"` or `"report"`; a production install writes `"require"`. `prepared_budget_gib`
-    (200), `prepared_kept_after_play_hours` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
-    renditions, in its instance's `cache/prepared/`, within D217 §5's budget.
+  - a node's `[node]`: `name` (the core enrols it by it, D207), `core_socket`, `root_paths`,
+    `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or `"report"`; a production
+    install writes `"require"`. What its machine can do: `encode_slot_count`, `remux_slot_count`,
+    `slowest_read_mib_per_second` (plan-deviations P36). Its prepared renditions, in its
+    instance's `cache/prepared/`, are kept within D217 §5's budget by `prepared_budget_gib` (200),
+    `prepared_kept_after_play_hours` (72), `prepared_disk_used_limit_percent` (95) and
+    `prepared_disk_min_free_mib`. And `max_errors_per_root`, `probe_timeout_seconds`,
+    `status_interval_seconds`, `progress_every_seconds`, `ended_work_kept_hours`,
+    `read_header_timeout_seconds`.
   - both's `[log]`: `level`, `format` (`text` or `json`), `destination` (`stderr` or a file)
 
   A missing key with a starting value runs on it, and doctor lists it; one with none refuses
@@ -164,27 +169,37 @@ workspace. Every directory boundary is also a licence boundary or a trust bounda
 linters can see paths and nothing else.
 
 ```
-LICENSE (GPL-3.0) · CONTRIBUTING.md · AGENTS.md (≤150 lines) · CLAUDE.md (imports AGENTS.md)
-Makefile            # make check (fast gate) · make test-all · make generate
-go.mod              # tool directives pin sqlc, golangci-lint, huma's generator
-cmd/orpheum/        # main: flags → run | core | node | migrate | backup | restore | doctor | setup-code
+LICENSE (GPL-3.0) · CONTRIBUTING.md · AGENTS.md · CLAUDE.md (imports AGENTS.md)
+Makefile            # make check (the gate) · make check-pr · make generate · make dev · make help
+go.mod              # one module; sqlc and golangci-lint are pinned in the Makefile
+cmd/orpheum/        # main: flags → core | node | default-config | migrate | backup | restore
+                    #   | doctor | setup-code | openapi | version | dev (dev builds only)
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
-  auth/  secrets/  library/  identify/  decide/  playback/  together/  turn/  jobs/  backup/  settings/
-  loudness/  subtitles/  renditions/   # out of playback, 2026-10-03 (architecture map F2)
-  instancedir/          # the only core package that touches the filesystem
+  auth/  secrets/  settings/  preferences/  backup/  webclient/
+  library/  identify/  providers/  textindex/  artwork/  jobs/  nodes/
+  decide/  playback/  loudness/  subtitles/  renditions/
+  together/  turn/  # M4's; doc.go only
+  instancedir/      # the only core package that touches the filesystem
 internal/node/      # GPL. Imports nothing from core
-  scan/  probe/  hash/  prepare/  byteserver/  execx/ (the only exec.Command)  confine/
+  agent/  scan/  probe/  hash/  prepare/  prepared/  subtitle/  loudness/  artwork/  hardware/
+  byteserver/  namedfile/  execx/ (the only exec.Command)  confine/  nodetest/
 internal/nodeproto/ # wire types between core and node; no logic
 internal/store/     # the only importer of database/sql and the driver
-  migrations/  queries/  sqlcgen/ (generated, committed)
-internal/platform/  # clock, slogx: the sanctioned wrappers the linters point at
-api/openapi.json    # generated, committed, diffed (D85)
+  migrations/  queries/  sqlcgen/ (generated, committed)  cache/  cachegen/  storetest/
+internal/platform/  # the sanctioned wrappers and shared mechanisms: clock, slogx, jobqueue,
+                    #   pathtree, unixsocket, outbound, bounded, … (each package's doc.go)
+internal/archtest/  # the architecture tests (TestArch_…)
+internal/testutil/
+api/openapi.json    # generated, committed
 web/                # MPL-2.0 (web/LICENSE)
   packages/sdk/     # React-free: generated types, probe-and-pick, the six methods, WT client
   packages/player/  # hls.js + JASSUB + the subtitle layer
   apps/web/  apps/cast-receiver/
-testdata/  assumptions/  tools/gates/  .claude/{settings.json,hooks/,agents/,rules/}
+scripts/            # the gates, in Python, with their tests
+deps/               # the dependency allowlists
+deploy/             # the container images (D235); ./dev runs the development one
+.claude/  .githooks/
 ```
 
 The linting, hooks and gates for this tree are listed in the second audit
@@ -194,47 +209,64 @@ feature code.**
 
 ## 4. The node protocol
 
-Every message is versioned JSON; reports are JSONL. Reports follow
-[scanner.md](scanner.md) and [D39](../../decisions/working-notes.md)–[D42](../../decisions/working-notes.md),
-with the file channel deleted.
+*Rewritten from `internal/nodeproto` at protocol version 20 (the pre-M4 audit, 2026-10-04). The
+protocol before D234, a JSONL report stream, a `scan` command and a core that restarted its node,
+is in this file's history.* Every message is JSON, and every type is in
+[`internal/nodeproto`](../../../../internal/nodeproto/doc.go), which is the specification; this
+section is its map. `nodeproto.ProtocolVersion` is raised with any change a node or core of
+another build would misread.
 
-**Node → core** (`/run/orpheum/core.sock`):
+**Node → core**, on the core's socket, which the node's `node.core_socket` names (D242 §7). The
+node dials; the core answers.
 
-| Request | Body |
+| Request | Body and answer |
 | --- | --- |
-| `POST /node/v1/hello` | its `protocolVersion` (refused with 409 when it is not the core's, the node then needing an update; since the jobs rebuild's Phase 4a, D233 §9), its `name`, version, `ffmpegVersion` and `ffmpegSha256`, its `rootPaths`, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism (`mechanism`, `isInForce`, `causeCode`, `reason`, `remedy`; D227) ([D112](../../decisions/working-notes.md)) |
-| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{rootPath, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, modifiedAt, identity{payloadHash, payloadBytes}, probe, opensubtitlesHash}`, `sidecar{path, kind, sizeBytes, modifiedAt, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platformError}`, `scan_complete{rootPath, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted as results, not reported (D227 renamed these fields) |
-| `GET /node/v1/commands?afterCommandSeq=<commandSeq>` | long-poll; returns the next commands |
-| `POST /node/v1/result` | a job's word, by the `jobId` its command carried: `{jobId, prepare\|subtitle\|loudness\|artwork}`, exactly one set. A prepare's progress is one too, the newest superseding the rest. *(Since the jobs rebuild's Phase 4.0, D234 §2: it replaced a path for each kind of work.)* |
+| `POST /node/v1/hello` | `Hello`: `protocolVersion` (refused with 409 when it is not the core's, and the node waits for an update; D233 §9), `name` (a node is enrolled by it, D207), `startId` (new at each start, so the core counts what a restarted node held as interrupted; D238 §3), `build`, `host`, `byteSocketPath` (where its byte socket is), `rootPaths`, `ffmpegVersion`, `ffmpegSha256`, `capabilities` (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), `confinement` per mechanism (D112, D227), `uid`, `gid`, `hardware` (GPUs, encoder trials, the chosen encoder; D225 §3), `capacity` (encode and remux slots, slowest read), `devices` (what its roots and prepared directory are on, by key and kind: `spinning`, `ssd`, `network`, `unknown`; D240 §5), `renditions` (the manifests on its disk; D238 §2). Answer, `HelloReply`: `nodeId`, `keptRenditionDirs` (the node evicts the rest), `deviceReaderLimits` |
+| `GET /node/v1/commands?afterCommandSeq=<n>` | long-poll; `Commands`: the commands after the last one the node took, and `deviceReaderLimits` as the core's settings say now |
+| `POST /node/v1/status` | `Status`, each tick: `sentAt`, `preparedUsage`, `disks`, `held` (each attempt it holds: `waiting`, `running`, `paused` or `ended`, and how long since it moved), `takenCommandSeq`, `stuck` (a tool blocked in the kernel, with its pid and paths) |
+| `POST /node/v1/progress` | `Progress`, best effort, the newest superseding the rest: `jobId`, `attemptToken`, `state` (`waiting`, `running`, `paused`), and a prepare's `preparedThroughMs` (D234 §5) |
+| `POST /node/v1/result` | `Result`, how a job ended, by `jobId` and `attemptToken`, echoing its `work`: exactly one of `prepare`, `subtitle`, `loudness`, `artwork`, `listing`, `examined`, or a `refusal` (a command it does not know; D233 §9). One too large to post says `held{sizeBytes, sha256}`, and the core fetches it from the byte socket. Acknowledged means recorded (D234 §5, D238 §2); one refused is sent again |
 
-**Commands** (core → node, delivered by the long-poll). Each is `{commandSeq, type, jobId, <payload>}`:
-the job it is for is the envelope's `jobId`, which its result names *(since the jobs rebuild's
-Phase 4.0, D234 §2; before, each payload carried it)*.
-- `scan{rootPath}` (each `root` became `rootPath`, D227)
-- `prepare{source{rootPath, path, payloadHash}, profile, renditionDir, audio[]}`
-- `extract_subtitle{video{rootPath, path, payloadHash}, streamIndex}`, `{sidecar{…}}` or
-  `{fetchedSubRip}`: one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
-- `measure_loudness{video{rootPath, path, payloadHash}, tracks[]}`: each audio track's
-  integrated loudness, loudness range and true peak, and its standard stereo mix's when it has more
-  than two channels, from one read of the file ([D226](../../decisions/working-notes.md) §1)
-- `encode_artwork{…}`: an image made into the sizes a person sees (D212)
-- `cancel`: the envelope alone, naming the job to stop
+**Commands** (core → node, by the long-poll). Each is an envelope, `{commandSeq, jobId,
+attemptToken, priority, isPlayDriven, type, <payload>}`, around one kind of work. The attempt
+token names this sending of the job, so a result is taken only for the attempt that waits (D238
+§2, S83, S84); `isPlayDriven` work pauses the background work reading its device (D240 §6).
 
-**A command names its target by path *and* payload hash**, and the node refuses it if they no
-longer match ([D100](../../decisions/working-notes.md)).
+- `list{rootPath, path, depth}`: a folder's entries, the first half of a scan (D241); the answer is
+  a `listing` of scan records (`scan_begin`, `listed`, `mount`, `skip`, `error`, `scan_complete`)
+- `examine{rootPath, files[{path, kind}]}`: probe, hash and read the sidecars of a batch; the
+  answer is `examined` records (`observed`, `sidecar`, `skip`, `error`)
+- `prepare{video, profile, renditionDir, audio[]}`: a rendition (§6)
+- `extract_subtitle{video, streamIndex}`, `{sidecar}` or `{fetchedSubRip}`: one job makes both ASS
+  and WebVTT ([D217](../../decisions/working-notes.md) §6)
+- `measure_loudness{video, tracks[]}`: each audio track's integrated loudness, range and true peak,
+  and its stereo mix's when it has more than two channels, in one read ([D226](../../decisions/working-notes.md) §1)
+- `encode_artwork{images[]}`: images made into the sizes a person sees (D212)
+- `cancel`: the envelope alone; stops the attempt it names
+- `reprioritize`: the envelope alone; the attempt's new priority, and whether it is still
+  play-driven (D234 §3, D240 §6)
 
-**Core reads from the node** (`/run/orpheum/node.sock`, `GET` only):
-- `GET /bytes/v1/file?rootPath=…&path=…&payloadHash=…`, honouring `Range`: `path` is base64url of the bytes relative to `rootPath` (plan-deviations P25);
-- `GET /bytes/v1/prepared/<file_id>/<profile>/<run_id>/<name>` (D217 §5).
+**A command names a file by root, path *and* payload hash**, and the node refuses it if they no
+longer match ([D100](../../decisions/working-notes.md)). A path is bytes, base64url on the wire
+(plan-deviations P25).
 
-**Liveness:** `status` records carry the node's clock and what it is doing. The core marks the
-node *silent* after 30 s with no record, and restarts the child after 120 s. A node that has
-failed *says so* through `error` records; silence is only ever read as silence
-([D34](../../decisions/working-notes.md), simplified by D193).
+**Core reads from the node**, on the byte socket its hello names, `GET` only:
+- `GET /bytes/v1/file?rootPath=…&path=…&payloadHash=…`, honouring `Range`;
+- `GET /bytes/v1/prepared/<file_id>/<profile>/<run_id>/<name>` (D217 §5);
+- `GET /bytes/v1/result/<attemptToken>`: a result held on the node (D234 §5).
+
+**Liveness.** A node is heard by its status, its progress and its polls. The core marks it
+*silent* after `node_silent_after_seconds` with no word, and an attempt whose progress stops moving
+is stalled: the node says why, `never_moved`, `stood_still` or `past_deadline`, with its
+condition (`waiting_on_disk` and the file it waits on, `spinning`, `stuck`; D244 §6). Restarting a
+node that hangs or exits is its service manager's, not the core's (D234 §4). A node that failed
+*says so*; silence is only ever read as silence ([D34](../../decisions/working-notes.md)).
 
 ## 5. The client API
 
-REST under `/api/v1`, written as huma handlers. The OpenAPI document is generated from them,
+REST under `/api/v1`, written as huma handlers; `api/openapi.json` is the full list, and this
+table its map (checked against it at the pre-M4 audit, 2026-10-04). A POST that carries an
+`Idempotency-Key` is done once, and a repeat of it is given the first answer (D244 §4). The OpenAPI document is generated from them,
 committed, and diffed in CI with `oasdiff` ([D85](../../decisions/working-notes.md)). The TS SDK
 is generated with `openapi-typescript` + `openapi-fetch`. Credentials travel in a header or a
 cookie, **never in a URL** ([D154](../../decisions/working-notes.md)). Media URLs carry an opaque
@@ -243,15 +275,15 @@ single-playback token that the core maps to a grant.
 | Group | Endpoints |
 | --- | --- |
 | Setup and auth | `POST /setup` (one-time setup code from the log → first admin); `POST /session` (with the device, D217 §8), `DELETE /session`; `GET /me`; accounts ([D218](../../decisions/working-notes.md)): `GET /users`, `POST /users` (admin: name and role → the person and a registration invitation), `POST /users/{id}/registration-invitation` (admin: a new one, for a forgotten password), `POST /registration` (the link's secret, from after `#`, in the body, and a password → a session), `POST /device-codes` (a code for a device, one's own, or anyone's for an admin), `POST /session/code` (a device signs in with it), `PUT /me/password`; a person's devices, listed and revocable (D218 §4): `GET /me/devices`, `PUT /me/devices/{id}` (rename), `DELETE /me/devices/{id}`, `POST /me/devices/sign-out-elsewhere`, and for the admin `GET /users/{id}/devices`, `DELETE /users/{id}/devices/{deviceId}`; `GET /me/device-code` (whether one's code still waits, D221), `GET /users/{id}` and `PUT /users/{id}` (a person's page and their name, for the admin). An `auth_required` answer's `detail.reason` says why: `session_ended`, `session_expired` or `no_session`. The M4 invite for someone outside the household is D174's and comes with M4 |
-| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?onlyModified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (admin; every secret is the server's, D224 §9; write-only: `GET` shows `isSet`, `lastChars` (`hint` until D227) and `needsReentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /me/devices/{id}` (name, `audioOutput`, asked on first playback — D184) |
-| Libraries | `POST /libraries` (the three questions, D184); `GET /libraries`; `GET /nodes` (each node and the roots it configured, for a new library; P24); `POST /libraries/{id}/scan`; `GET /files?filing=&libraryId=&cursor=&limit=` (what the scanner saw, D163); `POST /libraries/{id}/removals` (approve a root's withheld removals) and `POST /libraries/{id}/mounts/gone` (a disk missing from a mount point is gone for good) — the admin's two answers D208 asks for (plan-deviations P18) |
+| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?onlyModified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET /client-settings` (the settings every client reads: how often a screen asks again, D237); `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (admin; every secret is the server's, D224 §9; write-only: `GET` shows `isSet`, `lastChars` (`hint` until D227) and `needsReentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /me/devices/{id}` (name, `audioOutput`, asked on first playback — D184) |
+| Libraries | `POST /libraries` (the three questions, D184); `GET /libraries`; `GET /nodes` (each node and the roots it configured, for a new library; P24); `POST /libraries/{id}/scan`; `GET /files?filing=&libraryId=&cursor=&limit=` (what the scanner saw, D163); `POST /libraries/{id}/removals` (approve a root's withheld removals) and `POST /libraries/{id}/mounts/gone` (a disk missing from a mount point is gone for good) — the admin's two answers D208 asks for (plan-deviations P18); what is gone or moved (D231 §7, D241): `DELETE /libraries/{id}`, `POST /libraries/{id}/roots/retire`, `POST /libraries/{id}/roots/repoint` (a root moved; a scan confirms each file), `POST /nodes/retire`, `GET /files/{id}/availability` (whether a file can be read now, and why not), `POST /files/{id}/retire`; `GET /offline-reminder`, `POST /offline-reminder/dismissal`; `PUT /nodes/device-reader-limit` (D240 §5) |
 | Identification | `GET /items?identificationState=ambiguous` (titles and series; the parameter was `ident`, then `identification`, until D227); `GET /items/{id}/candidates`; `POST /items/{id}/match`; `PUT /items/{id}/overrides/{field}`; `DELETE /items/{id}/overrides/{field}`; `POST /items/{id}/refresh` (a person's refresh, whenever they like — [D213](../../decisions/working-notes.md), plan-deviations P21) — under `/items` since a series is what is identified for shows ([D209](../../decisions/working-notes.md), plan-deviations P16) |
 | Browse | `GET /home` (Continue Watching, Next Up, recently added); `GET /titles?kind=&sort=&cursor=`; `GET /collections/{id}` (a series); `GET /items/{id}` (detail with editions, versions, files, streams, extras); `GET /search?query=`; `GET /bytes/art/{sourceSha256}/{variant}` (a variant is a size and a format: `portrait-m.webp`) |
-| Play state | `POST /playback/{id}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/preferences` (sync offset, subtitle choice); `PUT /me/preferences` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
-| Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/master.m3u8` and `GET /bytes/media/hls/{token}/{renditionName}/{fileName}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{fileName}` (the stream's ASS or WebVTT; the parameters were `{rendition}` and `{file}` until D227) — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)); `POST /files/{id}/prepare` ("Get this ready") |
+| Play state | `POST /playback/{token}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/preferences` (sync offset, subtitle choice); `PUT /me/preferences` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
+| Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/master.m3u8` and `GET /bytes/media/hls/{token}/{renditionName}/{fileName}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{fileName}` (the stream's ASS or WebVTT; the parameters were `{rendition}` and `{file}` until D227) — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)). "Get this ready" (`POST /files/{id}/prepare`) is M5's (plan-deviations P36) |
 | Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the server's OpenSubtitles account's daily downloads, as OpenSubtitles counts them, D224 §4) |
 | Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}` (host) |
-| Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups`; `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
+| Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups` (a backup of the persistent directory now, the key in it only when asked; D242 §5); `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
 
 Restore is a command-line operation with the server stopped (`orpheum restore`), never an endpoint.
 
@@ -329,14 +361,16 @@ It is shown on screen (D188).
 Every piece of background work is a row in `cache.db`'s `job` table ([schema.md](schema.md)):
 fetches, prepares, scans and backups.
 - **Scheduling.** One scheduler in the core picks the highest-priority queued job whose
-  `runnable_at` has passed and whose runner has a free slot. The slots are: one encode per node,
-  two remux or extract jobs per node, one loudness measurement per node, one fetch per provider
-  under its rate limit, and one backup.
-- **Node jobs** become commands, and each answers with results by its job id (§4).
+  `runnable_at` has passed and whose runner has a free slot. A node's slots are its own: the
+  encodes and remuxes its config says, and one each of subtitle extraction, loudness
+  measurement and artwork (`nodeproto.Slot`), and a device it reads is held to its reader limit
+  (D240 §5). A provider has one fetch at a time under its rate limit, and there is one backup.
+- **Node jobs** are given to their node, not waited for: each becomes a command, and its result
+  names the job and the attempt (§4, D234 §7).
 - **"Play this now"** sets the highest priority.
 - **Cancelling** a job sends `cancel` to the node.
-- **After a crash, `running` jobs return to `queued`.** Output is a cache, so they restart from
-  zero.
+- **After a stop, `running` jobs return to `queued`.** Output is a cache, so they restart from
+  zero. An assigned job stays with its node, which still holds it (D234 §7).
 - **The job view** is `GET /jobs`: kind, its target's id (one field per kind, D227), state,
   `progressFraction`, reason, `lastFailure` (the last error, named so by D227).
 
