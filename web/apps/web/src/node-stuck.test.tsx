@@ -20,7 +20,7 @@ describe("a machine's work waiting on a disk that does not answer (D233 §10)", 
     ]);
     expect(shown).toContain("Waiting on a disk that does not answer");
     expect(shown).toContain("FFmpeg, reading /media/films/Wing.mkv, since");
-    expect(shown).toContain("Listing or reading a folder, reading /media/shows, since");
+    expect(shown).toContain("The scan, reading /media/shows, since");
     expect(shown).toContain('role="alert"');
   });
 

@@ -37,7 +37,7 @@ describe("saying a folder moved (D241 §6)", () => {
     expect(options).toEqual(["devnas: /mnt/films", "attic: /films"]);
     await choose(mounted.container.querySelector("select"), "1");
     expect(moves).toEqual([]);
-    await click(buttonWithText(mounted.container, "Move it"));
+    await click(buttonWithText(mounted.container, "Use the new place"));
     expect(moves).toEqual([{ nodeName: "attic", path: "/films" }]);
   });
 });

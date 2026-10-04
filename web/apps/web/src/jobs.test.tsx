@@ -159,7 +159,7 @@ describe("the job view", () => {
     );
     expect(waiting).toEqual([
       "Waiting for a free slot on the media machine",
-      "Paused while a film is prepared",
+      "Paused while someone watches",
     ]);
   });
 

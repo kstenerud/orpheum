@@ -84,7 +84,7 @@ describe("a play of a file that cannot be read now (D241 §4)", () => {
 });
 
 describe("a provider not answering (D231 §12)", () => {
-  it("says since when, and when it is looked at again, when the server knows", () => {
+  it("says since when, and when it will be checked again, when the server knows", () => {
     const knowing = new ApiProblem({
       code: "provider_error",
       message: "a note for developers",
@@ -100,7 +100,7 @@ describe("a provider not answering (D231 §12)", () => {
       detail: { reason: "unavailable" },
     });
     expect(providerProblemText(t, knowing, "identify.providerReason")).toMatch(
-      /^TMDB has not been answering, since .+; it is looked at again at .+\.$/u,
+      /^TMDB has not been answering, since .+; it will be checked again at .+\.$/u,
     );
     expect(providerProblemText(t, unknowing, "identify.providerReason")).toBe(
       "TMDB is not answering right now. Try again later.",
