@@ -335,3 +335,28 @@ func TestRunDue_AToolFailureThatParksItsJobIsStillATheToolsFailure(t *testing.T)
 		t.Errorf("the attempts were told their last one's tool failed: %v; want false, then true", previous)
 	}
 }
+
+// A probe whose job's tool failed says nothing of its destination: the destination stays parked,
+// and the next probe waits the same step of the back-off again, from now, rather than the next.
+func TestRunDue_AProbeWhoseToolFailedSaysNothingOfItsDestination(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a", Destination: host})
+	isToolFailing := false
+	runner := jobs.queue.NewRunner(kindFetch, func(_ context.Context, _ jobqueue.Job[target]) error {
+		if isToolFailing {
+			return jobqueue.ToolFailed(errors.New("FFmpeg crashed"))
+		}
+		return jobqueue.Park(jobqueue.Parking{Destination: host, Reason: "unreachable"}, errUnreachable)
+	})
+	jobs.runDue(t, runner)
+	parked, _ := jobs.queue.DestinationState(host)
+	isToolFailing = true
+	jobs.clock.Set(parked.NextProbeAt)
+	jobs.runDue(t, runner)
+	state, isParked := jobs.queue.DestinationState(host)
+	if !isParked || state.IsProbing || !state.NextProbeAt.Equal(jobs.clock.Now().Add(jobqueue.FirstProbeDelay)) {
+		t.Errorf("after a probe whose tool failed, the host is %+v (parked %v); want parked, not probing, probed "+
+			"again at the same first step, %v from now", state, isParked, jobqueue.FirstProbeDelay)
+	}
+}

@@ -366,3 +366,50 @@ func TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt(t *testi
 		t.Error("a file under a root no longer named was removed; want it kept")
 	}
 }
+
+// inProgressOf is the scan of the bench's root in progress, as InProgress shows it, and whether
+// there is one.
+func (bench *scanBench) inProgressOf() (ScanProgress, bool) {
+	bench.t.Helper()
+	progress, err := bench.scans.InProgress(bench.t.Context())
+	if err != nil {
+		bench.t.Fatal(err)
+	}
+	scan, isScanning := progress[ScanRoot{NodeID: bench.nodeID, RootPath: root}]
+	return scan, isScanning
+}
+
+// A scan in progress shows how far it is, which the libraries page shows an admin (D236 §2):
+// not listed yet; then the files it listed, and how many of them there are to read and have been
+// read; and whether another scan was asked for while it ran, which starts, fresh, when it ends.
+func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	ctx := t.Context()
+	for range 2 {
+		if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || !scan.IsScanAgain {
+		t.Errorf("before its listing, the scan shows %+v (%v); want unlisted, with another asked for", scan,
+			isScanning)
+	}
+	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1))
+	scan, isScanning := bench.inProgressOf()
+	if !isScanning || !scan.IsListed || scan.ListedCount != 1 || scan.ExamineCount != 1 || scan.ExaminedCount != 0 {
+		t.Errorf("once listed, the scan shows %+v (%v); want its one file listed and to read", scan, isScanning)
+	}
+	job, _ := bench.examine()
+	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
+		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
+			observedRecord("Wing/Wing.mkv", "alien"),
+		}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scan, isScanning := bench.inProgressOf(); !isScanning || scan.IsListed || scan.IsScanAgain {
+		t.Errorf("once it ended, the root's scan shows %+v (%v); want the one asked for again, fresh", scan,
+			isScanning)
+	}
+}
