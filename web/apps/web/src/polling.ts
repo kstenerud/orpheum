@@ -26,7 +26,8 @@ export function backingOffPoller(polling: PollWaits): Poller {
 
 /**
  * The waits of a screen showing what the server changes in the background, 2 s to 30 s (D237 §1):
- * the settings' starting values, which the server's client settings replace once read.
+ * the settings' starting values, which the server's client settings replace once read. The core's
+ * TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettingsStarts holds them equal.
  */
 export const backgroundChangeWaits: PollWaits = { firstMs: 2000, longestMs: 30_000 };
 

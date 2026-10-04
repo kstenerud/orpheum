@@ -106,7 +106,9 @@ func (service *Service) Levels(ctx context.Context, payloadHash []byte) (decide.
 }
 
 // fileIDsPerSweepRead is how many file ids a sweep for files to measure reads at a time: an internal
-// read size, which bounds one query's work; any value works.
+// read size. Reading the ids in ranges keeps each query short, so the sweep never holds the
+// database's read connection for long while a library of tens of thousands of files is looked at;
+// a thousand is a few milliseconds' read. Any value gives the same answer.
 const fileIDsPerSweepRead = 1000
 
 // FilesToMeasure are the live videos with sound whose bytes have no loudness yet, leaving out a file

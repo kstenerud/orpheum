@@ -3,7 +3,12 @@
 import { ApiProblem, reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** How long a request runs before a screen says it is still waiting (D231 §12). */
+/**
+ * How long a request runs before a screen says it is still waiting (D231 §12): longer than a
+ * request to a host that answers takes, so a person sees the words only when something holds it
+ * back, and short enough that they are not left wondering. A fixed choice of how the screen talks,
+ * not a setting: it changes no behaviour of the server's.
+ */
 export const slowAfterMs = 2000;
 
 /** A request a screen runs, and how it is going: running, or failed with why. */

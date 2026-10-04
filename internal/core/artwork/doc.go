@@ -70,6 +70,12 @@
 //     from its cached 404, and a second miss gives it up (D213 §1). The recheck is derived from
 //     its refusal, which DueRechecks reads for the refresh sweep, never held as a job (D231 §3).
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
+//     One first answer is kept with no recheck, the exception to go.md §21's "never missing for
+//     good on the first answer": a size made again from a stored image's source, when the source
+//     answers 404 or with other bytes, is noted as one that cannot be made (a .none file), keyed
+//     by the source's SHA-256. What it notes is that those bytes cannot be had again, which no
+//     later answer changes: a provider's new image is a new hash, which its item's next refresh
+//     finds, and the image is shown meanwhile at its nearest stored size.
 //
 //   - An image that could not be stored keeps why and when, the item's own failure (D231 §4); a
 //     job that gave up records each image it named that its item does not hold that way (§10).

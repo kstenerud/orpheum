@@ -91,6 +91,43 @@ func TestLengthOrStarting_IsTheSettingOrElseItsStartingValue(t *testing.T) {
 	}
 }
 
+// The jobs no one waits for are looked for at most half the shortest play priority an admin may set
+// apart, so a job keeps play priority at most half as long again as its setting says (D234 §3).
+func TestDemoteUnwantedEvery_IsAtMostHalfTheShortestPlayPriorityKept(t *testing.T) {
+	t.Parallel()
+	kept, isDefined := settings.Lookup(settings.PlayPriorityKeptSeconds)
+	if !isDefined {
+		t.Fatal("play_priority_kept_seconds is not a setting")
+	}
+	if shortest := time.Duration(kept.Minimum) * kept.Unit; demoteUnwantedEvery > shortest/2 {
+		t.Errorf("demoteUnwantedEvery is %v, against play_priority_kept_seconds' shortest, %v; want at most "+
+			"half of it", demoteUnwantedEvery, shortest)
+	}
+}
+
+// The sweeps that derive first matches, requested refreshes, rechecks and the identification passes
+// run as derived_work_sweep_every_seconds says, read afresh (D231 §3).
+func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
+	t.Parallel()
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	settingstest.Set(t, config, settings.DerivedWorkSweepEverySeconds, "420")
+	services := jobServices{settings: config}
+	derived := map[string]bool{
+		sweepFirstMatches: true, sweepRefreshRequests: true, sweepRechecks: true, sweepPasses: true,
+	}
+	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
+		if derived[sweep.Name] {
+			delete(derived, sweep.Name)
+			if every := sweep.Every(t.Context()); every != 7*time.Minute {
+				t.Errorf("the %s sweep runs every %v, want 7m as its setting says", sweep.Name, every)
+			}
+		}
+	}
+	if len(derived) != 0 {
+		t.Errorf("no sweep named %v", derived)
+	}
+}
+
 // Every kind runs one at a time: a handler gives its work to a node and answers at once, and the
 // core holds each node to its slots and devices (D234 §7, D240 §5), so a second person's prepare is
 // not held behind the first's.
