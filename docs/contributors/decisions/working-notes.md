@@ -17810,7 +17810,7 @@ before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md
    asks of the architecture, checked against the schema on 2026-10-04:
    - **Ids the API exposes are never reused and never hard-deleted.** True today (items, titles,
      files, editions and libraries use AUTOINCREMENT and tombstones, a merge leaves
-     `merged_into`); a `TestArch_` test is to keep it true.
+     `merged_into`); `TestArch_IDsAreNeverGivenTwice` keeps it true (built 2026-10-04).
    - The other server is one more caller of §4's check: a `grant` of a new kind (D154), its scope
      the ticked libraries, with a ceiling on streams and bandwidth (F31), since its household
      shares this server's uplink.

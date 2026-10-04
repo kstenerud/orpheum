@@ -27,6 +27,9 @@
 //   - TestArch_NoHandBuiltJSON: no code that ships spells out a JSON object's keys in a string; a
 //     document is encoded from a struct, so a renamed field is renamed everywhere it is written
 //     (agent failures A13).
+//   - TestArch_IDsAreNeverGivenTwice: every table of persistent.db whose rowid is an id has it
+//     AUTOINCREMENT, or borrowed from the row it extends, so an id the API gave out never names
+//     another row (D243 §5).
 //   - TestArch_NodeprotoHasNoLogic: internal/nodeproto imports nothing from the module except
 //     internal/platform, and declares no functions outside methods.
 //   - TestArch_EveryPackageHasDocGo: every package under internal/ and cmd/ has a doc.go whose
