@@ -201,8 +201,8 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.subtitles.RecordFailure, nil, 1, derivedByAPlay(), services.subtitles.Assignee,
 		},
 		{
-			jobs.KindMeasureLoudness, services.loudness.HandleMeasureLoudness,
-			services.loudness.RecordMeasurementFailure, nil, 1,
+			// A measurement that gave up keeps nothing, so the next sweep asks again (D244 §1).
+			jobs.KindMeasureLoudness, services.loudness.HandleMeasureLoudness, nil, nil, 1,
 			[]string{sweepLoudness},
 			services.loudness.Assignee,
 		},

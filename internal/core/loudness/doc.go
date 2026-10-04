@@ -26,10 +26,11 @@
 //   - A node's word that FFmpeg stalled costs the job no attempt, and two in a row are the file's
 //     failure. TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure (internal/core/api).
 //
-//   - A measurement whose job fails is kept as the file's own failure, by payload hash as FFmpeg's
-//     is (D231 §4, §10), so the sweep does not ask again.
-//     TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAgain
-//     (internal/core/api).
+//   - Only FFmpeg's word on a file, or two stalls in a row, is kept as the file's own failure; a
+//     measurement whose job gave up otherwise, refused, unanswered or out of attempts, keeps
+//     nothing, so the next sweep asks again (D244 §1, D233 §10).
+//     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact
+//     (cmd/orpheum).
 //
 //   - Imports nothing from internal/node, never os/exec, no database/sql: the depguard rules
 //     core-boundary and sql-only-in-store, TestArch_CoreNeverImportsNode and
