@@ -322,3 +322,28 @@ func TestParseStat_ReadsTheStateGroupAndTimesAfterTheCommandName(t *testing.T) {
 		t.Error("a stat cut short was parsed")
 	}
 }
+
+// A process blocked on a device names the file its call waits on by the call's first argument, a
+// file descriptor, which /proc links to the file; a call with no file behind it names none.
+func TestBlockedPathFrom_IsTheFileTheBlockedCallsDescriptorNames(t *testing.T) {
+	t.Parallel()
+	links := map[int64]string{3: "/media/films/Wing.mkv", 4: "pipe:[123]"}
+	linkOf := func(fd int64) (string, error) {
+		if link, isLinked := links[fd]; isLinked {
+			return link, nil
+		}
+		return "", errors.New("no such descriptor")
+	}
+	for call, want := range map[string]string{
+		"0 0x3 0x7f00 0x1000 0x0 0x0 0x0 0x7ffd 0x7f00":  "/media/films/Wing.mkv",
+		"17 0x4 0x7f00 0x1000 0x0 0x0 0x0 0x7ffd 0x7f00": "",
+		"0 0x9 0x7f00 0x1000 0x0 0x0 0x0 0x7ffd 0x7f00":  "",
+		"running":          "",
+		"-1 0x7ffd 0x7f00": "",
+		"":                 "",
+	} {
+		if got := blockedPathFrom(call, linkOf); got != want {
+			t.Errorf("blockedPathFrom(%q) = %q, want %q", call, got, want)
+		}
+	}
+}

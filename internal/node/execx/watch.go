@@ -139,6 +139,9 @@ type StalledError struct {
 	// the start when it never moved.
 	WithoutAdvance time.Duration
 	StderrTail     string
+	// WaitingOnPath is, for a run waiting on its disk, the file it was blocked on, which says whose
+	// disk did not answer: the source's, or the place it writes; empty when /proc did not say.
+	WaitingOnPath string
 	// IsLeftRunning is a run whose process outlived SIGKILL, as one waiting on a device does until
 	// the device answers: it is listed as stuck (Runner.Stuck) until it ends, and holds no slot.
 	IsLeftRunning bool
@@ -159,6 +162,9 @@ type groupSample struct {
 	processCount int
 	// isWaitingOnDevice is whether a process in it was in uninterruptible sleep (D).
 	isWaitingOnDevice bool
+	// waitingOnPath is the file a process waiting on a device was blocked on, as its call's file
+	// descriptor names it; empty when /proc did not say.
+	waitingOnPath string
 	// cpuTicks is the processor time its processes had used, in clock ticks.
 	cpuTicks int64
 	// storageBytes is the bytes storage had read for its processes and from and written to storage.
@@ -279,6 +285,9 @@ func (dog *watchdog) verdict(tool Tool) *StalledError {
 		return nil
 	}
 	stalled.Condition = dog.condition(stalled.WithoutAdvance)
+	if stalled.Condition == ConditionWaitingOnDisk {
+		stalled.WaitingOnPath = dog.latest.waitingOnPath
+	}
 	return stalled
 }
 

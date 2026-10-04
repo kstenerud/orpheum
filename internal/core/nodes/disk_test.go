@@ -104,3 +104,34 @@ func TestStallOutcome_ASecondStallOnTheDiskIsTheTargetsUnreadableDisk(t *testing
 		t.Errorf("a spinning stall = %v; want it not a stall on the disk", spinning)
 	}
 }
+
+// A prepare whose run waited on a disk that is not its source's, its prepared directory's as its
+// node said, leaves its root available and parks the node's prepares on that directory, as the
+// tool's failure, at no cost of an attempt: the media are not what failed.
+func TestExchange_AStallOnThePreparedDirectorysDiskParksOnItAndLeavesTheRoot(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	disks := &stalledRoots{since: time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)}
+	bench.exchanges.SetDiskStalls(disks)
+	resolved := answersAfter{answers: make(answers, 1)}
+	assignee := assignedPrepare(resolved.answers, nil)
+	assignee.Runner = resolved
+	bench.exchanges.Handle(jobs.KindPrepare, assignee)
+	command := nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("Wing.mkv")},
+	}}}
+	jobqueue.Hand(t.Context(), bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, command))
+	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+	stalled := diskStall(sent)
+	stalled.Prepare.Stall.WaitingOnPath = "/srv/node/cache/prepared/3/remux/a/segment-7.m4s"
+	deliver(t, bench.exchanges, 1, stalled)
+	answer := testutil.Receive(t, resolved.answers, "job 7's answer")
+	if len(disks.roots) != 0 {
+		t.Errorf("roots made unavailable: %q; want none, the source's disk answered", disks.roots)
+	}
+	parking, isParked := jobqueue.ParkingOf(answer)
+	if !isParked || parking.Destination != jobs.PreparedDirectoryDestination(1) ||
+		!strings.Contains(answer.Error(), "stalled: ") {
+		t.Errorf("a stall on the prepared directory's disk was answered %v; want parked on it as a stall", answer)
+	}
+}

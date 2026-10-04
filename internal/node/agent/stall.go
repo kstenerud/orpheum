@@ -27,6 +27,7 @@ func stallOf(err error) *nodeproto.Stall {
 	}
 	return &nodeproto.Stall{
 		Cause: cause, Condition: nodeproto.StallCondition(stalled.Condition), IsLeftRunning: stalled.IsLeftRunning,
+		WaitingOnPath:  stalled.WaitingOnPath,
 		LastPositionMs: stalled.LastPosition.Milliseconds(), WithoutAdvanceMs: stalled.WithoutAdvance.Milliseconds(),
 		Detail: err.Error(),
 	}
