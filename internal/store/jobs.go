@@ -322,6 +322,25 @@ func (jobStorage *JobStorage) List(ctx context.Context, limit int64) ([]jobqueue
 	return listed, nil
 }
 
+// Health is each kind's queued jobs, the oldest of them and its jobs failed since failedSince.
+func (jobStorage *JobStorage) Health(ctx context.Context, failedSince time.Time) ([]jobqueue.KindHealth, error) {
+	rows, err := jobStorage.cache.Read().CountJobsByKind(ctx, new(failedSince.UnixMilli()))
+	if err != nil {
+		return nil, fmt.Errorf("count the jobs by kind: %w", err)
+	}
+	health := make([]jobqueue.KindHealth, 0, len(rows))
+	for _, row := range rows {
+		kind := jobqueue.KindHealth{
+			Kind: jobqueue.Kind(row.Kind), QueuedCount: row.QueuedCount, FailedCount: row.FailedCount,
+		}
+		if row.OldestQueuedAt != 0 {
+			kind.OldestQueuedAt = time.UnixMilli(row.OldestQueuedAt)
+		}
+		health = append(health, kind)
+	}
+	return health, nil
+}
+
 // ListOpen is every queued, running and assigned job.
 func (jobStorage *JobStorage) ListOpen(ctx context.Context) ([]jobqueue.Row[JobTarget], error) {
 	rows, err := jobStorage.cache.Read().ListEveryOpenJob(ctx)

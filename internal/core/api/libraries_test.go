@@ -48,6 +48,9 @@ type fakeNodes struct {
 	disks []nodeproto.Disk
 	// stuck is the work local's status says waits on a disk.
 	stuck []nodeproto.Stuck
+	// held is the work local's status says it holds, and statusSentAt when it sent that status.
+	held         []nodeproto.HeldAttempt
+	statusSentAt int64
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
 	// isAway is a node that has not connected.
@@ -191,10 +194,14 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 				Kernel: "6.12.0",
 			},
 			RootPaths: nodes.roots, Confinement: nodes.confinement, Hardware: nodes.hardware, UID: 1000, GID: 1000,
+			Capacity: nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 2},
 		},
 	}
-	if nodes.prepared != nil || nodes.disks != nil {
-		facts.Status = &nodeproto.Status{PreparedUsage: nodes.prepared, Disks: nodes.disks, Stuck: nodes.stuck}
+	if nodes.prepared != nil || nodes.disks != nil || nodes.held != nil {
+		facts.Status = &nodeproto.Status{
+			SentAt: nodes.statusSentAt, PreparedUsage: nodes.prepared, Disks: nodes.disks, Stuck: nodes.stuck,
+			Held: nodes.held,
+		}
 	}
 	return facts, true
 }

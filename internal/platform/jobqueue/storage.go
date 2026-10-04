@@ -66,6 +66,19 @@ type Listing[T comparable] interface {
 	// retires. What became of a job that ended is never a fact a program derives work from
 	// (D231 section 3).
 	ListOpen(ctx context.Context) ([]Row[T], error)
+	// Health is each kind's queued jobs, the oldest of them and its jobs failed since failedSince:
+	// the queue's health for a person (D233 §8). A kind with no job is left out.
+	Health(ctx context.Context, failedSince time.Time) ([]KindHealth, error)
+}
+
+// KindHealth is how one kind's jobs are doing.
+type KindHealth struct {
+	Kind        Kind
+	QueuedCount int64
+	// OldestQueuedAt is when the oldest of them was queued; zero when none is.
+	OldestQueuedAt time.Time
+	// FailedCount is how many failed since the time asked about.
+	FailedCount int64
 }
 
 // Open are a kind's open jobs for one target: at most one queued and one running, where an

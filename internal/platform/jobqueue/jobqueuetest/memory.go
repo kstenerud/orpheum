@@ -293,6 +293,37 @@ func (memory *Memory[T]) List(_ context.Context, limit int64) ([]jobqueue.Row[T]
 	return rows[:min(int64(len(rows)), limit)], nil
 }
 
+// Health is jobqueue.Storage's.
+func (memory *Memory[T]) Health(_ context.Context, failedSince time.Time) ([]jobqueue.KindHealth, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	byKind := map[jobqueue.Kind]*jobqueue.KindHealth{}
+	var kinds []jobqueue.Kind
+	for _, row := range memory.rows {
+		kind, isKnown := byKind[row.Kind]
+		if !isKnown {
+			kind = &jobqueue.KindHealth{Kind: row.Kind}
+			byKind[row.Kind] = kind
+			kinds = append(kinds, row.Kind)
+		}
+		if row.State == jobqueue.StateQueued {
+			kind.QueuedCount++
+			if kind.OldestQueuedAt.IsZero() || row.CreatedAt.Before(kind.OldestQueuedAt) {
+				kind.OldestQueuedAt = row.CreatedAt
+			}
+		}
+		if row.State == jobqueue.StateFailed && row.FinishedAt != nil && !row.FinishedAt.Before(failedSince) {
+			kind.FailedCount++
+		}
+	}
+	slices.Sort(kinds)
+	health := make([]jobqueue.KindHealth, 0, len(kinds))
+	for _, kind := range kinds {
+		health = append(health, *byKind[kind])
+	}
+	return health, nil
+}
+
 // ListOpen is every queued, running and assigned job, oldest first.
 func (memory *Memory[T]) ListOpen(context.Context) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()

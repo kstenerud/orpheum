@@ -248,6 +248,15 @@ func (queue *Queue[T]) RequeueRunning(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+// Health is each kind's queued jobs, the oldest of them and its jobs failed since failedSince.
+func (queue *Queue[T]) Health(ctx context.Context, failedSince time.Time) ([]KindHealth, error) {
+	health, err := queue.storage.Health(ctx, failedSince)
+	if err != nil {
+		return nil, fmt.Errorf("read the queue's health: %w", err)
+	}
+	return health, nil
+}
+
 // List is the newest jobs, newest first, at most limit of them.
 func (queue *Queue[T]) List(ctx context.Context, limit int64) ([]Row[T], error) {
 	rows, err := queue.storage.List(ctx, limit)

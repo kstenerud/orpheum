@@ -83,6 +83,8 @@ type Dependencies struct {
 	Providers []*providers.Service
 	// NodeReports is what each connected node said about itself, for the admin to see.
 	NodeReports NodeReports
+	// NodeWork is what the core saw of the work it gave each node, for the System page.
+	NodeWork NodeWork
 	// System is what the System page shows of the server itself (D225).
 	System System
 	// ConfigFileKeys is the config file's keys as the server runs with them, for /config to show.

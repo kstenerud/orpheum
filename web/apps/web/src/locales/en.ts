@@ -375,6 +375,33 @@ export const en = {
     retireNodeConsequence:
       "Its folders leave every library and its waiting work is cancelled; what was watched is kept. If it comes back, it joins as a new machine.",
     retireNodeConfirm: "Retire the machine",
+    queue: {
+      heading: "Work waiting",
+      waiting: "{{count}} waiting",
+      oldest: "since {{at}}",
+      failed: "{{count}} failed in the last day",
+    },
+    work: {
+      running: "{{running}} of {{slots}} jobs it runs at once are running;",
+      waiting: "{{count}} waiting.",
+      lastMoved: "Last made progress {{at}}.",
+      broken:
+        "{{count}} times it held work the server had not given it or had ended: a fault, in it or in the server.",
+    },
+    devices: {
+      heading: "Disks it reads",
+      kind: {
+        spinning: "spinning disk;",
+        ssd: "solid-state disk;",
+        network: "network share;",
+        unknown: "disk of unknown kind;",
+      },
+      readersSet: "{{count}} may read it at once, set for this disk.",
+      readersOfKind: "{{count}} may read it at once, as for its kind.",
+      readersLabel: "At once:",
+      set: "Set",
+      useKinds: "Use its kind's",
+    },
     backups: {
       heading: "Backups",
       what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it.",

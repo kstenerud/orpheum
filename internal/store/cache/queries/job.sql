@@ -143,3 +143,14 @@ RETURNING id, state;
 -- lately, and an item's own failure is a fact kept elsewhere (D231 section 4, D233 section 8).
 DELETE FROM job
 WHERE state IN ('done', 'failed', 'cancelled') AND finished_at < CAST(sqlc.arg(before) AS INTEGER);
+
+-- name: CountJobsByKind :many
+-- Each kind's queued jobs, when the oldest of them was queued (0 when none is), and how many failed
+-- since a time: the queue's health, as the System page shows it (D233 section 8).
+SELECT kind,
+       CAST(SUM(state = 'queued') AS INTEGER) AS queued_count,
+       CAST(COALESCE(MIN(CASE WHEN state = 'queued' THEN created_at END), 0) AS INTEGER) AS oldest_queued_at,
+       CAST(SUM(state = 'failed' AND finished_at >= sqlc.arg(failed_since)) AS INTEGER) AS failed_count
+FROM job
+GROUP BY kind
+ORDER BY kind;

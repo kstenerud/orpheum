@@ -464,3 +464,35 @@ func TestPruneFinished_ForgetsWhatEndedLongerAgoThanItIsKeptFor(t *testing.T) {
 		t.Errorf("the jobs left are %q; want the open one and the one that ended half an hour ago", left)
 	}
 }
+
+// The queue's health is each kind's queued jobs, the oldest of them, and its jobs failed since a
+// time; a kind with no job is left out (D233 §8).
+func TestHealth_IsEachKindsQueuedTheOldestAndWhatFailed(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	oldest := jobs.clock.Now()
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "first"})
+	jobs.clock.Advance(time.Minute)
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "second"})
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindMake, Target: "broken"})
+	failing := jobs.queue.NewRunner(kindMake, func(context.Context, jobqueue.Job[target]) error {
+		return jobqueue.Permanent(errors.New("cannot be made"))
+	})
+	jobs.runDue(t, failing)
+	health, err := jobs.queue.Health(t.Context(), oldest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []jobqueue.KindHealth{
+		{Kind: kindFetch, QueuedCount: 2, OldestQueuedAt: oldest},
+		{Kind: kindMake, FailedCount: 1},
+	}
+	if len(health) != len(want) || health[0] != want[0] || health[1].Kind != kindMake ||
+		health[1].FailedCount != 1 || health[1].QueuedCount != 0 {
+		t.Errorf("health = %+v; want %+v", health, want)
+	}
+	later, err := jobs.queue.Health(t.Context(), jobs.clock.Now().Add(time.Hour))
+	if err != nil || len(later) != 2 || later[1].FailedCount != 0 {
+		t.Errorf("health counting failures from an hour on = %+v (%v); want none failed then", later, err)
+	}
+}

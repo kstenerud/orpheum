@@ -1894,6 +1894,18 @@ export interface components {
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
         };
+        NodeWorkBody: {
+            /** Format: int64 */
+            brokenInvariantCount: number;
+            /** Format: int64 */
+            lastMovedAt?: number;
+            /** Format: int64 */
+            runningCount: number;
+            /** Format: int64 */
+            slotCount: number;
+            /** Format: int64 */
+            waitingCount: number;
+        };
         OfflineBody: {
             /** Format: int64 */
             libraryId: number;
@@ -2066,6 +2078,15 @@ export interface components {
             valuesByKey: {
                 [key: string]: unknown;
             };
+        };
+        QueueKindBody: {
+            /** Format: int64 */
+            failedLastDayCount: number;
+            kind: string;
+            /** Format: int64 */
+            oldestQueuedAt?: number;
+            /** Format: int64 */
+            queuedCount: number;
         };
         QuotaBody: {
             /**
@@ -2445,6 +2466,7 @@ export interface components {
              * @description The user the node runs as
              */
             uid: number;
+            work?: components["schemas"]["NodeWorkBody"];
         };
         SystemOutputBody: {
             destinations: components["schemas"]["DestinationBody"][] | null;
@@ -2452,6 +2474,7 @@ export interface components {
             nodes: components["schemas"]["SystemNodeBody"][] | null;
             offline: components["schemas"]["OfflineBody"][] | null;
             providers: components["schemas"]["ProviderBody"][] | null;
+            queue: components["schemas"]["QueueKindBody"][] | null;
             server: components["schemas"]["ServerBody"];
         };
         TitlesOutputBody: {
