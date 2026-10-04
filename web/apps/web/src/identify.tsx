@@ -9,7 +9,7 @@ import { idempotent } from "./idempotent.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, providerProblemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
@@ -159,8 +159,8 @@ function CandidateChooser(props: {
   const { t } = useTranslation();
   const { api } = useServices();
   const [found, setFound] = useState<CandidatesAnswer | undefined>(undefined);
-  const request = useRequest((cause) => identifyProblemText(t, cause));
-  const { runRequest } = request;
+  const requestState = useRequest((cause) => identifyProblemText(t, cause));
+  const { runRequest } = requestState;
   useEffect(() => {
     runRequest(async () => {
       setFound(
@@ -186,7 +186,7 @@ function CandidateChooser(props: {
   return (
     <section aria-label={t("identify.candidates")}>
       {found === undefined ? null : (
-        <BusyGroup isBusy={request.isBusy}>
+        <BusyGroup isBusy={requestState.isBusy}>
           <CandidateList
             candidates={found.candidates ?? []}
             onPick={(candidate) => {
@@ -195,8 +195,8 @@ function CandidateChooser(props: {
           />
         </BusyGroup>
       )}
-      <RequestWait request={request} provider="TMDB" />
-      {request.problem === undefined ? null : <p role="alert">{request.problem}</p>}
+      <RequestWait requestState={requestState} provider="TMDB" />
+      {requestState.problem === undefined ? null : <p role="alert">{requestState.problem}</p>}
     </section>
   );
 }
@@ -216,7 +216,7 @@ export function Identify(): JSX.Element {
       );
       return itemsBody.items ?? [];
     },
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   return (
     <section aria-labelledby="identify-heading">

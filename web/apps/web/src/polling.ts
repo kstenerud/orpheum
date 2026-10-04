@@ -6,7 +6,7 @@ import { createContext, use } from "react";
  * How a screen asks the server again (D237): after firstMs, then, while the answer is unchanged,
  * after twice the last wait, up to longestMs; after firstMs again once it changes.
  */
-export interface Polling {
+export interface PollWaits {
   readonly firstMs: number;
   readonly longestMs: number;
 }
@@ -20,7 +20,7 @@ export interface Poller {
 }
 
 /** A poller on polling's schedule, backing off while nothing changes (pollUntilStopped). */
-export function backingOff(polling: Polling): Poller {
+export function backingOffPoller(polling: PollWaits): Poller {
   return { start: (ask) => pollUntilStopped(polling, ask) };
 }
 
@@ -28,16 +28,16 @@ export function backingOff(polling: Polling): Poller {
  * The waits of a screen showing what the server changes in the background, 2 s to 30 s (D237 §1):
  * the settings' starting values, which the server's client settings replace once read.
  */
-export const backgroundChangeWaits: Polling = { firstMs: 2000, longestMs: 30_000 };
+export const backgroundChangeWaits: PollWaits = { firstMs: 2000, longestMs: 30_000 };
 
 /**
  * The poller of a screen showing what the server changes in the background, a scan,
  * identification, artwork, the jobs (D237 §1).
  */
-export const backgroundChanges: Poller = backingOff(backgroundChangeWaits);
+export const backgroundChangesPoller: Poller = backingOffPoller(backgroundChangeWaits);
 
 /** The wait before the next ask, after lastWaitMs and an answer that changed or did not. */
-export function nextWaitMs(polling: Polling, lastWaitMs: number, isChanged: boolean): number {
+export function nextWaitMs(polling: PollWaits, lastWaitMs: number, isChanged: boolean): number {
   if (isChanged) {
     return polling.firstMs;
   }
@@ -49,7 +49,7 @@ export function nextWaitMs(polling: Polling, lastWaitMs: number, isChanged: bool
  * polling.firstMs, and each after the wait nextWaitMs gives once the last ask said, through
  * answered, whether what it read changed.
  */
-export function pollUntilStopped(polling: Polling, ask: Ask): () => void {
+export function pollUntilStopped(polling: PollWaits, ask: Ask): () => void {
   let isStopped = false;
   let waitMs = polling.firstMs;
   let timer = setTimeout(askNow, waitMs);
@@ -74,7 +74,7 @@ export function pollUntilStopped(polling: Polling, ask: Ask): () => void {
  */
 export function clientWaits(
   read: { readonly firstSeconds: number; readonly longestSeconds: number } | undefined,
-): Polling {
+): PollWaits {
   if (read === undefined) {
     return backgroundChangeWaits;
   }
@@ -85,13 +85,13 @@ export function clientWaits(
 }
 
 /**
- * The poller screens showing what the server changes in the background use: backgroundChanges until
+ * The poller screens showing what the server changes in the background use: backgroundChangesPoller until
  * the server's client settings say the waits an admin set (screen_refresh_first_wait_seconds and
  * screen_refresh_longest_wait_seconds).
  */
-export const BackgroundChangesContext = createContext<Poller>(backgroundChanges);
+export const BackgroundChangesContext = createContext<Poller>(backgroundChangesPoller);
 
 /** The poller of a screen showing what the server changes in the background (D237). */
-export function useBackgroundChanges(): Poller {
+export function useBackgroundChangesPoller(): Poller {
   return use(BackgroundChangesContext);
 }

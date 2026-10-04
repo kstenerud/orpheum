@@ -13,7 +13,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
@@ -78,7 +78,7 @@ export function isCancellable(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), useBackgroundChanges());
+  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), useBackgroundChangesPoller());
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     problemText(t, cause, { conflict: t("jobs.alreadyEnded") }),
   );

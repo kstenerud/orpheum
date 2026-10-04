@@ -29,7 +29,7 @@ async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unkn
 
 /**
  * A poller a test runs by hand: each ask a hook starts is kept, and the test runs it and reads what
- * it answered; polling.test.ts holds when backgroundChanges runs them (D237).
+ * it answered; polling.test.ts holds when backgroundChangesPoller runs them (D237).
  */
 function handPoller(): Poller & { readonly asks: Ask[] } {
   const asks: Ask[] = [];

@@ -6,7 +6,7 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -76,7 +76,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
                     {t("title.episodeLabel", { number: episode.episodeNumber, name: episode.name })}
                   </span>
                   {episode.hasLiveFile ? null : (
-                    <span className="series__absent">{t("title.unavailable")}</span>
+                    <span className="series__absent">{t("title.notOnDisk")}</span>
                   )}
                   {episode.unavailable === undefined ? null : (
                     <span className="series__absent">
@@ -105,7 +105,7 @@ export function Series(props: { readonly id: number }): JSX.Element {
         }),
       );
     },
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   return <Loaded resource={series} render={(value) => <SeriesView series={value} />} />;
 }

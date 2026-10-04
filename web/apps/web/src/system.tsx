@@ -19,7 +19,7 @@ import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
 import { byteSizeText, tenthsText } from "./number-text.ts";
 import { Link } from "./link.tsx";
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -44,7 +44,7 @@ export function System(): JSX.Element {
   const [report, reload] = useResource(
     "system",
     async () => dataOrThrow(await api.GET("/system")),
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   const retiring = useRequest((cause) => problemText(t, cause));
   const retireNode = (nodeName: string): void => {

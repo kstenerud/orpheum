@@ -193,14 +193,14 @@ should_check_for_updates = false
 
 async function waitForHealth(
   url: string,
-  server: ChildProcess,
+  core: ChildProcess,
   readLog: () => string,
 ): Promise<void> {
   const deadline = Date.now() + 60_000;
   const client = await request.newContext();
   while (Date.now() < deadline) {
-    if (server.exitCode !== null) {
-      throw new Error(`the server exited (${String(server.exitCode)}):\n${readLog()}`);
+    if (core.exitCode !== null) {
+      throw new Error(`the core exited (${String(core.exitCode)}):\n${readLog()}`);
     }
     try {
       const answer = await client.get(`${url}/api/v1/health`);
@@ -214,7 +214,7 @@ async function waitForHealth(
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   await client.dispose();
-  throw new Error(`the server did not answer /health within 60 s:\n${readLog()}`);
+  throw new Error(`the core did not answer /health within 60 s:\n${readLog()}`);
 }
 
 /** How a role is started: the binary, the instances, and where its output goes. */
@@ -302,30 +302,30 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     log += chunk.toString();
   };
   const launch: Launch = { binary, instances, appendToLog };
-  const server = startRole("core", launch);
+  const core = startRole("core", launch);
   const url = `http://127.0.0.1:${String(port)}`;
   // The spec reads the address from here: Playwright hands a global setup's environment to its
   // workers.
   process.env[serverAddressEnvVariable] = url;
-  await waitForHealth(url, server, () => log);
+  await waitForHealth(url, core, () => log);
   // The node dials the core's socket, which exists once the core answers: started now, its first
   // hello does not wait for a status tick.
   const node = startRole("node", launch);
-  // A key the server does not read is a key this config names wrongly, as after a rename (D227):
+  // A key the core does not read is a key this config names wrongly, as after a rename (D227):
   // the tests would run on its starting value, not the one written here.
   const unread = log.split("\n").filter((line) => line.includes("nothing reads it"));
   if (unread.length > 0) {
     node.kill("SIGTERM");
-    server.kill("SIGTERM");
-    throw new Error(`the test config names keys the server does not read:\n${unread.join("\n")}`);
+    core.kill("SIGTERM");
+    throw new Error(`the test config names keys the core does not read:\n${unread.join("\n")}`);
   }
 
   return async () => {
-    const exited = [node, server].map(
+    const exited = [node, core].map(
       (started) => new Promise((resolve) => started.once("exit", resolve)),
     );
     node.kill("SIGTERM");
-    server.kill("SIGTERM");
+    core.kill("SIGTERM");
     await Promise.all(exited);
     rmSync(root, { recursive: true, force: true });
   };

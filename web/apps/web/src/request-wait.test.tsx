@@ -39,7 +39,7 @@ function Asker(props: {
       >
         Ask
       </button>
-      <RequestWait request={state} provider="TMDB" />
+      <RequestWait requestState={state} provider="TMDB" />
       {state.problem === undefined ? null : <p role="alert">{state.problem}</p>}
     </div>
   );

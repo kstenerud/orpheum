@@ -224,7 +224,7 @@ function usePreparedPlayback(
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = useFailure(fileId);
+  const [failure, setFailure] = usePlaybackFailure(fileId);
   useEffect(() => {
     const element = videoRef.current;
     if (element === null) {
@@ -263,14 +263,14 @@ function usePreparedPlayback(
  * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
  * (D241 §7). A file that can be read leaves the player's words.
  */
-function useFailure(fileId: number): [string | undefined, (seen: string) => void] {
+function usePlaybackFailure(fileId: number): [string | undefined, (seen: string) => void] {
   const { api } = useServices();
   const { t } = useTranslation();
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const fail = useCallback(
     (seen: string) => {
       setFailure(seen);
-      unavailableNow(api, fileId).then(
+      fetchUnavailability(api, fileId).then(
         (unavailable) => {
           if (unavailable !== undefined) {
             setFailure(unavailableText(t, unavailable));
@@ -285,7 +285,7 @@ function useFailure(fileId: number): [string | undefined, (seen: string) => void
 }
 
 /** Why a file cannot be read now, as the server says, or undefined when it can. */
-async function unavailableNow(
+async function fetchUnavailability(
   api: Api,
   fileId: number,
 ): Promise<components["schemas"]["UnavailableBody"] | undefined> {
@@ -299,7 +299,7 @@ async function unavailableNow(
 function DirectVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = useFailure(props.fileId);
+  const [failure, setFailure] = usePlaybackFailure(props.fileId);
   const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
     setFailure(playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)));
   };
