@@ -196,7 +196,16 @@ func (service *Service) TextOf(
 	row, err := store.OrNotFound(service.database.Read().GetSubtitleText(ctx, key))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return Text{Readiness: jobs.Preparing}, nil // asked for when the playback began, and not made yet
+		// Asked for when the playback began, and not made yet. The player asking for it is a person
+		// still waiting for it, so its job keeps the priority of play (D234 §3).
+		kind, target := jobs.KindExtractSubtitle, jobs.Target{StreamID: track.StreamID}
+		if track.IsFetched() {
+			kind, target = jobs.KindConvertFetchedSubtitle, jobs.Target{FetchedSubtitleID: track.FetchedSubtitleID}
+		}
+		if keepErr := service.queue.KeepWanted(ctx, kind, target); keepErr != nil {
+			return Text{}, keepErr
+		}
+		return Text{Readiness: jobs.Preparing}, nil
 	case err != nil:
 		return Text{}, fmt.Errorf("read the subtitle: %w", err)
 	case row.Failure != nil:
