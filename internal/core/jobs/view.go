@@ -100,6 +100,12 @@ func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64)
 	return queue.queue.SetProgress(ctx, id, fraction)
 }
 
+// OnOverdue has the queue tell overdue each assigned job whose time, assigned_job_limit_hours, ran
+// out: its node is told to stop the work it still holds (nodes.Exchanges.Overdue).
+func (queue *Queue) OnOverdue(overdue func(ctx context.Context, id int64)) {
+	queue.queue.OnOverdue(overdue)
+}
+
 // OnCancel has the queue tell cancelled each job a cancel ended: an assigned job's node is told to
 // stop its work (D234 §6).
 func (queue *Queue) OnCancel(cancelled func(ctx context.Context, id int64)) {

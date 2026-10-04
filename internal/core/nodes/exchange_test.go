@@ -239,6 +239,26 @@ func TestExchange_ACancelTellsTheNodeToStop(t *testing.T) {
 	}
 }
 
+// A job whose time ran out (assigned_job_limit_hours) tells its node to stop the work, and its
+// attempt is forgotten: the queue ended the job, and nothing of its kind is told, as for a cancel
+// (G4, D244 §6).
+func TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	cancelled := make(chan nodes.Attempt, 1)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), cancelled))
+	sent := bench.assign(t)
+	bench.exchanges.Overdue(t.Context(), 7)
+	bench.wantToldToStop(t, sent)
+	select {
+	case attempt := <-cancelled:
+		t.Errorf("the kind was told attempt %s was cancelled; the queue already ended its job", attempt.Token)
+	default:
+	}
+	bench.exchanges.Cancelled(t.Context(), 7)
+	bench.wantNothingSent(t, "the attempt is forgotten once its time ran out")
+}
+
 // A result for no attempt given to the node resolves nothing, and the log names the job by its id,
 // as the records do (D227).
 func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
