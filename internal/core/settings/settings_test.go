@@ -8,7 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -501,6 +505,31 @@ func TestSet_TheSortLocaleTakesAnyWellFormedBCP47Tag(t *testing.T) {
 			nil, false)
 		if (isAccepted && err != nil) || (!isAccepted && !errors.Is(err, ErrInvalidValue)) {
 			t.Errorf("sort_locale %s: %v; want accepted %t", value, err, isAccepted)
+		}
+	}
+}
+
+// The web client waits as the screen-refresh settings start until it has read them (D237 §4), so
+// its copy of their starting values is theirs: a setting's start changed alone would leave a
+// screen waiting otherwise until the client settings arrive.
+func TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettingsStarts(t *testing.T) {
+	t.Parallel()
+	source, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "apps", "web", "src", "polling.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	waits := regexp.MustCompile(`backgroundChangeWaits: PollWaits = \{ firstMs: ([\d_]+), longestMs: ([\d_]+) \}`).
+		FindSubmatch(source)
+	if waits == nil {
+		t.Fatal("polling.ts has no backgroundChangeWaits this test can read; say where the client's copy went")
+	}
+	for index, key := range []Key{ScreenRefreshFirstWaitSeconds, ScreenRefreshLongestWaitSeconds} {
+		milliseconds, parseErr := strconv.ParseInt(strings.ReplaceAll(string(waits[index+1]), "_", ""), 10, 64)
+		if parseErr != nil {
+			t.Fatal(parseErr)
+		}
+		if web, start := time.Duration(milliseconds)*time.Millisecond, StartingDuration(key); web != start {
+			t.Errorf("the web client waits %v before it reads %s, which starts at %v", web, key, start)
 		}
 	}
 }

@@ -241,12 +241,6 @@ func sweepsAfterAPass() []string {
 	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepLoudness}
 }
 
-// derivedWorkSweepEvery is how often the sweeps that derive first matches, the refreshes people
-// asked for, rechecks and the identification passes run on their own, besides at start, after
-// each pass and when a destination comes back: D231 §3's "hourly by default". A named constant
-// until the settings work gives each sweep's interval a setting (the owner, 2026-09-30).
-const derivedWorkSweepEvery = time.Hour
-
 // sweepCheckEvery is how often the sweeping loop looks for a sweep whose interval has passed: a
 // bound on how late one runs, not a choice about how often work is derived.
 const sweepCheckEvery = time.Minute
@@ -254,7 +248,12 @@ const sweepCheckEvery = time.Minute
 // sweeps are every sweep that derives the server's work from persistent.db (D231 §3), each queuing
 // what the library's state implies of one kind's work, as its name says.
 func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
-	derivedWorkEvery := func(context.Context) time.Duration { return derivedWorkSweepEvery }
+	// The sweeps that derive first matches, the refreshes people asked for, rechecks and the
+	// identification passes run as derived_work_sweep_every_seconds says, besides at start, after
+	// each pass and when a destination comes back (D231 §3).
+	derivedWorkEvery := func(ctx context.Context) time.Duration {
+		return lengthOrStarting(ctx, services.settings, settings.DerivedWorkSweepEverySeconds, logger)
+	}
 	return []jobs.Sweep{
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
@@ -355,8 +354,8 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	}
 	loops.Go(func() {
 		// A node says where the work it holds is at each of its status ticks; a silence is looked
-		// for each second.
-		ticker := time.NewTicker(time.Second)
+		// for every silenceCheckEvery.
+		ticker := time.NewTicker(silenceCheckEvery)
 		defer ticker.Stop()
 		services.exchanges.Watch(loopsContext, ticker.C)
 	})
@@ -382,9 +381,16 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	return func() { cancel(); loops.Wait() }, nil
 }
 
+// silenceCheckEvery is how often the work given to nodes is looked at for a silence past its limit:
+// a bound on how late a silence is noticed, against limits of minutes (node_silent_after_seconds,
+// the slowest read); a look reads memory alone.
+const silenceCheckEvery = time.Second
+
 // demoteUnwantedEvery is how often the jobs no person waits for any more are looked for: a bound
-// on how late, past its "wanted until", play-driven work falls to background priority.
-const demoteUnwantedEvery = 30 * time.Second
+// on how late, past its "wanted until", play-driven work falls to background priority. It is half
+// play_priority_kept_seconds' shortest, so even at that a job is demoted at most half its keeping
+// late; one cache.db query a tick, which finds nothing most of the time.
+const demoteUnwantedEvery = 5 * time.Second
 
 // demoteUnwanted gives the jobs no person waits for any more background priority at each tick, and
 // tells the node holding each one given to it (D234 §3, S87), until ctx ends.

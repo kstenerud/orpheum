@@ -73,6 +73,7 @@ const (
 	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
+	DerivedWorkSweepEverySeconds                   Key = "derived_work_sweep_every_seconds"
 	ArtworkJPEGQuality                             Key = "artwork_jpeg_quality"
 	ArtworkSecondsBeforeEachRetry                  Key = "artwork_seconds_before_each_retry"
 	ArtworkCacheSweepEveryHours                    Key = "artwork_cache_sweep_every_hours"
@@ -205,13 +206,18 @@ func scanDefinitions() []Definition {
 			Pattern:   regexp.MustCompile(extensionsPattern),
 			Description: "the extensions, lower case and comma-separated, of the files a scan reads as " +
 				"videos (D240 §8)",
-		}, "the node's video_extensions as the development config had them, which this setting replaced"),
+		}, "the containers FFmpeg reads that people keep films in: Matroska and MP4 first, the broadcast and "+
+			"disc formats (ts, m2ts, mts, vob, mpg), and the older ones still found in libraries (avi, wmv, flv, "+
+			"3gp); a file with another extension is never probed, so a missing one hides films, and an extra "+
+			"one costs a probe of each such file. Carried over from the node's video_extensions"),
 		sourced(Definition{
 			Key: ScanSubtitleExtensions, Kind: KindString, StartJSON: json.RawMessage(`"srt,ass,ssa,vtt"`),
 			Pattern: regexp.MustCompile(extensionsPattern),
 			Description: "the extensions, lower case and comma-separated, of the text subtitle files a scan " +
 				"reads beside their videos (D240 §8)",
-		}, "the node's subtitle_extensions as the development config had them, which this setting replaced"),
+		}, "the text subtitle formats the node converts to ASS and WebVTT (D217 §6): SubRip, ASS and SSA, and "+
+			"WebVTT; image subtitles are read inside a video, not beside it. Carried over from the node's "+
+			"subtitle_extensions"),
 		sourced(integerSetting(ScanVideosPerExamineBatch, "10", 1, 1000,
 			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
 				"is read again (D240 §8)"),
@@ -378,6 +384,11 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(durationSetting(LoudnessSweepEveryHours, time.Hour, "1", 1, 8760,
 			"hours between looks for files whose loudness is not measured yet; a scan also starts one (D226 §2)"),
 			"best guess: hourly, so a file a scan missed waits no longer than that"),
+		sourced(durationSetting(DerivedWorkSweepEverySeconds, time.Second, "3600", 60, 86400,
+			"seconds between the sweeps that find the first matches owed, the refreshes people asked for, "+
+				"the images owed a recheck and the libraries owed an identification pass; each also runs at "+
+				"start, after a pass and when a destination comes back (D231 §3)"),
+			"D231 §3: hourly by default"),
 		sourced(integerSetting(ArtworkJPEGQuality, "85", 1, 100,
 			"the quality the core cuts JPEG artwork at, 1 to 100, for clients without WebP (D212 §4)"),
 			"best guess: a common JPEG quality where artifacts are rarely seen; not measured"),
