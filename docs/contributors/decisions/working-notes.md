@@ -17750,3 +17750,116 @@ key left out by default, and one instance directory over separate system directo
 node's own instance and its byte socket named in its hello (protocol 19), and `log.destination`
 ; the backup as a tarball of `persistent/`, restored from one, and made from the System
 page. M4's scheduled backups make them too, when M4 builds them.
+
+## D243 — M4's nine questions answered: a guest's cookie covers one film, invites are registration links under roles that choose libraries, the name's certificate comes by DNS-01 through Cloudflare, and a VPS carries every route in
+
+**Decided** (2026-10-04), by the project owner, answering D223 §11's nine questions as the audit
+before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md) §8):
+*"Agreed on most of your recommendations"*, with notes on A4, A5, A7, A10 and B4, then
+*"Everything except A4 sounds good"* and A4's shape set out below.
+
+1. **An anonymous Watch Together guest** gets, on joining, a media cookie limited to the one film
+   the session plays, for as long as the membership lasts: it moves when the film changes, and an
+   ejection or the session's end revokes it at the next request. A guest never reaches the
+   library (D122, D125).
+2. **A signed-in guest's viewing** (D191): a device sends its membership credential in its first
+   WebSocket `hello`, never in a header or a URL. A membership is a person's when any of its
+   devices joined signed in, and the playing device's `state` reports are recorded as that
+   person's spans. An anonymous membership records nothing.
+3. **A join link's and an invite's secret travel after `#`**, as D218's registration link does:
+   the page reads it, sends it in a body or the `hello`, and takes it out of the address bar.
+4. **Library access is a role's** (D130), and an invite is a registration link (D218) for an
+   outsider account (D174 §1) with a role. The owner: *"I'd want (b) right away before sharing
+   with other households. I have personal stuff that I don't want shared."*
+   - A role lists the libraries its members may browse and play, and the admin changes the list
+     at any time.
+   - **A library taken back is gone, not unavailable** (the owner: *"I want it to stop showing at
+     all for them, immediately"*): every list, search, title, play and byte request checks
+     access when it is made, and answers as if the library did not exist. A play from it stops
+     at its next byte request. A Watch Together session still shows its guest the one film it
+     plays, whatever the guest may browse (D122).
+   - The check is one function of who is asking, so a later kind of caller (§5) is one more
+     input, not a second mechanism.
+5. **Rebroadcasting is designed now and built later** (D174 §2; the owner: *"I don't need this
+   functionality any time soon … I just want the design in place in case this affects how we
+   structure the data architecture"*). A role's library may also be ticked *may rebroadcast*.
+   Someone with that role may add the ticked libraries to their own Orpheum core, whose accounts
+   then browse and play them beside its own libraries; they choose which and change it later.
+   One hop only: a library a core got from another server can never be ticked on it. What it
+   asks of the architecture, checked against the schema on 2026-10-04:
+   - **Ids the API exposes are never reused and never hard-deleted.** True today (items, titles,
+     files, editions and libraries use AUTOINCREMENT and tombstones, a merge leaves
+     `merged_into`); a `TestArch_` test is to keep it true.
+   - The other server is one more caller of §4's check: a `grant` of a new kind (D154), its scope
+     the ticked libraries, with a ceiling on streams and bandwidth (F31), since its household
+     shares this server's uplink.
+   - On the rebroadcasting core, a file's location is either a path on one of its nodes or a
+     file on another server, so its household's play state and overlay (its own tags and
+     corrections, D174 §2) point at its own rows. Its bytes and prepared copies come from the
+     source server's endpoints, made by the source's nodes.
+   - Keeping its copy current needs a per-library feed of what changed; it is new protocol, not
+     a change to the data. Taking a library back removes it there at the next sync.
+6. **The HTTPS name** is `media.orpheum-app.com` (the owner registered `orpheum-app.com` at
+   Cloudflare). Its certificate comes by ACME DNS-01: the core sets the TXT record through a
+   Cloudflare API token scoped to *Zone → DNS → Edit* on that zone, kept as a sealed secret
+   (D194). `golang.org/x/crypto/acme` (allowed) speaks ACME; the two Cloudflare calls are written
+   on the standard library. The record is DNS only, never proxied: proxying would decrypt the
+   traffic, carries no UDP, and Cloudflare's terms restrict video through it. The domain, the
+   ACME contact and the HTTPS and TURN listen addresses are config keys.
+7. **Reachability is a VPS** (the owner: *"I'll set up a VPS"*), Hetzner Cloud's smallest plan in
+   Nuremberg or Falkenstein. The core's machine dials out to it over WireGuard, which works on
+   DS-Lite and carries UDP; the VPS forwards TCP 443, TCP and UDP 3478 and the relay range into
+   the tunnel, with replies routed back through it so the core sees each client's address. The
+   name's A and AAAA records point at the VPS, so the home's changing IPv6 prefix does not matter.
+8. **Embedded TURN**: port 3478, relay ports 49160–49199, credentials per membership that end
+   with it, and the VPS's address as the relay's public address.
+9. **Watch Together's numbers:** two clients within 200 ms of each other 95% of the time; voice
+   one-way under 300 ms and audible loss under 2%; netem profiles *home* (20 ms, no loss),
+   *mobile* (80 ± 30 ms, 1%) and *congested* (150 ± 50 ms, 3%, 5 Mbit/s); a session's cap two
+   people by default, raised by its creator (D119). Now playing's stop reaches a player in the
+   answer to its next play report, within one report interval (10 s).
+10. **Dependencies:** `github.com/pion/turn` for the relay and `github.com/coder/websocket` for
+    Watch Together, each to be added to `deps/go.allow` with its job; no certificate library.
+11. **Backups are jobs:** one every 24 hours at a quiet hour and the last 14 kept, both settings;
+    pre-restore and pre-migration copies are kept apart and never pruned. A scheduled backup never
+    holds `secret.key`; the System page's *Back up now* keeps its checkbox for the key (the owner:
+    *"I'd prefer to have a checkbox to include secret.key for the 'back up now' in the system
+    page"*), and starts a job shown in the job view.
+
+**Status:** Decided 2026-10-04; to be built in M4, except §5, which waits for its own milestone.
+
+## D244 — The audit before M4's other questions: a kept failure is FFmpeg's alone, the System page shows what it promised, contract names are fixed now, and every request a click sends is safe to repeat
+
+**Decided** (2026-10-04), by the project owner, on the audit before M4's remaining questions
+([audit-2026-10-03.md](../design/research/audit-2026-10-03.md) §8): *"Agreed on most of your
+recommendations"*, *"Everything except A4 sounds good"*.
+
+1. **A loudness measurement that gave up is kept for good only when FFmpeg could not measure the
+   file.** A refusal, a stall or a disk that went away is tried again by the next sweep, as a
+   subtitle is by the next play (corrects D226 §2's built form and loudness's doc.go).
+2. **The System page shows** D233 §8's queue health (per kind: queued, the oldest wait, failures in
+   the last 24 hours; per node: slots in use and time since its last progress), D240 §5's reader
+   limit for each device with its control, and D234 §4's broken invariants. Built before M4.
+3. **The contract names the audit flagged are renamed now**, while formats change freely:
+   `examineCount` → `toExamineCount`, `isScanAgain` → `isAnotherScanQueued`, the API's three
+   `since` → `gaveUpAt`, `unavailableAt`, `notAnsweringAt`; config `node.min_free_mib` →
+   `prepared_disk_min_free_mib`; settings `play_wanted_seconds` → `play_priority_kept_seconds`,
+   `node_work_window_extra` → `node_jobs_beyond_free_slots`, `device_readers_*` →
+   `*_reader_limit`, `scan_examine_batch_videos` → `scan_videos_per_examine_batch`,
+   `new_library_scan_every_hours` → `new_library_default_scan_every_hours`; package `datadir` →
+   `instancedir`.
+4. **A request a click sends is safe to repeat** (the owner: *"we should have as many buttons
+   debounced as is feasible. Idempotency is the ideal."*):
+   - In the browser, every button that sends a request is disabled while it runs, through the one
+     hook that runs requests (`useRequest`), with a check that none goes round it.
+   - On the server, a request that sets a value is already idempotent. A request that creates
+     something carries an `Idempotency-Key` the browser makes per click; the server keeps each
+     key's first answer for some minutes and gives it to a repeat. Where the data allows, a
+     unique index holds it as well: S90, one download per file and subtitle.
+5. **M3's last device checks** (VQ9, VQ14, VQ15) are carried into M4; none changes M4's design.
+6. **Phases 5 and 6's open deviations:** a stall on the prepared directory's disk is blamed on
+   that disk, not the media root, and a job failed by `assigned_job_limit_hours` tells its node
+   to stop: both fixed before M4. A prepare on a node gone silent parks, and a repointed root's
+   parked work is asked for again when needed: both accepted.
+
+**Status:** Decided 2026-10-04; to be built before M4's first feature.
