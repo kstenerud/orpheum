@@ -56,7 +56,8 @@ export const en = {
       "The machine that holds this file is not answering. Check that it is on and connected.",
     fileUnavailable:
       "The file is not where it was. It may have been moved or its disk unplugged; scanning the library again finds it.",
-    mediaUnreachable: "This cannot be played now: what holds it is missing.",
+    mediaUnreachable:
+      "This cannot be played now: the machine, folder or disk that holds it is missing.",
     mediaReason: {
       nodeAway:
         "This cannot be played now: {{node}}, the machine that holds it, is not connected{{since}}.",
@@ -71,7 +72,7 @@ export const en = {
       checking: "Checking whether {{provider}} answers now…",
       askedToWait: "{{provider}} asked us to wait. Trying again in {{seconds}} s…",
     },
-    nextCheck: "; it is looked at again at {{at}}",
+    nextCheck: "; it will be checked again at {{at}}",
     preparing: "It is still being prepared. Wait a moment.",
     prepareFailed: "This could not be prepared for this device.",
     migrating: "The server is updating. Try again in a minute.",
@@ -345,7 +346,8 @@ export const en = {
     stuckWork: "{{program}}, reading {{path}}, since {{since}}",
     down: "Not answering",
     outside: "Outside services",
-    providerRate: "asked at most {{rate}} times a second, background work {{background}};",
+    providerRate:
+      "asked at most {{rate}} times a second, at most {{background}} of them for background work;",
     credentials: {
       unknown: "its key or login not tried yet.",
       accepted: "its key or login works.",
@@ -358,7 +360,7 @@ export const en = {
     stuckProgram: {
       ffmpeg: "FFmpeg",
       ffprobe: "FFprobe",
-      node: "Listing or reading a folder",
+      node: "The scan",
     },
     findings: "What doctor finds",
     verdict: {
@@ -487,7 +489,7 @@ export const en = {
     waitingForSignal: "Waiting for {{name}}: {{reason}} since {{since}}",
     onNode: {
       waiting: "Waiting for a free slot on the media machine",
-      paused: "Paused while a film is prepared",
+      paused: "Paused while someone watches",
     },
     cancel: "Cancel",
     cancelLabel: "Cancel {{kind}} #{{target}}",
@@ -566,9 +568,9 @@ export const en = {
     repointTo: "It is now at",
     repointConsequence:
       "Its files move there with what was watched; the next scan reads each again to make sure it is the same.",
-    repointConfirm: "Move it",
+    repointConfirm: "Use the new place",
     repointKeep: "Keep it where it is",
-    repointed: "Moved, with {{count}} files. A scan of the new place is under way.",
+    repointed: "Now at the new place, with {{count}} files. A scan of it is under way.",
     retireRootConfirm: "Retire the folder",
     delete: "Delete the library…",
     deleteConsequence:
@@ -592,7 +594,7 @@ export const en = {
     writable: "May the server write beside the media",
     writableHelp:
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",
-    node: "Node",
+    node: "Machine",
     nodeAway: "{{name}} (not connected)",
     roots: "Folders this library reads",
     rootsHelp:

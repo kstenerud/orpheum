@@ -272,7 +272,7 @@ it("the System page says what is not answering, and each outside service's limit
   const text = mounted.container.textContent;
   expect(text).toMatch(/Not answering.*Waiting for TMDB: unreachable since .+, next check/u);
   expect(text).toContain(
-    "TMDB asked at most 40 times a second, background work 32; its key or login works.",
+    "TMDB asked at most 40 times a second, at most 32 of them for background work; its key or login works.",
   );
   expect(text).toContain("no key or login is set: an admin can set it in Settings.");
   expect(text).toContain("12 of 20 left today.");
