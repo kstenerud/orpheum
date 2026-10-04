@@ -119,6 +119,10 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 			kindNode, strings.Replace(node, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
 			"node.confinement_policy",
 		},
+		"a probe the core would not wait for": {
+			kindNode, strings.Replace(node, "probe_timeout_seconds = 60", "probe_timeout_seconds = 1500", 1),
+			"node.probe_timeout_seconds",
+		},
 		"bad log level":  {kindCore, strings.Replace(core, `level = "info"`, `level = "loud"`, 1), "log.level"},
 		"bad log format": {kindCore, strings.Replace(core, `format = "json"`, `format = "xml"`, 1), "log format"},
 		"relative log": {

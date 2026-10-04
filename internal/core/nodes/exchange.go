@@ -136,10 +136,10 @@ var ErrWorkLost = errors.New("the node no longer holds the work it was given")
 // failure, as a stall is.
 var ErrNotMoving = errors.New("the node says the work has not moved")
 
-// movementWindow is how long the core holds work its node says has not moved: past every window
+// MovementWindow is how long the core holds work its node says has not moved: past every window
 // the node judges its own work by, the longest a subtitle track's ten minutes, and its own reading's
 // five past ffprobe's timeout, so it catches only what the node's watchdog did not.
-const movementWindow = 30 * time.Minute
+const MovementWindow = 30 * time.Minute
 
 // UnansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that no
 // longer holds the work, having started again or lost it otherwise (ErrWorkLost), is the tool's
