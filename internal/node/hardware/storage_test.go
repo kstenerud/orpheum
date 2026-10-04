@@ -179,3 +179,25 @@ func TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown(t *te
 		t.Errorf("the disks read as %v, want %v", kinds, want)
 	}
 }
+
+// A path is on the mount with the longest mount point it is under, and the root mount holds a path
+// under no other; a mount point that is a prefix of a name is not one it is under.
+func TestMountHolding_IsTheLongestMountPointThePathIsUnderTheRootHoldingTheRest(t *testing.T) {
+	t.Parallel()
+	mounts := []mount{
+		{majorMinor: "8:1", mountPoint: "/"},
+		{majorMinor: "8:17", mountPoint: "/media"},
+		{majorMinor: "8:33", mountPoint: "/media/films"},
+	}
+	for path, want := range map[string]string{
+		"/media/films/Wing (1979)/Wing.mkv": "8:33",
+		"/media/films-old/Wing.mkv":          "8:17",
+		"/media":                              "8:17",
+		"/srv/shows":                          "8:1",
+	} {
+		holding, found := mountHolding(mounts, path)
+		if !found || holding.majorMinor != want {
+			t.Errorf("%s is on %+v (found %v), want %s", path, holding, found, want)
+		}
+	}
+}
