@@ -41,8 +41,7 @@ func (harness testHarness) measureWith(
 // filesToMeasure is what a sweep would find to measure now.
 func (harness testHarness) filesToMeasure(t *testing.T) []int64 {
 	t.Helper()
-	ids, err := harness.database.Read().ListFilesToMeasure(t.Context(),
-		sqlcgen.ListFilesToMeasureParams{AfterID: 0, ThroughID: 1000})
+	ids, err := harness.loudness.FilesToMeasure(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,5 +364,24 @@ func TestLoudness_AMeasurementThatGaveUpIsKeptAsTheFilesOwnFailureAndNotSweptAga
 	if err != nil || len(rows) != 1 || rows[0].Failure == nil ||
 		!strings.Contains(*rows[0].Failure, "refused five times") {
 		t.Errorf("file 1's loudness %+v (%v); want its failure and why", rows, err)
+	}
+}
+
+// A root whose disk work stalled is unavailable until a scan reads it again, though its last scan
+// was complete: the sweep passes its files over by the same rule a measurement parks by (D233 §10).
+func TestLoudness_AFileUnderARootWhoseDiskStalledIsNotSwept(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'complete', 5000, 6000)`)
+	if ids := harness.filesToMeasure(t); len(ids) != 0 {
+		t.Errorf("with its root's disk stalled, a sweep finds %v to measure; want none", ids)
+	}
+	storetest.ExecRaw(t, harness.databasePath, `UPDATE root_state SET unavailable_since = NULL`)
+	if ids := harness.filesToMeasure(t); len(ids) == 0 {
+		t.Error("once a scan read the root again, a sweep finds nothing to measure; want its films")
 	}
 }

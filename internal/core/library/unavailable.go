@@ -30,9 +30,33 @@ type Unavailable struct {
 func UnavailableUnder(
 	ctx context.Context, queries *sqlcgen.Queries, nodeID int64, reportedPath []byte,
 ) (Unavailable, bool, error) {
-	candidates, err := unavailableOfNode(ctx, queries, nodeID)
-	if err != nil {
-		return Unavailable{}, false, err
+	return NewUnavailability(queries).Under(ctx, nodeID, reportedPath)
+}
+
+// Unavailability answers UnavailableUnder for many files, reading each node's missing roots and
+// mounts once: a sweep over every file asks it of each (D231 §5, D233 §10).
+type Unavailability struct {
+	queries *sqlcgen.Queries
+	// byNode is each node's missing roots and mounts, read when first asked.
+	byNode map[int64][]Unavailable
+}
+
+// NewUnavailability answers from what queries read now.
+func NewUnavailability(queries *sqlcgen.Queries) *Unavailability {
+	return &Unavailability{queries: queries, byNode: map[int64][]Unavailable{}}
+}
+
+// Under is UnavailableUnder for one file.
+func (unavailability *Unavailability) Under(
+	ctx context.Context, nodeID int64, reportedPath []byte,
+) (Unavailable, bool, error) {
+	candidates, isRead := unavailability.byNode[nodeID]
+	if !isRead {
+		var err error
+		if candidates, err = unavailableOfNode(ctx, unavailability.queries, nodeID); err != nil {
+			return Unavailable{}, false, err
+		}
+		unavailability.byNode[nodeID] = candidates
 	}
 	found, isFound := deepestUnder(candidates, reportedPath)
 	return found, isFound, nil

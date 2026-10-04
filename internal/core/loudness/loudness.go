@@ -105,35 +105,58 @@ func (service *Service) Levels(ctx context.Context, payloadHash []byte) (decide.
 	return levels, nil
 }
 
-// fileIDsPerSweepRead is how many file ids a sweep for files to measure reads at a time.
+// fileIDsPerSweepRead is how many file ids a sweep for files to measure reads at a time: an internal
+// read size, which bounds one query's work; any value works.
 const fileIDsPerSweepRead = 1000
 
-// QueueMeasurements queues a measurement for every live video with sound whose bytes have no
-// loudness yet (D226 §2), behind everything a person is waiting on, and returns how many it queued.
-func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
-	lastFileID, err := service.database.Read().GetMaxFileID(ctx)
+// FilesToMeasure are the live videos with sound whose bytes have no loudness yet, leaving out a file
+// under a root or disk that is unavailable, which is not there to measure (D231 §5, D233 §10).
+func (service *Service) FilesToMeasure(ctx context.Context) ([]int64, error) {
+	queries := service.database.Read()
+	lastFileID, err := queries.GetMaxFileID(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("read the last file id: %w", err)
+		return nil, fmt.Errorf("read the last file id: %w", err)
 	}
-	queued := 0
+	unavailability := library.NewUnavailability(queries)
+	var ids []int64
 	for after := int64(0); after < lastFileID; after += fileIDsPerSweepRead {
-		ids, listErr := service.database.Read().ListFilesToMeasure(ctx, sqlcgen.ListFilesToMeasureParams{
+		rows, listErr := queries.ListFilesToMeasure(ctx, sqlcgen.ListFilesToMeasureParams{
 			AfterID: after, ThroughID: after + fileIDsPerSweepRead,
 		})
 		if listErr != nil {
-			return queued, fmt.Errorf("list files to measure: %w", listErr)
+			return nil, fmt.Errorf("list files to measure: %w", listErr)
 		}
-		for _, id := range ids {
-			added, enqueueErr := service.queue.Enqueue(ctx, jobs.Request{
-				Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: id},
-				Reason: "measures how loud it is, so it plays at the level of the others",
-			})
-			if enqueueErr != nil {
-				return queued, enqueueErr
+		for _, row := range rows {
+			_, isUnavailable, underErr := unavailability.Under(ctx, row.NodeID, row.ReportedPathRaw)
+			if underErr != nil {
+				return nil, underErr
 			}
-			if added {
-				queued++
+			if !isUnavailable {
+				ids = append(ids, row.ID)
 			}
+		}
+	}
+	return ids, nil
+}
+
+// QueueMeasurements queues a measurement for every file FilesToMeasure finds (D226 §2), behind
+// everything a person is waiting on, and returns how many it queued.
+func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
+	ids, err := service.FilesToMeasure(ctx)
+	if err != nil {
+		return 0, err
+	}
+	queued := 0
+	for _, id := range ids {
+		added, enqueueErr := service.queue.Enqueue(ctx, jobs.Request{
+			Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: id},
+			Reason: "measures how loud it is, so it plays at the level of the others",
+		})
+		if enqueueErr != nil {
+			return queued, enqueueErr
+		}
+		if added {
+			queued++
 		}
 	}
 	return queued, nil

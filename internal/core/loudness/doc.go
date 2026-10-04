@@ -17,10 +17,11 @@
 //   - A measurement is given to its node, not waited for, and recorded as its result arrives, by
 //     the file's payload hash, whether or not its job still waits (D234 §7, D238 §2).
 //
-//   - A measurement for a file under a root or mounted disk the last scan found missing parks on
-//     that root, and the sweep passes such files over (D231 §5).
-//     TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot
-//     (internal/core/api).
+//   - A measurement for a file under a root or mounted disk that is unavailable, missing at the
+//     last scan or its disk work stalled since, parks on that root, and the sweep passes such files
+//     over by the library's one rule, library.Unavailability (D231 §5, D233 §10).
+//     TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot and
+//     TestLoudness_AFileUnderARootWhoseDiskStalledIsNotSwept (internal/core/api).
 //
 //   - A node's word that FFmpeg stalled costs the job no attempt, and two in a row are the file's
 //     failure. TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure (internal/core/api).
