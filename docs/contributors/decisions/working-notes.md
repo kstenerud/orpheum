@@ -17780,6 +17780,9 @@ before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md
      plays, whatever the guest may browse (D122).
    - The check is one function of who is asking, so a later kind of caller (§5) is one more
      input, not a second mechanism.
+   - A person has one role (D130), which is their whole access: the libraries they browse and
+     play, and those ticked for rebroadcast (§5). The owner: *"I'm fine with only one role per user
+     if it serves our purposes."* A mix of access no role has is a role of its own.
 5. **Rebroadcasting is designed now and built later** (D174 §2; the owner: *"I don't need this
    functionality any time soon … I just want the design in place in case this affects how we
    structure the data architecture"*). A role's library may also be ticked *may rebroadcast*.

@@ -92,7 +92,7 @@
 //     it as the tool's failure, free the first time. TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt,
 //     TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly.
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
-//     TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway.
+//     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot.
 //   - The reply to a hello names the renditions it listed that the index keeps (RenditionIndex),
 //     and the node evicts the others; with no index, or one that cannot be squared, every one is
 //     kept, so the node evicts nothing for the core's failure (D238 §2).
