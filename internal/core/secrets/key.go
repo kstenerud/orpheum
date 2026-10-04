@@ -16,7 +16,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
-// KeyFileName is the key's file in the state directory (D198), mode 0600, never in the database.
+// KeyFileName is the key's file in the instance's persistent directory (D198, D242 §3), mode 0600,
+// never in the database.
 const KeyFileName = "secret.key"
 
 // keyFileHeader is the key file's first line: its format and version, so a later format can

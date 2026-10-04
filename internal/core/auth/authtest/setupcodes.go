@@ -6,7 +6,7 @@ import "github.com/kstenerud/orpheum/internal/core/auth"
 
 var _ auth.SetupCodes = (*SetupCodes)(nil)
 
-// SetupCodes is the state directory's setup-code file, in memory. Code is what it holds; empty
+// SetupCodes is the run directory's setup-code file, in memory. Code is what it holds; empty
 // is no file.
 type SetupCodes struct {
 	Code string

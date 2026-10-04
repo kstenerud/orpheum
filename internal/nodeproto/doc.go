@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package nodeproto is the wire between core and node: the JSON messages of cut-a §4 (hello, the
-// JSONL report records, the commands, and the answers to the jobs they carry), the byte socket's
+// status, the commands, and the results and progress of the jobs they carry), the byte socket's
 // routes and the probe record, as plain types. The version is the path's (/node/v1, /bytes/v1);
 // no message carries one. It holds no logic, so both sides can import it without importing each
 // other.
@@ -25,7 +25,7 @@
 //
 // # Read before changing
 //
-//   - D39: reports are JSONL.
+//   - D240: a scan is a listing and an examining, each a job, whose records are a result's.
 //   - D100: a command names its target by path and payload hash.
 //   - D107: the node channel is authenticated by socket permissions in Cut A.
 //   - D234 §2: the core sends requests the node answers, each matched by id.
@@ -35,7 +35,8 @@
 //
 // # Where to change
 //
-//   - One file per feature, each holding both directions: hello.go, report.go (the JSONL records),
+//   - One file per feature, each holding both directions: hello.go, report.go (the scan records and
+//     the node's status), listing.go (a scan's list and examine commands and their answers),
 //     commands.go (the long-poll, each command naming its job), result.go (the node's word on how
 //     an attempt ended, on one path), progress.go (its word on where one is, best effort, on
 //     another), and artwork.go, prepare.go, subtitle.go and loudness.go, each a command's payload

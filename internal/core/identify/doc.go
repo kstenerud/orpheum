@@ -15,8 +15,9 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
-//   - The TMDB client is the only caller of secrets.Value.Reveal here. Enforced by the forbidigo
-//     rule tagged [reveal] (this package is on its path allowlist).
+//   - It reveals no secret: only a provider client may, and the TMDB client is
+//     internal/core/providers/tmdb. Enforced by the forbidigo rule tagged [reveal], whose path
+//     allowlist does not hold this package.
 //   - Errors from the provider are wrapped where they enter. Enforced by wrapcheck, which is
 //     scoped to this package.
 //   - The filename parser is a pure function of a path, tested against a corpus that includes

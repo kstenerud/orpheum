@@ -24,14 +24,14 @@ const (
 type Command struct {
 	CommandSeq int64 `json:"commandSeq"`
 	// JobID is the core's job the command is for: the work a node answers with a Result of the same
-	// id, or the job a cancel stops. Zero for a scan.
+	// id, or the job a cancel stops.
 	JobID int64 `json:"jobId,omitempty"`
 	// AttemptToken names this sending of the job's work, made by the core for it alone: the node
 	// holds the work by it, a cancel names it, and every result echoes it, so the core takes a result
-	// only for the attempt that is waiting (D238 §2, S83, S84). Empty for a scan.
+	// only for the attempt that is waiting (D238 §2, S83, S84).
 	AttemptToken string `json:"attemptToken,omitempty"`
 	// Priority is the job's: the node starts what waits for a slot, the highest first and, at one
-	// priority, the first to come (D234 §3). Zero for a scan and a cancel.
+	// priority, the first to come (D234 §3). Zero for a cancel.
 	Priority int64 `json:"priority,omitempty"`
 	// IsPlayDriven is work a person is waiting for, to play: on its device it pauses the background
 	// work reading there, and no background work starts there while it runs (D240 §6).

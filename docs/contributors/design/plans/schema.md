@@ -711,7 +711,7 @@ CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
 ```
 
 **Secrets are not settings** ([D194](../../decisions/working-notes.md)). A third-party credential is sealed with a key kept in
-`secret.key` in the state directory ([D198](../../decisions/working-notes.md)), never in this database, so a backup of `persistent.db`
+`secret.key` in the instance's persistent directory ([D198](../../decisions/working-notes.md), D242), never in this database, so a backup of `persistent.db`
 carries only ciphertext. A restore without the key marks each row *needs re-entering* and loses
 nothing else. Only the `secrets` package queries this table. A user's own password is not here:
 it is an argon2id PHC string in `user.password_hash`.

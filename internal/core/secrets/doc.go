@@ -42,7 +42,7 @@
 // # Where to change
 //
 //   - value.go: Value and its redacting methods.
-//   - key.go: the key and secret.key's format (the file lives in the state directory, D198).
+//   - key.go: the key and secret.key's format (the file lives in the instance's persistent directory, D198, D242).
 //   - store.go: the registry of secrets, seal and open, and the "needs re-entering" state after a
 //     restore without the key. Key rotation (orpheum secrets rotate) is not built yet.
 package secrets
