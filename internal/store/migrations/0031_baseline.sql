@@ -1,12 +1,13 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 498825bf7a8dc0032094eb879cb5273fcd35a9258f1927ca81ec028e0a0038ab
--- The baseline (D228): persistent.db's schema at version 30 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0030 (D185's first schema, the steps
+-- orpheum:baseline folds 40280eb7e0f73ae1a2c26100d52da28da2a69047fdb323db4451a824acdfda9d
+-- The baseline (D228): persistent.db's schema at version 31 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0031 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
--- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, and 0030's
--- reader limits a device was given, D240), and builds the schema and the seeded rows they built;
--- the checksum above is 0030_device_reader_limit.sql's,
+-- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
+-- reader limits a device was given, D240, and 0031's dropping of the node's report sequence,
+-- D240), and builds the schema and the seeded rows they built; the checksum above is
+-- 0031_node_report_seq_gone.sql's,
 -- which a database migrated through that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
@@ -31,7 +32,6 @@ CREATE TABLE node (                                        -- class I + O (the l
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
-  last_ingested_report_seq INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
   last_status_json         TEXT,         -- the node's last status record, JSON
   last_status_at           INTEGER       -- when it arrived; liveness is judged from this
 );

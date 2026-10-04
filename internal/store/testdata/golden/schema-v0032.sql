@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 30
--- compatible_version 30
+-- user_version 32
+-- compatible_version 31
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -11,6 +11,9 @@ CREATE INDEX artwork_item ON artwork(item_id, kind);
 
 -- index device_owner
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
+
+-- index fetched_subtitle_once
+CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provider, provider_file_id);
 
 -- index fetched_subtitle_video
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);
@@ -380,7 +383,6 @@ CREATE TABLE node (                                        -- class I + O (the l
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
-  last_ingested_report_seq INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
   last_status_json         TEXT,         -- the node's last status record, JSON
   last_status_at           INTEGER       -- when it arrived; liveness is judged from this
 );

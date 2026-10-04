@@ -55,6 +55,8 @@ type Service struct {
 	maxSilence time.Duration
 	// keptTexts tells a fetch waiting for its conversion that the text was kept.
 	keptTexts *keptTexts
+	// fetchesUnderway holds one fetch of a subtitle for a file at a time.
+	fetchesUnderway *fetchesUnderway
 }
 
 // NewService returns the subtitles service, recording the nodes' texts with exchanges.
@@ -62,6 +64,7 @@ func NewService(parts Parts) *Service {
 	service := &Service{
 		database: parts.Database, queue: parts.Queue, nodes: parts.Nodes, exchanges: parts.Exchanges,
 		subtitler: parts.Subtitler, clock: parts.Clock, maxSilence: parts.MaxSilence, keptTexts: newKeptTexts(),
+		fetchesUnderway: newFetchesUnderway(),
 	}
 	parts.Exchanges.Record(nodeproto.CommandExtractSubtitle, service.record)
 	return service

@@ -274,9 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0031 drops the number a node's report stream continued from, which nothing reads now that
-// a node posts its status on its own (D240); a node keeps its name and its last status.
-func TestMigrate_Step0031DropsTheNodesReportSequenceAndKeepsItsStatus(t *testing.T) {
+// Step 0032 keeps one fetched subtitle per file and provider's file, the first, and refuses a
+// second from then on (D244 section 4, S90).
+func TestMigrate_Step0032KeepsOneFetchedSubtitlePerFileAndRefusesAnother(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -286,18 +286,18 @@ func TestMigrate_Step0031DropsTheNodesReportSequenceAndKeepsItsStatus(t *testing
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database, `INSERT INTO node (id, name, enrolled_at, last_ingested_report_seq, last_status_json,
-		last_status_at) VALUES (1, 'local', 1, 40, '{"sentAt":7}', 7)`)
+	loadEveryTable(t, database)
+	const another = `INSERT INTO fetched_subtitle (id, video_file, provider, provider_file_id, language, format,
+		body_gzip, fetched_by_user_id, fetched_at) VALUES (%d, 1, 'opensubtitles', '%s', 'de', 'srt', X'00', 2, 1)`
+	execRaw(t, database, fmt.Sprintf(another, 2, "os-1"), fmt.Sprintf(another, 3, "os-2"))
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(queryRows(t, database, "SELECT id, name, last_status_json, last_status_at FROM node", 4))
-	if want := `[[1 local {"sentAt":7} 7]]`; got != want {
-		t.Errorf("the node is %s, want %s", got, want)
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, provider_file_id FROM fetched_subtitle ORDER BY id", 2))
+	if want := "[[1 os-1] [3 os-2]]"; got != want {
+		t.Errorf("the fetched subtitles are %s, want %s: the first of the two alike kept", got, want)
 	}
-	columns := fmt.Sprint(queryRows(t, database,
-		"SELECT name FROM pragma_table_info('node') WHERE name = 'last_ingested_report_seq'", 1))
-	if columns != "[]" {
-		t.Errorf("node still has %s, want the report sequence gone", columns)
+	if _, err = database.writer.ExecContext(t.Context(), fmt.Sprintf(another, 4, "os-2")); err == nil {
+		t.Error("a second fetched subtitle for the same file and provider's file was taken, want it refused")
 	}
 }
