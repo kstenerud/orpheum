@@ -114,9 +114,18 @@ func ParkIfUnavailable(
 		}
 		return err
 	}
-	missing, isMissing, err := UnavailableUnder(ctx, queries, file.NodeID, file.ReportedPathRaw)
+	return ParkIfUnder(ctx, queries, file.NodeID, file.ReportedPathRaw, file.Subject)
+}
+
+// ParkIfUnder parks the background work on a file, named subject, that is under a root or disk
+// that is unavailable, until a scan finds it again (D231 §5); nil when all are there. Its wait is
+// not the file's own failure, which would be kept for good.
+func ParkIfUnder(
+	ctx context.Context, queries *sqlcgen.Queries, nodeID int64, reportedPath []byte, subject string,
+) error {
+	missing, isMissing, err := UnavailableUnder(ctx, queries, nodeID, reportedPath)
 	if err != nil || !isMissing {
 		return err
 	}
-	return jobs.ParkOnMissingRoot(file.NodeID, missing.Path, missing.Since, fmt.Errorf("%s is under it", file.Subject))
+	return jobs.ParkOnMissingRoot(nodeID, missing.Path, missing.Since, fmt.Errorf("%s is under it", subject))
 }

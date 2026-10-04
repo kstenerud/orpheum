@@ -167,16 +167,12 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 	if err != nil {
 		return 0, nil, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	missing, isMissing, err := library.UnavailableUnder(ctx, service.parts.Database.Read(), file.NodeID,
-		file.ReportedPathRaw)
+	// Its disk away is not the image's refusal, which would be kept for good (G9), but a wait for a
+	// scan that finds it (D231 §5).
+	err = library.ParkIfUnder(ctx, service.parts.Database.Read(), file.NodeID, file.ReportedPathRaw,
+		fmt.Sprintf("file %d", fileID))
 	if err != nil {
 		return 0, nil, err
-	}
-	if isMissing {
-		// Its disk is away: not the image's refusal, which would be kept for good (G9), but a wait
-		// for a scan that finds it (D231 §5).
-		return 0, nil, jobs.ParkOnMissingRoot(file.NodeID, missing.Path, missing.Since,
-			fmt.Errorf("file %d is under it", fileID))
 	}
 	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.ReportedPathRaw}, nil
 }
