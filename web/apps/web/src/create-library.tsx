@@ -4,6 +4,8 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -281,6 +283,8 @@ export function CreateLibraryForm(props: {
   /** The server's new_library_default_scan_every_hours, which an interval starts at. */
   readonly checkEveryHoursToStart: number;
   readonly problem: string;
+  /** Whether the library is being created, which its button waits for. */
+  readonly isCreating?: boolean | undefined;
   readonly onDraftChange: (draft: NewLibrary) => void;
   readonly onSubmit: () => void;
 }): JSX.Element {
@@ -301,7 +305,7 @@ export function CreateLibraryForm(props: {
       />
       <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
       {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
-      <button type="submit" disabled={!hasARoot(draft)}>
+      <button type="submit" disabled={!hasARoot(draft) || props.isCreating === true}>
         {t("libraries.create")}
       </button>
     </form>
@@ -313,7 +317,16 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const { t } = useTranslation();
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
-  const [problem, setProblem] = useState("");
+  const creating = useRequest((cause) =>
+    fieldProblemText(t, cause, {
+      fields: {
+        "body.name": t("libraries.name"),
+        "body.nodeName": t("libraries.node"),
+        "body.rootPaths": t("libraries.roots"),
+        "body.checkEveryHours": t("libraries.checkEvery"),
+      },
+    }),
+  );
   const [choices] = useResource("create-library", async () => {
     const [nodesAnswer, configAnswer] = await Promise.all([api.GET("/nodes"), api.GET("/config")]);
     return {
@@ -322,28 +335,11 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
     };
   });
   const submit = (): void => {
-    setProblem("");
-    api
-      .POST("/libraries", { body: draft })
-      .then(throwIfRefused)
-      .then(
-        () => {
-          setDraft(blankLibrary());
-          props.onCreated();
-        },
-        (cause: unknown) => {
-          setProblem(
-            fieldProblemText(t, cause, {
-              fields: {
-                "body.name": t("libraries.name"),
-                "body.nodeName": t("libraries.node"),
-                "body.rootPaths": t("libraries.roots"),
-                "body.checkEveryHours": t("libraries.checkEvery"),
-              },
-            }),
-          );
-        },
-      );
+    creating.runRequest(async (idempotencyKey) => {
+      throwIfRefused(await api.POST("/libraries", { body: draft, ...idempotent(idempotencyKey) }));
+      setDraft(blankLibrary());
+      props.onCreated();
+    });
   };
   return (
     <Loaded
@@ -353,7 +349,8 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
           draft={draft}
           nodes={value.nodes}
           checkEveryHoursToStart={value.checkEveryHoursToStart}
-          problem={problem}
+          problem={creating.problem ?? ""}
+          isCreating={creating.isBusy}
           onDraftChange={setDraft}
           onSubmit={submit}
         />

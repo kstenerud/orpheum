@@ -8,6 +8,7 @@ import { CredentialsForm, CredentialsProblem, PasswordField } from "./credential
 import { fieldProblemText } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 
 /** Why a registration did not go through. */
 export type RegisterProblem = "noLink" | "mismatch" | "refused";
@@ -26,6 +27,8 @@ export function Register(): JSX.Element {
     secret === undefined ? "noLink" : undefined,
   );
   const [refusalText, setRefusalText] = useState("");
+  // The refusal is told by the form's own words; the request only makes the button wait.
+  const registering = useRequest(() => "");
   const submit = (): void => {
     if (secret === undefined) {
       return;
@@ -34,15 +37,20 @@ export function Register(): JSX.Element {
       setProblem("mismatch");
       return;
     }
-    register(api, { secret, password, device: thisDevice(session) }).then(
-      ({ token, user }) => {
+    setProblem(undefined);
+    registering.runRequest(async (idempotencyKey) => {
+      try {
+        const { token, user } = await register(
+          api,
+          { secret, password, device: thisDevice(session) },
+          idempotencyKey,
+        );
         // The secret rode in the fragment so no request carried it (D218 §1, the one exception
         // to D154's rule). It is spent now, and Films takes its page's place, so it stays in
         // neither the address nor the history, and Back leaves the app.
         session.signIn(token, user.device?.id);
         navigation.replace({ screen: "films" });
-      },
-      (cause: unknown) => {
+      } catch (cause: unknown) {
         setRefusalText(
           fieldProblemText(t, cause, {
             fields: { "body.password": t("register.password") },
@@ -50,8 +58,8 @@ export function Register(): JSX.Element {
           }),
         );
         setProblem("refused");
-      },
-    );
+      }
+    });
   };
   return (
     <CredentialsForm heading={t("register.heading")} onSubmit={submit}>
@@ -65,7 +73,7 @@ export function Register(): JSX.Element {
       {problem === undefined ? null : (
         <CredentialsProblem isAlert>{t(`register.${problem}`, { refusalText })}</CredentialsProblem>
       )}
-      <button type="submit" disabled={secret === undefined}>
+      <button type="submit" disabled={secret === undefined || registering.isBusy}>
         {t("register.submit")}
       </button>
     </CredentialsForm>

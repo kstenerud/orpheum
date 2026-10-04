@@ -13,12 +13,14 @@ import {
   type AudioOutput,
   type Device,
 } from "./accounts.ts";
+import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { submitWith } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { audioOutputName, audioOutputs } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
+import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
 
 /**
@@ -33,56 +35,56 @@ export function YourDevices(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
-  const [problem, setProblem] = useState<string | undefined>(undefined);
-  const applyChange = (request: Promise<void>, afterwards?: () => void): void => {
-    request.then(
-      () => {
-        setProblem(undefined);
-        props.onChanged();
-        afterwards?.();
-      },
-      (cause: unknown) => {
-        setProblem(
-          fieldProblemText(t, cause, { fields: { "body.name": t("account.deviceName") } }),
-        );
-      },
-    );
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, { fields: { "body.name": t("account.deviceName") } }),
+  );
+  const applyChange = (
+    change: (idempotencyKey: string) => Promise<void>,
+    afterwards?: () => void,
+  ): void => {
+    runRequest(async (idempotencyKey) => {
+      await change(idempotencyKey);
+      props.onChanged();
+      afterwards?.();
+    });
   };
   return (
-    <div className="your-devices">
-      <h2>{t("devices.heading")}</h2>
-      <Loaded
-        resource={props.devices}
-        render={(list) => (
-          <DeviceList
-            devices={list}
-            onRename={(device, name) => {
-              applyChange(renameMyDevice(api, device.id, name));
-            }}
-            onSoundChange={(device, output) => {
-              applyChange(setMyDeviceAudioOutput(api, device.id, output));
-            }}
-            onRemove={(device) => {
-              // Removing this device signs it out here too.
-              applyChange(
-                removeMyDevice(api, device.id),
-                device.isThisDevice ? session.signOut : undefined,
-              );
-            }}
-            onMakeCode={props.onMakeCode}
-          />
-        )}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          applyChange(signOutElsewhere(api));
-        }}
-      >
-        {t("devices.signOutElsewhere")}
-      </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
-    </div>
+    <BusyGroup isBusy={isBusy}>
+      <div className="your-devices">
+        <h2>{t("devices.heading")}</h2>
+        <Loaded
+          resource={props.devices}
+          render={(list) => (
+            <DeviceList
+              devices={list}
+              onRename={(device, name) => {
+                applyChange(() => renameMyDevice(api, device.id, name));
+              }}
+              onSoundChange={(device, output) => {
+                applyChange(() => setMyDeviceAudioOutput(api, device.id, output));
+              }}
+              onRemove={(device) => {
+                // Removing this device signs it out here too.
+                applyChange(
+                  () => removeMyDevice(api, device.id),
+                  device.isThisDevice ? session.signOut : undefined,
+                );
+              }}
+              onMakeCode={props.onMakeCode}
+            />
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            applyChange((idempotencyKey) => signOutElsewhere(api, idempotencyKey));
+          }}
+        >
+          {t("devices.signOutElsewhere")}
+        </button>
+        {problem === undefined ? null : <p role="alert">{problem}</p>}
+      </div>
+    </BusyGroup>
   );
 }
 

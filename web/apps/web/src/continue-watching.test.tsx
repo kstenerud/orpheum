@@ -104,8 +104,8 @@ describe("Continue Watching", () => {
       { "POST /items/10/hide": [204, undefined], "DELETE /items/10/hide": [204, undefined] },
       heard,
     );
-    await setItemHidden(api, 10, true);
-    await setItemHidden(api, 10, false);
+    await setItemHidden(api, { itemId: 10, isHidden: true }, "click-1");
+    await setItemHidden(api, { itemId: 10, isHidden: false }, "click-2");
     expect(heard.map((request) => request.methodAndPath)).toEqual([
       "POST /items/10/hide",
       "DELETE /items/10/hide",

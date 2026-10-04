@@ -15,6 +15,8 @@ import { QrCode } from "./qr-code.tsx";
 import { Loaded } from "./title.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 /** What the admin last issued, to pass on: a person's link or a device's code. */
@@ -39,20 +41,27 @@ export function People(): JSX.Element {
   const { api } = useServices();
   const [accounts, reload] = useResource("accounts", () => listAccounts(api));
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
-  const [problem, setProblem] = useState<string | undefined>(undefined);
-  const showProblem = (cause: unknown): void => {
-    setProblem(fieldProblemText(t, cause, personWords(t)));
-  };
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    fieldProblemText(t, cause, personWords(t)),
+  );
   return (
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
-      <AddPerson
-        onAdded={(name, invitation) => {
-          setIssued({ kind: "link", name, invitation });
-          reload();
-        }}
-        onFailed={showProblem}
-      />
+      <BusyGroup isBusy={isBusy}>
+        <AddPerson
+          onAdd={(name, role) => {
+            runRequest(async (idempotencyKey) => {
+              const { registrationInvitation } = await createAccount(
+                api,
+                { name, role },
+                idempotencyKey,
+              );
+              setIssued({ kind: "link", name, invitation: registrationInvitation });
+              reload();
+            });
+          }}
+        />
+      </BusyGroup>
       {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
@@ -80,20 +89,15 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/** Adds a person: their name and role, and their registration invitation to pass on. */
+/** Adds a person: their name and role, whose registration invitation the page shows to pass on. */
 function AddPerson(props: {
-  readonly onAdded: (name: string, invitation: components["schemas"]["IssuedSecretBody"]) => void;
-  readonly onFailed: (cause: unknown) => void;
+  readonly onAdd: (name: string, role: "admin" | "user") => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const [name, setName] = useState("");
   const [role, setRole] = useState<"admin" | "user">("user");
   const submit = (): void => {
-    createAccount(api, name, role).then(({ registrationInvitation: registration }) => {
-      props.onAdded(name, registration);
-      setName("");
-    }, props.onFailed);
+    props.onAdd(name, role);
   };
   return (
     <FormRow onSubmit={submit}>

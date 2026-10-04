@@ -16,6 +16,7 @@ import { storageIfAllowed, storageThatNeverThrows, type StringStorage } from "./
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 import { Share } from "./share.tsx";
 import { backingOff } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
@@ -36,6 +37,8 @@ export interface DeviceCodeState {
   readonly code: ShownCode | undefined;
   readonly problem: string | undefined;
   readonly makeCode: (target: CodeTarget, deviceName: string) => void;
+  /** Whether a code is being made: its buttons wait (D244 §4). */
+  readonly isMaking: boolean;
 }
 
 /**
@@ -50,7 +53,9 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
   const [code, setCode] = useState<ShownCode | undefined>(() =>
     readShownCode(tabStorage(), Date.now()),
   );
-  const [issueProblem, setIssueProblem] = useState<string | undefined>(undefined);
+  const issuing = useRequest((cause) =>
+    fieldProblemText(t, cause, { fields: { "body.deviceName": t("account.deviceName") } }),
+  );
   const secret = code?.secret;
   const [codeCheck] = useResource(
     `device-code/${secret ?? ""}`,
@@ -70,21 +75,14 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
   );
   const checkProblem = codeCheck.state === "failed" ? problemText(t, codeCheck.cause) : undefined;
   const makeCode = (target: CodeTarget, deviceName: string): void => {
-    setIssueProblem(undefined);
-    issueDeviceCode(api, target).then(
-      (issued) => {
-        const shown = { ...issued, deviceName };
-        setCode(shown);
-        keepShownCode(tabStorage(), shown);
-      },
-      (cause: unknown) => {
-        setIssueProblem(
-          fieldProblemText(t, cause, { fields: { "body.deviceName": t("account.deviceName") } }),
-        );
-      },
-    );
+    issuing.runRequest(async (idempotencyKey) => {
+      const issued = await issueDeviceCode(api, { target }, idempotencyKey);
+      const shown = { ...issued, deviceName };
+      setCode(shown);
+      keepShownCode(tabStorage(), shown);
+    });
   };
-  return { code, problem: issueProblem ?? checkProblem, makeCode };
+  return { code, problem: issuing.problem ?? checkProblem, makeCode, isMaking: issuing.isBusy };
 }
 
 /** A device code on screen: the code, for which device, and how to use it. */
@@ -107,6 +105,8 @@ export function ShownDeviceCode(props: { readonly code: ShownCode }): JSX.Elemen
  */
 export function NewDeviceCodeForm(props: {
   readonly onMakeCode: (deviceName: string) => void;
+  /** Whether a code is being made, which the button waits for. */
+  readonly isMaking: boolean;
   readonly problem?: string | undefined;
   readonly children?: ReactNode;
 }): JSX.Element {
@@ -131,7 +131,9 @@ export function NewDeviceCodeForm(props: {
           }}
         />
       </label>
-      <button type="submit">{t("account.makeCode")}</button>
+      <button type="submit" disabled={props.isMaking}>
+        {t("account.makeCode")}
+      </button>
       {props.problem === undefined ? null : <p role="alert">{props.problem}</p>}
     </FormRow>
   );

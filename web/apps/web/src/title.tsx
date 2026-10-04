@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
 import { artUrl, type components } from "@orpheum/sdk";
@@ -233,16 +236,28 @@ export function Title(props: { readonly id: number }): JSX.Element {
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
     useBackgroundChanges(),
   );
+  // A refusal shows the title as the server has it, as success does.
+  const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {
-    api
-      .POST("/files/{id}/retire", { params: { path: { id: fileId } } })
-      .then(throwIfRefused)
-      .then(reload, reload);
+    retiring.runRequest(async (idempotencyKey) => {
+      try {
+        throwIfRefused(
+          await api.POST("/files/{id}/retire", {
+            params: { path: { id: fileId } },
+            ...idempotent(idempotencyKey),
+          }),
+        );
+      } finally {
+        reload();
+      }
+    });
   };
   return (
-    <Loaded
-      resource={title}
-      render={(value) => <TitleView title={value} onRetireFile={retireFile} />}
-    />
+    <BusyGroup isBusy={retiring.isBusy}>
+      <Loaded
+        resource={title}
+        render={(value) => <TitleView title={value} onRetireFile={retireFile} />}
+      />
+    </BusyGroup>
   );
 }

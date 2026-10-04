@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { idempotent } from "./idempotent.ts";
 import type { Api, components } from "@orpheum/sdk";
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -37,22 +38,31 @@ export async function listAccounts(api: Api): Promise<Account[]> {
 /** Makes a person, and their registration invitation. */
 export async function createAccount(
   api: Api,
-  name: string,
-  role: "admin" | "user",
+  account: { readonly name: string; readonly role: "admin" | "user" },
+  idempotencyKey: string,
 ): Promise<{
   account: Account;
   registrationInvitation: components["schemas"]["IssuedSecretBody"];
 }> {
-  return dataOrThrow(await api.POST("/users", { body: { name, role } }));
+  return dataOrThrow(
+    await api.POST("/users", {
+      body: { name: account.name, role: account.role },
+      ...idempotent(idempotencyKey),
+    }),
+  );
 }
 
 /** A new registration invitation for a person, withdrawing the old. */
 export async function issueRegistrationInvitation(
   api: Api,
   userId: number,
+  idempotencyKey: string,
 ): Promise<components["schemas"]["IssuedSecretBody"]> {
   return dataOrThrow(
-    await api.POST("/users/{id}/registration-invitation", { params: { path: { id: userId } } }),
+    await api.POST("/users/{id}/registration-invitation", {
+      params: { path: { id: userId } },
+      ...idempotent(idempotencyKey),
+    }),
   );
 }
 
@@ -60,16 +70,22 @@ export async function issueRegistrationInvitation(
 export async function signIn(
   api: Api,
   credentials: { readonly name: string; readonly password: string; readonly device: NewDevice },
+  idempotencyKey: string,
 ): Promise<SignInResult> {
-  return dataOrThrow(await api.POST("/session", { body: { ...credentials } }));
+  return dataOrThrow(
+    await api.POST("/session", { body: { ...credentials }, ...idempotent(idempotencyKey) }),
+  );
 }
 
 /** Uses a registration invitation: sets the password and signs this device in. */
 export async function register(
   api: Api,
   registration: { readonly secret: string; readonly password: string; readonly device: NewDevice },
+  idempotencyKey: string,
 ): Promise<SignInResult> {
-  return dataOrThrow(await api.POST("/registration", { body: { ...registration } }));
+  return dataOrThrow(
+    await api.POST("/registration", { body: { ...registration }, ...idempotent(idempotencyKey) }),
+  );
 }
 
 /** What a device code is for: a new device, named, or a listed one to sign back in (D221). */
@@ -78,11 +94,12 @@ export type CodeTarget = { readonly deviceName: string } | { readonly deviceId: 
 /** A code that signs a device in, for oneself or, for an admin, for another person. */
 export async function issueDeviceCode(
   api: Api,
-  target: CodeTarget,
-  userId?: number,
+  code: { readonly target: CodeTarget; readonly userId?: number },
+  idempotencyKey: string,
 ): Promise<components["schemas"]["IssuedSecretBody"]> {
+  const { target, userId } = code;
   const body = userId === undefined ? { ...target } : { ...target, userId };
-  return dataOrThrow(await api.POST("/device-codes", { body }));
+  return dataOrThrow(await api.POST("/device-codes", { body, ...idempotent(idempotencyKey) }));
 }
 
 /** Whether one's device code is still waiting to be used (D221 §3). */
@@ -93,15 +110,16 @@ export async function isCodeWaiting(api: Api): Promise<boolean> {
 /** Signs this device in with a device code, resuming the device this browser was before (D221). */
 export async function signInWithCode(
   api: Api,
-  code: string,
-  previousDeviceId: number | undefined,
+  signIn: { readonly code: string; readonly previousDeviceId: number | undefined },
+  idempotencyKey: string,
 ): Promise<SignInResult> {
+  const { code, previousDeviceId } = signIn;
   const body = (
     previousDeviceId === undefined
       ? { code, platform: "web" }
       : { code, platform: "web", previousDeviceId }
   ) satisfies components["schemas"]["CodeSignInInputBody"];
-  return dataOrThrow(await api.POST("/session/code", { body }));
+  return dataOrThrow(await api.POST("/session/code", { body, ...idempotent(idempotencyKey) }));
 }
 
 /** Changes one's own password. */
@@ -154,8 +172,8 @@ export async function removeMyDevice(api: Api, deviceId: number): Promise<void> 
 }
 
 /** Signs every other device out; they stay listed. */
-export async function signOutElsewhere(api: Api): Promise<void> {
-  throwIfRefused(await api.POST("/me/devices/sign-out-elsewhere"));
+export async function signOutElsewhere(api: Api, idempotencyKey: string): Promise<void> {
+  throwIfRefused(await api.POST("/me/devices/sign-out-elsewhere", idempotent(idempotencyKey)));
 }
 
 /** Where this tab keeps a device code it showed, so a reload shows it again until it expires. */

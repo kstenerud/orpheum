@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { idempotent } from "./idempotent.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { byteSizeText } from "./number-text.ts";
@@ -28,8 +29,13 @@ export function SystemBackups(): JSX.Element {
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const [shouldIncludeKey, setShouldIncludeKey] = useState(false);
   const makeBackup = (): void => {
-    runRequest(async () => {
-      dataOrThrow(await api.POST("/backups", { body: { includesKey: shouldIncludeKey } }));
+    runRequest(async (idempotencyKey) => {
+      dataOrThrow(
+        await api.POST("/backups", {
+          body: { includesKey: shouldIncludeKey },
+          ...idempotent(idempotencyKey),
+        }),
+      );
       reload();
     });
   };

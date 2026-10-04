@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import "./offline-reminder.css";
 
 import type { components } from "@orpheum/sdk";
@@ -28,7 +30,7 @@ export function OfflineReminder(): JSX.Element | null {
     dataOrThrow(await api.GET("/offline-reminder")),
   );
   const [isDismissed, setIsDismissed] = useState(false);
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const dismissing = useRequest((cause) => problemText(t, cause));
   if (reminder.state !== "loaded" || !reminder.value.isShown || isDismissed) {
     return null;
   }
@@ -48,15 +50,10 @@ export function OfflineReminder(): JSX.Element | null {
     what = t("offlineReminder.foldersAndDisks", { folders, disks });
   }
   const dismiss = (): void => {
-    api
-      .POST("/offline-reminder/dismissal")
-      .then((answer) => {
-        throwIfRefused(answer);
-        setIsDismissed(true);
-      })
-      .catch((cause: unknown) => {
-        setProblem(problemText(t, cause));
-      });
+    dismissing.runRequest(async (idempotencyKey) => {
+      throwIfRefused(await api.POST("/offline-reminder/dismissal", idempotent(idempotencyKey)));
+      setIsDismissed(true);
+    });
   };
   return (
     <aside className="offline-reminder" aria-label={t("offlineReminder.label")}>
@@ -67,10 +64,10 @@ export function OfflineReminder(): JSX.Element | null {
         })}{" "}
         <Link to={{ screen: "system" }}>{t("offlineReminder.see")}</Link>
       </p>
-      <button type="button" onClick={dismiss}>
+      <button type="button" disabled={dismissing.isBusy} onClick={dismiss}>
         {t("offlineReminder.dismiss")}
       </button>
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {dismissing.problem === undefined ? null : <p role="alert">{dismissing.problem}</p>}
     </aside>
   );
 }

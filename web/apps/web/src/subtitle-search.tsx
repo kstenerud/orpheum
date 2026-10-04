@@ -4,6 +4,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { idempotent } from "./idempotent.ts";
 import { timeText } from "./date-time-text.ts";
 import { ApiProblem, dataOrThrow, providerProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -69,13 +70,15 @@ export async function listCandidates(
 /** Fetches a candidate, which spends one of the account's downloads and becomes the file's choice. */
 export async function fetchCandidate(
   api: Api,
-  fileId: number,
-  chosen: { readonly providerFileId: number; readonly language: string },
+  chosen: { readonly fileId: number; readonly providerFileId: number; readonly language: string },
+  idempotencyKey: string,
 ): Promise<void> {
+  const { fileId } = chosen;
   dataOrThrow(
     await api.POST("/files/{id}/subtitles", {
       params: { path: { id: fileId } },
       body: { providerFileId: chosen.providerFileId, language: chosen.language },
+      ...idempotent(idempotencyKey),
     }),
   );
 }
@@ -137,8 +140,8 @@ export function FindSubtitles(props: {
   };
   const choose = (candidate: SubtitleCandidate): void => {
     const chosen = { providerFileId: candidate.providerFileId, language };
-    runRequest(async () => {
-      await fetchCandidate(api, props.fileId, chosen);
+    runRequest(async (idempotencyKey) => {
+      await fetchCandidate(api, { fileId: props.fileId, ...chosen }, idempotencyKey);
       setIsOpen(false);
       props.onFetched();
     });

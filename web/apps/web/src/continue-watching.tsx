@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import "./continue-watching.css";
 
 import type { Api, components } from "@orpheum/sdk";
@@ -23,11 +26,16 @@ export async function loadContinueWatching(api: Api): Promise<ContinueWatchingRo
 }
 
 /** Hides a work from Continue Watching when isHidden, or brings it back (D188). */
-export async function setItemHidden(api: Api, itemId: number, isHidden: boolean): Promise<void> {
+export async function setItemHidden(
+  api: Api,
+  item: { readonly itemId: number; readonly isHidden: boolean },
+  idempotencyKey: string,
+): Promise<void> {
+  const { itemId, isHidden } = item;
   const options = { params: { path: { id: itemId } } };
   throwIfRefused(
     isHidden
-      ? await api.POST("/items/{id}/hide", options)
+      ? await api.POST("/items/{id}/hide", { ...options, ...idempotent(idempotencyKey) })
       : await api.DELETE("/items/{id}/hide", options),
   );
 }
@@ -163,32 +171,35 @@ export function ContinueWatching(): JSX.Element | null {
     useBackgroundChanges(),
   );
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
+  // A refusal shows the rows as the server has them, as success does.
+  const hiding = useRequest(() => "");
   if (rows.state !== "loaded") {
     return null; // the lists below say when the server cannot be reached
   }
   const setRowHidden = (row: ContinueWatchingRow, isHidden: boolean): void => {
-    setItemHidden(api, row.id, isHidden).then(
-      () => {
+    hiding.runRequest(async (idempotencyKey) => {
+      try {
+        await setItemHidden(api, { itemId: row.id, isHidden }, idempotencyKey);
         setHiddenRow(isHidden ? row : undefined);
-        reload();
-      },
-      () => {
-        reload();
-      },
-    );
+      } finally {
+        reload(); // a refusal shows the row as the server has it
+      }
+    });
   };
   return (
-    <ContinueWatchingView
-      rows={rows.value}
-      hiddenName={hiddenRow?.name}
-      onHide={(row) => {
-        setRowHidden(row, true);
-      }}
-      onUndo={() => {
-        if (hiddenRow !== undefined) {
-          setRowHidden(hiddenRow, false);
-        }
-      }}
-    />
+    <BusyGroup isBusy={hiding.isBusy}>
+      <ContinueWatchingView
+        rows={rows.value}
+        hiddenName={hiddenRow?.name}
+        onHide={(row) => {
+          setRowHidden(row, true);
+        }}
+        onUndo={() => {
+          if (hiddenRow !== undefined) {
+            setRowHidden(hiddenRow, false);
+          }
+        }}
+      />
+    </BusyGroup>
   );
 }

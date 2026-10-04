@@ -2,9 +2,12 @@
 
 import type { TFunction } from "i18next";
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { BusyGroup } from "./busy-group.tsx";
+import { useRequest } from "./use-request.ts";
+import { idempotent } from "./idempotent.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
@@ -43,22 +46,24 @@ export function System(): JSX.Element {
     async () => dataOrThrow(await api.GET("/system")),
     useBackgroundChanges(),
   );
-  const [problem, setProblem] = useState("");
+  const retiring = useRequest((cause) => problemText(t, cause));
   const retireNode = (nodeName: string): void => {
-    api
-      .POST("/nodes/retire", { body: { nodeName } })
-      .then(throwIfRefused)
-      .then(reload, (cause: unknown) => {
-        setProblem(problemText(t, cause));
-      });
+    retiring.runRequest(async (idempotencyKey) => {
+      throwIfRefused(
+        await api.POST("/nodes/retire", { body: { nodeName }, ...idempotent(idempotencyKey) }),
+      );
+      reload();
+    });
   };
   return (
     <>
-      {problem === "" ? null : <p role="alert">{problem}</p>}
-      <Loaded
-        resource={report}
-        render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
-      />
+      {retiring.problem === undefined ? null : <p role="alert">{retiring.problem}</p>}
+      <BusyGroup isBusy={retiring.isBusy}>
+        <Loaded
+          resource={report}
+          render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
+        />
+      </BusyGroup>
       <SystemBackups />
     </>
   );

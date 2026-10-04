@@ -21,10 +21,12 @@ export interface RequestState {
   /** Whether the running request follows a host not answering: it is that host's check. */
   readonly isChecking: boolean;
   /**
-   * Runs a request. Given as a function, a request a host asks us to wait for runs again on its
-   * own once the wait is over; given as a promise, it fails with why. The same function every time.
+   * Runs a request: one person's click. Given as a function, it is given the click's idempotency
+   * key, which every POST it sends carries (idempotent), so the server does it once however often it
+   * is sent (D244 §4); and a request a host asks us to wait for runs again on its own once the wait
+   * is over, with the same key. Given as a promise, it fails with why. The same function every time.
    */
-  readonly runRequest: (request: Promise<void> | (() => Promise<void>)) => void;
+  readonly runRequest: (request: ClickRequest) => void;
 }
 
 /** How long a refusal asks us to wait before asking again, or undefined when it names no time. */
@@ -61,6 +63,28 @@ function useTimers(): {
   return { after, clear };
 }
 
+/** A request a click sends: a promise, or a function given the click's idempotency key. */
+type ClickRequest = Promise<void> | ((idempotencyKey: string) => Promise<void>);
+
+/** What a countdown is given: a timer, and where to say the seconds left. */
+interface Ticking {
+  readonly after: (ms: number, then: () => void) => void;
+  readonly sayLeft: (seconds: number | undefined) => void;
+}
+
+/** Counts down to endsAt a second at a time, saying the seconds left, then runs again. */
+function countDown(endsAt: number, ticking: Ticking, again: () => void): void {
+  const leftMs = endsAt - Date.now();
+  ticking.sayLeft(leftMs <= 0 ? undefined : Math.ceil(leftMs / 1000));
+  if (leftMs <= 0) {
+    again();
+    return;
+  }
+  ticking.after(Math.min(1000, leftMs), () => {
+    countDown(endsAt, ticking, again);
+  });
+}
+
 /**
  * One request at a time: whether it is running, and why it failed when it did, in the words
  * describeFailure gives the cause; the cause itself goes to the console (reportFailure). Every time
@@ -78,19 +102,8 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
   const describe = useRef(describeFailure);
   describe.current = describeFailure;
   const { after, clear } = useTimers();
-  const runRequest = useCallback(
-    (request: Promise<void> | (() => Promise<void>)): void => {
-      const countDown = (endsAt: number, again: () => Promise<void>): void => {
-        const leftMs = endsAt - Date.now();
-        setRetryInSeconds(leftMs <= 0 ? undefined : Math.ceil(leftMs / 1000));
-        if (leftMs <= 0) {
-          runRequest(again);
-          return;
-        }
-        after(Math.min(1000, leftMs), () => {
-          countDown(endsAt, again);
-        });
-      };
+  const run = useCallback(
+    (request: ClickRequest, idempotencyKey: string): void => {
       clear();
       setIsBusy(true);
       setProblem(undefined);
@@ -106,18 +119,30 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
         setIsChecking(false);
         wasNotAnswering.current = isNotAnswering(cause);
       };
-      (typeof request === "function" ? request() : request).then(settle, (cause: unknown) => {
-        reportFailure(cause);
-        settle(cause);
-        const waitMs = retryAfterMsOf(cause);
-        if (waitMs !== undefined && typeof request === "function") {
-          countDown(Date.now() + waitMs, request);
-          return;
-        }
-        setProblem(describe.current(cause));
-      });
+      (typeof request === "function" ? request(idempotencyKey) : request).then(
+        settle,
+        (cause: unknown) => {
+          reportFailure(cause);
+          settle(cause);
+          const waitMs = retryAfterMsOf(cause);
+          if (waitMs !== undefined && typeof request === "function") {
+            // The same click, sent again once the wait is over: the same key.
+            countDown(Date.now() + waitMs, { after, sayLeft: setRetryInSeconds }, () => {
+              run(request, idempotencyKey);
+            });
+            return;
+          }
+          setProblem(describe.current(cause));
+        },
+      );
     },
     [after, clear],
+  );
+  const runRequest = useCallback(
+    (request: ClickRequest): void => {
+      run(request, crypto.randomUUID());
+    },
+    [run],
   );
   return { isBusy, problem, isSlow, retryInSeconds, isChecking, runRequest };
 }
