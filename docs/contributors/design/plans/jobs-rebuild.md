@@ -147,7 +147,7 @@ D231 §5, §6, §11 (the node table's truth), §12 (the job view's words); repla
 - Scenario tests: `TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`,
   `TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`,
   `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges` (cmd/orpheum, on the server's own wiring);
-  `TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`,
+  S29's (since D241 §4, `TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing`),
   `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork` (internal/core/api);
   `TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`
   (internal/core/jobs).
@@ -692,8 +692,7 @@ D233 §5, §6, §10; D241.
 - **5d — a disk stall parks its root.** The first stall on the disk makes the file's root
   unavailable, asks for a scan of it, and parks the job on it; the scan that reads it brings it
   back. A second disk stall on the same file after that is the file's own failure, "the disk could
-  not read this file". The System page lists a node's stuck processes. `TestScenario_S79_…` and
-  `TestScenario_S80_…`.
+  not read this file". The System page lists a node's stuck processes. Scenario tests for S79 and S80.
 
 **Built** (2026-10-03), as cut:
 
@@ -725,7 +724,7 @@ D233 §5, §6, §10; D241.
   prepared directory's disk instead would make the media root unavailable until a scan reads it,
   which the scan does at once. Telling the two apart needs the node to read which file the process
   waits on (`/proc/<pid>/syscall` and its descriptors), which is left for when it matters.
-- `TestScenario_S79_…` and `TestScenario_S80_…` move to Phase 6's scenario-tier bullet: S79's and
+- The scenario tests for S79 and S80 move to Phase 6's scenario-tier bullet: S79's and
   S80's parts are tested where they are built (execx, agent, nodes, playback).
 
 ## Phase 6 — what a person sees, and the rest of F2

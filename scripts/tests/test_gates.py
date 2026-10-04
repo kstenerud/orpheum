@@ -173,6 +173,9 @@ class Claims(unittest.TestCase):
             "internal/a/doc.go": "// Enforced by TestA_Holds, TestA_S7b_* and TestA_FoldedAway.\n"
                                  "// TestB_Nothing_* has no test, and TestMain is a word.\n",
             "web/README.md": "TestA_AlsoGone\n",
+            "docs/contributors/design/plans/scenarios.md": "Holds (`TestA_NeverWritten`); `TestA_S7b_…`, "
+                                                            "`TestC_…`.\n",
+            "docs/contributors/standards/testing.md": "Name it `TestScan_SkipsAppleDoubleFiles`.\n",
             "docs/contributors/design/research/old.md": "TestA_History\n",
             "internal/a/a.go": "// TestA_NotADoc\n",
         }
@@ -180,7 +183,10 @@ class Claims(unittest.TestCase):
         self.assertIn("internal/a/doc.go: cites `TestA_FoldedAway`, which no test defines", messages)
         self.assertIn("internal/a/doc.go: cites `TestB_Nothing_*`, but no test's name starts so", messages)
         self.assertIn("web/README.md: cites `TestA_AlsoGone`", messages)
-        for fine in ("TestA_Holds`", "TestA_S7b_*", "TestMain", "TestA_History", "TestA_NotADoc"):
+        self.assertIn("scenarios.md: cites `TestA_NeverWritten`, which no test defines", messages)
+        self.assertIn("scenarios.md: cites `TestC_…`, but no test's name starts so", messages)
+        for fine in ("TestA_Holds`", "TestA_S7b_*", "TestA_S7b_…", "TestMain", "TestA_History", "TestA_NotADoc",
+                     "TestScan_SkipsAppleDoubleFiles"):
             self.assertNotIn(fine, messages)
 
     def test_code_decisions_resolve_and_are_live(self):

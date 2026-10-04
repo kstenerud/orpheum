@@ -3,7 +3,7 @@
 # ABOUTME: Claims gate run by `make check`: every cited TestArch_ test exists and every one
 # ABOUTME: is cited; every decision ID in code resolves to a live decision; every
 # ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190); no retired name is left;
-# ABOUTME: every Go test a doc.go or README cites exists.
+# ABOUTME: every Go test a doc.go, README or live document cites exists.
 """Keep the prose and the code telling the same story.
 
 Five checks. Each is for a way a true sentence silently becomes false:
@@ -27,10 +27,11 @@ Five checks. Each is for a way a true sentence silently becomes false:
    which move rows from them) may use it again as a whole word. Old names left live recurred three times after D227's renames, each found
    by an audit and never by a gate (agent-failures A12). Taking a name off the list is a
    weakening `check_test_weakening.py` asks a trailer for.
-5. **A cited test exists.** A doc.go or README that names a Go test as what enforces an
-   invariant names one some test file defines; `TestX_*` names every test with that prefix,
+5. **A cited test exists.** A doc.go, README or document outside history that names a Go test
+   names one some test file defines; `TestX_*`, or `TestX_…`, names every test with that prefix,
    and there must be one. A step's test folded into the baseline survived in internal/store's
-   doc.go as a citation of nothing (audit-2026-09-30 §5, settled 2026-10-01).
+   doc.go as a citation of nothing (audit-2026-09-30 §5, settled 2026-10-01), and scenarios.md
+   named five scenario tests never written as what showed a scenario held (audit-2026-10-03 §4).
 """
 
 from __future__ import annotations
@@ -58,11 +59,13 @@ RETIRED_NAMES = "docs/contributors/retired-names.md"
 RETIRED_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|", re.M)
 # The gates' own tests build failing cases out of synthetic names on purpose.
 SYNTHETIC = ("scripts/tests/",)
+# The testing standard teaches the shape of a test's name with names no test has.
+EXAMPLE_NAMES = ("docs/contributors/standards/testing.md",)
 
 ARCH_NAME = re.compile(r"\bTestArch_[A-Za-z0-9_]+")
 # A Go test named in prose: Test<Subject>_<Claim>, or Test<Subject>_<Prefix>_* for every test so
 # named. A name with no underscore is a word ("TestMain"), not a citation.
-CITED_TEST = re.compile(r"\bTest[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]*(?:\*)?")
+CITED_TEST = re.compile(r"\bTest[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]*(?:\*|…)?")
 GO_TEST_DEF = re.compile(r"^func (Test[A-Za-z0-9_]+)\(t \*testing\.T\)", re.M)
 GO_ARCH_DEF = re.compile(r"^func (TestArch_[A-Za-z0-9_]+)\(t \*testing\.T\)", re.M)
 TS_ARCH_DEF = re.compile(r"""\b(?:it|test)\(\s*["'`](TestArch_[A-Za-z0-9_]+)""")
@@ -137,18 +140,18 @@ def check_arch(files: dict[str, str]) -> list[Problem]:
 
 
 def check_cited_tests(files: dict[str, str]) -> list[Problem]:
-    """Go tests a doc.go or README names that no test file defines; TestArch_ names are
-    check_arch's."""
+    """Go tests a doc.go, README or document outside history names that no test file defines;
+    TestArch_ names are check_arch's."""
     defined = {name for path, text in files.items() if path.endswith("_test.go")
                for name in GO_TEST_DEF.findall(text)}
     problems: list[Problem] = []
     for path, text in sorted(files.items()):
-        if path.startswith(HISTORY_PREFIXES + SYNTHETIC) or not path.endswith(("doc.go", "README.md")):
+        if path.startswith(HISTORY_PREFIXES + SYNTHETIC + EXAMPLE_NAMES) or not path.endswith(("doc.go", ".md")):
             continue
         for name in sorted(set(CITED_TEST.findall(text))):
             if name.startswith("TestArch_"):
                 continue
-            if name.endswith("*"):
+            if name.endswith(("*", "…")):
                 if not any(test.startswith(name[:-1]) for test in defined):
                     problems.append(Problem(path, f"cites `{name}`, but no test's name starts so"))
             elif name not in defined:
