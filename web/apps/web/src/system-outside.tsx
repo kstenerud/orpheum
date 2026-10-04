@@ -54,7 +54,7 @@ export function OutsideServices(props: { readonly providers: readonly Provider[]
               background: tenthsText(provider.backgroundRatePerSecond, i18n.language),
             })}{" "}
             {t(`system.credentials.${provider.credentials}`)}
-            <ProviderLimits provider={provider} />
+            <ProviderStatus provider={provider} />
           </li>
         ))}
       </ul>
@@ -63,7 +63,7 @@ export function OutsideServices(props: { readonly providers: readonly Provider[]
 }
 
 /** A provider's day's count, a wait it asked for, and whether it is down. */
-function ProviderLimits(props: { readonly provider: Provider }): JSX.Element {
+function ProviderStatus(props: { readonly provider: Provider }): JSX.Element {
   const { t } = useTranslation();
   const { quota, waitUntil, down } = props.provider;
   return (

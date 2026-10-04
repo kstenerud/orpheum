@@ -119,8 +119,8 @@ export function FindSubtitles(props: {
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));
   const [offer, setOffer] = useState<SubtitleOffer | undefined>(undefined);
   // One request at a time, and why it failed when it did (D224 §4).
-  const request = useRequest((cause) => subtitleProblemText(t, cause, i18n.language));
-  const { isBusy, problem, runRequest } = request;
+  const requestState = useRequest((cause) => subtitleProblemText(t, cause, i18n.language));
+  const { isBusy, problem, runRequest } = requestState;
   if (!isOpen) {
     return (
       <button
@@ -159,7 +159,7 @@ export function FindSubtitles(props: {
       <button type="button" onClick={search} disabled={isBusy}>
         {t("play.findSubtitles.search")}
       </button>
-      <RequestWait request={request} provider="OpenSubtitles" />
+      <RequestWait requestState={requestState} provider="OpenSubtitles" />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       {offer === undefined ? null : (
         <CandidateList offer={offer} language={language} isBusy={isBusy} onChoose={choose} />

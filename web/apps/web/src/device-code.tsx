@@ -18,14 +18,14 @@ import { fieldProblemText, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { Share } from "./share.tsx";
-import { backingOff } from "./polling.ts";
+import { backingOffPoller } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 
 /**
  * How often a page showing a code asks whether it has been used: every 3 s, with no backing off,
  * since the person is signing the other device in now and waits for this one to notice (D237).
  */
-const codeCheckPolling = backingOff({ firstMs: 3000, longestMs: 3000 });
+const codeCheckPolling = backingOffPoller({ firstMs: 3000, longestMs: 3000 });
 
 /** This tab's own storage, which keeps nothing where the browser refuses it. */
 function tabStorage(): StringStorage {

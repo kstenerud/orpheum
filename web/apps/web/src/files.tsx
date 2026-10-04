@@ -5,7 +5,7 @@ import { useCallback, useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -147,7 +147,7 @@ function FilePages(props: {
     },
     [api, libraryId, filingFilter],
   );
-  const pages = usePages(loadPage, useBackgroundChanges());
+  const pages = usePages(loadPage, useBackgroundChangesPoller());
   return (
     <Loaded
       resource={pages.loadedSoFar}

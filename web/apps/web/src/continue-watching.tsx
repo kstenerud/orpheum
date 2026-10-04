@@ -9,7 +9,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -168,7 +168,7 @@ export function ContinueWatching(): JSX.Element | null {
   const [rows, reload] = useResource(
     "continue-watching",
     () => loadContinueWatching(api),
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   const [hiddenRow, setHiddenRow] = useState<ContinueWatchingRow | undefined>(undefined);
   // A refusal shows the rows as the server has them, as success does.

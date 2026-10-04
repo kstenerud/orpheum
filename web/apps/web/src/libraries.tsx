@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { BusyGroup } from "./busy-group.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
@@ -357,7 +357,7 @@ export function Libraries(): JSX.Element {
       const librariesBody = dataOrThrow(await api.GET("/libraries"));
       return librariesBody.libraries ?? [];
     },
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   const actions = useLibraryActions(reload);
   const [places] = useResource("library-places", async () =>

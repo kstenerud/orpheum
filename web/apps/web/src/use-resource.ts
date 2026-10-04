@@ -20,7 +20,7 @@ export type Resource<T> =
  * function is called. An answer that arrives after the key changed is dropped.
  *
  * Given a poller, it also asks again for as long as the component shows it, as the poller's
- * schedule says (D237): backgroundChanges backs off while the answer is unchanged. It keeps what it shows meanwhile: a
+ * schedule says (D237): backgroundChangesPoller backs off while the answer is unchanged. It keeps what it shows meanwhile: a
  * reload does not go back to loading, so a view that follows something moving (the jobs, a scan's
  * films) does not flicker. A new key always starts from loading. This is the one way the client
  * polls the server; usePages polls a paged list the same way.

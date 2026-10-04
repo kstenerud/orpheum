@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
-import { useBackgroundChanges } from "./polling.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
@@ -234,7 +234,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const [title, reload] = useResource(
     `title/${String(props.id)}`,
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
-    useBackgroundChanges(),
+    useBackgroundChangesPoller(),
   );
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");

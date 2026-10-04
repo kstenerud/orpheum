@@ -16,8 +16,8 @@ import { OfflineReminder } from "./offline-reminder.tsx";
 import { People } from "./people.tsx";
 import {
   BackgroundChangesContext,
-  backgroundChanges,
-  backingOff,
+  backgroundChangesPoller,
+  backingOffPoller,
   clientWaits,
   type Poller,
 } from "./polling.ts";
@@ -97,8 +97,8 @@ function useServersPoller(): Poller {
   return useMemo(
     () =>
       firstSeconds === undefined || longestSeconds === undefined
-        ? backgroundChanges
-        : backingOff(clientWaits({ firstSeconds, longestSeconds })),
+        ? backgroundChangesPoller
+        : backingOffPoller(clientWaits({ firstSeconds, longestSeconds })),
     [firstSeconds, longestSeconds],
   );
 }

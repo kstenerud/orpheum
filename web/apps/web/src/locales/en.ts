@@ -202,7 +202,7 @@ export const en = {
     streamSubtitle: "Subtitles: {{codec}} {{language}}",
     channels: "{{count}} channels",
     episodeLabel: "{{number}}. {{name}}",
-    unavailable: "not on disk",
+    notOnDisk: "not on disk",
     unavailableNow: "Cannot be played now",
     retireFile: "This file is gone for good…",
     retireFileConsequence:

@@ -11,23 +11,23 @@ import type { RequestState } from "./use-request.ts";
  * it was not answering; or a request past a couple of seconds. Nothing while it is not held back.
  */
 export function RequestWait(props: {
-  readonly request: RequestState;
+  readonly requestState: RequestState;
   /** The provider's name: TMDB, OpenSubtitles. */
   readonly provider: string;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { request, provider } = props;
-  if (request.retryInSeconds !== undefined) {
+  const { requestState, provider } = props;
+  if (requestState.retryInSeconds !== undefined) {
     return (
       <output>
-        {t("problem.wait.askedToWait", { provider, seconds: request.retryInSeconds })}
+        {t("problem.wait.askedToWait", { provider, seconds: requestState.retryInSeconds })}
       </output>
     );
   }
-  if (request.isBusy && request.isChecking) {
+  if (requestState.isBusy && requestState.isChecking) {
     return <output>{t("problem.wait.checking", { provider })}</output>;
   }
-  if (request.isBusy && request.isSlow) {
+  if (requestState.isBusy && requestState.isSlow) {
     return <output>{t("problem.wait.stillWaiting", { provider })}</output>;
   }
   return null;
