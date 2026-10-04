@@ -15,7 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// startServerOnce runs the server until it is ready and stops it, leaving a state directory with a
+// startServerOnce runs the server until it is ready and stops it, leaving an instance with a
 // migrated database, a secret.key and a setup code, as a first start does.
 func startServerOnce(t *testing.T) (Config, string) {
 	t.Helper()
@@ -104,7 +104,7 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 	fresh := runCommand(t, "doctor", "--instance", path)
 	for _, want := range []string{
 		"there is no persistent.db yet", "start the server with `orpheum core`", "secret.key is missing",
-		"there is no backup yet",
+		"there is no backup yet", "persistent directory " + filepath.Join(path, "persistent") + " is writable",
 	} {
 		if !strings.Contains(fresh.stdout, want) {
 			t.Errorf("doctor on a fresh directory does not say %q:\n%s", want, fresh.stdout)

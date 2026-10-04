@@ -14,7 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// SetupCodeFileName is the setup code's file in the state directory, mode 0600, which
+// SetupCodeFileName is the setup code's file in the instance's run directory, mode 0600, which
 // `orpheum setup-code` prints. It exists only until the first admin is created.
 const SetupCodeFileName = "setup-code"
 

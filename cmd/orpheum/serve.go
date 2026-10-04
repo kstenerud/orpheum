@@ -122,7 +122,7 @@ func (opened openedServices) release() error {
 // job is given up and retried: the node reports every two seconds while FFmpeg runs.
 const prepareMaxSilence = 5 * time.Minute
 
-// openAndWire opens the state directory and the database, migrates, and hands the API its
+// openAndWire opens the instance's directories and the database, migrates, and hands the API its
 // dependencies.
 func openAndWire(
 	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,

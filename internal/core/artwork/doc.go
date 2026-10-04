@@ -3,7 +3,8 @@
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under
 // content-addressed names in the cache directory, recording each in the item's artwork rows in
-// persistent.db. It owns the image vocabulary and is the artwork table's one writer: identify finds
+// persistent.db. It is the artwork table's one writer (the kinds of image are library's
+// vocabulary, which identify shares): identify finds
 // the images an item's source names and those beside the media and reports them, and the
 // server's wiring hands them to Take (identify and artwork never import each other). It serves
 // them: a stored size as it is, JPEG cut from the WebP of its size, and a size not made by
@@ -109,7 +110,7 @@
 //
 // # Where to change
 //
-//   - images.go: the image vocabulary, what a pass found (Take), and every write to the artwork
+//   - images.go: the images a source names (Ref), what a pass found (Take), and every write to the artwork
 //     table; source.go: the unsanitised download and the fetcher interface; service.go: the queue's
 //     jobs, the node command and its answer, and the store; serve.go: answering a request;
 //     retry.go: fetching and parking on the host, the retry schedule, a missing image and its

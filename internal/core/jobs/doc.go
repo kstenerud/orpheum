@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
-// (fetches, artwork, prepares, subtitles, loudness; scans and backups come in M4), their targets,
+// (fetches, artwork, prepares, subtitles, loudness, a scan's listing and examining; backups come
+// in M4), their targets,
 // the answers its handlers give, the sweeps that derive their work, and the job view. The rows are
 // cache.db's job table, kept by internal/store's JobStorage, a cache of the work persistent.db
 // implies (D231 §3): each kind's work is derived again by its sweeps, or asked for again by the
 // next play. One scheduler per kind picks the highest-priority queued job whose runnable_at has
-// passed; node jobs become commands, each answered on its own path to the node service. After a
+// passed; node jobs are given to their node as commands, and the node's word on each comes on one
+// path (D234 §2, §7). After a
 // stop, running jobs return to queued and restart from zero.
 //
 // # Invariants
@@ -98,6 +100,6 @@
 //     and cancelling what is retired.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. readiness.go: how far work a person waits for is. Each
-//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go); scan and
-//     backup jobs come in M4 (D223 §6).
+//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go); backup
+//     jobs come in M4 (D223 §6, D243).
 package jobs

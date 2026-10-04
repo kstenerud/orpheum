@@ -119,9 +119,9 @@ func checkWritable(directories *instancedir.Directories, path string) finding {
 		directories.WritePersistentFile(probeFileName, []byte("probe")),
 		directories.RemovePersistentFile(probeFileName))
 	if err != nil {
-		return finding{verdictFailure, "state directory " + path + " is not writable", err.Error()}
+		return finding{verdictFailure, "persistent directory " + path + " is not writable", err.Error()}
 	}
-	return finding{verdictOK, "state directory " + path + " is writable", ""}
+	return finding{verdictOK, "persistent directory " + path + " is writable", ""}
 }
 
 func checkSecretKey(directories *instancedir.Directories) (*secrets.Key, finding) {
