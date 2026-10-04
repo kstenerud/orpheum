@@ -5,7 +5,9 @@
 # Scenarios
 
 - **Status:** M2's scenarios walked through 2026-09-24; M3–M5's written, to be walked before
-  each of those milestones starts. Asked for by the owner: *"We haven't done user story
+  each of those milestones starts. M3's (S30–S36) and the running ones (S60–S61) were not walked
+  before M3 was built (audit-2026-10-03 §4); M4's (S40–S42) are walked at M4's start. Statuses
+  re-read against the code 2026-10-04, and every test named here must exist (`check_claims.py`). Asked for by the owner: *"We haven't done user story
   scenarios yet to test our model."*
 - **Depends on:** [library-model.md](library-model.md), [scanner.md](scanner.md),
   [identification.md](identification.md), [play-state.md](play-state.md),
@@ -291,7 +293,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   2. A retire action at each level cancels the jobs of what it removes (D173).
   3. Offline never ends without the admin (D41); the System page shows "offline since", with a
      reminder after a week.
-- **Status:** **holds**, but for the weekly reminder (G7, open: P39)
+- **Status:** **holds**, the weekly reminder included (G7; P39 resolved as a banner)
   (`TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`, the
   jobs rebuild's Phase 3): the System page says since when a root or disk is offline, and the
   admin's retire tombstones its files, cancels their work and forgets the root. G9 **closed**
@@ -359,7 +361,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     no answer recorded.
 - **Status:** the outage **holds** (`TestScenario_S25_ATMDBOutageOvernightParksAndMatchesAllByMorning`,
   the jobs rebuild's Phase 2: one failure, then a dozen probes overnight, and every film
-  matched at its first attempt). A first match lost some other way is still **gap G10** (Phase 3).
+  matched at its first attempt). A first match lost some other way is owed until the item has an
+  answer (G10, closed 2026-09-30).
 
 ### S26 — A node restarts mid-prepare
 
@@ -405,7 +408,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   `TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain`,
   `TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds`), and a node that started again is not sent
   the commands of the jobs its restart ended (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
-  Left: a job failed by `assigned_job_limit_hours` does not tell its node to stop.
+  A job failed by `assigned_job_limit_hours` tells its node to stop (2026-10-04, D244 §6:
+  `TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop`).
 
 ### S28 — A full disk on a node
 
@@ -738,22 +742,24 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   most, one probe per step, all 200 matched. **Built 2026-09-30** (cmd/orpheum): one attempt each.
 - `TestScenario_S78_DiscardingCacheDBLosesOnlyTiming`: the property test above, the owner's
   principle. **Built 2026-09-30** (cmd/orpheum).
-- `TestScenario_S22_AnOfflineRootParksItsJobsAndSweepsQueueNothing`, and its retire follow-up.
+- S22, an offline root parks its jobs and the sweeps queue nothing, and its retire follow-up.
   The follow-up **built 2026-09-30** (internal/core/api) as
   `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`; the
-  parking half holds by Phase 2's tests.
-- `TestScenario_S26_ANodesHelloReturnsItsRunningJobsWithoutCost`.
-- `TestScenario_S27_AReconnectedNodeIsSentOnlyLiveCommands`.
+  parking half was not written as a scenario test, and holds by Phase 2's (S22's status).
+- S26, a node's hello returns its running jobs without cost, and S27, a reconnected node is sent
+  only live commands: not written as scenario tests; each holds by the tests its status names.
 - `TestScenario_S71_ARepeatRequestRaisesWakesAndMerges`: queued, back-off, parked and running.
   **Built 2026-09-30** (internal/core/jobs).
 - `TestScenario_S73_ARefusedKeyParksUntilTheKeyChanges`. **Built 2026-09-30** (cmd/orpheum).
 - `TestScenario_S70_APersonsRefreshWhileTMDBIsParkedLooksAtOnceAndRunsFirstWhenItReturns`.
   **Built 2026-09-30** (cmd/orpheum).
-- `TestScenario_S74_AChangedFileEndsItsJobsAndIsRescanned`.
+- S74, a changed file ends its jobs and is rescanned: not written as a scenario test; it holds by
+  the tests its status names.
 - `TestScenario_S76_ADownNodeBlocksNoOtherNodesWork`. **Built 2026-09-30** (internal/core/api).
-- `TestScenario_S29_APrepareForAParkedNodeSaysWhatItWaitsFor`, and G8's
-  `…_APrepareThatFailsForGoodSaysSo`. The first **built 2026-09-30** (internal/core/api), for the
-  queue's side; the player's words are Phase 6's.
+- S29's, and G8's "a prepare that fails for good says so". The first **built 2026-09-30**
+  (internal/core/api), and renamed
+  `TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing` when D241 §4 revised
+  it; G8's holds by `TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`.
 - `TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`. **Built
   2026-09-30** (internal/core/jobs), with a real SQLite "disk full" error (`storetest.DiskFullError`,
   from a scratch database held to its pages) behind cache.db's job storage.
@@ -776,29 +782,40 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   `TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed`,
   `TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure`).
 - **S81 — A finished prepare's `done` is lost in flight.** *Expected:* the outbox redelivers it;
-  the core accepts it by run id even if the job gave up; nothing is re-encoded. *Today:* the core
-  waits 5 minutes, then re-encodes over the complete rendition.
+  the core accepts it by run id even if the job gave up; nothing is re-encoded. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a result
+  is recorded by its run as it arrives, whether or not its job still waits, and one not
+  acknowledged is sent again (`TestExchanges_RecordEveryResultBeforeAnyJobHearsIt`,
+  `TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits`,
+  `TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello`).
 - **S82 — The core restarts during an hour-long encode.** *Expected:* the encode continues; at
   hello the node lists it; the core adopts it without re-dispatching; progress resumes in the job
-  view. *Today:* the co-located node is killed; the job requeues, dispatches before hello, and
-  waits 5 minutes.
+  view. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): the node is its own service and goes on; an assigned job stays with it
+  through the core's restart, and its node's word resolves it
+  (`TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord`).
 - **S83 — A late answer from an earlier attempt.** Attempt 1 is slow, attempt 2 starts, then
   attempt 1's `done` arrives. *Expected:* it is rejected by token, or accepted as the rendition
-  only if its run id is the current one. *Today:* attempt 2 accepts it while its own FFmpeg is
-  still writing.
+  only if its run id is the current one. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a result reaches only the attempt its token
+  names (`TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled`).
 - **S84 — cache.db is discarded while a node holds finished-unacked results.** *Expected:* the
-  results match by content (hash, run id), never by a reused job id.
+  results match by content (hash, run id), never by a reused job id. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): as S81 and S83:
+  recorded by the content their echoed work names, and taken by attempt token, never by job id.
 - **S85 — One artwork answer fails to post (the core is busy, or the answer is over its bound).**
-  *Expected:* it goes to the outbox; other work is untouched. *Today:* the session ends, every
-  FFmpeg dies, and every root is rescanned.
+  *Expected:* it goes to the outbox; other work is untouched. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): one too large is held on the
+  node and fetched by its token, and one not acknowledged is sent again
+  (`TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged`,
+  `TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello`).
 - **S86 — A file whose probe or parse panics the core, or crashes the node.** *Expected:* one
   job fails; the next start refuses it at its limit; the node reports "crashed during X"; the
-  System page shows a crash loop. *Today:* an endless restart loop.
+  System page shows a crash loop. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a job whose every attempt brings the server down fails at its
+  limit, and a panic fails only its job
+  (`TestScenario_S86_AJobThatBringsTheServerDownEveryTimeFailsAtItsLimitAndAPanicFailsOnlyItsJob`).
 - **S87 — A play-now prepare on a node parked overnight.** *Expected:* the viewer has gone, so
-  it is dropped or demoted; tonight's play is not queued behind it. *Today:* it runs first, at
-  priority 1000.
+  it is dropped or demoted; tonight's play is not queued behind it. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a job no one waits for
+  falls to background priority, and its node is told
+  (`TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold`).
 - **S88 — Two nodes; node A's prepares wait on a busy slot.** *Expected:* a play on node B
-  starts at once. *Today:* it can wait behind global prepare runners held by A's jobs.
+  starts at once. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a job given to a node holds no runner, and each node is held to its
+  own slots and devices (`TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull`).
 - **S89 — A remote node on an older build receives a command it does not know.** *Expected:* it
   refuses explicitly, or the core parks the node with the reason "version mismatch". *Closed in
   the jobs rebuild's Phase 4a (2026-10-02):* a hello in another protocol version is refused and the
@@ -809,8 +826,9 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   subtitle is fetched for a file once, a unique index holding it: a second ask is given the one
   kept and spends nothing (`TestFetchSubtitle_TheSameSubtitleForAFileIsDownloadedOnce`).
 - **S91 — The owner stops the core with a cancel pending for a running node job.** *Expected:* at
-  hello, reconciliation tells the node to stop it. *Today:* the cancel is lost with memory (moot
-  today only because the node dies too).
+  hello, reconciliation tells the node to stop it. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): work a node holds that no job wants is
+  cancelled at its next status (`TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds`,
+  `TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
 
 ## Gaps and questions
 
@@ -823,10 +841,10 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
 | **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
 | **G3** | **Closed 2026-09-30** (the jobs rebuild's Phase 2): a down destination parks its work at no cost and is probed; the node table is truthful; the per-runner holds and the artwork breaker are gone. Was: down-class failures spent attempts; node jobs never checked the node; `IsConnected` meant "said hello since the core started"; blocked and `RetryAt` were per runner | S23, S25, S29, S70, S76 |
-| **G4** | **Closed 2026-10-03** (the jobs rebuild's Phases 4 and 6): an ended job's commands are withdrawn or cancelled, a node does not run an ended attempt again, and a node that started again is not sent the commands of the jobs its restart ended. Left: a job failed by `assigned_job_limit_hours` does not tell its node to stop. Was: a reconnected node was sent the commands of jobs that had ended; a job that gave up on silence sent no cancel | S26, S27 |
+| **G4** | **Closed 2026-10-03** (the jobs rebuild's Phases 4 and 6): an ended job's commands are withdrawn or cancelled, a node does not run an ended attempt again, and a node that started again is not sent the commands of the jobs its restart ended, and a job failed by `assigned_job_limit_hours` tells its node to stop (2026-10-04, D244 §6). Was: a reconnected node was sent the commands of jobs that had ended; a job that gave up on silence sent no cancel | S26, S27 |
 | **G5** | **Closed 2026-10-01** (the jobs rebuild's Phase 4): a hello from another start ends the jobs running on the node at no cost of an attempt. Was: they waited out `maxSilence` and spent an attempt | S26 |
 | **G6** | **Closed 2026-09-30:** a root or disk a scan found missing is a destination; its files' jobs park on it and the loudness sweep passes them over. Was: its files' jobs ran and refused, and the sweep queued them again every hour | S22 |
-| **G7** | **Closed 2026-09-30** but for the weekly reminder (P39: no channel to the admin exists yet): a root, a node and a library each have a retire action that cancels their work, and the System page says since when storage is offline. Was: no retire action; no "offline since" or reminder | S22, S23, S24 |
+| **G7** | **Closed 2026-09-30**, the weekly reminder a banner the admin dismisses for `offline_reminder_interval_days` (P39; `TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInterval`): a root, a node and a library each have a retire action that cancels their work, and the System page says since when storage is offline. Was: no retire action; no "offline since" or reminder | S22, S23, S24 |
 | **G8** | **Closed 2026-10-03** (the jobs rebuild's Phase 6): a prepare job that fails for good, whatever ended it, fails its rendition, which the next play prepares again. Was: one that failed on silence or refusals left its rendition `running`, and the player showed "preparing" until reloaded | S26, S28, S29, S74 |
 | **G9** | **Closed 2026-09-30:** a refused image beside the media is owed again once a scan has seen its file since. Was: a node's refusal to read a local image (its disk offline) was the image's permanent refusal | S22, S76 |
 | **G10** | **Closed 2026-09-30:** a first match is owed until the item has an answer, and a failure of its own is a fact. Was: a lost first match was never queued again (`EverQueued`); a failed match looked the same as one not yet tried | S25, S78 |
