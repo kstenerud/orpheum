@@ -142,7 +142,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
 		 VALUES (1, '/m', 'unreadable', 5000, 4000)`)
-	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","since":4000}`
+	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
 		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10", "/items/10",
 		"/items/21", "/collections/20",

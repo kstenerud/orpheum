@@ -272,7 +272,7 @@ function OfflineStorage(props: { readonly offline: readonly Offline[] }): JSX.El
       <h2 id="system-offline">{t("system.offline")}</h2>
       <ul>
         {props.offline.map((missing) => {
-          const since = dateTimeText(missing.since, i18n.language);
+          const since = dateTimeText(missing.offlineAt, i18n.language);
           const place = { library: missing.libraryName, node: missing.nodeName, since };
           return (
             <li key={`${missing.nodeName}:${missing.rootPath}:${missing.mountPath ?? ""}`}>

@@ -18,7 +18,8 @@ type DestinationBody struct {
 	// Name is the destination as a person reads it: "TMDB", "node home", "/media on node home".
 	Name   string `json:"name"`
 	Reason string `doc:"Why it is down: unreachable, not connected, missing, its key is not set" json:"reason"`
-	Since  int64  `doc:"Since when, Unix milliseconds" json:"since"`
+	// DownAt is when it went down, in Unix milliseconds.
+	DownAt int64 `json:"downAt"`
 	// NextCheckAt is when it is looked at next, in Unix milliseconds; absent when only a signal
 	// brings it back: a node's hello, a scan that finds a root, a key changed, room made.
 	NextCheckAt *int64 `json:"nextCheckAt,omitempty"`
@@ -29,7 +30,7 @@ type DestinationBody struct {
 func destinationBody(state jobs.DestinationState, nodeName func(nodeID int64) string) DestinationBody {
 	body := DestinationBody{
 		Destination: string(state.Destination), Name: jobs.DescribeDestination(state.Destination, nodeName),
-		Reason: state.Reason, Since: state.Since.UnixMilli(), IsChecking: state.IsProbing,
+		Reason: state.Reason, DownAt: state.Since.UnixMilli(), IsChecking: state.IsProbing,
 	}
 	if !state.NextProbeAt.IsZero() {
 		body.NextCheckAt = new(state.NextProbeAt.UnixMilli())

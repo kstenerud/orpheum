@@ -65,7 +65,7 @@ const report: SystemReport = {
       libraryName: "Films",
       nodeName: "local",
       rootPath: "/media/films",
-      since: 1_790_000_000_000,
+      offlineAt: 1_790_000_000_000,
     },
     {
       libraryId: 3,
@@ -73,7 +73,7 @@ const report: SystemReport = {
       nodeName: "local",
       rootPath: "/media/films",
       mountPath: "/media/films/disk1",
-      since: 1_790_000_000_000,
+      offlineAt: 1_790_000_000_000,
     },
   ],
 };

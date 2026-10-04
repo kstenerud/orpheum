@@ -34,7 +34,8 @@ type UnavailableBody struct {
 	Reason   string `enum:"node_away,root_missing,disk_missing" json:"reason"`
 	NodeName string `doc:"The machine that holds it" json:"nodeName"`
 	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
-	Since    int64  `doc:"Unix milliseconds; absent when not known" json:"since,omitempty"`
+	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.
+	UnavailableAt int64 `json:"unavailableAt,omitempty"`
 }
 
 // unavailableBody is why something cannot be read now as the API says it, or nil when it can, its
@@ -47,7 +48,7 @@ func unavailableBody(unreadable *library.Unreadable, nodeName func(nodeID int64)
 		Reason: string(unreadable.Reason), NodeName: nodeName(unreadable.NodeID), Path: unreadable.Path,
 	}
 	if !unreadable.Since.IsZero() {
-		body.Since = unreadable.Since.UnixMilli()
+		body.UnavailableAt = unreadable.Since.UnixMilli()
 	}
 	return body
 }

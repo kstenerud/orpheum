@@ -22,8 +22,9 @@ type OfflineReminderOutput struct {
 		// offline, as the System page lists them.
 		RootCount int `json:"rootCount"`
 		DiskCount int `json:"diskCount"`
-		// Since is when the longest offline of them was first found missing.
-		Since int64 `doc:"Unix milliseconds; absent when nothing is offline" json:"since,omitempty"`
+		// OfflineAt is when the longest offline of them was first found missing, in Unix
+		// milliseconds; absent when nothing is offline.
+		OfflineAt int64 `json:"offlineAt,omitempty"`
 	}
 }
 
@@ -63,7 +64,7 @@ func (server *Server) getOfflineReminder(
 			output.Body.DiskCount++
 		}
 	}
-	output.Body.Since = offline[0].Since.UnixMilli() // the longest offline comes first
+	output.Body.OfflineAt = offline[0].Since.UnixMilli() // the longest offline comes first
 	newestSince := offline[0].Since
 	for _, missing := range offline {
 		if missing.Since.After(newestSince) {

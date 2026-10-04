@@ -20,7 +20,7 @@ const twoFoldersAndADisk: OfflineReminderReport = {
   isShown: true,
   rootCount: 2,
   diskCount: 1,
-  since: Date.UTC(2026, 8, 12, 9, 0),
+  offlineAt: Date.UTC(2026, 8, 12, 9, 0),
 };
 
 it("the reminder says how many folders and disks are offline since when, and leads to the System page", async () => {

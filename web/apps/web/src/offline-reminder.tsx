@@ -32,7 +32,7 @@ export function OfflineReminder(): JSX.Element | null {
   if (reminder.state !== "loaded" || !reminder.value.isShown || isDismissed) {
     return null;
   }
-  const { rootCount, diskCount, since } = reminder.value;
+  const { rootCount, diskCount, offlineAt: since } = reminder.value;
   const folders =
     rootCount === 1
       ? t("offlineReminder.oneFolder")

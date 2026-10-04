@@ -112,7 +112,7 @@ function WaitingRow(props: {
               ? t("identify.refreshed")
               : t("identify.refreshedWaiting", {
                   name: waiting.name,
-                  since: dateTimeText(waiting.since, i18n.language),
+                  since: dateTimeText(waiting.downAt, i18n.language),
                 }),
           );
         },

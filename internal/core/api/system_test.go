@@ -131,7 +131,7 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 func checkStuck(t *testing.T, stuck []StuckBody) {
 	t.Helper()
 	if len(stuck) != 1 || stuck[0].Program != "ffprobe" || stuck[0].Paths[0] != "/media/films/A.mkv" ||
-		stuck[0].Since != 9 {
+		stuck[0].GaveUpAt != 9 {
 		t.Errorf("local's stuck work is %+v; want the ffprobe waiting on /media/films' disk (D233 §10)", stuck)
 	}
 }
@@ -250,9 +250,9 @@ func TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline(t *testing.T) {
 	want := []OfflineBody{
 		{
 			LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", MountPath: "/media/disk1",
-			Since: 3000,
+			OfflineAt: 3000,
 		},
-		{LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", Since: 5000},
+		{LibraryID: 1, LibraryName: "Films", NodeName: "local", RootPath: "/media", OfflineAt: 5000},
 	}
 	if !slices.Equal(system.Body.Offline, want) {
 		t.Errorf("offline = %+v, want the disk since 3000 and the root since its first missing scan, 5000 (D41)",

@@ -113,7 +113,7 @@ describe("the job view", () => {
         destination: "tmdb-api",
         name: "TMDB",
         reason: "unreachable",
-        since: 1_790_000_000_000,
+        downAt: 1_790_000_000_000,
         nextCheckAt: 1_790_000_480_000,
         isChecking: false,
       },
@@ -127,7 +127,7 @@ describe("the job view", () => {
         destination: "node:1",
         name: "node local",
         reason: "not connected",
-        since: 1_790_000_000_000,
+        downAt: 1_790_000_000_000,
         isChecking: false,
       },
     };

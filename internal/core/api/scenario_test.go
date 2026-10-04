@@ -39,7 +39,9 @@ func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *tes
 	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
 		t.Fatal(err)
 	}
-	want := MediaUnreachableDetailBody{Reason: "node_away", NodeName: "local", Since: fakeNodeLastHeard.UnixMilli()}
+	want := MediaUnreachableDetailBody{
+		Reason: "node_away", NodeName: "local", UnavailableAt: fakeNodeLastHeard.UnixMilli(),
+	}
 	if refused.status != http.StatusServiceUnavailable || problem.Error.Code != CodeMediaUnreachable ||
 		problem.Error.Detail != want {
 		t.Errorf("a play whose node is away: %d %s; want media_unreachable, node local away since it was last heard",
@@ -90,7 +92,7 @@ func TestPlayback_APlayerAsksWhetherItsFileCanBeReadNow(t *testing.T) {
 	}
 	harness.missingMedia(t)
 	missing := harness.do(t, http.MethodGet, "/files/2/availability", user, nil)
-	const want = `{"unavailable":{"reason":"root_missing","nodeName":"local","path":"/media","since":5000}}`
+	const want = `{"unavailable":{"reason":"root_missing","nodeName":"local","path":"/media","unavailableAt":5000}}`
 	if missing.status != http.StatusOK || !strings.Contains(missing.body, want) {
 		t.Errorf("a file under a missing root = %d %s; want %s", missing.status, missing.body, want)
 	}
@@ -106,7 +108,7 @@ func TestPlayback_APlayOfAFileUnderAMissingRootIsRefusedAtOnceAndQueuesNothing(t
 	harness.shelveFilms(t)
 	harness.missingMedia(t)
 	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
-	const want = `"detail":{"reason":"root_missing","nodeName":"local","path":"/media","since":5000}`
+	const want = `"detail":{"reason":"root_missing","nodeName":"local","path":"/media","unavailableAt":5000}`
 	if refused.status != http.StatusServiceUnavailable || !strings.Contains(refused.body, want) {
 		t.Errorf("a play under a missing root: %d %s; want media_unreachable naming /media on local, since 5000",
 			refused.status, refused.body)
@@ -320,7 +322,7 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}, Destination: root},
 		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
 	}, root)
-	if system := harness.system(t, admin); len(system.Body.Offline) != 1 || system.Body.Offline[0].Since != 5000 {
+	if system := harness.system(t, admin); len(system.Body.Offline) != 1 || system.Body.Offline[0].OfflineAt != 5000 {
 		t.Fatalf("the System page's offline list = %+v; want /media since 5000 (D41)", system.Body.Offline)
 	}
 	retired := harness.retire(t, admin, http.MethodPost, "/libraries/1/roots/retire",
