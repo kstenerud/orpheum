@@ -148,7 +148,7 @@ func TestHandle_APrepareTheNodesStatusNoLongerHoldsIsTriedAgainAsTheToolsFailure
 	service, start := preparesOnAFakeNode(t, node, clockSource, neverSilent)
 	ended := start(jobs.Job{ID: 7, Target: jobs.Target{RenditionID: insertRendition(t, service)}})
 	testutil.Receive(t, node.sent, "the prepare command")
-	service.exchanges.Square(t.Context(), 1, nil, nil)
+	service.exchanges.Reconcile(t.Context(), 1, nil, nil)
 	err := testutil.Receive(t, ended, "the prepare job to end")
 	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
 		!strings.HasPrefix(err.Error(), "interrupted: ") {

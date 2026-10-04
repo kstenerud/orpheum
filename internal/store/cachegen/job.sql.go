@@ -414,7 +414,7 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 	return items, nil
 }
 
-const listOpenJobs = `-- name: ListOpenJobs :many
+const listOpenJobsOfTarget = `-- name: ListOpenJobsOfTarget :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
@@ -425,7 +425,7 @@ WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
 ORDER BY id
 `
 
-type ListOpenJobsParams struct {
+type ListOpenJobsOfTargetParams struct {
 	Kind              string
 	ItemID            *int64
 	RenditionID       *int64
@@ -438,8 +438,8 @@ type ListOpenJobsParams struct {
 
 // The queued and running jobs of this kind for this target, an assigned job counting as running: at
 // most one of each (D231 section 8).
-func (q *Queries) ListOpenJobs(ctx context.Context, arg ListOpenJobsParams) ([]Job, error) {
-	rows, err := q.db.QueryContext(ctx, listOpenJobs,
+func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTargetParams) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenJobsOfTarget,
 		arg.Kind,
 		arg.ItemID,
 		arg.RenditionID,

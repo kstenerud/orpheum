@@ -28,7 +28,7 @@ func (bench exchangeBench) assignAt(
 	t.Helper()
 	answer := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: id, Kind: jobs.KindPrepare}, command)
 	if jobqueue.IsAssigned(answer) {
-		jobqueue.Hand(t.Context(), answer)
+		jobqueue.HandOver(t.Context(), answer)
 		return testutil.Receive(t, bench.sender.sent, "the command"), ""
 	}
 	parking, isParked := jobqueue.ParkingOf(answer)

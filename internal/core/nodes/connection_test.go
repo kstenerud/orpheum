@@ -226,9 +226,9 @@ func TestHello_ANodeOnAnotherProtocolIsRefusedAndItsWorkWaitsUntilItIsUpdated(t 
 	}
 }
 
-// A node's status is squared with what it was given (D234 §6), judging none of the attempts whose
+// A node's status is reconciled with what it was given (D234 §6), judging none of the attempts whose
 // command it had not taken when it made the status: those are on their way.
-func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *testing.T) {
+func TestStatus_IsReconciledWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	sink := &recordingResultSink{}
@@ -241,10 +241,11 @@ func TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *test
 	}
 	held := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: "taken", State: nodeproto.HeldRunning}}
 	harness.postStatus(t, reply.NodeID, nodeproto.Status{Held: held, TakenCommandSeq: 1})
-	if len(sink.squared) != 1 || len(sink.squared[0].held) != 1 || sink.squared[0].held[0].AttemptToken != "taken" ||
-		!sink.squared[0].onTheirWay["on its way"] || sink.squared[0].onTheirWay["taken"] {
-		t.Errorf("squared %+v; want what the node holds, with only the command it had not taken on its way",
-			sink.squared)
+	if len(sink.reconciled) != 1 || len(sink.reconciled[0].held) != 1 ||
+		sink.reconciled[0].held[0].AttemptToken != "taken" ||
+		!sink.reconciled[0].onTheirWay["on its way"] || sink.reconciled[0].onTheirWay["taken"] {
+		t.Errorf("reconciled %+v; want what the node holds, with only the command it had not taken on its way",
+			sink.reconciled)
 	}
 }
 
@@ -284,7 +285,7 @@ func (index fakeRenditionIndex) AdoptRenditions(
 }
 
 // The reply to a hello names the renditions it listed that the index keeps; the node evicts the
-// others (D238 §2). With no index, or one that cannot be squared, it keeps them all: the node
+// others (D238 §2). With no index, or one that cannot be reconciled, it keeps them all: the node
 // evicts nothing for the core's failure.
 func TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay(t *testing.T) {
 	t.Parallel()

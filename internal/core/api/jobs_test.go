@@ -220,7 +220,7 @@ func TestJobs_AJobGivenToANodeSaysWhereItsNodeSaysItIs(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	harness.queue.SetNodeWords(func(int64) (string, bool) { return "paused", true })
+	harness.queue.SetReportedProgress(func(int64) (string, bool) { return "paused", true })
 	shown := newestPrepareJob(t, harness.listedJobs(t, admin))
 	if shown.State != "running" || shown.OnNode != "paused" {
 		t.Errorf("the prepare its node paused shows %+v; want running, paused on its node", shown)

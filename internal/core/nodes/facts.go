@@ -16,7 +16,7 @@ import (
 func (service *Service) SlowestReadBytesPerSecond(nodeID int64) int64 {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if node, found := service.connectedNodes[nodeID]; found {
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
 		return node.hello.Capacity.SlowestReadBytesPerSecond
 	}
 	return 0
@@ -26,7 +26,7 @@ func (service *Service) SlowestReadBytesPerSecond(nodeID int64) int64 {
 func (service *Service) byteSocketPath(nodeID int64) (string, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if node, found := service.connectedNodes[nodeID]; found {
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
 		return node.hello.ByteSocketPath, true
 	}
 	return "", false
@@ -46,7 +46,7 @@ type Facts struct {
 func (service *Service) Facts(name string) (Facts, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for id, existing := range service.connectedNodes {
+	for id, existing := range service.nodesHeardSinceStart {
 		if existing.name == name && !existing.lastHeard.IsZero() {
 			return Facts{
 				NodeID: id, Hello: existing.hello, Status: existing.status, LastHeard: existing.lastHeard,
@@ -62,7 +62,7 @@ func (service *Service) Facts(name string) (Facts, bool) {
 func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
 	onTheirWay := map[string]bool{}
-	if existing, found := service.connectedNodes[nodeID]; found {
+	if existing, found := service.nodesHeardSinceStart[nodeID]; found {
 		kept := *status
 		existing.status = &kept
 		for token, seq := range existing.seqByToken {
@@ -75,7 +75,7 @@ func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *no
 	}
 	service.mutex.Unlock()
 	if service.resultSink != nil {
-		service.resultSink.Square(ctx, nodeID, status.Held, onTheirWay)
+		service.resultSink.Reconcile(ctx, nodeID, status.Held, onTheirWay)
 	}
 	if usage := status.PreparedUsage; usage != nil && usage.DiskUsedPercent <= usage.DiskUsedLimitPercent &&
 		usage.DiskAvailableBytes >= usage.DiskMinFreeBytes {
@@ -90,7 +90,7 @@ func (service *Service) ConnectedNodeRoots(ctx context.Context, name string) (in
 	silentAfter := service.silentAfter(ctx)
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for id, node := range service.connectedNodes {
+	for id, node := range service.nodesHeardSinceStart {
 		if node.name == name && service.isConnectedLocked(node, silentAfter) {
 			return id, slices.Clone(node.hello.RootPaths), true
 		}

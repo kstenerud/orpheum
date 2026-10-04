@@ -314,17 +314,17 @@ func (server *Server) relayHLSFile(
 	}
 	// A playlist grows while the rendition is made; a segment never changes once written.
 	cacheControl := cacheForADay
-	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != jobs.Complete {
+	if strings.HasSuffix(renditionPath, ".m3u8") && source.Readiness != jobs.ReadinessComplete {
 		cacheControl = cacheRevalidate
 	}
 	request := relayRequest{http.MethodGet, source.Source, header, cacheControl}
 	return server.relay(ctx, dependencies, request, func() error {
 		switch source.Readiness {
-		case jobs.Preparing:
+		case jobs.ReadinessPreparing:
 			return tooEarly()
-		case jobs.Failed:
+		case jobs.ReadinessFailed:
 			return newError(http.StatusBadGateway, CodePrepareFailed, "this file could not be prepared")
-		case jobs.Complete:
+		case jobs.ReadinessComplete:
 			// A complete rendition whose playlist its node no longer has was evicted or lost: it is
 			// prepared again, and the player waits as for a new one (D217 §5).
 			if renditionPath == "master.m3u8" {

@@ -426,7 +426,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
 ### 4c — the core reconciles
 
 - The *assigned* state in use. At hello, and whenever it chooses, the core asks for the node's
-  jobs and outcomes and squares them with its own model: adopt, re-issue or cancel, and tell the
+  jobs and outcomes and reconciles them with its own model: adopt, re-issue or cancel, and tell the
   node to drop what the core does not know. Each difference is logged and counted as a broken
   invariant (D234 §6), never repaired silently.
 - The rendition index rebuilt from the node's inventory (question D); commands of ended jobs never
@@ -457,10 +457,10 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
    all (by reference when large); the result stores the sizes, records each item's image and notes
    what cannot be made.
 3. The node's status lists the attempts it holds, with their state, and the tokens whose results
-   are not yet acknowledged. The core squares its assigned jobs with that list at each status, not
+   are not yet acknowledged. The core reconciles its assigned jobs with that list at each status, not
    by asking: there is no separate question. A node silent past `node_silent_after_seconds` parks
    its assigned work, as now.
-4. Squaring, judging only commands the node has taken: held and assigned is adopted, progress
+4. Reconciling, judging only commands the node has taken: held and assigned is adopted, progress
    resuming (S82); assigned and not held, the node restarted, is interrupted, the tool's failure;
    assigned and not held otherwise is a broken invariant, logged and counted per node, and sent
    again; held and not assigned, or ended, is a broken invariant and the node is told to drop it
@@ -475,7 +475,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
 7. `assigned_job_limit_hours` (a setting, 24) is the backstop past which an assigned job fails; a
    prepare's failure marks its rendition failed (G8).
 8. The steps: **4c.1** tokens on rows, handlers that assign, results that resolve, the limit;
-   **4c.2** artwork as one assigned command; **4c.3** the held list in the status and the squaring;
+   **4c.2** artwork as one assigned command; **4c.3** the held list in the status and the reconciliation;
    **4c.4** commands of ended jobs dropped; **4c.5** manifests, the hello's renditions and eviction.
 
 *4c.1 built 2026-10-02:* prepares, extractions, conversions and measurements are given to their node
@@ -492,7 +492,7 @@ Images beside the media on another node than the first's are left for the next p
 waits on no node now. Node protocol 8.
 
 *4c.3 built 2026-10-02:* the status lists the attempts the node holds and those whose results wait
-for acknowledgement, with the last command it took; the core squares them at each status, judging
+for acknowledgement, with the last command it took; the core reconciles them at each status, judging
 none whose command is on its way: held is adopted, lost is a broken invariant resolved as the tool's
 failure (`ErrWorkLost`), stray work is a broken invariant and dropped; counts per node for Phase 6
 (`BrokenInvariants`). Node protocol 9.

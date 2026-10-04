@@ -40,14 +40,14 @@ type View struct {
 	OnNode string
 }
 
-// NodeWords says where the node holding a job's work last said it is: nodes.Exchanges.NodeWordOf.
-type NodeWords func(jobID int64) (word string, isSaid bool)
+// ReportedProgress says where the node holding a job's work last said it is: nodes.Exchanges.ReportedProgressOf.
+type ReportedProgress func(jobID int64) (word string, isSaid bool)
 
-// SetNodeWords has the job view say where the node holding each assigned job's work is.
-func (queue *Queue) SetNodeWords(words NodeWords) {
-	queue.nodeWordsMutex.Lock()
-	defer queue.nodeWordsMutex.Unlock()
-	queue.nodeWords = words
+// SetReportedProgress has the job view say where the node holding each assigned job's work is.
+func (queue *Queue) SetReportedProgress(words ReportedProgress) {
+	queue.reportedProgressMutex.Lock()
+	defer queue.reportedProgressMutex.Unlock()
+	queue.reportedProgress = words
 }
 
 // List is the newest jobs, newest first, at most limit of them.
@@ -71,7 +71,7 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 		if row.State == jobqueue.StateAssigned {
 			// To a person, work given to a node runs there; OnNode says where it is.
 			view.State = string(jobqueue.StateRunning)
-			if words := queue.wordsOfNodes(); words != nil {
+			if words := queue.reportedProgressSource(); words != nil {
 				if word, isSaid := words(row.ID); isSaid {
 					view.OnNode = word
 				}
@@ -82,10 +82,10 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 	return views, nil
 }
 
-func (queue *Queue) wordsOfNodes() NodeWords {
-	queue.nodeWordsMutex.Lock()
-	defer queue.nodeWordsMutex.Unlock()
-	return queue.nodeWords
+func (queue *Queue) reportedProgressSource() ReportedProgress {
+	queue.reportedProgressMutex.Lock()
+	defer queue.reportedProgressMutex.Unlock()
+	return queue.reportedProgress
 }
 
 // Cancel cancels a queued or running job: a queued one never runs, and a running one's handler

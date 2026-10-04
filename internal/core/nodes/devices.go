@@ -38,7 +38,7 @@ func (service *Service) Unpark(ctx context.Context, destination jobs.Destination
 // now (D240 §5), and false for a node not connected.
 func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources, bool, error) {
 	service.mutex.Lock()
-	node, isConnected := service.connectedNodes[nodeID]
+	node, isConnected := service.nodesHeardSinceStart[nodeID]
 	var hello nodeproto.Hello
 	if isConnected {
 		hello = node.hello
@@ -58,7 +58,7 @@ func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources,
 func (service *Service) devicesOf(nodeID int64) []nodeproto.Device {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if node, isConnected := service.connectedNodes[nodeID]; isConnected {
+	if node, isConnected := service.nodesHeardSinceStart[nodeID]; isConnected {
 		return node.hello.Devices
 	}
 	return nil

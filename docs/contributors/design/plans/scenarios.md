@@ -311,7 +311,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   tombstoned and their jobs cancelled; history stays on the Titles. Until then, its jobs wait
   without spending anything.
 - **Today:**
-  - The core cannot tell. `connectedNodes` never forgets a node, so `IsConnected` stays true
+  - The core cannot tell. `nodesHeardSinceStart` never forgets a node, so `IsConnected` stays true
     until the core restarts. Commands pile up in memory.
   - Each prepare, subtitle or loudness job waits `maxSilence` (5 minutes; loudness waits longer,
     in proportion to file size) and spends an attempt. The artwork job waits 2 minutes and runs
@@ -406,7 +406,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   does not run an attempt it ended again, work it holds that no job wants is cancelled at its next
   status (`TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem`,
   `TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain`,
-  `TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds`), and a node that started again is not sent
+  `TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds`), and a node that started again is not sent
   the commands of the jobs its restart ended (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
   A job failed by `assigned_job_limit_hours` tells its node to stop (2026-10-04, D244 §6:
   `TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop`).
@@ -827,7 +827,7 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   kept and spends nothing (`TestFetchSubtitle_TheSameSubtitleForAFileIsDownloadedOnce`).
 - **S91 — The owner stops the core with a cancel pending for a running node job.** *Expected:* at
   hello, reconciliation tells the node to stop it. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): work a node holds that no job wants is
-  cancelled at its next status (`TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds`,
+  cancelled at its next status (`TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds`,
   `TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
 
 ## Gaps and questions

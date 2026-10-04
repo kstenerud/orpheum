@@ -323,9 +323,9 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 	ctx := t.Context()
 	queuedBefore := len(bench.jobs.requests)
 	stalledAt := bench.clock.Now()
-	since, err := bench.scans.RootStalled(ctx, bench.nodeID, root)
+	since, err := bench.scans.MarkRootStalled(ctx, bench.nodeID, root)
 	if err != nil || !since.Equal(stalledAt) {
-		t.Fatalf("RootStalled = %v, %v; want unavailable since now, %v", since, err, stalledAt)
+		t.Fatalf("MarkRootStalled = %v, %v; want unavailable since now, %v", since, err, stalledAt)
 	}
 	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
 	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(stalledAt) {
@@ -336,7 +336,7 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 		t.Fatal("no scan of the stalled root was asked for")
 	}
 	bench.clock.Advance(time.Minute)
-	if again, err := bench.scans.RootStalled(ctx, bench.nodeID, root); err != nil || !again.Equal(stalledAt) {
+	if again, err := bench.scans.MarkRootStalled(ctx, bench.nodeID, root); err != nil || !again.Equal(stalledAt) {
 		t.Errorf("a second stall = %v, %v; want it unavailable since the first, %v", again, err, stalledAt)
 	}
 	bench.list(listedFile("Wing.mkv", 5, 1))
@@ -354,7 +354,7 @@ func TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt(t *testi
 	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
 	ctx := t.Context()
 	goneAt := bench.clock.Now()
-	if err := bench.scans.RootNotNamed(ctx, bench.nodeID, root); err != nil {
+	if err := bench.scans.MarkRootNotNamed(ctx, bench.nodeID, root); err != nil {
 		t.Fatal(err)
 	}
 	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))

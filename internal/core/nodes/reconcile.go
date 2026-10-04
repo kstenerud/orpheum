@@ -10,7 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// Square squares the jobs given to a node with what its status says it holds (D234 §6), judging no
+// Reconcile reconciles the jobs given to a node with what its status says it holds (D234 §6), judging no
 // attempt whose command, onTheirWay, the node has not taken yet. An attempt it holds is heard of, its
 // job adopted (S82). One it does not hold, waiting, running or with its result on its way, is lost: a
 // broken invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
@@ -18,7 +18,7 @@ import (
 // node is told to drop it (S91, G4); one whose result is on its way is left to it. One the node says
 // has not moved for MovementWindow is stopped, as a stall (ErrNotMoving): the core holds work only
 // while it moves, waiting work moving as the work ahead of it does (D233 §5).
-func (all *Exchanges) Square(
+func (all *Exchanges) Reconcile(
 	ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool,
 ) {
 	heldByToken := make(map[string]nodeproto.HeldAttempt, len(held))
@@ -89,7 +89,7 @@ func wordOfHeld(state nodeproto.HeldState) (nodeproto.ProgressState, bool) {
 }
 
 // brokeAnInvariant logs and counts a difference between what the core gave a node and what it holds,
-// which is squared, never silently (D234 §4).
+// which is reconciled, never silently (D234 §4).
 func (all *Exchanges) brokeAnInvariant(ctx context.Context, nodeID int64, what string, jobID int64, token string) {
 	all.mutex.Lock()
 	all.brokenInvariants[nodeID]++
@@ -99,7 +99,7 @@ func (all *Exchanges) brokeAnInvariant(ctx context.Context, nodeID int64, what s
 }
 
 // BrokenInvariants is how many differences between what the core gave a node and what it held this
-// core has squared, for the System page (Phase 6).
+// core has reconciled, for the System page (Phase 6).
 func (all *Exchanges) BrokenInvariants(nodeID int64) int {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()

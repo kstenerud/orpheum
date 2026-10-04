@@ -87,7 +87,7 @@ func TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs(t *testing.T)
 	jobs.runDue(t, runner)
 	jobs.runDue(t, runner)
 	paused := jobs.job(t, 1).ID
-	jobs.queue.SetNodeWords(func(jobID int64) (string, bool) { return "paused", jobID == paused })
+	jobs.queue.SetReportedProgress(func(jobID int64) (string, bool) { return "paused", jobID == paused })
 	if view := jobs.view(t, paused); view.State != "running" || view.OnNode != "paused" {
 		t.Errorf("the job its node paused shows %q, on its node %q; want running, paused", view.State, view.OnNode)
 	}

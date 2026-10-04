@@ -74,7 +74,7 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 		t.Fatalf("due rechecks %v twelve hours on; want the item's record refreshed once (D213 section 1)", due)
 	}
 	// The recheck's refresh asks for the images again: it removes the rows it left.
-	if err := bench.service.RetryImages(t.Context(), bench.itemID); err != nil {
+	if err := bench.service.MarkImagesOwedAgain(t.Context(), bench.itemID); err != nil {
 		t.Fatal(err)
 	}
 	bench.handle(t, gone)

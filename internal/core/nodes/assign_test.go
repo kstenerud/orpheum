@@ -64,7 +64,7 @@ func (bench exchangeBench) assign(t *testing.T) nodeproto.Command {
 	if len(bench.sender.sent) != 0 {
 		t.Fatal("the node was sent the work before its job was recorded assigned")
 	}
-	jobqueue.Hand(t.Context(), err) // as the runner does, once it recorded the job assigned
+	jobqueue.HandOver(t.Context(), err) // as the runner does, once it recorded the job assigned
 	return testutil.Receive(t, bench.sender.sent, "the prepare command")
 }
 
@@ -207,12 +207,12 @@ func TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode(t *testing.T) {
 	}
 }
 
-// The core squares what it gave a node with what the node's status says it holds (D234 §6): an
+// The core reconciles what it gave a node with what the node's status says it holds (D234 §6): an
 // attempt held is heard of, its job adopted; one not held, whose command the node took, is lost, a
 // broken invariant counted, its job resolved as the tool's failure; one still on its way is not
 // judged; work held that no job was given is a broken invariant too, and the node told to drop it;
 // work whose result is on its way is left to it.
-func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
+func TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
@@ -223,7 +223,7 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 	go bench.exchanges.Watch(t.Context(), tick)
 	for range 3 {
 		bench.now.Advance(40 * time.Second)
-		bench.exchanges.Square(t.Context(), 1, running, nil)
+		bench.exchanges.Reconcile(t.Context(), 1, running, nil)
 		tick <- time.Time{}
 	}
 	select {
@@ -231,7 +231,7 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 		t.Fatalf("job 7, held by its node, was resolved with %v; want it adopted, heard of by each status", answer)
 	default:
 	}
-	bench.exchanges.Square(t.Context(), 1, nil, map[string]bool{sent.AttemptToken: true})
+	bench.exchanges.Reconcile(t.Context(), 1, nil, map[string]bool{sent.AttemptToken: true})
 	select {
 	case answer := <-resolved:
 		t.Fatalf("job 7, its command on its way, was resolved with %v; want it not judged", answer)
@@ -240,7 +240,7 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 	if count := bench.exchanges.BrokenInvariants(1); count != 0 {
 		t.Fatalf("%d broken invariants before any, want none", count)
 	}
-	bench.exchanges.Square(t.Context(), 1, nil, nil)
+	bench.exchanges.Reconcile(t.Context(), 1, nil, nil)
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(answer, nodes.ErrWorkLost) {
 		t.Errorf("job 7, its node not holding it, was resolved with %v, want ErrWorkLost", answer)
 	}
@@ -248,7 +248,7 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 		{JobID: 9, AttemptToken: "stray", State: nodeproto.HeldRunning},
 		{JobID: 10, AttemptToken: "ended", State: nodeproto.HeldEnded},
 	}
-	bench.exchanges.Square(t.Context(), 1, stray, nil)
+	bench.exchanges.Reconcile(t.Context(), 1, stray, nil)
 	if stop := testutil.Receive(t, bench.sender.sent, "the cancel"); stop.Type != nodeproto.CommandCancel ||
 		stop.AttemptToken != "stray" {
 		t.Errorf("the node was sent %+v, want told to drop the work no job was given", stop)
@@ -261,23 +261,23 @@ func TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds(t *testing.T) {
 
 // Where the node holding a job's work last said it is, by its progress or its status, is kept for
 // the job view: waiting, running, or paused for play-driven work (D240 §6).
-func TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
+func TestReportedProgressOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
 	sent := bench.assign(t)
-	if word, isSaid := bench.exchanges.NodeWordOf(7); isSaid {
+	if word, isSaid := bench.exchanges.ReportedProgressOf(7); isSaid {
 		t.Errorf("before the node spoke of job 7 its word is %q, want none", word)
 	}
 	bench.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
 		JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.ProgressWaiting,
 	})
-	if word, _ := bench.exchanges.NodeWordOf(7); word != nodeproto.ProgressWaiting {
+	if word, _ := bench.exchanges.ReportedProgressOf(7); word != nodeproto.ProgressWaiting {
 		t.Errorf("after its progress said waiting, job 7's word is %q", word)
 	}
-	bench.exchanges.Square(t.Context(), 1,
+	bench.exchanges.Reconcile(t.Context(), 1,
 		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldPaused}}, nil)
-	if word, _ := bench.exchanges.NodeWordOf(7); word != nodeproto.ProgressPaused {
+	if word, _ := bench.exchanges.ReportedProgressOf(7); word != nodeproto.ProgressPaused {
 		t.Errorf("after its status said paused, job 7's word is %q", word)
 	}
 }
@@ -285,7 +285,7 @@ func TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 // The core holds work only while its node says it moves: running or waiting work the node says has
 // not moved for the core's window is stopped and answered as not moving, the tool's failure, which a
 // kind's UnansweredOutcome takes as a stall; under the window it is held (D233 §5).
-func TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped(t *testing.T) {
+func TestReconcile_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
@@ -297,13 +297,13 @@ func TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped(t *testing.T) {
 			SinceMovedMs: sinceMoved.Milliseconds(),
 		}}
 	}
-	bench.exchanges.Square(t.Context(), 1, held(29*time.Minute), nil)
+	bench.exchanges.Reconcile(t.Context(), 1, held(29*time.Minute), nil)
 	select {
 	case answer := <-resolved:
 		t.Fatalf("job 7, not moving for 29 minutes, was resolved with %v; want it held", answer)
 	default:
 	}
-	bench.exchanges.Square(t.Context(), 1, held(30*time.Minute), nil)
+	bench.exchanges.Reconcile(t.Context(), 1, held(30*time.Minute), nil)
 	answer := testutil.Receive(t, resolved, "job 7's answer")
 	if !errors.Is(answer, nodes.ErrNotMoving) {
 		t.Errorf("job 7, not moving for 30 minutes, was resolved with %v, want ErrNotMoving", answer)

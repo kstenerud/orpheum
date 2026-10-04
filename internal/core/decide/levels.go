@@ -119,12 +119,12 @@ func LevelPrepare(command *nodeproto.Prepare, levels Levels, probe nodeproto.Pro
 		track := &command.AudioTracks[index]
 		track.CarriedGainDB = StereoLevelling(levels, probe, track.AudioTrackIndex).GainDB
 	}
-	return CarriedGains(command.AudioTracks)
+	return CarriedGainsJSON(command.AudioTracks)
 }
 
-// CarriedGains are the gains a prepare puts in its audio tracks, by their place, as a rendition
+// CarriedGainsJSON are the gains a prepare puts in its audio tracks, by their place, as a rendition
 // records them (D226 §4).
-func CarriedGains(tracks []nodeproto.PrepareAudio) string {
+func CarriedGainsJSON(tracks []nodeproto.PrepareAudio) string {
 	gains := make([]float64, 0, len(tracks))
 	for _, track := range tracks {
 		gains = append(gains, track.CarriedGainDB)

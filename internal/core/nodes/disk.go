@@ -25,7 +25,7 @@ const UnreadableOnDisk = "its disk could not be read: "
 // unavailable, so what is under it is said to be so, and a scan of it is asked for, which brings it
 // back once it reads it again (D233 §10, D241): library.Scans.
 type DiskStalls interface {
-	RootStalled(ctx context.Context, nodeID int64, rootPath string) (since time.Time, err error)
+	MarkRootStalled(ctx context.Context, nodeID int64, rootPath string) (since time.Time, err error)
 }
 
 // SetDiskStalls names what the core does when work stalls on its disk. Set it before the channel
@@ -67,7 +67,7 @@ func (all *Exchanges) parkOnStalledDisk(
 	if stall.WaitingOnPath != "" && !pathtree.IsAtOrUnder(stall.WaitingOnPath, file.RootPath) {
 		return parkOnStalledPreparedDisk(attempt, *stall)
 	}
-	since, err := disks.RootStalled(ctx, attempt.NodeID, file.RootPath)
+	since, err := disks.MarkRootStalled(ctx, attempt.NodeID, file.RootPath)
 	if err != nil {
 		return true, fmt.Errorf("make root %s unavailable after a stall on its disk: %w", file.RootPath, err)
 	}

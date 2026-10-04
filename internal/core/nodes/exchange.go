@@ -25,7 +25,7 @@ type Sender interface {
 	// Send queues work for a node, and parks its job on one that is not connected.
 	Send(ctx context.Context, nodeID int64, command nodeproto.Command) error
 	// Ready is nil for a node work can be sent to, and parks the job on one that is not connected.
-	Ready(ctx context.Context, nodeID int64) error
+	ParkUnlessConnected(ctx context.Context, nodeID int64) error
 	// Enqueue queues a command as it is: a cancel.
 	Enqueue(nodeID int64, command nodeproto.Command)
 	// Withdraw takes an attempt's commands the node has not taken out of its queue, and says whether
@@ -90,7 +90,7 @@ type Exchanges struct {
 	// attempts are the jobs assigned to nodes, by attempt token, mirroring cache.db's (Assign).
 	attempts  map[string]*heldAttempt // guarded by mutex
 	assignees map[jobs.Kind]Assignee  // guarded by mutex
-	// brokenInvariants counts, by node, the differences squared between what it was given and held.
+	// brokenInvariants counts, by node, the differences reconciled between what it was given and held.
 	brokenInvariants map[int64]int // guarded by mutex
 	disks            DiskStalls    // guarded by mutex
 }
@@ -167,19 +167,19 @@ func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string)
 // StallOutcome is a handler's answer to a node's word that the work stalled and was stopped: a
 // hang says nothing of the target the first time, so the job is tried again at no cost of an
 // attempt (jobs.MarkStalled), and when its last attempt's tool failed too it is the target's
-// failure, begun with twice and kept by keepFailure when it is not nil (D233 §6). A second stall on
+// failure, begun with secondStallPrefix and kept by keepFailure when it is not nil (D233 §6). A second stall on
 // its disk is begun with UnreadableOnDisk instead (D233 §10).
-func StallOutcome(job jobs.Job, stalled error, twice string, keepFailure func(failure string) error) error {
+func StallOutcome(job jobs.Job, stalled error, secondStallPrefix string, keepFailure func(failure string) error) error {
 	if !job.PreviousAttemptToolFailed {
 		return jobs.MarkStalled(stalled)
 	}
 	if errors.Is(stalled, ErrStalledOnDisk) {
-		twice = UnreadableOnDisk
+		secondStallPrefix = UnreadableOnDisk
 	}
 	if keepFailure == nil {
-		return jobs.MarkPermanent(fmt.Errorf("%s%w", twice, stalled))
+		return jobs.MarkPermanent(fmt.Errorf("%s%w", secondStallPrefix, stalled))
 	}
-	failure := twice + stalled.Error()
+	failure := secondStallPrefix + stalled.Error()
 	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
 }
 

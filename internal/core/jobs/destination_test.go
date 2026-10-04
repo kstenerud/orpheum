@@ -53,7 +53,7 @@ func TestPark_TheProbeBackoffIsTheSettings(t *testing.T) {
 	settingstest.Set(t, jobs.config, settings.DestinationFirstProbeDelaySeconds, "10")
 	settingstest.Set(t, jobs.config, settings.DestinationLongestProbeDelaySeconds, "25")
 	for index, want := range []time.Duration{10 * time.Second, 20 * time.Second, 25 * time.Second} {
-		parking := Parking{Destination: DestinationTMDBAPI, Reason: "unreachable", IsProbe: index > 0}
+		parking := Parking{Destination: DestinationTMDBAPI, Reason: "unreachable", IsProbeFailure: index > 0}
 		jobs.queue.Park(t.Context(), parking)
 		state, _ := jobs.queue.DestinationState(DestinationTMDBAPI)
 		if state.NextProbeAt.Sub(jobs.clock.Now()) != want {

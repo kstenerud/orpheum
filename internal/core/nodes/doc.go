@@ -70,16 +70,16 @@
 //     its work and its cancel, and never sent (S27, G4); a stop of work the node never took sends
 //     nothing. TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem,
 //     TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing.
-//   - Each status is squared with what the node was given (D234 §6), judging no attempt whose command
+//   - Each status is reconciled with what the node was given (D234 §6), judging no attempt whose command
 //     the node had not taken: one held is adopted, heard of (S82); one not held is lost, a broken
 //     invariant logged and counted, its job resolved as the tool's failure (ErrWorkLost); work held
 //     that no job was given, or wants, is a broken invariant, and the node told to drop it (S91, G4);
-//     work whose result is on its way is left to it. TestSquare_SquaresWhatANodeWasGivenWithWhatItHolds,
-//     TestStatus_IsSquaredWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
+//     work whose result is on its way is left to it. TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds,
+//     TestStatus_IsReconciledWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
 //   - The core holds work only while its node says it moves: work held that the status says has not
 //     moved for MovementWindow, past every window the node judges its own work by, is stopped and
 //     resolved as ErrNotMoving, which UnansweredOutcome takes as a stall (D233 §5).
-//     TestSquare_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
+//     TestReconcile_WorkItsNodeSaysHasNotMovedForTheWindowIsStopped.
 //   - A hello makes each library root on its node that it does not name unavailable, whether or not
 //     it asks for scans (D241 §2). TestHello_MakesALibraryRootItNoLongerNamesUnavailable.
 //   - Work that stalls waiting on its disk the first time makes the root it reads unavailable
@@ -100,7 +100,7 @@
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot.
 //   - The reply to a hello names the renditions it listed that the index keeps (RenditionIndex),
-//     and the node evicts the others; with no index, or one that cannot be squared, every one is
+//     and the node evicts the others; with no index, or one that cannot be reconciled, every one is
 //     kept, so the node evicts nothing for the core's failure (D238 §2).
 //     TestHello_RepliesWithTheRenditionsTheIndexKeepsAndKeepsAllWhenItCannotSay.
 //   - The core gives a node only as many jobs of a slot as it runs at once, and as many reading a
@@ -115,10 +115,10 @@
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for
 //     commands carries the reader limits the settings say then. Where a node last said a job's work
-//     is, by its progress or status, is kept for the job view (NodeWordOf).
+//     is, by its progress or status, is kept for the job view (ReportedProgressOf).
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot,
 //     TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow,
-//     TestNodeWordOf_IsWhereTheNodeLastSaidAJobsWorkIs.
+//     TestReportedProgressOf_IsWhereTheNodeLastSaidAJobsWorkIs.
 //   - A device's reader limit an admin set wins over its kind's setting until cleared, in the hello's
 //     reply, each poll's answer and the System page (D240 §5).
 //     TestSetReaderLimit_ADevicesSetLimitWinsOverItsKindsUntilCleared.
@@ -171,7 +171,7 @@
 //     channel.go: commands, the status and the nodes' results; bytes.go:
 //     reading a file's bytes from a node's byte socket (cut-a §4); exchange.go: the exchanges,
 //     and the results and progress nodes send; assign.go: a job given to a node, assigned, and
-//     resolved by its word; square.go: what a node was given squared with what it holds.
+//     resolved by its word; reconcile.go: what a node was given reconciled with what it holds.
 //   - devices.go: how many may read each of a node's devices, by its kind's setting or an admin's
 //     limit (D240 §5); disk.go: work stalled on its disk, which parks its root (D233 §10).
 package nodes

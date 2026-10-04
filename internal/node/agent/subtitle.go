@@ -59,8 +59,8 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 	}
 	return heldWork{stalls: stalls, run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
-		result, refusalOrFailure, isAnswered := agent.answerUnlessStalled(jobCtx, job, stalls)
-		if !isAnswered {
+		result, refusalOrFailure, didStall := agent.answerUnlessStalled(jobCtx, job, stalls)
+		if didStall {
 			agent.postResult(ctx, nodeID, job.jobKind, job.named(result))
 			return
 		}
@@ -78,14 +78,14 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 }
 
 // answerUnlessStalled makes the job's answer, unless its reading stops moving first: then its
-// answer is that it stalled on its disk, isAnswered is false, and its reading is listed as stuck
+// answer is that it stalled on its disk, didStall is true, and its reading is listed as stuck
 // until it ends, its own answer dropped. A job without a stalled answer is answered as it ends.
 func (agent *Agent) answerUnlessStalled(
 	ctx context.Context, job answeringJob, stalls <-chan time.Duration,
-) (result nodeproto.Result, refusalOrFailure string, isAnswered bool) {
+) (result nodeproto.Result, refusalOrFailure string, didStall bool) {
 	if stalls == nil {
 		result, refusalOrFailure = job.makeAnswer(ctx)
-		return result, refusalOrFailure, true
+		return result, refusalOrFailure, false
 	}
 	type answer struct {
 		result           nodeproto.Result
@@ -98,10 +98,10 @@ func (agent *Agent) answerUnlessStalled(
 	}()
 	select {
 	case made := <-answered:
-		return made.result, made.refusalOrFailure, true
+		return made.result, made.refusalOrFailure, false
 	case <-ctx.Done():
 		// Cancelled: the job ends now, its reading left to end on its own.
-		return nodeproto.Result{}, ctx.Err().Error(), true
+		return nodeproto.Result{}, ctx.Err().Error(), false
 	case stood := <-stalls:
 		agent.stuckReads.add(job.token, nodeproto.Stuck{
 			Tool: stuckReadTool, Paths: []string{job.reading}, Since: agent.clock.Now().UnixMilli(),
@@ -117,7 +117,7 @@ func (agent *Agent) answerUnlessStalled(
 		return job.stalledAnswer(nodeproto.Stall{
 			Cause: nodeproto.StallStoodStill, Condition: nodeproto.ConditionWaitingOnDisk, IsLeftRunning: true,
 			WithoutAdvanceMs: stood.Milliseconds(), Detail: detail,
-		}), "", false
+		}), "", true
 	}
 }
 

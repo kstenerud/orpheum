@@ -108,11 +108,11 @@ func (scans *Scans) request(ctx context.Context, nodeID int64, root string, prio
 	return scans.queueListing(ctx, scanID, nodeID, root, priority)
 }
 
-// RootStalled is the core's answer to work that stalled waiting on a root's disk (D233 §10): the
+// MarkRootStalled is the core's answer to work that stalled waiting on a root's disk (D233 §10): the
 // root is unavailable from now, so plays of what is under it fail at once and say so (D241), and a
 // scan of it is asked for, whose reading it brings it back and the work parked on it (D231 §6). It
 // returns since when it is unavailable. A scan already running is asked for again after it ends.
-func (scans *Scans) RootStalled(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
+func (scans *Scans) MarkRootStalled(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
 	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
 	if err != nil {
 		return time.Time{}, err
@@ -122,10 +122,10 @@ func (scans *Scans) RootStalled(ctx context.Context, nodeID int64, rootPath stri
 	return since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
 }
 
-// RootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
+// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
 // already was: plays of what is under it fail at once and say so, and nothing is removed on the
 // absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
-func (scans *Scans) RootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
+func (scans *Scans) MarkRootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
 	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func (scans *Scans) queueListing(ctx context.Context, scanID, nodeID int64, root
 	return errors.Join(fmt.Errorf("queue the listing of %s: %w", root, err), deleteErr)
 }
 
-// Resume squares the scans in cache.db with a core that has just started. One whose listing was taken
+// Resume reconciles the scans in cache.db with a core that has just started. One whose listing was taken
 // starts again: what the ingest compared is lost with the core. One not yet listed is queued again,
 // which a job still queued for it absorbs.
 func (scans *Scans) Resume(ctx context.Context) error {

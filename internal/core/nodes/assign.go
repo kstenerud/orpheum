@@ -72,10 +72,10 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if err != nil {
 		return fmt.Errorf("read assigned_job_limit_hours: %w", err)
 	}
-	if notReady := all.sender.Ready(ctx, nodeID); notReady != nil {
+	if notReady := all.sender.ParkUnlessConnected(ctx, nodeID); notReady != nil {
 		return notReady
 	}
-	if full := all.windowFull(ctx, nodeID, command.Work, job.Priority >= jobs.PriorityPlayNow); full != nil {
+	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, job.Priority >= jobs.PriorityPlayNow); full != nil {
 		return full
 	}
 	token, err := all.newToken()
@@ -95,12 +95,14 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	return jobs.AssignThen(now.Add(limit), func(context.Context) { all.sender.Enqueue(nodeID, command) })
 }
 
-// windowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
+// parkIfWindowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
 // work's slot as the node runs at once, and as many reading its device as may read it, each with
 // node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Play-driven work is
 // never held back for its device's readers: the node pauses the background work reading it (D240
 // §6). It is nil while there is room, and for a node whose resources are not known.
-func (all *Exchanges) windowFull(ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool) error {
+func (all *Exchanges) parkIfWindowFull(
+	ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool,
+) error {
 	resources, isConnected, err := all.rooms.Resources(ctx, nodeID)
 	if err != nil || !isConnected {
 		return err
@@ -190,9 +192,9 @@ func (all *Exchanges) Reprioritize(jobID, priority int64) {
 	}
 }
 
-// NodeWordOf is where the node that holds a job's attempt last said it is, waiting for a slot or a
+// ReportedProgressOf is where the node that holds a job's attempt last said it is, waiting for a slot or a
 // reader, running, or paused for play-driven work (D240 §6), and whether a node holds one and said.
-func (all *Exchanges) NodeWordOf(jobID int64) (nodeproto.ProgressState, bool) {
+func (all *Exchanges) ReportedProgressOf(jobID int64) (nodeproto.ProgressState, bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	for _, held := range all.attempts {

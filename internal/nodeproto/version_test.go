@@ -45,6 +45,8 @@ var wireShapeByVersion = map[int]string{
 	19: "821d42fb4c9c3edb01da3df1ac6eb2d61ee05a4a4a45b6d100addb3b3feba80c",
 	// 20 adds, to a stall waiting on the disk, the file the run was blocked on (D244 §6).
 	20: "7ef9e0f76c3122e4e8bdeb3c4ce62a5be3f9d80d632f756a0a56e5b73910df73",
+	// 21 names a listed entry's filesystem device number for what it is (the pre-M4 audit).
+	21: "a9b483b035696bb1912c31aebc850e6012cb9f5edfa9529972c014c264dd1fbb",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

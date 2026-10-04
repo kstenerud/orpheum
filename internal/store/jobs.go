@@ -46,7 +46,7 @@ func (jobStorage *JobStorage) Enqueue(
 ) error {
 	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		columns := target.columns()
-		rows, err := queries.ListOpenJobs(ctx, cachegen.ListOpenJobsParams{
+		rows, err := queries.ListOpenJobsOfTarget(ctx, cachegen.ListOpenJobsOfTargetParams{
 			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
 			ScanID: columns.scan, ScanBatchID: columns.scanBatch,

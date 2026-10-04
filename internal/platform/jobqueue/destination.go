@@ -29,10 +29,10 @@ type Parking struct {
 	// something outside the queue sees it return (a node's hello, a scan finding a root, a key
 	// changed, room made).
 	AwaitsSignal bool
-	// IsProbe is a failure that was the destination's probe: a person's synchronous call to a
+	// IsProbeFailure is a failure that was the destination's probe: a person's synchronous call to a
 	// parked host counts as one (D231 §6). The queue knows its own probes; a caller outside a job
 	// says so here.
-	IsProbe bool
+	IsProbeFailure bool
 }
 
 // DestinationState is a parked destination, as a person is shown it (D231 §12).
@@ -109,7 +109,7 @@ func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 	queue.destinations.mutex.Lock()
 	defer queue.destinations.mutex.Unlock()
 	parked, isParked := queue.destinations.parkedBy[parking.Destination]
-	if isParked && !parking.IsProbe {
+	if isParked && !parking.IsProbeFailure {
 		if !parked.state.AwaitsSignal && parking.ProbeAt.After(parked.state.NextProbeAt) {
 			parked.state.NextProbeAt = parking.ProbeAt
 		}

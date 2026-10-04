@@ -345,9 +345,9 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 	return nil
 }
 
-// RetryImages makes items' missing and refused images owed again, for their next pass to find
+// MarkImagesOwedAgain makes items' missing and refused images owed again, for their next pass to find
 // (D213 §1, §2): a refresh that looks again, which identify asks for through the server's wiring.
-func (service *Service) RetryImages(ctx context.Context, itemIDs ...int64) error {
+func (service *Service) MarkImagesOwedAgain(ctx context.Context, itemIDs ...int64) error {
 	now := service.parts.Clock.Now().UnixMilli()
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for _, itemID := range itemIDs {

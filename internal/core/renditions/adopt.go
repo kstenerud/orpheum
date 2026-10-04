@@ -15,7 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// AdoptRenditions squares the index with the renditions a node's hello lists, by their manifests
+// AdoptRenditions reconciles the index with the renditions a node's hello lists, by their manifests
 // (D238 §2), and returns the directories of those it keeps, which the node does not evict. One whose
 // making the index names is kept, and recorded complete if the index had not heard it end: a node
 // that started again lost its word on it, but not the rendition. One the index does not know, as
@@ -40,12 +40,12 @@ func (service *Service) AdoptRenditions(
 	}
 	if adopted > 0 {
 		service.logger.InfoContext(ctx, "adopted the renditions a node holds that the index did not know",
-			"nodeId", nodeID, "adopted", adopted)
+			"nodeId", nodeID, "adoptedCount", adopted)
 	}
 	return kept, nil
 }
 
-// adopt squares the index with one rendition a node holds, as AdoptRenditions says.
+// adopt reconciles the index with one rendition a node holds, as AdoptRenditions says.
 func (service *Service) adopt(
 	ctx context.Context, nodeID int64, manifest nodeproto.RenditionManifest,
 ) (isKept, isAdopted bool, err error) {
@@ -96,7 +96,7 @@ func (service *Service) adoptUnknown(
 			SegmentLengthSeconds: int64(manifest.Prepare.SegmentLengthSeconds), RunID: run.runID,
 			SizeBytes: &manifest.SizeBytes, VideoEncoder: ptr.NilIfZero(manifest.VideoEncoder),
 			RealtimeFactor:     ptr.NilIfZero(manifest.RealtimeFactor),
-			CarriedGainsDBJSON: decide.CarriedGains(manifest.Prepare.AudioTracks),
+			CarriedGainsDBJSON: decide.CarriedGainsJSON(manifest.Prepare.AudioTracks),
 			AudioLanguagesJSON: audioLanguagesOf(manifest.Prepare.AudioTracks), MadeAt: manifest.MadeAtMs,
 		})
 		return insertErr

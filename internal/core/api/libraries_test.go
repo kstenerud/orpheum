@@ -118,15 +118,15 @@ var fakeNodeLastHeard = time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UT
 
 // Send parks the job on the node while it is away, as nodes.Service does.
 func (nodes *fakeNodes) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
-	if err := nodes.Ready(ctx, nodeID); err != nil {
+	if err := nodes.ParkUnlessConnected(ctx, nodeID); err != nil {
 		return err
 	}
 	nodes.Enqueue(nodeID, command)
 	return nil
 }
 
-// Ready parks the job on the node while it is away, as nodes.Service does.
-func (nodes *fakeNodes) Ready(ctx context.Context, nodeID int64) error {
+// ParkUnlessConnected parks the job on the node while it is away, as nodes.Service does.
+func (nodes *fakeNodes) ParkUnlessConnected(ctx context.Context, nodeID int64) error {
 	if !nodes.IsConnected(ctx, nodeID) {
 		return fmt.Errorf("send: %w", jobs.ParkOnNode(nodeID, fakeNodeLastHeard, corenodes.ErrNodeSilent))
 	}

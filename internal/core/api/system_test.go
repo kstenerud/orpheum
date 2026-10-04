@@ -363,7 +363,7 @@ func TestSystem_ShowsWhatEachNodeIsDoing(t *testing.T) {
 		{JobID: 4, State: nodeproto.HeldEnded},
 	}
 	// The node says it holds work the core never gave it: a broken invariant (D234 §4).
-	harness.exchanges.Square(t.Context(), 1, []nodeproto.HeldAttempt{
+	harness.exchanges.Reconcile(t.Context(), 1, []nodeproto.HeldAttempt{
 		{JobID: 99, AttemptToken: "never-given", State: nodeproto.HeldRunning},
 	}, nil)
 	work := harness.system(t, admin).Body.Nodes[0].Work

@@ -132,12 +132,12 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 		return nil, server.playbackError(ctx, "find a subtitle", err)
 	}
 	switch subtitleText.Readiness {
-	case jobs.Preparing:
+	case jobs.ReadinessPreparing:
 		return nil, tooEarly()
-	case jobs.Failed:
+	case jobs.ReadinessFailed:
 		return nil, newError(http.StatusBadGateway, CodePrepareFailed,
 			"this subtitle could not be extracted: "+subtitleText.Failure)
-	case jobs.Complete:
+	case jobs.ReadinessComplete:
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		stream.SetHeader("Content-Type", contentType)

@@ -193,7 +193,7 @@ func TestRefresher_TheRollingRefreshPassesOverAnItemWithAFailureOfItsOwn(t *test
 // fakeImageRetrier records the items whose images a refresh asked for again.
 type fakeImageRetrier struct{ itemIDs []int64 }
 
-func (retrier *fakeImageRetrier) RetryImages(_ context.Context, itemIDs ...int64) error {
+func (retrier *fakeImageRetrier) MarkImagesOwedAgain(_ context.Context, itemIDs ...int64) error {
 	retrier.itemIDs = append(retrier.itemIDs, itemIDs...)
 	return nil
 }

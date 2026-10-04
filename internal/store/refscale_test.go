@@ -414,14 +414,15 @@ func fullScansAllowed() map[string]string {
 		"ListArtworkSourceSha256s": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
 			"and sorts them: walking item_added would pass every film and episode",
-		"ListTitlesByIdentification": "the admin's needs-a-match list: 1.3 ms at the reference scale",
-		"ListSeriesByIdentification": "the same list's series, which are few",
-		"ListLibraries":              "a household has a handful of libraries",
-		"ListLiveNodes":              "a household has a handful of nodes",
-		"ListFetchedLibraryIDs":      "a household has a handful of libraries; the first-match sweep lists them",
-		"ListLiveLibraryIDs":         "a household has a handful of libraries; the identification sweep lists them",
-		"ListOfflineRoots":           "a household's libraries have a handful of roots; the System page lists them",
-		"ListOfflineDisks":           "a household's libraries have a handful of roots, whose missing disks this lists",
+		"ListTitlesByIdentification":    "the admin's needs-a-match list: 1.3 ms at the reference scale",
+		"ListSeriesByIdentification":    "the same list's series, which are few",
+		"ListLibraries":                 "a household has a handful of libraries",
+		"ListLiveNodes":                 "a household has a handful of nodes",
+		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",
+		"ListLiveLibraryIDs":            "a household has a handful of libraries; the identification sweep lists them",
+		"ListOfflineRoots":              "a household's libraries have a handful of roots; the System page lists them",
+		"ListOfflineDisks": "a household's libraries have a handful of roots, whose missing disks " +
+			"this lists",
 	}
 }
 

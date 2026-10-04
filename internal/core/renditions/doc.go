@@ -2,7 +2,7 @@
 
 // Package renditions has a file's prepared copies made by its node and keeps their index in
 // cache.db: it wants a rendition for a playback, queues and runs its prepare job, records the
-// node's reports by the making they name, squares the index with a node's renditions at its
+// node's reports by the making they name, reconciles the index with a node's renditions at its
 // hello, and says where a rendition's files are (cut-a §6). Which playback needs a copy is
 // internal/core/decide's, and the media token that reaches it is internal/core/playback's.
 //
@@ -30,7 +30,7 @@
 //     end undoes it (G13). The job only learns how the work ended.
 //     TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits.
 //
-//   - The index of renditions is squared with those a node's hello lists by their manifests (D238
+//   - The index of renditions is reconciled with those a node's hello lists by their manifests (D238
 //     §2): one it does not know whose source is still that file on that node is adopted complete,
 //     which rebuilds the index after a cache.db discard; one whose making it names is kept, and
 //     recorded complete if its end was not heard; any other is not kept, and the node evicts it.
@@ -107,7 +107,7 @@
 //   - prepare.go: renditions' rows, their jobs and the nodes' reports. handle.go: the prepare job's
 //     handler, and its failure. record.go: a node's result recorded by its making. audio.go: a
 //     rendition's audio renditions and their levelling. files.go: where a rendition's files are,
-//     and preparing one again. adopt.go: the index squared with a node's renditions at its hello.
+//     and preparing one again. adopt.go: the index reconciled with a node's renditions at its hello.
 //     finished.go: a node's finished prepares, for the System page. service.go: what the service
 //     is built from.
 package renditions

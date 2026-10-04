@@ -7,7 +7,7 @@ type Readiness string
 
 // The readinesses: being made, done, or failed.
 const (
-	Preparing Readiness = "preparing"
-	Complete  Readiness = "complete"
-	Failed    Readiness = "failed"
+	ReadinessPreparing Readiness = "preparing"
+	ReadinessComplete  Readiness = "complete"
+	ReadinessFailed    Readiness = "failed"
 )

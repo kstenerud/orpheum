@@ -63,15 +63,15 @@ func (node *fakeNode) ConnectedNodeID(context.Context) (int64, bool) {
 
 // Send parks the job on a node that is not connected, as nodes.Service does.
 func (node *fakeNode) Send(ctx context.Context, nodeID int64, command nodeproto.Command) error {
-	if err := node.Ready(ctx, nodeID); err != nil {
+	if err := node.ParkUnlessConnected(ctx, nodeID); err != nil {
 		return err
 	}
 	node.Enqueue(nodeID, command)
 	return nil
 }
 
-// Ready parks the job on a node that is not connected, as nodes.Service does.
-func (node *fakeNode) Ready(_ context.Context, nodeID int64) error {
+// ParkUnlessConnected parks the job on a node that is not connected, as nodes.Service does.
+func (node *fakeNode) ParkUnlessConnected(_ context.Context, nodeID int64) error {
 	if nodeID != fakeNodeID || !node.isConnected {
 		return jobs.ParkOnNode(nodeID, time.Time{}, errors.New("not connected"))
 	}
@@ -576,7 +576,7 @@ func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTheToolsFailure(t *testin
 	ended := make(chan error, 1)
 	go func() { ended <- bench.run(t, job) }()
 	testutil.Receive(t, bench.node.enqueued, "the artwork command")
-	bench.service.exchanges.Square(t.Context(), fakeNodeID, nil, nil)
+	bench.service.exchanges.Reconcile(t.Context(), fakeNodeID, nil, nil)
 	err := testutil.Receive(t, ended, "the artwork job to end")
 	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
 		!strings.HasPrefix(err.Error(), "interrupted: ") {

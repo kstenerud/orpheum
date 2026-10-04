@@ -30,7 +30,7 @@ func manifestOf(run renditionRun, hash string) nodeproto.RenditionManifest {
 	}
 }
 
-// The index is squared with the renditions a node's hello lists (D238 §2): one it does not know, as
+// The index is reconciled with the renditions a node's hello lists (D238 §2): one it does not know, as
 // after a cache.db discard, is adopted complete when its source is still that file on that node;
 // one whose making it names is kept, complete though the node's word on its end was lost; one it
 // knows under another making, or whose source changed or is gone, is not kept, and the node evicts

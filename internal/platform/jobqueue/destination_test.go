@@ -299,7 +299,7 @@ func TestPark_TheProbeBackoffIsThePolicys(t *testing.T) {
 	})
 	ctx := t.Context()
 	for index, want := range []time.Duration{10 * time.Second, 20 * time.Second, 25 * time.Second, 25 * time.Second} {
-		jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable", IsProbe: index > 0})
+		jobs.queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable", IsProbeFailure: index > 0})
 		if state, _ := jobs.queue.DestinationState(host); state.NextProbeAt.Sub(jobs.clock.Now()) != want {
 			t.Errorf("probe %d is due in %v, want %v: the policy's first wait, doubling to its longest", index+1,
 				state.NextProbeAt.Sub(jobs.clock.Now()), want)

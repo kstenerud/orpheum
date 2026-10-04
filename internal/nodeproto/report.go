@@ -67,7 +67,7 @@ type Status struct {
 	// Disks are the filesystems the node's roots and prepared directory are on (D225 §3).
 	Disks []Disk `json:"disks,omitempty"`
 	// Held is every attempt the node holds, waiting or running, and every one whose result the core
-	// has not yet acknowledged, which the core squares with the jobs it gave the node (D234 §6).
+	// has not yet acknowledged, which the core reconciles with the jobs it gave the node (D234 §6).
 	Held []HeldAttempt `json:"held,omitempty"`
 	// TakenCommandSeq is the last command the node had taken when it made the list: the core judges
 	// only the attempts it sent up to it, so one still on its way is not taken for lost.

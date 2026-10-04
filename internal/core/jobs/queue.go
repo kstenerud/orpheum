@@ -153,8 +153,8 @@ type Queue struct {
 	clock    clock.Clock
 	settings Settings
 
-	nodeWordsMutex sync.Mutex
-	nodeWords      NodeWords // guarded by nodeWordsMutex: nil until set
+	reportedProgressMutex sync.Mutex
+	reportedProgress      ReportedProgress // guarded by reportedProgressMutex: nil until set
 }
 
 // NewQueue returns the queue. A person's request probes its parked destination at once, and
