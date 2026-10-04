@@ -12,7 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 )
 
@@ -59,9 +59,9 @@ type Instance struct {
 	directory string
 }
 
-// paths are a core instance's directories, for datadir.
-func (instance Instance) paths() datadir.Paths {
-	return datadir.Paths{
+// paths are a core instance's directories, for instancedir.
+func (instance Instance) paths() instancedir.Paths {
+	return instancedir.Paths{
 		Persistent: instance.PersistentDir, Cache: instance.CacheDir, Backups: instance.BackupsDir,
 		Run: instance.RunDir,
 	}
@@ -157,7 +157,7 @@ func makeInstance(dir string, kind instanceKind, runDir, writtenBy string) (Inst
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Instance{}, fmt.Errorf("look for an instance in %s: %w", dir, err)
 	}
-	inside := datadir.PathsIn(dir)
+	inside := instancedir.PathsIn(dir)
 	instance := Instance{
 		OrpheumVersion: writtenBy, Kind: kind, PersistentDir: inside.Persistent, CacheDir: inside.Cache,
 		RunDir: cmp.Or(runDir, inside.Run), directory: dir,

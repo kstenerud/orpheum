@@ -26,7 +26,7 @@ tables:
 - **CONTAIN, containment of hostile input**: confine, execx, bounded, the textindex sanitiser,
   library/clean.go, probe ("hostile bytes stop here"). It is a real seam with its own gates
   (forbidigo `[reveal]`, `core-no-image`).
-- **PERSIST, storage custody**: store, datadir. The design treats this as a layer, not a feature.
+- **PERSIST, storage custody**: store, instancedir. The design treats this as a layer, not a feature.
 - **COMPOSE, composition and lifecycle**: cmd/orpheum wiring. The node supervisor went in the jobs
   rebuild's Phase 4a: the node is a service of its own (D233 §2, D235 §4).
 - **PRIM, shared primitives**: platform/{clock,slogx,errs,ptr,randbytes,readonly}.
@@ -47,7 +47,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |
 | `internal/core/backup` | OPS | — |
-| `internal/core/datadir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
+| `internal/core/instancedir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
 | `internal/core/decide` | R7 | — (pure: imports nodeproto and the standard library alone; depguard `decide-sees-capabilities`; since 2026-10-03 also the levelling arithmetic, levels.go, F2) |
 | `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
 | `internal/core/providers` | R1 (each outside host as a provider service: health, rate, quota, credentials) | — (since 2026-09-30, the jobs rebuild's Phase 2; a host's health is its destination in the job queue) |
@@ -154,14 +154,14 @@ with `secret.key` only under `--include-key`). Which package writes each table i
 | backups/*.sqlite, pre-restore and pre-migrate snapshots | state dir | T1 copies | — | same disk (doctor.go:268 says so); manual until M4's scheduled backups (cut-a M4, D223 §6) |
 | art/<source sha256>/<size>.webp and .jpeg | cache dir | T3 (node-encoded); the provider source behind it is T2 | no | ⚑ provider images are not kept or backed up. Accepted by artwork.md:102 ("deleting cache/ costs time"); the refetch goes to the TMDB image CDN |
 | prepared/<file_id>/<profile>/<run_id>/ | node prepared_dir | T3 | no | correct place; the index is the problem (above) |
-| TLS/ACME keys | state dir (datadir doc) | T1/T2 | not in backup.go | M4; not built yet |
+| TLS/ACME keys | state dir (instancedir doc) | T1/T2 | not in backup.go | M4; not built yet |
 
 ## 3. Seams
 
 **Core ↔ node.** This seam is strong and enforced. depguard has `core-boundary`, `node-boundary`,
 `nodeproto-is-types` and `exec-only-in-execx` in `.golangci.yml`. The archtests are
 CoreNeverImportsNode, NodeNeverImportsCore, CoreNeverExecs and NodeprotoHasNoLogic. The one
-crossing, the node role in cmd/orpheum importing `internal/core/datadir` for `ListenUnix`
+crossing, the node role in cmd/orpheum importing `internal/core/instancedir` for `ListenUnix`
 (cmd/orpheum/node.go:20, :228), was closed on 2026-09-30: listening moved to
 `internal/platform/unixsocket`, and the depguard rule `node-role-boundary` now holds
 cmd/orpheum/node.go to the node's boundary (F8).
@@ -287,7 +287,7 @@ There are two finding types with two verdict spellings ("FAIL" and "fail"). Reco
 work.
 
 **F8. A seam crossed: the node role imports a core package.** *Fixed 2026-09-30.*
-cmd/orpheum/node.go:228 called `datadir.ListenUnix`. `ListenUnix` moved to
+cmd/orpheum/node.go:228 called `instancedir.ListenUnix`. `ListenUnix` moved to
 platform/unixsocket as `Listen`, beside the dialling it already owned, and the depguard rule
 `node-role-boundary` refuses any core or store import in cmd/orpheum/node.go.
 

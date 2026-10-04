@@ -171,7 +171,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   without our `application_id` is refused, not migrated; a database on a network filesystem is
   refused with a message (D31). **Enforced by:** `Open()`'s checks and their tests
   (`TestVerifyPragmas_RefusesAConnectionWithoutThem`, `TestOpen_RefusesAFileThatIsNotOurs`); the
-  network-filesystem refusal is `datadir`'s (`TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems`).
+  network-filesystem refusal is `instancedir`'s (`TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems`).
 - The choice between modernc and ncruces is made by benchmark on devnas and does not block M1
   (audit §5); both take this DSN form.
 

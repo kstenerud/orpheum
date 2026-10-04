@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/image/webp"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -58,7 +58,7 @@ func (service *Service) Serve(ctx context.Context, sourceSha256Hex string, name 
 		service.noteServed(sourceSha256Hex)
 		return Served{Bytes: stored}, nil
 	}
-	if errors.Is(err, datadir.ErrBadArtName) {
+	if errors.Is(err, instancedir.ErrBadArtName) {
 		return Served{}, ErrNoArt
 	}
 	if !isMissing(err) {
@@ -102,7 +102,7 @@ func (service *Service) serveNearest(
 
 // isMissing is a size the store does not have.
 func isMissing(err error) bool {
-	return errors.Is(err, datadir.ErrNotFound)
+	return errors.Is(err, instancedir.ErrNotFound)
 }
 
 // cutJPEG decodes the WebP of a size — our own encoder's output, and nothing else (D212 §5) —

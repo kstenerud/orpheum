@@ -2,7 +2,7 @@
 
 //go:build linux || darwin
 
-package datadir
+package instancedir
 
 import (
 	"errors"

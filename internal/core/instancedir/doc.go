@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package datadir is the only core package that touches the filesystem: a core instance's
+// Package instancedir is the only core package that touches the filesystem: a core instance's
 // directories, as its top-level config names them (D242 §3). The persistent directory holds what a
 // backup keeps (persistent.db, secret.key, the full config); the cache directory what can be
 // rebuilt (cache.db, art/); the backups directory the backups and pre-migration snapshots; and the
@@ -43,10 +43,10 @@
 //
 // # Where to change
 //
-//   - datadir.go: the layout (persistent.db, cache.db, the backups, persistent and run files) and
+//   - instancedir.go: the layout (persistent.db, cache.db, the backups, persistent and run files) and
 //     atomic writes.
 //   - archive.go: a backup's archive, written and read back (D242 §5).
 //   - art.go: the artwork store under the cache directory. lock_unix.go: the instance's lock. The
 //     sockets are internal/platform/unixsocket's, since the node listens on one too.
 //     netfs_*.go: the network-filesystem refusal.
-package datadir
+package instancedir

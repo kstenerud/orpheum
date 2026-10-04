@@ -19,9 +19,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
@@ -64,7 +64,7 @@ type testHarness struct {
 	setupCodes   *authtest.SetupCodes
 	databasePath string
 	database     *store.Database
-	directories  *datadir.Directories
+	directories  *instancedir.Directories
 	clock        *clocktest.Fake
 	nodeBytes    *fakeNodeBytes
 	queue        *jobs.Queue
@@ -110,7 +110,7 @@ func newHarness(t *testing.T) testHarness {
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
-	directories, err := datadir.Prepare(datadir.PathsIn(t.TempDir()))
+	directories, err := instancedir.Open(instancedir.PathsIn(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}

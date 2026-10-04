@@ -203,7 +203,7 @@ describe in a phrase, and give it that phrase as its name.
 - **No `nil, nil`.** A lookup that finds nothing returns a sentinel (`ErrNotFound`). **Enforced
   by:** nilnil.
 - **An error from outside the module is wrapped where it enters**: in `store` (the driver),
-  `node/execx` (a process), `core/datadir` and the node's scan, probe and bytes (the
+  `node/execx` (a process), `core/instancedir` and the node's scan, probe and bytes (the
   filesystem), `core/api`, `core/identify` and `core/turn` (the network). Inside the module,
   wrapping is for adding context, not ceremony. **Enforced by:** wrapcheck, scoped to those
   packages by an exclusion.
@@ -323,25 +323,25 @@ describe in a phrase, and give it that phrase as its name.
 
 ## 14. Filesystem
 
-- **The core touches files only in `internal/core/datadir`**: the state and cache directories.
+- **The core touches files only in `internal/core/instancedir`**: the state and cache directories.
   It never opens a media path; media bytes come from the node's socket (D193 §1). **Enforced
   by:** `[core-fs]` (`os.Open`, `ReadFile`, `WriteFile`, `Stat`, `MkdirAll`, `filepath.WalkDir`
-  and their kin, anywhere in `internal/core` but `datadir` and tests); M2's test runs the core
+  and their kin, anywhere in `internal/core` but `instancedir` and tests); M2's test runs the core
   with the media root unreadable to it.
 - **A media root is opened once, read-only, as `confine.MediaRoot`**, a wrapper over `os.Root`
   that exposes reads only. Everything the node reads goes through it, so `..` and symlinks
   cannot leave the root. **Enforced by:** `[media-root]` (`os.OpenRoot` and `os.OpenInRoot`
-  outside `confine` and `datadir`).
+  outside `confine` and `instancedir`).
 - **Nothing removes, renames or truncates a file** except the trash writer (`internal/node/trash`,
-  when deletion arrives) and `datadir`'s own directories (principles §2, D144, D145). **Enforced
+  when deletion arrives) and `instancedir`'s own directories (principles §2, D144, D145). **Enforced
   by:** `[delete]` (`os.Remove`, `RemoveAll`, `Rename`, `Truncate`, the same methods on
   `os.Root` and `os.File`, and their `syscall`/`unix` forms); a test hashes every fixture before
   and after a full scan *(M2)*. `internal/node/prepared`, which evicts the node's own prepared
   renditions (D217 §5), is on the exception list too.
 - **A file we write is written atomically, by one helper** (temporary file, sync, rename, in
-  `datadir`), and the one it replaces is kept where principles §2 says so. Each file has one
+  `instancedir`), and the one it replaces is kept where principles §2 says so. Each file has one
   owning package. A socket file is removed before it is created, and only by its owner.
-  **Enforced by:** `[delete]` (only `datadir` may rename); `dupl`; otherwise **review-only**.
+  **Enforced by:** `[delete]` (only `instancedir` may rename); `dupl`; otherwise **review-only**.
 
 ## 15. Database
 

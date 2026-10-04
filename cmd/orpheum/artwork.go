@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
-	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -21,7 +21,7 @@ import (
 // is handed to the service, the service is what a refresh asks to look at images again, and the
 // rechecks it says are due are what the refresh sweep queues (jobServices.sweeps).
 func newArtwork(
-	ctx context.Context, opened openedServices, directories *datadir.Directories,
+	ctx context.Context, opened openedServices, directories *instancedir.Directories,
 	imageBaseURL string, logger *slog.Logger,
 ) (*artwork.Service, error) {
 	httpClient := opened.jobServices.outboundClient

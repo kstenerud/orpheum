@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -31,7 +31,7 @@ var testTime = time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC)
 // server is an instance with a migrated database and a secret.key, as a first `orpheum core` leaves
 // it.
 type server struct {
-	directories *datadir.Directories
+	directories *instancedir.Directories
 	database    *store.Database
 	key         secrets.Key
 }
@@ -39,7 +39,7 @@ type server struct {
 func newServer(t *testing.T) server {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := datadir.Prepare(datadir.PathsIn(root))
+	directories, err := instancedir.Open(instancedir.PathsIn(root))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func newServer(t *testing.T) server {
 	return server{directories: directories, database: openAt(t, directories), key: key}
 }
 
-func openAt(t *testing.T, directories *datadir.Directories) *store.Database {
+func openAt(t *testing.T, directories *instancedir.Directories) *store.Database {
 	t.Helper()
 	database, err := store.Open(t.Context(), directories.PersistentDatabasePath(), storetest.OpenOptions())
 	if err != nil {
@@ -91,17 +91,17 @@ func (server server) populate(t *testing.T) {
 }
 
 // emptyInstance is an instance with nothing in it yet.
-func emptyInstance(t *testing.T) *datadir.Directories {
+func emptyInstance(t *testing.T) *instancedir.Directories {
 	t.Helper()
 	root := t.TempDir()
-	directories, err := datadir.Prepare(datadir.PathsIn(root))
+	directories, err := instancedir.Open(instancedir.PathsIn(root))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return directories
 }
 
-func restore(t *testing.T, directories *datadir.Directories, source string) Plan {
+func restore(t *testing.T, directories *instancedir.Directories, source string) Plan {
 	t.Helper()
 	plan, err := MakePlan(t.Context(), directories, source, testTime)
 	if err != nil {
@@ -267,7 +267,8 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Restore(t.Context(), target, plan, testTime, storetest.OpenOptions()); !errors.Is(err, datadir.ErrInUse) {
+	err = Restore(t.Context(), target, plan, testTime, storetest.OpenOptions())
+	if !errors.Is(err, instancedir.ErrInUse) {
 		t.Errorf("a restore while the server runs: %v, want ErrInUse", err)
 	}
 	if exists, existsErr := target.PersistentDatabaseExists(); existsErr != nil || exists {
@@ -348,7 +349,7 @@ func TestMakePlan_LeavesNothingBehind(t *testing.T) {
 	if _, err = MakePlan(t.Context(), target, written.Path, testTime); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = target.ReadRunFile(inspectingName); !errors.Is(err, datadir.ErrNotFound) {
+	if _, err = target.ReadRunFile(inspectingName); !errors.Is(err, instancedir.ErrNotFound) {
 		t.Errorf("the plan left its copy of the database in the run directory: %v", err)
 	}
 	if exists, existsErr := target.PersistentDatabaseExists(); existsErr != nil || exists {
@@ -373,7 +374,7 @@ func TestWrite_RefusesToIncludeAKeyThereIsNot(t *testing.T) {
 // database the secrets as ciphertext only.
 func checkHoldsNoKeyAndCiphertextOnly(t *testing.T, written Written) {
 	t.Helper()
-	names, err := datadir.ListBackupArchive(written.Path)
+	names, err := instancedir.ListBackupArchive(written.Path)
 	if err != nil || written.IncludesKey || slices.Contains(names, secrets.KeyFileName) {
 		t.Errorf("a backup without --include-key holds %v (%v); want no key", names, err)
 	}

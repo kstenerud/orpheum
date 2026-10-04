@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package datadir
+package instancedir
 
 // refuseNetworkFilesystem does not check on macOS, a development platform only; the server is
 // deployed on Linux, where the check is real (netfs_linux.go).
