@@ -4,11 +4,15 @@
 
 # Architecture map
 
-- **Status:** drafted 2026-09-30 at the M3 closing audit, from the tree at an earlier commit; file:line
-  evidence is as of that tree. The owner approved its gates and fixes the same day (*"go with
-  your recommendations"*). What each finding became is under [§4](#4-findings-ranked).
+- **Status:** drafted 2026-09-30 at the M3 closing audit, from the tree at an earlier commit; the owner
+  approved its gates and fixes the same day (*"go with your recommendations"*). **Re-derived
+  2026-10-04 at the pre-M4 audit** ([audit-2026-10-03.md](research/audit-2026-10-03.md) §6),
+  from the tree at an earlier commit: §1's rows, §2 whole, §3's crossings and §4's statuses. file:line
+  evidence older than that is as of the tree it names. What each finding became is under
+  [§4](#4-findings-ranked).
 - **Kept true by:** `scripts/check_architecture_map.py`, run by `make check`, which fails when
-  a package has no row in §1 or a row names a package that is gone, and when schema.md's
+  a package has no row in §1 or a row names a package that is gone, when §2 does not name each
+  table of both databases exactly once, in a row of its database, and when schema.md's
   [owners table](plans/schema.md#who-writes-each-table) does not list exactly the tables the
   schema has; `TestArch_EachTableHasOneWritingPackage`, which fails when a table has a writer
   other than the one that table names; and the milestone audit's re-derivation
@@ -42,7 +46,7 @@ is the evidence. The first column names each package by its path; the check read
 
 | Package | Resp. | Second job(s) |
 | --- | --- | --- |
-| `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: queueDueRefreshes metadata.go:146, queueMeasurements :174 (hard-coded `measureSweepEvery = time.Hour` :170), keepSortAndSearchKeysCurrent :199, maintainArtworkCache artwork.go:45. ⚑ OPS: a whole offline doctor, doctor.go:34-290 |
+| `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: the six sweeps it registers with the queue (`sweeps`, metadata.go:256; D231 §3), and four loops of its own: `demoteUnwanted` (:391), `pruneFinished` (:423), `maintainArtworkCache` (artwork.go:76) and the silence watch it ticks (`Exchanges.Watch`, metadata.go:361). ⚑ PERSIST: makes an instance's layout and config (instance.go, D242 §4). ⚑ OPS: a whole offline doctor, doctor.go |
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
 | `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |
@@ -53,8 +57,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/providers` | R1 (each outside host as a provider service: health, rate, quota, credentials) | — (since 2026-09-30, the jobs rebuild's Phase 2; a host's health is its destination in the job queue) |
 | `internal/core/providers/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility; moved from `identify/tmdb` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
-| `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go) |
-| `internal/core/nodes` | R8 | — |
+| `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go, retire.go, move.go). ⚑ R8: scans as `list` and `examine` jobs (scans.go, batches.go; D241), and the one rule for parking work under an unavailable root (`Unavailability`, `ParkIfUnder`; unavailable.go, playable.go) |
+| `internal/core/nodes` | R8 | ⚑ R6a: an admin's reader limit for one of a node's devices (devices.go, D240 §5) |
 | `internal/core/loudness` | R8 (the loudness measurement jobs and their sweep), R3 (the measurements, by payload hash) | — (split out of playback on 2026-10-03, F2) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
 | `internal/core/renditions` | R8 (the prepare jobs), R3 (the index of prepared copies, in cache.db) | — (split out of playback on 2026-10-03, F2) |
@@ -112,8 +116,10 @@ is the evidence. The first column names each package by its path; the check read
 | --- | --- | --- |
 | Send a node command, wait for its answer by job id, time out, cancel | artwork, playback ×3 | **Fixed 2026-10-01 (the jobs rebuild's Phase 4.0):** `nodes.Exchanges` (nodes/exchange.go) sends, waits on the core's clock and cancels on every way out; the five handlers build the command and take the result. Was: five copies of one `select` around `nodes.AnswerRouter`, in artwork/service.go, playback/loudness.go, playback/subtitles.go, playback/fetch.go and playback/prepare.go |
 | Retry and back-off after a provider failure | jobs runner, artwork, identify | **Fixed 2026-09-30 (the jobs rebuild's Phase 2):** a host down or asking us to wait parks its destination, which the queue probes (internal/platform/jobqueue), and each host's provider service (internal/core/providers) is the one place a failure is read as the host's. Was: jobs/runner.go:138-148 doubled the wait; artwork/retry.go:21 had its own schedule and a per-host breaker (:43-78); the 429 → `RetryAtError` translation was copied (artwork/retry.go:55, identify/match.go:430). artwork keeps its retry schedule for an image's own failures |
-| Periodic sweeps and timers | cmd/orpheum ×4, jobs runner, nodes supervisor (gone in Phase 4a) | Hand-written loops at metadata.go:146/174/199 and artwork.go:45. Each picks its own period: a setting, a constant, or a literal 24 h and 1 h |
-| Doctor findings | cmd/orpheum, api | cmd/orpheum/doctor.go:25-38 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:17-28 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` (doctor.go:108) |
+| Periodic sweeps and timers | the queue's sweeps; cmd/orpheum ×4 | **Mostly fixed (D231 §3, the jobs rebuild):** six sweeps are registered with the queue, which runs each at its interval, at start and when a destination comes back. Four loops stay in cmd/orpheum (§1), each with its own period: `demoteUnwantedEvery` (30 s), `pruneFinishedEvery` (1 h), the artwork cache's two settings, and the silence watch's one-second tick. Four sweeps share `derivedWorkSweepEvery`, a constant D231 §3 means to be a setting |
+| Parking a job under an unavailable root | library, artwork | **Fixed 2026-10-04:** `library.ParkIfUnder` is the one. Was: `library.ParkIfUnavailable` (playable.go:107) and `artwork.Service.localFile` (service.go:170) |
+| Waiting for a node's word on a job | nodes (`Exchanges.Watch`), subtitles | `subtitles.convertWhileWaiting` (fetch.go:265) times its person's wait with its own timer at the node-silence limit, beside the exchange's own silence watch. Two clocks on one silence; watch |
+| Doctor findings | cmd/orpheum, api | Still open (F7): cmd/orpheum/doctor.go:25-30 (`finding`, verdicts `ok`/`warn`/`FAIL`) against api/doctor.go:24 (`FindingBody`, `ok`/`warn`/`fail`). They are joined only through `api.ConfinementFinding` |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
 | Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (cmd/orpheum/artwork.go). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
 | A person's or device's choices | preferences (`preference`); auth (`device.audio_output`) | **Fixed 2026-09-30:** a person's choices live only in internal/core/preferences, and `setting` lost its unused `user` scope and `/me/settings`; how a device makes sound stays on its row, a fact about its speakers. Was: playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 |
@@ -121,40 +127,54 @@ is the evidence. The first column names each package by its path; the check read
 | Media-request authentication | api ×2 spellings | **Fixed 2026-09-30:** `requireSignedInForMedia` returns the principal and signs every byte path in. Was: media_cookie.go:47, and the same steps inline at playback.go:209, :240 and subtitle.go:122 |
 | Byte-path cache headers | api ×4 literals | **Fixed 2026-09-30:** one named constant per kind of bytes, in media_cookie.go. Was: art.go:19, playback.go:225/255/257, subtitle.go:142, with `"private, max-age=86400"` twice |
 
+**Watch list** (alike, not yet the same job done twice): "the deepest path holding this one"
+in three places; an atomic file write in instancedir and in the node's prepared shelf, neither
+syncing; instance directories made by `makeInstance` (cmd/orpheum/instance.go) and
+`instancedir.Open`; "a device not named has one reader" in both the core and the node.
+
 ## 2. Storage table
 
-"Backed up" means included in `orpheum backup` (VACUUM INTO of persistent.db only; backup.go:30-51,
-with `secret.key` only under `--include-key`). Which package writes each table is schema.md's
-[owners table](plans/schema.md#who-writes-each-table).
+"Backed up" means in a backup: a tar.gz of the instance's `persistent/` directory, made by
+`orpheum backup` or the System page's "Back up now" into `backups/`, with persistent.db as a
+`VACUUM INTO` snapshot and `secret.key` only when asked (instancedir/archive.go; D242 §5). Which
+package writes each table is schema.md's [owners table](plans/schema.md#who-writes-each-table).
+`check_architecture_map.py` holds each table of both databases to one row here, in its database's.
 
 | What | Where | Tier (actual → should) | Backed up | Flag |
 | --- | --- | --- | --- | --- |
 | user, role, user_deny, device, grant | persistent.db | T1 | yes | — |
-| setting, secret (sealed) | persistent.db | T1 | yes (secret.key: only with --include-key, D194 §4) | by design |
+| setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
 | play_position, play_event, play_span, progress_hide, preference, favourite, user_rating, watchlist, tag, item_tag | persistent.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
-| field_override, edition (user-made), extra_relation (asserted), collection (user) | persistent.db | T1 | yes | — |
+| field_override, edition (user-made), edition_text, group_text, extra_relation (asserted), collection (user) | persistent.db | T1 | yes | edition_text and group_text have no writer yet |
+| library, library_root | persistent.db | T1 (the admin's) | yes | — |
 | item, title, version, item_provider_id, collection_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |
 | file | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
 | root_state | persistent.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
-| library_root, root_scan, root_mount, stream | persistent.db | TO | yes | — |
+| root_scan, root_mount, stream | persistent.db | TO | yes | — |
 | node | persistent.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |
-| provider_response (body_gzip) | persistent.db | T2 | yes | correct (moved from cache.db by the second audit, schema.md:803) |
-| fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct |
-| loudness | persistent.db | T3 (reads the whole file; the schema calls it "class O") | yes | ⚑ T3 placed as TO; the one T3 that survives a cache discard |
+| device_reader_limit | persistent.db | T1 (the admin's, D240 §5) | yes | — |
+| refresh_request, fetch_failure | persistent.db | T1 (a person's ask) / TO (a fetch's own failure, D231 §4) | yes | facts that were job rows (F1, step 0029) |
+| provider_response (body_gzip) | persistent.db | T2 | yes | correct (moved from cache.db by the second audit) |
+| fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct; one per file and provider's file (step 0032, D244 §4) |
+| artwork | persistent.db | T1 (chosen) + T2 (the provider's list) | yes | the image bytes are the cache's (below) |
+| loudness | persistent.db | T3 (reads the whole file; the schema calls it "class O") | yes | the T3 kept with T1, as subtitle_text is |
+| subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by step 0029 (F1) |
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
-| item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway (metadata.go:199). See F12 |
+| item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway. See F12 |
 | schema_meta, schema_step | persistent.db | runner record | yes | — |
-| job | cache.db | T4 | no | correct (D231 §3). But the code is not yet level-triggered: only loudness is swept (loudness.go:157). First matches, artwork, subtitles and prepares are enqueued once (refresh.go:305/356, artwork/service.go:130, subtitles.go:203, prepare.go:115) |
-| match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: chooser.go:155-178 searches again when the candidates are lost |
+| job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |
+| node_attempt | cache.db | T4 (each job given to a node, by attempt token; D234 §7) | no | lost with cache.db: the node's later word is for no attempt, and the job runs again |
+| scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
+| match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
-| prepared_rendition (index of node renditions) | cache.db | T3 | no | ⚑ discarded on every cache schema bump (serve.go:202-212, now version 19). The node's files survive, but no row names them and a new `run_id` is minted, so the renditions are re-made and the old ones sit until the budget evicts them (prepared/doc.go) |
-| subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by migration 0029 (F1, the jobs rebuild's Phase 3) |
-| secret.key | state dir | T1 | only with --include-key | by design (D194) |
-| setup-code file | state dir | transient | no | — |
-| backups/*.sqlite, pre-restore and pre-migrate snapshots | state dir | T1 copies | — | same disk (doctor.go:268 says so); manual until M4's scheduled backups (cut-a M4, D223 §6) |
-| art/<source sha256>/<size>.webp and .jpeg | cache dir | T3 (node-encoded); the provider source behind it is T2 | no | ⚑ provider images are not kept or backed up. Accepted by artwork.md:102 ("deleting cache/ costs time"); the refetch goes to the TMDB image CDN |
-| prepared/<file_id>/<profile>/<run_id>/ | node prepared_dir | T3 | no | correct place; the index is the problem (above) |
-| TLS/ACME keys | state dir (instancedir doc) | T1/T2 | not in backup.go | M4; not built yet |
+| prepared_rendition (index of node renditions) | cache.db | T3 | no | mitigated by D238 §2: a node's hello lists its renditions, and the core adopts them. cache.db is at version 27 |
+| full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
+| secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |
+| setup-code file, sockets, the server's lock | instance's run/ | transient | no | — |
+| backups (tar.gz), pre-restore and pre-migrate snapshots | instance's backups/ and persistent/ | T1 copies | — | same disk (doctor says so); scheduled backups are M4's (D243) |
+| art/<source sha256>/<size>.webp and .jpeg | instance's cache/ | T3 (node-encoded); the provider source behind it is T2 | no | ⚑ provider images are not kept or backed up. Accepted by artwork.md ("deleting cache/ costs time") |
+| prepared/<file_id>/<profile>/<run_id>/ | node instance's cache/prepared/ | T3 | no | correct; the core re-adopts it (above) |
+| TLS/ACME keys | — | T1/T2 | — | M4 (D243); not built yet |
 
 ## 3. Seams
 
@@ -167,11 +187,18 @@ crossing, the node role in cmd/orpheum importing `internal/core/instancedir` for
 cmd/orpheum/node.go to the node's boundary (F8).
 
 **Store.** `store-is-below-core` and `sql-only-in-store` keep SQL in one place. Every core feature
-package imports `sqlcgen` (api, artwork, auth, identify, jobs, library, nodes, playback, secrets,
-settings), so any package could write any table, and two tables had two writers (§1). Since
+package imports `sqlcgen` (api, artwork, auth, identify, jobs, library, loudness, nodes, playback,
+renditions, secrets, settings, subtitles), so any package could write any table, and two tables had two writers (§1). Since
 2026-09-30 each table has one writing package, named in schema.md, and
 `TestArch_EachTableHasOneWritingPackage` holds it (F5). api imports `sqlcgen` only for a row type
 (browse.go:261), which leaks the store's shape into R9.
+
+**Core packages that use one another** (2026-10-04; a package's doc.go says why). library uses
+nodes and jobs (its scans are jobs on nodes); artwork, loudness, subtitles and renditions each use
+library (the playable file, the unavailable root), jobs and nodes; providers/tmdb uses library,
+identify and artwork (it is their fetcher); playback uses auth, renditions and subtitles. None of
+these crosses the core–node seam, and `TestArch_EachTableHasOneWritingPackage` holds each table
+to one writer whichever package calls it.
 
 **Fetching (R1).** Clean. All outbound HTTP goes through `outbound.NewClient` and `Exchange`
 (forbidigo `[outbound]`). The callers are tmdb/client.go:67, tmdb/images.go:65,
@@ -182,8 +209,8 @@ is down parks its destination's work in the queue (D231 §5, §6).
 
 **Transforming (R3).** FFmpeg work happens only on nodes (execx and confine). The core does three
 cheap derivations: textindex folding and CLDR keys; artwork cutting JPEG from its own WebP (the
-`core-no-image` exception, per D212 §5); and levelling-gain arithmetic
-(playback/loudness.go:80-155). All three agree with D193 §1.
+`core-no-image` exception, per D212 §5); and levelling-gain arithmetic (decide/levels.go, since
+2026-10-03). All three agree with D193 §1.
 
 **Streaming (R4).** Direct play and HLS share one relay (`server.relay`, playback.go:343). Range and
 If-Range are forwarded, and the node's byteserver answers both with `http.ServeContent`
@@ -242,12 +269,16 @@ recommendation: split the node-work orchestration out (subtitle text, loudness, 
 prepare), and move preferences to wherever F6 lands. cut-a §3 names the package layout, so a new
 package is a layout change.
 
-**F3. A responsibility with four owners: the node-command wait loop.** *No owner needed.*
+**F3. A responsibility with four owners: the node-command wait loop.** *No owner needed; built
+2026-10-01 as `nodes.Exchanges` (§1).*
 The same send/await/timeout/cancel `select` appears in four places (§1). Recommend one helper in
 core/nodes, for example `Ask(ctx, nodeID, command, jobID, patience) (Answer, error)`, used by all
 four. This is rule 11 work with a revert-red test through one caller.
 
-**F4. A responsibility with scattered owners: scheduling and retry.** *Decided by D231.*
+**F4. A responsibility with scattered owners: scheduling and retry.** *Decided by D231; built in
+the jobs rebuild (2026-09-30 to 2026-10-03): six sweeps registered with the queue, artwork's
+breaker gone, a host's failure read in its provider service. Four loops are left in cmd/orpheum
+(§1), and `derivedWorkSweepEvery` is still a constant.*
 The sweeps and timers are hand-written loops in cmd/orpheum, with a hard-coded policy value
 (`measureSweepEvery`). Retry policy is split across the jobs runner, artwork's breaker and
 identify. Work is mostly edge-triggered. D231 already decides the fix: a generic queue package,
@@ -281,7 +312,8 @@ These live in `preference` (with a `device` scope), `device.audio_output`, and a
 `user` that has no definitions. The recommendation: one home for per-person and per-device choices
 (probably `preference`), and either drop the unused user scope or give it a stated purpose.
 
-**F7. A responsibility with two owners: doctor.** *No owner needed.*
+**F7. A responsibility with two owners: doctor.** *No owner needed; still open at the pre-M4
+audit.*
 There are two finding types with two verdict spellings ("FAIL" and "fail"). Recommend one
 `Finding` type and one verdict enum, used by the command and by `GET /doctor`. This is rule 11
 work.

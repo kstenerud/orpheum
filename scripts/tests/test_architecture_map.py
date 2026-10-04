@@ -80,12 +80,47 @@ class Tables(unittest.TestCase):
         self.assertIn("found no owners table", cam.table_problems(tables, [])[0])
 
 
+class Storage(unittest.TestCase):
+    MAP = """## 2. Storage table
+
+| What | Where | Tier | Backed up | Flag |
+| --- | --- | --- | --- | --- |
+| user, role (the built-in two, admin, user) | persistent.db | T1 | yes | — |
+| item_text (name), item_text.search_alternates | persistent.db | T4 | yes | — |
+| job | cache.db | T4 | no | — |
+| secret.key | instance's persistent/ | T1 | only when asked | — |
+
+## 3. Seams
+"""
+    TABLES = {"persistent.db": {"user", "role", "item_text"}, "cache.db": {"job"}}
+
+    def test_each_database_row_names_its_tables_and_a_column_or_a_file_is_not_one(self):
+        self.assertEqual(cam.stored_tables(self.MAP), [("persistent.db", "user"), ("persistent.db", "role"),
+                                                       ("persistent.db", "item_text"), ("cache.db", "job")])
+        self.assertEqual(cam.storage_problems(self.TABLES, cam.stored_tables(self.MAP)), [])
+
+    def test_a_table_missing_in_the_wrong_database_or_named_twice_fails(self):
+        stored = cam.stored_tables(self.MAP) + [("persistent.db", "user")]
+        tables = {"persistent.db": {"user", "item_text", "tag"}, "cache.db": {"job", "role"}}
+        problems = cam.storage_problems(tables, stored)
+        self.assertEqual(len(problems), 4)
+        self.assertIn("persistent.db's table tag has no row", problems[0])
+        self.assertIn("names role in persistent.db, which has no such table", problems[1])
+        self.assertIn("names persistent.db's user more than once", problems[2])
+        self.assertIn("cache.db's table role has no row", problems[3])
+        self.assertIn("found no storage table", cam.storage_problems(self.TABLES, [])[0])
+
+
 class TheRepository(unittest.TestCase):
     def test_the_map_and_the_owners_table_match_the_code(self):
         problems = cam.package_problems(cam.go_packages(REPO) | cam.web_packages(REPO),
                                         cam.mapped_packages((REPO / cam.MAP).read_text()))
         tables = cam.schema_tables(cam.newest_golden(REPO).read_text(), (REPO / cam.CACHE_SCHEMA).read_text())
         problems += cam.table_problems(tables, cam.listed_tables((REPO / cam.SCHEMA_PLAN).read_text()))
+        problems += cam.storage_problems(
+            {"persistent.db": cam.schema_tables(cam.newest_golden(REPO).read_text()),
+             "cache.db": cam.schema_tables((REPO / cam.CACHE_SCHEMA).read_text())},
+            cam.stored_tables((REPO / cam.MAP).read_text()))
         self.assertEqual(problems, [])
 
 

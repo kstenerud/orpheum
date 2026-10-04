@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Architecture map gate run by `make check`: every Go and web package has a row in the
-# ABOUTME: map's package table and every row names a package that exists; schema.md's owners
-# ABOUTME: table lists exactly the tables persistent.db and cache.db have.
+# ABOUTME: map's package table and every row names a package that exists; the map's storage table
+# ABOUTME: and schema.md's owners table each list exactly the tables persistent.db and cache.db have.
 """Keep the architecture map and the owners table in step with the code.
 
 The map (docs/contributors/design/architecture-map.md) says which package does which job; the
@@ -17,6 +17,9 @@ mechanical, and a map that silently misses a package or a table is the failure t
    Which package writes each table, against the one listed, is
    TestArch_EachTableHasOneWritingPackage's check: it type-checks the callers, which a text scan
    cannot do without mistaking a service method for a query of the same name.
+3. **The storage table.** The map's §2 names each table of persistent.db and of cache.db exactly
+   once, in a row whose "Where" is that database, and names no table its database lacks. It drifted
+   by ten tables between two audits when nothing checked it (audit-2026-10-03 §6).
 """
 
 from __future__ import annotations
@@ -41,6 +44,12 @@ OWNER_ROW = re.compile(r"^\| (`\w+`(?:, `\w+`)*) \| (?:persistent|cache)\.db \| 
 # module itself, so they are not matched; sqlite_ tables are SQLite's own.
 CREATE_TABLE = re.compile(r'^CREATE (?:VIRTUAL )?TABLE "?(\w+)"?', re.M)
 GOLDEN_NAME = re.compile(r"^schema-v(\d+)\.sql$")
+# The map's storage table: from its heading to the next section's.
+STORAGE_SECTION = re.compile(r"^## 2\. Storage table$(.*?)^## 3\.", re.M | re.S)
+# The databases a storage row's "Where" may name, whose tables it then names.
+DATABASES = ("persistent.db", "cache.db")
+# A table a storage row names: an item's leading name, unless it names a column (table.column).
+STORED_NAME = re.compile(r"^(\w+)(\.\w+)?")
 
 
 def go_packages(root: Path) -> set[str]:
@@ -108,6 +117,41 @@ def table_problems(tables: set[str], listed: list[str]) -> list[str]:
     return problems
 
 
+def stored_tables(map_text: str) -> list[tuple[str, str]]:
+    """Each (database, table) the map's storage table names, in order, repeats included: from each
+    row whose "Where" is a database, the leading name of each item of its "What", its parenthesised
+    notes left out, and leaving out an item that names a column (`item_text.search_alternates`)."""
+    section = STORAGE_SECTION.search(map_text)
+    if section is None:
+        return []
+    stored = []
+    for line in section.group(1).splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or cells[1] not in DATABASES:
+            continue
+        for item in re.sub(r"\([^)]*\)", "", cells[0]).split(", "):
+            name = STORED_NAME.match(item.strip())
+            if name and not name.group(2):
+                stored.append((cells[1], name.group(1)))
+    return stored
+
+
+def storage_problems(tables: dict[str, set[str]], stored: list[tuple[str, str]]) -> list[str]:
+    """Each table of each database named once in the map's storage table, in its database's row."""
+    if not stored:
+        return [f"{MAP}: found no storage table (\"## 2. Storage table\"); nothing would be checked"]
+    problems = []
+    for database, names in tables.items():
+        listed = [table for where, table in stored if where == database]
+        problems += [f"{MAP}: {database}'s table {name} has no row in the storage table; add it with its tier"
+                     for name in sorted(names - set(listed))]
+        problems += [f"{MAP}: the storage table names {name} in {database}, which has no such table"
+                     for name in sorted(set(listed) - names)]
+        problems += [f"{MAP}: the storage table names {database}'s {name} more than once"
+                     for name in sorted({name for name in listed if listed.count(name) > 1})]
+    return problems
+
+
 def newest_golden(root: Path) -> Path:
     goldens = [(int(match.group(1)), path) for path in (root / GOLDENS).iterdir()
                if (match := GOLDEN_NAME.match(path.name))]
@@ -118,14 +162,18 @@ def newest_golden(root: Path) -> Path:
 
 def main() -> int:
     problems = package_problems(go_packages(ROOT) | web_packages(ROOT), mapped_packages((ROOT / MAP).read_text()))
-    tables = schema_tables(newest_golden(ROOT).read_text(), (ROOT / CACHE_SCHEMA).read_text())
-    problems += table_problems(tables, listed_tables((ROOT / SCHEMA_PLAN).read_text()))
+    persistent = schema_tables(newest_golden(ROOT).read_text())
+    cache = schema_tables((ROOT / CACHE_SCHEMA).read_text())
+    problems += table_problems(persistent | cache, listed_tables((ROOT / SCHEMA_PLAN).read_text()))
+    problems += storage_problems({"persistent.db": persistent, "cache.db": cache},
+                                 stored_tables((ROOT / MAP).read_text()))
     for problem in problems:
         print(problem)
     if problems:
         print(f"check_architecture_map: {len(problems)} problem(s)")
         return 1
-    print("check_architecture_map: every package has a row in the map, and the owners table lists every table")
+    print("check_architecture_map: every package has a row in the map, and the map's storage table and "
+          "the owners table list every table")
     return 0
 
 

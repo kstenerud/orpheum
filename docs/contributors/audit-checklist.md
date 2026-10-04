@@ -110,8 +110,9 @@ setting key goes to the owner first.
        same kind of work (a wait loop, a retry schedule, a finding type, a header policy, a sweep
        loop) is a rule 11 finding: name both sites, and fix it or record why both stay.
     3. **Tables and files.** Every table in `internal/store/migrations/` and
-       `internal/store/cache/schema.sql`, every file kind under the state, cache and prepared
-       directories, and what `orpheum backup` writes, each has a tier, a home and a backup answer.
+       `internal/store/cache/schema.sql`, every file kind under an instance's persistent, cache,
+       backups and run directories and a node's prepared directory, and what a backup holds, each
+       has a tier, a home and a backup answer (that every table has a row is `make check`'s).
        Irreplaceable or expensive-to-re-acquire data outside persistent.db, expensive derived data in
        a store discarded by a version bump, and cheap derived data added to persistent.db are findings
        unless the map cites the decision that accepts them.
