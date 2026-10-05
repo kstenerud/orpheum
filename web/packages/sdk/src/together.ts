@@ -8,6 +8,30 @@ export const togetherProtocolVersion = 2;
 /** The group's play state (watch-together.md, Sync): Waiting is paused until every player is ready. */
 export type GroupState = "Idle" | "Waiting" | "Paused" | "Playing";
 
+/** What changed the group: the server's codes for its events (internal/core/together, EventKind). */
+export type GroupEvent =
+  | "played"
+  | "paused"
+  | "seeked"
+  | "changedRate"
+  | "changedItem"
+  | "stopped"
+  | "everyoneReady"
+  | "buffering"
+  | "left";
+
+const groupEvents: readonly GroupEvent[] = [
+  "played",
+  "paused",
+  "seeked",
+  "changedRate",
+  "changedItem",
+  "stopped",
+  "everyoneReady",
+  "buffering",
+  "left",
+];
+
 /** The group as the server tells it: what plays, where, how fast, and the named event that made it so. */
 export interface GroupView {
   readonly state: GroupState;
@@ -15,8 +39,10 @@ export interface GroupView {
   readonly rate: number;
   /** What plays; 0 while nothing does, every screen black (D246 §5). */
   readonly fileId: number;
-  /** The change, as the server names it: "paused", "seeked from 723000", "buffering" (D188). */
-  readonly event: string | undefined;
+  /** What changed, as a code the client words (D188); undefined for none, or one it does not know. */
+  readonly event: GroupEvent | undefined;
+  /** Where a seek jumped from; positionMs is where it jumped to. 0 for any other event. */
+  readonly seekedFromMs: number;
   /** The member whose command or state caused the event; undefined when no one did. */
   readonly byMemberId: number | undefined;
 }
@@ -92,7 +118,8 @@ function parseGroup(value: unknown): GroupView | undefined {
     positionMs: numberIn(record, "positionMs"),
     rate: numberIn(record, "rate", 1),
     fileId: numberIn(record, "fileId"),
-    event: stringIn(record, "event"),
+    event: groupEvents.find((each) => each === record["event"]),
+    seekedFromMs: numberIn(record, "seekedFromMs"),
     byMemberId: byMemberId === 0 ? undefined : byMemberId,
   };
 }

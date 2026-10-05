@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { GroupView, RosterMember } from "@orpheum/sdk";
+import type { GroupEvent, GroupView, RosterMember } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
 import { i18n } from "./i18n.ts";
@@ -18,22 +18,16 @@ export function filmPositionText(positionMs: number, locale: string): string {
     : `${plain.format(hours)}:${twoDigits.format(minutes)}:${twoDigits.format(seconds)}`;
 }
 
-/** The server's name for a seek's event, with where it jumped from (internal/core/together). */
-const seekedFrom = /^seeked from (\d+)$/u;
-
-/**
- * The catalogue key of each event the server names, under together.event (the server's words are
- * its names for them, not a viewer's: internal/core/together/hub.go).
- */
-const eventKeys: Readonly<Record<string, string>> = {
+/** The catalogue key, under together.event, of each event the server names by its code. */
+const eventKeys: Readonly<Record<Exclude<GroupEvent, "seeked">, string>> = {
   played: "played",
   paused: "paused",
-  "changed what plays": "changedItem",
+  changedItem: "changedItem",
   stopped: "stopped",
   buffering: "buffering",
   left: "dropped",
-  "everyone is ready": "everyoneReady",
-  "changed the rate": "changedRate",
+  everyoneReady: "everyoneReady",
+  changedRate: "changedRate",
 };
 
 /**
@@ -52,11 +46,9 @@ export function groupEventText(
   const name =
     roster.find((member) => member.id === group.byMemberId)?.name ?? t("together.someone");
   const at = filmPositionText(group.positionMs, i18n.language);
-  const seek = seekedFrom.exec(group.event);
-  if (seek !== null) {
-    const from = filmPositionText(Number(seek[1]), i18n.language);
+  if (group.event === "seeked") {
+    const from = filmPositionText(group.seekedFromMs, i18n.language);
     return t("together.event.seeked", { name, from, to: at });
   }
-  const key = eventKeys[group.event];
-  return key === undefined ? undefined : t(`together.event.${key}`, { name, at });
+  return t(`together.event.${eventKeys[group.event]}`, { name, at });
 }

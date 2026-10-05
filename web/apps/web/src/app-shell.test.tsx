@@ -16,6 +16,7 @@ describe("AppShell", () => {
       withServices(
         <AppShell
           isAdmin={false}
+          canHostWatchTogether={true}
           currentScreen="films"
           onSignOut={ignore}
           signedInAs={{ name: "partner", deviceName: "Firefox on Mac" }}
@@ -38,7 +39,13 @@ describe("AppShell", () => {
   it("shows the admin's destinations to an admin", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <AppShell isAdmin={true} currentScreen="about" onSignOut={ignore} signedInAs={undefined}>
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="about"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
           <p>screen</p>
         </AppShell>,
       ),
@@ -48,5 +55,23 @@ describe("AppShell", () => {
     expect(markup).toContain('href="/settings"');
     expect(markup).toContain('href="/jobs"');
     expect(markup).toContain('href="/system"');
+  });
+
+  it("offers Watch Together only to a person whose role may host it", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    expect(markup).not.toContain("/watch-together");
+    expect(markup).toContain('href="/films"');
   });
 });

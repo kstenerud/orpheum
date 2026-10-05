@@ -251,6 +251,14 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	watcher := harness.signIn(t, "watcher", "watcher-password")
+	for token, canHost := range map[string]bool{admin: true, watcher: false} {
+		var me UserBody
+		if err := json.Unmarshal([]byte(harness.do(t, http.MethodGet, "/me", token, nil).body), &me); err != nil ||
+			me.CanHostWatchTogether != canHost {
+			t.Errorf("GET /me for %s says it may host: %v (%v); want %v",
+				me.Name, me.CanHostWatchTogether, err, canHost)
+		}
+	}
 	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, nil), http.StatusForbidden, CodeForbidden)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
 	wantError(t, harness.do(t, http.MethodPost, path+"/links", watcher, map[string]string{"adminNote": "x"}),

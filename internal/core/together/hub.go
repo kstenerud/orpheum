@@ -95,9 +95,11 @@ type group struct {
 	at       time.Time
 	rate     float64
 	fileID   int64
-	event    string
+	event    EventKind
 	byMember int64
-	lastSeek int64 // the seq of the last seek, for a stale one's conflict
+	// seekedFrom is where the last event, a seek, jumped from.
+	seekedFrom time.Duration
+	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
 }
 
 // member is a person in the session, with their devices (D120).
@@ -452,7 +454,7 @@ func (hub *Hub) Detach(attachment Attachment) {
 	delete(left.devices, attachment.DeviceID)
 	now := hub.clock.Now()
 	if gone.role.plays() && gone.hasBeenReady && detached.group.state == GroupPlaying {
-		detached.change(now, GroupWaiting, "left", left.id)
+		detached.change(now, GroupWaiting, EventLeft, left.id)
 	}
 	detached.sendRoster()
 }
@@ -515,7 +517,7 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 		current.changeItem(now, sender, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
 	case CommandStop:
 		current.group.fileID, current.group.position = 0, 0
-		current.change(now, GroupIdle, "stopped", sender.id)
+		current.change(now, GroupIdle, EventStopped, sender.id)
 	case CommandPlay, CommandPause, CommandSeek, CommandRate:
 		if !isPlaying {
 			refuse(codeInvalid)
@@ -531,10 +533,10 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 func (current *session) transport(now time.Time, sender *member, message Inbound, refuse func(code string)) {
 	switch message.Command {
 	case CommandPlay:
-		current.change(now, GroupWaiting, "played", sender.id)
+		current.change(now, GroupWaiting, EventPlayed, sender.id)
 		current.settle(now)
 	case CommandPause:
-		current.change(now, GroupPaused, "paused", sender.id)
+		current.change(now, GroupPaused, EventPaused, sender.id)
 	case CommandSeek:
 		if message.BasedOnSeq < current.group.lastSeek {
 			refuse(codeStale)
@@ -548,7 +550,7 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 		}
 		current.group.position, current.group.at = current.positionAt(now), now
 		current.group.rate = message.Rate
-		current.change(now, current.group.state, "changed the rate", sender.id)
+		current.change(now, current.group.state, EventChangedRate, sender.id)
 	case CommandChangeItem, CommandStop:
 	}
 }
@@ -557,7 +559,7 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 // until every player that has been ready loads it, then plays (D246 §5).
 func (current *session) changeItem(now time.Time, sender *member, fileID int64, position time.Duration) {
 	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
-	current.change(now, GroupWaiting, "changed what plays", sender.id)
+	current.change(now, GroupWaiting, EventChangedItem, sender.id)
 	current.settle(now)
 }
 
@@ -569,7 +571,7 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 	}
 	from := current.positionAt(now)
 	current.group.position, current.group.at = position, now
-	current.change(now, state, fmt.Sprintf("seeked from %d", from.Milliseconds()), sender.id)
+	current.announce(now, state, EventSeeked, sender.id, from)
 	current.group.lastSeek = current.group.seq
 	current.settle(now)
 }
@@ -592,17 +594,24 @@ func (current *session) settle(now time.Time) {
 	}
 	switch {
 	case current.group.state == GroupWaiting && allReady:
-		current.change(now, GroupPlaying, "everyone is ready", 0)
+		current.change(now, GroupPlaying, EventEveryoneReady, 0)
 	case current.group.state == GroupPlaying && !allReady:
-		current.change(now, GroupWaiting, "buffering", waitingFor)
+		current.change(now, GroupWaiting, EventBuffering, waitingFor)
 	}
 }
 
 // change moves the group to state, naming the event and who caused it, and tells every device.
-func (current *session) change(now time.Time, state GroupState, event string, byMember int64) {
+func (current *session) change(now time.Time, state GroupState, event EventKind, byMember int64) {
+	current.announce(now, state, event, byMember, 0)
+}
+
+// announce is change, with where a seek jumped from.
+func (current *session) announce(
+	now time.Time, state GroupState, event EventKind, byMember int64, seekedFrom time.Duration,
+) {
 	current.group.position, current.group.at = current.positionAt(now), now
 	current.group.state = state
-	current.group.event, current.group.byMember = event, byMember
+	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
 	current.group.seq++
 	current.broadcast(Outbound{
 		V: ProtocolVersion, Type: MessageGroup, Seq: current.group.seq, Group: current.groupView(now),
@@ -623,6 +632,7 @@ func (current *session) groupView(now time.Time) *GroupView {
 	return &GroupView{
 		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
 		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
+		SeekedFromMs: current.group.seekedFrom.Milliseconds(),
 	}
 }
 

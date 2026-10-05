@@ -142,11 +142,29 @@ type GroupView struct {
 	PositionMs int64      `json:"positionMs"`
 	Rate       float64    `json:"rate"`
 	FileID     int64      `json:"fileId"`
-	// Event names the change: "paused", "played", "seeked from 723000", "buffering", "left", by the
-	// member ByMemberID.
-	Event      string `json:"event,omitempty"`
-	ByMemberID int64  `json:"byMemberId,omitempty"`
+	// Event is what changed, by the member ByMemberID; a client words it (D188).
+	Event      EventKind `json:"event,omitempty"`
+	ByMemberID int64     `json:"byMemberId,omitempty"`
+	// SeekedFromMs is where a seek jumped from; PositionMs is where it jumped to.
+	SeekedFromMs int64 `json:"seekedFromMs,omitempty"`
 }
+
+// EventKind is what changed the group: a code a client words for its viewer, never words.
+type EventKind string
+
+// The events.
+const (
+	EventPlayed        EventKind = "played"
+	EventPaused        EventKind = "paused"
+	EventSeeked        EventKind = "seeked"
+	EventChangedRate   EventKind = "changedRate"
+	EventChangedItem   EventKind = "changedItem"
+	EventStopped       EventKind = "stopped"
+	EventEveryoneReady EventKind = "everyoneReady"
+	EventBuffering     EventKind = "buffering"
+	// EventLeft is a playing device gone: a drop, which the group waits out.
+	EventLeft EventKind = "left"
+)
 
 // MemberView is one member in the roster: a person, with their devices.
 type MemberView struct {

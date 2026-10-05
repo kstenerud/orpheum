@@ -3066,6 +3066,7 @@ export interface components {
             unusedSettings: components["schemas"]["UnusedBody"][] | null;
         };
         UserBody: {
+            canHostWatchTogether: boolean;
             device?: components["schemas"]["CurrentDeviceBody"];
             /** Format: int64 */
             id: number;

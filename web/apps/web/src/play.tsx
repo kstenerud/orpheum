@@ -218,10 +218,12 @@ function PreparedVideo(props: PlayProps): JSX.Element {
 
 /**
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
- * starting with the audio rendition startAudioRenditionIndex when one is given.
+ * starting with the audio rendition startAudioRenditionIndex when one is given. A failure asks the
+ * server why the file askedAbout cannot be read; undefined asks nothing, for a Watch Together
+ * viewer, who may not ask of the host's files and is told the player's own words.
  */
 export function usePreparedPlayback(
-  fileId: number,
+  askedAbout: number | undefined,
   decision: PlaybackDecision,
   startAudioRenditionIndex: number | undefined,
 ): {
@@ -234,7 +236,7 @@ export function usePreparedPlayback(
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = usePlaybackFailure(fileId);
+  const [failure, setFailure] = usePlaybackFailure(askedAbout);
   useEffect(() => {
     const element = videoRef.current;
     if (element === null) {
@@ -273,13 +275,18 @@ export function usePreparedPlayback(
  * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
  * (D241 §7). A file that can be read leaves the player's words.
  */
-function usePlaybackFailure(fileId: number): [string | undefined, (seen: string) => void] {
+function usePlaybackFailure(
+  fileId: number | undefined,
+): [string | undefined, (seen: string) => void] {
   const { api } = useServices();
   const { t } = useTranslation();
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const fail = useCallback(
     (seen: string) => {
       setFailure(seen);
+      if (fileId === undefined) {
+        return;
+      }
       fetchUnavailability(api, fileId).then(
         (unavailable) => {
           if (unavailable !== undefined) {

@@ -26,31 +26,35 @@ interface Destination {
     | "system"
     | "account"
     | "about";
-  readonly isAdminOnly: boolean;
+  /** Who it shows to: everyone, an admin, or a person whose role may host Watch Together. */
+  readonly audience: "everyone" | "admin" | "host";
 }
 
 const destinations: readonly Destination[] = [
-  { route: { screen: "films" }, labelKey: "films", isAdminOnly: false },
-  { route: { screen: "series" }, labelKey: "series", isAdminOnly: false },
-  { route: { screen: "search", query: "" }, labelKey: "search", isAdminOnly: false },
-  { route: { screen: "watch-together" }, labelKey: "watchTogether", isAdminOnly: false },
-  { route: { screen: "identify" }, labelKey: "identify", isAdminOnly: true },
-  { route: { screen: "libraries" }, labelKey: "libraries", isAdminOnly: true },
-  { route: { screen: "people" }, labelKey: "people", isAdminOnly: true },
-  { route: { screen: "settings" }, labelKey: "settings", isAdminOnly: true },
-  { route: { screen: "jobs" }, labelKey: "jobs", isAdminOnly: true },
-  { route: { screen: "system" }, labelKey: "system", isAdminOnly: true },
-  { route: { screen: "account" }, labelKey: "account", isAdminOnly: false },
-  { route: { screen: "about" }, labelKey: "about", isAdminOnly: false },
+  { route: { screen: "films" }, labelKey: "films", audience: "everyone" },
+  { route: { screen: "series" }, labelKey: "series", audience: "everyone" },
+  { route: { screen: "search", query: "" }, labelKey: "search", audience: "everyone" },
+  { route: { screen: "watch-together" }, labelKey: "watchTogether", audience: "host" },
+  { route: { screen: "identify" }, labelKey: "identify", audience: "admin" },
+  { route: { screen: "libraries" }, labelKey: "libraries", audience: "admin" },
+  { route: { screen: "people" }, labelKey: "people", audience: "admin" },
+  { route: { screen: "settings" }, labelKey: "settings", audience: "admin" },
+  { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin" },
+  { route: { screen: "system" }, labelKey: "system", audience: "admin" },
+  { route: { screen: "account" }, labelKey: "account", audience: "everyone" },
+  { route: { screen: "about" }, labelKey: "about", audience: "everyone" },
 ];
 
 /**
  * The frame every screen renders in: a banner with the product's name and the menu, and one
- * main landmark holding the screen. The admin's destinations show to an admin only; the server
- * refuses them to anyone else whatever the menu shows.
+ * main landmark holding the screen. The admin's destinations show to an admin only, and Watch
+ * Together to a person whose role may host; the server refuses them to anyone else whatever the
+ * menu shows.
  */
 export function AppShell(props: {
   readonly isAdmin: boolean;
+  /** Whether the person's role may host Watch Together, which shows them its screen. */
+  readonly canHostWatchTogether: boolean;
   readonly currentScreen: Route["screen"];
   readonly onSignOut: () => void;
   /** Who is signed in, and on which device, once known: said in the banner. */
@@ -66,7 +70,12 @@ export function AppShell(props: {
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul>
             {destinations
-              .filter((destination) => props.isAdmin || !destination.isAdminOnly)
+              .filter(
+                (destination) =>
+                  destination.audience === "everyone" ||
+                  (destination.audience === "admin" && props.isAdmin) ||
+                  (destination.audience === "host" && props.canHostWatchTogether),
+              )
               .map((destination) => (
                 <li
                   key={destination.labelKey}
