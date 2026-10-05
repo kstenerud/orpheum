@@ -17,7 +17,9 @@ import {
   expectedPositionMs,
   fastestNudgeFactor,
   followGroup,
+  fellBehindEvent,
   leaveDriftUpToMs,
+  playerMovedItselfEvent,
   refillAheadMs,
   seekDriftBeyondMs,
   type FollowedMedia,
@@ -117,6 +119,15 @@ class FakeMedia {
   /** The browser firing an event at the element. */
   fire(type: string): void {
     this.listeners.get(type)?.();
+  }
+
+  /** The events fired at the element by its page, by type. */
+  readonly dispatched: string[] = [];
+
+  dispatchEvent(event: Event): boolean {
+    this.dispatched.push(event.type);
+    this.fire(event.type);
+    return true;
   }
 }
 
@@ -265,6 +276,39 @@ describe("a player following its group", () => {
     media.fire("seeking");
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands.at(-1)).toEqual({ command: "seek", positionMs: 600_000 });
+  });
+
+  it("takes the host's player stepping a fraction of a second over a gap for no seek", () => {
+    const media = new FakeMedia();
+    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: true,
+      monotonicMs,
+    });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    media.currentTime = 60.5; // hls.js steps over a gap at the start of what it loaded
+    media.seeking = true;
+    media.fire("seeking");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([]);
+  });
+
+  it("takes a seek its player says it made itself, a step over a gap however long, for no seek", () => {
+    const media = new FakeMedia();
+    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: true,
+      monotonicMs,
+    });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    media.currentTime = 66; // hls.js steps over a six-second gap in what it loaded
+    media.fire(playerMovedItselfEvent);
+    media.seeking = true;
+    media.fire("seeking");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([]);
   });
 
   it("sends the host's seek as its person makes it, before the place has loaded, once per drag", () => {
@@ -420,6 +464,24 @@ describe("a player following its group", () => {
     media.fire("seeked");
     vi.advanceTimersByTime(checkDriftEveryMs * 3);
     expect(media.currentTime).toBe(60.4);
+  });
+
+  it("says it fell behind as it seeks to catch up with the group, once it has been in step", () => {
+    const media = new FakeMedia();
+    media.readyState = 4;
+    const { connection, setGroup } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    // Joining a group already playing elsewhere is no falling behind.
+    expect(media.dispatched).toEqual([]);
+    media.fire("seeked");
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.dispatched).toEqual([]);
+    setGroup({ ...paused, state: "Playing", positionMs: 120_000 }, 0);
+    expect(media.dispatched).toEqual([fellBehindEvent]);
   });
 
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {

@@ -2,12 +2,14 @@
 
 import { describe, expect, it } from "vitest";
 
+import { playerMovedItselfEvent } from "@orpheum/sdk";
 import Hls from "hls.js";
 
 import {
   hlsMethod,
   playNative,
   startWithAudio,
+  tellOwnMoves,
   type AudioStart,
   type NativeTarget,
 } from "./hls.ts";
@@ -37,6 +39,29 @@ describe("playing a prepared rendition", () => {
     playback.destroy();
     expect(removed).toEqual(["src"]);
     expect(loads).toBe(1);
+  });
+
+  it("tells the video when hls.js moves it itself, and not for any other error", () => {
+    let listener: ((event: unknown, data: { details: string }) => void) | undefined;
+    tellOwnMoves(
+      {
+        on: (event, heard) => {
+          expect(event).toBe(Hls.Events.ERROR);
+          listener = heard as typeof listener;
+        },
+      },
+      {
+        dispatchEvent: (event) => {
+          told.push(event.type);
+          return true;
+        },
+      },
+    );
+    const told: string[] = [];
+    listener?.(undefined, { details: Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE });
+    listener?.(undefined, { details: Hls.ErrorDetails.FRAG_LOAD_ERROR });
+    listener?.(undefined, { details: Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL });
+    expect(told).toEqual([playerMovedItselfEvent, playerMovedItselfEvent]);
   });
 
   it("starts with the chosen mix once the master playlist is read, and leaves the default alone", () => {

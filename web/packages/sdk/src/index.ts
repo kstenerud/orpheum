@@ -41,7 +41,13 @@ export type {
   TogetherConnection,
   TogetherSnapshot,
 } from "./together-connection.ts";
-export { driftCorrection, expectedPositionMs, followGroup } from "./together-follow.ts";
+export {
+  driftCorrection,
+  expectedPositionMs,
+  fellBehindEvent,
+  followGroup,
+  playerMovedItselfEvent,
+} from "./together-follow.ts";
 export type { FollowedMedia } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 

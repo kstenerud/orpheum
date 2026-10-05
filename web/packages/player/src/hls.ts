@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import Hls from "hls.js";
+import { playerMovedItselfEvent } from "@orpheum/sdk";
+import Hls, { type ErrorData } from "hls.js";
 
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
 
@@ -81,6 +82,30 @@ export function startWithAudio(hls: AudioStart, audioIndex: number): void {
   });
 }
 
+/** What telling the player's own moves needs of hls.js. */
+export interface OwnMoves {
+  on: (
+    event: typeof Hls.Events.ERROR,
+    listener: (event: unknown, data: Pick<ErrorData, "details">) => void,
+  ) => void;
+}
+
+/**
+ * Tells video, by playerMovedItselfEvent, each time hls.js moves it itself: stepping over a gap in
+ * what it loaded, or nudging a stalled video on. hls.js sets the position and then says so, before
+ * the browser fires seeking, so a Watch Together host's page knows that seek for the player's own.
+ */
+export function tellOwnMoves(hls: OwnMoves, video: Pick<EventTarget, "dispatchEvent">): void {
+  hls.on(Hls.Events.ERROR, (_event, data) => {
+    if (
+      data.details === Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE ||
+      data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL
+    ) {
+      video.dispatchEvent(new Event(playerMovedItselfEvent));
+    }
+  });
+}
+
 /**
  * Plays an HLS master playlist in video: with hls.js where the page has MSE, else with the
  * element's own HLS, as on an iPhone. The URL was produced by the SDK; the requests carry the
@@ -116,6 +141,7 @@ export function playHls(
     }
   });
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
+  tellOwnMoves(hls, video);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
@@ -125,6 +151,7 @@ export function playHls(
       // few seconds of it ahead and would play those out first. Seeking to where it is makes it
       // discard them, so the new mix is heard at once, after a moment's pause.
       if (!video.paused || video.currentTime > 0) {
+        video.dispatchEvent(new Event(playerMovedItselfEvent));
         // eslint-disable-next-line no-param-reassign, no-self-assign -- a media element seeks when currentTime is set; the same value drops what it decoded ahead
         video.currentTime = video.currentTime;
       }
