@@ -5,7 +5,12 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { linkKind, register, secretFromHash, type LinkKind } from "./accounts.ts";
-import { CredentialsForm, CredentialsProblem, PasswordField } from "./credentials-form.tsx";
+import {
+  CredentialsForm,
+  CredentialsNotice,
+  CredentialsProblem,
+  PasswordField,
+} from "./credentials-form.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
@@ -13,7 +18,7 @@ import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 /** Why a registration did not go through. */
-export type RegisterProblem = "noLink" | "mismatch" | "refused";
+export type RegisterProblem = "mismatch" | "refused";
 
 /**
  * Registration from a one-time link: an invitation, from which the person chooses their own name
@@ -25,6 +30,20 @@ export function Register(): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
   const [secret] = useState(() => secretFromHash(navigation.fragment()));
+  if (secret === undefined) {
+    return (
+      <CredentialsNotice heading={t("register.heading")}>
+        <p>{t("register.noLink")}</p>
+      </CredentialsNotice>
+    );
+  }
+  return <RegisterForm secret={secret} />;
+}
+
+/** The registration form for the link whose secret is given. */
+function RegisterForm(props: { readonly secret: string }): JSX.Element {
+  const { t } = useTranslation();
+  const { secret } = props;
   const kind = useLinkKind(secret);
   const isInvitation = kind?.isInvitation === true;
   const [name, setName] = useState("");
@@ -51,19 +70,17 @@ export function Register(): JSX.Element {
           {t(`register.${registration.problem}`, { refusalText: registration.refusalText })}
         </CredentialsProblem>
       )}
-      <button type="submit" disabled={secret === undefined || registration.isBusy}>
+      <button type="submit" disabled={registration.isBusy}>
         {t("register.submit")}
       </button>
     </CredentialsForm>
   );
 }
 
-/** What the link is for, once the server has said; undefined until then, or with no link. */
-function useLinkKind(secret: string | undefined): LinkKind | undefined {
+/** What the link is for, once the server has said; undefined until then. */
+function useLinkKind(secret: string): LinkKind | undefined {
   const { api } = useServices();
-  const [kind] = useResource("link-kind", async () =>
-    secret === undefined ? undefined : await linkKind(api, secret),
-  );
+  const [kind] = useResource("link-kind", async () => await linkKind(api, secret));
   return kind.state === "loaded" ? kind.value : undefined;
 }
 
@@ -100,7 +117,7 @@ function NameField(props: {
 }
 
 /** Sending the registration, and why it did not go through. */
-function useRegistration(secret: string | undefined): {
+function useRegistration(secret: string): {
   readonly submit: (entered: {
     readonly name: string | undefined;
     readonly password: string;
@@ -112,9 +129,7 @@ function useRegistration(secret: string | undefined): {
 } {
   const { t } = useTranslation();
   const { api, session, navigation } = useServices();
-  const [problem, setProblem] = useState<RegisterProblem | undefined>(
-    secret === undefined ? "noLink" : undefined,
-  );
+  const [problem, setProblem] = useState<RegisterProblem | undefined>(undefined);
   const [refusalText, setRefusalText] = useState("");
   // The refusal is told by the form's own words; the request only makes the button wait.
   const registering = useRequest(() => "");
@@ -127,9 +142,6 @@ function useRegistration(secret: string | undefined): {
     readonly password: string;
     readonly passwordAgain: string;
   }): void => {
-    if (secret === undefined) {
-      return;
-    }
     if (password !== passwordAgain) {
       setProblem("mismatch");
       return;

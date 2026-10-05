@@ -10,6 +10,15 @@ import { Register } from "./register.tsx";
 import { enter, mount, servedBy, submit, type Heard } from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 
+it("with no link in the address, says so and offers nothing to fill in", async () => {
+  const services = { ...servedBy({}, []), navigation: createNavigation(fakePlace("/register")) };
+  const mounted = await mount(withServices(<Register />, services));
+  expect(mounted.container.textContent).toContain("This address has no registration link in it.");
+  expect(mounted.container.querySelector("input")).toBeNull();
+  expect(mounted.container.querySelector("button")).toBeNull();
+  mounted.unmount();
+});
+
 it("registers with the link's secret, and leaves it in neither the address nor the history (D218 §1)", async () => {
   const place = fakePlace("/register#abc_DEF-123");
   const heard: Heard[] = [];
