@@ -274,9 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0034 drops the outsider flag and keeps everyone, each with no admin's note yet; an
-// invitation then needs a note and a role (D246 sections 1 and 2).
-func TestMigrate_Step0034KeepsEveryoneWithoutTheOutsiderFlagAndAnInvitationNeedsANote(t *testing.T) {
+// Step 0035 keeps every loudness measurement a database had, and adds video_timeline beside it, by
+// payload hash and picture, which a picture's second read replaces (D247 section 10).
+func TestMigrate_Step0035KeepsTheLoudnessAndKeepsEachPicturesTimelineOnce(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -286,19 +286,24 @@ func TestMigrate_Step0034KeepsEveryoneWithoutTheOutsiderFlagAndAnInvitationNeeds
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	const user = `INSERT INTO user (id, name, role_id, is_outsider, created_at) VALUES (%d, '%s', 2, %d, 1)`
-	execRaw(t, database, fmt.Sprintf(user, 1, "partner", 0), fmt.Sprintf(user, 2, "friend", 1))
+	execRaw(t, database, `INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs,
+		measured_at) VALUES (X'0a', 1, 'stereo', -20, 1)`)
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(queryRows(t, database, "SELECT id, name, admin_note IS NULL FROM user ORDER BY id", 3))
-	if want := "[[1 partner 1] [2 friend 1]]"; got != want {
-		t.Errorf("the people after the step are %s, want %s: everyone kept, no note", got, want)
+	got := fmt.Sprint(queryRows(t, database, "SELECT hex(payload_hash), stream_index FROM loudness", 2))
+	if want := "[[0A 1]]"; got != want {
+		t.Errorf("the loudness after the step is %s, want %s: every measurement kept", got, want)
 	}
-	execRaw(t, database, `INSERT INTO "grant" (secret_sha256, kind, scope, issued_at)
-		VALUES (X'02', 'issued_secret', 'invitation', 1)`)
+	execRaw(t, database, `INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
+		made_at) VALUES (X'0a', 0, '[0,2000]', 1)`)
 	if _, err = database.writer.ExecContext(t.Context(),
-		`INSERT INTO invitation (secret_sha256, role_id, admin_note) VALUES (X'02', 2, '')`); err == nil {
-		t.Error("an invitation with an empty note was taken, want it refused")
+		`INSERT INTO video_timeline (payload_hash, video_stream_index, made_at) VALUES (X'0a', 0, 2)`); err == nil {
+		t.Error("a second timeline for the same bytes and picture was taken, want it refused")
+	}
+	got = fmt.Sprint(queryRows(t, database,
+		"SELECT keyframes_ms_json, bytes_in_each_second_json, failure IS NULL FROM video_timeline", 3))
+	if want := "[[[0,2000] [] 1]]"; got != want {
+		t.Errorf("the timeline is %s, want %s: its keyframes, no seconds yet, no failure", got, want)
 	}
 }

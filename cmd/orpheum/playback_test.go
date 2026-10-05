@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -166,24 +167,19 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	if levelled.GainDB != 12.7 {
 		t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", levelled)
 	}
-	cache, err := store.OpenCache(t.Context(), filepath.Join(shelved.config.Instance.CacheDir, "cache.db"),
-		shelved.config.openOptions())
+	database := openDatabase(t, shelved.config)
+	film, err := database.Read().GetPlayableFile(t.Context(), filmFileID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
-	film, err := openDatabase(t, shelved.config).Read().GetPlayableFile(t.Context(), filmFileID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var timeline cachegen.VideoTimeline
+	var timeline sqlcgen.VideoTimeline
 	pollUntil(t, "the film's timeline was kept", func() bool {
-		timeline, err = cache.Read().GetVideoTimeline(t.Context(),
-			cachegen.GetVideoTimelineParams{PayloadHash: film.PayloadHash, VideoStreamIndex: 0})
+		timeline, err = database.Read().GetVideoTimeline(t.Context(),
+			sqlcgen.GetVideoTimelineParams{PayloadHash: film.PayloadHash, VideoStreamIndex: 0})
 		return err == nil
 	})
 	if timeline.KeyframesMsJSON != "[0]" || timeline.BytesInEachSecondJSON != "[930]" {
-		t.Errorf("the film's timeline in cache.db = %+v (%v); want its one keyframe and its second's bytes, from "+
+		t.Errorf("the film's timeline in persistent.db = %+v (%v); want its one keyframe and its second's bytes, from "+
 			"the same read", timeline, err)
 	}
 }

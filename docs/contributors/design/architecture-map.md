@@ -164,6 +164,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct; one per file and provider's file (step 0032, D244 §4) |
 | artwork | persistent.db | T1 (chosen) + T2 (the provider's list) | yes | the image bytes are the cache's (below) |
 | loudness | persistent.db | T3 (reads the whole file; the schema calls it "class O") | yes | the T3 kept with T1, as subtitle_text is |
+| video_timeline (a picture's keyframes and bytes in each second, by payload hash) | persistent.db | T3 (reads the whole file, copying the picture's packets) | yes | the T3 kept with T1, as loudness is, whose read gathers it (step 0035; one version in cache.db before, F1) |
 | subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by step 0029 (F1) |
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
 | item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway. See F12 |
@@ -174,7 +175,6 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | prepared_rendition (index of node renditions) | cache.db | T3 | no | mitigated by D238 §2: a node's hello lists its renditions, and the core adopts them. cache.db is at version 27 |
-| video_timeline (a picture's keyframes and bytes in each second, by payload hash) | cache.db | T3 (reads the whole file, copying the picture's packets) | no | ⚑ T3 in cache.db, where chunks.md §3 puts it: a discarded cache.db has the read-through sweep read every video through again, F1's cost; the read copies and decodes nothing, but reads every byte |
 | full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
 | secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |
 | setup-code file, sockets, the server's lock | instance's run/ | transient | no | — |

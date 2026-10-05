@@ -53,6 +53,10 @@ INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs,
                       measured_at)
   VALUES (X'0101', 1, 'stereo', -35.7, 22.8, -16.2, NULL, 1790000004000),
          (X'0101', 2, 'stereo', NULL, NULL, NULL, 'FFmpeg could not decode it', 1790000004000);
+INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure,
+                            made_at)
+  VALUES (X'0101', 0, '[0,10010]', '[90000,4000]', NULL, 1790000004000),
+         (X'0202', 0, '[]', '[]', 'FFmpeg could not read it through', 1790000004000);
 
 INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');

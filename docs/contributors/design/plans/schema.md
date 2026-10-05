@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0027_baseline.sql`, and the one step after it, `0028_choices_follow_the_work.sql`;
+> baseline, `0034_baseline.sql`, and the one step after it, `0035_video_timeline.sql`;
 > the notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0027 are folded into the baseline and survive only in
+> added or renamed a column. Steps 0001 to 0034 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -316,6 +316,25 @@ CREATE TABLE loudness (                                    -- class O: what the 
   failure         TEXT,                  -- FFmpeg's words when it could not be measured
   measured_at     INTEGER NOT NULL,
   PRIMARY KEY (payload_hash, stream_index, measured_mix)
+) WITHOUT ROWID;
+```
+
+**Each picture's timeline** is read in the same read as the loudness (step 0035,
+[D247](../../decisions/working-notes.md) §10, chunks.md §2): its keyframes, where a chunk of a copy
+of it can begin, and its bytes in each second of the film, its bit-rate profile. It is kept beside
+the loudness, by payload hash and the picture's stream index, for the same reason: making it again
+reads the whole file. It was in `cache.db` for one version, where a discard would have had every
+video read through again (F1).
+
+```sql
+CREATE TABLE video_timeline (                              -- class O: what the node read (D247 section 10)
+  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as file.payload_hash (D179)
+  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
+  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
+  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
+  failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
+  made_at     INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, video_stream_index)
 ) WITHOUT ROWID;
 ```
 
@@ -939,9 +958,9 @@ reference scale, and removes a failure mode.
 it has its node read, and a job's `scan_id` and `scan_batch_id`, the targets of the `scan` and
 `examine` kinds (D240, Phase 4e); version 29 renamed the `measure_loudness` job `read_through`, which
 reads a video through once for its loudness and its picture's timeline, and added `video_timeline`,
-that timeline by payload hash (D247 §10, chunks.md §3). Losing it has the sweep read every video
-through again, which reads every byte though it decodes nothing: F1's cost, flagged in the
-architecture map's storage table.
+that timeline by payload hash (D247 §10); version 30 moved `video_timeline` to `persistent.db` (step
+0035, below), since making it again reads the whole file: F1's cost, resolved as for subtitle text and
+loudness.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -1059,16 +1078,6 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   sent_at     INTEGER NOT NULL
 );
 CREATE INDEX node_attempt_job ON node_attempt(job_id);
-
-CREATE TABLE video_timeline (                              -- D247 section 10: a picture's timeline
-  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as persistent.db's file has them (D179)
-  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
-  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
-  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
-  failure     TEXT,                      -- FFmpeg's word that the file could not be read through; the JSON is then empty
-  made_at     INTEGER NOT NULL,
-  PRIMARY KEY (payload_hash, video_stream_index)
-) WITHOUT ROWID;
 ```
 
 A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under the node's prepared
@@ -1192,7 +1201,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
 | `prepared_rendition` | cache.db | `internal/core/renditions` | |
-| `video_timeline` | cache.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
+| `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
 
 ## Not in Cut A, and additive
 

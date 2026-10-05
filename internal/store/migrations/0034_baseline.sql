@@ -1,13 +1,14 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 6c69b189bdc759ab15afa866a4d293c8b6c8d2b7f96a4ca60be4d95fcea699de
--- The baseline (D228): persistent.db's schema at version 33 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0033 (D185's first schema, the steps
+-- orpheum:baseline folds 11b21498bbed43cd5066df7cbc9052b6d39c79e2663f601466faba437f3ff00e
+-- The baseline (D228): persistent.db's schema at version 34 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0034 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
 -- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
 -- reader limits a device was given, D240, 0031's dropping of the node's report sequence, D240,
--- 0032's one fetched subtitle per file, D244, and 0033's libraries each role reaches, D243), and
--- builds the schema and the seeded rows they built; the checksum above is 0033_role_library.sql's,
+-- 0032's one fetched subtitle per file, D244, 0033's libraries each role reaches, D243, and 0034's
+-- invitations and the admin's note on an account, D246), and builds the schema and the seeded rows
+-- they built; the checksum above is 0034_invitation.sql's,
 -- which a database migrated through that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
@@ -440,9 +441,9 @@ CREATE TABLE user (                                        -- class A
   name          TEXT NOT NULL,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
-  is_outsider   INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
   created_at    INTEGER NOT NULL,
-  removed_at    INTEGER
+  removed_at    INTEGER,
+  admin_note    TEXT                     -- who the account is for, the admin's alone (D246 section 2)
 );
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 
@@ -482,6 +483,16 @@ CREATE TABLE "grant" (                                   -- class A (D154)
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
 ) WITHOUT ROWID;
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
+
+-- An invitation not yet used: its link's grant (an issued secret, single use), the role the
+-- account will have, and the admin's note. Registering through it makes the account and spends it.
+CREATE TABLE invitation (                                  -- class A (D246 section 2)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+  admin_note    TEXT NOT NULL CHECK (admin_note <> '')
+);
+CREATE INDEX invitation_role ON invitation(role_id);
 
 CREATE TABLE setting (                                     -- class A: the server's (D200)
   key         TEXT NOT NULL PRIMARY KEY, -- a name from the settings registry in code

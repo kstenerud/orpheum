@@ -50,9 +50,10 @@
 
 ## 3. The core
 
-- **The keyframes** are kept in `cache.db` by payload hash, made by the `read_through` sweep in the
-  background as loudness is, so a film's grid is there before anyone stalls; a film without one is
-  read through at play-now priority at a player's first stall.
+- **The keyframes** are kept in `persistent.db` beside the loudness, by payload hash
+  (`video_timeline`; making them again reads the whole file, F1), made by the `read_through` sweep
+  in the background as loudness is, so a film's grid is there before anyone stalls; a film without
+  one is read through at play-now priority at a player's first stall.
 - **The qualities** are the setting `chunk_qualities`, a list such as
   `3000k@720p,2000k@540p,1200k@480p,700k@432p` (D247 §6): each a bit rate and a picture height,
   highest first. A quality's peak is capped at 1.5× its bit rate.
