@@ -274,7 +274,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     media cookie covers the session's one film (§1).
   - **Status:** holds on paper; m4.md Phase E.
 
-## M5 — the remote TV (walk before M5)
+## M6 — the remote TV, after Cut A (walk before M6; D245)
 
 - **S50** — The partner watches a whole film on their TV with voice on the phone, and resumes it
   at home later from where they stopped.

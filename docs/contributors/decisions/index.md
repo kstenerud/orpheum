@@ -250,6 +250,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D242](working-notes.md#d242--an-orpheum-instance-is-one-directory-a-small-top-level-config-pointing-at-persistent-cache-backups-and-run-and-a-backup-is-a-tarball-of-persistent) An Orpheum instance is one directory: a small top-level config pointing at persistent, cache, backups and run, and a backup is a tarball of persistent
 - [D243](working-notes.md#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in) M4's nine questions answered: a guest's cookie covers one film, invites are registration links under roles that choose libraries, the name's certificate comes by DNS-01 through Cloudflare, and a VPS carries every route in
 - [D244](working-notes.md#d244--the-audit-before-m4s-other-questions-a-kept-failure-is-ffmpegs-alone-the-system-page-shows-what-it-promised-contract-names-are-fixed-now-and-every-request-a-click-sends-is-safe-to-repeat) The audit before M4's other questions: a kept failure is FFmpeg's alone, the System page shows what it promised, contract names are fixed now, and every request a click sends is safe to repeat
+- [D245](working-notes.md#d245--cut-a-ends-with-a-polished-skinned-web-ui-built-on-research-and-the-remote-tv-comes-right-after-it) Cut A ends with a polished, skinned web UI built on research, and the remote TV comes right after it
 
 ## Archived
 

@@ -38,11 +38,13 @@ background, never as a to-do list.
 | Subtitles | embedded and sidecar text tracks via JASSUB; sync offset; **fetch on request** from the play screen, from OpenSubtitles, labelled unverified; off until a person chooses a track (D223) | [subtitle-acquisition.md](subtitle-acquisition.md) |
 | Quiet dialogue, quiet films | dialogue boost on or off, as a prepared audio rendition; the device declares its speakers; **loudness levelled**: each sound measured once by the node and brought towards one level by the player, on until a person turns it off (D226) | [audio-presentation.md](audio-presentation.md) |
 | People | local accounts, sessions, invites from outside | [auth.md](auth.md) |
-| Together | Watch Together for two with voice; reachability; one public HTTPS name; the cast receiver | [watch-together.md](watch-together.md), [remote-access.md](remote-access.md) |
+| Together | Watch Together for two with voice, the remote person's voice on her phone's browser while her computer's browser plays; reachability; one public HTTPS name. The cast receiver and the TV come right after Cut A (D245) | [watch-together.md](watch-together.md), [remote-access.md](remote-access.md) |
+| Interface | one polished, skinned web UI, from research and a UI principles document (D245) | [web-client.md](web-client.md) |
 | Running it | backup and restore, now playing, the job view, `doctor` | [backup-restore.md](backup-restore.md), [observability.md](observability.md) |
 
 **Out:**
-- roles beyond `admin` and `user`, and parental controls;
+- parental controls (roles beyond `admin` and `user`, which this line once left out, are in: the
+  admin makes them, D243 §4);
 - device pairing (D191);
 - the TV client, and offline download;
 - trickplay, segment detection and subtitle verification;
@@ -468,19 +470,20 @@ must first be seen to fail ([D190](../../decisions/working-notes.md)).
 | **M2 — scan and identify** | node child and both sockets; enumerate, probe, payload hash; JSONL reports and ingest; the filename parser; the job queue with fetches; TMDB; NFO read; the ambiguous chooser; overrides; the scanner view; artwork; the rolling refresh, and the web client's About section with TMDB's logo and notice and our acknowledgments (D213 §7); browse and search | On the tier-1 corpus plus a 200-file fixture tree, every file has a filing and a reason. D179's table holds as tests: a `mkvpropedit` title edit keeps identity, and an `ffmpeg -c copy` remux gets a new one. No ambiguous title is auto-matched. An override survives re-derivation. With the media root at mode 000 to the core's user, the core still works: it never opens a media path. |
 | **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; fetching a subtitle on request ([D223](../../decisions/working-notes.md#d223--the-m3-audits-decisions-contract-names-are-made-clear-now-subtitles-start-off-and-fetching-a-subtitle-on-request-is-in-cut-a) §4); the dialogue boost; loudness levelling in the web player (D226); play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report; the System page with hardware encoding (D225) | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. A quiet film's measured gain brings it towards -23 LUFS, no further than its peak allows. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
 | **M4 — two people, one remote** | the HTTPS name; reachability; invites; Watch Together over §5.1; voice through embedded TURN; recording for signed-in members; now playing; scans and backups as jobs in the job view, with scheduled backups ([D223](../../decisions/working-notes.md#d223--the-m3-audits-decisions-contract-names-are-made-clear-now-subtitles-start-off-and-fetching-a-subtitle-on-request-is-in-cut-a) §6) | On D190's remote-household VM under its netem profiles, two Playwright clients stay within the drift bound for 30 minutes. Fake-microphone voice arrives within the jitter and loss bounds. An invite works once. Revocation ends access at the next request. No credential appears in any URL in a HAR capture. A signed-in guest's history advances; an anonymous one's does not. |
-| **M5 — the remote TV** | the first working path from [D188](../../decisions/working-notes.md)'s table for the remote person's actual TV; "Get this ready" and the session-start prepare of `h264-8m`; the cast receiver's loudness levelling ([D226](../../decisions/working-notes.md#d226--loudness-is-levelled-in-cut-a-the-node-measures-each-sound-and-its-stereo-mix-the-core-sets-a-gain-towards--23-lufs-that-no-peak-exceeds-and-the-player-applies-it-after-its-volume) §4, moved from M3 on 2026-09-30) | On that TV class, with the film on the TV and voice on the phone, a whole film completes with no manual resynchronisation. A prepared rendition plays without stalling over the "congested" profile. Resuming at home continues from the remote position. Deleting `cache.db` loses nothing but prepared renditions. |
+| **M5 — the polished UI** ([D245](../../decisions/working-notes.md)) | one skinned web UI, from research into best practices, competitors and what people say of them, and into what the web's practice forgot of older UI toolkits; a UI principles document, and the standards that touch the UI revisited against it; an architecture supple enough to iterate on | The two people use it on their web browsers, the remote one's voice on her phone's browser, and the owner calls it polished. A change to one screen's look needs no change elsewhere. |
+| **M6 — the remote TV** (after Cut A, D245) | the first working path from [D188](../../decisions/working-notes.md)'s table for the remote person's actual TV; "Get this ready" and the session-start prepare of `h264-8m`; the cast receiver's loudness levelling ([D226](../../decisions/working-notes.md#d226--loudness-is-levelled-in-cut-a-the-node-measures-each-sound-and-its-stereo-mix-the-core-sets-a-gain-towards--23-lufs-that-no-peak-exceeds-and-the-player-applies-it-after-its-volume) §4, moved from M3 on 2026-09-30) | On that TV class, with the film on the TV and voice on the phone, a whole film completes with no manual resynchronisation. A prepared rendition plays without stalling over the "congested" profile. Resuming at home continues from the remote position. Deleting `cache.db` loses nothing but prepared renditions. |
 
 **Cut A is done** after M5 and a week of real use by its two users. The first public beta
 ([D192](../../decisions/working-notes.md)) is a separate decision.
 
 ## 9. Before M0: what only the owner can do
 
-- **Buy a Chromecast.** Phase 0 ([playback-survey.md](playback-survey.md)) needs one, and M5
+- **Buy a Chromecast.** Phase 0 ([playback-survey.md](playback-survey.md)) needs one, and M6
   may too. Buy the same model as the remote person's if they have one.
 - **Test the ISP:** whether a forwarded port is reachable from mobile data, and whether IPv6 is
   present.
 - **Choose which domain** carries `media.<domain>`, and give its DNS provider's API access to the
   certificate client.
 - **Enable Landlock on nas's kernel** before M3's escape test runs there, or accept *unconfined*.
-- **Find out the remote person's TV setup**, which is due in about two weeks and needed by M5,
+- **Find out the remote person's TV setup**, which is due in about two weeks and needed by M6,
   not before.

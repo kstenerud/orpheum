@@ -17884,3 +17884,39 @@ recommendations"*, *"Everything except A4 sounds good"*.
    parked work is asked for again when needed: both accepted.
 
 **Status:** Decided 2026-10-04; to be built before M4's first feature.
+
+## D245 — Cut A ends with a polished, skinned web UI built on research, and the remote TV comes right after it
+
+**Decided** (2026-10-05), by the project owner, while M4 was being built: *"I no longer need the
+TV playback (M5) so soon. She can just watch from her laptop at first while we work the kinks
+out, so cut A will be us on proper web browsers."* And: *"The big thing we need before she starts
+using it is proper UX, with a skinned UI."* **Revises** cut-a's milestones: the remote TV, M5,
+leaves Cut A, and a polished UI takes its place.
+
+1. **Cut A is two households on proper web browsers.** The remote person watches on her laptop's
+   browser. Voice is still tested as Watch Together's companion: her phone's browser carries
+   voice while the computer's browser plays (watch-together.md's voice companion, D120). The
+   remote TV (D188's table, the cast receiver, "Get this ready") comes right after Cut A; the
+   owner still wants it.
+2. **Cut A is not finished until the UI is polished**, with one skin: *"I don't need multiple
+   skins (only one is fine)."* It is the new M5; the remote TV becomes the first milestone after
+   Cut A.
+3. **Research comes first**, and it covers:
+   - best practices for user interfaces, above all a media server's;
+   - what our competitors do, and what people say about their interfaces;
+   - what the web ecosystem does now, contrasted with the practices that served maintainability
+     and ease of development before it: the owner, *"It used to be that you'd make a number of
+     common components and then re-use them, with the UI subsystem making sure layout flowed
+     consistently, so that you didn't have to manually fiddle with one part of the UI just to make
+     another unrelated part look right. And then that was all thrown out as JS and HTML became
+     popular, and we lost over a decade re-learning those lessons (and I'm not sure if we've
+     re-learned them all yet)"*; and the lessons to take wherever today's practice still falls
+     short.
+4. **Then a UI principles document**, and every standard that touches the UI is revisited
+   against it.
+5. **The design is iterative, so the UI's architecture stays supple**, at least at first: the
+   look is changed often, and a change to one part must not need fiddling with another.
+6. **When:** whenever it is convenient; it does not wait for M4 to end, and Cut A does not end
+   without it.
+
+**Status:** Decided 2026-10-05; the research is the next step, then the principles, then the build.

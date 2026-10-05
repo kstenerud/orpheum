@@ -101,7 +101,7 @@ is the evidence. The first column names each package by its path; the check read
 | `web/packages/sdk` | R9 (client API access) | Also the client's sensing (playable-formats.ts), which is the client-side analogue of "nodes sense, the core decides" |
 | `web/packages/player` | R4 (client end of streaming: hls.ts, subtitles.ts, gain.ts) | R6b capture: report.ts. Its `PlayReport` was a hand copy of the generated `ReportInputBody` until 2026-09-30, and is now derived from it (F10) |
 | `web/apps/web` | R9 | — |
-| `web/apps/cast-receiver` | R9 (stub until M5) | — |
+| `web/apps/cast-receiver` | R9 (stub until M6, after Cut A) | — |
 | `web/apps/web`: session.ts, accounts.ts, device.ts, signed-out-watch.ts, browser-storage.ts, sign-in/register/code-sign-in/device-code | R5 (client side) | browser storage holds only the session |
 | `web/apps/web`: play-state.ts | R6b capture | sends reports |
 | `web/apps/web`: settings.tsx | R6a | — |
