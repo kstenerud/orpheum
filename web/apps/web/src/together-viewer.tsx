@@ -2,14 +2,14 @@
 
 import "./together-viewer.css";
 
-import { mediaErrorFailure } from "@orpheum/player";
+import { mediaErrorFailure, type PlaybackFailure } from "@orpheum/player";
 import {
   followGroup,
   type TogetherConnection,
   type TogetherEndReason,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
@@ -18,11 +18,15 @@ import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { CredentialsField, CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
 import {
+  LowerQualityNotes,
   audioRenditionIndex,
   playbackFailureText,
+  useBufferMeter,
+  useChunkedPlayback,
   usePreparedPlayback,
   type PlaybackDecision,
 } from "./play.tsx";
+import { useStallReports, type LowerQuality } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { SoundChoices } from "./sound.tsx";
@@ -297,18 +301,67 @@ function GroupFilm(props: {
       audioOutput: props.audioOutput,
     }),
   );
+  const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
+  // The lower quality the viewer's player moved to after stalling again (D247 §2), per playback.
+  const [moved, setMoved] = useState<
+    { readonly mediaToken: string; readonly offer: LowerQuality } | undefined
+  >(undefined);
   return (
     <Loaded
       resource={decision}
-      render={(value) =>
-        value.delivery === "direct" ? (
-          <DirectFilm fileId={props.fileId} decision={value} following={props.following} />
+      render={(value) => {
+        const films = {
+          fileId: props.fileId,
+          decision: value,
+          following: props.following,
+          headers,
+        };
+        const onLowerQuality = (offer: LowerQuality): void => {
+          setMoved((already) => already ?? { mediaToken: value.mediaToken, offer });
+        };
+        if (moved?.mediaToken === value.mediaToken) {
+          return <ChunkedFilm {...films} offer={moved.offer} />;
+        }
+        return value.delivery === "direct" ? (
+          <DirectFilm {...films} onLowerQuality={onLowerQuality} />
         ) : (
-          <PreparedFilm fileId={props.fileId} decision={value} following={props.following} />
-        )
-      }
+          <PreparedFilm {...films} onLowerQuality={onLowerQuality} />
+        );
+      }}
     />
   );
+}
+
+/** What a viewer's film is given: the film, how it plays, the group it follows, and its membership. */
+interface FilmProps {
+  readonly fileId: number;
+  readonly decision: PlaybackDecision;
+  readonly following: Following;
+  /** The membership's authorization, by which the viewer's player reports its stalls. */
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+/**
+ * Reports a viewer's stalls and link (D247 §2), and hands on a lower quality the server offers
+ * after the player stalled again.
+ */
+function useMovingDown(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+  readLinkKbps: () => number | undefined,
+): void {
+  const { api } = useServices();
+  const lowerQuality = useStallReports(api, videoRef, {
+    mediaToken: props.decision.mediaToken,
+    headers: props.headers,
+    readLinkKbps,
+  });
+  const { onLowerQuality } = props;
+  useEffect(() => {
+    if (lowerQuality !== undefined) {
+      onLowerQuality(lowerQuality);
+    }
+  }, [lowerQuality, onLowerQuality]);
 }
 
 /** Makes the video follow the group while it plays fileId, at the viewer's volume. */
@@ -333,15 +386,14 @@ function useFollowing(
 }
 
 /** The original file, following the group; it plays when the group does, never on its own. */
-function DirectFilm(props: {
-  readonly fileId: number;
-  readonly decision: PlaybackDecision;
-  readonly following: Following;
-}): JSX.Element {
+function DirectFilm(
+  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   useFollowing(videoRef, props.fileId, props.following);
+  useMovingDown(videoRef, props, useBufferMeter(videoRef, props.decision.fileBitRateKbps));
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
@@ -364,11 +416,9 @@ function DirectFilm(props: {
 }
 
 /** A prepared copy, following the group once its first part is made. */
-function PreparedFilm(props: {
-  readonly fileId: number;
-  readonly decision: PlaybackDecision;
-  readonly following: Following;
-}): JSX.Element {
+function PreparedFilm(
+  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
   const [startIndex] = useState(() =>
@@ -379,8 +429,13 @@ function PreparedFilm(props: {
     ),
   );
   // A viewer may not ask why the host's file cannot be read: the player's own words are told.
-  const { videoRef, isWaiting, failure } = usePreparedPlayback(undefined, decision, startIndex);
+  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
+    undefined,
+    decision,
+    startIndex,
+  );
   useFollowing(videoRef, props.fileId, props.following);
+  useMovingDown(videoRef, props, () => playbackRef.current?.estimateKbps());
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
@@ -389,6 +444,34 @@ function PreparedFilm(props: {
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
+    </>
+  );
+}
+
+/**
+ * The film at a lower quality, which the viewer's stalling player moved to (D247 §2, §10): every
+ * quality of it cut into chunks, from the one offered for the link, following the group.
+ */
+function ChunkedFilm(
+  props: Pick<FilmProps, "fileId" | "following"> & { readonly offer: LowerQuality },
+): JSX.Element {
+  const { t } = useTranslation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const onFailed = useCallback(
+    (seen: PlaybackFailure) => {
+      setFailure(t("play.preparedFailed", { reason: playbackFailureText(t, seen) }));
+    },
+    [t],
+  );
+  const { playing, cannotKeepUp } = useChunkedPlayback(videoRef, props.offer, onFailed);
+  useFollowing(videoRef, props.fileId, props.following);
+  return (
+    <>
+      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
+      <video className="together-viewer__video" ref={videoRef} playsInline />
+      <LowerQualityNotes offer={props.offer} playing={playing} cannotKeepUp={cannotKeepUp} />
+      {failure === undefined ? null : <p role="alert">{failure}</p>}
     </>
   );
 }

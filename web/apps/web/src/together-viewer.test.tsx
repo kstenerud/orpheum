@@ -3,6 +3,8 @@
 
 import "./i18n.ts";
 
+import { stallAfterMs } from "@orpheum/player";
+import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "./app.tsx";
@@ -138,6 +140,51 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "/api/v1/bytes/media/direct/abc",
     );
     expect(mounted.container.textContent).toContain("Karl paused at 41:12");
+    mounted.unmount();
+  });
+
+  it("reports a viewer's stall by the membership, and moves to the lower quality offered (D247 §2)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.sessionStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const offer = {
+      url: "/api/v1/bytes/media/chunks/t/master.m3u8",
+      startAtBps: 1_242_000,
+      qualityKbps: 700,
+      height: 432,
+      isBelowTheLowest: false,
+      soundCarriedGainDb: 0,
+    };
+    const { services, heard, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision()],
+      "POST /playback/t/report": [200, { lowerQuality: offer }],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Playing", positionMs: 60_000, rate: 1, fileId: 5 },
+    });
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    // Playing along, it runs out of data.
+    Object.defineProperty(video, "paused", { value: false });
+    await act(async () => {
+      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(new Event("waiting"));
+      await new Promise((resolve) => setTimeout(resolve, stallAfterMs + 50));
+    });
+    const report = heard.find((each) => each.methodAndPath === "POST /playback/t/report");
+    expect(report?.body).toMatchObject({ stalls: [{ positionMs: 0 }] });
+    expect(mounted.container.textContent).toContain(
+      "Your connection could not keep up, so this moves to a lower quality: 432p, 0.7 Mb/s.",
+    );
     mounted.unmount();
   });
 
