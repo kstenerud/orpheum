@@ -128,6 +128,9 @@ loop to work:**
   socket's path would be past a Unix socket's 103 bytes: `--run-dir` puts its run directory
   somewhere shorter, as `/run/orpheum`. Paths arrive absolute.
   - a core's `[server]`: `listen`, `read_header_timeout_seconds`, `shutdown_grace_seconds`
+  - a core's `[https]`: `domain` (its public name; empty serves no HTTPS), `contact` (the e-mail
+    address its CA writes to) and `listen` (`":443"`); the certificate comes by ACME DNS-01 through
+    the DNS provider's token, a secret (D243 §6)
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - a node's `[node]`: `name` (the core enrols it by it, D207), `core_socket`, `root_paths`,
     `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or `"report"`; a production
@@ -178,7 +181,7 @@ cmd/orpheum/        # main: flags → core | node | default-config | migrate | b
                     #   | doctor | setup-code | openapi | version | dev (dev builds only)
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
-  auth/  secrets/  settings/  preferences/  backup/  webclient/
+  auth/  secrets/  settings/  preferences/  backup/  certificate/  webclient/
   library/  identify/  providers/  textindex/  artwork/  jobs/  nodes/
   decide/  playback/  loudness/  subtitles/  renditions/
   together/  turn/  # M4's; doc.go only

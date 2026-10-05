@@ -26,6 +26,7 @@ const everyKind = [
   "scan",
   "examine",
   "backup",
+  "renew_certificate",
 ] as const satisfies readonly Job["kind"][];
 
 /** True only when everyKind names every kind: a kind left out makes this fail to compile. */

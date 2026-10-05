@@ -50,7 +50,9 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
 | `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |
-| `internal/core/backup` | OPS | — |
+| `internal/core/backup` | OPS | — (a backup is a job since 2026-10-05, D243 §11) |
+| `internal/core/certificate` | OPS (the HTTPS certificate of the server's name) | ⚑ R1: asks the CA by ACME, through the outbound client (D243 §6) |
+| `internal/core/providers/cloudflare` | R1 (the DNS provider: a DNS-01 challenge's TXT record) | — |
 | `internal/core/instancedir` | PERSIST | — (its `ListenUnix`, which the node role called, moved to `internal/platform/unixsocket` on 2026-09-30: F8) |
 | `internal/core/decide` | R7 | — (pure: imports nodeproto and the standard library alone; depguard `decide-sees-capabilities`; since 2026-10-03 also the levelling arithmetic, levels.go, F2) |
 | `internal/core/identify` | R7 (matching, choosing) | ⚑ R2: builds Title/Version/Extra identity from paths (pass.go, titles.go, episodes.go, extras.go) and decides `file.filing` (match.go:407, titles.go:166), which it records through library since 2026-09-30. ⚑ R1: orchestrates provider fetches (refresh.go). ⚑ R3: sort keys (sortkeys.go). Finds an item's images and reports them; since 2026-09-30 it writes no `artwork` row and imports no artwork (F5) |
@@ -92,7 +94,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly` | PRIM | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
-| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
+| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
 
 ### Web
 

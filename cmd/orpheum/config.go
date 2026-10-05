@@ -29,6 +29,7 @@ import (
 // (D202). Where the instance's directories are is its top-level config's (D242).
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
+	HTTPS    HTTPSConfig    `toml:"https"`
 	Database DatabaseConfig `toml:"database"`
 	Node     NodeConfig     `toml:"node"`
 	Log      LogConfig      `toml:"log"`
@@ -44,6 +45,33 @@ type ServerConfig struct {
 	Listen                   string `toml:"listen"`
 	ReadHeaderTimeoutSeconds int64  `toml:"read_header_timeout_seconds"`
 	ShutdownGraceSeconds     int64  `toml:"shutdown_grace_seconds"`
+}
+
+// HTTPSConfig is the server's public name and its HTTPS listener (D243 §6): its certificate comes by
+// ACME DNS-01 through the DNS provider's token, a secret. An empty domain serves no HTTPS.
+type HTTPSConfig struct {
+	Domain  string `toml:"domain"`
+	Contact string `toml:"contact"`
+	Listen  string `toml:"listen"`
+}
+
+// isOn is whether the server has a public name to serve HTTPS on.
+func (https HTTPSConfig) isOn() bool { return https.Domain != "" }
+
+// check refuses a name with no contact or no address to listen on.
+func (https HTTPSConfig) check() error {
+	if !https.isOn() {
+		return nil
+	}
+	var problems []error
+	if _, _, err := net.SplitHostPort(https.Listen); err != nil {
+		problems = append(problems, fmt.Errorf("https.listen %q: want host:port", https.Listen))
+	}
+	if !strings.Contains(https.Contact, "@") {
+		problems = append(problems,
+			fmt.Errorf("https.contact %q: want the e-mail address the CA writes to", https.Contact))
+	}
+	return errors.Join(problems...)
 }
 
 // DatabaseConfig is what the store needs before the database opens.
@@ -96,6 +124,7 @@ const logToStderr = "stderr"
 // The file's tables.
 const (
 	tableServer   = "server"
+	tableHTTPS    = "https"
 	tableDatabase = "database"
 	tableNode     = "node"
 	tableLog      = "log"
@@ -129,6 +158,12 @@ func coreConfigKeys() []configKey {
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
+		{
+			tableHTTPS, "domain", `""`,
+			`the public name served over HTTPS, "media.orpheum-app.com"; empty serves none (D243 §6)`,
+		},
+		{tableHTTPS, "contact", `""`, "the e-mail address the certificate's CA writes to about it"},
+		{tableHTTPS, "listen", `":443"`, "the address and port HTTPS is served on"},
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
@@ -332,7 +367,7 @@ func (config *Config) check(kind instanceKind) error {
 	if kind == kindNode {
 		problems = append(problems, config.Node.check())
 	} else {
-		problems = append(problems, config.Server.check(), config.Database.check())
+		problems = append(problems, config.Server.check(), config.HTTPS.check(), config.Database.check())
 	}
 	return errors.Join(problems...)
 }

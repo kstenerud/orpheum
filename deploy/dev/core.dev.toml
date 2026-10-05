@@ -17,6 +17,12 @@ listen = "127.0.0.1:8432"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 
+# No public name in the dev loop: it serves plain HTTP on loopback (D243 §6 is the deployment's).
+[https]
+domain = ""
+contact = ""
+listen = ":443"
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

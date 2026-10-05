@@ -62,34 +62,40 @@ func serve(
 
 	opened, err := openAndWire(ctx, config, configReport, server, outside, logger)
 	if err != nil {
-		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
-		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
-			"err", err)
-		<-ctx.Done()
-		return err
+		return stayDegraded(ctx, server, "the server could not start", err, logger)
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
+	if opened, err = openCertificates(ctx, config, opened, outside, logger); err != nil {
+		return stayDegraded(ctx, server, "the certificate could not be read", err, logger)
+	}
+	stopHTTPS, err := listenAndServeHTTPS(ctx, config, opened, httpServer.Handler, logger)
+	if err != nil {
+		return stayDegraded(ctx, server, "HTTPS could not start", err, logger)
+	}
+	defer func() { err = errors.Join(err, stopHTTPS()) }()
 	stopBackgroundJobs, err := opened.jobServices.startBackgroundLoops(ctx, logger)
 	if err != nil {
-		server.SetStatus(api.StatusDegraded, "the background jobs could not start", err.Error())
-		logger.ErrorContext(ctx, "the background jobs could not start; the server stays up to report why",
-			"err", err)
-		<-ctx.Done()
-		return err
+		return stayDegraded(ctx, server, "the background jobs could not start", err, logger)
 	}
 	defer stopBackgroundJobs()
 	stopNodes, err := runNodeChannel(ctx, config, opened, logger)
 	if err != nil {
-		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
-		logger.ErrorContext(ctx, "the node channel could not start; the server stays up to report why", "err", err)
-		<-ctx.Done()
-		return err
+		return stayDegraded(ctx, server, "the node channel could not start", err, logger)
 	}
 	defer func() { err = errors.Join(err, stopNodes()) }()
 	logger.InfoContext(ctx, "ready")
 	<-ctx.Done()
 	logger.InfoContext(ctx, "stopping")
 	return nil
+}
+
+// stayDegraded keeps the server up, saying at /api/v1/health why it could not start, until ctx ends.
+func stayDegraded(ctx context.Context, server *api.Server, what string, err error, logger *slog.Logger) error {
+	server.SetStatus(api.StatusDegraded, what, err.Error())
+	logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
+		"what", what, "err", err)
+	<-ctx.Done()
+	return err
 }
 
 // wiring is what serve is given from outside: where TMDB answers and serves its images
@@ -99,11 +105,18 @@ type wiring struct {
 	tmdbImagesBaseURL string
 	// openSubtitlesBaseURL is where OpenSubtitles answers (opensubtitles.BaseURL, or a test's fake).
 	openSubtitlesBaseURL string
+	// acmeDirectoryURL is the CA the certificate comes from (certificate.LetsEncrypt, or a test's
+	// fake), cloudflareBaseURL the DNS provider's API (cloudflare.BaseURL, or a fake), and
+	// dnsPropagationWait how long a challenge's record is given (D243 §6).
+	acmeDirectoryURL   string
+	cloudflareBaseURL  string
+	dnsPropagationWait time.Duration
 }
 
 // openedServices is what openAndWire opened and serve must close.
 type openedServices struct {
 	lock        *instancedir.Lock
+	directories *instancedir.Directories
 	database    *store.Database
 	cache       *store.Cache
 	settings    *settings.Service
@@ -158,7 +171,7 @@ func openAndWire(
 		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
 	if err == nil {
-		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
+		opened.settings, opened.secrets, opened.directories = dependencies.Settings, dependencies.Secrets, directories
 		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
 	}
 	if err == nil {

@@ -511,3 +511,26 @@ func TestPruneFinished_ForgetsWhatEndedLongerAgoThanTheSettingKeeps(t *testing.T
 		t.Errorf("the jobs left are for items %v; want 2, which ended 11 days ago, and 3, still queued", left)
 	}
 }
+
+// A backup and the certificate's renewal work on the whole server and name no target: each is
+// queued once at a time, and one that names a target is refused (D243 §6, §11).
+func TestEnqueue_AWholeServerJobNamesNoTargetAndIsQueuedOnce(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	for _, kind := range []Kind{KindBackup, KindRenewCertificate} {
+		for range 2 {
+			request := Request{Kind: kind, ArgsJSON: "{}", Reason: "test"}
+			if _, err := jobs.queue.Enqueue(t.Context(), request); err != nil {
+				t.Fatalf("queue a %s: %v", kind, err)
+			}
+		}
+		if _, err := jobs.queue.Enqueue(t.Context(), Request{
+			Kind: kind, Target: Target{ItemID: 7}, ArgsJSON: "{}", Reason: "test",
+		}); !errors.Is(err, ErrNotOneTarget) {
+			t.Errorf("a %s naming an item: %v, want ErrNotOneTarget", kind, err)
+		}
+	}
+	if listed, err := jobs.cache.Read().ListJobs(t.Context(), 10); err != nil || len(listed) != 2 {
+		t.Errorf("%d jobs (%v) after asking for each whole-server kind twice; want one of each", len(listed), err)
+	}
+}
