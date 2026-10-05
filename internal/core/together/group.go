@@ -35,7 +35,7 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 			refuse(codeNotFound) // one the host may not play was given as 0 (Handle)
 			return
 		}
-		current.changeItem(now, sender, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
+		current.changeItem(now, sender, from, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
 	case CommandStop:
 		current.group.fileID, current.group.position = 0, 0
 		current.change(now, GroupIdle, EventStopped, sender.id)
@@ -78,12 +78,17 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 
 // changeItem puts fileID on for everyone, from position, as the host played it: the group waits
 // until every player that has been ready loads it, those catching up too, then plays (D246 §5,
-// D247 §4).
-func (current *session) changeItem(now time.Time, sender *member, fileID int64, position time.Duration) {
+// D247 §4). The host's player that put it on is waited for though it has not yet once said it is
+// ready: the host's player page connects as it opens, and the host chose the film (the owner's
+// test, 2026-10-05, where the group played on as the host's player still loaded).
+func (current *session) changeItem(now time.Time, sender *member, from *device, fileID int64, position time.Duration) {
 	for _, each := range current.members {
 		for _, attached := range each.devices {
 			attached.isCatchingUp = false // a new film is waited for by everyone
 		}
+	}
+	if from.role.plays() && !from.hasBeenReady {
+		from.hasBeenReady, from.buffering = true, true
 	}
 	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
 	current.change(now, GroupWaiting, EventChangedItem, sender.id)

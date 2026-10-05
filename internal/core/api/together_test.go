@@ -116,11 +116,13 @@ func (harness testHarness) joinByLink(
 	return membership
 }
 
-// putOn has the host's device put fileID on, and waits until the viewer's device hears it playing.
+// putOn has the host's device put fileID on and say it has loaded it, as the host's player does,
+// and waits until the viewer's device hears it playing.
 func putOn(host, viewer socket, fileID int64) {
 	host.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: fileID,
 	})
+	host.send(together.Inbound{V: together.ProtocolVersion, Type: together.MessageState})
 	for {
 		if playing := viewer.awaitGroup(together.GroupPlaying); playing.Group.FileID == fileID {
 			return
