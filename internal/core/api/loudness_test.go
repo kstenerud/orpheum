@@ -43,7 +43,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	if command == nil || command.Video.PayloadHash != "0a0b" || string(command.Video.Path) != "Film (2001).mp4" ||
 		!slices.Equal(command.LoudnessTracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) ||
 		command.DurationMs != 600_000 {
-		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track "+
+		t.Errorf("the node was asked to read through %+v, want the MP4 by root, path and hash, with its stereo track "+
 			"and its ten minutes", command)
 	}
 	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{2}) {
