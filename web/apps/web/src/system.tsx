@@ -14,6 +14,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
+import { NowPlaying } from "./now-playing.tsx";
 import { SystemBackups } from "./system-backups.tsx";
 import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
@@ -64,6 +65,7 @@ export function System(): JSX.Element {
           render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
         />
       </BusyGroup>
+      <NowPlaying />
       <SystemBackups />
     </>
   );

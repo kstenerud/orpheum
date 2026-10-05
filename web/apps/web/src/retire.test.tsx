@@ -133,6 +133,7 @@ it("the System page says since when each folder and disk is offline, and retires
   const services = servedBy(
     {
       "GET /backups": noBackups,
+      "GET /now-playing": [200, { playbacks: [] }],
       "GET /system": [
         [200, report],
         [200, { ...report, nodes: [] }],

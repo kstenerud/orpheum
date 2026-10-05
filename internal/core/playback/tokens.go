@@ -3,12 +3,15 @@
 package playback
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
@@ -40,6 +43,17 @@ type tokenPlayback struct {
 	// libraryID is the file's library: a holder who no longer reaches it no longer holds the
 	// token, so a library taken back stops its playbacks at their next request (D243 §4).
 	libraryID int64
+	// playbackID names the playback to the admin's now playing, which never sees the token; deviceID
+	// is the device it plays on, startedAt when it started, decision how it plays, and positionMs
+	// where its last report said it was.
+	playbackID int64
+	deviceID   int64
+	startedAt  time.Time
+	decision   decide.Decision
+	positionMs int64
+	// stopMessage, once the admin stopped the playback, is what its player is told in the answer to
+	// its next report, which ends it (D243 §9).
+	stopMessage *string
 	// profile is a prepared playback's rendition; empty for direct play.
 	profile    nodeproto.PrepareProfile
 	lastUsedAt time.Time
@@ -62,6 +76,8 @@ type usedTracks struct {
 type tokens struct {
 	mutex           sync.Mutex
 	playbackByToken map[string]*tokenPlayback // guarded by mutex
+	// lastPlaybackID numbers the playbacks issued since the start; guarded by mutex.
+	lastPlaybackID int64
 }
 
 func newTokens() *tokens {
@@ -81,7 +97,9 @@ func (all *tokens) issue(random io.Reader, playback tokenPlayback, now time.Time
 			delete(all.playbackByToken, key)
 		}
 	}
-	playback.lastUsedAt = now
+	playback.lastUsedAt, playback.startedAt = now, now
+	all.lastPlaybackID++
+	playback.playbackID = all.lastPlaybackID
 	all.playbackByToken[token] = &playback
 	return token, nil
 }
@@ -99,7 +117,8 @@ func (all *tokens) use(token string, holder Holder, now time.Time, idle time.Dur
 		delete(all.playbackByToken, token)
 		return tokenPlayback{}, false
 	}
-	if !known.isHeldBy(holder) {
+	// A playback the admin stopped serves nothing more; its next report is told why.
+	if !known.isHeldBy(holder) || known.stopMessage != nil {
 		return tokenPlayback{}, false
 	}
 	known.lastUsedAt = now
@@ -141,5 +160,68 @@ func (all *tokens) returnReport(token string, seq, previousSeq int64) {
 	defer all.mutex.Unlock()
 	if known, found := all.playbackByToken[token]; found && known.lastReportSeq == seq {
 		known.lastReportSeq = previousSeq
+	}
+}
+
+// NowPlaying is one playback heard from lately, as the admin's now playing shows it (cut-a §5).
+type NowPlaying struct {
+	PlaybackID int64
+	UserID     int64
+	DeviceID   int64
+	FileID     int64
+	StartedAt  time.Time
+	LastHeard  time.Time
+	PositionMs int64
+	Decision   decide.Decision
+}
+
+// nowPlaying are the playbacks used since heardSince, oldest first.
+func (all *tokens) nowPlaying(heardSince time.Time) []NowPlaying {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	var playing []NowPlaying
+	for _, known := range all.playbackByToken {
+		if known.lastUsedAt.Before(heardSince) || known.stopMessage != nil {
+			continue
+		}
+		playing = append(playing, NowPlaying{
+			PlaybackID: known.playbackID, UserID: known.userID, DeviceID: known.deviceID, FileID: known.fileID,
+			StartedAt: known.startedAt, LastHeard: known.lastUsedAt, PositionMs: known.positionMs,
+			Decision: known.decision,
+		})
+	}
+	slices.SortFunc(playing, func(first, second NowPlaying) int {
+		return cmp.Compare(first.PlaybackID, second.PlaybackID)
+	})
+	return playing
+}
+
+// stop marks the playback named playbackID stopped, with message for its player; false when there
+// is none.
+func (all *tokens) stop(playbackID int64, message string) bool {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	for _, known := range all.playbackByToken {
+		if known.playbackID == playbackID && known.stopMessage == nil {
+			known.stopMessage = &message
+			return true
+		}
+	}
+	return false
+}
+
+// end forgets a token, whose playback was stopped and whose player was told.
+func (all *tokens) end(token string) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	delete(all.playbackByToken, token)
+}
+
+// keepPosition keeps where a report said a token's playback is.
+func (all *tokens) keepPosition(token string, positionMs int64) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	if known, found := all.playbackByToken[token]; found {
+		known.positionMs = positionMs
 	}
 }

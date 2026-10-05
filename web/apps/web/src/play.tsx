@@ -92,10 +92,13 @@ function UnderTheVideo(
 ): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const reportRefusal = usePlayState(api, props.videoRef, props.decision);
+  const { refusal: reportRefusal, stopMessage } = usePlayState(api, props.videoRef, props.decision);
   return (
     <>
-      {reportRefusal === undefined ? null : (
+      {stopMessage === undefined ? null : (
+        <p role="alert">{t("play.stoppedByAdmin", { message: stopMessage })}</p>
+      )}
+      {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
       <button

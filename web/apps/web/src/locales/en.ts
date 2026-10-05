@@ -171,6 +171,16 @@ export const en = {
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",
   },
+  nowPlaying: {
+    heading: "Now playing",
+    none: "Nothing is playing.",
+    who: "{{person}} on {{device}}: {{name}}, since {{since}}.",
+    noDevice: "a device with no name",
+    direct: "Played as it is.",
+    prepared: "A prepared copy, because of: {{reasons}}.",
+    message: "Message",
+    stop: "Stop it",
+  },
   roles: {
     heading: "Roles",
     explain:
@@ -263,6 +273,7 @@ export const en = {
         "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
     },
     startOver: "Start over",
+    stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     audio: {
       label: "Sound",

@@ -20,18 +20,24 @@ const transientRefusalCodes: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Sends one play report for the playback the media token names. A refusal that sending again
+ * Sends one play report for the playback the media token names, and answers the admin's stop when
+ * the server says the playback was stopped (D243 §9). A refusal that sending again
  * cannot change (the playback is gone, the session is not allowed it) rejects with ReportRefused,
  * so the reporter stops; a failure that may pass (no answer, a server busy or updating) rejects as
  * it came, so the report goes again with the next.
  */
-export async function sendReport(api: Api, mediaToken: string, report: PlayReport): Promise<void> {
+export async function sendReport(
+  api: Api,
+  mediaToken: string,
+  report: PlayReport,
+): Promise<{ readonly message: string } | undefined> {
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: mediaToken } },
     body: { ...report, events: [...report.events], spans: [...report.spans] },
   });
   try {
     throwIfRefused(answer);
+    return answer.data?.stop ?? undefined;
   } catch (cause) {
     if (cause instanceof ApiProblem && !transientRefusalCodes.has(cause.code)) {
       throw new ReportRefused(cause);
@@ -138,23 +144,34 @@ function reportVideoEvents(
  * left the file, without asking (D188), and reports each change of state, and where it is every
  * ten seconds while playing and when the page is hidden, until the playback ends. It returns why
  * the server refused the reports for good, once it has, so the person is told that where they are
- * is no longer kept; undefined until then.
+ * is no longer kept; and the admin's message when they stopped the playback, which pauses the
+ * video and ends the reports (D243 §9); each undefined until then.
  */
 export function usePlayState(
   api: Api,
   videoRef: RefObject<HTMLVideoElement | null>,
   playback: { readonly mediaToken: string; readonly resumePositionMs: number },
-): unknown {
+): { readonly refusal: unknown; readonly stopMessage: string | undefined } {
   const { mediaToken, resumePositionMs } = playback;
   const [refusal, setRefusal] = useState<unknown>(undefined);
+  const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {
       return undefined;
     }
+    let isStopped = false;
     const reporter = new PlayReporter(async (report) => {
+      if (isStopped) {
+        return;
+      }
       try {
-        await sendReport(api, mediaToken, report);
+        const stop = await sendReport(api, mediaToken, report);
+        if (stop !== undefined) {
+          isStopped = true;
+          video.pause();
+          setStopMessage(stop.message);
+        }
       } catch (cause) {
         if (cause instanceof ReportRefused) {
           setRefusal(cause.cause);
@@ -182,5 +199,5 @@ export function usePlayState(
       reporter.recordAbandoned(videoEvents.lastPositionMs());
     };
   }, [api, videoRef, mediaToken, resumePositionMs]);
-  return refusal;
+  return { refusal, stopMessage };
 }

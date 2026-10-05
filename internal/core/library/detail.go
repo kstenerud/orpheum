@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -158,4 +159,24 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID i
 		detail.Unreadable = &why
 	}
 	return detail, nil
+}
+
+// FileWork is what a file is, as now playing names it: its title, when one is filed, by id and name,
+// and its path.
+type FileWork struct {
+	TitleID int64
+	Name    string
+	Path    string
+}
+
+// WorkOfFile is what a file is; library.ErrNoFile for one there is not.
+func (browser *Browser) WorkOfFile(ctx context.Context, fileID int64) (FileWork, error) {
+	row, err := store.OrNotFound(browser.database.Read().GetTitleOfFile(ctx, fileID))
+	if errors.Is(err, store.ErrNotFound) {
+		return FileWork{}, fmt.Errorf("file %d: %w", fileID, ErrNoFile)
+	}
+	if err != nil {
+		return FileWork{}, fmt.Errorf("read what file %d is: %w", fileID, err)
+	}
+	return FileWork{TitleID: ptr.ValueOrZero(row.TitleID), Name: ptr.ValueOrZero(row.Name), Path: row.Path}, nil
 }

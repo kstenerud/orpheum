@@ -830,6 +830,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/now-playing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every playback heard from lately: who, on which device, what, and how (admin) */
+        get: operations["getNowPlaying"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/now-playing/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop a playback, with a message its player shows within one report interval (admin; D243 §9) */
+        post: operations["stopPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/offline-reminder": {
         parameters: {
             query?: never;
@@ -1958,6 +1992,50 @@ export interface components {
             /** Format: int64 */
             waitingCount: number;
         };
+        NowPlayingBody: {
+            /** @description direct or hls */
+            delivery: string;
+            /** @description Absent for a session with no device */
+            deviceName?: string;
+            /** Format: int64 */
+            fileId: number;
+            /**
+             * Format: int64
+             * @description Names the playback to stop it
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            lastHeardAt: number;
+            /** @description The title's name, or the file's path when it has none */
+            name: string;
+            notDirectReasons: string[] | null;
+            personName: string;
+            /**
+             * Format: int64
+             * @description Where its last report said it was
+             */
+            positionMs: number;
+            /** @description The prepared copy's profile; absent for direct play */
+            profile?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            startedAt: number;
+            /**
+             * Format: int64
+             * @description Absent for a file filed as no title
+             */
+            titleId?: number;
+            /** Format: int64 */
+            userId: number;
+        };
+        NowPlayingOutputBody: {
+            playbacks: components["schemas"]["NowPlayingBody"][] | null;
+        };
         OfflineBody: {
             /** Format: int64 */
             libraryId: number;
@@ -2206,6 +2284,10 @@ export interface components {
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
         };
+        ReportOutputBody: {
+            /** @description The admin stopped this playback: stop, and show the message */
+            stop?: components["schemas"]["StopBody"];
+        };
         RequestProblemBody: {
             /** @description Where it is: a field such as body.name or query.cursor, or body when the body as a whole is wrong */
             location: string;
@@ -2432,6 +2514,12 @@ export interface components {
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
+        };
+        StopBody: {
+            message: string;
+        };
+        StopPlaybackInputBody: {
+            message: string;
         };
         StreamBody: {
             /** Format: int64 */
@@ -4542,6 +4630,74 @@ export interface operations {
             };
         };
     };
+    getNowPlaying: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NowPlayingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stopPlayback: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StopPlaybackInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getOfflineReminder: {
         parameters: {
             query?: never;
@@ -4659,12 +4815,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ReportOutputBody"];
+                };
             };
             /** @description Error */
             default: {
