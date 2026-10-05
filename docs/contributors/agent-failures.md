@@ -49,6 +49,18 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A21 — A research finding led with a cause the owner could check in one command (2026-10-05)
+
+- **What happened:** the slow-links research note's first finding was that the owner's link "was
+  probably a Tailscale relay", and I told the owner a direct path would probably help more than
+  anything we built. The owner's `tailscale ping` answered directly. The belief came from one
+  subagent's source, Tailscale's own 2.2 Mbit/s measurement of its relays, which fitted the
+  stalls. I had already given the command that decides it, and committed the claim before the
+  owner had run it.
+- **Caught by:** the owner: "I didn't see via DERP when I ran tailscale ping".
+- **Gate:** none. The practice: a cause that one command on the owner's machine can confirm is a
+  question in the reply, not a finding in a committed document.
+
 ### A20 — A test device named from a guess, twice, and the diagnosis steered by it (2026-10-05)
 
 - **What happened:** after the owner's first Watch Together test, I diagnosed the host's stuck

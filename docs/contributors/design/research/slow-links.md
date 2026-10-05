@@ -21,8 +21,10 @@ In Watch Together, the group played one frame and froze, over and over.
 
 Five findings, each detailed below:
 
-1. **The link was probably a Tailscale relay, not the phone.** Tailscale's own measurement of its
-   DERP relays is about 2.2 Mbit/s sustained, and wildly variable (§1). That is below the film.
+1. **The link was not a Tailscale relay.** Tailscale's relays carry about 2.2 Mbit/s (§1), which
+   would explain it, but the owner's `tailscale ping` answered directly, in 413 ms. The house uploads at
+   43.7 Mbit/s, so the limit is most likely the phone's mobile data. *(inferred)* A round trip of
+   413 ms usually means a full queue: the link was saturated.
 2. **A film's average bitrate is not what it needs.** Peaks run 3–4× the average; Plex budgets 2×
    the average until it has analysed a file (§3). A "2.4 Mbps" film needs about 5 Mbps.
 3. **No production player runs a separate speed test before playback.** Every one measures the
@@ -57,7 +59,8 @@ Five findings, each detailed below:
   ([peer relays](https://tailscale.com/kb/1591/peer-relays)).
 - *(inferred)* The house is DS-Lite with native IPv6 (no public IPv4), and the router is the
   tailnet node. A direct path over IPv6, or a peer relay, may lift the ceiling more than any
-  bitrate change. This is the cheapest thing to try first.
+  bitrate change. This is the cheapest thing to try first. **Checked 2026-10-05:** the owner's
+  path was direct (`pong … via 11.22.33.144:7853 in 413ms`), so the relay was not the cause.
 
 ## 2. Measuring the link
 
