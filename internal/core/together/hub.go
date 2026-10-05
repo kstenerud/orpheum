@@ -708,6 +708,18 @@ func (hub *Hub) memberByCredential(credential string) (*session, *member) {
 	return nil, nil
 }
 
+// MemberOf is the session and member a membership credential names, host or viewer, while the
+// membership lasts: whose relay credentials a device asks for (D243 §8).
+func (hub *Hub) MemberOf(credential string) (sessionID, memberID int64, isMember bool) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	held, holder := hub.memberByCredential(credential)
+	if holder == nil {
+		return 0, 0, false
+	}
+	return held.id, holder.id, true
+}
+
 // IsMember is whether memberID is a member of the live session sessionID: what a voice relay's
 // credentials are good for, which end with the membership (D243 §8).
 func (hub *Hub) IsMember(sessionID, memberID int64) bool {

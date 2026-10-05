@@ -182,6 +182,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
 		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
 		"openTogether", "getTogether", "addTogetherLink", "removeTogetherLink", "joinTogether", "leaveTogether",
+		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.
 		"echoReachability",

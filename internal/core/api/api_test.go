@@ -40,6 +40,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -169,9 +170,14 @@ func newHarness(t *testing.T) testHarness {
 	browser.SetNodeConnections(nodes)
 	backups := backup.NewService(database, directories, now)
 	backups.UseQueue(queue, seeded)
+	secretStore := secrets.NewStore(database, key, now, rand.Reader, seeded)
+	if secretErr := turn.EnsureSecret(t.Context(), secretStore, rand.Reader); secretErr != nil {
+		t.Fatal(secretErr)
+	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
-		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
+		Secrets: secretStore, SetupCodes: codes,
+		Relay:     &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:   identify.NewChooser(matcher, pass),
 		Libraries: library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
 		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),

@@ -279,3 +279,33 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 		t.Errorf("DELETE %s = %d %s", path, ended.status, ended.body)
 	}
 }
+
+// Each member, the host and a viewer, is handed relay credentials of their own for the session
+// they are in, by their membership credential, and nothing for another session (D243 §8).
+func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
+	path := fmt.Sprintf("/together/%d/ice", opened.Body.SessionID)
+	usernames := map[string]bool{}
+	for _, credential := range []string{opened.Body.MembershipCredential, membership.Body.MembershipCredential} {
+		answer := harness.do(t, http.MethodGet, path, credential, nil)
+		var ice ICEOutput
+		if err := json.Unmarshal([]byte(answer.body), &ice.Body); err != nil || answer.status != http.StatusOK ||
+			len(ice.Body.ICEServers) != 1 || ice.Body.ICEServers[0].Credential == "" {
+			t.Fatalf("GET %s = %d %s", path, answer.status, answer.body)
+		}
+		if urls := strings.Join(ice.Body.ICEServers[0].URLs, " "); !strings.Contains(urls, "turn:203.0.113.7:3478") {
+			t.Errorf("the relay's URLs = %s; want the relay's public address", urls)
+		}
+		usernames[ice.Body.ICEServers[0].Username] = true
+	}
+	if len(usernames) != 2 {
+		t.Errorf("the host and the viewer were handed %d usernames; want one each", len(usernames))
+	}
+	wantError(t, harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d/ice", opened.Body.SessionID+100),
+		membership.Body.MembershipCredential, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, path, "not-a-credential", nil), http.StatusNotFound, CodeNotFound)
+}

@@ -19,10 +19,8 @@ const reachabilityDialWait = 5 * time.Second
 // port, from outside in (D243 §7): either is left unchecked when the config has none.
 func newReachability(config Config, opened openedServices) *reachability.Checker {
 	relayAddress := ""
-	if config.TURN.isOn() {
-		if _, port, err := net.SplitHostPort(config.TURN.Listen); err == nil {
-			relayAddress = net.JoinHostPort(config.TURN.PublicAddress, port)
-		}
+	if issuer := newRelayIssuer(config, opened); issuer != nil {
+		relayAddress = issuer.Address
 	}
 	return reachability.New(reachability.Parts{
 		Name: config.HTTPS.Domain, RelayAddress: relayAddress, HTTP: opened.jobServices.outboundClient,

@@ -1587,6 +1587,56 @@
         ],
         "type": "object"
       },
+      "ICEOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "iceServers": {
+            "items": {
+              "$ref": "#/components/schemas/ICEServerBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "iceServers"
+        ],
+        "type": "object"
+      },
+      "ICEServerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "credential": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "Unix milliseconds; ask again before",
+            "format": "int64",
+            "type": "integer"
+          },
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "urls",
+          "username",
+          "credential",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
       "InProgressBody": {
         "additionalProperties": false,
         "properties": {
@@ -9684,6 +9734,58 @@
           }
         },
         "summary": "Remove a member; their devices are told and their credential admits nothing (host; D119)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}/ice": {
+      "get": {
+        "operationId": "getTogetherICE",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ICEOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A member's voice relay credentials, which end with the membership (D243 §8)",
         "tags": [
           "Watch Together"
         ]

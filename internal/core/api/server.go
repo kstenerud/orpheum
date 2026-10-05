@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -77,6 +78,8 @@ type Dependencies struct {
 	Together *together.Hub
 	// Reachability checks the server's public name and voice relay from outside in (D243 §7).
 	Reachability *reachability.Checker
+	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).
+	Relay *turn.Issuer
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
 	Backups *backup.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
