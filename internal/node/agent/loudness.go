@@ -5,13 +5,16 @@ package agent
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // Measurer measures a video's audio tracks; loudness.Measurer is the real one.
 type Measurer interface {
-	Measure(ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack) ([]nodeproto.TrackLoudness, error)
+	Measure(
+		ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, duration time.Duration,
+	) ([]nodeproto.TrackLoudness, error)
 }
 
 // loudnessWork is a measurement held until the node's one measurement slot is free, since it reads
@@ -41,7 +44,8 @@ func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.Measur
 	if err != nil {
 		return refuse(err)
 	}
-	tracks, err := agent.workers.LoudnessMeasurer.Measure(ctx, videoPath, command.Tracks)
+	tracks, err := agent.workers.LoudnessMeasurer.Measure(ctx, videoPath, command.Tracks,
+		time.Duration(command.DurationMs)*time.Millisecond)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.LoudnessResult{Stall: stall}
 	}

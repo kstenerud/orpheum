@@ -190,7 +190,7 @@ func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command := nodeproto.MeasureLoudness{}
+	command := nodeproto.MeasureLoudness{DurationMs: probe.Format.DurationMs}
 	for _, stream := range decide.AudioStreams(probe) {
 		command.Tracks = append(command.Tracks, nodeproto.LoudnessTrack{
 			StreamIndex: stream.StreamIndex, ChannelCount: stream.Audio.ChannelCount,

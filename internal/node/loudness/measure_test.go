@@ -26,7 +26,7 @@ func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	measured, err := NewMeasurer(runner, 20<<20).Measure(t.Context(), "/media/Film (2020)/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestMeasure_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = NewMeasurer(runner, 20<<20).Measure(t.Context(), "/media/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}}, 0)
 	if err == nil || !strings.Contains(err.Error(), "stream 3") {
 		t.Errorf("with no summary for stream 3: %v, want a failure naming it", err)
 	}

@@ -47,6 +47,8 @@ var wireShapeByVersion = map[int]string{
 	20: "7ef9e0f76c3122e4e8bdeb3c4ce62a5be3f9d80d632f756a0a56e5b73910df73",
 	// 21 names a listed entry's filesystem device number for what it is (the pre-M4 audit).
 	21: "a9b483b035696bb1912c31aebc850e6012cb9f5edfa9529972c014c264dd1fbb",
+	// 22 tells a measurement the film's length, so its watchdog allows decoding a long film's sound.
+	22: "be406c8890f5721b73757d3aa6cc346f54f36bc69bdefc6168d9eb2f61964f83",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -12,6 +12,9 @@ type MeasureLoudness struct {
 	Video BytesFile `json:"video"`
 	// Tracks lists the tracks to measure.
 	Tracks []LoudnessTrack `json:"tracks"`
+	// DurationMs is the film's length, as its probe says: measuring decodes every track, so a long
+	// film takes long whatever the disk, and the node's watchdog allows for it. 0 when unknown.
+	DurationMs int64 `json:"durationMs,omitempty"`
 }
 
 // LoudnessTrack is one audio track to measure.
