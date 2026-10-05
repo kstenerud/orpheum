@@ -523,6 +523,69 @@ func TestHub_AWaitEndsAtItsTimeAndThePlayersNotReadyCatchUp(t *testing.T) {
 	}
 }
 
+// After a seek the group waits for every player to say it is ready from the new place, not from
+// what it said of the old one, and loading there is no stall: a stall soon after still holds the
+// group (D247 §4).
+func TestHub_AfterASeekEachPlayerLoadsTheNewPlaceWithoutStalling(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
+	stage.hub.Handle(t.Context(), host, Inbound{
+		Type: MessageCommand, Command: CommandSeek, PositionMs: 600_000, BasedOnSeq: hostBox.last(MessageGroup).Seq,
+	})
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("just after the host's seek: %+v; want Waiting for the players to load there", group)
+	}
+	stage.ready(t, guestDevice, true)
+	stage.ready(t, host, false)
+	stage.ready(t, guestDevice, false)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
+		t.Fatalf("both loaded where the host jumped to: %+v; want Playing", group)
+	}
+	stage.clock.Advance(groupWaitCooldown)
+	stage.ready(t, guestDevice, true)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventBuffering {
+		t.Errorf("the guest's first stall after loading the new place: %+v; want Waiting for it", group)
+	}
+}
+
+// Where the host jumps to is waited for, for the host, as long as a film put on; a guest still
+// loading there is waited for as for a stall (the owner's choice, 2026-10-05).
+func TestHub_TheHostIsWaitedForAfterTheirOwnSeekAsForAFirstLoad(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
+	seek := func(positionMs int64) {
+		stage.hub.Handle(t.Context(), host, Inbound{
+			Type: MessageCommand, Command: CommandSeek, PositionMs: positionMs,
+			BasedOnSeq: hostBox.last(MessageGroup).Seq,
+		})
+	}
+	seek(600_000)
+	stage.ready(t, guestDevice, false) // the guest has loaded the new place; the host has not
+	stage.clock.Advance(reloadWait)
+	stage.tick(t, guestDevice)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("a stall's wait after the host's seek, the host still loading: %+v; want Waiting", group)
+	}
+	stage.clock.Advance(firstLoadWait - reloadWait)
+	stage.tick(t, guestDevice)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying ||
+		group.Event != EventContinuedWithout || group.ByMemberID == stage.guest.MemberID {
+		t.Errorf("a first load's wait after the host's seek: %+v; want Playing on without the host", group)
+	}
+	stage.ready(t, host, false)
+	seek(1_200_000)
+	stage.ready(t, host, false) // now the host has loaded it, and the guest has not
+	stage.clock.Advance(reloadWait)
+	stage.tick(t, host)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying ||
+		group.ByMemberID != stage.guest.MemberID {
+		t.Errorf("a stall's wait after the host's seek, the guest loading: %+v; "+
+			"want Playing on without the guest", group)
+	}
+}
+
 // What the host puts on is waited for longer than a stall, while no player is ready the group
 // waits on, and a player catching up is waited for again by what the host puts on next (D247 §4).
 func TestHub_AFirstLoadIsWaitedForLongerThanAStall(t *testing.T) {

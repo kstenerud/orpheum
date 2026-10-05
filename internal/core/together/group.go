@@ -7,7 +7,8 @@ import "time"
 // How long a group waits for its players, and when it does not wait at all: a stalled player holds
 // the group once, then catches up alone (D247 §4). Silo-Server's numbers, to be measured.
 const (
-	// The group waits this long for its players to load what the host put on.
+	// The group waits this long for its players to load what the host put on, and for the host's
+	// to load where the host jumped to (the owner's choice, 2026-10-05).
 	firstLoadWait = 60 * time.Second
 	// The group waits this long for a player that stalled, or for its players after a play or a seek.
 	reloadWait = 10 * time.Second
@@ -89,8 +90,17 @@ func (current *session) changeItem(now time.Time, sender *member, fileID int64, 
 	current.settle(now)
 }
 
-// seek moves the group to position; a playing group waits there until every player is ready.
+// seek moves the group to position; a playing group waits there until every player is ready. Each
+// player is ready again only once it says so from there: what it said before was of the place left,
+// and its loading the new one is no stall. One catching up is waited for again, as for a new film.
 func (current *session) seek(now time.Time, sender *member, position time.Duration) {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached.role.plays() && attached.hasBeenReady {
+				attached.buffering, attached.isCatchingUp = true, false
+			}
+		}
+	}
 	state := current.group.state
 	if state == GroupPlaying {
 		state = GroupWaiting
@@ -122,23 +132,27 @@ func (current *session) stalled(now time.Time, who *member, stalledDevice *devic
 
 // endWait ends a Waiting group's wait once its time is up and a player is ready: the players not
 // yet ready catch up alone, and the group plays on without them (D247 §4). While no player is
-// ready, the group waits on. It runs at every message a device sends; a ready player sends one
-// each second while the group waits, so the wait ends on time.
+// ready, or the host's is not and its own longer time is not up, the group waits on. It runs at
+// every message a device sends; a ready player sends one each second while the group waits, so the
+// wait ends on time.
 func (current *session) endWait(now time.Time) {
 	if current.group.state != GroupWaiting || now.Before(current.group.waitUntil) {
 		return
 	}
 	var late []*device
-	isAnyReady := false
+	isAnyReady, isHostWaitedFor := false, now.Before(current.group.hostWaitUntil)
 	without := current.group.byMember // one that left, if no player is late
 	for _, each := range current.members {
 		for _, attached := range each.devices {
 			if !attached.role.plays() || !attached.hasBeenReady || attached.isCatchingUp {
 				continue
 			}
-			if attached.isReady() {
+			switch {
+			case attached.isReady():
 				isAnyReady = true
-			} else {
+			case each.isHost && isHostWaitedFor:
+				return
+			default:
 				late, without = append(late, attached), each.id
 			}
 		}
@@ -192,6 +206,11 @@ func (current *session) announce(
 		current.group.waitUntil = now.Add(reloadWait)
 		if event == EventChangedItem {
 			current.group.waitUntil = now.Add(firstLoadWait)
+		}
+		current.group.hostWaitUntil = current.group.waitUntil
+		if event == EventSeeked {
+			// The host chose where to go: the others wait for them as for a film put on.
+			current.group.hostWaitUntil = now.Add(firstLoadWait)
 		}
 	}
 	current.group.seq++

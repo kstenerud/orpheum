@@ -104,6 +104,8 @@ type group struct {
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
 	// waitUntil is when a Waiting group stops waiting for players not yet ready.
 	waitUntil time.Time
+	// hostWaitUntil is when it stops waiting for the host's: later after the host's own seek.
+	hostWaitUntil time.Time
 }
 
 // member is a person in the session, with their devices (D120).

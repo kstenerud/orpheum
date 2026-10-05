@@ -269,21 +269,25 @@ describe("a player following its group", () => {
 
   it("sends the host's seek as its person makes it, before the place has loaded, once per drag", () => {
     const media = new FakeMedia();
-    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    const { connection, commands, reports } = fakeConnection({ ...paused, state: "Playing" });
     followGroup(media as unknown as FollowedMedia, connection, {
       fileId: 5,
       isLeading: true,
       monotonicMs,
     });
     media.fire("seeked"); // the follower's own seek to the group's position
+    const reportsBefore = reports.length;
     // A drag: a seek at each step, and the last place never loads while the test runs.
     for (const positionS of [300, 900, 1500]) {
       media.currentTime = positionS;
       media.seeking = true;
       media.fire("seeking");
     }
+    // Its loading is not told before the seek, or the group would take it for a stall.
+    expect(reports).toHaveLength(reportsBefore);
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands).toEqual([{ command: "seek", positionMs: 1_500_000 }]);
+    expect(reports.at(-1)).toMatchObject({ positionMs: 1_500_000, isBuffering: true });
     expect(media.currentTime).toBe(1500); // left where its person put it, not pulled back
   });
 
