@@ -274,6 +274,11 @@ type Service struct {
 
 	// mutex makes one backup at a time: two in the same second would share a name.
 	mutex sync.Mutex
+
+	// queue and settings are where backups are asked for as jobs and their schedule read
+	// (UseQueue); nil until the server's queue is made.
+	queue    Queue
+	settings Settings
 }
 
 // NewService returns the backup service of the server whose database and directories these are.

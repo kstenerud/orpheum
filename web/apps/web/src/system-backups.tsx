@@ -8,6 +8,7 @@ import { idempotent } from "./idempotent.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { byteSizeText } from "./number-text.ts";
+import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -18,14 +19,18 @@ type Backups = components["schemas"]["BackupsOutputBody"];
 
 /**
  * Backing the server up from the System page (D242 §5): the backups there are, newest first, and
- * making one now, with secret.key in it only when the admin asks, for moving to another machine.
+ * asking for one now, a job, with secret.key in it only when the admin asks, for moving to another
+ * machine. The server also makes one on its own each day, never with the key (D243 §11).
  */
 export function SystemBackups(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [backups, reload] = useResource("backups", async () =>
-    dataOrThrow(await api.GET("/backups")),
+  const [backups, reload] = useResource(
+    "backups",
+    async () => dataOrThrow(await api.GET("/backups")),
+    useBackgroundChangesPoller(),
   );
+  const [isAsked, setIsAsked] = useState(false);
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const [shouldIncludeKey, setShouldIncludeKey] = useState(false);
   const makeBackup = (): void => {
@@ -36,6 +41,7 @@ export function SystemBackups(): JSX.Element {
           ...idempotent(idempotencyKey),
         }),
       );
+      setIsAsked(true);
       reload();
     });
   };
@@ -57,6 +63,7 @@ export function SystemBackups(): JSX.Element {
       <button type="button" disabled={isBusy} onClick={makeBackup}>
         {t("system.backups.make")}
       </button>
+      {isAsked ? <output>{t("system.backups.asked")}</output> : null}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded resource={backups} render={(value) => <BackupList backups={value} />} />
     </section>

@@ -182,7 +182,7 @@ func openAndWire(
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	dependencies.NodeBytes = openByteSocket(opened.nodes)
-	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
+	opened = wireJobsInto(&dependencies, opened)
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
@@ -190,6 +190,15 @@ func openAndWire(
 	}
 	server.Ready(dependencies)
 	return opened, nil
+}
+
+// wireJobsInto gives the API the job queue and the outside hosts' provider services, and makes a
+// backup a job, the scheduled ones and an admin's (D243 §11).
+func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedServices {
+	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
+	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
+	opened.jobServices.backups = dependencies.Backups
+	return opened
 }
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the loudness of its

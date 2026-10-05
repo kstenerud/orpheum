@@ -55,16 +55,17 @@ func Kinds() []Kind {
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
 // convert_fetched_subtitle, a file for measure_loudness, a scan for scan and a scan's batch for
-// examine. A job is queued with exactly one set and the others zero; Enqueue refuses any other
-// target with ErrNotOneTarget. The job table allows at most one, but backup has no target yet, so
-// no job of that kind can be queued until it says what it works on.
+// examine. A job is queued with exactly one set and the others zero, but a backup, which works on
+// the whole persistent directory and names none (D243 §11): one at a time, since every backup is
+// one target. Enqueue refuses any other target with ErrNotOneTarget.
 type Target = store.JobTarget
 
-// ErrNotOneTarget is a job that names no target, or more than one.
-var ErrNotOneTarget = errors.New("a job works on one target")
+// ErrNotOneTarget is a job that names no target, or more than one; or a backup that names one.
+var ErrNotOneTarget = errors.New("a job works on one target, and a backup on none")
 
-// requireOneTarget refuses a target that names no target or several.
-func requireOneTarget(target Target) error {
+// requireOneTarget refuses a target that names no target or several, but for a backup, which
+// names none.
+func requireOneTarget(kind Kind, target Target) error {
 	setCount := 0
 	for _, id := range []int64{
 		target.ItemID, target.RenditionID, target.StreamID, target.FetchedSubtitleID, target.FileID,
@@ -74,8 +75,8 @@ func requireOneTarget(target Target) error {
 			setCount++
 		}
 	}
-	if setCount != 1 {
-		return fmt.Errorf("%w: %+v", ErrNotOneTarget, target)
+	if want := 1; setCount != want && (kind != KindBackup || setCount != 0) {
+		return fmt.Errorf("%w: %s %+v", ErrNotOneTarget, kind, target)
 	}
 	return nil
 }
@@ -178,7 +179,7 @@ func newQueue(storage jobqueue.Storage[Target], parts QueueParts) *Queue {
 // Enqueue queues a job, or folds it into the one already open for its kind and target
 // (jobqueue.Queue.Enqueue says how), and reports whether it added one.
 func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
-	if err := requireOneTarget(job.Target); err != nil {
+	if err := requireOneTarget(job.Kind, job.Target); err != nil {
 		return false, err
 	}
 	action, err := queue.queue.Enqueue(ctx, jobqueue.Request[Target]{

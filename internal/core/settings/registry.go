@@ -74,6 +74,9 @@ const (
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
 	DerivedWorkSweepEverySeconds                   Key = "derived_work_sweep_every_seconds"
+	BackupEveryHours                               Key = "backup_every_hours"
+	BackupHourUTC                                  Key = "backup_hour_utc"
+	BackupsKept                                    Key = "backups_kept"
 	ArtworkJPEGQuality                             Key = "artwork_jpeg_quality"
 	ArtworkSecondsBeforeEachRetry                  Key = "artwork_seconds_before_each_retry"
 	ArtworkCacheSweepEveryHours                    Key = "artwork_cache_sweep_every_hours"
@@ -194,7 +197,25 @@ func Registry() []Definition {
 			"D208 §3: the owner's twenty, 2026-09-24"),
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
+		backupDefinitions(),
 	)...)
+}
+
+// backupDefinitions are when the server backs itself up, and how many backups it keeps (D243 §11).
+func backupDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(BackupEveryHours, time.Hour, "24", 1, 720,
+			"hours between the backups the server makes on its own, never holding secret.key (D243 §11)"),
+			"D243 §11: one every 24 hours"),
+		sourced(integerSetting(BackupHourUTC, "4", 0, 23,
+			"the hour, UTC, a scheduled backup is made in, a quiet one; a backup overdue by a day is made "+
+				"at once (D243 §11)"),
+			"best guess: early morning in Europe, when no one watches; D243 §11 asks only for a quiet hour"),
+		sourced(integerSetting(BackupsKept, "14", 1, 1000,
+			"how many backups are kept, the newest; the copies kept before a restore or a migration are "+
+				"never pruned (D243 §11)"),
+			"D243 §11: the last 14"),
+	}
 }
 
 // scanDefinitions are what a scan reads, and how much of it a node reads in one go (D240 §8).

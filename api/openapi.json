@@ -2061,13 +2061,9 @@
         "properties": {
           "includesKey": {
             "type": "boolean"
-          },
-          "name": {
-            "type": "string"
           }
         },
         "required": [
-          "name",
           "includesKey"
         ],
         "type": "object"
@@ -4575,7 +4571,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4583,7 +4579,7 @@
                 }
               }
             },
-            "description": "Created"
+            "description": "Accepted"
           },
           "default": {
             "content": {
@@ -4596,7 +4592,7 @@
             "description": "Error"
           }
         },
-        "summary": "Back the persistent directory up now, into the backups directory (admin; D242 §5)",
+        "summary": "Back the persistent directory up now, into the backups directory, as a job the job view shows (admin; D242 §5, D243 §11)",
         "tags": [
           "Running it"
         ]

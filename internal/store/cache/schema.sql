@@ -11,7 +11,7 @@ CREATE TABLE job (                                         -- the one work queue
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
   -- measure_loudness a file, scan a scan (its listing), examine a scan's batch. At most one is set;
-  -- backup, not yet a job, sets none.
+  -- backup sets none: it works on the whole persistent directory (D243 section 11).
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,

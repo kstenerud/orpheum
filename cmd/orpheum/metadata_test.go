@@ -155,14 +155,16 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		run[runner.kind] = true
 		checkDerivation(t, runner.kind, runner.derivedBy, sweepNames)
 		// A measurement that gave up keeps nothing: only FFmpeg's word on the file is the file's own
-		// failure, which its node's answer keeps, so the next sweep asks again (D244 §1).
-		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != (runner.kind != jobs.KindMeasureLoudness) {
+		// failure, which its node's answer keeps, so the next sweep asks again (D244 §1). A backup has
+		// no item: its failure is the job's own, which the job view shows (D243 §11).
+		isKeptByItsItem := runner.kind != jobs.KindMeasureLoudness && runner.kind != jobs.KindBackup
+		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != isKeptByItsItem {
 			t.Errorf("%s keeps a job that gave up as its item's own failure: %v (D231 §4, §10; D244 §1)",
 				runner.kind, isGivenUpKept)
 		}
 	}
 	for _, kind := range jobs.Kinds() {
-		if !run[kind] && kind != jobs.KindBackup {
+		if !run[kind] {
 			t.Errorf("no runner works %s", kind)
 		}
 	}

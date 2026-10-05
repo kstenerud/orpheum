@@ -468,7 +468,8 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 	})
 	services := jobServices{queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
-		if sweep.Name != sweepLoudness && sweep.Name != sweepRollingRefresh { // no files to measure; nothing due
+		// No files to measure, nothing due a rolling refresh, and backups are not this scenario's work.
+		if sweep.Name != sweepLoudness && sweep.Name != sweepRollingRefresh && sweep.Name != sweepScheduledBackup {
 			world.queue.AddSweep(sweep)
 		}
 	}

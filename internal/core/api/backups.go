@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"path/filepath"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -37,11 +36,12 @@ type MakeBackupInput struct {
 	}
 }
 
-// MadeBackupOutput is the backup made.
+// MadeBackupOutput says the backup is queued: the job view shows it, and the list the backup once
+// it is made (D243 §11).
 type MadeBackupOutput struct {
-	Body struct {
-		Name        string `json:"name"`
-		IncludesKey bool   `json:"includesKey"`
+	Status int
+	Body   struct {
+		IncludesKey bool `json:"includesKey"`
 	}
 }
 
@@ -52,8 +52,9 @@ func (server *Server) registerBackups() {
 	}, server.listBackups)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "makeBackup", Method: http.MethodPost, Path: "/backups", Tags: []string{tagRunningIt},
-		DefaultStatus: http.StatusCreated,
-		Summary:       "Back the persistent directory up now, into the backups directory (admin; D242 §5)",
+		DefaultStatus: http.StatusAccepted,
+		Summary: "Back the persistent directory up now, into the backups directory, as a job the job view " +
+			"shows (admin; D242 §5, D243 §11)",
 	}, server.makeBackup)
 }
 
@@ -82,14 +83,14 @@ func (server *Server) makeBackup(ctx context.Context, input *MakeBackupInput) (*
 	if err != nil {
 		return nil, err
 	}
-	written, err := dependencies.Backups.Make(ctx, input.Body.IncludesKey)
+	err = dependencies.Backups.Request(ctx, input.Body.IncludesKey)
 	if errors.Is(err, backup.ErrNoKeyToInclude) {
 		return nil, newError(http.StatusConflict, CodeConflict, err.Error())
 	}
 	if err != nil {
-		return nil, server.logInternalError(ctx, "make a backup", err)
+		return nil, server.logInternalError(ctx, "ask for a backup", err)
 	}
-	output := &MadeBackupOutput{}
-	output.Body.Name, output.Body.IncludesKey = filepath.Base(written.Path), written.IncludesKey
+	output := &MadeBackupOutput{Status: http.StatusAccepted}
+	output.Body.IncludesKey = input.Body.IncludesKey
 	return output, nil
 }

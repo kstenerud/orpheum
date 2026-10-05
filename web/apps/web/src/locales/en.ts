@@ -431,7 +431,8 @@ export const en = {
     },
     backups: {
       heading: "Backups",
-      what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it.",
+      what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it. The server makes one on its own each day, without the secret key, and keeps the newest; the backup settings say when and how many.",
+      asked: "A backup is on its way: the jobs list shows it, and it appears here once it is made.",
       includeKey: "Put the secret key in it, to move the server to another machine",
       includeKeyWarning:
         "Whoever has a backup with the key can read the passwords and keys kept on the server. Keep it somewhere safe.",
@@ -506,7 +507,7 @@ export const en = {
       failed: "Failed",
       cancelled: "Cancelled",
     },
-    progress: "How far {{kind}} #{{target}} is",
+    progress: "How far {{job}} is",
     reason: "Why: {{reason}}",
     queuedAt: "Queued {{at}}",
     lastFailure: "Last error: {{failure}}",
@@ -517,7 +518,7 @@ export const en = {
       paused: "Paused while someone watches",
     },
     cancel: "Cancel",
-    cancelLabel: "Cancel {{kind}} #{{target}}",
+    cancelLabel: "Cancel {{job}}",
     alreadyEnded: "That job has already ended.",
   },
   sound: {
