@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -21,7 +22,7 @@ type fakeMeasurer struct{}
 const unmeasurable = 99
 
 func (fakeMeasurer) Measure(
-	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack,
+	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, _ time.Duration,
 ) ([]nodeproto.TrackLoudness, error) {
 	if tracks[0].StreamIndex == stallingStreamIndex {
 		return nil, fmt.Errorf("measure the loudness: %w", errStalled)

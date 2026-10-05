@@ -22,8 +22,10 @@
 //   - A measurement matches what FFmpeg measures of a sound of known level, as it is and as the
 //     stereo mix. Enforced by TestMeasure_AToneOfKnownLevelMeasuresAsItIs (integration tier).
 //
-//   - A measurement is watched for a stall, with the deadline of reading the whole file. Enforced
-//     by TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled.
+//   - A measurement is watched for a stall, with the deadline of reading the whole file, or of
+//     decoding its sound at real time when the core says how long it is and that takes longer.
+//     Enforced by TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled and
+//     TestMeasure_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakes.
 //
 // # Read before changing
 //

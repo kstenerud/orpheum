@@ -38,7 +38,7 @@ func TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *tes
 	}
 	const slowestRead = 20 << 20
 	_, err = NewMeasurer(stallingRunner{&watches}, slowestRead).Measure(t.Context(), video,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, 0)
 	stalled, isStalled := errors.AsType[*execx.StalledError](err)
 	if !isStalled || stalled.Cause != execx.StallStoodStill {
 		t.Errorf("a stalled measurement: %v, want the stall", err)
@@ -47,5 +47,27 @@ func TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *tes
 		watches[0].Deadline != execx.ReadingDeadline(video, slowestRead) {
 		t.Errorf("a measurement was watched %+v; want two minutes to start, three standing still, and the "+
 			"deadline of reading the file at the node's slowest read", watches)
+	}
+}
+
+// A long film is allowed as long as decoding its sound at real time takes, when that is longer than
+// reading it: measuring decodes every track, and a film read quickly is not measured quickly (the
+// owner's first Watch Together test, 2026-10-05).
+func TestMeasure_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakes(t *testing.T) {
+	t.Parallel()
+	var watches []execx.Watch
+	video := filepath.Join(t.TempDir(), "film.mkv")
+	if err := os.WriteFile(video, []byte("a small file, read in no time"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const slowestRead = 20 << 20
+	twoHours := 2 * time.Hour
+	if _, err := NewMeasurer(stallingRunner{&watches}, slowestRead).Measure(t.Context(), video,
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}}, twoHours); err == nil {
+		t.Fatal("the stalling runner's measurement succeeded")
+	}
+	if len(watches) != 1 || watches[0].Deadline != execx.DeadlineFor(twoHours) ||
+		watches[0].Deadline <= execx.ReadingDeadline(video, slowestRead) {
+		t.Errorf("a two-hour film was watched %+v; want the deadline of decoding two hours, past reading's", watches)
 	}
 }

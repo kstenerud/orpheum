@@ -63,7 +63,10 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 		t.Errorf("before the measurement: %+v, want it played as it is (D226 §6)", unmeasured.Levelling)
 	}
 
-	// Wing's ten minutes: quiet, with room below its peak for the whole gain.
+	// Wing's ten minutes: quiet, with room below its peak for the whole gain. The node is told how
+	// long the film is, so its watchdog allows decoding all of it.
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE file SET probe_json = json_set(probe_json, '$.format.durationMs', 600000) WHERE id = 1`)
 	alien := nodeproto.Measurement{IntegratedLUFS: -35.7, RangeLU: 22.8, TruePeakDBTP: new(-16.2)}
 	command, err := harness.measureWith(t, 90, 1, nodeproto.LoudnessResult{Tracks: []nodeproto.TrackLoudness{
 		{StreamIndex: 0, Stereo: alien},
@@ -72,9 +75,10 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 		t.Fatal(err)
 	}
 	if command == nil || command.Video.PayloadHash != "0a0b" || string(command.Video.Path) != "Film (2001).mp4" ||
-		!slices.Equal(command.Tracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) {
-		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track",
-			command)
+		!slices.Equal(command.Tracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) ||
+		command.DurationMs != 600_000 {
+		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track "+
+			"and its ten minutes", command)
 	}
 	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{2}) {
 		t.Errorf("after measuring film 1, a sweep finds %v, want only film 2", ids)

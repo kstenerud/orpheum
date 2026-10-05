@@ -57,9 +57,11 @@ const (
 
 // Measure measures each track of the video at videoPath, an absolute path the caller has checked,
 // in one read of the file: a track with more than two channels as it is and as the standard stereo
-// mix a prepare makes of it, any other as stereo (D226 §1).
+// mix a prepare makes of it, any other as stereo (D226 §1). The film's length, duration, is 0 when
+// unknown: decoding its sound takes as long as the film plays on the slowest machine, so the
+// watchdog allows the longer of that and reading the file.
 func (measurer *Measurer) Measure(
-	ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack,
+	ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, duration time.Duration,
 ) ([]nodeproto.TrackLoudness, error) {
 	if len(tracks) == 0 {
 		return nil, errors.New("no audio tracks to measure")
@@ -69,7 +71,7 @@ func (measurer *Measurer) Measure(
 		LogLimitBytes: maxLogBytes,
 		Watch: execx.Watch{
 			StartGrace: measureStartGrace, StallWindow: measureStallWindow,
-			Deadline: execx.ReadingDeadline(videoPath, measurer.slowestReadBytesPerSecond),
+			Deadline: measureDeadline(videoPath, measurer.slowestReadBytesPerSecond, duration),
 		},
 	})
 	if err != nil {
@@ -174,4 +176,17 @@ func parseSummary(block string) (nodeproto.Measurement, bool) {
 		measurement.TruePeakDBTP = &peak
 	}
 	return measurement, true
+}
+
+// measureDeadline is how long a measurement may run however it moves: the deadline of reading the
+// whole file, or of decoding its sound at real time, the slowest a machine decodes it, whichever is
+// longer. A two-hour film with four tracks over a network mount took sixteen minutes at 7.9 times
+// real time, past the ten its reading allowed, and was stopped near its end (the owner's first
+// Watch Together test, 2026-10-05).
+func measureDeadline(videoPath string, slowestReadBytesPerSecond int64, duration time.Duration) time.Duration {
+	reading := execx.ReadingDeadline(videoPath, slowestReadBytesPerSecond)
+	if duration <= 0 {
+		return reading
+	}
+	return max(reading, execx.DeadlineFor(duration))
 }

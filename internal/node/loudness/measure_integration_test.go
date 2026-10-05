@@ -44,7 +44,7 @@ func TestMeasure_AToneOfKnownLevelMeasuresAsItIs(t *testing.T) {
 		t.Fatal(err)
 	}
 	measured, err := loudness.NewMeasurer(runner, 20<<20).Measure(t.Context(), film,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
