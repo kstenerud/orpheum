@@ -17,6 +17,7 @@ import {
   fastestNudgeFactor,
   followGroup,
   leaveDriftUpToMs,
+  refillAheadMs,
   seekDriftBeyondMs,
   type FollowedMedia,
 } from "./together-follow.ts";
@@ -80,7 +81,20 @@ class FakeMedia {
   seeking = false;
   /* eslint-enable @typescript-eslint/naming-convention -- the fake's own names follow */
   readyState = 4;
+  networkState = 2; // NETWORK_LOADING
+  duration = 7200;
+  /** What is loaded, as [start, end] in seconds: all of it unless a test says otherwise. */
+  loaded: [number, number][] = [[0, 7200]];
   readonly listeners = new Map<string, () => void>();
+
+  get buffered(): Pick<TimeRanges, "length" | "start" | "end"> {
+    const { loaded } = this;
+    return {
+      length: loaded.length,
+      start: (index) => loaded[index]?.[0] ?? 0,
+      end: (index) => loaded[index]?.[1] ?? 0,
+    };
+  }
 
   play(): Promise<void> {
     this.paused = false;
@@ -281,5 +295,53 @@ describe("a player following its group", () => {
     media.fire("seeked");
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands).toEqual([{ command: "seek", positionMs: 5_400_000 }]);
+  });
+
+  it("after a stall holds the group up until it has loaded enough ahead to play on", () => {
+    const media = new FakeMedia();
+    const { connection, reports } = fakeConnection(paused);
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    media.fire("seeked"); // caught up where the group is
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+    media.loaded = [[60, 60.5]];
+    media.readyState = 2;
+    media.fire("waiting");
+    expect(reports.at(-1)?.isBuffering).toBe(true);
+    media.loaded = [[60, 61]];
+    media.readyState = 3;
+    media.fire("canplay");
+    expect(reports.at(-1)?.isBuffering).toBe(true);
+    const reportsBefore = reports.length;
+    media.fire("progress");
+    expect(reports).toHaveLength(reportsBefore); // loading that changes nothing tells no one
+    media.loaded = [[60, 60 + refillAheadMs / 1000]];
+    media.fire("progress");
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
+  it("after a stall plays on with what it has once the browser stops loading, or the film ends", () => {
+    const media = new FakeMedia();
+    const { connection, reports } = fakeConnection(paused);
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    media.fire("seeked");
+    media.loaded = [[60, 61]];
+    media.fire("waiting");
+    expect(reports.at(-1)?.isBuffering).toBe(true);
+    media.networkState = 1; // NETWORK_IDLE: the browser loads no more while paused
+    media.fire("progress");
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+    media.networkState = 2;
+    media.duration = 61;
+    media.fire("waiting");
+    media.fire("canplay");
+    expect(reports.at(-1)?.isBuffering).toBe(false);
   });
 });
