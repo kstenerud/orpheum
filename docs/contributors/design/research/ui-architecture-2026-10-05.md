@@ -397,8 +397,7 @@ The toolkits for remotes and keyboards have a focus engine: on Android TV, *"The
 transfers focus from one object to the nearest"* item ([TV
 navigation](https://developer.android.com/training/tv/start/navigation)); Apple describes focus
 groups where Tab moves between areas and arrows move *"among items in the same focus group"*
-([HIG: Focus and
-selection](https://developer.apple.com/design/human-interface-guidelines/focus-and-selection),
+([HIG: Focus and selection](https://developer.apple.com/design/human-interface-guidelines/focus-and-selection),
 documented).
 
 The web has sequential Tab order and nothing else in the platform today:
@@ -570,7 +569,7 @@ touching another screen, and a component change its look once for everyone.
 | `@ariakit/react` | Unstyled primitives, one package | MIT; 1 direct dependency; 1.1 MB unpacked |
 
 *Opinion:* none is needed for the next screens. Decide when the first combobox or tile grid is
-built, and prefer the option whose focus model can be replaced on the television (R8).
+built, and prefer the option whose focus model can be replaced on the television (R7).
 
 **Reason:** the delegate split of §2.4 and §3.6: behaviour in one place, look in another, so a
 change of look cannot break the keyboard.
@@ -579,8 +578,7 @@ change of look cannot break the keyboard.
 
 The web client's tile grids and rows need arrow-key navigation now (keyboard users, and
 [D189](../../decisions/working-notes.md)'s focus rules) and spatial navigation later (the
-television, [tv-client.md](../plans/tv-client.md),
-which asks for a focus prototype before screens). Build one module for it, used by `Grid` and
+television, [tv-client.md](../plans/tv-client.md), which asks for a focus prototype before screens). Build one module for it, used by `Grid` and
 `Reel`, with the roving-tabindex pattern; keep its interface narrow enough that a spatial
 navigation library or `focusgroup`, if it ships in all engines, can replace its inside.
 
