@@ -96,3 +96,12 @@ type ScanBatch struct {
 	FileCount int64
 	IsDone    int64
 }
+
+type VideoTimeline struct {
+	PayloadHash           []byte
+	VideoStreamIndex      int64
+	KeyframesMsJSON       string
+	BytesInEachSecondJSON string
+	Failure               *string
+	MadeAt                int64
+}

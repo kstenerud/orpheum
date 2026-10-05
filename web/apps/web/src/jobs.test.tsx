@@ -22,7 +22,7 @@ const everyKind = [
   "prepare",
   "extract_subtitle",
   "convert_fetched_subtitle",
-  "measure_loudness",
+  "read_through",
   "scan",
   "examine",
   "backup",
@@ -148,7 +148,7 @@ describe("the job view", () => {
     const paused: Job = {
       ...preparing,
       id: 9,
-      kind: "measure_loudness",
+      kind: "read_through",
       fileId: 2,
       onNode: "paused",
     };

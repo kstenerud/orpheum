@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -38,7 +39,7 @@ import (
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
 // loop (migrations.md, When a step fails). Once the database is ready it runs the background jobs
-// (fetch, artwork, prepare, subtitle and loudness) and their loops, and serves the node channel,
+// (fetch, artwork, prepare, subtitle and read-through) and their loops, and serves the node channel,
 // which each node, a service of its own, dials.
 func serve(
 	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
@@ -235,30 +236,31 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedS
 	return opened
 }
 
-// openPlayback is what plays a file and the work a play asks of the nodes: the loudness of its
-// sounds, its subtitles and its prepared copies, which it returns among the job services, and the
-// playback service.
+// openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its
+// sounds' loudness and its picture's timeline, its subtitles and its prepared copies, which it
+// returns among the job services, and the playback service.
 func openPlayback(
 	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
 ) (jobServices, *playback.Service) {
 	services, queue := opened.jobServices, opened.jobServices.queue
-	services.loudness = loudness.NewService(loudness.Parts{
-		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Settings: opened.settings, Clock: clock.System{},
+	services.readThrough = readthrough.NewService(readthrough.Parts{
+		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
+		Clock: clock.System{},
 	})
+	levels := loudness.NewService(loudness.Parts{Database: database, Settings: opened.settings})
 	services.subtitles = subtitles.NewService(subtitles.Parts{
 		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
 		Subtitler: services.subtitler, Clock: clock.System{}, MaxSilence: prepareMaxSilence,
 	})
 	services.renditions = renditions.NewService(renditions.Parts{
 		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Settings: opened.settings, Loudness: services.loudness, Clock: clock.System{}, Random: rand.Reader,
+		Settings: opened.settings, Loudness: levels, Clock: clock.System{}, Random: rand.Reader,
 		Logger: logger,
 	})
 	return services, playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
-		Preferences: preferencesService, Loudness: services.loudness,
+		Preferences: preferencesService, Loudness: levels,
 	})
 }
 

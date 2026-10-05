@@ -32,7 +32,7 @@ func TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackgro
 		slog.New(slog.DiscardHandler))
 	node.devices = []nodeproto.Device{{Key: "zfs:tank", MountPaths: []string{root.Path()}}}
 	background := newBlockingWork()
-	node.work.hold(t.Context(), background.onDevice(1, nodeproto.SlotMeasure, "zfs:tank", false))
+	node.work.hold(t.Context(), background.onDevice(1, nodeproto.SlotReadThrough, "zfs:tank", false))
 	testutil.Receive(t, background.started, "the measurement's start")
 
 	node.holdCommand(t.Context(), t.Context(), 7, nodeproto.Command{

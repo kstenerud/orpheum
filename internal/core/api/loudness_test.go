@@ -5,7 +5,6 @@ package api
 import (
 	"net/http"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -15,39 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// shelveAudioStreams gives the shelved films the audio streams a scan records: the MP4's stereo
-// track and the MKV's eight-channel one.
-func (harness testHarness) shelveAudioStreams(t *testing.T) {
-	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
-		 VALUES (1, 1, 0, 'audio', 'aac', 2), (2, 2, 1, 'audio', 'truehd', 8)`)
-}
-
-// measureWith runs a measurement job for fileID, answers the node's command with answer, and
-// returns the command and how the job ended.
-func (harness testHarness) measureWith(
-	t *testing.T, jobID, fileID int64, answer nodeproto.LoudnessResult,
-) (*nodeproto.MeasureLoudness, error) {
-	t.Helper()
-	job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
-	finished := harness.handle(t, harness.loudness.HandleMeasureLoudness, job)
-	command := harness.nextCommand(t)
-	harness.answerLoudness(t, jobID, answer)
-	//nolint:wrapcheck // the job's own error, which the test reads as it is
-	return command.MeasureLoudness, testutil.Receive(t, finished, "the measurement job to end")
-}
-
-// filesToMeasure is what a sweep would find to measure now.
-func (harness testHarness) filesToMeasure(t *testing.T) []int64 {
-	t.Helper()
-	ids, err := harness.loudness.FilesToMeasure(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ids
-}
-
 func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -55,7 +21,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	if queued, err := harness.loudness.QueueMeasurements(t.Context()); err != nil || queued != 2 {
+	if queued, err := harness.readThrough.QueueReadThroughs(t.Context()); err != nil || queued != 2 {
 		t.Fatalf("the sweep queued %d, %v; want both films with sound, not the skipped file (D226 §2)", queued, err)
 	}
 	unmeasured := harness.play(t, user, chrome(1))
@@ -68,19 +34,19 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	storetest.ExecRaw(t, harness.databasePath,
 		`UPDATE file SET probe_json = json_set(probe_json, '$.format.durationMs', 600000) WHERE id = 1`)
 	alien := nodeproto.Measurement{IntegratedLUFS: -35.7, RangeLU: 22.8, TruePeakDBTP: new(-16.2)}
-	command, err := harness.measureWith(t, 90, 1, nodeproto.LoudnessResult{Tracks: []nodeproto.TrackLoudness{
+	command, err := harness.readThroughWith(t, 90, 1, nodeproto.ReadThroughResult{Loudness: []nodeproto.TrackLoudness{
 		{StreamIndex: 0, Stereo: alien},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if command == nil || command.Video.PayloadHash != "0a0b" || string(command.Video.Path) != "Film (2001).mp4" ||
-		!slices.Equal(command.Tracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) ||
+		!slices.Equal(command.LoudnessTracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) ||
 		command.DurationMs != 600_000 {
 		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track "+
 			"and its ten minutes", command)
 	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{2}) {
+	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{2}) {
 		t.Errorf("after measuring film 1, a sweep finds %v, want only film 2", ids)
 	}
 	direct := harness.play(t, user, chrome(1))
@@ -99,7 +65,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	// The 7.1 track is louder as it is than as its renormalised stereo mix; the mix's gain is
 	// capped by its peak.
-	_, err := harness.measureWith(t, 91, 2, nodeproto.LoudnessResult{Tracks: []nodeproto.TrackLoudness{{
+	_, err := harness.readThroughWith(t, 91, 2, nodeproto.ReadThroughResult{Loudness: []nodeproto.TrackLoudness{{
 		StreamIndex:  1,
 		Multichannel: &nodeproto.Measurement{IntegratedLUFS: -20.0, RangeLU: 10, TruePeakDBTP: new(-1.0)},
 		Stereo:       nodeproto.Measurement{IntegratedLUFS: -31.0, RangeLU: 9, TruePeakDBTP: new(-6.0)},
@@ -129,59 +95,6 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	again := harness.play(t, user, chrome(2))
 	if again.Audio[0].CarriedGainDB != 5.0 || again.Audio[1].CarriedGainDB != 5.0 {
 		t.Errorf("once prepared: %+v; want each mix to say it carries the gain, so the player adds none", again.Audio)
-	}
-}
-
-func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryIs(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	harness.createAdminAndSignIn(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	_, err := harness.measureWith(t, 93, 2,
-		nodeproto.LoudnessResult{Refusal: "the file at this path is not the one named"})
-	if err == nil || !strings.Contains(err.Error(), "not the one named") {
-		t.Errorf("a measurement the node would not try ended %v, want its reason", err)
-	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
-		t.Errorf("after the node would not try film 2, a sweep finds %v, want it asked again", ids)
-	}
-	_, err = harness.measureWith(t, 94, 2, nodeproto.LoudnessResult{Failure: "ffmpeg: Invalid data found"})
-	if err == nil || !strings.Contains(err.Error(), "Invalid data found") {
-		t.Errorf("a failed measurement ended %v, want FFmpeg's words", err)
-	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1}) {
-		t.Errorf("after FFmpeg could not measure film 2, a sweep finds %v, want only film 1", ids)
-	}
-}
-
-func TestLoudness_AMeasurementTheNodeRefusedIsTriedAgainOnItsBackoff(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	admin := harness.createAdminAndSignIn(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	measurement := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2}, Reason: "test"}
-	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
-		t.Fatal(err)
-	}
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
-	ran := make(chan error, 1)
-	go func() { ran <- runner.RunDue(t.Context()) }()
-	command := harness.nextCommand(t)
-	refusal := "not the one named"
-	answer := nodeproto.LoudnessResult{Refusal: refusal, RefusalCode: nodeproto.RefusedChanged}
-	harness.answerLoudness(t, command.JobID, answer)
-	if err := testutil.Receive(t, ran, "the measurement runner to end"); err != nil {
-		t.Fatal(err)
-	}
-	job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness)
-	if job.State != "queued" || !strings.Contains(job.LastFailure, refusal) ||
-		!strings.Contains(job.LastFailure, "changed since the scan") {
-		t.Errorf("the refused measurement = %+v, want queued to be tried again, with the refusal for a changed file",
-			job)
 	}
 }
 
@@ -269,104 +182,5 @@ func TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay(t *testing.T) 
 		if got := harness.play(t, user, chrome(1)).Levelling; got.GainDB != check.want {
 			t.Errorf("%s at -16 LUFS, raised at most 10 dB: %+v, want a gain of %v", check.what, got, check.want)
 		}
-	}
-}
-
-// A measurement is waited for as long as reading its file takes at the slowest its node says it
-// reads; a node that did not say is not sent one it could not be waited for.
-func TestLoudness_AMeasurementOnANodeThatDidNotSayHowFastItReadsIsNotSent(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	harness.nodes.isReadRateUnknown = true
-	job := jobs.Job{ID: 5, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}}
-	err := harness.loudness.HandleMeasureLoudness(t.Context(), job)
-	if err == nil || !strings.Contains(err.Error(), "has not said how fast it reads") {
-		t.Errorf("measuring on a node that did not say how fast it reads: %v, want it not waited for", err)
-	}
-	if len(harness.nodes.queued) != 0 {
-		t.Errorf("the node was sent %+v, want nothing", harness.nodes.queued)
-	}
-}
-
-func TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	admin := harness.createAdminAndSignIn(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
-		 VALUES (1, '/media', 'unreadable', 5000)`)
-	if ids := harness.filesToMeasure(t); len(ids) != 0 {
-		t.Errorf("with its root unreadable, a sweep finds %v to measure; want none (G6)", ids)
-	}
-	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	measurement := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2}, Reason: "test"}
-	if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
-		t.Fatal(err)
-	}
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
-	if err := runner.RunDue(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if len(harness.nodes.commanded) != 0 {
-		t.Error("the node was asked to measure a file its missing root holds")
-	}
-	views, err := harness.queue.List(t.Context(), 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if job := views[0]; job.State != "queued" || job.AttemptCount != 0 ||
-		job.Destination != jobs.RootDestination(1, "/media") || job.WaitingFor == nil {
-		t.Errorf("the measurement = %+v; want queued on the missing root with no attempt spent", job)
-	}
-	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE root_state SET last_scan_outcome = 'complete'`,
-		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
-		 VALUES (1, '/media', '/media', 9, 0)`)
-	if ids := harness.filesToMeasure(t); len(ids) != 0 {
-		t.Errorf("with the disk under its root missing, a sweep finds %v to measure; want none (G6)", ids)
-	}
-	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`)
-	harness.queue.Unpark(t.Context(), jobs.RootDestination(1, "/media"))
-	answered := make(chan struct{})
-	go func() {
-		defer close(answered)
-		command, isSent := harness.commandWithin(t)
-		if !isSent {
-			return
-		}
-		harness.answerLoudness(t, command.JobID,
-			nodeproto.LoudnessResult{Failure: "Invalid data found when processing input"})
-	}()
-	if err := runner.RunDue(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	// The job is given to the node; the node's answer resolves it.
-	testutil.Receive(t, answered, "the node's answer")
-	if job := newestOf(t, harness.listedJobs(t, admin), jobs.KindMeasureLoudness); job.State != "failed" ||
-		job.AttemptCount != 1 {
-		t.Errorf("once the root came back, the measurement = %+v; want it run once, to FFmpeg's answer", job)
-	}
-}
-
-// A root whose disk work stalled is unavailable until a scan reads it again, though its last scan
-// was complete: the sweep passes its files over by the same rule a measurement parks by (D233 §10).
-func TestLoudness_AFileUnderARootWhoseDiskStalledIsNotSwept(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	harness.shelveFilms(t)
-	harness.shelveAudioStreams(t)
-	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'complete', 5000, 6000)`)
-	if ids := harness.filesToMeasure(t); len(ids) != 0 {
-		t.Errorf("with its root's disk stalled, a sweep finds %v to measure; want none", ids)
-	}
-	storetest.ExecRaw(t, harness.databasePath, `UPDATE root_state SET unavailable_since = NULL`)
-	if ids := harness.filesToMeasure(t); len(ids) == 0 {
-		t.Error("once a scan read the root again, a sweep finds nothing to measure; want its films")
 	}
 }

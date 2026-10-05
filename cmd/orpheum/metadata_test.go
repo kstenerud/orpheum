@@ -73,10 +73,10 @@ func (unreadableSettings) Duration(context.Context, settings.Key) (time.Duration
 func TestLengthOrStarting_IsTheSettingOrElseItsStartingValue(t *testing.T) {
 	t.Parallel()
 	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
-	settingstest.Set(t, config, settings.LoudnessSweepEveryHours, "3")
+	settingstest.Set(t, config, settings.ReadThroughSweepEveryHours, "3")
 	logger := slog.New(slog.DiscardHandler)
-	if got := lengthOrStarting(t.Context(), config, settings.LoudnessSweepEveryHours, logger); got != 3*time.Hour {
-		t.Errorf("loudness_sweep_every_hours at 3: a wait of %v, want 3h", got)
+	if got := lengthOrStarting(t.Context(), config, settings.ReadThroughSweepEveryHours, logger); got != 3*time.Hour {
+		t.Errorf("read_through_sweep_every_hours at 3: a wait of %v, want 3h", got)
 	}
 	for _, check := range []struct {
 		key  settings.Key
@@ -159,7 +159,7 @@ func TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailur
 		// the certificate's renewal have no item: a failure is the job's own, which the job view shows
 		// (D243 §6, §11).
 		isKeptByItsItem := !slices.Contains(
-			[]jobs.Kind{jobs.KindMeasureLoudness, jobs.KindBackup, jobs.KindRenewCertificate}, runner.kind)
+			[]jobs.Kind{jobs.KindReadThrough, jobs.KindBackup, jobs.KindRenewCertificate}, runner.kind)
 		if isGivenUpKept := runner.recordFailure != nil; isGivenUpKept != isKeptByItsItem {
 			t.Errorf("%s keeps a job that gave up as its item's own failure: %v (D231 §4, §10; D244 §1)",
 				runner.kind, isGivenUpKept)
@@ -242,8 +242,8 @@ func TestReportedProgressOf_IsWhereTheNodeHoldingAJobsWorkLastSaidItIs(t *testin
 	cache := storetest.OpenCache(t)
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
-			AttemptToken: "attempt-7", JobID: 7, JobKind: string(jobs.KindMeasureLoudness), NodeID: 1,
-			WorkJSON: `{"type":"measure_loudness"}`, SentAt: 1,
+			AttemptToken: "attempt-7", JobID: 7, JobKind: string(jobs.KindReadThrough), NodeID: 1,
+			WorkJSON: `{"type":"read_through"}`, SentAt: 1,
 		})
 	})
 	if err != nil {
@@ -299,11 +299,11 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 		Cache: cache, Clock: now, Settings: config, Random: jobqueuetest.Unjittered(), Logger: logger,
 	})
 	if _, err := queue.Enqueue(t.Context(), jobs.Request{
-		Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 4}, Priority: jobs.PriorityPlayNow, Reason: "test",
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}, Priority: jobs.PriorityPlayNow, Reason: "test",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	runner := queue.NewRunner(jobs.KindMeasureLoudness, func(context.Context, jobs.Job) error {
+	runner := queue.NewRunner(jobs.KindReadThrough, func(context.Context, jobs.Job) error {
 		return jobs.Assign(now.Now().Add(time.Hour))
 	})
 	if err := runner.RunDue(t.Context()); err != nil {
@@ -316,8 +316,8 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 	job := listed[0].ID
 	err = cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
-			AttemptToken: "attempt", JobID: job, JobKind: string(jobs.KindMeasureLoudness), NodeID: 1,
-			WorkJSON: `{"type":"measure_loudness"}`, SentAt: 1,
+			AttemptToken: "attempt", JobID: job, JobKind: string(jobs.KindReadThrough), NodeID: 1,
+			WorkJSON: `{"type":"read_through"}`, SentAt: 1,
 		})
 	})
 	if err != nil {

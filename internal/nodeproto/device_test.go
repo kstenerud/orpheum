@@ -39,7 +39,7 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 		"prepare":  {Work{Prepare: &Prepare{Video: video}}, "a.mkv"},
 		"extract":  {Work{ExtractSubtitle: &ExtractSubtitle{Video: &video}}, "a.mkv"},
 		"sidecar":  {Work{ExtractSubtitle: &ExtractSubtitle{Sidecar: &sidecar}}, "a.srt"},
-		"measure":  {Work{MeasureLoudness: &MeasureLoudness{Video: video}}, "a.mkv"},
+		"read":     {Work{ReadThrough: &ReadThrough{Video: video}}, "a.mkv"},
 		"artwork":  {Work{EncodeArtwork: &ArtworkBatch{}}, ""},
 		"converts": {Work{ExtractSubtitle: &ExtractSubtitle{}}, ""},
 		"list":     {Work{List: &List{RootPath: "/media", Path: "Films"}}, "Films"},

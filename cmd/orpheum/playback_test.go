@@ -126,18 +126,20 @@ func pollUntil(t *testing.T, what string, isDone func() bool) {
 	}
 }
 
-// TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled measures a scanned film end to end: the
-// sweep after its identification queues the measurement, the core's job commands the in-process
-// node, the node runs FFmpeg and reads its log, and the next playback is levelled by what it
-// measured (D226). The fake FFmpeg answers every run alike: the probe on stdout, the loudness on
-// stderr.
+// TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled reads a scanned film through end to end:
+// the sweep after its identification queues the read-through, the core's job commands the
+// in-process node, the node runs FFmpeg and reads its log and its output, the next playback is
+// levelled by what it measured (D226), and its picture's timeline is kept (D247 §10). The fake
+// FFmpeg answers every run alike: the probe from ffprobe and the picture's packets from ffmpeg on
+// stdout, the loudness on stderr.
 func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	t.Parallel()
 	const probe = `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[` +
 		`{"index":0,"codec_type":"video","codec_name":"h264","profile":"High","pix_fmt":"yuv420p"},` +
 		`{"index":1,"codec_type":"audio","codec_name":"aac","profile":"LC","channels":2}]}`
 	measured := testutil.EBUR128Summary("stereo_1", "-35.7", "22.8", "-16.2")
-	shelved := filmAnswered(t, "nfo", testutil.FakeReply{Stdout: probe, Stderr: measured})
+	packets := "#tb 0: 1/1000\n0, 0, 0, 40, 900, 0x1\n0, 40, 40, 40, 30, 0x2, F=0x0\n"
+	shelved := filmAnswered(t, "nfo", testutil.FakeReply{Stdout: probe, FFmpegStdout: packets, Stderr: measured})
 	server, token, filmFileID := playableFilm(t, shelved)
 	type levelling struct {
 		IsMeasured bool    `json:"isMeasured"`
@@ -163,6 +165,26 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	})
 	if levelled.GainDB != 12.7 {
 		t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", levelled)
+	}
+	cache, err := store.OpenCache(t.Context(), filepath.Join(shelved.config.Instance.CacheDir, "cache.db"),
+		shelved.config.openOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
+	film, err := openDatabase(t, shelved.config).Read().GetPlayableFile(t.Context(), filmFileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var timeline cachegen.VideoTimeline
+	pollUntil(t, "the film's timeline was kept", func() bool {
+		timeline, err = cache.Read().GetVideoTimeline(t.Context(),
+			cachegen.GetVideoTimelineParams{PayloadHash: film.PayloadHash, VideoStreamIndex: 0})
+		return err == nil
+	})
+	if timeline.KeyframesMsJSON != "[0]" || timeline.BytesInEachSecondJSON != "[930]" {
+		t.Errorf("the film's timeline in cache.db = %+v (%v); want its one keyframe and its second's bytes, from "+
+			"the same read", timeline, err)
 	}
 }
 

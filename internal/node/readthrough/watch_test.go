@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package loudness
+package readthrough
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func (runner stallingRunner) RunWatched(_ context.Context, run execx.WatchedRun)
 	return execx.Ran{}, &execx.StalledError{Tool: execx.FFmpeg, Cause: execx.StallStoodStill}
 }
 
-func TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *testing.T) {
+func TestRead_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *testing.T) {
 	t.Parallel()
 	var watches []execx.Watch
 	// A large film, without taking the disk: its deadline is longer than the shortest any run gets.
@@ -37,23 +37,23 @@ func TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *tes
 		t.Fatal(err, closeErr)
 	}
 	const slowestRead = 20 << 20
-	_, err = NewMeasurer(stallingRunner{&watches}, slowestRead).Measure(t.Context(), video,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, 0)
+	_, err = NewReader(stallingRunner{&watches}, slowestRead).Read(t.Context(), video,
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, &nodeproto.VideoTimelineAsk{}, 0)
 	stalled, isStalled := errors.AsType[*execx.StalledError](err)
 	if !isStalled || stalled.Cause != execx.StallStoodStill {
-		t.Errorf("a stalled measurement: %v, want the stall", err)
+		t.Errorf("a stalled read: %v, want the stall", err)
 	}
 	if len(watches) != 1 || watches[0].StartGrace != 2*time.Minute || watches[0].StallWindow != 3*time.Minute ||
 		watches[0].Deadline != execx.ReadingDeadline(video, slowestRead) {
-		t.Errorf("a measurement was watched %+v; want two minutes to start, three standing still, and the "+
+		t.Errorf("a read was watched %+v; want two minutes to start, three standing still, and the "+
 			"deadline of reading the file at the node's slowest read", watches)
 	}
 }
 
 // A long film is allowed as long as decoding its sound at real time takes, when that is longer than
 // reading it: measuring decodes every track, and a film read quickly is not measured quickly (the
-// owner's first Watch Together test, 2026-10-05).
-func TestMeasure_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakes(t *testing.T) {
+// owner's first Watch Together test, 2026-10-05). Reading only its timeline decodes nothing.
+func TestRead_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakesOnlyWhenItsSoundIsMeasured(t *testing.T) {
 	t.Parallel()
 	var watches []execx.Watch
 	video := filepath.Join(t.TempDir(), "film.mkv")
@@ -62,12 +62,20 @@ func TestMeasure_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakes(t *testing.T) {
 	}
 	const slowestRead = 20 << 20
 	twoHours := 2 * time.Hour
-	if _, err := NewMeasurer(stallingRunner{&watches}, slowestRead).Measure(t.Context(), video,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}}, twoHours); err == nil {
-		t.Fatal("the stalling runner's measurement succeeded")
+	reader := NewReader(stallingRunner{&watches}, slowestRead)
+	if _, err := reader.Read(t.Context(), video,
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}}, nil, twoHours); err == nil {
+		t.Fatal("the stalling runner's read succeeded")
 	}
-	if len(watches) != 1 || watches[0].Deadline != execx.DeadlineFor(twoHours) ||
+	if _, err := reader.Read(t.Context(), video, nil, &nodeproto.VideoTimelineAsk{}, twoHours); err == nil {
+		t.Fatal("the stalling runner's read succeeded")
+	}
+	if len(watches) != 2 || watches[0].Deadline != execx.DeadlineFor(twoHours) ||
 		watches[0].Deadline <= execx.ReadingDeadline(video, slowestRead) {
-		t.Errorf("a two-hour film was watched %+v; want the deadline of decoding two hours, past reading's", watches)
+		t.Errorf("a two-hour film's sound was watched %+v; want the deadline of decoding two hours, past "+
+			"reading's", watches)
+	}
+	if len(watches) == 2 && watches[1].Deadline != execx.ReadingDeadline(video, slowestRead) {
+		t.Errorf("a two-hour film's timeline alone was watched %+v; want reading's deadline", watches[1])
 	}
 }

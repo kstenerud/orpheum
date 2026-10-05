@@ -4,7 +4,7 @@ package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
 // work it commands. CommandEncodeArtwork is in artwork.go, CommandPrepare in prepare.go,
-// CommandExtractSubtitle in subtitle.go, CommandMeasureLoudness in loudness.go.
+// CommandExtractSubtitle in subtitle.go, CommandReadThrough in readthrough.go.
 type CommandType string
 
 // The command types.
@@ -49,8 +49,8 @@ type Work struct {
 	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
-	// MeasureLoudness is set for CommandMeasureLoudness.
-	MeasureLoudness *MeasureLoudness `json:"measureLoudness,omitempty"`
+	// ReadThrough is set for CommandReadThrough.
+	ReadThrough *ReadThrough `json:"readThrough,omitempty"`
 	// List is set for CommandList.
 	List *List `json:"list,omitempty"`
 	// Examine is set for CommandExamine.
@@ -76,8 +76,8 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return *work.ExtractSubtitle.Video, true
 	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Sidecar != nil:
 		return *work.ExtractSubtitle.Sidecar, true
-	case work.MeasureLoudness != nil:
-		return work.MeasureLoudness.Video, true
+	case work.ReadThrough != nil:
+		return work.ReadThrough.Video, true
 	case work.List != nil:
 		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
 	case work.Examine != nil && len(work.Examine.Files) > 0:
@@ -106,18 +106,18 @@ func (work Work) WithoutBytes() Work {
 }
 
 // Slot is the kind of slot a node runs work in (cut-a §5.3): the encodes and remuxes its config
-// says (Capacity), and one each of subtitle extraction and loudness measurement, each of which reads
-// a whole video, and of artwork re-encoding. The core holds a node to its slots, as the node does
+// says (Capacity), and one each of subtitle extraction and reading a video through, each of which
+// reads a whole video, and of artwork re-encoding. The core holds a node to its slots, as the node does
 // (D240 §5).
 type Slot string
 
 // The slots.
 const (
-	SlotEncode  Slot = "encode"
-	SlotRemux   Slot = "remux"
-	SlotExtract Slot = "extract"
-	SlotMeasure Slot = "measure"
-	SlotArtwork Slot = "artwork"
+	SlotEncode      Slot = "encode"
+	SlotRemux       Slot = "remux"
+	SlotExtract     Slot = "extract"
+	SlotReadThrough Slot = "read_through"
+	SlotArtwork     Slot = "artwork"
 )
 
 // Slot is the slot the work runs in, or "" for work that holds none: a listing or an examining,
@@ -130,8 +130,8 @@ func (work Work) Slot() Slot {
 		return SlotEncode
 	case work.ExtractSubtitle != nil:
 		return SlotExtract
-	case work.MeasureLoudness != nil:
-		return SlotMeasure
+	case work.ReadThrough != nil:
+		return SlotReadThrough
 	case work.EncodeArtwork != nil:
 		return SlotArtwork
 	}
@@ -140,7 +140,7 @@ func (work Work) Slot() Slot {
 
 // Slots are every kind of slot a node runs work in.
 func (Capacity) Slots() []Slot {
-	return []Slot{SlotEncode, SlotRemux, SlotExtract, SlotMeasure, SlotArtwork}
+	return []Slot{SlotEncode, SlotRemux, SlotExtract, SlotReadThrough, SlotArtwork}
 }
 
 // SlotCount is how many of a slot's work run at once on a node of this capacity.
@@ -150,7 +150,7 @@ func (capacity Capacity) SlotCount(slot Slot) int {
 		return capacity.EncodeSlotCount
 	case SlotRemux:
 		return capacity.RemuxSlotCount
-	case SlotExtract, SlotMeasure, SlotArtwork:
+	case SlotExtract, SlotReadThrough, SlotArtwork:
 	}
 	return 1
 }

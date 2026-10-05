@@ -398,7 +398,7 @@ func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {
 	harness.service.SetResultSink(sink)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	post := func() int {
-		result := nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}}
+		result := nodeproto.Result{JobID: 4, AttemptToken: "a4", ReadThrough: &nodeproto.ReadThroughResult{}}
 		encoded, err := json.Marshal(result)
 		if err != nil {
 			t.Fatal(err)
@@ -670,8 +670,8 @@ func TestTakeHeld_TakesOnlyTheBytesThePostNamedForItsAttempt(t *testing.T) {
 			SizeBytes: int64(len(encoded)), Sha256: hex.EncodeToString(sum[:]),
 		}}
 	}
-	own := encode(nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}})
-	if taken, err := takeHeld(named(own), own); err != nil || taken.Loudness == nil {
+	own := encode(nodeproto.Result{JobID: 4, AttemptToken: "a4", ReadThrough: &nodeproto.ReadThroughResult{}})
+	if taken, err := takeHeld(named(own), own); err != nil || taken.ReadThrough == nil {
 		t.Errorf("its own bytes: %+v, %v; want the result", taken, err)
 	}
 	if _, err := takeHeld(named(own), append(own, ' ')); !errors.Is(err, ErrMalformedResult) {
@@ -694,7 +694,9 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	socketDir := filepath.Join(t.TempDir(), "run")
 	// The core reads from the socket the node's hello names (D242 §7).
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
-	encoded, err := json.Marshal(nodeproto.Result{JobID: 4, AttemptToken: "a4", Loudness: &nodeproto.LoudnessResult{}})
+	encoded, err := json.Marshal(nodeproto.Result{
+		JobID: 4, AttemptToken: "a4", ReadThrough: &nodeproto.ReadThroughResult{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,7 +717,7 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	}}
 	client := NewByteSocketClient(harness.service)
 	result, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted)
-	if err != nil || result.Loudness == nil || result.JobID != 4 {
+	if err != nil || result.ReadThrough == nil || result.JobID != 4 {
 		t.Errorf("the held result = %+v, %v; want job 4's measurement", result, err)
 	}
 	posted.AttemptToken = "a5"

@@ -2031,7 +2031,7 @@
               "prepare",
               "extract_subtitle",
               "convert_fetched_subtitle",
-              "measure_loudness",
+              "read_through",
               "scan",
               "examine",
               "backup",

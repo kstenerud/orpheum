@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package loudness
+package readthrough
 
 import (
 	"slices"
@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
+func TestRead_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 	t.Parallel()
 	logged := "[aac @ 0x1] a warning while decoding\n" +
 		testutil.EBUR128Summary("multichannel_1", "-24.5", "18.2", "-1.3") +
@@ -25,12 +25,18 @@ func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	measured, err := NewMeasurer(runner, 20<<20).Measure(t.Context(), "/media/Film (2020)/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}}, 0)
+	findings, err := NewReader(runner, 20<<20).Read(t.Context(), "/media/Film (2020)/film.mkv",
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}}, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkArguments(t, fake.OnlyCall(t).Arguments)
+	arguments := fake.OnlyCall(t).Arguments
+	checkArguments(t, arguments)
+	if slices.Contains(arguments, "framecrc") || findings.VideoTimeline != nil {
+		t.Errorf("a read asked only for loudness ran %q and found a timeline %+v; want neither", arguments,
+			findings.VideoTimeline)
+	}
+	measured := findings.Loudness
 	if len(measured) != 2 || measured[0].Multichannel == nil || measured[0].Multichannel.IntegratedLUFS != -24.5 ||
 		*measured[0].Multichannel.TruePeakDBTP != -1.3 || measured[0].Stereo.IntegratedLUFS != -31.9 ||
 		measured[0].Stereo.RangeLU != 17.0 || measured[1].Multichannel != nil ||
@@ -60,7 +66,7 @@ func checkArguments(t *testing.T, arguments []string) {
 	}
 }
 
-func TestMeasure_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
+func TestRead_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 	t.Parallel()
 	fake := testutil.InstallFakeFFmpeg(t,
 		testutil.FakeReply{Stderr: testutil.EBUR128Summary("stereo_1", "-20.0", "3.0", "-9.0")})
@@ -68,9 +74,24 @@ func TestMeasure_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = NewMeasurer(runner, 20<<20).Measure(t.Context(), "/media/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}}, 0)
+	_, err = NewReader(runner, 20<<20).Read(t.Context(), "/media/film.mkv",
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}}, nil, 0)
 	if err == nil || !strings.Contains(err.Error(), "stream 3") {
 		t.Errorf("with no summary for stream 3: %v, want a failure naming it", err)
+	}
+}
+
+func TestRead_ARunAskedForNothingIsRefusedWithoutRunning(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{})
+	runner, err := execx.NewRunner(fake.Directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewReader(runner, 20<<20).Read(t.Context(), "/media/film.mkv", nil, nil, 0); err == nil {
+		t.Error("a read asked for nothing succeeded; want it refused")
+	}
+	if calls := fake.Calls(t); len(calls) != 0 {
+		t.Errorf("a read asked for nothing ran FFmpeg %d times; want none", len(calls))
 	}
 }

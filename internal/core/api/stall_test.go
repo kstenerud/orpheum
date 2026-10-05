@@ -31,7 +31,7 @@ func answerAfterStall(
 	return testutil.Receive(t, finished, "the job to end")
 }
 
-func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T) {
+func TestReadThrough_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
@@ -40,23 +40,23 @@ func TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure(t *testing.T)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	measure := func(previousAttemptStalled bool) error {
 		job := jobs.Job{
-			ID: 95, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2},
+			ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2},
 			PreviousAttemptToolFailed: previousAttemptStalled,
 		}
-		return answerAfterStall(t, harness, job, harness.loudness.HandleMeasureLoudness, func() {
-			harness.answerLoudness(t, 95, nodeproto.LoudnessResult{Stall: testStall})
+		return answerAfterStall(t, harness, job, harness.readThrough.HandleReadThrough, func() {
+			harness.answerReadThrough(t, 95, nodeproto.ReadThroughResult{Stall: testStall})
 		})
 	}
 	if err := measure(false); err == nil || !strings.HasPrefix(err.Error(), "stalled: ") {
 		t.Errorf("a first stall ended %v; want it tried again as a stall", err)
 	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
+	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("after one stall on film 2, a sweep finds %v; want it asked again, the hang not its fault", ids)
 	}
 	if err := measure(true); err == nil || !strings.Contains(err.Error(), "FFmpeg stalled twice") {
 		t.Errorf("a second stall in a row ended %v; want the file's failure", err)
 	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1}) {
+	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1}) {
 		t.Errorf("after two stalls on film 2, a sweep finds %v; want only film 1", ids)
 	}
 }
@@ -109,10 +109,10 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 	interrupt := func() { harness.exchanges.Interrupt(t.Context(), 1) }
 	measure := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
-			ID: 95, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 2},
+			ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2},
 			PreviousAttemptToolFailed: previousAttemptToolFailed,
 		}
-		return answerAfterStall(t, harness, job, harness.loudness.HandleMeasureLoudness, interrupt)
+		return answerAfterStall(t, harness, job, harness.readThrough.HandleReadThrough, interrupt)
 	}
 	extract := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
@@ -126,7 +126,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 			t.Errorf("%s whose node started again ended %v; want it tried again as the tool's failure", kind, err)
 		}
 	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
+	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("after one restart during film 2's measurement, a sweep finds %v; want it asked again", ids)
 	}
 	for kind, run := range map[string]func(bool) error{"a measurement": measure, "an extraction": extract} {
@@ -134,7 +134,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 			t.Errorf("%s's second tool failure in a row ended %v; want the target's failure", kind, err)
 		}
 	}
-	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1}) {
+	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1}) {
 		t.Errorf("after two tool failures on film 2, a sweep finds %v; want only film 1", ids)
 	}
 	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")

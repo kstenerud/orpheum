@@ -61,9 +61,12 @@ func fakeScript(tb testing.TB) string {
 
 // FakeReply is what every run of a fake tool writes and the status it exits with.
 type FakeReply struct {
-	Stdout     string
-	Stderr     string
-	ExitStatus int
+	Stdout string
+	// FFmpegStdout, when set, is what ffmpeg writes to stdout in place of Stdout, which ffprobe still
+	// writes: a run whose output is not the probe's.
+	FFmpegStdout string
+	Stderr       string
+	ExitStatus   int
 	// HoldFIFOPath, when set, makes each run start a grandchild that holds stdout open and write
 	// "ready" into this FIFO before waiting forever, so a test can cancel a run mid-flight.
 	HoldFIFOPath string
@@ -118,6 +121,9 @@ func InstallFakeFFmpeg(tb testing.TB, reply FakeReply) FakeFFmpeg {
 		"reply.stdout": []byte(reply.Stdout),
 		"reply.stderr": []byte(reply.Stderr),
 		"reply.status": []byte(strconv.Itoa(reply.ExitStatus)),
+	}
+	if reply.FFmpegStdout != "" {
+		files["reply.ffmpeg.stdout"] = []byte(reply.FFmpegStdout)
 	}
 	for name, contents := range files {
 		writeFile(tb, filepath.Join(directory, name), contents, 0o600)

@@ -14,12 +14,12 @@ func TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndFor
 	retiredRoot, keptRoot := RootDestination(2, "/media/films"), RootDestination(2, "/media/series")
 	requests := []Request{
 		{Kind: KindFetchMetadata, Target: Target{ItemID: 1}},
-		{Kind: KindMeasureLoudness, Target: Target{FileID: 2}},
+		{Kind: KindReadThrough, Target: Target{FileID: 2}},
 		{Kind: KindExtractSubtitle, Target: Target{StreamID: 3}},
 		{Kind: KindConvertFetchedSubtitle, Target: Target{FetchedSubtitleID: 4}},
 		{Kind: KindPrepare, Target: Target{RenditionID: 5}, Destination: retiredRoot},
 		{Kind: KindFetchMetadata, Target: Target{ItemID: 6}},
-		{Kind: KindMeasureLoudness, Target: Target{FileID: 7}, Destination: keptRoot},
+		{Kind: KindReadThrough, Target: Target{FileID: 7}, Destination: keptRoot},
 	}
 	for _, request := range requests {
 		request.Reason = "test"

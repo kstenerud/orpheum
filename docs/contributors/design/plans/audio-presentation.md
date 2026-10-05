@@ -58,8 +58,9 @@ parity anywhere user-facing.
 ~~Not in Cut A ([D178](../../decisions/working-notes.md) §4)~~: a film the owner could not hear
 at full volume brought it in.
 
-- **Measured by a job, not by the scan:** `measure_loudness`, one per file with sound whose
-  payload has no measurement, one at a time on the node. A scan stays minutes; the owner's 329
+- **Measured by a job, not by the scan:** `read_through` (`measure_loudness` until D247's grid
+  joined it, [chunks.md](chunks.md) §2), one per file with sound whose payload has no measurement,
+  one at a time on the node. A scan stays minutes; the owner's 329
   films take two to three hours once, the time being mostly the read of each file (measured
   2026-09-28: 21 s for an 81-minute film).
 - **Each track, and its stereo mix:** a track with more than two channels is also measured as

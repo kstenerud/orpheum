@@ -337,13 +337,13 @@ func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
 	queuedAt := harness.clock.Now()
 	for _, film := range []int64{1, 2} {
 		if _, err := harness.queue.Enqueue(t.Context(), jobs.Request{
-			Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: film}, Reason: "test",
+			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: film}, Reason: "test",
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	system := harness.system(t, admin)
-	if len(system.Body.Queue) != 1 || system.Body.Queue[0].Kind != string(jobs.KindMeasureLoudness) ||
+	if len(system.Body.Queue) != 1 || system.Body.Queue[0].Kind != string(jobs.KindReadThrough) ||
 		system.Body.Queue[0].QueuedCount != 2 || system.Body.Queue[0].OldestQueuedAt == nil ||
 		*system.Body.Queue[0].OldestQueuedAt != queuedAt.UnixMilli() {
 		t.Errorf("the queue's health = %+v; want two measurements queued since %v", system.Body.Queue, queuedAt)

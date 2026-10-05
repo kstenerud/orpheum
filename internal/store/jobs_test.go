@@ -126,7 +126,7 @@ func TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel(t *testing.T) 
 	t.Parallel()
 	storage := newJobStorageFixture(t)
 	storage.insert("fetch_metadata", JobTarget{ItemID: 7}, 0, jobStart)
-	storage.insert("measure_loudness", JobTarget{FileID: 3}, 0, jobStart)
+	storage.insert("read_through", JobTarget{FileID: 3}, 0, jobStart)
 	running, _ := storage.claim("fetch_metadata", jobStart)
 	snoozeUntil := jobStart.Add(time.Hour)
 	if err := storage.jobs.Record(t.Context(), jobqueue.Outcome{
@@ -140,7 +140,7 @@ func TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel(t *testing.T) 
 		t.Errorf("waiting job = %+v, want queued until its time, snoozed, its tool failed, its attempt given back",
 			snoozed)
 	}
-	next, _ := storage.claim("measure_loudness", jobStart)
+	next, _ := storage.claim("read_through", jobStart)
 	if wasOpen, err := storage.jobs.Cancel(t.Context(), next.ID, jobStart); err != nil || !wasOpen {
 		t.Fatalf("Cancel = %t, %v; want it open", wasOpen, err)
 	}
@@ -165,8 +165,8 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 	if requeued := storage.byID()[prepare.ID]; requeued.State != jobqueue.StateQueued || requeued.AttemptCount != 1 {
 		t.Errorf("requeued job = %+v, want queued with its attempt counted", requeued)
 	}
-	storage.insert("measure_loudness", JobTarget{FileID: 8}, 0, jobStart)
-	measure, _ := storage.claim("measure_loudness", jobStart)
+	storage.insert("read_through", JobTarget{FileID: 8}, 0, jobStart)
+	measure, _ := storage.claim("read_through", jobStart)
 	done := jobqueue.Outcome{ID: measure.ID, State: jobqueue.StateDone, At: jobStart, AttemptCount: 1}
 	if err := storage.jobs.Record(t.Context(), done); err != nil {
 		t.Fatal(err)
@@ -290,7 +290,7 @@ func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *test
 	storage := newJobStorageFixture(t)
 	until := jobStart.Add(time.Hour)
 	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, until)
-	storage.assign("measure_loudness", JobTarget{FileID: 8}, jobStart)
+	storage.assign("read_through", JobTarget{FileID: 8}, jobStart)
 	takeOverdue := func(kind jobqueue.Kind, now time.Time) (jobqueue.Row[JobTarget], bool) {
 		t.Helper()
 		row, found, err := storage.jobs.TakeOverdueAssigned(t.Context(), kind, now)
