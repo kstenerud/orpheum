@@ -246,14 +246,33 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **S36** — An MKV with TrueHD and ASS plays in Chrome, Firefox and iPhone Safari with the reason
   on screen (M3 acceptance).
 
-## M4 — two people, one remote (walk before M4)
+## M4 — two people, one remote (walked 2026-10-05, against D243 and [m4.md](m4.md))
 
 - **S40** — The owner invites the partner; the partner signs in from home; the owner revokes
   access; the partner's next request fails.
+  - **Design:** the invite is a registration link for an outsider account with a role (D243 §4,
+    D218), its secret after `#` (§3), working once. "Revokes" is either of two acts, and both
+    end access at the next request: the admin removes the person (their grants are revoked,
+    D154), or takes a library back from their role, after which every answer treats it as absent
+    (§4).
+  - **Status:** holds on paper; m4.md Phase A.
 - **S41** — Watch Together across two houses for a whole film: one pauses, the other's network
   drops for a minute, they rejoin and stay in sync.
+  - **Design:** the pause is a command the server serialises and names ("Karl paused at
+    41:12", D188); the drop is a state, *"reconnecting…"*, not an ending, and the membership keeps
+    its identity across the reconnection (watch-together.md, D119); on return the client takes
+    the current `group` and seeks to it, since a paused group's position has not moved.
+  - **Whether the group waits for a dropped member:** at two, yes. watch-together.md shows
+    *"Karl reconnecting…"* and "resumes both players at the same point", and its Open answers "one
+    participant stalling pauses everyone" with "obviously yes for two"; a larger group's default
+    stays open there.
+  - **Status:** holds on paper; m4.md Phase E.
 - **S42** — A friend joins Watch Together without an account; their viewing is not recorded; the
   partner's is.
+  - **Design:** an anonymous membership records nothing; a membership is a person's when any of
+    its devices joined signed in, its credential in its first `hello` (D243 §2, D191). The friend's
+    media cookie covers the session's one film (§1).
+  - **Status:** holds on paper; m4.md Phase E.
 
 ## M5 — the remote TV (walk before M5)
 
