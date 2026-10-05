@@ -56,7 +56,7 @@ func (service *Service) want(
 	if probeErr != nil {
 		return row, probeErr
 	}
-	languages := audioLanguagesOf(preparedAudio(probe))
+	languages := audioLanguagesOf(PreparedAudio(probe))
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
 		existing, err := store.OrNotFound(queries.GetRenditionOfFileAndProfile(ctx, key))
@@ -394,13 +394,14 @@ func prepareCommand(
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
 	}
-	command.AudioTracks = preparedAudio(probe)
+	command.AudioTracks = PreparedAudio(probe)
 	return command
 }
 
-// preparedAudio are a source's audio tracks as a prepare carries them: each in its place, tagged
-// with its language, langtag.Undetermined when the probe gave none.
-func preparedAudio(probe nodeproto.Probe) []nodeproto.PrepareAudio {
+// PreparedAudio are a source's audio tracks as a prepare carries them: each in its place, tagged
+// with its language, langtag.Undetermined when the probe gave none. A run of chunks of a track's
+// sound is made from the same (D247 §10). The gain each carries is decide.LevelPrepare's to put in.
+func PreparedAudio(probe nodeproto.Probe) []nodeproto.PrepareAudio {
 	var tracks []nodeproto.PrepareAudio
 	for index, stream := range decide.AudioStreams(probe) {
 		language := cmp.Or(stream.Language, langtag.Undetermined)

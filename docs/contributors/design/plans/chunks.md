@@ -20,7 +20,7 @@
   a **quality** (the picture encoded to H.264 at one of the `chunk_qualities`), or a **sound** (one
   audio track's standard or boosted stereo mix, as prepare makes them).
 - **A store** is one stream of one film on one grid, in the node's prepared directory:
-  `<file_id>/chunks/<stream>/<grid_id>/`, holding `init.mp4` and `<n>.m4s`. `grid_id` is a hash
+  `<file_id>/chunks-<stream>/<grid_id>/`, holding `init.mp4` and `<n>.m4s`, five digits or more. `grid_id` is a hash
   of the grid, so a changed grid is a new store.
 - **A run** is one FFmpeg making chunks *first*…*last* of one store, in order. Runs of a store do
   not overlap: a run stops where the next made chunk begins.
@@ -41,7 +41,7 @@
   time. A sound run starts one chunk early and drops it (its encoder's priming); its chunks' times
   come from its sample counts. Progress is the last chunk made; the end is done, failed, refused or
   stalled, as a prepare's.
-- **The byte socket** serves a store's files at `/bytes/v1/chunks/<file_id>/<stream>/<grid_id>/<name>`,
+- **The byte socket** serves a store's files at `/bytes/v1/chunks/<file_id>/chunks-<stream>/<grid_id>/<name>`,
   and answers 404 for a chunk not made yet. A chunk is written whole, in one write, after it is
   complete, so no reader sees part of one.
 - **The prepared directory's budget** counts stores as it counts renditions: a store is shelved
@@ -96,5 +96,15 @@
    comes before the film's start and a picture's first decode before its keyframe is shown, and a
    chunk's time cannot be negative.*
 3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
+   *Built 2026-10-05: `internal/core/chunks` (`Stream`, named `picture`, `q<kbps>k<height>p` and
+   `sound<track>` or `sound<track>-boost`; `Grid.ID`, the first 16 hex characters of the SHA-256 of
+   the grid; `StoreDir`; `MasterPlaylist`, `MediaPlaylist`, `StoreFileOf`; `Ensure`, with
+   `lookaheadMs` 60 s and `runSpanMs` 5 min; the `make_chunks` job, `HandleMakeChunks` and its
+   `Assignee`), `internal/core/chunks/qualities` (`Parse`, the setting's one check and reading),
+   `playback.Service.ChunksOf`, and the routes `GET /bytes/media/chunks/{token}/master.m3u8` and
+   `GET /bytes/media/chunks/{token}/{streamName}/{fileName}`, where `fileName` is `stream.m3u8`,
+   `init.mp4` or `NNNNN.m4s`. A run is not yet cancelled when nobody is coming (§3's last bullet).
+   The queue holds one queued job of a kind for a file, so a run asked for while another of the
+   film's waits queued is asked for again at the player's next look, every quarter second.*
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
 5. Stepping up, the bottom and its words, and Watch Together's word to the group.

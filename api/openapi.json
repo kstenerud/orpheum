@@ -2032,6 +2032,7 @@
               "extract_subtitle",
               "convert_fetched_subtitle",
               "read_through",
+              "make_chunks",
               "scan",
               "examine",
               "backup",
@@ -5284,6 +5285,154 @@
         "summary": "One size of one image, in WebP or JPEG (D212)",
         "tags": [
           "Browse"
+        ]
+      }
+    },
+    "/bytes/media/chunks/{token}/master.m3u8": {
+      "get": {
+        "operationId": "getChunksMasterPlaylist",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's, set as their playback starts",
+            "in": "cookie",
+            "name": "orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {},
+              "video/iso.segment": {},
+              "video/mp4": {}
+            },
+            "description": "A playlist, an init or a chunk"
+          },
+          "404": {
+            "description": "A stream the playback is not offered, or a file a stream has no place for"
+          },
+          "425": {
+            "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
+          }
+        },
+        "summary": "The master playlist of a playback's film cut into chunks at each quality (D247 §10)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/bytes/media/chunks/{token}/{streamName}/{fileName}": {
+      "get": {
+        "operationId": "getChunkFile",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's, set as their playback starts",
+            "in": "cookie",
+            "name": "orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost",
+            "in": "path",
+            "name": "streamName",
+            "required": true,
+            "schema": {
+              "description": "picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost",
+              "type": "string"
+            }
+          },
+          {
+            "description": "stream.m3u8, init.mp4 or a chunk, NNNNN.m4s",
+            "in": "path",
+            "name": "fileName",
+            "required": true,
+            "schema": {
+              "description": "stream.m3u8, init.mp4 or a chunk, NNNNN.m4s",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {},
+              "video/iso.segment": {},
+              "video/mp4": {}
+            },
+            "description": "A playlist, an init or a chunk"
+          },
+          "404": {
+            "description": "A stream the playback is not offered, or a file a stream has no place for"
+          },
+          "425": {
+            "description": "Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After"
+          }
+        },
+        "summary": "One stream's playlist, or its init or a chunk, relayed from the film's node and made there when first asked for (D247 §10)",
+        "tags": [
+          "Playback"
         ]
       }
     },

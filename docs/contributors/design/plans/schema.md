@@ -960,15 +960,16 @@ it has its node read, and a job's `scan_id` and `scan_batch_id`, the targets of 
 reads a video through once for its loudness and its picture's timeline, and added `video_timeline`,
 that timeline by payload hash (D247 §10); version 30 moved `video_timeline` to `persistent.db` (step
 0035, below), since making it again reads the whole file: F1's cost, resolved as for subtitle text and
-loudness.
+loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks of a film, whose
+target is the file (D247 §10).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','read_through','scan','examine','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
-  -- read_through a file, scan a scan (its listing), examine a scan's batch. At most one is set;
+  -- read_through and make_chunks a file, scan a scan (its listing), examine a scan's batch. At most one is set;
   -- backup, not yet a job, sets none.
   item_id             INTEGER,
   rendition_id        INTEGER,

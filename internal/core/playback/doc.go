@@ -71,6 +71,11 @@
 //     library: one taken back stops the playback at its next byte or report request (D243 §4).
 //     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere.
 //
+//   - A playback's chunks are served only to the holder of its token, as its other bytes are, and
+//     only while its holder reaches the film's library. Enforced by
+//     TestChunks_AnotherPersonsTokenIsRefused and
+//     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere (internal/core/api).
+//
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback.
@@ -88,7 +93,8 @@
 //
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback, finding a direct
 //     playback's bytes, and a playback's subtitles through internal/core/subtitles. hls.go: a
-//     prepared playback's files, through internal/core/renditions. report.go: the play report, its
+//     prepared playback's files, through internal/core/renditions. chunks.go: a playback as its
+//     film's chunks are served to it, through internal/core/chunks (D247 §10). report.go: the play report, its
 //     log and the guarded position. resume.go: where a playback starts. hide.go: hiding a work from
 //     Continue Watching, which library's home.go lists. choices.go: a person's choices in a file,
 //     kept through internal/core/preferences, a file's audio tracks, and the subtitle tracks

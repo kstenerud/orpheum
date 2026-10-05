@@ -41,10 +41,12 @@ func levelAudio(renditions []AudioRendition, levels decide.Levels, probe nodepro
 	}
 }
 
-// audioRenditions lists a prepare's audio renditions in the order the master playlist has them.
-func audioRenditions(command nodeproto.Prepare) []AudioRendition {
+// AudioRenditionsOf lists the audio renditions of a prepare's audio tracks, in the order its master
+// playlist has them: each track's standard mix, then its boosted one when it has more than two
+// channels, a centre to raise (D217 §3). A film's sounds cut into chunks are the same mixes (D247 §10).
+func AudioRenditionsOf(tracks []nodeproto.PrepareAudio) []AudioRendition {
 	var renditions []AudioRendition
-	for _, track := range command.AudioTracks {
+	for _, track := range tracks {
 		standard := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language}
 		renditions = append(renditions, standard)
 		if track.ChannelCount > 2 {
@@ -73,7 +75,7 @@ func (service *Service) Want(
 	if err != nil {
 		return Wanted{}, err
 	}
-	audio := audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, profile, "", probe))
+	audio := AudioRenditionsOf(PreparedAudio(probe))
 	levelAudio(audio, levels, probe, rendition.CarriedGainsDBJSON)
 	return Wanted{IsPreparing: rendition.State != renditionComplete, Audio: audio}, nil
 }

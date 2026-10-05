@@ -187,7 +187,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 			return Started{}, prepareErr
 		}
 	}
-	playback.used = used
+	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
 	if err != nil {
 		return Started{}, err

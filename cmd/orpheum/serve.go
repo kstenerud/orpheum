@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
@@ -202,8 +203,9 @@ func openAndWire(
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
-	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork = opened.jobServices.subtitles,
-		opened.jobServices.renditions, opened.jobServices.artwork
+	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork, dependencies.Chunks =
+		opened.jobServices.subtitles, opened.jobServices.renditions, opened.jobServices.artwork,
+		opened.jobServices.chunks
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	opened = wireJobsInto(&dependencies, opened)
@@ -237,7 +239,7 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedS
 }
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its
-// sounds' loudness and its picture's timeline, its subtitles and its prepared copies, which it
+// sounds' loudness and its picture's timeline, its subtitles, its prepared copies and its chunks, which it
 // returns among the job services, and the playback service.
 func openPlayback(
 	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
@@ -255,6 +257,10 @@ func openPlayback(
 		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
 		Settings: opened.settings, Loudness: levels, Clock: clock.System{}, Random: rand.Reader,
 		Logger: logger,
+	})
+	services.chunks = chunks.NewService(chunks.Parts{
+		Database: database, Settings: opened.settings, Queue: queue, Nodes: opened.nodes,
+		Exchanges: opened.exchanges, Loudness: levels, ReadThrough: services.readThrough,
 	})
 	return services, playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},

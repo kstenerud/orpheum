@@ -57,7 +57,7 @@ func (service *Service) FileOf(
 	}
 	target := nodeproto.PathBytesPrepared + strconv.FormatInt(fileID, 10) + "/" +
 		string(profile) + "/" + rendition.RunID + "/" + name
-	return File{NodeID: rendition.NodeID, Target: target, ContentType: contentType(name), Readiness: readiness}, nil
+	return File{NodeID: rendition.NodeID, Target: target, ContentType: ContentType(name), Readiness: readiness}, nil
 }
 
 // PrepareAgain prepares the complete rendition of a file in profile again when its node no longer
@@ -70,8 +70,9 @@ func (service *Service) PrepareAgain(ctx context.Context, fileID int64, profile 
 	return service.redo(ctx, file, profile)
 }
 
-// contentType is a rendition file's media type, by its name.
-func contentType(name string) string {
+// ContentType is the media type of a file of an HLS stream, by its name: a playlist, a segment or
+// chunk, or an init. A rendition's files and a store's chunks are served with it.
+func ContentType(name string) string {
 	switch path.Ext(name) {
 	case ".m3u8":
 		return "application/vnd.apple.mpegurl"

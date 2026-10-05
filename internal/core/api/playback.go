@@ -178,6 +178,7 @@ func (server *Server) registerPlayback() {
 	}, server.getFileAvailability)
 	server.registerSubtitles()
 	server.registerSubtitleFetch()
+	server.registerChunks()
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getRenditionFile", Method: http.MethodGet,
 		Path:    "/bytes/media/hls/{token}/{renditionName}/{fileName}",
