@@ -41,7 +41,8 @@
 //
 // # Where to change
 //
-//   - credentials.go: the secret, and the credentials issued from it.
+//   - credentials.go: the secret, the credentials issued from it, and the Issuer that hands a
+//     member theirs as ICE servers (GET /together/{id}/ice; TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn).
 //   - relay.go: the relay's listener and what it admits.
 //   - log.go: pion's logs, into the server's.
 package turn

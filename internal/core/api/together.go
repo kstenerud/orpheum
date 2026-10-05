@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/turn"
 )
 
 // tagTogether groups Watch Together's operations.
@@ -133,6 +134,29 @@ type ViewerPlaybackOutput struct {
 	Body      StartPlaybackOutputBody
 }
 
+// ICEInput asks for a member's voice relay credentials: their membership credential in the
+// Authorization header, the host's or a viewer's.
+type ICEInput struct {
+	AuthorizationHeader
+	SessionID int64 `minimum:"1" path:"id"`
+}
+
+// ICEServerBody is one of a browser's RTCIceServers.
+type ICEServerBody struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username"`
+	Credential string   `json:"credential"`
+	ExpiresAt  int64    `doc:"Unix milliseconds; ask again before" json:"expiresAt"`
+}
+
+// ICEOutput is the member's ICE servers: none when the server relays nothing, and the browsers
+// connect directly.
+type ICEOutput struct {
+	Body struct {
+		ICEServers []ICEServerBody `json:"iceServers"`
+	}
+}
+
 // LeaveTogetherInput is a viewer leaving: their membership credential in the Authorization header.
 type LeaveTogetherInput struct {
 	AuthorizationHeader
@@ -165,6 +189,10 @@ func (server *Server) registerTogether() {
 		OperationID: "playTogether", Method: http.MethodPost, Path: "/together/playback", Tags: tags,
 		Summary: "A viewer's playback of what the session plays now (D246 §3)",
 	}, server.playTogether)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getTogetherICE", Method: http.MethodGet, Path: "/together/{id}/ice", Tags: tags,
+		Summary: "A member's voice relay credentials, which end with the membership (D243 §8)",
+	}, server.getTogetherICE)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "leaveTogether", Method: http.MethodPost, Path: "/together/leave", Tags: tags,
 		DefaultStatus: http.StatusNoContent, Summary: "Leave the session you joined (a viewer)",
@@ -293,6 +321,31 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 	return &ViewerPlaybackOutput{
 		SetCookie: viewerCookie(credential, input.isOverTLS), Body: startedOutput(started).Body,
 	}, nil
+}
+
+func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICEOutput, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	sessionID, memberID, isMember := dependencies.Together.MemberOf(bearerToken(input.Authorization))
+	if !isMember || sessionID != input.SessionID {
+		return nil, newError(http.StatusNotFound, CodeNotFound, together.ErrNoSession.Error())
+	}
+	servers, err := dependencies.Relay.ICEFor(ctx, turn.Membership{SessionID: sessionID, MemberID: memberID},
+		dependencies.Clock.Now())
+	if err != nil {
+		return nil, server.logInternalError(ctx, "issue relay credentials", err)
+	}
+	output := &ICEOutput{}
+	output.Body.ICEServers = make([]ICEServerBody, 0, len(servers))
+	for _, each := range servers {
+		output.Body.ICEServers = append(output.Body.ICEServers, ICEServerBody{
+			URLs: each.URLs, Username: each.Credentials.Username, Credential: each.Credentials.Password,
+			ExpiresAt: each.Credentials.ExpiresAt.UnixMilli(),
+		})
+	}
+	return output, nil
 }
 
 func (server *Server) leaveTogether(ctx context.Context, input *LeaveTogetherInput) (*struct{}, error) {

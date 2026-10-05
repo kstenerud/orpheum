@@ -35,3 +35,16 @@ func startRelay(ctx context.Context, config Config, opened openedServices, logge
 	logger.InfoContext(ctx, "relaying voice", "address", relay.Address().String())
 	return relay.Close, nil
 }
+
+// newRelayIssuer hands Watch Together's members their relay credentials, where browsers reach the
+// relay; nil for a server with no turn.public_address, whose browsers connect directly (D243 §8).
+func newRelayIssuer(config Config, opened openedServices) *turn.Issuer {
+	if !config.TURN.isOn() {
+		return nil
+	}
+	_, port, err := net.SplitHostPort(config.TURN.Listen)
+	if err != nil {
+		return nil // TURNConfig.check refused it before the server started
+	}
+	return &turn.Issuer{Address: net.JoinHostPort(config.TURN.PublicAddress, port), Secrets: opened.secrets}
+}

@@ -1279,6 +1279,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/{id}/ice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A member's voice relay credentials, which end with the membership (D243 §8) */
+        get: operations["getTogetherICE"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/{id}/links": {
         parameters: {
             query?: never;
@@ -2000,6 +2017,19 @@ export interface components {
             /** @description Operating system and architecture, as Go names them */
             platform: string;
             release?: string;
+        };
+        ICEOutputBody: {
+            iceServers: components["schemas"]["ICEServerBody"][] | null;
+        };
+        ICEServerBody: {
+            credential: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; ask again before
+             */
+            expiresAt: number;
+            urls: string[] | null;
+            username: string;
         };
         InProgressBody: {
             /**
@@ -6110,6 +6140,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTogetherICE: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ICEOutputBody"];
+                };
             };
             /** @description Error */
             default: {

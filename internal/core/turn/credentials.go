@@ -102,3 +102,33 @@ func parseUsername(username string) (Membership, time.Time, error) {
 	}
 	return Membership{SessionID: sessionID, MemberID: memberID}, time.Unix(expiresAt, 0), nil
 }
+
+// Issuer hands members their relay credentials, as the browsers' ICE servers: where the relay is
+// reached, over UDP and TCP, and the credentials Issue makes (D243 §8). A server with no relay has
+// none to hand out, and its browsers try only to reach each other directly.
+type Issuer struct {
+	// Address is the relay's public host:port: turn.public_address and turn.listen's port.
+	Address string
+	Secrets Secrets
+}
+
+// ICE is a browser's RTCIceServer: where, and the credentials.
+type ICE struct {
+	URLs        []string
+	Credentials Credentials
+}
+
+// ICEFor is membership's ICE servers now; none when the server relays nothing.
+func (issuer *Issuer) ICEFor(ctx context.Context, membership Membership, now time.Time) ([]ICE, error) {
+	if issuer == nil || issuer.Address == "" {
+		return nil, nil
+	}
+	secret, err := issuer.Secrets.Open(ctx, secrets.TURNSecret)
+	if err != nil {
+		return nil, fmt.Errorf("read the TURN secret: %w", err)
+	}
+	return []ICE{{
+		URLs:        []string{"turn:" + issuer.Address + "?transport=udp", "turn:" + issuer.Address + "?transport=tcp"},
+		Credentials: Issue(secret, membership, now),
+	}}, nil
+}
