@@ -1,0 +1,15 @@
+# The tables of the core's full config that reachability changes (cut-a §2a). The rest stays as
+# `orpheum default-config` wrote it.
+
+[https]
+domain = "media.orpheum-app.com"
+contact = "<the e-mail address Let's Encrypt writes to>"
+listen = ":443"
+
+[turn]
+# The VPS's public IPv4 address: what browsers are told the relay is at.
+public_address = "203.0.113.7"
+# The tunnel's address, so the relay's answers and relayed media go back through the tunnel.
+listen = "10.77.0.2:3478"
+relay_port_min = 49160
+relay_port_max = 49199

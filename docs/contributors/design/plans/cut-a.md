@@ -132,7 +132,8 @@ loop to work:**
     address its CA writes to) and `listen` (`":443"`); the certificate comes by ACME DNS-01 through
     the DNS provider's token, a secret (D243 §6)
   - a core's `[turn]`: `public_address` (the IP address browsers reach voice's relay at, the
-    VPS's; empty serves none), `listen` (`":3478"`), `relay_port_min` (49160) and `relay_port_max`
+    VPS's; empty serves none), `listen` (`":3478"`, UDP and TCP; relayed media leaves from its
+    host, the tunnel's address in a deployment), `relay_port_min` (49160) and `relay_port_max`
     (49199); its credentials are derived from the TURN secret, which the server makes (D194,
     D243 §8)
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)

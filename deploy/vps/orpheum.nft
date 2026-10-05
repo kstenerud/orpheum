@@ -1,0 +1,32 @@
+# /etc/wireguard/orpheum.nft on the VPS: forwards the public ports into the tunnel, without
+# rewriting the client's address, so the core sees who connected (D243 §7).
+# Replace 203.0.113.7 with the VPS's public IPv4 address and eth0 with its public interface.
+
+define public_ipv4 = 203.0.113.7
+define core_ipv4 = 10.77.0.2
+define core_ipv6 = fd77::2
+
+table inet orpheum {
+	chain prerouting {
+		type nat hook prerouting priority dstnat;
+
+		# HTTPS, and TURN over TCP.
+		iifname "eth0" meta nfproto ipv4 tcp dport { 443, 3478 } dnat ip to $core_ipv4
+		iifname "eth0" meta nfproto ipv6 tcp dport 443 dnat ip6 to $core_ipv6
+		# TURN over UDP, and the relay's ports.
+		iifname "eth0" meta nfproto ipv4 udp dport { 3478, 49160-49199 } dnat ip to $core_ipv4
+		# A relayed packet the core sends to another allocation on its own relay, as when both
+		# browsers use it: back in, as if it came from outside.
+		iifname "wg0" ip daddr $public_ipv4 udp dport 49160-49199 dnat ip to $core_ipv4
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority srcnat;
+
+		# What the relay sends first, before its peer has: from the VPS's address.
+		oifname "eth0" ip saddr $core_ipv4 masquerade
+		# The relayed packet sent back in: from the VPS's address, which the other allocation's
+		# permission names.
+		oifname "wg0" ip saddr $core_ipv4 ip daddr $core_ipv4 snat ip to $public_ipv4
+	}
+}

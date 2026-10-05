@@ -171,3 +171,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   out its buffer after a failed fetch, above all in direct play, no test here can see
   ([D241](decisions/working-notes.md#d241--what-goes-missing-stays-listed-as-unavailable-until-an-admin-says-it-is-gone-and-a-play-of-it-fails-at-once) §7).
   (`web/apps/web/src/play.tsx`)
+- [ ] **VQ19** — With the VPS and tunnel set up as `deploy/vps/README.md` says and `[turn] listen`
+  on the tunnel's address, start a Watch Together voice call between the laptop at home and a phone
+  on mobile data (not the house's Wi-Fi), with relay forced (`iceTransportPolicy: "relay"`). Passes
+  when each hears the other, and the laptop's `chrome://webrtc-internals` shows the selected pair's
+  local candidate as `relay` at the VPS's address. That proves the relay's replies and relayed
+  media go back through the tunnel, and that the VPS sends a relay's packets to another
+  allocation on the same relay back in (D243 §7, §8). (`internal/core/turn/relay.go`, M4 Phase F/G)
