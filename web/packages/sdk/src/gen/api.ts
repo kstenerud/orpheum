@@ -2852,6 +2852,8 @@ export interface components {
             audioTracks: components["schemas"]["AudioTrackBody"][] | null;
             /** @enum {string} */
             delivery: "direct" | "hls";
+            /** Format: int64 */
+            fileBitRateKbps: number;
             isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;

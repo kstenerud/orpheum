@@ -54,7 +54,7 @@ func (fake *fakeNodeBytes) Do(
 // it is, and an MKV with TrueHD it does not.
 func (harness testHarness) shelveFilms(t *testing.T) {
 	t.Helper()
-	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
+	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"],"bitRateBps":2400000},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":2}}]}`
 	mkv := `{"format":{"formatNames":["matroska","webm"]},"streams":[` +
@@ -94,6 +94,7 @@ type decision struct {
 	Profile          string   `json:"profile"`
 	NotDirectReasons []string `json:"notDirectReasons"`
 	IsPreparing      bool     `json:"isPreparing"`
+	FileBitRateKbps  int64    `json:"fileBitRateKbps"`
 	Audio            []struct {
 		AudioTrackIndex   int           `json:"audioTrackIndex"`
 		Language          string        `json:"language"`
@@ -174,6 +175,10 @@ func TestPlayback_AFileThatFitsPlaysDirectlyThroughTheCore(t *testing.T) {
 	if decided.Delivery != "direct" || len(decided.NotDirectReasons) != 0 ||
 		!strings.HasPrefix(decided.URL, Prefix+"/bytes/media/direct/") {
 		t.Fatalf("the decision = %+v, want direct with a byte path", decided)
+	}
+	if decided.FileBitRateKbps != 2400 {
+		t.Errorf("the file's bit rate = %d kb/s, want 2400, by which the player measures its link",
+			decided.FileBitRateKbps)
 	}
 	whole := harness.getBytePath(t, decided.URL, user, true, "")
 	if whole.status != http.StatusOK || whole.body != "the film's bytes" {

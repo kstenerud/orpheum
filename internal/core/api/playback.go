@@ -101,6 +101,9 @@ type StartPlaybackOutputBody struct {
 	// Levelling brings the main sound to the level: the file's own when played directly, the
 	// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
 	Levelling LevellingBody `json:"levelling"`
+	// FileBitRateKbps is the file's own average bit rate, by which a player playing it as it is
+	// measures its link from how fast its buffer grows (D247 §1); 0 when it is not known.
+	FileBitRateKbps int64 `json:"fileBitRateKbps"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -246,6 +249,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
 	}
 	output.Body.IsPreparing = started.IsPreparing
+	output.Body.FileBitRateKbps = started.FileBitRateBps / 1000
 	for _, audio := range started.AudioRenditions {
 		output.Body.AudioRenditions = append(output.Body.AudioRenditions, AudioRenditionBody{
 			AudioTrackIndex: audio.AudioTrackIndex, Language: audio.Language, IsDialogueBoosted: audio.IsBoosted,

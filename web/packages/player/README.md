@@ -17,6 +17,10 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **Says no words.** A failure is a code (`PlaybackFailure`, `src/failure.ts`), never English or
   the browser's or hls.js's text; the app puts each in the viewer's words.
   `failure.test.ts`, and the app's `play.test.tsx` for the words.
+- **A player playing a file as it is measures its link from how fast its buffer grows**, times
+  the file's average bit rate, counting only time the element spends loading, never the pauses
+  between loads, and starting afresh at a seek elsewhere; the estimate is the lower of two moving
+  averages, so it falls fast and rises slowly (D247 §1; slow-links.md §2). `link.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).
@@ -35,6 +39,6 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. HLS playback:
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`.
