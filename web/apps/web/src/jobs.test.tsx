@@ -177,11 +177,12 @@ describe("the job view", () => {
 });
 
 describe("each kind of job", () => {
-  it("names what it works on: a scan's listing its scan, its reading the batch", () => {
+  it("names what it works on: a scan's listing its scan, its reading the batch, a run its store", () => {
     const started = { state: "running", reason: "a scan", attemptCount: 1, createdAt: 1 } as const;
     const scanning: Job = { ...started, id: 6, kind: "scan", scanId: 4 };
     const examining: Job = { ...started, id: 7, kind: "examine", scanBatchId: 9 };
-    expect([targetId(scanning), targetId(examining)]).toEqual([4, 9]);
+    const making: Job = { ...started, id: 8, kind: "make_chunks", chunkStoreId: 3 };
+    expect([targetId(scanning), targetId(examining), targetId(making)]).toEqual([4, 9, 3]);
   });
 
   it("names a backup by its kind alone: it works on the whole server (D243 §11)", async () => {

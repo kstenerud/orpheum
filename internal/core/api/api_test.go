@@ -150,7 +150,7 @@ func newHarness(t *testing.T) testHarness {
 		Loudness: loudnessService, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 	})
 	chunksService := chunks.NewService(chunks.Parts{
-		Database: database, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
+		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
 		Loudness: loudnessService, ReadThrough: readThroughService,
 	})
 	playbackService := playback.NewService(playback.Parts{

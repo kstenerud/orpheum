@@ -2186,6 +2186,8 @@ export interface components {
         JobBody: {
             /** Format: int64 */
             attemptCount: number;
+            /** Format: int64 */
+            chunkStoreId?: number;
             /**
              * Format: int64
              * @description Unix milliseconds

@@ -37,8 +37,8 @@ const (
 	// timeline, whichever its bytes lack; its target is the file (D226 §2, D247 §10).
 	KindReadThrough Kind = "read_through"
 	// KindMakeChunks makes one run of chunks of one stream of a film, on its node, for a player
-	// waiting for them; its target is the file, and its arguments name the stream, the grid and the
-	// chunks (D247 §10).
+	// waiting for them; its target is the chunk store, the stream of the film on its grid, so the runs
+	// of a film's streams queue side by side, and its arguments name the chunks (D247 §10).
 	KindMakeChunks Kind = "make_chunks"
 	// KindScan lists a root for its scan and compares what it found; its target is the scan (D240).
 	KindScan Kind = "scan"
@@ -63,8 +63,8 @@ func Kinds() []Kind {
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for read_through and make_chunks, a scan for scan and a scan's batch for
-// examine. A job is queued with exactly one set and the others zero, but a backup and the
+// convert_fetched_subtitle, a file for read_through, a chunk store for make_chunks, a scan for scan
+// and a scan's batch for examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
 // at a time, since every such job of a kind is one target. Enqueue refuses any other target with ErrNotOneTarget.
 type Target = store.JobTarget
@@ -84,7 +84,7 @@ func requireOneTarget(kind Kind, target Target) error {
 	setCount := 0
 	for _, id := range []int64{
 		target.ItemID, target.RenditionID, target.StreamID, target.FetchedSubtitleID, target.FileID,
-		target.ScanID, target.ScanBatchID,
+		target.ScanID, target.ScanBatchID, target.ChunkStoreID,
 	} {
 		if id != 0 {
 			setCount++

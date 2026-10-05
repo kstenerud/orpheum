@@ -9,6 +9,13 @@ type ArtServed struct {
 	LastServedEpochDay int64
 }
 
+type ChunkStore struct {
+	ID         int64
+	SourceFile int64
+	Stream     string
+	GridID     string
+}
+
 type Job struct {
 	ID                    int64
 	Kind                  string
@@ -19,6 +26,7 @@ type Job struct {
 	FileID                *int64
 	ScanID                *int64
 	ScanBatchID           *int64
+	ChunkStoreID          *int64
 	ArgsJSON              string
 	Priority              int64
 	State                 string

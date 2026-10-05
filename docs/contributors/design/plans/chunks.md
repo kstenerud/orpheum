@@ -104,7 +104,8 @@
    `playback.Service.ChunksOf`, and the routes `GET /bytes/media/chunks/{token}/master.m3u8` and
    `GET /bytes/media/chunks/{token}/{streamName}/{fileName}`, where `fileName` is `stream.m3u8`,
    `init.mp4` or `NNNNN.m4s`. A run is not yet cancelled when nobody is coming (§3's last bullet).
-   The queue holds one queued job of a kind for a file, so a run asked for while another of the
-   film's waits queued is asked for again at the player's next look, every quarter second.*
+   A run's job targets its store, a `chunk_store` row in cache.db, so the runs of a film's streams
+   queue side by side; a run asked for while another of its store waits queued (a seek) is folded
+   into that one, and asked for again at the player's next look, every quarter second.*
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
 5. Stepping up, the bottom and its words, and Watch Together's word to the group.

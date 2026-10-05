@@ -3,14 +3,14 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 31
+-- cache schema version 32
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','read_through','make_chunks','scan','examine','backup','renew_certificate')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
-  -- read_through and make_chunks a file, scan a scan (its listing), examine a scan's batch. At most one is set;
+  -- read_through a file, make_chunks a chunk store, scan a scan (its listing), examine a scan's batch. At most one is set;
   -- backup and renew_certificate set none: they work on the whole server (D243 sections 6, 11).
   item_id             INTEGER,
   rendition_id        INTEGER,
@@ -19,6 +19,7 @@ CREATE TABLE job (                                         -- the one work queue
   file_id             INTEGER,
   scan_id             INTEGER,
   scan_batch_id       INTEGER,
+  chunk_store_id      INTEGER,
   -- A kind's own arguments: fetch_metadata's isRefresh and shouldRetryImages; make_artwork_sizes'
   -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
   args_json   TEXT NOT NULL DEFAULT '{}',
@@ -50,7 +51,7 @@ CREATE TABLE job (                                         -- the one work queue
   wanted_until INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
-         (scan_batch_id IS NOT NULL) <= 1)
+         (scan_batch_id IS NOT NULL) + (chunk_store_id IS NOT NULL) <= 1)
 );
 CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
 
@@ -93,6 +94,14 @@ CREATE TABLE art_served (                                  -- D212 section 6: re
   source_sha256_hex TEXT PRIMARY KEY,    -- an image's directory under cache/art/
   last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
+
+CREATE TABLE chunk_store (                                 -- D247 section 10: one stream of a film on one grid
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_file INTEGER NOT NULL,          -- persistent.db's file
+  stream      TEXT NOT NULL,             -- the stream's name: picture, q1200k480p, sound0, sound0-boost
+  grid_id     TEXT NOT NULL,             -- the hash of the grid it is cut on
+  UNIQUE (source_file, stream, grid_id)
+);
 
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
   id           INTEGER PRIMARY KEY AUTOINCREMENT,

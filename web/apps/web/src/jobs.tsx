@@ -53,7 +53,8 @@ export function targetId(job: Job): number | undefined {
     job.fetchedSubtitleId ??
     job.fileId ??
     job.scanId ??
-    job.scanBatchId
+    job.scanBatchId ??
+    job.chunkStoreId
   );
 }
 

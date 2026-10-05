@@ -16,35 +16,67 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // ErrGridChanged is a run asked for on a grid the film no longer has: its file changed, or the
 // segment length did, and its chunks are another store's.
 var ErrGridChanged = errors.New("the film is no longer cut on the grid the run was asked for")
 
-// HandleMakeChunks runs one make_chunks job (jobs.KindMakeChunks): the node that holds the film
-// makes the run of chunks its arguments name, and says later how it ended (Assignee). A run on a
-// grid the film no longer has, of a stream it cannot have, or of a file gone, ends for good.
-func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) error {
-	var args runArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
-		return jobs.MarkPermanent(fmt.Errorf("job %d's arguments: %w", job.ID, err))
+// storedRun is a make_chunks job's run: its store, as the chunk_store row the job targets names it,
+// and its chunks.
+type storedRun struct {
+	fileID int64
+	stream Stream
+	gridID string
+	runArgs
+}
+
+// dir is the run's store's directory.
+func (run storedRun) dir() string { return StoreDir(run.fileID, run.stream, run.gridID) }
+
+// runOf is the run a make_chunks job makes, failing for good for a job whose store or arguments
+// name none.
+func (service *Service) runOf(ctx context.Context, job jobs.Job) (storedRun, error) {
+	var run storedRun
+	if err := json.Unmarshal([]byte(job.ArgsJSON), &run.runArgs); err != nil {
+		return run, jobs.MarkPermanent(fmt.Errorf("job %d's arguments: %w", job.ID, err))
 	}
-	stream, isStream := StreamNamed(args.Stream)
+	row, err := store.OrNotFound(service.cache.Read().GetChunkStore(ctx, job.ChunkStoreID))
+	if errors.Is(err, store.ErrNotFound) {
+		return run, jobs.MarkPermanent(fmt.Errorf("no chunk store %d", job.ChunkStoreID))
+	}
+	if err != nil {
+		return run, fmt.Errorf("read chunk store %d: %w", job.ChunkStoreID, err)
+	}
+	stream, isStream := StreamNamed(row.Stream)
 	if !isStream {
-		return jobs.MarkPermanent(fmt.Errorf("job %d names no stream: %q", job.ID, args.Stream))
+		return run, jobs.MarkPermanent(fmt.Errorf("chunk store %d names no stream: %q", row.ID, row.Stream))
 	}
-	film, isCut, err := service.cut(ctx, job.FileID)
+	run.fileID, run.stream, run.gridID = row.SourceFile, stream, row.GridID
+	return run, nil
+}
+
+// HandleMakeChunks runs one make_chunks job (jobs.KindMakeChunks): the node that holds the film
+// makes the run of chunks of the store the job targets that its arguments name, and says later how
+// it ended (Assignee). A run on a grid the film no longer has, of a stream it cannot have, or of a
+// file gone, ends for good.
+func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) error {
+	run, err := service.runOf(ctx, job)
+	if err != nil {
+		return err
+	}
+	film, isCut, err := service.cut(ctx, run.fileID)
 	switch {
 	case errors.Is(err, library.ErrNoFile), errors.Is(err, ErrCannotBeCut):
 		return jobs.MarkPermanent(err)
 	case err != nil:
 		return err
-	case !isCut || film.grid.ID() != args.GridID:
-		return jobs.MarkPermanent(fmt.Errorf("file %d, grid %s: %w", job.FileID, args.GridID, ErrGridChanged))
-	case args.FirstChunk < 0 || args.LastChunk < args.FirstChunk || args.LastChunk > film.grid.lastChunk():
-		return jobs.MarkPermanent(fmt.Errorf("file %d has no chunks %d to %d", job.FileID, args.FirstChunk,
-			args.LastChunk))
+	case !isCut || film.grid.ID() != run.gridID:
+		return jobs.MarkPermanent(fmt.Errorf("file %d, grid %s: %w", run.fileID, run.gridID, ErrGridChanged))
+	case run.FirstChunk < 0 || run.LastChunk < run.FirstChunk || run.LastChunk > film.grid.lastChunk():
+		return jobs.MarkPermanent(fmt.Errorf("file %d has no chunks %d to %d", run.fileID, run.FirstChunk,
+			run.LastChunk))
 	}
 	queries := service.database.Read()
 	located := library.LocatedOf(film.file)
@@ -55,12 +87,13 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	command, err := service.makeChunks(ctx, film, stream, args)
+	command, err := service.makeChunks(ctx, film, run)
 	if err != nil {
 		return err
 	}
 	command.Video = source
-	service.runs.begin(command.StoreDir, args.FirstChunk, args.LastChunk, job.ID)
+	service.runs.knowStoreID(command.StoreDir, job.ChunkStoreID)
+	service.runs.begin(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID)
 	return service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &command},
 	})
@@ -70,13 +103,12 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 // cover; the stream's recipe; its store; and the grid's bounds from the run's first chunk's start to
 // its last's end. A sound past the film's first chunk starts a chunk early, which the node drops
 // with its encoder's priming (slow-links.md §10).
-func (service *Service) makeChunks(
-	ctx context.Context, film cutFilm, stream Stream, args runArgs,
-) (nodeproto.MakeChunks, error) {
+func (service *Service) makeChunks(ctx context.Context, film cutFilm, run storedRun) (nodeproto.MakeChunks, error) {
+	stream, args := run.stream, run.runArgs
 	command := nodeproto.MakeChunks{
 		VideoStreamIndex: film.picture.StreamIndex, VideoCodec: film.picture.Codec,
 		Stream:     nodeproto.ChunkStream{Kind: stream.Kind},
-		StoreDir:   StoreDir(film.file.ID, stream, args.GridID),
+		StoreDir:   run.dir(),
 		FirstChunk: args.FirstChunk,
 	}
 	for n := args.FirstChunk; n <= args.LastChunk; n++ {
@@ -126,12 +158,10 @@ func (service *Service) levelledTrack(
 // RecordMakeChunksFailure forgets a run whose job failed for good, whatever ended it, so a player
 // asking for its chunks queues another: the chunks are made on request, and a run lost is asked
 // for again by the next (D231 §4).
-func (service *Service) RecordMakeChunksFailure(_ context.Context, job jobs.Job, _ string) error {
-	// A job whose arguments name no run has no run to forget.
-	var args runArgs
-	isRun := json.Unmarshal([]byte(job.ArgsJSON), &args) == nil
-	if stream, isStream := StreamNamed(args.Stream); isRun && isStream {
-		service.runs.forget(StoreDir(job.FileID, stream, args.GridID), args.FirstChunk)
+func (service *Service) RecordMakeChunksFailure(ctx context.Context, job jobs.Job, _ string) error {
+	// A job whose store or arguments name no run has no run to forget.
+	if run, err := service.runOf(ctx, job); err == nil {
+		service.runs.forget(run.dir(), run.FirstChunk)
 	}
 	return nil
 }

@@ -61,18 +61,28 @@ func (queue *fakeQueue) KeepWanted(context.Context, jobs.Kind, jobs.Target) erro
 	return nil
 }
 
-// runs are the runs asked for, as their arguments.
-func (queue *fakeQueue) runs(t *testing.T) []runArgs {
+// askedRun is a run asked for: the stream its store is of, and its chunks.
+type askedRun struct {
+	stream                string
+	firstChunk, lastChunk int
+}
+
+// runs are the runs asked of the queue, each by its store's stream and its arguments.
+func (queue *fakeQueue) runs(t *testing.T, service *Service) []askedRun {
 	t.Helper()
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
-	asked := make([]runArgs, 0, len(queue.requests))
+	asked := make([]askedRun, 0, len(queue.requests))
 	for _, request := range queue.requests {
 		var args runArgs
 		if err := json.Unmarshal([]byte(request.ArgsJSON), &args); err != nil {
 			t.Fatal(err)
 		}
-		asked = append(asked, args)
+		row, err := service.cache.Read().GetChunkStore(t.Context(), request.ChunkStoreID)
+		if err != nil {
+			t.Fatalf("a run's target, chunk store %d: %v", request.ChunkStoreID, err)
+		}
+		asked = append(asked, askedRun{stream: row.Stream, firstChunk: args.FirstChunk, lastChunk: args.LastChunk})
 	}
 	return asked
 }
@@ -134,7 +144,7 @@ const filmMinutes = 20
 // it a 5.1 English track and a stereo one with no language, its timeline kept, a keyframe every ten
 // seconds and one busy second of 9.6 megabits; and film 2, the same with no timeline yet. The
 // segment length is two seconds.
-func chunksFixture(t *testing.T, queue *fakeQueue, node fakeNode) (*Service, *fakeReadThrough) {
+func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeReadThrough) {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
@@ -179,12 +189,13 @@ func chunksFixture(t *testing.T, queue *fakeQueue, node fakeNode) (*Service, *fa
 	settingstest.Set(t, seeded, settings.HLSSegmentLengthSeconds, "2")
 	clockSource := clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC))
 	reader := &fakeReadThrough{}
+	cache := storetest.OpenCache(t)
 	service := NewService(Parts{
-		Database: database, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
+		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
 		ReadThrough: reader,
 		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Cache: storetest.OpenCache(t), Settings: seeded, MaxSilence: time.Hour,
+			Cache: cache, Settings: seeded, MaxSilence: time.Hour,
 		}),
 	})
 	return service, reader
