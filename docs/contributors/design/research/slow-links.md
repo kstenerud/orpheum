@@ -336,3 +336,37 @@ Stalls cost far more than a softer picture.
   everyone every minute.
 - **Cut A excludes live transcoding**, and the `h264-8m` rule only fires above about 10 Mbps. The
   owner has said Cut A was a guess to be corrected by use (2026-10-05).
+
+## 10. Measured here: chunks made on request (2026-10-05)
+
+Measured in the sandbox with the node's own FFmpeg (`8.1.2-Jellyfin`), on *12 Marrow Larks*
+(1080p H.264 in MP4, AAC sound), and played by hls.js in Playwright's Chromium and Firefox. The
+recipe D247 §10 is built from:
+
+- **The keyframe scan** (`ffprobe -select_streams v:0 -show_entries packet=pts_time,flags`) read
+  651 keyframes of a 96-minute film in 5.5 s. This film has a keyframe only every 10 s (some 1 s
+  apart), so a copy of its picture can only be cut about every 10 s: **the grid** is the source's
+  keyframes, merged greedily so each chunk is at least 2 s.
+- **One run per stretch:** `-ss <grid time> -to <grid time> -i <source>`, then FFmpeg's `segment`
+  muxer with `-segment_times` at the grid's times relative to the run's start, less 0.05 s (a
+  keyframe at 10.009999 is otherwise missed at 10.010000; Kyoo's `hls_time_delta 0.05`), and the
+  run's end as the last cut, whose surplus file is dropped. Format `mp4` with
+  `movflags=+frag_keyframe+empty_moov+default_base_moof:use_editlist=0`. FFmpeg's `hls` muxer
+  cannot be used: it cuts by cumulative time, so it cannot keep a copied picture to the grid.
+- **Copied and encoded qualities cut identically**: the copy cuts at the source's keyframes; an
+  encode is forced to keyframes at exactly the grid's times (`-force_key_frames <list> -g 100000
+  -sc_threshold 0`). Chunk durations matched the grid to the microsecond in both.
+- **One init per quality:** with `use_editlist=0`, every run's `ftyp`+`moov` is byte-identical,
+  so it is written once; each chunk is the file's `moof`+`mdat` pairs, `mfra` dropped.
+- **Times are patched:** each file's timestamps start at zero, so the node sets every `tfdt` in
+  it (64-bit, version 1) to the film's time. For video that is the grid's time. Upstream FFmpeg
+  has no flag for it (`frag_discont` does not; `absolute_tfdt` is Kyoo's fork). Decoded end to
+  end, two runs' chunks gave 3,533 frames with no gap, identical in both qualities.
+- **Sound uses the same runs, one chunk early:** a run starting at chunk *S* > 0 starts its sound
+  at chunk *S*−1 and drops that chunk, which carries the encoder's 1,024-sample priming. A sound
+  chunk's time is the run's start, less the priming, plus the samples before it in the run, so it
+  is exact; where two runs meet there is one seam under a frame (8.7 ms here). AAC encodes about
+  60× real time, too slow to make a film's sound from the start whenever someone stalls an hour in.
+- **hls.js** in Chromium and Firefox played across the join of two runs, switched from the low
+  quality up to the copied picture and back down inside the second run, and kept its position,
+  with no fatal error. Its non-fatal `aborted` errors are its own cancelled loads at a switch.
