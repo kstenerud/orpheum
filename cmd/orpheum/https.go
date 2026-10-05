@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -87,4 +88,13 @@ func serveHTTPS(
 		<-done
 		return err
 	}
+}
+
+// certificateExpiry is the System page's view of the certificate service: nil for a server with no
+// public name, never a nil service in a non-nil interface.
+func certificateExpiry(certificates *certificate.Service) api.CertificateExpiry {
+	if certificates == nil {
+		return nil
+	}
+	return certificates
 }

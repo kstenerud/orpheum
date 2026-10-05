@@ -296,6 +296,22 @@
         ],
         "type": "object"
       },
+      "CertificateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "ChangeDeviceInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -3780,6 +3796,9 @@
         "properties": {
           "build": {
             "$ref": "#/components/schemas/BuildBody"
+          },
+          "certificate": {
+            "$ref": "#/components/schemas/CertificateBody"
           },
           "databases": {
             "items": {

@@ -1483,6 +1483,11 @@ export interface components {
             candidates: components["schemas"]["CandidateBody"][] | null;
             provider?: string;
         };
+        CertificateBody: {
+            /** Format: int64 */
+            expiresAt?: number;
+            name: string;
+        };
         ChangeDeviceInputBody: {
             /**
              * @description How the device makes sound; built-in speakers and headphones are stereo (D222)
@@ -2593,6 +2598,7 @@ export interface components {
         };
         ServerBody: {
             build: components["schemas"]["BuildBody"];
+            certificate?: components["schemas"]["CertificateBody"];
             databases: components["schemas"]["DatabaseBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             goVersion: string;

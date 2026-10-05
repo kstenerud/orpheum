@@ -374,6 +374,11 @@ export const en = {
     kernel: "Kernel",
     platform: "Platform",
     startedAt: "Started",
+    certificate: {
+      heading: "The certificate for {{name}}",
+      expires: "Expires {{at}}; it is renewed a month before.",
+      none: "Not obtained yet: the jobs list shows its renewal, and why it failed if it did.",
+    },
     disks: "Disks",
     disk: "{{available}} free of {{total}}",
     diskUnmeasured: "could not be measured: {{why}}",

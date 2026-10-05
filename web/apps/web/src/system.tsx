@@ -29,6 +29,7 @@ import { useResource } from "./use-resource.ts";
 
 /** Everything the server knows about itself and each machine, as the System page shows it (D225). */
 export type SystemReport = components["schemas"]["SystemOutputBody"];
+type Certificate = components["schemas"]["CertificateBody"];
 /** One machine that reads media and runs FFmpeg, as it last described itself. */
 export type SystemNode = components["schemas"]["SystemNodeBody"];
 type Disk = components["schemas"]["DiskBody"];
@@ -96,6 +97,9 @@ export function SystemView(props: {
           <HostFacts host={server.host} />
           <dt>{t("system.startedAt")}</dt>
           <dd>{dateTimeText(server.startedAt, i18n.language)}</dd>
+          {server.certificate === undefined ? null : (
+            <CertificateFacts certificate={server.certificate} />
+          )}
           {(server.databases ?? []).map((database) => (
             <DatabaseSize key={database.name} name={database.name} bytes={database.sizeBytes} />
           ))}
@@ -154,6 +158,24 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
           </>
         )}
       </dl>
+    </>
+  );
+}
+
+/** The public name's HTTPS certificate: when it expires, or that there is none yet (D243 §6). */
+function CertificateFacts(props: { readonly certificate: Certificate }): JSX.Element {
+  const { t } = useTranslation();
+  const { certificate } = props;
+  return (
+    <>
+      <dt>{t("system.certificate.heading", { name: certificate.name })}</dt>
+      <dd>
+        {certificate.expiresAt === undefined
+          ? t("system.certificate.none")
+          : t("system.certificate.expires", {
+              at: dateTimeText(certificate.expiresAt, i18n.language),
+            })}
+      </dd>
     </>
   );
 }
