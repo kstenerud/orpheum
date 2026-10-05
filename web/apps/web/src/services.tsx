@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, PlayableFormats } from "@orpheum/sdk";
+import type { Api, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
 
-/** What every screen reaches the world through: the API, the session, navigation, and what this browser plays. */
+/**
+ * What every screen reaches the world through: the API, the session, navigation, what this browser
+ * plays, and the Watch Together socket.
+ */
 export interface Services {
   readonly api: Api;
   readonly session: Session;
   readonly navigation: Navigation;
   readonly playableFormats: () => PlayableFormats;
+  readonly openTogetherSocket: OpenTogetherSocket;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

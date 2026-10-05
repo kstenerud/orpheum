@@ -19,6 +19,8 @@ export type Route =
   | { readonly screen: "person"; readonly userId: number }
   | { readonly screen: "account" }
   | { readonly screen: "register" }
+  | { readonly screen: "together" }
+  | { readonly screen: "watch-together" }
   | { readonly screen: "not-found" };
 
 /** Where an item of a kind leads: a series' page, else a title's (a film, an episode, an extra). */
@@ -62,6 +64,8 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (userId) => ({ screen: "person", userId }) },
   { pattern: /^\/account\/?$/u, toRoute: () => ({ screen: "account" }) },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
+  { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
+  { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
 ];
 
 /** The route an address names; an address the client does not know is not-found, never a guess. */

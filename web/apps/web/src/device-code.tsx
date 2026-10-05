@@ -12,7 +12,7 @@ import {
   type CodeTarget,
   type ShownCode,
 } from "./accounts.ts";
-import { storageIfAllowed, storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
+import { tabStorage } from "./browser-storage.ts";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -26,11 +26,6 @@ import { useResource } from "./use-resource.ts";
  * since the person is signing the other device in now and waits for this one to notice (D237).
  */
 const codeCheckPolling = backingOffPoller({ firstMs: 3000, longestMs: 3000 });
-
-/** This tab's own storage, which keeps nothing where the browser refuses it. */
-function tabStorage(): StringStorage {
-  return storageThatNeverThrows(storageIfAllowed(() => window.sessionStorage));
-}
 
 /** The device code on screen, and how to make one: what useDeviceCode returns. */
 export interface DeviceCodeState {

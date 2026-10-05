@@ -27,6 +27,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A device not yet asked how it makes sound is asked before it plays**, and the decision is
   asked for again with the answer; it can be changed under the video and in Your devices, and
   the dialogue boost starts as the person left it (D222). `src/sound.test.tsx`.
+- **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
+  page is only the host's playback, black while nothing plays, the speaker question as they join
+  unless this browser has the answer, their own volume and Leave; the link's secret leaves the
+  address once used. `src/together-viewer.test.tsx`.
+- **The host's player leads their session while this tab hosts one, and is as before without
+  one**: the film goes on for everyone, and stops as the host leaves the player.
+  `src/watch-together.test.tsx`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,
@@ -47,7 +54,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
 
 [D51](../../../docs/contributors/decisions/working-notes.md), [D138](../../../docs/contributors/decisions/working-notes.md),
 [D188](../../../docs/contributors/decisions/working-notes.md), [D189](../../../docs/contributors/decisions/working-notes.md),
-[D193](../../../docs/contributors/decisions/working-notes.md) §6, [D222](../../../docs/contributors/decisions/working-notes.md);
+[D193](../../../docs/contributors/decisions/working-notes.md) §6, [D222](../../../docs/contributors/decisions/working-notes.md),
+[D246](../../../docs/contributors/decisions/working-notes.md);
 [web-client.md](../../../docs/contributors/design/plans/web-client.md);
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 
@@ -59,7 +67,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `offline-reminder.tsx` (the reminder, above an admin's every page, of the folders and disks offline, P39), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player), `sound.tsx` (how the device makes sound, the boost),
-  `audio-tracks.tsx` (the audio track menu, D230), `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
+  `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
+  screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
+  their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
+  `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
+  connection), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
+  `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
   subtitle a file lacks, from OpenSubtitles, D224).
 - Every user-visible string: `src/locales/en.ts`, through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.

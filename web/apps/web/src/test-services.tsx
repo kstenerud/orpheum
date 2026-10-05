@@ -80,6 +80,8 @@ export function testServices(
       subtitleFormats: ["ass", "webvtt"],
       containers: ["mp4"],
     }),
+    // A socket that never opens: a test of Watch Together passes its own stand-in server.
+    openTogetherSocket: () => ({ send: () => undefined, close: () => undefined }),
   };
 }
 

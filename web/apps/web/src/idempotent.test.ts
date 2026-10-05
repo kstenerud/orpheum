@@ -13,9 +13,10 @@ const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,t
 
 /**
  * The POSTs no click sends, which carry no key: the play page asks how a file plays when it
- * opens, and the player reports where it is on its own, each report with its own sequence (D217 §7).
+ * opens, and the player reports where it is on its own, each report with its own sequence (D217 §7);
+ * a Watch Together viewer's page asks how the group's film plays each time it changes (D246 §3).
  */
-const notSentByAClick = new Set(["./play.tsx", "./play-state.ts"]);
+const notSentByAClick = new Set(["./play.tsx", "./play-state.ts", "./together-playback.ts"]);
 
 /** The text of each call that begins at an index in source: from it to its closing parenthesis. */
 function callAt(source: string, start: number): string {

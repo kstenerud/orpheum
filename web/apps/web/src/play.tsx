@@ -32,6 +32,7 @@ import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
+import { HostPlaysTogether } from "./together-host.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
@@ -77,7 +78,8 @@ export function PlayView(props: {
 type PlayProps = Parameters<typeof PlayView>[0];
 
 /**
- * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
+ * What sits under a playing video: the host's Watch Together session while one is on, "Start
+ * over", the subtitle menu and offset for the decision's
  * tracks, finding subtitles, the audio track, the device's sound and levelling. It keeps the
  * playback's play state on the server, starting where the person left the file. A chosen audio
  * track is kept for the person, and onAudioChosen() plays it.
@@ -101,6 +103,11 @@ function UnderTheVideo(
       {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
+      <HostPlaysTogether
+        fileId={props.fileId}
+        videoRef={props.videoRef}
+        startPositionMs={props.decision.resumePositionMs}
+      />
       <button
         type="button"
         className="play__start-over"
@@ -213,7 +220,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
  * starting with the audio rendition startAudioRenditionIndex when one is given.
  */
-function usePreparedPlayback(
+export function usePreparedPlayback(
   fileId: number,
   decision: PlaybackDecision,
   startAudioRenditionIndex: number | undefined,

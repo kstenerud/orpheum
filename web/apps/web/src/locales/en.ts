@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { enTogether } from "./en-together.ts";
+
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
  * server once translations exist. Keys name what the text is for, never what it says.
  */
 export const en = {
+  ...enTogether,
   nav: {
     films: "Films",
     series: "Series",
     search: "Search",
+    watchTogether: "Watch Together",
     identify: "Needs a match",
     libraries: "Libraries",
     settings: "Settings",
@@ -226,6 +230,7 @@ export const en = {
   share: {
     link: "It works once, until {{expires}}.",
     code: "It works once, until {{expires}}.",
+    togetherLink: "It works once, for the person you made it for, while the session lasts.",
   },
   about: {
     heading: "About",

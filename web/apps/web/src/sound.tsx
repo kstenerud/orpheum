@@ -45,17 +45,38 @@ export function SoundQuestion(props: {
   const { api, session } = useServices();
   const { isBusy, problem, runRequest } = useRequest((cause) => problemText(t, cause));
   const deviceId = session.deviceId();
-  const choose = (output: AudioOutput): void => {
-    if (deviceId === undefined) {
-      return;
-    }
-    runRequest(async () => {
-      await setMyDeviceAudioOutput(api, deviceId, output);
-      props.onAnswered();
-    });
-  };
   return (
-    <fieldset className="sound" disabled={isBusy}>
+    <SoundChoices
+      current={props.current}
+      isBusy={isBusy}
+      problem={problem}
+      onChosen={(output) => {
+        if (deviceId === undefined) {
+          return;
+        }
+        runRequest(async () => {
+          await setMyDeviceAudioOutput(api, deviceId, output);
+          props.onAnswered();
+        });
+      }}
+    />
+  );
+}
+
+/**
+ * The three answers to how this device makes sound, each with what it does; onChosen() keeps the
+ * answer where the asker keeps it: on the device's row, or for a Watch Together viewer, who has
+ * none, in the browser (D246 §6).
+ */
+export function SoundChoices(props: {
+  readonly current: AudioOutput | undefined;
+  readonly isBusy: boolean;
+  readonly problem: string | undefined;
+  readonly onChosen: (output: AudioOutput) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <fieldset className="sound" disabled={props.isBusy}>
       <legend>{t("sound.question")}</legend>
       <p>{t("sound.why")}</p>
       {audioOutputs.map((output) => (
@@ -65,14 +86,14 @@ export function SoundQuestion(props: {
           className="sound__answer"
           aria-pressed={props.current === output}
           onClick={() => {
-            choose(output);
+            props.onChosen(output);
           }}
         >
           <strong>{audioOutputName(t, output)}</strong>
           <span>{t(`sound.${camelKey(output)}Hint`)}</span>
         </button>
       ))}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {props.problem === undefined ? null : <p role="alert">{props.problem}</p>}
     </fieldset>
   );
 }

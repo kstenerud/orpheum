@@ -17,6 +17,7 @@ interface Destination {
     | "films"
     | "series"
     | "search"
+    | "watchTogether"
     | "identify"
     | "libraries"
     | "people"
@@ -32,6 +33,7 @@ const destinations: readonly Destination[] = [
   { route: { screen: "films" }, labelKey: "films", isAdminOnly: false },
   { route: { screen: "series" }, labelKey: "series", isAdminOnly: false },
   { route: { screen: "search", query: "" }, labelKey: "search", isAdminOnly: false },
+  { route: { screen: "watch-together" }, labelKey: "watchTogether", isAdminOnly: false },
   { route: { screen: "identify" }, labelKey: "identify", isAdminOnly: true },
   { route: { screen: "libraries" }, labelKey: "libraries", isAdminOnly: true },
   { route: { screen: "people" }, labelKey: "people", isAdminOnly: true },
