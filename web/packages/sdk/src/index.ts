@@ -26,6 +26,7 @@ export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } fr
 export type { WaitOptions } from "./ready.ts";
 export { browserTogetherSocket, parseTogetherMessage } from "./together.ts";
 export type {
+  GroupEvent,
   GroupState,
   GroupView,
   OpenTogetherSocket,

@@ -4981,6 +4981,9 @@
       "UserBody": {
         "additionalProperties": false,
         "properties": {
+          "canHostWatchTogether": {
+            "type": "boolean"
+          },
           "device": {
             "$ref": "#/components/schemas/CurrentDeviceBody"
           },
@@ -5002,7 +5005,8 @@
           "id",
           "name",
           "role",
-          "isAdmin"
+          "isAdmin",
+          "canHostWatchTogether"
         ],
         "type": "object"
       },

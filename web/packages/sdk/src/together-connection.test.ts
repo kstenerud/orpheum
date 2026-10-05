@@ -270,6 +270,7 @@ describe("reading the server's messages", () => {
           rate: 1,
           fileId: 0,
           event: undefined,
+          seekedFromMs: 0,
           byMemberId: undefined,
         },
       },

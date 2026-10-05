@@ -171,7 +171,7 @@ func TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack(t *testing.T) {
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.hub.Detach(guestDevice)
-	if dropped := hostBox.last(MessageGroup).Group; dropped.State != GroupWaiting || dropped.Event != "left" {
+	if dropped := hostBox.last(MessageGroup).Group; dropped.State != GroupWaiting || dropped.Event != EventLeft {
 		t.Errorf("the guest's device dropped: %+v; want Waiting, for the one who left", dropped)
 	}
 	back, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
@@ -394,4 +394,32 @@ func TestHub_TheRosterShowsEachDevicesRoundTripItReported(t *testing.T) {
 		return
 	}
 	t.Errorf("the host's roster has no guest; host %d", host.MemberID)
+}
+
+// A group's change is named by a code a client words, never by words; a seek says where it jumped
+// from as well as to (D188).
+func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.ready(t, host, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.clock.Advance(30 * time.Second)
+	stage.hub.Handle(t.Context(), host, Inbound{
+		Type: MessageCommand, Command: CommandSeek, PositionMs: 90_000, BasedOnSeq: hostBox.last(MessageGroup).Seq,
+	})
+	var seeked *GroupView
+	for _, message := range slices.Backward(hostBox.messages) {
+		if message.Group != nil && message.Group.Event == EventSeeked {
+			seeked = message.Group
+			break
+		}
+	}
+	if seeked == nil || seeked.Event != EventSeeked || seeked.SeekedFromMs != 30_000 || seeked.PositionMs != 90_000 {
+		t.Errorf("the seek's group = %+v; want seeked, from 30 s to 90 s", seeked)
+	}
+	stage.command(t, host, CommandPause, 0)
+	if paused := hostBox.last(MessageGroup).Group; paused.Event != EventPaused || paused.SeekedFromMs != 0 {
+		t.Errorf("the pause after = %+v; want paused, with no seek's origin", paused)
+	}
 }

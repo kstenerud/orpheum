@@ -378,7 +378,8 @@ function PreparedFilm(props: {
       decision.preferences.isDialogueBoostOn,
     ),
   );
-  const { videoRef, isWaiting, failure } = usePreparedPlayback(props.fileId, decision, startIndex);
+  // A viewer may not ask why the host's file cannot be read: the player's own words are told.
+  const { videoRef, isWaiting, failure } = usePreparedPlayback(undefined, decision, startIndex);
   useFollowing(videoRef, props.fileId, props.following);
   return (
     <>

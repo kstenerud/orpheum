@@ -42,6 +42,8 @@
 //     while they are in. Enforced by TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay,
 //     TestHub_AViewerPlaysWhatTheSessionPlaysWhileTheyAreIn and, through the API,
 //     TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries.
+//   - A group's change is a code a client words, never words, and a seek says where it jumped from
+//     (D188). Enforced by TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom.
 //   - The roster shows the round trip each device last reported; only the device measures it
 //     (D66). Enforced by TestHub_TheRosterShowsEachDevicesRoundTripItReported.
 //   - Voice signalling goes only to the device it names. Enforced by

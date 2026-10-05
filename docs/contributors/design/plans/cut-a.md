@@ -316,7 +316,7 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | client → | `rtc` | `toDeviceId`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |
 | → client | `welcome` | `sessionId`, `memberId`, `deviceId`, `isHost` (only the host controls playback in Cut A, D246 §8), `roster`, the current `group` |
 | → client | `pong` | the echoed `tMono` |
-| → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188) |
+| → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188): a code a client words, `played`, `paused`, `seeked` (with `seekedFromMs`), `changedRate`, `changedItem`, `stopped`, `everyoneReady`, `buffering` or `left` |
 | → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`); never the host's notes |
 | → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalid_request`, `not_found`) |
 | → client | `rtc` | `fromDeviceId`, and the relayed signalling |

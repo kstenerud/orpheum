@@ -27,6 +27,7 @@ describe("where the group is (D66: no clock sync)", () => {
     rate: 1.5,
     fileId: 1,
     event: undefined,
+    seekedFromMs: 0,
     byMemberId: undefined,
   };
 
@@ -162,6 +163,7 @@ const paused: GroupView = {
   rate: 1,
   fileId: 5,
   event: undefined,
+  seekedFromMs: 0,
   byMemberId: undefined,
 };
 

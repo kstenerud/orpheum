@@ -72,6 +72,7 @@ function SignedIn(): JSX.Element {
     <BackgroundChangesContext value={poller}>
       <AppShell
         isAdmin={isAdmin}
+        canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
         signedInAs={
           me.state === "loaded"
             ? { name: me.value.name, deviceName: me.value.device?.name }

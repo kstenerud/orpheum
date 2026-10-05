@@ -29,6 +29,9 @@ type UserBody struct {
 	// Role is the name of the person's role, which may be one the admin made (D243 §4).
 	Role    string `json:"role"`
 	IsAdmin bool   `json:"isAdmin"`
+	// CanHostWatchTogether is whether the person's role may host Watch Together, so a client offers
+	// it only to them.
+	CanHostWatchTogether bool `json:"canHostWatchTogether"`
 	// Device is the device this session is on, so a person can see who is signed in where.
 	Device *CurrentDeviceBody `json:"device,omitempty"`
 }
@@ -236,7 +239,7 @@ func (server *Server) userBody(
 ) (UserBody, error) {
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
-		IsAdmin: principal.IsAdmin(),
+		IsAdmin: principal.IsAdmin(), CanHostWatchTogether: principal.CanHostWatchTogether(),
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)
