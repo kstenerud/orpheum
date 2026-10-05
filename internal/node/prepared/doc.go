@@ -27,6 +27,12 @@
 //     run directory without a manifest, whatever their kept time; never one being written, nor one
 //     made after the listing (the owner, 2026-10-02).
 //     TestReconcile_EvictsWhatTheCoreDoesNotKeepAndUnfinishedMakingsButNeverOneBeingWrittenOrMadeSince.
+//   - A store of chunks (D247 §10), at <file_id>/chunks-<stream>/<grid_id>, is kept in the same
+//     budget, with a manifest of its own (nodeproto.StoreManifestName) that the hello does not list
+//     and the core's reconciling does not evict; a chunk is put in it whole, and a run's raw files
+//     are discarded only inside its own raw directory.
+//     TestStore_IsMadeWithItsManifestAndTakesAChunkWhole, TestStore_DiscardsOnlyItsRunsRawFiles,
+//     TestReconcile_KeepsAStoreWithItsManifestAndEvictsOneWithout.
 //   - The disk keeps its floor of free space, node.prepared_disk_min_free_mib, whatever its percentage says:
 //     below it renditions are evicted, and a prepare with nothing left to evict is refused (the
 //     owner, 2026-10-02). TestMakeRoom_KeepsTheDisksFloorOfFreeSpace.
@@ -40,4 +46,5 @@
 //
 //   - shelf.go: the budget, last use, eviction and room.
 //   - manifest.go: the manifests, the inventory and the hello's eviction.
+//   - stores.go: the stores of chunks, their files and their runs' raw files.
 package prepared

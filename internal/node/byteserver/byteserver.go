@@ -65,6 +65,7 @@ func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+nodeproto.PathBytesFile, server.serveFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesPrepared+"{name...}", server.serveRenditionFile)
+	mux.HandleFunc("GET "+nodeproto.PathBytesChunks+"{name...}", server.serveStoreFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
 	return mux
 }
@@ -135,20 +136,41 @@ var renditionNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0
 // refused before anything is opened; one not written yet is a 404, which the core turns into
 // "too early" while the job runs.
 func (server *Server) serveRenditionFile(writer http.ResponseWriter, request *http.Request) {
+	server.servePreparedFile(writer, request, renditionNamePattern, "no such rendition file")
+}
+
+// storeNamePattern is the only shape a store's file may be named by: "<file_id>/chunks-<stream>/<grid_id>/"
+// and then its init or a chunk (D247 §10).
+var storeNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/chunks-[a-z0-9-]{1,40}/[0-9a-f]{16,64}/` +
+	`(init\.mp4|\d{5,9}\.m4s)$`)
+
+// serveStoreFile serves a store's init or one of its chunks. A name that is not a store's is
+// refused before anything is opened; a chunk not made yet is a 404, which the core waits on while
+// a run makes it.
+func (server *Server) serveStoreFile(writer http.ResponseWriter, request *http.Request) {
+	server.servePreparedFile(writer, request, storeNamePattern, "no such chunk")
+}
+
+// servePreparedFile serves a file of the prepared directory whose name has the pattern's shape,
+// counting it a use of its directory, <file_id>/<profile or store>/<run or grid>, which eviction
+// reads (D217 §5).
+func (server *Server) servePreparedFile(
+	writer http.ResponseWriter, request *http.Request, pattern *regexp.Regexp, notFound string,
+) {
 	name := request.PathValue("name")
-	if server.prepared == nil || !renditionNamePattern.MatchString(name) {
-		http.Error(writer, "no such rendition file", http.StatusNotFound)
+	if server.prepared == nil || !pattern.MatchString(name) {
+		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
 	file, err := server.prepared.Open(name)
 	if err != nil {
-		http.Error(writer, "no such rendition file", http.StatusNotFound)
+		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
 	defer readonly.Close(file)
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		http.Error(writer, "no such rendition file", http.StatusNotFound)
+		http.Error(writer, notFound, http.StatusNotFound)
 		return
 	}
 	if server.renditionServedHook != nil {

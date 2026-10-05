@@ -40,6 +40,7 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 		"extract":  {Work{ExtractSubtitle: &ExtractSubtitle{Video: &video}}, "a.mkv"},
 		"sidecar":  {Work{ExtractSubtitle: &ExtractSubtitle{Sidecar: &sidecar}}, "a.srt"},
 		"read":     {Work{ReadThrough: &ReadThrough{Video: video}}, "a.mkv"},
+		"chunks":   {Work{MakeChunks: &MakeChunks{Video: video}}, "a.mkv"},
 		"artwork":  {Work{EncodeArtwork: &ArtworkBatch{}}, ""},
 		"converts": {Work{ExtractSubtitle: &ExtractSubtitle{}}, ""},
 		"list":     {Work{List: &List{RootPath: "/media", Path: "Films"}}, "Films"},
@@ -51,6 +52,19 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 		file, isMedia := each.work.MediaFile()
 		if string(file.Path) != each.want || isMedia != (each.want != "") {
 			t.Errorf("%s reads %q (%v), want %q", name, file.Path, isMedia, each.want)
+		}
+	}
+}
+
+// A run of chunks holds an encode slot when it encodes a quality, and a remux slot when it copies
+// the picture or makes a sound, as a prepare of each does (D247 §10).
+func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.T) {
+	t.Parallel()
+	for kind, want := range map[ChunkStreamKind]Slot{
+		StreamQuality: SlotEncode, StreamPicture: SlotRemux, StreamSound: SlotRemux,
+	} {
+		if got := (Work{MakeChunks: &MakeChunks{Stream: ChunkStream{Kind: kind}}}).Slot(); got != want {
+			t.Errorf("a run of a %s holds %q, want %q", kind, got, want)
 		}
 	}
 }

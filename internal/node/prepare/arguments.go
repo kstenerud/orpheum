@@ -52,6 +52,17 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 	return []mix{{name, StereoAsIsMix + gainFilter}}
 }
 
+// MixFilter is the filter of one of a track's mixes, the boosted one or the standard: what a chunk
+// of its sound is made with (D247 §10), as a prepare's rendition of it is. A track without a centre
+// has no boosted mix; it is asked for its one mix.
+func MixFilter(track nodeproto.PrepareAudio, isBoosted bool) string {
+	trackMixes := mixes(track)
+	if isBoosted && len(trackMixes) > 1 {
+		return trackMixes[1].filter
+	}
+	return trackMixes[0].filter
+}
+
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's
 // absolute path, the rendition's absolute directory, and, for an encode, the encoder it uses.
 func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, encoder Encoder) []string {

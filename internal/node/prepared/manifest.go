@@ -62,6 +62,9 @@ func (shelf *Shelf) Reconcile(listed, kept []string) ([]string, error) {
 			continue
 		}
 		_, hasManifest := shelf.readManifest(each.renditionDir)
+		if _, isStore := shelf.readStoreManifest(each.renditionDir); isStore {
+			hasManifest = true // a store is the node's own to keep: the core lists renditions alone
+		}
 		isDropped := slices.Contains(listed, each.renditionDir) && !slices.Contains(kept, each.renditionDir)
 		if hasManifest && !isDropped {
 			continue

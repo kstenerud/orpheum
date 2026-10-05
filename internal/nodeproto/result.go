@@ -44,6 +44,7 @@ type Result struct {
 	Prepare     *PrepareReport      `json:"prepare,omitempty"`
 	Subtitle    *SubtitleText       `json:"subtitle,omitempty"`
 	ReadThrough *ReadThroughResult  `json:"readThrough,omitempty"`
+	MakeChunks  *MakeChunksReport   `json:"makeChunks,omitempty"`
 	Artwork     *ArtworkBatchResult `json:"artwork,omitempty"`
 	Listing     *Listing            `json:"listing,omitempty"`
 	Examined    *Examined           `json:"examined,omitempty"`
@@ -58,6 +59,8 @@ func (result Result) Stall() *Stall {
 		return result.Subtitle.Stall
 	case result.ReadThrough != nil:
 		return result.ReadThrough.Stall
+	case result.MakeChunks != nil:
+		return result.MakeChunks.Stall
 	case result.Listing != nil:
 		return result.Listing.Stall
 	case result.Examined != nil:

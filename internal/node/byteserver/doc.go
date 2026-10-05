@@ -22,6 +22,8 @@
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
 //   - A rendition's file is served only by a name of a rendition's shape, from the prepared
 //     directory, read-only. Enforced by TestServeRenditionFile_ServesARenditionsFilesAndNothingElse.
+//   - A store's init and chunks are served only by a name of a store's shape, never its manifest or
+//     a run's raw files (D247 §10). Enforced by TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse.
 //   - A result the node holds, too large to post, is served whole by its attempt's token, and
 //     nothing for a token it does not hold (D234 §5).
 //     TestServeResult_ServesAHeldResultByItsTokenAndNothingElse.

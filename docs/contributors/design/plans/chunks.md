@@ -91,6 +91,10 @@
    *Built 2026-10-05: `internal/node/readthrough`, `internal/core/readthrough`, `video_timeline`
    in persistent.db (step 0035), `internal/core/chunks.GridOf`.*
 2. `make_chunks` on the node, with the byte route and the budget.
+   *Built 2026-10-05: `internal/node/chunks`, `prepared.Shelf`'s stores, the byte route. Every
+   chunk's time is its time in the film plus `chunks.TimelineOffsetMs`, 10 s: a sound's priming
+   comes before the film's start and a picture's first decode before its keyframe is shown, and a
+   chunk's time cannot be negative.*
 3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
 5. Stepping up, the bottom and its words, and Watch Together's word to the group.
