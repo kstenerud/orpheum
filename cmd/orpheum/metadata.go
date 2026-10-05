@@ -274,7 +274,7 @@ func (services jobServices) queueCertificateRenewal(ctx context.Context) (int, e
 var errNoPublicName = errors.New("the server has no public name (https.domain), so no certificate to renew")
 
 // scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due: within
-// a quarter of backup_hour_utc, whenever in the hour the server started; a look at the backup
+// a quarter of backup_hour_local_tz, whenever in the hour the server started; a look at the backup
 // directory, nothing more (D243 §11).
 const scheduledBackupCheckEvery = 15 * time.Minute
 

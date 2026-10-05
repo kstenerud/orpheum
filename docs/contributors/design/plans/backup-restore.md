@@ -4,9 +4,9 @@
 # Backup and restore
 
 - **Status:** BUILT for Cut A: manual backups (M1; as D242 changed them, 2026-10-03), and scheduled
-  ones as jobs (M4, 2026-10-05; [D243](../../decisions/working-notes.md) §11: every
-  `backup_every_hours` at `backup_hour_utc`, the newest `backups_kept` kept, never holding the
-  key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
+  ones as jobs (M4, 2026-10-05; [D243](../../decisions/working-notes.md) §11 and
+  [D246](../../decisions/working-notes.md) §7: every `backup_every_days` at `backup_hour_local_tz` in the
+  server's `time_zone`, the newest `backups_kept` kept, never holding the key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
 - **Depends on:** library-model.md
 
 > **Since [D242](../../decisions/working-notes.md) (built 2026-10-03):** a backup is a gzipped

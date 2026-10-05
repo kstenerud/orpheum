@@ -271,6 +271,13 @@ describe in a phrase, and give it that phrase as its name.
   with server time (D66, D165). **Review-only.**
 - **Durations are `time.Duration`** in Go and converted at the boundary. **Enforced by:**
   durationcheck (no `Duration * Duration`), revive `time-naming`.
+- **Times are UTC; a wall clock is explicit.** The few things about a wall clock, such as the
+  hour a scheduled backup is made, take the server's `localtime.Zone` (the `time_zone` setting)
+  and read a `localtime.Time` with `zone.Of(moment)`, a type that cannot be passed where a UTC
+  `time.Time` is meant; `.UTC()` turns it back. A setting in the server's zone says so in its key:
+  `…_local_tz` (D246 §7). **Enforced by:** `[local-time]` (`time.LoadLocation`,
+  `time.FixedZone`, `Time.In`, `Time.Local` outside `internal/platform/localtime`) and
+  `[ambient]` (`time.Local`).
 
 ## 12. Environment, argv and output
 

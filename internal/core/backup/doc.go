@@ -43,10 +43,11 @@
 //   - D242 §5: a backup is a tarball of the persistent directory.
 //   - docs/contributors/design/plans/backup-restore.md.
 //   - A backup is a job, a person's or the schedule's: the schedule's is asked for at
-//     backup_hour_utc once the newest backup is backup_every_hours old, at once when it is a day
-//     overdue, and never holds secret.key; past backups_kept, the oldest backups are pruned, and the
-//     copies kept before a restore or a migration never are (D243 §11).
-//     TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue,
+//     backup_hour_local_tz in the server's time zone once the newest backup is backup_every_days old, at
+//     once when it is a day overdue, and never holds secret.key; past backups_kept, the oldest
+//     backups are pruned, and the copies kept before a restore or a migration never are (D243 §11,
+//     D246 §7). TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue,
+//     TestQueueScheduled_TheHourIsTheServersAndTheGapIsInDays,
 //     TestPrune_KeepsTheNewestBackupsAndEveryCopyKeptBeforeARestoreOrMigration,
 //     TestJobArgsMerge_HoldsTheKeyWhenEitherAskedAndARunningOneCoversWhatItHolds.
 //

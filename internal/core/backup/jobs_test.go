@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // heardQueue keeps the backup jobs asked for.
@@ -24,23 +25,40 @@ func (queue *heardQueue) Enqueue(_ context.Context, request jobs.Request) (bool,
 	return true, nil
 }
 
-// startingSettings are the backup settings at their starting values.
-type startingSettings struct{ kept int64 }
+// startingSettings are the backup settings at their starting values, kept aside, every days apart
+// (one when zero), in a time zone (UTC when zero).
+type startingSettings struct {
+	kept  int64
+	every int64
+	zone  localtime.Zone
+}
 
 func (config startingSettings) Int(_ context.Context, key settings.Key) (int64, error) {
 	if key == settings.BackupsKept {
 		return config.kept, nil
 	}
-	return 4, nil // backup_hour_utc
+	return 4, nil // backup_hour_local_tz
 }
 
-func (startingSettings) Duration(context.Context, settings.Key) (time.Duration, error) {
-	return 24 * time.Hour, nil // backup_every_hours
+func (config startingSettings) Duration(context.Context, settings.Key) (time.Duration, error) {
+	return time.Duration(max(config.every, 1)) * 24 * time.Hour, nil // backup_every_days
+}
+
+func (config startingSettings) Zone(context.Context) (localtime.Zone, error) {
+	return config.zone, nil
 }
 
 // scheduleBench is a backup service over an empty instance holding files, its clock at now, and
 // what it asked for.
 func scheduleBench(t *testing.T, now time.Time, files ...string) (*Service, *heardQueue, *instancedir.Directories) {
+	t.Helper()
+	return scheduleBenchWith(t, startingSettings{kept: 2}, now, files...)
+}
+
+// scheduleBenchWith is scheduleBench with config's settings.
+func scheduleBenchWith(
+	t *testing.T, config startingSettings, now time.Time, files ...string,
+) (*Service, *heardQueue, *instancedir.Directories) {
 	t.Helper()
 	directories := emptyInstance(t)
 	for _, name := range files {
@@ -54,7 +72,7 @@ func scheduleBench(t *testing.T, now time.Time, files ...string) (*Service, *hea
 	}
 	queue := &heardQueue{}
 	service := NewService(nil, directories, clocktest.NewFake(now))
-	service.UseQueue(queue, startingSettings{kept: 2})
+	service.UseQueue(queue, config)
 	return service, queue, directories
 }
 
@@ -105,6 +123,34 @@ func TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue(t *testing
 		if asked == 1 && queue.requests[0].ArgsJSON != `{"isScheduled":true}` {
 			t.Errorf("%s: a scheduled backup's arguments are %s; want it scheduled and without the key",
 				check.what, queue.requests[0].ArgsJSON)
+		}
+	}
+}
+
+// The quiet hour is in the server's time zone, and a backup every few days waits that many days
+// (D246 §7).
+func TestQueueScheduled_TheHourIsTheServersAndTheGapIsInDays(t *testing.T) {
+	t.Parallel()
+	berlin, err := localtime.Named("Europe/Berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newest := "backup-20261002T020500Z.tar.gz" // 04:05 in Berlin, three days before
+	inBerlin := startingSettings{zone: berlin, every: 3}
+	for _, check := range []struct {
+		what   string
+		config startingSettings
+		at     time.Time
+		want   int
+	}{
+		{"04:00 in Berlin, 02:00 UTC", inBerlin, time.Date(2026, 10, 5, 2, 0, 0, 0, time.UTC), 1},
+		{"04:00 UTC, 06:00 in Berlin", inBerlin, time.Date(2026, 10, 5, 4, 0, 0, 0, time.UTC), 0},
+		{"two days on, of every three", inBerlin, time.Date(2026, 10, 4, 2, 0, 0, 0, time.UTC), 0},
+	} {
+		check.config.kept = 2
+		service, _, _ := scheduleBenchWith(t, check.config, check.at, newest)
+		if asked, askErr := service.QueueScheduled(t.Context()); askErr != nil || asked != check.want {
+			t.Errorf("%s: asked for %d (%v), want %d", check.what, asked, askErr, check.want)
 		}
 	}
 }

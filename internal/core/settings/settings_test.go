@@ -533,3 +533,26 @@ func TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettings
 		}
 	}
 }
+
+// The server's time zone is a name the zone database knows, UTC until the admin sets it; a
+// misspelt one, the machine's ("Local") and none are refused (D246 §7, D204).
+func TestLocation_IsTheNamedZoneAndAMisspeltOneIsRefused(t *testing.T) {
+	t.Parallel()
+	service, owner := newSeededService(t)
+	ctx := t.Context()
+	if zone, err := service.Zone(ctx); err != nil || zone.Name() != "UTC" {
+		t.Errorf("the starting time zone = %v (%v); want UTC", zone.Name(), err)
+	}
+	for _, refused := range []string{`"Europe/Berln"`, `"Local"`, `""`, `"../etc/passwd"`} {
+		err := service.Set(ctx, jsonByKey(string(TimeZone), refused), &owner, true)
+		if !errors.Is(err, ErrInvalidValue) {
+			t.Errorf("time_zone %s: %v; want it refused", refused, err)
+		}
+	}
+	if err := service.Set(ctx, jsonByKey(string(TimeZone), `"Europe/Berlin"`), &owner, true); err != nil {
+		t.Fatal(err)
+	}
+	if zone, err := service.Zone(ctx); err != nil || zone.Name() != "Europe/Berlin" {
+		t.Errorf("time_zone Europe/Berlin = %v (%v)", zone.Name(), err)
+	}
+}

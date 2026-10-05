@@ -17971,9 +17971,17 @@ answering the three questions that review left (§7–§9). **Revises**
    ready, they start wherever the group's playback is; until something plays, the viewing area
    is black.
 7. **Backups are every *x* days at *y* o'clock** (D243 §11 had hours), *y* in the server's time
-   zone: a setting, an IANA name such as `Europe/Berlin`, that starts as the machine's own, so a
-   change of clocks for summer time is followed. Anything else the server schedules by the clock
-   uses it too.
+   zone: a setting, an IANA name such as `Europe/Berlin`, so a change of clocks for summer time is
+   followed. Anything else the server schedules by the clock uses it too, and a setting in it says
+   so in its key (`backup_hour_local_tz`; the owner: *"so that we know the units and offset"*). It
+   starts as UTC, not the machine's own zone, which
+   [D204](#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits)
+   does not let the server read; the admin sets it. The process's own zone stays UTC whatever
+   the setting says, so nothing in the standard library that reads it gives a "works for me"
+   bug: the owner, *"keep the official env time zone UTC so that ambient config doesn't pollute
+   parts of the go stdlib that rely on it."* Wall-clock time is reached only through a
+   `localtime.Zone`, each conversion explicit and its result a type of its own (the owner:
+   *"make the conversion points between them explicit. Perhaps even enlisting the type system"*).
 8. **In Cut A only the host controls playback**; D121's choice between the host and the group
    goes. Later the rights become granular, given per invite link: play and pause, seek, next and
    previous, and the like. The rights of the last link issued are the next one's defaults, and

@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // Key names a setting. The set is closed: every key is declared in Registry.
@@ -74,8 +75,9 @@ const (
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
 	DerivedWorkSweepEverySeconds                   Key = "derived_work_sweep_every_seconds"
-	BackupEveryHours                               Key = "backup_every_hours"
-	BackupHourUTC                                  Key = "backup_hour_utc"
+	BackupEveryDays                                Key = "backup_every_days"
+	BackupHourLocalTZ                              Key = "backup_hour_local_tz"
+	TimeZone                                       Key = "time_zone"
 	BackupsKept                                    Key = "backups_kept"
 	ArtworkJPEGQuality                             Key = "artwork_jpeg_quality"
 	ArtworkSecondsBeforeEachRetry                  Key = "artwork_seconds_before_each_retry"
@@ -110,6 +112,8 @@ type Definition struct {
 	Maximum   int64 // integers only
 	// Pattern, for a string, is what every value must match; nil takes any string.
 	Pattern *regexp.Regexp
+	// IsValid, for a string, is what a value must also pass that no pattern can say; nil takes any.
+	IsValid func(text string) bool
 	// Unit, for an integer that is a length of time, is what one of it is: the unit its key's
 	// suffix spells out (_seconds, _hours, _days). Duration reads such a setting; zero is not a length of time.
 	Unit        time.Duration
@@ -204,17 +208,17 @@ func Registry() []Definition {
 // backupDefinitions are when the server backs itself up, and how many backups it keeps (D243 §11).
 func backupDefinitions() []Definition {
 	return []Definition{
-		sourced(durationSetting(BackupEveryHours, time.Hour, "24", 1, 720,
-			"hours between the backups the server makes on its own, never holding secret.key (D243 §11)"),
-			"D243 §11: one every 24 hours"),
-		sourced(integerSetting(BackupHourUTC, "4", 0, 23,
-			"the hour, UTC, a scheduled backup is made in, a quiet one; a backup overdue by a day is made "+
-				"at once (D243 §11)"),
-			"best guess: early morning in Europe, when no one watches; D243 §11 asks only for a quiet hour"),
-		sourced(integerSetting(BackupsKept, "14", 1, 1000,
+		exposed(sourced(durationSetting(BackupEveryDays, day, "1", 1, 365,
+			"days between the backups the server makes on its own, never holding secret.key (D246 §7)"),
+			"D243 §11: one a day")),
+		exposed(sourced(integerSetting(BackupHourLocalTZ, "4", 0, 23,
+			"the hour of the day, in the server's time_zone, a scheduled backup is made in, a quiet one; a "+
+				"backup overdue by a day is made at once (D246 §7)"),
+			"best guess: early morning, when no one watches; D243 §11 asks only for a quiet hour")),
+		exposed(sourced(integerSetting(BackupsKept, "14", 1, 1000,
 			"how many backups are kept, the newest; the copies kept before a restore or a migration are "+
 				"never pruned (D243 §11)"),
-			"D243 §11: the last 14"),
+			"D243 §11: the last 14")),
 	}
 }
 
@@ -313,6 +317,13 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 				"work never spends the last of them, rounded up to whole downloads (D231 §5)"),
 			"best guess: 5 of a free account's 20 a day (a VIP account has 1000; opensubtitles-api.md); "+
 				"the owner's choice of a percentage, 2026-09-30"),
+		{
+			Key: TimeZone, Kind: KindString, StartJSON: json.RawMessage(`"UTC"`), IsValid: localtime.IsName,
+			IsExposed: true,
+			Description: "the server's time zone, a name such as Europe/Berlin, which the hours of scheduled " +
+				"work such as backups are in; the settings whose keys end _local_tz are in it (D246 §7)",
+			StartSource: "D204: nothing is taken from the machine, so the zone is set here; UTC until it is",
+		},
 		{
 			Key: SortLocale, Kind: KindString, StartJSON: json.RawMessage(`"en"`),
 			Pattern:     regexp.MustCompile(langtag.WellFormedPattern),
@@ -437,6 +448,12 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"how many of a node's finished prepares the System page lists"),
 			"best guess: enough to compare recent encode speeds"),
 	}
+}
+
+// exposed is definition shown on the settings page.
+func exposed(definition Definition) Definition {
+	definition.IsExposed = true
+	return definition
 }
 
 // sourced is definition with where its starting value came from.
