@@ -450,13 +450,14 @@ interface CannotKeepUp {
  */
 export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
-  offer: LowerQuality,
+  starting: { readonly offer: LowerQuality; readonly positionMs: number },
   onFailed: (failure: PlaybackFailure) => void,
 ): {
   readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
   readonly playing: PlayedLevel | undefined;
   readonly cannotKeepUp: CannotKeepUp | undefined;
 } {
+  const { offer, positionMs } = starting;
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
@@ -468,6 +469,7 @@ export function useChunkedPlayback(
     const playback = playChunked(video, offer.url, {
       onFailed,
       startAtBps: offer.startAtBps,
+      startPositionS: positionMs / 1000,
       monotonicMs,
     });
     playbackRef.current = playback;
@@ -477,7 +479,10 @@ export function useChunkedPlayback(
     const stopWatching = watchStalls(video, () => {
       const level = playback.playing();
       if (playback.isAtLowest() && level !== undefined) {
-        setCannotKeepUp({ linkKbps: playback.estimateKbps(), lowestKbps: level.bitrate / 1000 });
+        setCannotKeepUp({
+          linkKbps: playback.estimateKbps(),
+          lowestKbps: level.averageBitrate / 1000,
+        });
       }
     });
     return () => {
@@ -486,7 +491,7 @@ export function useChunkedPlayback(
       playback.destroy();
       playbackRef.current = undefined;
     };
-  }, [videoRef, offer.url, offer.startAtBps, onFailed]);
+  }, [videoRef, offer.url, offer.startAtBps, positionMs, onFailed]);
   return { playbackRef, playing, cannotKeepUp };
 }
 
@@ -510,7 +515,7 @@ export function LowerQualityNotes(props: {
             })
           : t("play.lowerQuality", {
               height: playing.height,
-              rate: rateText(playing.bitrate / 1000),
+              rate: rateText(playing.averageBitrate / 1000),
             })}
       </p>
       {isBeyondTheLink ? (
@@ -543,7 +548,11 @@ function ChunkedVideo(
     },
     [setFailure, t],
   );
-  const { playbackRef, playing, cannotKeepUp } = useChunkedPlayback(videoRef, offer, onFailed);
+  const { playbackRef, playing, cannotKeepUp } = useChunkedPlayback(
+    videoRef,
+    { offer, positionMs: props.positionMs },
+    onFailed,
+  );
   // It starts where the player stalled, not where the person last left the file.
   const decision = { ...props.decision, resumePositionMs: Math.round(props.positionMs) };
   const level: SoundLevel = {
