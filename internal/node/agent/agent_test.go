@@ -42,6 +42,7 @@ type fakeCore struct {
 	progress         chan nodeproto.Progress
 	subtitles        chan nodeproto.Result
 	readThroughs     chan nodeproto.Result
+	chunkRuns        chan nodeproto.Result
 	refusals         chan nodeproto.Result
 	held             chan nodeproto.Result
 	scans            chan nodeproto.Result
@@ -95,7 +96,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
-		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
+		chunkRuns: make(chan nodeproto.Result, 4),
+		refusals:  make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans:   make(chan nodeproto.Result, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
@@ -219,6 +221,7 @@ const (
 	prepareResult     resultKind = "prepare"
 	subtitleResult    resultKind = "subtitle"
 	readThroughResult resultKind = "read-through"
+	chunksResult      resultKind = "chunks"
 	// A listing and an examining, a scan's work, share one channel.
 	scanResult resultKind = "scan"
 	// A refusal of a command the node could not read carries no payload.
@@ -234,6 +237,7 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 	for kind, isSet := range map[resultKind]bool{
 		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
+		chunksResult:  result.MakeChunks != nil,
 		refusalResult: result.Refusal != "", heldResult: result.Held != nil,
 		scanResult: result.Listing != nil || result.Examined != nil,
 	} {
@@ -276,7 +280,8 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		into := map[resultKind]chan nodeproto.Result{
 			artworkResult: core.artwork, prepareResult: core.prepareReports,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
-			heldResult: core.held, scanResult: core.scans,
+			chunksResult: core.chunkRuns,
+			heldResult:   core.held, scanResult: core.scans,
 		}[kind]
 		if !handOn(core, into, result) {
 			return
@@ -341,7 +346,7 @@ func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*con
 	t.Helper()
 	return startAgentWithWorkers(t, socket, Workers{
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
-		ThroughReader: fakeThroughReader{}, PreparedShelf: shelf,
+		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{}, PreparedShelf: shelf,
 	})
 }
 

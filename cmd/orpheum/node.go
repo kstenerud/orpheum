@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/artwork"
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
+	"github.com/kstenerud/orpheum/internal/node/chunks"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
@@ -153,13 +154,10 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	scanner := newScanner(config, roots, runner, hello)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
-	var preparer agent.Preparer
-	var preparedShelf agent.PreparedShelf
 	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
-		preparer, preparedShelf = directory.preparer, directory.shelf
 		defer readonly.Close(directory.root)
 		if _, evictErr := directory.shelf.Evict(); evictErr != nil {
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
@@ -182,14 +180,16 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		activeScanner = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
-		Scanner: activeScanner, Artworker: deriver, Preparer: preparer,
+		Scanner: activeScanner, Artworker: deriver,
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		PreparedShelf: preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
+		HeldResults:   heldResults, Stuck: stuckOf(runner),
 	}
 	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
-	if directory.root != nil {
+	if directory.root != nil { // a node whose prepared directory opened prepares and makes chunks
+		workers.Preparer, workers.ChunkMaker, workers.PreparedShelf = directory.preparer, directory.chunkMaker,
+			directory.shelf
 		workers.PreparedDirectory = directory.root.Path()
 	}
 	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
@@ -238,7 +238,9 @@ func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logge
 type preparedDirectory struct {
 	root     *confine.MediaRoot
 	preparer *prepare.Preparer
-	shelf    *prepared.Shelf
+	// chunkMaker makes chunks in the same directory, beside the renditions and in their budget.
+	chunkMaker *chunks.Maker
+	shelf      *prepared.Shelf
 }
 
 // preparedBudget is what the node's config says its prepared directory may hold (D217 §5).
@@ -267,7 +269,8 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	if err != nil {
 		return preparedDirectory{}, errors.Join(err, root.Close())
 	}
-	return preparedDirectory{root: root, preparer: preparer, shelf: shelf}, nil
+	chunkMaker := chunks.NewMaker(runner, shelf, root.Path(), encoder)
+	return preparedDirectory{root: root, preparer: preparer, chunkMaker: chunkMaker, shelf: shelf}, nil
 }
 
 // serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop

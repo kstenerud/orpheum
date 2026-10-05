@@ -50,6 +50,27 @@ func (encoder Encoder) encodeArguments(segmentLengthSeconds int) []string {
 	}, extra...)
 }
 
+// QualityArguments are the encoder's video arguments for a chunk's quality (D247 §6): 8-bit H.264
+// at kbps, its peak at most 1.5 times that, scaled to height with the source's shape, and keyframes
+// at keyframesAt, a list of seconds, and nowhere else, so its chunks cut where the copied
+// picture's do (slow-links.md §10).
+func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []string {
+	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string{"-sc_threshold", "0"}
+	switch encoder {
+	case EncoderQuickSync:
+		codec, pixelFormat, extra = "h264_qsv", "nv12", []string{"-forced_idr", "1"}
+	case EncoderNVENC:
+		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
+	case EncoderX264:
+	}
+	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
+	return append([]string{
+		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-vf", "scale=-2:" + strconv.Itoa(height),
+		"-pix_fmt", pixelFormat, "-b:v", rate(kbps), "-maxrate", rate(kbps * 3 / 2), "-bufsize", rate(2 * kbps),
+		"-g", "100000", "-force_key_frames", keyframesAt,
+	}, extra...)
+}
+
 // trialTimeout bounds one encoder's trial: a GPU that hangs is not one to encode with.
 const trialTimeout = 30 * time.Second
 

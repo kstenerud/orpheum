@@ -86,6 +86,10 @@
 //     named, and answers what it was asked: the loudness, the picture's timeline, or both (D100,
 //     D226, D247 §10). One read-through runs at once.
 //     TestAgent_ReadsThroughOnlyTheVideoTheCoreNamed, TestAgent_AReadThroughAnswersEachPartItWasAskedFor.
+//   - A run of chunks makes chunks only of the video the core named, tells the core each chunk as it
+//     is made, and says how far it got however it ended; a quality runs in an encode slot, a copied
+//     picture or a sound in a remux slot (D247 §10).
+//     TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
 //     waits for a slot never starts (cut-a §5.3).

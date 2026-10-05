@@ -4,7 +4,8 @@ package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
 // work it commands. CommandEncodeArtwork is in artwork.go, CommandPrepare in prepare.go,
-// CommandExtractSubtitle in subtitle.go, CommandReadThrough in readthrough.go.
+// CommandExtractSubtitle in subtitle.go, CommandReadThrough in readthrough.go, CommandMakeChunks in
+// chunks.go.
 type CommandType string
 
 // The command types.
@@ -51,6 +52,8 @@ type Work struct {
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
 	// ReadThrough is set for CommandReadThrough.
 	ReadThrough *ReadThrough `json:"readThrough,omitempty"`
+	// MakeChunks is set for CommandMakeChunks.
+	MakeChunks *MakeChunks `json:"makeChunks,omitempty"`
 	// List is set for CommandList.
 	List *List `json:"list,omitempty"`
 	// Examine is set for CommandExamine.
@@ -78,6 +81,8 @@ func (work Work) MediaFile() (BytesFile, bool) {
 		return *work.ExtractSubtitle.Sidecar, true
 	case work.ReadThrough != nil:
 		return work.ReadThrough.Video, true
+	case work.MakeChunks != nil:
+		return work.MakeChunks.Video, true
 	case work.List != nil:
 		return BytesFile{RootPath: work.List.RootPath, Path: []byte(work.List.Path)}, true
 	case work.Examine != nil && len(work.Examine.Files) > 0:
@@ -132,6 +137,10 @@ func (work Work) Slot() Slot {
 		return SlotExtract
 	case work.ReadThrough != nil:
 		return SlotReadThrough
+	case work.MakeChunks != nil && work.MakeChunks.Stream.Kind == StreamQuality:
+		return SlotEncode
+	case work.MakeChunks != nil:
+		return SlotRemux
 	case work.EncodeArtwork != nil:
 		return SlotArtwork
 	}

@@ -199,10 +199,14 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 	t.Helper()
 	directory := t.TempDir()
 	for name, contents := range map[string]string{
-		"7/remux/0123456789abcdef/master.m3u8":               "#EXTM3U\n",
-		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s": "segment",
-		"7/remux/0123456789abcdef/video/init_0.mp4":          "init",
-		"7/remux/0123456789abcdef/notes.txt":                 "not a rendition's",
+		"7/remux/0123456789abcdef/master.m3u8":                 "#EXTM3U\n",
+		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s":   "segment",
+		"7/remux/0123456789abcdef/video/init_0.mp4":            "init",
+		"7/remux/0123456789abcdef/notes.txt":                   "not a rendition's",
+		"7/chunks-q1200k480p/0123456789abcdef/init.mp4":        "init",
+		"7/chunks-q1200k480p/0123456789abcdef/00012.m4s":       "chunk",
+		"7/chunks-q1200k480p/0123456789abcdef/store.json":      "the store's manifest",
+		"7/chunks-q1200k480p/0123456789abcdef/raw-1/00013.mp4": "a raw file",
 	} {
 		full := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
@@ -262,6 +266,36 @@ func TestServeRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
 	request(t, handler, http.MethodGet, run+"notes.txt", nil)
 	if want := []string{"7/remux/0123456789abcdef"}; !slices.Equal(served, want) {
 		t.Errorf("served %v, want only the segment's rendition, its last use (D217 §5)", served)
+	}
+}
+
+// A store's init and chunks are served, and counted a use of the store; its manifest, its raw files
+// and any other name are not (D247 §10).
+func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
+	t.Parallel()
+	var served []string
+	handler := byteserver.New(nil, preparedRoot(t)).OnRenditionServed(func(dir string) {
+		served = append(served, dir)
+	}).Handler()
+	const store = nodeproto.PathBytesChunks + "7/chunks-q1200k480p/0123456789abcdef/"
+	for name, want := range map[string]string{"init.mp4": "video/mp4", "00012.m4s": "video/iso.segment"} {
+		got := request(t, handler, http.MethodGet, store+name, nil)
+		if got.Code != http.StatusOK || got.Header().Get("Content-Type") != want {
+			t.Errorf("%s: %d %q, want 200 %s", name, got.Code, got.Header().Get("Content-Type"), want)
+		}
+	}
+	for _, name := range []string{
+		store + "store.json", store + "raw-1/00013.mp4", store + "00013.m4s",
+		nodeproto.PathBytesChunks + "7/remux/0123456789abcdef/master.m3u8",
+		nodeproto.PathBytesPrepared + "7/chunks-q1200k480p/0123456789abcdef/00012.m4s",
+	} {
+		if got := request(t, handler, http.MethodGet, name, nil); got.Code != http.StatusNotFound {
+			t.Errorf("%s: %d, want 404", name, got.Code)
+		}
+	}
+	const storeDir = "7/chunks-q1200k480p/0123456789abcdef"
+	if want := []string{storeDir, storeDir}; !slices.Equal(served, want) {
+		t.Errorf("served %v, want the store twice, for its init and its chunk", served)
 	}
 }
 

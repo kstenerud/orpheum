@@ -58,6 +58,8 @@ type Workers struct {
 	Subtitler Subtitler
 	// ThroughReader is nil on a node that does not read videos through.
 	ThroughReader ThroughReader
+	// ChunkMaker is nil on a node that does not make chunks.
+	ChunkMaker ChunkMaker
 	// PreparedShelf keeps the prepared directory within its budget; nil on a node that does not
 	// prepare.
 	PreparedShelf PreparedShelf
@@ -367,6 +369,8 @@ func (agent *Agent) workFor(
 		return agent.subtitleWork(nodeCtx, nodeID, held, *command.ExtractSubtitle), true
 	case command.Type == nodeproto.CommandReadThrough && command.ReadThrough != nil:
 		return agent.readThroughWork(nodeCtx, nodeID, held, *command.ReadThrough), true
+	case command.Type == nodeproto.CommandMakeChunks && command.MakeChunks != nil:
+		return agent.chunksWork(nodeCtx, nodeID, held, *command.MakeChunks), true
 	case command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil:
 		return agent.artworkWork(nodeCtx, nodeID, held, *command.EncodeArtwork), true
 	case command.Type == nodeproto.CommandList && command.List != nil:

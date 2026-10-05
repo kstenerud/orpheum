@@ -84,6 +84,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
+| `internal/node/chunks` | R3 | — (borrows prepare's encoder and mix filters; its stores are `internal/node/prepared`'s, D247 §10) |
 | `internal/node/prepare` | R3 | — |
 | `internal/node/prepared` | R3 (rendition store custody) | — |
 | `internal/node/probe` | R2 | — |
