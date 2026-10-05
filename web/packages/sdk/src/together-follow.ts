@@ -429,7 +429,12 @@ class GroupFollower {
     if (!media.paused) {
       media.pause();
     }
-    const isAway = Math.abs(positionMsOf(media) - where.expectedMs) > leaveDriftUpToMs;
+    // While its own seek still loads, the browser's player moves it a little as it loads (hls.js
+    // steps over a gap at the start of what it loaded): a seek for that would start the load again,
+    // and again, and the player never loads at all (the owner's test, 2026-10-05, on a slow link).
+    const awayMs = Math.abs(positionMsOf(media) - where.expectedMs);
+    const isLoadingOwnSeek = this.#seekStartedAtMs !== undefined;
+    const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
     if (isAway && !media.seeking) {
       this.#seek(where.expectedMs);
     }

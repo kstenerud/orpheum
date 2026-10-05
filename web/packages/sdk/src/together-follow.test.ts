@@ -404,6 +404,24 @@ describe("a player following its group", () => {
     expect(media.paused).toBe(false);
   });
 
+  it("waiting, seeks once to the group's position, not again as the browser moves it while it loads", () => {
+    const media = new FakeMedia();
+    media.readyState = 1;
+    const { connection } = fakeConnection({ ...paused, state: "Waiting" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    expect(media.currentTime).toBe(60);
+    // The browser's player steps over a gap at the start of what it loads: a little later.
+    media.currentTime = 60.4;
+    media.readyState = 2;
+    media.fire("seeked");
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(media.currentTime).toBe(60.4);
+  });
+
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {
     const media = new FakeMedia();
     const { connection } = fakeConnection({ ...paused, state: "Playing" });
