@@ -174,6 +174,7 @@ func TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack(t *testing.T) {
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
 	guest := stage.join(t)
 	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	stage.hub.Detach(guestDevice)
@@ -583,6 +584,30 @@ func TestHub_TheHostIsWaitedForAfterTheirOwnSeekAsForAFirstLoad(t *testing.T) {
 		group.ByMemberID != stage.guest.MemberID {
 		t.Errorf("a stall's wait after the host's seek, the guest loading: %+v; "+
 			"want Playing on without the guest", group)
+	}
+}
+
+// The host's player that puts a film on is waited for as long as a first load, though it has not
+// yet said it is ready: it connected as the host's player page opened.
+func TestHub_TheHostsPlayerIsWaitedForAsItLoadsWhatTheHostPutOn(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guest := stage.join(t)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	stage.ready(t, guestDevice, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("film 7 put on, the host's player not yet loaded: %+v; want Waiting for it", group)
+	}
+	stage.clock.Advance(reloadWait)
+	stage.tick(t, guestDevice)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("a stall's wait after the host put film 7 on: %+v; want still Waiting", group)
+	}
+	stage.ready(t, host, false)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
+		t.Errorf("the host's player loaded: %+v; want Playing", group)
 	}
 }
 
