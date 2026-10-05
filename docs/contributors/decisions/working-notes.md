@@ -18051,7 +18051,10 @@ paused often; in the group it played a frame and froze, over and over.
    the owner's films). A stall chooses the highest one within about 70% of the speed the player
    measured. The owner: *"Have a set of standard bitrates that can be chosen. When a client fails,
    we use the bandwidth situation to choose from those bitrates and begin transcoding."* Our own
-   encodes cap their peaks, which the original's do not.
+   encodes cap their peaks, which the original's do not. **The list is a setting**, each quality
+   its bit rate and picture height, which the admin can change; the numbers above are its starting
+   value. The owner: *"Those standard qualities should be a list in config rather than
+   hard-coded."*
 7. **A version is the film at a quality, shared by every viewer.** One another viewer's stall
    already started is used if it is within the viewer's measured speed and not far from what would
    have been chosen: the same quality, or the one below it. The owner: *"If a client stalls, and
