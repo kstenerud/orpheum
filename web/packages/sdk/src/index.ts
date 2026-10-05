@@ -6,8 +6,8 @@
  *
  * The SDK is React-free. It holds the generated API types and client, the playable-formats probe
  * (what this browser can play), the wait for a file the server is still making (whenReady,
- * textWhenReady) and the reading of refusals, and will hold the Watch Together client
- * (plans/cut-a.md §3, §5).
+ * textWhenReady), the reading of refusals, and the Watch Together client: the session socket's
+ * connection and a player following its group (plans/cut-a.md §3, §5).
  */
 
 export { apiPrefix, artUrl, createApi } from "./client.ts";
@@ -24,6 +24,24 @@ export {
 } from "./problem.ts";
 export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } from "./problem.ts";
 export type { WaitOptions } from "./ready.ts";
+export { browserTogetherSocket, parseTogetherMessage } from "./together.ts";
+export type {
+  GroupState,
+  GroupView,
+  OpenTogetherSocket,
+  RosterMember,
+  TogetherEndReason,
+} from "./together.ts";
+export { createTogetherConnection } from "./together-connection.ts";
+export type {
+  ConnectionStatus,
+  GroupCommand,
+  PlayerState,
+  TogetherConnection,
+  TogetherSnapshot,
+} from "./together-connection.ts";
+export { driftCorrection, expectedPositionMs, followGroup } from "./together-follow.ts";
+export type { FollowedMedia } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */

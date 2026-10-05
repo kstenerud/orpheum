@@ -1,9 +1,10 @@
 # @orpheum/sdk
 
 The client side of the API, usable from a plain web page: generated API types and client,
-probe-and-pick, the Watch Together client. MPL-2.0. So far it holds the API client, the
+probe-and-pick, the Watch Together client. MPL-2.0. It holds the API client, the
 playable-formats probe (what this browser can play), the wait for a file the server is still
-making, and the reading of refusals; the Watch Together client is still to come.
+making, the reading of refusals, and the Watch Together client: a device's connection to its
+session over the session WebSocket (cut-a §5.1), and a player following its group.
 
 ## Invariants
 
@@ -15,15 +16,29 @@ making, and the reading of refusals; the Watch Together client is still to come.
   `no-restricted-properties`; this package is the one exemption.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`;
   `not-into-another-package-by-path` and `no-barrel-files` stop other routes in.
+- **Watch Together keeps no shared clock** (D66): a playing group's expected position is its
+  position plus the local monotonic time since its message arrived, times its rate; drift within
+  `leaveDriftUpToMs` is left, up to `seekDriftBeyondMs` nudged by the rate for about a second,
+  beyond it sought across (watch-together.md, Sync). `src/together-follow.test.ts`.
+- **A Watch Together player holds no one up until it has once been where the group is** (D246
+  §6), and only the host's own play, pause and seek become commands, never its following's.
+  `src/together-follow.test.ts`.
+- **The session connection sends whole numbers, the credential only in its hello, and connects
+  again with a growing wait after a drop**, but not after the server ended the session or refused
+  the hello. `src/together-connection.test.ts`.
+- **A call's own Authorization wins over the session token**: a Watch Together member's
+  requests carry their membership credential (D246 §3). `src/client.test.ts`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and
   formatting and regenerated from `api/openapi.json` (`make generate`).
 
 ## Read before changing
 
-[D28](../../../docs/contributors/decisions/working-notes.md), [D80](../../../docs/contributors/decisions/working-notes.md),
+[D28](../../../docs/contributors/decisions/working-notes.md), [D66](../../../docs/contributors/decisions/working-notes.md), [D80](../../../docs/contributors/decisions/working-notes.md),
 [D85](../../../docs/contributors/decisions/working-notes.md), [D154](../../../docs/contributors/decisions/working-notes.md),
-[D191](../../../docs/contributors/decisions/working-notes.md), [D193](../../../docs/contributors/decisions/working-notes.md) §6;
+[D191](../../../docs/contributors/decisions/working-notes.md), [D193](../../../docs/contributors/decisions/working-notes.md) §6,
+[D246](../../../docs/contributors/decisions/working-notes.md);
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §5;
+[watch-together.md](../../../docs/contributors/design/plans/watch-together.md), Sync;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 
 ## Where to change
@@ -35,3 +50,7 @@ making, and the reading of refusals; the Watch Together client is still to come.
 - Waiting for a file the server is still making (`whenReady`, `textWhenReady`): `src/ready.ts`.
 - Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`), and writing a failure's
   cause to the console (`reportFailure`, the one place the client logs): `src/problem.ts`.
+- Watch Together: the wire messages and the browser's socket, `src/together.ts`; the
+  connection (hello, ping and the minimum round trip, state reports, commands, reconnecting),
+  `src/together-connection.ts`; following the group with a video element, and the drift
+  thresholds, `src/together-follow.ts`.
