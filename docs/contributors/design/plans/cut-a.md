@@ -131,6 +131,10 @@ loop to work:**
   - a core's `[https]`: `domain` (its public name; empty serves no HTTPS), `contact` (the e-mail
     address its CA writes to) and `listen` (`":443"`); the certificate comes by ACME DNS-01 through
     the DNS provider's token, a secret (D243 §6)
+  - a core's `[turn]`: `public_address` (the IP address browsers reach voice's relay at, the
+    VPS's; empty serves none), `listen` (`":3478"`), `relay_port_min` (49160) and `relay_port_max`
+    (49199); its credentials are derived from the TURN secret, which the server makes (D194,
+    D243 §8)
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - a node's `[node]`: `name` (the core enrols it by it, D207), `core_socket`, `root_paths`,
     `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or `"report"`; a production
@@ -185,7 +189,7 @@ internal/core/      # GPL. May not import os/exec, internal/node, or any media/i
   library/  identify/  providers/  textindex/  artwork/  jobs/  nodes/
   decide/  playback/  loudness/  subtitles/  renditions/
   together/         # Watch Together's sessions, in memory (M4)
-  turn/             # M4's; doc.go only
+  turn/             # the TURN relay embedded for voice (M4)
   instancedir/      # the only core package that touches the filesystem
 internal/node/      # GPL. Imports nothing from core
   agent/  scan/  probe/  hash/  prepare/  prepared/  subtitle/  loudness/  artwork/  hardware/

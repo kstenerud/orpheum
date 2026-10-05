@@ -74,6 +74,11 @@ func serve(
 		return stayDegraded(ctx, server, "HTTPS could not start", err, logger)
 	}
 	defer func() { err = errors.Join(err, stopHTTPS()) }()
+	stopRelay, err := startRelay(ctx, config, opened, logger)
+	if err != nil {
+		return stayDegraded(ctx, server, "the voice relay could not start", err, logger)
+	}
+	defer func() { err = errors.Join(err, stopRelay()) }()
 	stopBackgroundJobs, err := opened.jobServices.startBackgroundLoops(ctx, logger)
 	if err != nil {
 		return stayDegraded(ctx, server, "the background jobs could not start", err, logger)
@@ -126,6 +131,8 @@ type openedServices struct {
 	nodes       *nodes.Service
 	// exchanges are how a job asks a node for work; the node channel hands them the results.
 	exchanges *nodes.Exchanges
+	// together is Watch Together's sessions, whose memberships the voice relay admits.
+	together *together.Hub
 }
 
 func (opened openedServices) release() error {
@@ -216,6 +223,7 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedS
 		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
 	}
 	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay)
+	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
