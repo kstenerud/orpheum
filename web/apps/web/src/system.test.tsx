@@ -282,3 +282,29 @@ it("the System page says what is not answering, and each outside service's limit
   expect(text).toContain("no key or login is set: an admin can set it in Settings.");
   expect(text).toContain("12 of 20 left today.");
 });
+
+it("the System page says when the public name's certificate expires, or that there is none yet (D243 §6)", async () => {
+  const withCertificate = async (expiresAt?: number): Promise<string> => {
+    const shownReport = report(connected);
+    shownReport.server.certificate =
+      expiresAt === undefined
+        ? { name: "media.orpheum-app.com" }
+        : { name: "media.orpheum-app.com", expiresAt };
+    mounted = await mount(
+      withServices(
+        <System />,
+        servedBy({
+          "GET /system": [200, shownReport],
+          "GET /backups": noBackups,
+          "GET /now-playing": [200, { playbacks: [] }],
+        }),
+      ),
+    );
+    return mounted.container.textContent;
+  };
+  const obtained = await withCertificate(1_797_000_000_000);
+  expect(obtained).toContain("The certificate for media.orpheum-app.com");
+  expect(obtained).toContain("it is renewed a month before.");
+  mounted?.unmount();
+  expect(await withCertificate()).toContain("Not obtained yet");
+});

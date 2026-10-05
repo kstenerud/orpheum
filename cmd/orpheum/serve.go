@@ -66,9 +66,6 @@ func serve(
 		return stayDegraded(ctx, server, "the server could not start", err, logger)
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
-	if opened, err = openCertificates(ctx, config, opened, outside, logger); err != nil {
-		return stayDegraded(ctx, server, "the certificate could not be read", err, logger)
-	}
 	stopHTTPS, err := listenAndServeHTTPS(ctx, config, opened, httpServer.Handler, logger)
 	if err != nil {
 		return stayDegraded(ctx, server, "HTTPS could not start", err, logger)
@@ -186,20 +183,22 @@ func openAndWire(
 		opened = openNodeWork(opened, logger)
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
+	if err == nil {
+		opened, err = openCertificates(ctx, config, opened, outside, logger)
+	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
-	dependencies.Chooser = opened.jobServices.chooser
-	dependencies.Refresher = opened.jobServices.refresher
+	dependencies.Chooser, dependencies.Refresher = opened.jobServices.chooser, opened.jobServices.refresher
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes, opened.jobServices.scans,
 		library.Retirement{
 			Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
 		})
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
-	dependencies.Artwork = opened.jobServices.artwork
 	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
-	dependencies.Subtitles, dependencies.Renditions = opened.jobServices.subtitles, opened.jobServices.renditions
+	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork = opened.jobServices.subtitles,
+		opened.jobServices.renditions, opened.jobServices.artwork
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	opened = wireJobsInto(&dependencies, opened)
@@ -208,6 +207,7 @@ func openAndWire(
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
 		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,
+		PublicName: config.HTTPS.Domain, Certificate: certificateExpiry(opened.jobServices.certificates),
 	}
 	server.Ready(dependencies)
 	return opened, nil

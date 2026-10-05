@@ -58,6 +58,24 @@ type System struct {
 	// PersistentDatabase and CacheDatabase are persistent.db and cache.db, measured when the page asks.
 	PersistentDatabase Sized
 	CacheDatabase      Sized
+	// PublicName is the name served over HTTPS, and Certificate its certificate's service; "" and
+	// nil for a server with none (D243 §6).
+	PublicName  string
+	Certificate CertificateExpiry
+}
+
+// CertificateExpiry says when the public name's certificate expires, and false while there is none.
+type CertificateExpiry interface {
+	ExpiresAt() (time.Time, bool)
+}
+
+// CertificateBody is the public name's HTTPS certificate: absent from the page when the server has
+// no public name.
+type CertificateBody struct {
+	Name string `json:"name"`
+	// ExpiresAt is when it expires, in Unix milliseconds; absent while none has been obtained. It is
+	// renewed a month before (D243 §6).
+	ExpiresAt *int64 `json:"expiresAt,omitempty"`
 }
 
 // SystemOutput is the System page: the server's facts, what doctor finds, and each node's facts
@@ -127,6 +145,8 @@ type ServerBody struct {
 	StartedAt int64          `doc:"Unix milliseconds" json:"startedAt"`
 	Disks     []DiskBody     `json:"disks"`
 	Databases []DatabaseBody `json:"databases"`
+	// Certificate is the public name's HTTPS certificate; absent for a server with no public name.
+	Certificate *CertificateBody `json:"certificate,omitempty"`
 }
 
 // BuildBody is what a binary was built from (D225).
@@ -440,6 +460,12 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 		Build: buildBody(system.Build), Host: hostBody(host.Describe()), GoVersion: runtime.Version(),
 		StartedAt: system.StartedAt.UnixMilli(),
 		Disks:     []DiskBody{measureDisk(system.PersistentDirectory), measureDisk(system.CacheDirectory)},
+	}
+	if system.PublicName != "" && system.Certificate != nil {
+		facts.Certificate = &CertificateBody{Name: system.PublicName}
+		if expiresAt, isObtained := system.Certificate.ExpiresAt(); isObtained {
+			facts.Certificate.ExpiresAt = new(expiresAt.UnixMilli())
+		}
 	}
 	for _, database := range []struct {
 		name     string

@@ -3,12 +3,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -371,5 +373,49 @@ func TestSystem_ShowsWhatEachNodeIsDoing(t *testing.T) {
 		work.LastMovedAt == nil || *work.LastMovedAt != 1_000_000-2000 || work.BrokenInvariantCount != 1 {
 		t.Errorf("the node's work = %+v; want two of its six slots running, one waiting, last moved 2 s "+
 			"before its status, and the one broken invariant", work)
+	}
+}
+
+// sizedAt is a database of a fixed size.
+type sizedAt uint64
+
+func (size sizedAt) SizeBytes(context.Context) (uint64, error) { return uint64(size), nil }
+
+// expiringAt is a certificate service whose certificate expires at a moment, or that has none.
+type expiringAt struct {
+	moment     time.Time
+	isObtained bool
+}
+
+func (certificate expiringAt) ExpiresAt() (time.Time, bool) {
+	return certificate.moment, certificate.isObtained
+}
+
+// The System page shows the public name's certificate and when it expires, says when there is none
+// yet, and shows nothing of one for a server with no public name (D243 §6).
+func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
+	t.Parallel()
+	expiry := time.Date(2026, 12, 31, 12, 0, 0, 0, time.UTC)
+	system := System{
+		PersistentDirectory: t.TempDir(), CacheDirectory: t.TempDir(),
+		PersistentDatabase: sizedAt(1), CacheDatabase: sizedAt(1),
+		PublicName: "media.orpheum-app.com", Certificate: expiringAt{moment: expiry, isObtained: true},
+	}
+	facts, err := serverFacts(t.Context(), system)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.Certificate == nil || facts.Certificate.Name != "media.orpheum-app.com" ||
+		facts.Certificate.ExpiresAt == nil || *facts.Certificate.ExpiresAt != expiry.UnixMilli() {
+		t.Errorf("an obtained certificate = %+v; want the name, expiring %v", facts.Certificate, expiry)
+	}
+	system.Certificate = expiringAt{}
+	if facts, err = serverFacts(t.Context(), system); err != nil || facts.Certificate == nil ||
+		facts.Certificate.ExpiresAt != nil {
+		t.Errorf("no certificate yet = %+v (%v); want the name with no expiry", facts.Certificate, err)
+	}
+	system.PublicName, system.Certificate = "", nil
+	if facts, err = serverFacts(t.Context(), system); err != nil || facts.Certificate != nil {
+		t.Errorf("no public name = %+v (%v); want no certificate shown", facts.Certificate, err)
 	}
 }
