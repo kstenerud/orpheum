@@ -63,6 +63,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/nodes` | R8 | ⚑ R6a: an admin's reader limit for one of a node's devices (devices.go, D240 §5) |
 | `internal/core/loudness` | R7 (the gains that level a file's sounds, from its measurements) | — (split out of playback on 2026-10-03, F2; its job, sweep and writes moved to `internal/core/readthrough` on 2026-10-05) |
 | `internal/core/readthrough` | R8 (the read-through jobs and their sweep), R3 (the loudness measurements and the pictures' timelines, by payload hash) | — (was `internal/core/loudness`'s job until 2026-10-05, made general for D247's grid) |
+| `internal/core/chunks` | R7 (a film's grid of chunks, from its picture's timeline) | — (D247 §10; built 2026-10-05) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
 | `internal/core/renditions` | R8 (the prepare jobs), R3 (the index of prepared copies, in cache.db) | — (split out of playback on 2026-10-03, F2) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
