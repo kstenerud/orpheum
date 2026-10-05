@@ -26,9 +26,10 @@ export const slowestNudgeFactor = 0.5;
 export const fastestNudgeFactor = 2;
 
 /**
- * How long a leading player's pause waits to be sent: a browser's own controls pause the video while
- * its person drags the timeline, and the seek that follows comes within this. A pause with a seek
- * after it is that seek, not a pause for everyone (the owner's first test, 2026-10-05).
+ * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
+ * video while its person drags the timeline, and seek at each step of the drag, each within this of
+ * the last. A pause with a seek after it is that seek, not a pause for everyone, and a drag is one
+ * seek, to where it ended (the owner's tests, 2026-10-05).
  */
 export const scrubPauseWindowMs = 300;
 
@@ -190,7 +191,10 @@ function commandOfEvent(
       actualMs: positionMsOf(media),
       groupRate: where.group.rate,
     }).kind !== "none";
-  return event === "seeked" && isAJump
+  // A seek is the group's as its person makes it, not once it has loaded: a host on a slow link
+  // would otherwise hold the group up loading a place the group was never told of, and be left
+  // behind (the owner's test, 2026-10-05).
+  return event === "seeking" && isAJump
     ? { command: "seek", positionMs: positionMsOf(media) }
     : undefined;
 }
@@ -213,7 +217,7 @@ class GroupFollower {
   readonly #media: FollowedMedia;
   readonly #connection: TogetherConnection;
   readonly #options: FollowOptions;
-  /** Whether the last seek was the follower's own, so its seeked is not taken for a person's. */
+  /** Whether the last seek was the follower's own, so its seeking is not taken for a person's. */
   #isOwnSeekPending = false;
   #nudgeEndsAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
@@ -231,8 +235,8 @@ class GroupFollower {
   #seekStartedAtMs: number | undefined = undefined;
   /** How long its own last seek took to load. */
   #lastLoadMs = 0;
-  /** A leading player's pause not yet sent, which a seek that follows it at once withdraws. */
-  #pendingPause: ReturnType<typeof setTimeout> | undefined = undefined;
+  /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
+  #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -270,12 +274,7 @@ class GroupFollower {
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
     this.#noteLoading(event);
-    if (event === "seeking" && this.#pendingPause !== undefined) {
-      // A pause and then a seek is a person dragging the timeline: the seek is what they meant.
-      clearTimeout(this.#pendingPause);
-      this.#pendingPause = undefined;
-    }
-    const isOwnSeek = event === "seeked" && this.#isOwnSeekPending;
+    const isOwnSeek = (event === "seeking" || event === "seeked") && this.#isOwnSeekPending;
     if (event === "seeked") {
       this.#isOwnSeekPending = false;
     }
@@ -292,15 +291,19 @@ class GroupFollower {
     this.#connection.reportState();
   };
 
-  /** Sends a leading player's command: a pause only once no seek has followed it. */
+  /**
+   * Sends a leading player's command: a pause or a seek once no seek has followed it within
+   * scrubPauseWindowMs, the last of a drag. Until then the player is left where its person put it.
+   */
   #lead(command: GroupCommand): void {
-    if (command.command !== "pause") {
+    if (command.command !== "pause" && command.command !== "seek") {
       this.#send(command);
       return;
     }
-    clearTimeout(this.#pendingPause);
-    this.#pendingPause = setTimeout(() => {
-      this.#pendingPause = undefined;
+    clearTimeout(this.#pendingCommand);
+    this.#isAwaitingGroup = true;
+    this.#pendingCommand = setTimeout(() => {
+      this.#pendingCommand = undefined;
       this.#send(command);
     }, scrubPauseWindowMs);
   }
@@ -326,7 +329,7 @@ class GroupFollower {
 
   /** Stops what is pending, as the follower stops. */
   readonly stop = (): void => {
-    clearTimeout(this.#pendingPause);
+    clearTimeout(this.#pendingCommand);
   };
 
   /**

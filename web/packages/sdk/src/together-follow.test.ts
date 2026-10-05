@@ -249,7 +249,8 @@ describe("a player following its group", () => {
       isLeading: true,
       monotonicMs,
     });
-    media.fire("seeked"); // the follower's own seek to the group's position
+    media.fire("seeking"); // the follower's own seek to the group's position
+    media.fire("seeked");
     expect(commands).toEqual([]);
     media.paused = false;
     media.fire("play");
@@ -261,8 +262,29 @@ describe("a player following its group", () => {
     expect(commands.at(-1)).toEqual({ command: "pause" });
     setGroup({ ...paused, state: "Paused" }, 0);
     media.currentTime = 600;
-    media.fire("seeked");
+    media.fire("seeking");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands.at(-1)).toEqual({ command: "seek", positionMs: 600_000 });
+  });
+
+  it("sends the host's seek as its person makes it, before the place has loaded, once per drag", () => {
+    const media = new FakeMedia();
+    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: true,
+      monotonicMs,
+    });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    // A drag: a seek at each step, and the last place never loads while the test runs.
+    for (const positionS of [300, 900, 1500]) {
+      media.currentTime = positionS;
+      media.seeking = true;
+      media.fire("seeking");
+    }
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([{ command: "seek", positionMs: 1_500_000 }]);
+    expect(media.currentTime).toBe(1500); // left where its person put it, not pulled back
   });
 
   it("pauses the host's video while the group waits for a viewer, and sends no command", () => {
@@ -291,8 +313,8 @@ describe("a player following its group", () => {
     media.fire("seeked"); // the follower's own seek to the group's position
     media.paused = true;
     media.fire("pause");
-    media.fire("seeking");
     media.currentTime = 5400;
+    media.fire("seeking");
     media.fire("seeked");
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands).toEqual([{ command: "seek", positionMs: 5_400_000 }]);
