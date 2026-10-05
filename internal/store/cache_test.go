@@ -142,7 +142,8 @@ func TestOpenCache_TakesTheWholeServerJobsAndAScansCounts(t *testing.T) {
 		}); listErr != nil {
 			return listErr //nolint:wrapcheck // the test reads it as is
 		}
-		_, againErr := queries.SetScanAgain(t.Context(), cachegen.SetScanAgainParams{NodeID: 1, RootPath: "/media/films"})
+		_, againErr := queries.SetScanAgain(t.Context(),
+			cachegen.SetScanAgainParams{NodeID: 1, RootPath: "/media/films"})
 		return againErr //nolint:wrapcheck // the test reads it as is
 	})
 	if err != nil {
