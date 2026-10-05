@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -337,7 +338,8 @@ func fits(decoded any, definition Definition) bool {
 			int64(number) >= definition.Minimum && int64(number) <= definition.Maximum
 	case KindString:
 		text, isString := decoded.(string)
-		return isString && (definition.Pattern == nil || definition.Pattern.MatchString(text))
+		return isString && (definition.Pattern == nil || definition.Pattern.MatchString(text)) &&
+			(definition.IsValid == nil || definition.IsValid(text))
 	}
 	return false
 }
@@ -356,4 +358,18 @@ func compactJSON(value json.RawMessage) string {
 		return string(value) // checkValue has already parsed it; this cannot happen
 	}
 	return buffer.String()
+}
+
+// Zone is the server's time zone, the time_zone setting's (D246 §7); never the machine's, which
+// D204 does not let the server read.
+func (service *Service) Zone(ctx context.Context) (localtime.Zone, error) {
+	name, err := service.String(ctx, TimeZone)
+	if err != nil {
+		return localtime.Zone{}, err
+	}
+	zone, err := localtime.Named(name)
+	if err != nil {
+		return localtime.Zone{}, fmt.Errorf("%s: %w", TimeZone, err)
+	}
+	return zone, nil
 }

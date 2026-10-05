@@ -558,6 +558,15 @@ linters:
           pkg: '^time$'
           msg: "[clock] take a clock.Clock (internal/platform/clock) and call its Now; tests pass clock.NewFake"
 
+        # Wall-clock time in a zone is reached only through internal/platform/localtime, so each
+        # conversion from UTC is explicit and its result a type of its own (D246 §7).
+        - pattern: '^time\.(LoadLocation|LoadLocationFromTZData|FixedZone)$'
+          pkg: '^time$'
+          msg: "[local-time] the server's times are UTC; for a wall clock take a localtime.Zone (internal/platform/localtime) and call its Of (D246 §7)"
+        - pattern: '^time\.Time\.(In|Local)$'
+          pkg: '^time$'
+          msg: "[local-time] the server's times are UTC; for a wall clock take a localtime.Zone (internal/platform/localtime) and call its Of (D246 §7)"
+
         # Ambient process state is read once, in cmd/orpheum, and passed down.
         - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname|TempDir)$'
           pkg: '^os$'
@@ -661,6 +670,9 @@ linters:
       - path: ^internal/platform/clock/
         linters: [forbidigo]
         text: '\[clock\]'
+      - path: ^internal/platform/localtime/
+        linters: [forbidigo]
+        text: '\[local-time\]'
       - path: ^cmd/
         linters: [forbidigo]
         text: '\[(ambient|print|panic|context)\]'

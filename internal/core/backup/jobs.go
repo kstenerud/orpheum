@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // Queue is where backups are asked for: jobs.Queue.
@@ -26,6 +27,8 @@ type Queue interface {
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
+	// Zone is the server's time zone, which backup_hour_local_tz is in.
+	Zone(ctx context.Context) (localtime.Zone, error)
 }
 
 // JobArgs are a backup job's arguments: whether it holds secret.key, which a person asks for and
@@ -92,27 +95,32 @@ func (service *Service) Request(ctx context.Context, includesKey bool) error {
 }
 
 // QueueScheduled asks for the scheduled backup when it is due, and says how many it asked for:
-// one when the newest backup is backup_every_hours old and it is backup_hour_utc, or when the
-// newest is a day overdue, whatever the hour; none otherwise (D243 §11). A sweep calls it.
+// one when the newest backup is backup_every_days old and it is backup_hour_local_tz in the server's time
+// zone, or when the newest is a day overdue, whatever the hour; none otherwise (D246 §7). A sweep
+// calls it.
 func (service *Service) QueueScheduled(ctx context.Context) (int, error) {
-	every, err := service.settings.Duration(ctx, settings.BackupEveryHours)
+	every, err := service.settings.Duration(ctx, settings.BackupEveryDays)
 	if err != nil {
-		return 0, fmt.Errorf("read backup_every_hours: %w", err)
+		return 0, fmt.Errorf("read backup_every_days: %w", err)
 	}
-	hour, err := service.settings.Int(ctx, settings.BackupHourUTC)
+	hour, err := service.settings.Int(ctx, settings.BackupHourLocalTZ)
 	if err != nil {
-		return 0, fmt.Errorf("read backup_hour_utc: %w", err)
+		return 0, fmt.Errorf("read backup_hour_local_tz: %w", err)
+	}
+	zone, err := service.settings.Zone(ctx)
+	if err != nil {
+		return 0, err
 	}
 	files, err := service.directories.ListBackups()
 	if err != nil {
 		return 0, err
 	}
-	now := service.clock.Now().UTC()
+	now := service.clock.Now()
 	newest, isAny := newestBackup(files)
 	// A backup is due an hour early, so one made at the quiet hour is due again at the next.
 	isDue := !isAny || now.Sub(newest) >= every-time.Hour
 	isOverdue := !isAny || now.Sub(newest) >= every+24*time.Hour
-	if !isDue || (int64(now.Hour()) != hour && !isOverdue) {
+	if !isDue || (int64(zone.Of(now).Hour()) != hour && !isOverdue) {
 		return 0, nil
 	}
 	if enqueueErr := service.enqueue(ctx, JobArgs{IsScheduled: true}, jobs.PriorityBackground,
