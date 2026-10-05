@@ -18078,7 +18078,8 @@ paused often; in the group it played a frame and froze, over and over.
     and a stall all start encoding where they are. A film still starts from the original file
     (§2); the first stall starts the chosen quality where the viewer is, and the second moves the
     player into the chunked playlist, once, with a short pause; every step after it is seamless.
-    This replaces §3's "later refinement".
+    This replaces §3's "later refinement". The build plan is
+    [chunks.md](../design/plans/chunks.md).
 11. **Nothing detects whether a viewer is at home or away.** The owner: *"I'd avoid detecting a
     home network or lan. If it's a high bandwidth local network, none of this machinery should
     trigger unless there's a real problem (such as flaky wifi)."* The playback request's
