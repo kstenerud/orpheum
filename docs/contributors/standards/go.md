@@ -294,7 +294,7 @@ describe in a phrase, and give it that phrase as its name.
   reads are closed: outbound HTTP goes through `internal/platform/outbound` (no proxy from
   `HTTP_PROXY`), `time.Local` is UTC, SQLite keeps temporary data in memory, and `os.TempDir`
   and `filepath.Abs` are not used outside `cmd/orpheum`. **Enforced by:**
-  `TestEnvironmentLookup_IsEmptyInARelease`, `TestUseUTC_TimesAreUTCWhateverTZSays`,
+  `TestEnvironmentLookup_SeesOnlyTZInARelease`, `TestUseUTC_TimesAreUTCWhateverTZSays`,
   `TestNewClient_TakesNoProxyFromTheEnvironment`, `TestVerifyPragmas_RefusesAConnectionWithoutThem`;
   `TestArch_ReleaseBinaryReadsNoEnvironment`; forbidigo `[outbound]` and `[ambient]`. A bare
   `&http.Client{}` falls back to the default transport, which no lint sees: **review-only**.

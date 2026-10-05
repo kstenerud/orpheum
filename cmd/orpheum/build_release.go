@@ -21,7 +21,7 @@ func devCommand() command {
 func environmentLookup() func(string) (string, bool) {
 	return func(name string) (string, bool) {
 		if name == timeZoneVariable {
-			return os.LookupEnv(name) // the default time zone's alone (D246 §7)
+			return os.LookupEnv(timeZoneVariable) // the default time zone's alone (D246 §7)
 		}
 		return "", false
 	}

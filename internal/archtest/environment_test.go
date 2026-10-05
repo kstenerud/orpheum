@@ -33,6 +33,9 @@ func findEnvironmentReads(files []sourceFile) []violation {
 		}
 		localNames := watchedImports(parsed)
 		ast.Inspect(parsed, func(node ast.Node) bool {
+			if call, isCall := node.(*ast.CallExpr); isCall && isTimeZoneRead(call, localNames) {
+				return false
+			}
 			if read, found := environmentRead(node, localNames); found {
 				violations = append(violations, violation{
 					where:  fileSet.Position(node.Pos()).String(),
@@ -43,6 +46,27 @@ func findEnvironmentReads(files []sourceFile) []violation {
 		})
 	}
 	return violations
+}
+
+// isTimeZoneRead is whether call reads the machine's time zone and nothing else, the one variable a
+// release binary may read, as the default of the server's time zone (D246 §7):
+// os.LookupEnv(timeZoneVariable), or os.LookupEnv("TZ").
+func isTimeZoneRead(call *ast.CallExpr, localNames map[string]string) bool {
+	selector, isSelector := call.Fun.(*ast.SelectorExpr)
+	if !isSelector || selector.Sel.Name != "LookupEnv" || len(call.Args) != 1 {
+		return false
+	}
+	pkg, isIdent := selector.X.(*ast.Ident)
+	if !isIdent || localNames[pkg.Name] != "os" {
+		return false
+	}
+	switch arg := call.Args[0].(type) {
+	case *ast.Ident:
+		return arg.Name == "timeZoneVariable"
+	case *ast.BasicLit:
+		return arg.Value == `"TZ"`
+	}
+	return false
 }
 
 // watchedImports maps the local name of each imported package that can read the environment to
@@ -108,6 +132,14 @@ func TestFindEnvironmentReads(t *testing.T) {
 		if got := findEnvironmentReads([]sourceFile{{path: "main.go", contents: contents}}); len(got) != 1 {
 			t.Errorf("%s: got %d violations, want 1", name, len(got))
 		}
+	}
+	other := "package main\n\nimport \"os\"\n\nfunc f() { _, _ = os.LookupEnv(\"HOME\") }\n"
+	if got := findEnvironmentReads([]sourceFile{{path: "main.go", contents: other}}); len(got) != 1 {
+		t.Errorf("a variable other than TZ: got %d violations, want 1", len(got))
+	}
+	timeZone := "package main\n\nimport \"os\"\n\nfunc f() { _, _ = os.LookupEnv(timeZoneVariable) }\n"
+	if got := findEnvironmentReads([]sourceFile{{path: "main.go", contents: timeZone}}); len(got) != 0 {
+		t.Errorf("the time zone's default (D246 §7): got %v, want none", got)
 	}
 	clean := "package main\n\nimport \"os\"\n\nfunc f() { _ = os.Args; os.Exit(0) }\n"
 	if got := findEnvironmentReads([]sourceFile{{path: "main.go", contents: clean}}); len(got) != 0 {

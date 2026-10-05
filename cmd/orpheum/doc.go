@@ -13,10 +13,12 @@
 //
 //   - Only this package reads the environment, argv or stdio, or calls os.Exit. Enforced by the
 //     forbidigo rule tagged [ambient].
-//   - A release build reads no environment: its subcommands get an empty one, and only a dev
-//     build passes ORPHEUM_DEV_* on (D204). Enforced by TestEnvironmentLookup_IsEmptyInARelease, and
-//     by TestArch_ReleaseBinaryReadsNoEnvironment, which fails on any environment read in a
-//     file a release build compiles.
+//   - A release build reads no environment but TZ, once, at the edge, as the default of the
+//     server's time zone (D246 §7): its subcommands get an environment with TZ alone, and only a
+//     dev build passes ORPHEUM_DEV_* on (D204). Enforced by TestEnvironmentLookup_SeesOnlyTZInARelease,
+//     and by TestArch_ReleaseBinaryReadsNoEnvironment, which fails on any environment read in a
+//     file a release build compiles but os.LookupEnv(timeZoneVariable). The zone found is
+//     TestMachineZone_IsTZsElseTheSystemsElseUTC's.
 //   - Every time the server formats is UTC, whatever TZ says (D204). Enforced by
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - core starts no node, and node runs the node's loop on its own: a node's work is its own, which a
