@@ -74,8 +74,10 @@ type session struct {
 	id         int64
 	hostUserID int64
 	group      group
-	links      map[int64]*link
-	members    map[int64]*member
+	// lastStallWait is when the group last waited for a player that stalled; zero for never.
+	lastStallWait time.Time
+	links         map[int64]*link
+	members       map[int64]*member
 }
 
 // link is one person's way in (D246 §3): single use, with the host's note of who it is for.
@@ -100,6 +102,8 @@ type group struct {
 	// seekedFrom is where the last event, a seek, jumped from.
 	seekedFrom time.Duration
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
+	// waitUntil is when a Waiting group stops waiting for players not yet ready.
+	waitUntil time.Time
 }
 
 // member is a person in the session, with their devices (D120).
@@ -112,6 +116,9 @@ type member struct {
 	person         *Person
 	credentialHash [sha256.Size]byte
 	devices        map[int64]*device
+	// lastStall is when one of the member's players last stalled while the group played; zero for
+	// never.
+	lastStall time.Time
 }
 
 // device is one connected client of a member.
@@ -125,17 +132,21 @@ type device struct {
 	// hasBeenReady is whether it has once said it is ready to play along: until then the group
 	// does not wait for it, so one still choosing its speakers or loading holds no one up (D246 §6).
 	hasBeenReady bool
+	// isCatchingUp is whether the group plays on without it until it is ready again (D247 §4).
+	isCatchingUp bool
 	send         Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering and round trip, the first
-// that is not buffering making it one the group waits for; a suspension, or its end.
-func (each *device) takeState(message Inbound) {
+// that is not buffering making it one the group waits for, and one catching up caught up; a
+// suspension, or its end. It returns whether the device stalled: it was ready and now buffers.
+func (each *device) takeState(message Inbound) (hasStalled bool) {
+	wasReady := each.hasBeenReady && each.isReady()
 	switch message.Type {
 	case MessageState:
 		each.buffering = message.Buffering
 		if !message.Buffering {
-			each.hasBeenReady = true
+			each.hasBeenReady, each.isCatchingUp = true, false
 		}
 		if message.RTTMs > 0 {
 			each.rttMs = message.RTTMs
@@ -147,6 +158,7 @@ func (each *device) takeState(message Inbound) {
 	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageWelcome, MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
+	return wasReady && each.buffering
 }
 
 // isReady is whether the device plays along: not buffering, not suspended.
@@ -481,11 +493,14 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		return
 	}
 	now := hub.clock.Now()
+	defer handled.endWait(now) // a ready player reports each second while the group waits for others
 	switch message.Type {
 	case MessagePing:
 		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
 	case MessageState, MessageSuspend, MessageResume:
-		from.takeState(message)
+		if from.takeState(message) {
+			handled.stalled(now, sender, from)
+		}
 		handled.settle(now)
 		handled.sendRoster()
 	case MessageCommand:
@@ -495,158 +510,6 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
-}
-
-// command applies the host's command in arrival order (cut-a §5.1): in Cut A only the host controls
-// playback (D246 §8); a seek based on a group another seek has changed since is refused as stale.
-func (current *session) command(now time.Time, sender *member, from *device, message Inbound) {
-	refuse := func(code string) {
-		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, BasedOnSeq: message.BasedOnSeq, Code: code})
-	}
-	if !sender.isHost {
-		refuse(codeForbidden)
-		return
-	}
-	isPlaying := current.group.fileID != 0
-	switch message.Command {
-	case CommandChangeItem:
-		if message.FileID == 0 {
-			refuse(codeNotFound) // one the host may not play was given as 0 (Handle)
-			return
-		}
-		current.changeItem(now, sender, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
-	case CommandStop:
-		current.group.fileID, current.group.position = 0, 0
-		current.change(now, GroupIdle, EventStopped, sender.id)
-	case CommandPlay, CommandPause, CommandSeek, CommandRate:
-		if !isPlaying {
-			refuse(codeInvalid)
-			return
-		}
-		current.transport(now, sender, message, refuse)
-	default:
-		refuse(codeInvalid)
-	}
-}
-
-// transport plays, pauses, seeks or changes the rate of what plays.
-func (current *session) transport(now time.Time, sender *member, message Inbound, refuse func(code string)) {
-	switch message.Command {
-	case CommandPlay:
-		current.change(now, GroupWaiting, EventPlayed, sender.id)
-		current.settle(now)
-	case CommandPause:
-		current.change(now, GroupPaused, EventPaused, sender.id)
-	case CommandSeek:
-		if message.BasedOnSeq < current.group.lastSeek {
-			refuse(codeStale)
-			return
-		}
-		current.seek(now, sender, time.Duration(message.PositionMs)*time.Millisecond)
-	case CommandRate:
-		if message.Rate <= 0 || !current.everyPlayerSetsRate() {
-			refuse(codeInvalid)
-			return
-		}
-		current.group.position, current.group.at = current.positionAt(now), now
-		current.group.rate = message.Rate
-		current.change(now, current.group.state, EventChangedRate, sender.id)
-	case CommandChangeItem, CommandStop:
-	}
-}
-
-// changeItem puts fileID on for everyone, from position, as the host played it: the group waits
-// until every player that has been ready loads it, then plays (D246 §5).
-func (current *session) changeItem(now time.Time, sender *member, fileID int64, position time.Duration) {
-	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
-	current.change(now, GroupWaiting, EventChangedItem, sender.id)
-	current.settle(now)
-}
-
-// seek moves the group to position; a playing group waits there until every player is ready.
-func (current *session) seek(now time.Time, sender *member, position time.Duration) {
-	state := current.group.state
-	if state == GroupPlaying {
-		state = GroupWaiting
-	}
-	from := current.positionAt(now)
-	current.group.position, current.group.at = position, now
-	current.announce(now, state, EventSeeked, sender.id, from)
-	current.group.lastSeek = current.group.seq
-	current.settle(now)
-}
-
-// settle starts a waiting group playing once every device that plays along is ready, or stops a
-// playing one that has one not ready. A device that has not yet once been ready, still choosing
-// its speakers or loading, is not waited for (D246 §6); a group with no such device plays.
-func (current *session) settle(now time.Time) {
-	allReady := true
-	var waitingFor int64
-	for _, each := range current.members {
-		for _, attached := range each.devices {
-			if !attached.role.plays() || !attached.hasBeenReady {
-				continue
-			}
-			if !attached.isReady() {
-				allReady, waitingFor = false, each.id
-			}
-		}
-	}
-	switch {
-	case current.group.state == GroupWaiting && allReady:
-		current.change(now, GroupPlaying, EventEveryoneReady, 0)
-	case current.group.state == GroupPlaying && !allReady:
-		current.change(now, GroupWaiting, EventBuffering, waitingFor)
-	}
-}
-
-// change moves the group to state, naming the event and who caused it, and tells every device.
-func (current *session) change(now time.Time, state GroupState, event EventKind, byMember int64) {
-	current.announce(now, state, event, byMember, 0)
-}
-
-// announce is change, with where a seek jumped from.
-func (current *session) announce(
-	now time.Time, state GroupState, event EventKind, byMember int64, seekedFrom time.Duration,
-) {
-	current.group.position, current.group.at = current.positionAt(now), now
-	current.group.state = state
-	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
-	current.group.seq++
-	current.broadcast(Outbound{
-		V: ProtocolVersion, Type: MessageGroup, Seq: current.group.seq, Group: current.groupView(now),
-	})
-}
-
-// positionAt is where the group is at now: moving at its rate while it plays.
-func (current *session) positionAt(now time.Time) time.Duration {
-	if current.group.state != GroupPlaying {
-		return current.group.position
-	}
-	elapsed := now.Sub(current.group.at)
-	return current.group.position + time.Duration(float64(elapsed)*current.group.rate)
-}
-
-// groupView is the group as a client is told it.
-func (current *session) groupView(now time.Time) *GroupView {
-	return &GroupView{
-		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
-		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
-		SeekedFromMs: current.group.seekedFrom.Milliseconds(),
-	}
-}
-
-// everyPlayerSetsRate is whether every device that plays can set its rate: a group's rate stays
-// 1.0 unless every one can honour it (watch-together.md, Sync).
-func (current *session) everyPlayerSetsRate() bool {
-	for _, each := range current.members {
-		for _, attached := range each.devices {
-			if attached.role.plays() && !attached.canSetRate {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // relay passes voice signalling to the device it names, in the same session (D193 §4).

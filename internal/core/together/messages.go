@@ -164,6 +164,9 @@ const (
 	EventBuffering     EventKind = "buffering"
 	// EventLeft is a playing device gone: a drop, which the group waits out.
 	EventLeft EventKind = "left"
+	// EventContinuedWithout is the group playing on while a member's player catches up alone
+	// (D247 §4).
+	EventContinuedWithout EventKind = "continuedWithout"
 )
 
 // MemberView is one member in the roster: a person, with their devices.

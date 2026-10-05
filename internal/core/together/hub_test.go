@@ -38,15 +38,15 @@ func (box *inbox) last(kind MessageType) Outbound {
 	return Outbound{}
 }
 
-// stage is a hub with a session the owner hosts, nothing playing yet, and a clock.
-type stage struct {
+// sessionStage is a hub with a session the owner hosts, nothing playing yet, and a clock.
+type sessionStage struct {
 	hub    *Hub
 	clock  *clocktest.Fake
 	opened Opened
 	owner  Person
 }
 
-func newStage(t *testing.T) stage {
+func newStage(t *testing.T) sessionStage {
 	t.Helper()
 	fakeClock := clocktest.NewFake(time.Date(2026, 10, 5, 20, 0, 0, 0, time.UTC))
 	hub := NewHub(fakeClock, rand.Reader, func(_ context.Context, _, fileID int64) bool { return fileID != 13 })
@@ -55,11 +55,11 @@ func newStage(t *testing.T) stage {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return stage{hub: hub, clock: fakeClock, opened: opened, owner: owner}
+	return sessionStage{hub: hub, clock: fakeClock, opened: opened, owner: owner}
 }
 
 // attach attaches a device with credential and role, and returns it and its inbox.
-func (stage stage) attach(t *testing.T, credential string, role DeviceRole) (Attachment, *inbox) {
+func (stage sessionStage) attach(t *testing.T, credential string, role DeviceRole) (Attachment, *inbox) {
 	t.Helper()
 	box := &inbox{}
 	attachment, err := stage.hub.Attach(credential, role, true, nil, box.send)
@@ -70,7 +70,7 @@ func (stage stage) attach(t *testing.T, credential string, role DeviceRole) (Att
 }
 
 // join admits the guest, "partner", by a link of their own.
-func (stage stage) join(t *testing.T) Joined {
+func (stage sessionStage) join(t *testing.T) Joined {
 	t.Helper()
 	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner")
 	if err != nil {
@@ -84,15 +84,21 @@ func (stage stage) join(t *testing.T) Joined {
 }
 
 // command sends the host's command from attachment.
-func (stage stage) command(t *testing.T, attachment Attachment, command CommandKind, fileID int64) {
+func (stage sessionStage) command(t *testing.T, attachment Attachment, command CommandKind, fileID int64) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessageCommand, Command: command, FileID: fileID})
 }
 
 // ready says attachment is ready to play along, or buffering.
-func (stage stage) ready(t *testing.T, attachment Attachment, isBuffering bool) {
+func (stage sessionStage) ready(t *testing.T, attachment Attachment, isBuffering bool) {
 	t.Helper()
 	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessageState, Buffering: isBuffering})
+}
+
+// tick is a ready player's report while the group waits: any message ends a wait whose time is up.
+func (stage sessionStage) tick(t *testing.T, attachment Attachment) {
+	t.Helper()
+	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessagePing})
 }
 
 // A session starts with nothing playing; what the host puts on waits until every player that has
@@ -421,5 +427,132 @@ func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {
 	stage.command(t, host, CommandPause, 0)
 	if paused := hostBox.last(MessageGroup).Group; paused.Event != EventPaused || paused.SeekedFromMs != 0 {
 		t.Errorf("the pause after = %+v; want paused, with no seek's origin", paused)
+	}
+}
+
+// playingStage is a stage with the host's and a guest's players both ready and film 7 playing.
+type playingStage struct {
+	sessionStage
+	host, guestDevice Attachment
+	hostBox           *inbox
+	guest             Joined
+}
+
+func playing(t *testing.T) playingStage {
+	t.Helper()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guest := stage.join(t)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	stage.ready(t, host, false)
+	stage.ready(t, guestDevice, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
+		t.Fatalf("film 7 put on with both ready: %s, want Playing", state)
+	}
+	return playingStage{sessionStage: stage, host: host, guestDevice: guestDevice, hostBox: hostBox, guest: guest}
+}
+
+// A player that stalls holds the group once; stalling again within stallCooldown, it catches up
+// alone while the group plays on, and it is waited for again once the cooldown has passed
+// (D247 §4).
+func TestHub_AStalledPlayerHoldsTheGroupOnceThenCatchesUpAlone(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	hostBox, guestDevice := stage.hostBox, stage.guestDevice
+	guest := stage.guest
+	stage.ready(t, guestDevice, true)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventBuffering {
+		t.Fatalf("the guest's first stall: %+v, want Waiting for it", group)
+	}
+	stage.ready(t, guestDevice, false)
+	stage.clock.Advance(groupWaitCooldown + time.Second)
+	stage.ready(t, guestDevice, true)
+	again := hostBox.last(MessageGroup).Group
+	if again.State != GroupPlaying || again.Event != EventContinuedWithout || again.ByMemberID != guest.MemberID {
+		t.Errorf("the guest stalling again within the cooldown: %+v; want Playing on without the guest", again)
+	}
+	seq := hostBox.last(MessageGroup).Seq
+	stage.ready(t, guestDevice, true)
+	stage.ready(t, guestDevice, false)
+	if hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the guest catching up changed the group: %+v", hostBox.last(MessageGroup).Group)
+	}
+	stage.clock.Advance(stallCooldown)
+	stage.ready(t, guestDevice, true)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Errorf("the guest stalling after the cooldown: %s; want Waiting for it again", group.State)
+	}
+}
+
+// Within groupWaitCooldown of the group waiting for one member, another member's stall pauses no
+// one (D247 §4).
+func TestHub_AStallSoonAfterTheGroupWaitedPausesNoOne(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	hostBox, guestDevice := stage.hostBox, stage.guestDevice
+	second := stage.join(t)
+	secondDevice, _ := stage.attach(t, second.MembershipCredential, RolePlayback)
+	stage.ready(t, secondDevice, false)
+	stage.ready(t, guestDevice, true)
+	stage.ready(t, guestDevice, false)
+	stage.clock.Advance(groupWaitCooldown - time.Second)
+	stage.ready(t, secondDevice, true)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != second.MemberID {
+		t.Errorf("a second member stalling just after the group waited: %+v; want Playing on without them", group)
+	}
+}
+
+// A wait ends at its time once a player is ready: the players not ready catch up alone (D247 §4).
+func TestHub_AWaitEndsAtItsTimeAndThePlayersNotReadyCatchUp(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
+	guest := stage.guest
+	stage.ready(t, guestDevice, true)
+	stage.clock.Advance(reloadWait - time.Second)
+	stage.tick(t, host)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
+		t.Fatalf("before the wait's time: %s, want Waiting", state)
+	}
+	stage.clock.Advance(time.Second)
+	stage.tick(t, host)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventContinuedWithout ||
+		group.ByMemberID != guest.MemberID {
+		t.Errorf("at the wait's time: %+v; want Playing on without the guest", group)
+	}
+}
+
+// What the host puts on is waited for longer than a stall, while no player is ready the group
+// waits on, and a player catching up is waited for again by what the host puts on next (D247 §4).
+func TestHub_AFirstLoadIsWaitedForLongerThanAStall(t *testing.T) {
+	t.Parallel()
+	stage := playing(t)
+	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
+	guest := stage.guest
+	stage.clock.Advance(groupWaitCooldown)
+	stage.ready(t, guestDevice, true)
+	stage.ready(t, guestDevice, false)
+	stage.clock.Advance(groupWaitCooldown)
+	stage.ready(t, guestDevice, true) // within its cooldown: it catches up alone
+	stage.command(t, host, CommandChangeItem, 8)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
+		t.Fatalf("film 8 put on with the guest, catching up, still loading: %s, want Waiting for it", state)
+	}
+	stage.clock.Advance(reloadWait)
+	stage.tick(t, host)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
+		t.Errorf("a first load after a stall's wait: %s, want still Waiting", state)
+	}
+	stage.ready(t, host, true)
+	stage.clock.Advance(firstLoadWait)
+	stage.tick(t, host)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
+		t.Errorf("past the first load's time with no player ready: %s, want still Waiting", state)
+	}
+	stage.ready(t, host, false)
+	stage.tick(t, host)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != guest.MemberID {
+		t.Errorf("past its time with the host ready: %+v, want Playing on without the guest", group)
 	}
 }

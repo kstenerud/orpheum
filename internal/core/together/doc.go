@@ -25,10 +25,17 @@
 //     Concurrency); the race detector runs in make test-all.
 //   - What the host puts on waits until every player that has once been ready is, then plays, and
 //     the group waits while any of them buffers or is gone; one still choosing its speakers or
-//     loading holds no one up (D246 §6, §9). Enforced by
+//     loading holds no one up (D246 §6). Enforced by
 //     TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndWaitsForOneThatBuffers,
 //     TestHub_AJoiningViewerHoldsNoOneUpUntilReady and
 //     TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack.
+//   - A stalled player holds the group once: stalling again within stallCooldown, or within
+//     groupWaitCooldown of the group's last wait, it catches up alone while the group plays on. A
+//     wait ends after reloadWait, or firstLoadWait for what the host put on, once a player is ready
+//     (D247 §4). Enforced by TestHub_AStalledPlayerHoldsTheGroupOnceThenCatchesUpAlone,
+//     TestHub_AStallSoonAfterTheGroupWaitedPausesNoOne,
+//     TestHub_AWaitEndsAtItsTimeAndThePlayersNotReadyCatchUp and
+//     TestHub_AFirstLoadIsWaitedForLongerThanAStall.
 //   - Only the host controls playback in Cut A, and stopping leaves nothing on; a seek made against
 //     a group another seek has changed is refused as stale (D246 §5, §8). Enforced by
 //     TestHub_OnlyTheHostControlsPlayback, TestHub_TheHostStoppingLeavesNothingPlaying and
@@ -54,7 +61,8 @@
 //   - D62: Watch Together is first-class; the client surface is six methods.
 //   - D66: no clock synchronisation.
 //   - D117, D119, D122, D125: the session, its link and its guests, as D246 revised them.
-//   - D246 §3, §5, §6, §8, §9: the viewer, the host's session, joining, control and waiting.
+//   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control.
+//   - D247 §4: waiting for a stalled player once, then letting it catch up alone.
 //   - D191: the session behaves as if nobody has an account.
 //   - D243 §1–§3 and §9: a guest's cookie, a signed-in member's viewing, secrets after #, and the
 //     numbers it is held to.
@@ -63,5 +71,6 @@
 // # Where to change
 //
 //   - messages.go: the wire messages, as cut-a §5.1 lists them.
-//   - hub.go: sessions, memberships, devices and the group's state machine.
+//   - hub.go: sessions, memberships and devices.
+//   - group.go: the group's state machine: the host's commands, waiting for players, and stalls.
 package together

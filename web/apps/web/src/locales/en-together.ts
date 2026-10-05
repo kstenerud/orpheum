@@ -38,6 +38,7 @@ export const enTogether = {
       stopped: "{{name}} stopped the film",
       buffering: "{{name}} is buffering… everyone waits",
       dropped: "{{name}} dropped out — everyone waits",
+      continuedWithout: "Continuing without {{name}}, who will catch up",
       everyoneReady: "Everyone is ready",
       changedRate: "{{name}} changed the speed",
     },
