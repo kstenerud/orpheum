@@ -96,6 +96,9 @@ type Request struct {
 	PlayableFormats   decide.PlayableFormats
 	Network           decide.Network
 	PreferredDelivery decide.Delivery
+	// AudioOutput is how a device with no device row makes sound, a Watch Together viewer's, asked
+	// as they join (D246 §6); a person's device's own answer is read instead.
+	AudioOutput string
 }
 
 // Started is a playback: its media token and the decision.
@@ -145,7 +148,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	output, err := service.audioOutput(ctx, userID, request.DeviceID)
+	output, err := service.audioOutputOf(ctx, userID, request)
 	if err != nil {
 		return Started{}, err
 	}
@@ -199,7 +202,8 @@ func (service *Service) reachedFile(ctx context.Context, holder Holder, fileID i
 	sqlcgen.GetPlayableFileRow, error,
 ) {
 	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
-	if err == nil && !holder.Reach.Reaches(&file.LibraryID) {
+	isOtherFile := holder.OnlyFileID != 0 && holder.OnlyFileID != fileID
+	if err == nil && (!holder.Reach.Reaches(&file.LibraryID) || isOtherFile) {
 		return file, fmt.Errorf("file %d: %w", fileID, library.ErrNoFile)
 	}
 	return file, err
@@ -283,6 +287,15 @@ func (service *Service) startingChoices(
 // built-in speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
 func isStereoOutput(audioOutput string) bool {
 	return audioOutput == auth.AudioOutputBuiltInSpeakers || audioOutput == auth.AudioOutputHeadphones
+}
+
+// audioOutputOf is how the device asking makes sound: a person's device's own answer, or, for a
+// viewer with no device row, what they chose as they joined (D246 §6).
+func (service *Service) audioOutputOf(ctx context.Context, userID int64, request Request) (string, error) {
+	if request.DeviceID == 0 {
+		return request.AudioOutput, nil
+	}
+	return service.audioOutput(ctx, userID, request.DeviceID)
 }
 
 // audioOutput is how a person's device makes sound, or empty when it is not yet asked or there is

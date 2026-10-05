@@ -24,8 +24,8 @@ type socket struct {
 	connection *websocket.Conn
 }
 
-// dialTogether opens a device's session WebSocket and says hello with credential.
-func (harness testHarness) dialTogether(t *testing.T, credential string, role together.DeviceRole) socket {
+// dialTogether opens a device's session WebSocket and says hello with credential, a playing device.
+func (harness testHarness) dialTogether(t *testing.T, credential string) socket {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -38,7 +38,7 @@ func (harness testHarness) dialTogether(t *testing.T, credential string, role to
 	opened := socket{t: t, connection: connection}
 	opened.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello, Credential: credential,
-		Role: role,
+		Role: together.RolePlayback,
 	})
 	return opened
 }
@@ -69,80 +69,179 @@ func (opened socket) awaitGroup(state together.GroupState) together.Outbound {
 	}
 }
 
-// awaitType reads until a message of kind, which fails the test when none comes in time.
-func (opened socket) awaitType(kind together.MessageType) together.Outbound {
+// awaitWelcome reads until the device's welcome, which fails the test when none comes in time.
+func (opened socket) awaitWelcome() together.Outbound {
 	opened.t.Helper()
 	ctx, cancel := context.WithTimeout(opened.t.Context(), 5*time.Second)
 	defer cancel()
 	for {
 		var message together.Outbound
 		if err := wsjson.Read(ctx, opened.connection, &message); err != nil {
-			opened.t.Fatalf("no %s message: %v", kind, err)
+			opened.t.Fatalf("no welcome: %v", err)
 		}
-		if message.Type == kind {
+		if message.Type == together.MessageWelcome {
 			return message
 		}
 	}
 }
 
-// startTogether starts a session of film 1 as the admin, returning what it answered.
-func (harness testHarness) startTogether(t *testing.T, admin string) CreateTogetherOutput {
+// openTogether opens the session host hosts, and returns what it answered.
+func (harness testHarness) openTogether(t *testing.T, host string) OpenTogetherOutput {
 	t.Helper()
-	answer := harness.do(t, http.MethodPost, "/together", admin, map[string]any{"fileId": 1, "transport": "group"})
-	var created CreateTogetherOutput
-	if err := json.Unmarshal([]byte(answer.body), &created.Body); err != nil || answer.status != http.StatusCreated {
+	answer := harness.do(t, http.MethodPost, "/together", host, nil)
+	var opened OpenTogetherOutput
+	if err := json.Unmarshal([]byte(answer.body), &opened.Body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /together = %d %s", answer.status, answer.body)
 	}
-	return created
+	return opened
 }
 
-// The host starts a session, a guest with no account joins by the link's secret, each device says
-// hello on the session's WebSocket, and a play from the host plays for both once both are ready;
-// the guest's pause pauses both (cut-a §5.1, D117, D119).
-func TestTogether_AHostAndAGuestPlayAndPauseTogether(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	admin := harness.createAdminAndSignIn(t)
-	harness.shelveFilms(t)
-	created := harness.startTogether(t, admin)
+// joinByLink makes a link in the host's session, noted note, and joins by it as name.
+func (harness testHarness) joinByLink(
+	t *testing.T, host string, sessionID int64, note, name string,
+) JoinTogetherOutput {
+	t.Helper()
+	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", sessionID), host,
+		map[string]string{"adminNote": note})
+	var link TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil || made.status != http.StatusCreated {
+		t.Fatalf("POST /together/%d/links = %d %s", sessionID, made.status, made.body)
+	}
 	joined := harness.do(t, http.MethodPost, "/together/join", "",
-		map[string]any{"secret": created.Body.JoinSecret, "name": "partner"})
+		map[string]any{"secret": link.Body.Secret, "name": name})
 	var membership JoinTogetherOutput
 	if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
 		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
 	}
-	host := harness.dialTogether(t, created.Body.MembershipCredential, together.RolePlayback)
-	if welcome := host.awaitType(together.MessageWelcome); welcome.SessionID != created.Body.SessionID {
-		t.Fatalf("the host's welcome = %+v", welcome)
-	}
-	guest := harness.dialTogether(t, membership.Body.MembershipCredential, together.RolePlayback)
-	guest.awaitType(together.MessageWelcome)
+	return membership
+}
+
+// putOn has the host's device put fileID on, and waits until the viewer's device hears it playing.
+func putOn(host, viewer socket, fileID int64) {
 	host.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageCommand,
-		Command: together.CommandPlay,
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandChangeItem, FileID: fileID,
 	})
-	if playing := guest.awaitGroup(together.GroupPlaying); playing.Group.FileID != 1 {
-		t.Errorf("the guest's group = %+v; want film 1 playing", playing.Group)
-	}
-	guest.send(together.Inbound{
-		V: together.ProtocolVersion, Type: together.MessageCommand,
-		Command: together.CommandPause,
-	})
-	if paused := host.awaitGroup(together.GroupPaused); paused.Group.ByMemberID != membership.Body.MemberID {
-		t.Errorf("the host's group = %+v; want paused by the guest", paused.Group)
+	for {
+		if playing := viewer.awaitGroup(together.GroupPlaying); playing.Group.FileID == fileID {
+			return
+		}
 	}
 }
 
-// Only a role that may host Watch Together starts a session, only of a film it reaches, and only
-// the host rotates, ejects or ends it; a link that changed admits no one (D119, D125, D243 §4).
-func TestTogether_OnlyAHostStartsRotatesAndEnds(t *testing.T) {
+// viewerPlayback starts a viewer's playback with their credential, and returns the answer.
+func (harness testHarness) viewerPlayback(t *testing.T, credential string) response {
+	t.Helper()
+	body := chrome(0)
+	delete(body, "fileId")
+	body["audioOutput"] = "headphones"
+	return harness.do(t, http.MethodPost, "/together/playback", credential, body)
+}
+
+// viewerBytes asks for a playback's bytes with only a viewer's cookie, as their player does.
+func (harness testHarness) viewerBytes(t *testing.T, url, credential string) int {
+	t.Helper()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, harness.httpServer.URL+url, http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := viewerCookie(credential, false)
+	request.AddCookie(&cookie)
+	answer, err := harness.httpServer.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = answer.Body.Close() //nolint:errcheck // the status is what is asked
+	return answer.StatusCode
+}
+
+// The host opens a session with nothing on, a viewer joins by their own link with a name of their
+// choosing, and what the host puts on plays for both and pauses for both; the viewer's player
+// plays it by their membership (cut-a §5.1, D246 §3, §5).
+func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	created := harness.startTogether(t, admin)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
+	host := harness.dialTogether(t, opened.Body.MembershipCredential)
+	if welcome := host.awaitWelcome(); welcome.SessionID != opened.Body.SessionID ||
+		!welcome.IsHost || welcome.Group.State != together.GroupIdle {
+		t.Fatalf("the host's welcome = %+v", welcome)
+	}
+	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
+	viewer.awaitWelcome()
+	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, CodeNotFound)
+	putOn(host, viewer, 1)
+	started := harness.viewerPlayback(t, membership.Body.MembershipCredential)
+	var playing decision
+	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
+		t.Fatalf("POST /together/playback = %d %s", started.status, started.body)
+	}
+	if status := harness.viewerBytes(t, playing.URL, membership.Body.MembershipCredential); status != http.StatusOK {
+		t.Errorf("the viewer's bytes, by their cookie alone = %d, want 200", status)
+	}
+	host.send(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandPause,
+	})
+	if paused := viewer.awaitGroup(together.GroupPaused); paused.Group.ByMemberID == membership.Body.MemberID {
+		t.Errorf("the viewer's group = %+v; want paused by the host", paused.Group)
+	}
+	details := harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", opened.Body.SessionID), admin, nil)
+	if !strings.Contains(details.body, `"name":"Anna","adminNote":"my partner"`) {
+		t.Errorf("GET /together/%d = %s; want Anna, noted as the host's partner", opened.Body.SessionID, details.body)
+	}
+}
+
+// A viewer plays the film that is on, in the host's libraries, and nothing else: the one before
+// is gone once another is on, and none plays once the host's role no longer reaches its library
+// (D246 §3, D243 §4).
+func TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	opened := harness.openTogether(t, partner)
+	membership := harness.joinByLink(t, partner, opened.Body.SessionID, "a friend", "Sam")
+	host := harness.dialTogether(t, opened.Body.MembershipCredential)
+	host.awaitWelcome()
+	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
+	viewer.awaitWelcome()
+	putOn(host, viewer, 1)
+	var first decision
+	firstPlayback := harness.viewerPlayback(t, membership.Body.MembershipCredential)
+	if err := json.Unmarshal([]byte(firstPlayback.body), &first); err != nil {
+		t.Fatal(err)
+	}
+	putOn(host, viewer, 2)
+	status := harness.viewerBytes(t, first.URL, membership.Body.MembershipCredential)
+	if status != http.StatusNotFound {
+		t.Errorf("the film before's bytes once another is on = %d, want 404", status)
+	}
+	if again := harness.viewerPlayback(t, membership.Body.MembershipCredential); again.status != http.StatusOK {
+		t.Errorf("a playback of the film now on = %d %s", again.status, again.body)
+	}
+	harness.giveRoleLibraries(t, admin, "user") // the host's role reaches no library now
+	wantError(t, harness.viewerPlayback(t, membership.Body.MembershipCredential), http.StatusNotFound, CodeNotFound)
+}
+
+// Only a role that may host Watch Together opens a session, only the host makes links, each with a
+// note, and each admits one person once; a viewer may leave, and only the host ends it (D246 §3).
+func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	if again := harness.openTogether(t, admin); again.Body.SessionID != opened.Body.SessionID || again.Body.IsNew {
+		t.Errorf("opening again = %+v; want the session the host already has", again.Body)
+	}
 	made := harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
-		"name": "watchers", "capabilities": []string{}, "libraries": []map[string]any{{"libraryId": 1}},
+		"name": "watchers", "capabilities": []string{}, "libraries": []map[string]any{},
 	})
 	if made.status != http.StatusCreated {
 		t.Fatalf("POST /roles = %d %s", made.status, made.body)
@@ -152,16 +251,30 @@ func TestTogether_OnlyAHostStartsRotatesAndEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	watcher := harness.signIn(t, "watcher", "watcher-password")
-	film := map[string]any{"fileId": 1, "transport": "group"}
-	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, film), http.StatusForbidden, CodeForbidden)
-	path := fmt.Sprintf("/together/%d", created.Body.SessionID)
-	wantError(t, harness.do(t, http.MethodPost, path+"/rotate", watcher, nil), http.StatusForbidden, CodeForbidden)
-	rotated := harness.do(t, http.MethodPost, path+"/rotate", admin, nil)
-	if rotated.status != http.StatusOK {
-		t.Fatalf("POST %s/rotate = %d %s", path, rotated.status, rotated.body)
+	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, nil), http.StatusForbidden, CodeForbidden)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	wantError(t, harness.do(t, http.MethodPost, path+"/links", watcher, map[string]string{"adminNote": "x"}),
+		http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"adminNote": ""}),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"adminNote": "a cousin"})
+	var made2 TogetherLinkOutput
+	if err := json.Unmarshal([]byte(link.body), &made2.Body); err != nil {
+		t.Fatal(err)
+	}
+	joined := harness.do(t, http.MethodPost, "/together/join", "",
+		map[string]any{"secret": made2.Body.Secret, "name": "Kim"})
+	var membership JoinTogetherOutput
+	if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
+		t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/together/join", "",
-		map[string]any{"secret": created.Body.JoinSecret, "name": "stranger"}), http.StatusNotFound, CodeNotFound)
+		map[string]any{"secret": made2.Body.Secret, "name": "stranger"}), http.StatusNotFound, CodeNotFound)
+	left := harness.do(t, http.MethodPost, "/together/leave", membership.Body.MembershipCredential, nil)
+	if left.status != http.StatusNoContent {
+		t.Errorf("POST /together/leave = %d %s", left.status, left.body)
+	}
+	wantError(t, harness.do(t, http.MethodDelete, path, watcher, nil), http.StatusForbidden, CodeForbidden)
 	if ended := harness.do(t, http.MethodDelete, path, admin, nil); ended.status != http.StatusNoContent {
 		t.Errorf("DELETE %s = %d %s", path, ended.status, ended.body)
 	}

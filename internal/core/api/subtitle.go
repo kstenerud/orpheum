@@ -122,12 +122,12 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 	if match[3] == string(subtitles.FormatWebVTT) {
 		format, contentType = subtitles.FormatWebVTT, vttContentType
 	}
-	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
+	dependencies, holder, err := server.mediaHolder(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
 	subtitleText, err := dependencies.Playback.Subtitle(
-		ctx, input.Token, track, format, playback.HolderOf(principal))
+		ctx, input.Token, track, format, holder)
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a subtitle", err)
 	}

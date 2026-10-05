@@ -65,40 +65,43 @@ type StartPlaybackInput struct {
 
 // StartPlaybackOutput is the decision (cut-a §6).
 type StartPlaybackOutput struct {
-	Body struct {
-		Delivery DeliveryKind `json:"delivery"`
-		URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
-		Profile  string       `enum:"remux,h264-8m" json:"profile,omitempty"`
-		// NotDirectReasons say why it is not played directly, to show on screen (D188).
-		NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
-		// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
-		// the first segment exists.
-		IsPreparing bool `json:"isPreparing"`
-		// AudioRenditions are a rendition's audio renditions, in its master playlist's order.
-		AudioRenditions []AudioRenditionBody `json:"audioRenditions,omitempty"`
-		// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
-		// URLs answer 425 until it is (D217 §6).
-		Subtitles []SubtitleTrackBody `json:"subtitles"`
-		// AudioTracks are the file's own audio tracks, by their place among them, which a person
-		// chooses among (D230 §5).
-		AudioTracks []AudioTrackBody `json:"audioTracks"`
-		// StartingAudioStreamID is the audio track the playback starts with: the person's choice,
-		// or the one a player starts with; absent when the file has no sound.
-		StartingAudioStreamID int64 `json:"startingAudioStreamId,omitempty"`
-		// Preferences are the person's choices for this file, which the player starts with.
-		Preferences PlaybackPreferencesBody `json:"preferences"`
-		// ResumePositionMs is where the player starts, without asking (D188): where the person
-		// left the file, or 0.
-		ResumePositionMs int64 `json:"resumePositionMs"`
-		// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
-		MediaToken string `json:"mediaToken"`
-		// AudioOutput is how the device asking makes sound, absent until it is asked: the player
-		// asks before it plays, and asks for the decision again with the answer (D222).
-		AudioOutput AudioOutputKind `json:"audioOutput,omitempty"`
-		// Levelling brings the main sound to the level: the file's own when played directly, the
-		// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
-		Levelling LevellingBody `json:"levelling"`
-	}
+	Body StartPlaybackOutputBody
+}
+
+// StartPlaybackOutputBody is the decision, and what the player starts with.
+type StartPlaybackOutputBody struct {
+	Delivery DeliveryKind `json:"delivery"`
+	URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
+	Profile  string       `enum:"remux,h264-8m" json:"profile,omitempty"`
+	// NotDirectReasons say why it is not played directly, to show on screen (D188).
+	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
+	// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
+	// the first segment exists.
+	IsPreparing bool `json:"isPreparing"`
+	// AudioRenditions are a rendition's audio renditions, in its master playlist's order.
+	AudioRenditions []AudioRenditionBody `json:"audioRenditions,omitempty"`
+	// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
+	// URLs answer 425 until it is (D217 §6).
+	Subtitles []SubtitleTrackBody `json:"subtitles"`
+	// AudioTracks are the file's own audio tracks, by their place among them, which a person
+	// chooses among (D230 §5).
+	AudioTracks []AudioTrackBody `json:"audioTracks"`
+	// StartingAudioStreamID is the audio track the playback starts with: the person's choice,
+	// or the one a player starts with; absent when the file has no sound.
+	StartingAudioStreamID int64 `json:"startingAudioStreamId,omitempty"`
+	// Preferences are the person's choices for this file, which the player starts with.
+	Preferences PlaybackPreferencesBody `json:"preferences"`
+	// ResumePositionMs is where the player starts, without asking (D188): where the person
+	// left the file, or 0.
+	ResumePositionMs int64 `json:"resumePositionMs"`
+	// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
+	MediaToken string `json:"mediaToken"`
+	// AudioOutput is how the device asking makes sound, absent until it is asked: the player
+	// asks before it plays, and asks for the decision again with the answer (D222).
+	AudioOutput AudioOutputKind `json:"audioOutput,omitempty"`
+	// Levelling brings the main sound to the level: the file's own when played directly, the
+	// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
+	Levelling LevellingBody `json:"levelling"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -228,6 +231,11 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	if err != nil {
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
+	return startedOutput(started), nil
+}
+
+// startedOutput is a playback started, as the API says it.
+func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output := &StartPlaybackOutput{}
 	output.Body.Delivery = DeliveryKind(started.Decision.Delivery)
 	output.Body.Profile = string(started.Decision.Profile)
@@ -262,18 +270,18 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)
 	output.Body.Levelling = levellingBody(started.Levelling)
-	return output, nil
+	return output
 }
 
 // relayDirect relays a file's bytes from its node: the core never opens a media file (D193 §1).
 func (server *Server) relayDirect(
 	ctx context.Context, method string, input *DirectInput,
 ) (*huma.StreamResponse, error) {
-	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
+	dependencies, holder, err := server.mediaHolder(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
-	source, err := dependencies.Playback.DirectSource(ctx, input.Token, playback.HolderOf(principal))
+	source, err := dependencies.Playback.DirectSource(ctx, input.Token, holder)
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a playback's bytes", err)
 	}
@@ -299,12 +307,12 @@ func (server *Server) relayHLSFile(
 	if !hlsFilePattern.MatchString(renditionPath) {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such rendition file")
 	}
-	dependencies, principal, err := server.requireSignedInForMedia(ctx, credentials)
+	dependencies, holder, err := server.mediaHolder(ctx, credentials)
 	if err != nil {
 		return nil, err
 	}
 	source, err := dependencies.Playback.HLSSourceOf(
-		ctx, token, renditionPath, playback.HolderOf(principal))
+		ctx, token, renditionPath, holder)
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a rendition's file", err)
 	}

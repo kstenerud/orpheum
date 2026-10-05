@@ -4,9 +4,12 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
 // MediaCookieName names the cookie that carries the session to the byte paths, all under /bytes/
@@ -29,10 +32,26 @@ func mediaCookie(token string, isOverTLS bool) http.Cookie {
 	}
 }
 
-// MediaCredentials are a byte path's: the Authorization header, or the media cookie.
+// ViewerCookieName names the cookie that carries a Watch Together viewer's membership to the byte
+// paths (D246 §3): beside the media cookie, so a browser signed in as its person can also view a
+// session without either replacing the other. It is HttpOnly, SameSite Strict and scoped as the
+// media cookie is.
+const ViewerCookieName = "orpheum_viewer"
+
+// viewerCookie is the viewer cookie carrying a membership credential.
+func viewerCookie(credential string, isOverTLS bool) http.Cookie {
+	return http.Cookie{ //nolint:gosec // Secure only over TLS, as the media cookie (P20)
+		Name: ViewerCookieName, Value: credential, Path: Prefix + "/bytes/", MaxAge: mediaCookieMaxAgeSeconds,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: isOverTLS,
+	}
+}
+
+// MediaCredentials are a byte path's: the Authorization header, the media cookie, or a viewer's
+// cookie.
 type MediaCredentials struct {
 	AuthorizationHeader
-	Cookie string `cookie:"orpheum_media" doc:"The media cookie sign-in sets, for an <img>"`
+	Cookie       string `cookie:"orpheum_media"  doc:"The media cookie sign-in sets, for an <img>"`
+	ViewerCookie string `cookie:"orpheum_viewer" doc:"A Watch Together viewer's, set as their playback starts"`
 }
 
 // asAuthorizationHeader is the credential as an Authorization header: the header's, else the
@@ -50,6 +69,61 @@ func (server *Server) requireSignedInForMedia(
 	ctx context.Context, credentials MediaCredentials,
 ) (*Dependencies, auth.Principal, error) {
 	return server.requireSignedIn(ctx, credentials.asAuthorizationHeader())
+}
+
+// mediaHolder is who a byte path's request holds media tokens as: the person its header or media
+// cookie signs in, and a Watch Together viewer its header or viewer cookie names, either or both
+// (D246 §3). Neither is the sign-in's refusal.
+func (server *Server) mediaHolder(
+	ctx context.Context, credentials MediaCredentials,
+) (*Dependencies, playback.Holder, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, playback.Holder{}, err
+	}
+	_, principal, signInErr := server.requireSignedInForMedia(ctx, credentials)
+	var viewer *playback.Holder
+	for _, credential := range []string{bearerToken(credentials.Authorization), credentials.ViewerCookie} {
+		if held, isViewer := server.viewerHolder(ctx, dependencies, credential); isViewer {
+			viewer = &held
+			break
+		}
+	}
+	switch {
+	case signInErr == nil:
+		holder := playback.HolderOf(principal)
+		holder.Viewer = viewer
+		return dependencies, holder, nil
+	case viewer != nil:
+		return dependencies, *viewer, nil
+	}
+	return nil, playback.Holder{}, signInErr
+}
+
+// viewerHolder is the holder a Watch Together viewer's membership credential is, while it lasts and
+// the session plays something: the host's libraries, and only that film (D246 §3).
+func (server *Server) viewerHolder(
+	ctx context.Context, dependencies *Dependencies, credential string,
+) (playback.Holder, bool) {
+	if credential == "" {
+		return playback.Holder{}, false
+	}
+	viewer, isViewer := dependencies.Together.ViewerOf(credential)
+	if !isViewer || viewer.FileID == 0 {
+		return playback.Holder{}, false
+	}
+	reach, err := dependencies.Auth.ReachOfUser(ctx, viewer.HostUserID)
+	if err != nil {
+		return playback.Holder{}, false
+	}
+	return playback.Holder{SessionKey: viewerKey(credential), Reach: reach, OnlyFileID: viewer.FileID}, true
+}
+
+// viewerKey names a viewer's membership to the playbacks it starts without holding its credential:
+// the hex of the credential's SHA-256, as a person's session is named.
+func viewerKey(credential string) string {
+	hash := sha256.Sum256([]byte(credential))
+	return "viewer:" + hex.EncodeToString(hash[:])
 }
 
 // The Cache-Control values the byte paths answer with, one per kind of bytes, so each kind is
