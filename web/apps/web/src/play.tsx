@@ -40,6 +40,7 @@ import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { useResource } from "./use-resource.ts";
+import { monotonicMs } from "./use-together.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
 export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
@@ -103,11 +104,6 @@ export function PlayView(props: {
 type PlayProps = Parameters<typeof PlayView>[0] & {
   readonly onLowerQuality: (offer: LowerQuality, positionMs: number) => void;
 };
-
-/** The device's monotonic clock, in milliseconds. */
-function monotonicMs(): number {
-  return performance.now();
-}
 
 /**
  * Keeps the playback's play state on the server, and hands a lower quality the server offered a
@@ -375,7 +371,7 @@ async function fetchUnavailability(
  * Measures the link of a video playing a file of fileBitRateKbps as it is, from how fast its buffer
  * grows (D247 §1); none for a file whose bit rate is not known.
  */
-function useBufferMeter(
+export function useBufferMeter(
   videoRef: RefObject<HTMLVideoElement | null>,
   fileBitRateKbps: number,
 ): () => number | undefined {
@@ -452,7 +448,7 @@ interface CannotKeepUp {
  * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
  * and, once its lowest quality stalls, that the link cannot keep up (D247 §8).
  */
-function useChunkedPlayback(
+export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
   offer: LowerQuality,
   onFailed: (failure: PlaybackFailure) => void,
@@ -495,7 +491,7 @@ function useChunkedPlayback(
 }
 
 /** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
-function LowerQualityNotes(props: {
+export function LowerQualityNotes(props: {
   readonly offer: LowerQuality;
   readonly playing: PlayedLevel | undefined;
   readonly cannotKeepUp: CannotKeepUp | undefined;

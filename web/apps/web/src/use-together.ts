@@ -10,7 +10,10 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { useServices } from "./services.tsx";
 
-/** The monotonic clock a Watch Together player keeps time by: no clock is shared (D66). */
+/**
+ * The device's monotonic clock, in milliseconds: what a Watch Together player keeps time by, since
+ * no clock is shared (D66), and a player measures its link by (D247 §1).
+ */
 export function monotonicMs(): number {
   return performance.now();
 }

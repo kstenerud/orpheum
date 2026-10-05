@@ -35,7 +35,7 @@ const report = {
 /** How sending a report fails when the server answers it so, or "sent". */
 async function sendingFailsWith(answer: Answers[string]): Promise<unknown> {
   const { api } = servedBy({ "POST /playback/abc/report": answer });
-  return await sendReport(api, "abc", report).then(
+  return await sendReport(api, { mediaToken: "abc" }, report).then(
     () => "sent",
     (cause: unknown) => cause,
   );
@@ -52,7 +52,7 @@ describe("play state", () => {
   it("reports on the playback its media token names", async () => {
     const heard: Heard[] = [];
     const { api } = servedBy({ "POST /playback/abc/report": [204, undefined] }, heard);
-    await sendReport(api, "abc", report);
+    await sendReport(api, { mediaToken: "abc" }, report);
     expect(heard).toEqual([{ methodAndPath: "POST /playback/abc/report", body: report }]);
   });
 
@@ -63,8 +63,10 @@ describe("play state", () => {
         [200, { stop: { message: "Back soon" } }],
       ],
     });
-    expect(await sendReport(api, "abc", report)).toEqual({});
-    expect(await sendReport(api, "abc", report)).toEqual({ stop: { message: "Back soon" } });
+    expect(await sendReport(api, { mediaToken: "abc" }, report)).toEqual({});
+    expect(await sendReport(api, { mediaToken: "abc" }, report)).toEqual({
+      stop: { message: "Back soon" },
+    });
   });
 
   it("gives up on a playback the server refuses for good, and not on a passing failure", async () => {

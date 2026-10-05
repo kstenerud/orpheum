@@ -20,6 +20,15 @@ const transientRefusalCodes: ReadonlySet<string> = new Set([
   "rate_limited",
 ]);
 
+/**
+ * Where a report goes: the playback its media token names, by the session's own authorization, or
+ * by the headers given, as a Watch Together viewer's membership (D247 §2).
+ */
+export interface ReportTo {
+  readonly mediaToken: string;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
 /** A lower quality a stalled player moves to, as a report's answer offers it (D247 §2). */
 export type LowerQuality = components["schemas"]["LowerQualityBody"];
 
@@ -38,12 +47,13 @@ export interface ReportAnswer {
  */
 export async function sendReport(
   api: Api,
-  mediaToken: string,
+  to: ReportTo,
   report: PlayReport,
 ): Promise<ReportAnswer> {
   const { stalls, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
-    params: { path: { token: mediaToken } },
+    params: { path: { token: to.mediaToken } },
+    ...(to.headers === undefined ? {} : { headers: to.headers }),
     body: {
       ...rest,
       events: [...report.events],
@@ -191,7 +201,7 @@ function startReporting(
       return;
     }
     try {
-      const answer = await sendReport(api, mediaToken, report);
+      const answer = await sendReport(api, { mediaToken }, report);
       if (answer.stop !== undefined) {
         isStopped = true;
         video.pause();
@@ -278,4 +288,40 @@ export function usePlayState(
     );
   }, [api, videoRef, mediaToken, resumePositionMs]);
   return { refusal, stopMessage, lowerQuality };
+}
+
+/**
+ * Reports a viewer's stalls, and the link's speed, on the playback its membership started, by the
+ * headers that carry it (D247 §2): nothing of what a viewer watches is kept (D243 §2), so nothing
+ * else is said, and the video is not moved, since it follows the group. It returns a lower quality
+ * the server offered after the player stalled again, undefined until then.
+ */
+export function useStallReports(
+  api: Api,
+  videoRef: RefObject<HTMLVideoElement | null>,
+  playback: ReportTo & { readonly readLinkKbps: () => number | undefined },
+): LowerQuality | undefined {
+  const { mediaToken, headers } = playback;
+  const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
+  const linkReader = useRef(playback.readLinkKbps);
+  linkReader.current = playback.readLinkKbps;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) {
+      return undefined;
+    }
+    const to: ReportTo = headers === undefined ? { mediaToken } : { mediaToken, headers };
+    const reporter = new PlayReporter(async (report) => {
+      const answer = await sendReport(api, to, report);
+      if (answer.lowerQuality !== undefined) {
+        setLowerQuality(answer.lowerQuality);
+      }
+    }, reportSeqCounter(mediaToken));
+    reporter.measureLinkWith(() => linkReader.current());
+    const stopWatching = watchStalls(video, (stall) => {
+      reporter.recordStall(stall.positionMs);
+    });
+    return stopWatching;
+  }, [api, videoRef, mediaToken, headers]);
+  return lowerQuality;
 }
