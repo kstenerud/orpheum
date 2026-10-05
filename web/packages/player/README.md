@@ -21,6 +21,14 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   the file's average bit rate, counting only time the element spends loading, never the pauses
   between loads, and starting afresh at a seek elsewhere; the estimate is the lower of two moving
   averages, so it falls fast and rises slowly (D247 §1; slow-links.md §2). `link.test.ts`.
+- **A stall is a wait for data, while playing, of at least `stallAfterMs`, after the player has
+  played since its last seek**: a seek's loading, a first load and a brief wait are not
+  (D247 §2). `stalls.test.ts`.
+- **A chunked playback starts at the quality the server chose and steps up only one quality at a
+  time**, after `holdBeforeStepUpMs` at its quality, with `stepUpBufferMs` loaded ahead and a link
+  `stepUpHeadroom` times the next quality's rate; hls.js steps down by itself, and never probes the
+  lowest quality first, whose chunks are made only for a player that needs them (D247 §9, §10).
+  `step-up.test.ts`, `chunked.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).
@@ -39,6 +47,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. HLS playback:
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks at a quality
+  and stepping up: `src/chunked.ts`, `src/step-up.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`.

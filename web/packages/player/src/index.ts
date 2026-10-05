@@ -15,10 +15,16 @@ export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
+export { adaptQuality, lookForStepUpEveryMs, playChunked } from "./chunked.ts";
+export type { AdaptingHls, ChunkedPlayback, PlayedLevel } from "./chunked.ts";
 export { meterBufferGrowth } from "./link.ts";
 export type { LinkMeter, MeteredMedia } from "./link.ts";
 export { PlayReporter, ReportRefused, reportEveryMs, seekTo } from "./report.ts";
 export type { PlayEvent, PlayEventKind, PlayReport, PlaySpan } from "./report.ts";
+export { stallAfterMs, watchStalls } from "./stalls.ts";
+export type { Stall, WatchedMedia } from "./stalls.ts";
+export { holdBeforeStepUpMs, nextCap, stepUpBufferMs, stepUpHeadroom } from "./step-up.ts";
+export type { StepUpState } from "./step-up.ts";
 export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";
 export type { SubtitleLayer } from "./subtitles.ts";
 
