@@ -24,9 +24,10 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-# The type set, from yoloAI's settled convention. `check_revert_red.py` reads the same
-# types: feat/fix/perf owe a red-on-revert, the rest do not.
-TYPES = ("feat", "fix", "docs", "test", "refactor", "build", "ci", "chore", "perf")
+# The type set, from yoloAI's settled convention, with Conventional Commits' `style` for a change
+# of formatting alone, which `check_revert_red.py` already exempted (the owner, 2026-10-05).
+# `check_revert_red.py` reads the same types: feat/fix/perf owe a red-on-revert, the rest do not.
+TYPES = ("feat", "fix", "docs", "test", "refactor", "build", "ci", "chore", "perf", "style")
 
 # Types whose commits must explain themselves in a body; a `docs:` typo fix need not.
 CODE_TYPES = ("feat", "fix", "refactor", "perf")

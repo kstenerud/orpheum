@@ -73,7 +73,7 @@ done. *Standards: makefile.md §4.*
 12. **Secrets never print.** Use `secrets.Value`; only provider clients call `Reveal()` (D194).
     *forbidigo; the M1 canary test.*
 13. **Commits:** subject `type(scope): summary` (`feat`, `fix`, `docs`, `test`, `refactor`,
-    `build`, `ci`, `chore`, `perf`; `!` marks a break); `feat`/`fix`/`refactor`/`perf` carry a
+    `build`, `ci`, `chore`, `perf`, `style` for formatting alone; `!` marks a break); `feat`/`fix`/`refactor`/`perf` carry a
     prose body saying what was wrong and why this fixes it; AI work ends with
     `Co-Authored-By: <exact model> <noreply@anthropic.com>`. *commit-msg hook;
     `make lint-commits`.*
