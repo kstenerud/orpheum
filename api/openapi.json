@@ -3155,6 +3155,71 @@
         ],
         "type": "object"
       },
+      "ReachabilityOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "description": "Where the name points",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "checkedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "https": {
+            "$ref": "#/components/schemas/ReachabilityResult"
+          },
+          "name": {
+            "description": "The public name; empty when the server has none",
+            "type": "string"
+          },
+          "relayTcp": {
+            "$ref": "#/components/schemas/ReachabilityResult"
+          },
+          "relayUdp": {
+            "$ref": "#/components/schemas/ReachabilityResult"
+          }
+        },
+        "required": [
+          "checkedAt",
+          "name",
+          "addresses",
+          "https",
+          "relayUdp",
+          "relayTcp"
+        ],
+        "type": "object"
+      },
+      "ReachabilityResult": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "reached",
+              "notChecked",
+              "nameUnresolved",
+              "notAnswering",
+              "certificateRefused",
+              "anotherServer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "type": "object"
+      },
       "RefreshOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7907,6 +7972,42 @@
         ]
       }
     },
+    "/reachability/{nonce}": {
+      "get": {
+        "operationId": "echoReachability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nonce",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Answer a reachability check's own request, which came back through the public name",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
     "/registration": {
       "post": {
         "operationId": "register",
@@ -8650,6 +8751,48 @@
           }
         },
         "summary": "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/reachability": {
+      "post": {
+        "operationId": "checkReachability",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReachabilityOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7)",
         "tags": [
           "Running it"
         ]

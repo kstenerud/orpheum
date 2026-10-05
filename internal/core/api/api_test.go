@@ -34,6 +34,7 @@ import (
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -187,9 +188,10 @@ func newHarness(t *testing.T) testHarness {
 			reach, err := service.ReachOfUser(ctx, userID)
 			return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
 		}),
-		Preferences: preferencesService,
-		NodeBytes:   nodeBytes,
-		Jobs:        queue,
+		Reachability: reachability.New(reachability.Parts{Clock: now, Random: rand.Reader}),
+		Preferences:  preferencesService,
+		NodeBytes:    nodeBytes,
+		Jobs:         queue,
 		Providers: []*coreproviders.Service{
 			tmdb.APIService(queue, now, seeded), tmdb.ImagesService(queue, now, seeded),
 			opensubtitles.Service(queue, now, seeded),

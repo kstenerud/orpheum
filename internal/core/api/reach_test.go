@@ -182,6 +182,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// checked when it started, and the host changes what plays only to what they reach (D122,
 		// TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
 		"joinTogether", "rotateTogether", "ejectFromTogether", "setTogetherCap", "endTogether",
+		// A reachability check's own request: it says only whether this server made the nonce.
+		"echoReachability",
 	}
 	isAdminOnly := adminOnlyHandlers(t)
 	harness := newHarness(t)

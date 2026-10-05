@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -74,6 +75,8 @@ type Dependencies struct {
 	Renditions *renditions.Service
 	// Together holds the Watch Together sessions, in memory (D119).
 	Together *together.Hub
+	// Reachability checks the server's public name and voice relay from outside in (D243 §7).
+	Reachability *reachability.Checker
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
 	Backups *backup.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
@@ -153,6 +156,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerRoles()
 	server.registerNowPlaying()
 	server.registerTogether()
+	server.registerReachability()
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
 	return server

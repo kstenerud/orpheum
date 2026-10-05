@@ -9,6 +9,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/pion/logging v0.2.4
+	github.com/pion/stun/v3 v3.0.1
 	github.com/pion/turn/v4 v4.1.4
 	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.46.0
@@ -24,7 +25,6 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pion/dtls/v3 v3.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/stun/v3 v3.0.1 // indirect
 	github.com/pion/transport/v3 v3.0.8 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

@@ -71,6 +71,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/settings` | R6a | — (the server's alone: its unused `user` scope was removed on 2026-09-30, F6) |
 | `internal/core/textindex` | R3 (cheap: folding, CLDR keys, search routing) | ⚑ CONTAIN: the one display sanitiser (Line/Prose, used by library/clean.go:22-37, auth, opensubtitles) |
 | `internal/core/together` | LIVE (Watch Together's sessions, in memory; built 2026-10-05) | — (the WebSocket and endpoints are internal/core/api's) |
+| `internal/core/reachability` | OPS (the System page's check of the public path, from outside in; built 2026-10-05) | ⚑ R1: asks the server's own public name and relay through the outbound client |
 | `internal/core/turn` | LIVE (the TURN relay carrying voice, and its credentials; built 2026-10-05) | — (pion/turn does the protocol; the ICE endpoint is internal/core/api's) |
 | `internal/core/webclient` | R9 (delivers the client) | — |
 | `internal/node/agent` | R8 | — |
