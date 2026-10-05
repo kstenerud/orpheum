@@ -88,6 +88,8 @@
 ## 5. The order it is built in
 
 1. The grid: `read_through` on the node and in the core, its keyframes kept, and the grid.
+   *Built 2026-10-05: `internal/node/readthrough`, `internal/core/readthrough`, `video_timeline`
+   in persistent.db (step 0035), `internal/core/chunks.GridOf`.*
 2. `make_chunks` on the node, with the byte route and the budget.
 3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
