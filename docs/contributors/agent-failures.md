@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A20 — A test device named from a guess, twice, and the diagnosis steered by it (2026-10-05)
+
+- **What happened:** after the owner's first Watch Together test, I diagnosed the host's stuck
+  player as a phone's player. I asked whether it was an iPhone's Safari, whose own player would
+  have changed where to look. It was a MacBook running Firefox, tethered to the phone. Earlier
+  in the same diagnosis I had named it the laptop. The owner had said only "the mobile
+  network". I took the network for the device, and each guess read as knowledge because it
+  fitted the log. The question that found the cause was the owner's own report: the film
+  played alone too, stalling under a link too slow for it.
+- **Caught by:** the owner: "I'm actually using my macbook running firefox as 'owner', which is
+  tethered to my phone."
+- **Gate:** none; it is a fact about the owner's desk. The practice: when a diagnosis turns on
+  the device, browser or link, ask for all three in the first question, and assume none.
+
 ### A19 — A session's permission stated from a summary, not read from the environment (2026-10-03)
 
 - **What happened:** before building D242, which changes the dev loop's gate files, I told the
