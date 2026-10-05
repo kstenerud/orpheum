@@ -25,6 +25,13 @@ export const nudgeForMs = 1000;
 export const slowestNudgeFactor = 0.5;
 export const fastestNudgeFactor = 2;
 
+/**
+ * How long a leading player's pause waits to be sent: a browser's own controls pause the video while
+ * its person drags the timeline, and the seek that follows comes within this. A pause with a seek
+ * after it is that seek, not a pause for everyone (the owner's first test, 2026-10-05).
+ */
+export const scrubPauseWindowMs = 300;
+
 /** How often a following player checks its drift while the group plays. */
 export const checkDriftEveryMs = 1000;
 
@@ -149,6 +156,7 @@ const followedEvents = [
   "waiting",
   "play",
   "pause",
+  "seeking",
   "seeked",
   "ended",
 ] as const;
@@ -168,6 +176,8 @@ class GroupFollower {
    * player is left as its person put it, not pulled back to the group as it was.
    */
   #isAwaitingGroup = false;
+  /** A leading player's pause not yet sent, which a seek that follows it at once withdraws. */
+  #pendingPause: ReturnType<typeof setTimeout> | undefined = undefined;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -205,6 +215,11 @@ class GroupFollower {
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
+    if (event === "seeking" && this.#pendingPause !== undefined) {
+      // A pause and then a seek is a person dragging the timeline: the seek is what they meant.
+      clearTimeout(this.#pendingPause);
+      this.#pendingPause = undefined;
+    }
     const isOwnSeek = event === "seeked" && this.#isOwnSeekPending;
     if (event === "seeked") {
       this.#isOwnSeekPending = false;
@@ -216,12 +231,27 @@ class GroupFollower {
         : undefined;
     if (command === undefined) {
       this.apply();
+    } else if (command.command === "pause") {
+      clearTimeout(this.#pendingPause);
+      this.#pendingPause = setTimeout(() => {
+        this.#pendingPause = undefined;
+        this.#send(command);
+      }, scrubPauseWindowMs);
     } else {
-      this.#isAwaitingGroup = true;
-      this.#connection.command(command);
+      this.#send(command);
     }
     this.#connection.reportState();
   };
+
+  /** Stops what is pending, as the follower stops. */
+  readonly stop = (): void => {
+    clearTimeout(this.#pendingPause);
+  };
+
+  #send(command: GroupCommand): void {
+    this.#isAwaitingGroup = true;
+    this.#connection.command(command);
+  }
 
   #whereNow(): GroupNow | undefined {
     const snapshot = this.#connection.snapshot();
@@ -311,6 +341,7 @@ export function followGroup(
   connection.reportState();
   return () => {
     clearInterval(checker);
+    follower.stop();
     unsubscribe();
     connection.setPlayer(undefined);
     for (const [event, listener] of listeners) {

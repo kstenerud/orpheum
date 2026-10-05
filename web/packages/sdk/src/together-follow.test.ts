@@ -11,6 +11,7 @@ import type {
 } from "./together-connection.ts";
 import {
   checkDriftEveryMs,
+  scrubPauseWindowMs,
   driftCorrection,
   expectedPositionMs,
   fastestNudgeFactor,
@@ -241,6 +242,7 @@ describe("a player following its group", () => {
     setGroup({ ...paused, state: "Playing" }, 0);
     media.paused = true;
     media.fire("pause");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands.at(-1)).toEqual({ command: "pause" });
     setGroup({ ...paused, state: "Paused" }, 0);
     media.currentTime = 600;
@@ -261,5 +263,23 @@ describe("a player following its group", () => {
     expect(media.paused).toBe(true);
     media.fire("pause");
     expect(commands).toEqual([]);
+  });
+
+  it("takes a pause the browser makes while its person drags the timeline for the seek it is", () => {
+    const media = new FakeMedia();
+    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: true,
+      monotonicMs,
+    });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    media.paused = true;
+    media.fire("pause");
+    media.fire("seeking");
+    media.currentTime = 5400;
+    media.fire("seeked");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([{ command: "seek", positionMs: 5_400_000 }]);
   });
 });
