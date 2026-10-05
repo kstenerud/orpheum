@@ -116,3 +116,40 @@ func TestOpenCache_KeepsTheAttemptsGivenToNodesUntilForgotten(t *testing.T) {
 		t.Errorf("after forgetting it cache.db keeps %+v, %v %v; want nothing", kept, err, listErr)
 	}
 }
+
+// The job table takes the kinds that work on the whole server, a backup and a certificate's
+// renewal, naming no target (D243 sections 6, 11); and a scan keeps how many files it needs read
+// and whether another is queued after it (D236), as the queries name them.
+func TestOpenCache_TakesTheWholeServerJobsAndAScansCounts(t *testing.T) {
+	t.Parallel()
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		for _, kind := range []string{"backup", "renew_certificate"} {
+			if _, insertErr := queries.InsertJob(t.Context(), cachegen.InsertJobParams{
+				Kind: kind, ArgsJSON: "{}", RunnableAt: 1, CreatedAt: 1,
+			}); insertErr != nil {
+				return insertErr //nolint:wrapcheck // the test reads it as is
+			}
+		}
+		scanID, insertErr := queries.InsertScan(t.Context(), cachegen.InsertScanParams{
+			NodeID: 1, RootPath: "/media/films", StartedAt: 1,
+		})
+		if insertErr != nil {
+			return insertErr //nolint:wrapcheck // the test reads it as is
+		}
+		if listErr := queries.SetScanListed(t.Context(), cachegen.SetScanListedParams{
+			ListedAt: new(int64(2)), ListedCount: 10, ToExamineCount: 3, ID: scanID,
+		}); listErr != nil {
+			return listErr //nolint:wrapcheck // the test reads it as is
+		}
+		_, againErr := queries.SetScanAgain(t.Context(), cachegen.SetScanAgainParams{NodeID: 1, RootPath: "/media/films"})
+		return againErr //nolint:wrapcheck // the test reads it as is
+	})
+	if err != nil {
+		t.Fatalf("a backup's and a renewal's jobs, and a scan's counts: %v", err)
+	}
+	scans, err := cache.Read().ListScans(t.Context())
+	if err != nil || len(scans) != 1 || scans[0].ToExamineCount != 3 || scans[0].IsAnotherScanQueued != 1 {
+		t.Errorf("the scan = %+v (%v); want 3 to read and another queued", scans, err)
+	}
+}
