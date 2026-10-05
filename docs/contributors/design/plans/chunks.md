@@ -27,9 +27,12 @@
 
 ## 2. The node
 
-- **`scan_keyframes`** (a new command): the picture's keyframe times, from
-  `ffprobe -select_streams v:<i> -show_entries packet=pts_time,flags`, as milliseconds. About 5 s
-  for a 96-minute MP4 here (§10); a slow disk or a large MKV takes longer.
+- **`read_through`** (measure_loudness, made general): one FFmpeg run reads the file once and
+  gathers what the core asks for: each audio track's loudness, as before (D226), and the picture's
+  keyframe times and bytes per second of film, from a `framecrc` output of the copied picture,
+  whose lines without `F=` are keyframes. The owner asked for one path that reads a file through
+  with different things gathered (2026-10-05). The bytes per second are the film's bit-rate
+  profile: its peaks, by which a link is sized (slow-links.md §3).
 - **`make_chunks`** (a new command): the source by identity (D100), the stream's recipe, the grid's
   times from `grid[first]` to `grid[last+1]`, the first chunk's number, and the store's directory.
   The node runs FFmpeg's `segment` muxer (slow-links.md §10 has the arguments), and as each raw
@@ -47,9 +50,9 @@
 
 ## 3. The core
 
-- **The grid** is kept in `cache.db` (`keyframe_grid`: the file, its payload hash, the grid as
-  JSON, when it was made), made by a `scan_keyframes` job at play-now priority when a player first
-  stalls on the film, and made again when the file's payload changes.
+- **The keyframes** are kept in `cache.db` by payload hash, made by the `read_through` sweep in the
+  background as loudness is, so a film's grid is there before anyone stalls; a film without one is
+  read through at play-now priority at a player's first stall.
 - **The qualities** are the setting `chunk_qualities`, a list such as
   `3000k@720p,2000k@540p,1200k@480p,700k@432p` (D247 §6): each a bit rate and a picture height,
   highest first. A quality's peak is capped at 1.5× its bit rate.
@@ -83,7 +86,7 @@
 
 ## 5. The order it is built in
 
-1. The grid: `scan_keyframes` on the node, the job and `keyframe_grid` in the core.
+1. The grid: `read_through` on the node and in the core, its keyframes kept, and the grid.
 2. `make_chunks` on the node, with the byte route and the budget.
 3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
