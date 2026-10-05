@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
@@ -66,6 +67,7 @@ const (
 	RemovedItemArtworkKeptDays                     Key = "removed_item_artwork_kept_days"
 	MediaTokenIdleExpiryHours                      Key = "media_token_idle_expiry_hours"
 	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
+	ChunkQualities                                 Key = "chunk_qualities"
 	ResumeMinPercent                               Key = "resume_min_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
@@ -367,6 +369,13 @@ func artworkAndPlaybackDefinitions() []Definition {
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
+		sourced(Definition{
+			Key: ChunkQualities, Kind: KindString,
+			StartJSON: json.RawMessage(`"3000k@720p,2000k@540p,1200k@480p,700k@432p"`), IsValid: qualities.IsValid,
+			Description: "the lower qualities a film is cut into chunks at for a slow link, highest first: each " +
+				"<kbps>k@<height>p, its average bit rate, its peaks capped at one and a half times it, and its " +
+				"picture's height, the width following the film's shape (D247 §6)",
+		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films"),
 		sourced(integerSetting(ResumeMinPercent, "5", 0, 50,
 			"percent of a file's length before which a position is not resumed and the file plays from the "+
 				"start; a file of unknown length always resumes (play-state.md)"),

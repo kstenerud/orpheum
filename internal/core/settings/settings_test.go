@@ -581,3 +581,23 @@ func TestUnused_TheRemoteCeilingsRowSaysItWasRetiredAndWhy(t *testing.T) {
 		t.Errorf("the ceiling's row reads as %+v; want retired, with D247's reason", retired)
 	}
 }
+
+// chunk_qualities is checked by the function internal/core/chunks reads it with, so a value the
+// settings take is one the chunks can read (AGENTS.md rule 11).
+func TestChunkQualities_IsCheckedByTheParserThatReadsIt(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	for value, isAccepted := range map[string]bool{
+		`"4000k@1080p,800k@360p"`: true, `"800k@360p,4000k@1080p"`: false, `"800k@361p"`: false, `""`: false,
+	} {
+		err := service.Set(t.Context(), map[string]json.RawMessage{string(ChunkQualities): json.RawMessage(value)},
+			nil, false)
+		if (isAccepted && err != nil) || (!isAccepted && !errors.Is(err, ErrInvalidValue)) {
+			t.Errorf("chunk_qualities %s: %v; want accepted %t", value, err, isAccepted)
+		}
+	}
+	text, err := service.String(t.Context(), ChunkQualities)
+	if err != nil || text != "4000k@1080p,800k@360p" {
+		t.Errorf("chunk_qualities reads %q, %v; want the value set", text, err)
+	}
+}
