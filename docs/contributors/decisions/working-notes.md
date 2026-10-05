@@ -17920,3 +17920,54 @@ leaves Cut A, and a polished UI takes its place.
    without it.
 
 **Status:** Decided 2026-10-05; the research is the next step, then the principles, then the build.
+
+## D246 — What a person may do is their role's, an invite names who it is for, and a Watch Together viewer is an ephemeral account that sees only the host's playback
+
+**Decided** (2026-10-05), by the project owner, reviewing M4's Phases A, B and E as built. **Revises**
+[D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source)
+§1, [D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code)
+§1–§2, [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak),
+[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)'s
+"a guest is not a principal", and
+[D243](#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in)
+§1, §2, §4 and §11.
+
+1. **No "outsider" kind of account.** The owner: *"Can't the capabilities (see other members,
+   downloads, etc) be attached to a role so that the admin can choose his own granularity? We
+   could provide templates later (family, extended family, friends, guest, etc) if the number of
+   knobs grows too much. I see this as more of the same kinds of questions that guard access to
+   the family videos."* Everything D174 §1's table set apart for an outsider is a capability of
+   a role, added with the feature it governs: seeing other members and their activity, a
+   download's lease, a ceiling. `is_outsider` goes. Nothing in Cut A shows one person's activity
+   to another but the admin's pages, so no new capability is needed yet. Role templates are
+   later.
+2. **How an account is made does not depend on who it is for.** For anyone, the admin either
+   sets the account up in full (a name, a password and a role) or issues an **invite link** for
+   the person to fill in their own name and password, under a role the admin chose. An invite
+   carries a **note only the admin sees**, which the admin must write, saying who it was meant
+   for (*"Uncle Joe", "Grandma", "The creepy guy from the bus station"*), so that once the person
+   has filled in their own details the admin can tell who is who. The note stays with the
+   account. A forgotten password is still a new registration link (D218 §5).
+3. **A Watch Together viewer is an ephemeral account**, the one place a link alone admits
+   someone. It shares much with a full account, but its hidden built-in role, which cannot be
+   edited, is restricted to the playback screen: no browsing, no library, and no control of
+   playback. It lasts as long as the session. The admin writes a note for each link, seen only
+   by the admin; the viewer chooses a name or handle that the others see.
+4. **A link's recipient already signed in on the server** may later be pre-filled with their own
+   details and have their viewing recorded (D243 §2 waits for this). Later too: avatars; and
+   inviting registered members directly, the invitation an in-app notification and a button on
+   their home page, with no link.
+5. **The session is the host's.** The host starts and stops it. While it is active the host
+   browses the library as usual, and the viewers see none of it. When the host plays a video it
+   plays on every participant's screen; when the host stops it, their screens go black again.
+   The host can play a film, let it end, browse to another and play that, or watch a series and
+   go on to the next episode as usual (auto-next too, once it exists). A viewer sees only the
+   playback screen and the session's own controls: their own volume, the text chat once it
+   exists, and **Leave**.
+6. **A viewer chooses their speaker setup as soon as they join**, unless they already have one
+   (D184), not when a video is about to start, and **no one waits for it**: once a viewer is
+   ready, they start wherever the group's playback is; until something plays, the viewing area
+   is black.
+7. **Backups are every *x* days at *y* o'clock** (D243 §11 had hours).
+
+**Status:** Decided 2026-10-05; to be built in M4 in place of what it revises.
