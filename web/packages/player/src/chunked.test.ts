@@ -10,9 +10,9 @@ import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
 /** A stand-in for hls.js: three qualities, the link it measures, and its events. */
 class FakeHls implements AdaptingHls {
   readonly levels = [
-    { bitrate: 900_000, height: 432 },
-    { bitrate: 1_800_000, height: 480 },
-    { bitrate: 3_000_000, height: 540 },
+    { bitrate: 1_242_000, averageBitrate: 892_000, height: 432 },
+    { bitrate: 1_992_000, averageBitrate: 1_392_000, height: 480 },
+    { bitrate: 4_692_000, averageBitrate: 3_192_000, height: 720 },
   ];
 
   currentLevel = -1;

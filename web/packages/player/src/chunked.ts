@@ -1,17 +1,62 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import Hls from "hls.js";
+import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
 
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
 import { hlsMethod, hlsSupport, playNative, startWithAudio, type HlsPlayback } from "./hls.ts";
 import { nextCap } from "./step-up.ts";
 
+/**
+ * How long a chunk may take to begin arriving: longer than the core holds a request for one a run
+ * is still making (internal/core/api's chunkWaitAtMost, 20 s), so a chunk on its way is waited
+ * for, not given up on (D247 §10).
+ */
+export const chunkFirstByteWaitMs = 30_000;
+
+/** HTTP's 425 Too Early: the core's word that a chunk is being made, and to ask again. */
+const tooEarly = 425;
+
+/** Whether a chunk's load is tried again: as hls.js would, and after the core's 425 too. */
+// eslint-disable-next-line max-params -- hls.js's own signature for shouldRetry
+function retriesTooEarly(
+  _config: unknown,
+  _count: number,
+  _timedOut: unknown,
+  response: LoaderResponse | undefined,
+  isRetry: boolean,
+): boolean {
+  return isRetry || response?.code === tooEarly;
+}
+
+/**
+ * How a chunked playback loads its chunks: waiting as long as the core does for one being made,
+ * and asking again after the core's 425, "being prepared", as it says to; hls.js's own defaults
+ * give up after ten seconds, and never ask again after a 425.
+ */
+export const chunkLoadPolicy: LoadPolicy = {
+  default: {
+    maxTimeToFirstByteMs: chunkFirstByteWaitMs,
+    maxLoadTimeMs: 120_000,
+    timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 },
+    errorRetry: {
+      maxNumRetry: 12,
+      retryDelayMs: 1000,
+      maxRetryDelayMs: 4000,
+      shouldRetry: retriesTooEarly,
+    },
+  },
+};
+
 /** How often a chunked playback looks at whether it may step up a quality. */
 export const lookForStepUpEveryMs = 10_000;
 
-/** A quality hls.js plays: its peak bit rate and its picture's height, as the playlist says. */
+/**
+ * A quality hls.js plays, as the playlist says: its peak bit rate, which hls.js steps down by, its
+ * average, the sound's included, and its picture's height.
+ */
 export interface PlayedLevel {
   readonly bitrate: number;
+  readonly averageBitrate: number;
   readonly height: number;
 }
 
@@ -104,6 +149,8 @@ export function playChunked(
   options: {
     readonly onFailed: (failure: PlaybackFailure) => void;
     readonly startAtBps: number;
+    /** Where in the film it starts: where the player was when it stalled. */
+    readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;
     readonly monotonicMs: () => number;
   },
@@ -123,7 +170,12 @@ export function playChunked(
   }
   // No probe of the lowest quality first: its chunks are made on request, and only for a player
   // that needs them.
-  const hls = new Hls({ testBandwidth: false, capLevelToPlayerSize: false });
+  const hls = new Hls({
+    testBandwidth: false,
+    capLevelToPlayerSize: false,
+    startPosition: options.startPositionS,
+    fragLoadPolicy: chunkLoadPolicy,
+  });
   hls.on(Hls.Events.ERROR, (_event, data) => {
     if (data.fatal) {
       options.onFailed(hlsErrorFailure(data));

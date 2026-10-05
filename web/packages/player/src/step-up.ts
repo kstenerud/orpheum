@@ -13,9 +13,12 @@ export const stepUpHeadroom = 1.5;
 /** How much must be loaded ahead before stepping up: a step up spends some of it loading anew. */
 export const stepUpBufferMs = 20_000;
 
-/** A quality hls.js may play: its peak bit rate, as its playlist says. */
+/**
+ * A quality hls.js may play: its average bit rate, as its playlist's AVERAGE-BANDWIDTH says, the
+ * sound's included. Its peak, BANDWIDTH, is hls.js's own to step down by.
+ */
 export interface Level {
-  readonly bitrate: number;
+  readonly averageBitrate: number;
 }
 
 /** Where a chunked playback is, as the step-up looks at it. */
@@ -47,7 +50,7 @@ export function nextCap(state: StepUpState): number {
     state.playing < state.cap ||
     state.sinceChangeMs < holdBeforeStepUpMs ||
     state.bufferedAheadMs < stepUpBufferMs ||
-    state.estimateBps < stepUpHeadroom * next.bitrate
+    state.estimateBps < stepUpHeadroom * next.averageBitrate
   ) {
     return state.cap;
   }

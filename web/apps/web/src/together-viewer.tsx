@@ -464,7 +464,13 @@ function ChunkedFilm(
     },
     [t],
   );
-  const { playing, cannotKeepUp } = useChunkedPlayback(videoRef, props.offer, onFailed);
+  // It starts where the group is; following it moves it on from there.
+  const [startMs] = useState(() => props.following.connection.snapshot().group?.positionMs ?? 0);
+  const { playing, cannotKeepUp } = useChunkedPlayback(
+    videoRef,
+    { offer: props.offer, positionMs: startMs },
+    onFailed,
+  );
   useFollowing(videoRef, props.fileId, props.following);
   return (
     <>

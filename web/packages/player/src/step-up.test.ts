@@ -12,7 +12,11 @@ import {
 
 /** A playback at 1.2 Mb/s, the second of three qualities, held long enough, the link ample. */
 const ready: StepUpState = {
-  levels: [{ bitrate: 900_000 }, { bitrate: 1_800_000 }, { bitrate: 3_000_000 }],
+  levels: [
+    { averageBitrate: 900_000 },
+    { averageBitrate: 1_800_000 },
+    { averageBitrate: 3_000_000 },
+  ],
   cap: 1,
   playing: 1,
   estimateBps: stepUpHeadroom * 3_000_000,
