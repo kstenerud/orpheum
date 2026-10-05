@@ -2318,6 +2318,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "soundCarriedGainDb": {
+            "format": "double",
+            "type": "number"
+          },
           "startAtBps": {
             "format": "int64",
             "type": "integer"
@@ -2332,7 +2336,8 @@
           "startAtBps",
           "qualityKbps",
           "height",
-          "isBelowTheLowest"
+          "isBelowTheLowest",
+          "soundCarriedGainDb"
         ],
         "type": "object"
       },

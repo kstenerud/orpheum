@@ -10,6 +10,8 @@ export interface HlsPlayback {
   readonly setAudioRendition: (index: number) => void;
   /** Stops playing and lets go of the element. */
   readonly destroy: () => void;
+  /** The link's speed in kb/s as hls.js measures its segments, or undefined where it cannot say. */
+  readonly estimateKbps: () => number | undefined;
 }
 
 /** What the page offers for HLS: hls.js over MSE, or the element's own HLS, as Safari's. */
@@ -50,6 +52,8 @@ export function playNative(target: NativeTarget, url: string): HlsPlayback {
   return {
     // Safari switches its own tracks from its controls; choosing one is left to them.
     setAudioRendition: () => undefined,
+    // Safari measures its link for itself, and says nothing of it.
+    estimateKbps: () => undefined,
     destroy: () => {
       target.removeAttribute("src");
       target.load();
@@ -99,7 +103,11 @@ export function playHls(
   }
   if (method === "none") {
     onFailed("hls_unsupported");
-    return { setAudioRendition: () => undefined, destroy: () => undefined };
+    return {
+      setAudioRendition: () => undefined,
+      destroy: () => undefined,
+      estimateKbps: () => undefined,
+    };
   }
   const hls = new Hls();
   hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -124,5 +132,6 @@ export function playHls(
     destroy: () => {
       hls.destroy();
     },
+    estimateKbps: () => (hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined),
   };
 }

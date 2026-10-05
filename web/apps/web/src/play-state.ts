@@ -5,10 +5,11 @@ import {
   ReportRefused,
   reportEveryMs,
   seekTo,
+  watchStalls,
   type PlayReport,
 } from "@orpheum/player";
-import type { Api } from "@orpheum/sdk";
-import { useEffect, useState, type RefObject } from "react";
+import type { Api, components } from "@orpheum/sdk";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 
@@ -19,31 +20,56 @@ const transientRefusalCodes: ReadonlySet<string> = new Set([
   "rate_limited",
 ]);
 
+/** A lower quality a stalled player moves to, as a report's answer offers it (D247 §2). */
+export type LowerQuality = components["schemas"]["LowerQualityBody"];
+
+/** What a report is answered with: the admin's stop, a lower quality to move to, or neither. */
+export interface ReportAnswer {
+  readonly stop?: { readonly message: string };
+  readonly lowerQuality?: LowerQuality;
+}
+
 /**
- * Sends one play report for the playback the media token names, and answers the admin's stop when
- * the server says the playback was stopped (D243 §9). A refusal that sending again
- * cannot change (the playback is gone, the session is not allowed it) rejects with ReportRefused,
- * so the reporter stops; a failure that may pass (no answer, a server busy or updating) rejects as
- * it came, so the report goes again with the next.
+ * Sends one play report for the playback the media token names, and answers what the server says:
+ * that the playback was stopped (D243 §9), or a lower quality to move to (D247 §2). A refusal that
+ * sending again cannot change (the playback is gone, the session is not allowed it) rejects with
+ * ReportRefused, so the reporter stops; a failure that may pass (no answer, a server busy or
+ * updating) rejects as it came, so the report goes again with the next.
  */
 export async function sendReport(
   api: Api,
   mediaToken: string,
   report: PlayReport,
-): Promise<{ readonly message: string } | undefined> {
+): Promise<ReportAnswer> {
+  const { stalls, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: mediaToken } },
-    body: { ...report, events: [...report.events], spans: [...report.spans] },
+    body: {
+      ...rest,
+      events: [...report.events],
+      spans: [...report.spans],
+      ...(stalls === undefined ? {} : { stalls: [...stalls] }),
+    },
   });
   try {
     throwIfRefused(answer);
-    return answer.data?.stop ?? undefined;
+    return answerOf(answer.data);
   } catch (cause) {
     if (cause instanceof ApiProblem && !transientRefusalCodes.has(cause.code)) {
       throw new ReportRefused(cause);
     }
     throw cause;
   }
+}
+
+/** A report's answer as the page reads it: what the server said, and nothing it did not. */
+function answerOf(data: components["schemas"]["ReportOutputBody"] | undefined): ReportAnswer {
+  const stop = data?.stop ?? undefined;
+  const lowerQuality = data?.lowerQuality ?? undefined;
+  return {
+    ...(stop === undefined ? {} : { stop }),
+    ...(lowerQuality === undefined ? {} : { lowerQuality }),
+  };
 }
 
 /** The video's position, in milliseconds. */
@@ -139,65 +165,117 @@ function reportVideoEvents(
   };
 }
 
+/** What reporting tells the page: the server's answers, and its refusal for good. */
+interface ReportListener {
+  readonly onStopped: (message: string) => void;
+  readonly onLowerQuality: (offer: LowerQuality) => void;
+  readonly onRefused: (cause: unknown) => void;
+}
+
+/**
+ * Reports a playing video's play state for the playback mediaToken names, from where it starts,
+ * until the returned stop: each change, its stalls at once with the link's speed as readLinkKbps
+ * measures it (D247 §2), where it is every reportEveryMs while playing, and when the page is
+ * hidden. The admin's stop pauses the video and ends the reports (D243 §9).
+ */
+function startReporting(
+  video: HTMLVideoElement,
+  playback: PlayStateOf & { readonly api: Api },
+  listener: ReportListener,
+): () => void {
+  const { api } = playback;
+  const { mediaToken } = playback;
+  let isStopped = false;
+  const reporter = new PlayReporter(async (report) => {
+    if (isStopped) {
+      return;
+    }
+    try {
+      const answer = await sendReport(api, mediaToken, report);
+      if (answer.stop !== undefined) {
+        isStopped = true;
+        video.pause();
+        listener.onStopped(answer.stop.message);
+      }
+      if (answer.lowerQuality !== undefined) {
+        listener.onLowerQuality(answer.lowerQuality);
+      }
+    } catch (cause) {
+      if (cause instanceof ReportRefused) {
+        listener.onRefused(cause.cause);
+      }
+      throw cause;
+    }
+  }, reportSeqCounter(mediaToken));
+  reporter.measureLinkWith(playback.readLinkKbps);
+  const videoEvents = reportVideoEvents(video, reporter, playback.resumePositionMs);
+  const stopWatchingStalls = watchStalls(video, (stall) => {
+    reporter.recordStall(stall.positionMs);
+  });
+  const ticker = setInterval(() => {
+    if (!video.paused && hasMedia(video)) {
+      reporter.flush(positionMs(video));
+    }
+  }, reportEveryMs);
+  const flushWhenHidden = (): void => {
+    if (document.visibilityState === "hidden") {
+      reporter.flush(videoEvents.lastPositionMs());
+    }
+  };
+  document.addEventListener("visibilitychange", flushWhenHidden);
+  return () => {
+    clearInterval(ticker);
+    stopWatchingStalls();
+    document.removeEventListener("visibilitychange", flushWhenHidden);
+    videoEvents.stop();
+    // The video may be emptied already: where it last was is where the person left it.
+    reporter.recordAbandoned(videoEvents.lastPositionMs());
+  };
+}
+
+/** The playback whose play state is kept: its token, where it starts, and how its link is read. */
+interface PlayStateOf {
+  readonly mediaToken: string;
+  readonly resumePositionMs: number;
+  /** The link's speed as the playback measures it, undefined until it can say (D247 §1). */
+  readonly readLinkKbps: () => number | undefined;
+}
+
 /**
  * Keeps a playing video's play state on the server (play-state.md): it starts where the person
- * left the file, without asking (D188), and reports each change of state, and where it is every
- * ten seconds while playing and when the page is hidden, until the playback ends. It returns why
- * the server refused the reports for good, once it has, so the person is told that where they are
- * is no longer kept; and the admin's message when they stopped the playback, which pauses the
- * video and ends the reports (D243 §9); each undefined until then.
+ * left the file, without asking (D188), and reports each change of state, its stalls (D247 §2),
+ * and where it is every ten seconds while playing and when the page is hidden, until the playback
+ * ends. It returns why the server refused the reports for good, once it has, so the person is told
+ * that where they are is no longer kept; the admin's message when they stopped the playback, which
+ * pauses the video and ends the reports (D243 §9); and a lower quality the server offered after
+ * the player stalled again (D247 §2); each undefined until then.
  */
 export function usePlayState(
   api: Api,
   videoRef: RefObject<HTMLVideoElement | null>,
-  playback: { readonly mediaToken: string; readonly resumePositionMs: number },
-): { readonly refusal: unknown; readonly stopMessage: string | undefined } {
+  playback: PlayStateOf,
+): {
+  readonly refusal: unknown;
+  readonly stopMessage: string | undefined;
+  readonly lowerQuality: LowerQuality | undefined;
+} {
   const { mediaToken, resumePositionMs } = playback;
   const [refusal, setRefusal] = useState<unknown>(undefined);
   const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
+  const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
+  // The link is read at each report, by what the latest render handed in.
+  const linkReader = useRef(playback.readLinkKbps);
+  linkReader.current = playback.readLinkKbps;
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {
       return undefined;
     }
-    let isStopped = false;
-    const reporter = new PlayReporter(async (report) => {
-      if (isStopped) {
-        return;
-      }
-      try {
-        const stop = await sendReport(api, mediaToken, report);
-        if (stop !== undefined) {
-          isStopped = true;
-          video.pause();
-          setStopMessage(stop.message);
-        }
-      } catch (cause) {
-        if (cause instanceof ReportRefused) {
-          setRefusal(cause.cause);
-        }
-        throw cause;
-      }
-    }, reportSeqCounter(mediaToken));
-    const videoEvents = reportVideoEvents(video, reporter, resumePositionMs);
-    const ticker = setInterval(() => {
-      if (!video.paused && hasMedia(video)) {
-        reporter.flush(positionMs(video));
-      }
-    }, reportEveryMs);
-    const flushWhenHidden = (): void => {
-      if (document.visibilityState === "hidden") {
-        reporter.flush(videoEvents.lastPositionMs());
-      }
-    };
-    document.addEventListener("visibilitychange", flushWhenHidden);
-    return () => {
-      clearInterval(ticker);
-      document.removeEventListener("visibilitychange", flushWhenHidden);
-      videoEvents.stop();
-      // The video may be emptied already: where it last was is where the person left it.
-      reporter.recordAbandoned(videoEvents.lastPositionMs());
-    };
+    return startReporting(
+      video,
+      { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current() },
+      { onStopped: setStopMessage, onLowerQuality: setLowerQuality, onRefused: setRefusal },
+    );
   }, [api, videoRef, mediaToken, resumePositionMs]);
-  return { refusal, stopMessage };
+  return { refusal, stopMessage, lowerQuality };
 }
