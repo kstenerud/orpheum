@@ -45,8 +45,9 @@ type ResultSink interface {
 	Deliver(ctx context.Context, nodeID int64, result nodeproto.Result) error
 	// DeliverProgress hands a node's word on where an attempt is to the job waiting for it.
 	DeliverProgress(ctx context.Context, nodeID int64, progress nodeproto.Progress)
-	// Interrupt tells the jobs waiting on a node that it started again, losing what it held.
-	Interrupt(ctx context.Context, nodeID int64)
+	// Interrupt tells the jobs given to a node under another start than startID, the one its hello
+	// names, that it started again, losing what it held (D238 §3).
+	Interrupt(ctx context.Context, nodeID int64, startID string)
 	// Reconcile reconciles the jobs given to a node with the attempts its status says it holds, but for
 	// those whose command, onTheirWay, it has not taken yet (D234 §6).
 	Reconcile(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)

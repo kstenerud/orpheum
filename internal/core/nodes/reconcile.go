@@ -12,8 +12,9 @@ import (
 
 // Reconcile reconciles the jobs given to a node with what its status says it holds (D234 §6), judging no
 // attempt whose command, onTheirWay, the node has not taken yet. An attempt it holds is heard of, its
-// job adopted (S82). One it does not hold, waiting, running or with its result on its way, is lost: a
-// broken invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
+// job adopted (S82). One it does not hold, waiting, running or with its result on its way, is lost: one
+// given to another start of the node was interrupted at its hello (Interrupt), so this is a broken
+// invariant, logged and counted, and its job resolved as the tool's failure, tried again. One
 // it holds that the core did not give it, or no longer wants, is a broken invariant too, and the
 // node is told to drop it (S91, G4); one whose result is on its way is left to it. One the node says
 // has not moved for MovementWindow is stopped, as a stall (ErrNotMoving): the core holds work only

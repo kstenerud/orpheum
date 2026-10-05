@@ -121,7 +121,7 @@ func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreThe
 		}
 		ended := start(job)
 		testutil.Receive(t, node.sent, "the prepare command")
-		service.exchanges.Interrupt(t.Context(), 1)
+		service.exchanges.Interrupt(t.Context(), 1, "started again")
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
 	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {

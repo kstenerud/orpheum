@@ -53,8 +53,9 @@
 //     TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID,
 //     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //   - A job whose work a node does is given to it, not waited for (D234 §7): Assign keeps its attempt,
-//     by token, with its job, kind and work, in cache.db, and is the handler's answer, the job
-//     assigned until assigned_job_limit_hours; the command is sent once the job is recorded assigned.
+//     by token, with its job, kind, work and the start of its node (D238 §3), in cache.db, and is
+//     the handler's answer, the job assigned until assigned_job_limit_hours; the command is sent
+//     once the job is recorded assigned.
 //     A job whose time ran out tells its node to stop the work, and its attempt is forgotten
 //     (Overdue, G4, D244 §6). TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop.
 //     The node's word on how it ended resolves it, by the token, with its kind's answers (Assignee),
@@ -71,10 +72,11 @@
 //     nothing. TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem,
 //     TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing.
 //   - Each status is reconciled with what the node was given (D234 §6), judging no attempt whose command
-//     the node had not taken: one held is adopted, heard of (S82); one not held is lost, a broken
-//     invariant logged and counted, its job resolved as the tool's failure (ErrWorkLost); work held
-//     that no job was given, or wants, is a broken invariant, and the node told to drop it (S91, G4);
-//     work whose result is on its way is left to it. TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds,
+//     the node had not taken: one held is adopted, heard of (S82); one not held, given to the start
+//     it says hello from, is lost, a broken invariant logged and counted, its job resolved as the
+//     tool's failure (ErrWorkLost); work held that no job was given, or wants, is a broken invariant,
+//     and the node told to drop it (S91, G4); work whose result is on its way is left to it.
+//     TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds,
 //     TestStatus_IsReconciledWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
 //   - The core holds work only while its node says it moves: work held that the status says has not
 //     moved for MovementWindow, past every window the node judges its own work by, is stopped and
@@ -92,10 +94,14 @@
 //     prepared directory's disk: its root stays available and the node's prepares park on the
 //     prepared directory, probed on the back-off (D244 §6).
 //     TestExchange_AStallOnThePreparedDirectorysDiskParksOnItAndLeavesTheRoot.
-//   - A node whose hello names another start than its last hello to this core started again and
-//     lost the work it held in memory (D238 §3): every job waiting on it learns so at once
-//     (ErrNodeRestarted), nothing is sent to stop what it no longer has, and each handler answers
-//     it as the tool's failure, free the first time. TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt,
+//   - A node whose hello names another start than the one an attempt given to it keeps started again
+//     and lost the work it held in memory (D238 §3), whether or not the core started again too: at
+//     each hello every job given to another start of its node learns so at once (ErrNodeRestarted),
+//     no broken invariant, nothing is sent to stop what it no longer has, and each handler answers
+//     it as the tool's failure, free the first time. The start kept with the attempt in cache.db is
+//     the one way a restart is known. TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt,
+//     TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasGiven,
+//     TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode,
 //     TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly.
 //   - A command carries its job's priority, by which the node orders what waits (D234 §3).
 //     TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot.

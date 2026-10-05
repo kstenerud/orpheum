@@ -962,7 +962,9 @@ that timeline by payload hash (D247 §10); version 30 moved `video_timeline` to 
 0035, below), since making it again reads the whole file: F1's cost, resolved as for subtitle text and
 loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks of a film (D247
 §10); version 32 gave it a target of its own, the job's `chunk_store_id`, a row of `chunk_store`
-(one stream of a film on one grid), so the runs of a film's streams queue side by side.
+(one stream of a film on one grid), so the runs of a film's streams queue side by side; version 33
+gave a `node_attempt` its `node_start_id`, the start of the node it was given to, so a node that
+started again is known by its hello even when the core started again too (D238 §3).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -1076,6 +1078,9 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   job_id      INTEGER NOT NULL,          -- the assigned job it is an attempt at; resolving it forgets this
   job_kind    TEXT NOT NULL,             -- the job's kind, whose answers resolve it
   node_id     INTEGER NOT NULL,          -- persistent.db's node it was sent to
+  -- The start of that node it was given to, as its hello named it: a hello naming another start
+  -- is a node that started again and lost it, whether or not the core restarted too (D238 section 3).
+  node_start_id TEXT NOT NULL,
   work_json   TEXT NOT NULL,             -- JSON: the work as sent, without the bytes it carried
   sent_at     INTEGER NOT NULL
 );

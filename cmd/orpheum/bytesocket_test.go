@@ -39,7 +39,7 @@ func (taken *takenResults) Deliver(_ context.Context, _ int64, result nodeproto.
 	return nil
 }
 func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress)                 {}
-func (*takenResults) Interrupt(context.Context, int64)                                           {}
+func (*takenResults) Interrupt(context.Context, int64, string)                                   {}
 func (*takenResults) Reconcile(context.Context, int64, []nodeproto.HeldAttempt, map[string]bool) {}
 
 // The core's byte socket client is how its node channel fetches a result the node holds, too large

@@ -70,6 +70,17 @@ func (service *Service) Withdraw(nodeID int64, token string) bool {
 	return wasWorkQueued
 }
 
+// StartOf is the start of a node its last hello to this core named (D238 §3), "" for one that has
+// not said hello since the core started.
+func (service *Service) StartOf(nodeID int64) string {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if node, found := service.nodesHeardSinceStart[nodeID]; found {
+		return node.hello.StartID
+	}
+	return ""
+}
+
 // Enqueue queues a command for a node that has said hello, numbering it, and wakes a waiting
 // long-poll; one for a node that has not is dropped. Work goes through Send, which parks it on a
 // node that is not connected; a cancel goes straight here.
