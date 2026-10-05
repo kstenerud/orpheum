@@ -485,12 +485,20 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 		t.Fatalf("the rebuilt cache does not open: %v", err)
 	}
 	defer func() {
-		if err := cache.Close(); err != nil {
-			t.Error(err)
+		if closeErr := cache.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
-	if jobs, err := cache.Read().ListJobs(t.Context(), 10); err != nil || len(jobs) != 0 {
-		t.Errorf("the rebuilt cache holds %d jobs (%v); the old file's job should be gone", len(jobs), err)
+	// The rebuilt cache may hold what the start's sweeps queued; never the old file's job, the one
+	// created at 0.
+	jobs, err := cache.Read().ListJobs(t.Context(), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range jobs {
+		if job.CreatedAt == 0 {
+			t.Errorf("the rebuilt cache holds the old file's %s job; it should be gone", job.Kind)
+		}
 	}
 }
 
