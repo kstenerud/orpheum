@@ -275,7 +275,9 @@ describe in a phrase, and give it that phrase as its name.
   hour a scheduled backup is made, take the server's `localtime.Zone` (the `time_zone` setting)
   and read a `localtime.Time` with `zone.Of(moment)`, a type that cannot be passed where a UTC
   `time.Time` is meant; `.UTC()` turns it back. A setting in the server's zone says so in its key:
-  `…_local_tz` (D246 §7). **Enforced by:** `[local-time]` (`time.LoadLocation`,
+  `…_local_tz` (D246 §7). Until the admin chooses a zone it is the machine's own, which
+  `cmd/orpheum` reads once at start (TZ, else `/etc/localtime`) and passes down; nothing inside
+  reads the environment for it. **Enforced by:** `[local-time]` (`time.LoadLocation`,
   `time.FixedZone`, `Time.In`, `Time.Local` outside `internal/platform/localtime`) and
   `[ambient]` (`time.Local`).
 

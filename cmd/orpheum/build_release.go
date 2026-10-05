@@ -4,6 +4,8 @@
 
 package main
 
+import "os"
+
 // isDevBuild is false in every release build; see build_dev.go.
 const isDevBuild = false
 
@@ -12,8 +14,15 @@ func devCommand() command {
 	return nil
 }
 
-// environmentLookup finds nothing in a release build: the shipped binary is configured by its
-// config file, its flags and its database, and by nothing it happens to inherit (D204).
+// environmentLookup finds nothing in a release build but TZ: the shipped binary is configured by
+// its config file, its flags and its database, and by nothing it happens to inherit (D204), save
+// the machine's time zone, which only says what the server's time zone is until the admin chooses
+// one (D246 §7).
 func environmentLookup() func(string) (string, bool) {
-	return func(string) (string, bool) { return "", false }
+	return func(name string) (string, bool) {
+		if name == timeZoneVariable {
+			return os.LookupEnv(name) // the default time zone's alone (D246 §7)
+		}
+		return "", false
+	}
 }

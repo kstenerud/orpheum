@@ -171,7 +171,9 @@ func commandCore(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	if err = serve(ctx, config, configReport, listener, releaseWiring(), logger); err != nil {
+	outside := releaseWiring()
+	outside.machineZone = machineZone(systemZoneSources(call.lookupEnv))
+	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess

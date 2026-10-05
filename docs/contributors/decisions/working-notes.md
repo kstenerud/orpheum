@@ -15996,7 +15996,7 @@ real one on.
 | Variable | Would steer | Instead |
 | --- | --- | --- |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | every outbound request through Go's default transport | `internal/platform/outbound.NewClient` takes no proxy; the defaults and `ProxyFromEnvironment` are banned. A proxy, if ever needed, becomes a config key. |
-| `TZ` | every formatted time, logs and doctor included | `cmd/orpheum` sets `time.Local` to UTC at start; clients format for their viewer. `time.Local` is banned elsewhere. |
+| `TZ` | every formatted time, logs and doctor included | `cmd/orpheum` sets `time.Local` to UTC at start; clients format for their viewer. `time.Local` is banned elsewhere. ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback) §7: TZ, else `/etc/localtime`, is read once at start as the default of the server's `time_zone` setting, and passed down explicitly; a release build lets TZ alone through.) |
 | `TMPDIR` | `os.TempDir`, and SQLite's temporary files | `temp_store = MEMORY` on every connection; `os.TempDir` is banned. A temporary file goes in a directory the config names. |
 | the working directory | `filepath.Abs` | banned outside `cmd/orpheum`; config paths are absolute already |
 
@@ -17973,10 +17973,15 @@ answering the three questions that review left (§7–§9). **Revises**
 7. **Backups are every *x* days at *y* o'clock** (D243 §11 had hours), *y* in the server's time
    zone: a setting, an IANA name such as `Europe/Berlin`, so a change of clocks for summer time is
    followed. Anything else the server schedules by the clock uses it too, and a setting in it says
-   so in its key (`backup_hour_local_tz`; the owner: *"so that we know the units and offset"*). It
-   starts as UTC, not the machine's own zone, which
-   [D204](#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits)
-   does not let the server read; the admin sets it. The process's own zone stays UTC whatever
+   so in its key (`backup_hour_local_tz`; the owner: *"so that we know the units and offset"*).
+   Until the admin chooses one it is the machine's own (the owner: *"it's OK to default to the ENV
+   timezone if the user hasn't selected one. That's an acceptable use of ambient config because
+   it's only affecting the default, in a way that favors user friendliness"*), the one exception
+   to [D204](#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits):
+   `cmd/orpheum` reads TZ, else `/etc/localtime`, once at start, and passes the zone down
+   explicitly (the owner: *"ENV vars are taken at the EDGE of our system. Once inside our system
+   everything gets passed explicitly, not via ENV (unless it's impossible to do otherwise)"*). The
+   process's own zone stays UTC whatever
    the setting says, so nothing in the standard library that reads it gives a "works for me"
    bug: the owner, *"keep the official env time zone UTC so that ambient config doesn't pollute
    parts of the go stdlib that rely on it."* Wall-clock time is reached only through a
