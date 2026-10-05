@@ -29,6 +29,7 @@ describe("AppShell", () => {
       '<header class="app-shell__banner"><p class="app-shell__title">Orpheum</p>',
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
+    expect(markup).toContain('<a href="/watch-together">Watch Together</a>');
     expect(markup).not.toContain("/libraries");
     expect(markup).not.toContain("/jobs");
     expect(markup).toContain("partner on Firefox on Mac");

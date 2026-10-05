@@ -19,6 +19,8 @@ describe("parseRoute and routeHref", () => {
       { screen: "files", libraryId: 3 },
       { screen: "about" },
       { screen: "settings" },
+      { screen: "together" },
+      { screen: "watch-together" },
     ];
     for (const route of routes) {
       const url = new URL(routeHref(route), "http://orpheum.test");

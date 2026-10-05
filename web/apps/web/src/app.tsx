@@ -34,17 +34,23 @@ import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
 import { Title } from "./title.tsx";
+import { TogetherViewer } from "./together-viewer.tsx";
 import { useResource } from "./use-resource.ts";
+import { WatchTogether } from "./watch-together.tsx";
 
 /**
  * The client: sign-in until there is a session, then the shell and the route's screen. A
- * registration invitation is its own page, signed in or not (D218 §2).
+ * registration invitation is its own page, signed in or not (D218 §2); so is a Watch Together
+ * viewer's, who sees only the host's playback, never the app around it (D246 §3).
  */
 export function App(): JSX.Element {
   const route = useRoute();
   const token = useToken();
   if (route.screen === "register") {
     return <Register />;
+  }
+  if (route.screen === "together") {
+    return <TogetherViewer />;
   }
   return token === undefined ? <SignIn /> : <SignedIn />;
 }
@@ -106,13 +112,14 @@ function useServersPoller(): Poller {
 /** The screen a route names. */
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
-  return viewerScreen(props.route) ?? adminScreen(props.route) ?? <p>{t("shell.notFound")}</p>;
+  return (
+    viewerScreen(props.route) ??
+    nonLibraryScreen(props.route) ??
+    adminScreen(props.route) ?? <p>{t("shell.notFound")}</p>
+  );
 }
 
-/**
- * The screens anyone signed in may see: lists, a title, a series, playing, search, their account
- * and About.
- */
+/** The screens anyone signed in may see to watch: lists, a title, a series, playing and search. */
 function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "films" || route.screen === "series") {
     return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
@@ -129,8 +136,19 @@ function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "search") {
     return <Search key={route.query} query={route.query} />;
   }
+  return undefined;
+}
+
+/**
+ * The screens anyone signed in may see beyond the library: their account, Watch Together (the
+ * server refuses a session to a role that may not host) and About.
+ */
+function nonLibraryScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "account") {
     return <Account />;
+  }
+  if (route.screen === "watch-together") {
+    return <WatchTogether />;
   }
   return route.screen === "about" ? <About /> : undefined;
 }

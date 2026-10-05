@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import type { AudioOutput } from "./accounts.ts";
+import type { StringStorage } from "./browser-storage.ts";
+import { audioOutputs } from "./sound.tsx";
+
+/** A Watch Together membership as this tab keeps it: its session, and the credential it acts by. */
+export interface Membership {
+  readonly sessionId: number;
+  readonly credential: string;
+}
+
+/**
+ * Whose membership: the host's, for the session they started (D246 §5), or a viewer's, from their
+ * link (D246 §3). Each is kept in this tab only, so closing it forgets the credential.
+ */
+export type MembershipRole = "host" | "viewer";
+
+const membershipKeys: Readonly<Record<MembershipRole, string>> = {
+  host: "orpheum.together.host",
+  viewer: "orpheum.together.viewer",
+};
+
+/** What was kept, when it is a membership this tab wrote. */
+function asMembership(kept: unknown): Membership | undefined {
+  if (typeof kept !== "object" || kept === null) {
+    return undefined;
+  }
+  const sessionId: unknown = Reflect.get(kept, "sessionId");
+  const credential: unknown = Reflect.get(kept, "credential");
+  return typeof sessionId === "number" && typeof credential === "string" && credential !== ""
+    ? { sessionId, credential }
+    : undefined;
+}
+
+/** The membership this tab keeps for role, or undefined when it keeps none. */
+export function readMembership(
+  storage: StringStorage,
+  role: MembershipRole,
+): Membership | undefined {
+  const kept = storage.getItem(membershipKeys[role]);
+  try {
+    return kept === null ? undefined : asMembership(JSON.parse(kept));
+  } catch {
+    return undefined; // not what this tab wrote
+  }
+}
+
+/** Keeps a membership for role in this tab, across a reload. */
+export function keepMembership(
+  storage: StringStorage,
+  role: MembershipRole,
+  membership: Membership,
+): void {
+  storage.setItem(
+    membershipKeys[role],
+    JSON.stringify({ sessionId: membership.sessionId, credential: membership.credential }),
+  );
+}
+
+/** Forgets role's membership: the session ended, or the person left it. */
+export function forgetMembership(storage: StringStorage, role: MembershipRole): void {
+  storage.removeItem(membershipKeys[role]);
+}
+
+const viewerAudioOutputKey = "orpheum.together.audioOutput";
+
+/**
+ * How a viewer's device makes sound, as they answered when they first joined (D246 §6), kept in
+ * this browser: a viewer has no device row on the server to keep it in.
+ */
+export function readViewerAudioOutput(storage: StringStorage): AudioOutput | undefined {
+  const kept = storage.getItem(viewerAudioOutputKey);
+  return audioOutputs.find((output) => output === kept);
+}
+
+/** Keeps a viewer's answer to how their device makes sound, for every session they join here. */
+export function keepViewerAudioOutput(storage: StringStorage, output: AudioOutput): void {
+  storage.setItem(viewerAudioOutputKey, output);
+}
+
+/**
+ * The header a member's request carries: their membership credential, in place of a session
+ * token, never in the address (D154).
+ */
+export function membershipHeaders(credential: string): { readonly authorization: string } {
+  return { authorization: `Bearer ${credential}` };
+}

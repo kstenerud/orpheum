@@ -50,3 +50,13 @@ export function storageThatNeverThrows(storage: StringStorage | undefined): Stri
     },
   };
 }
+
+/** This tab's own storage (sessionStorage), which keeps nothing where the browser refuses it. */
+export function tabStorage(): StringStorage {
+  return storageThatNeverThrows(storageIfAllowed(() => window.sessionStorage));
+}
+
+/** This browser's storage (localStorage), which keeps nothing where the browser refuses it. */
+export function browserStorage(): StringStorage {
+  return storageThatNeverThrows(storageIfAllowed(() => window.localStorage));
+}
