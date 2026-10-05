@@ -28,6 +28,7 @@ root_path = "{root}/.dev/media/movies"
 metadata_source = "nfo"
 change_detection = "watch"
 is_writable = false
+roles = ["user"]                     # D243 §4: the partner's role reaches it; else the admin's alone
 
 [[library]]
 name = "Dev shows"
@@ -36,6 +37,7 @@ root_path = "{root}/.dev/media/shows"
 metadata_source = "nfo"
 change_detection = "watch"
 is_writable = false
+roles = ["user"]                     # D243 §4: the partner's role reaches it; else the admin's alone
 
 # Server settings (the `setting` table), chosen so nothing reaches the network by itself. Every
 # setting already has its starting value (D200); these are the ones dev changes.
