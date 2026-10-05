@@ -22,11 +22,18 @@ import (
 const tokenBytes = 24
 
 // Holder is who holds a media token: the person, the session the playback was started under, and
-// the libraries the person reaches now (D217 §2, D243 §4).
+// the libraries the person reaches now (D217 §2, D243 §4). A Watch Together viewer holds one too:
+// no person, their membership as the session, the host's libraries, and only the film the session
+// plays now (D246 §3).
 type Holder struct {
 	UserID     int64
 	SessionKey string
 	Reach      auth.Reach
+	// OnlyFileID, when not 0, is the one file the holder may play: a viewer's, the session's film.
+	OnlyFileID int64
+	// Viewer is a second holder the same request also is: a browser signed in as its person that
+	// also views a Watch Together session, its two cookies side by side.
+	Viewer *Holder
 }
 
 // HolderOf is the holder a signed-in principal is.
@@ -125,11 +132,17 @@ func (all *tokens) use(token string, holder Holder, now time.Time, idle time.Dur
 	return *known, true
 }
 
-// isHeldBy is whether holder holds the playback: its person, under its session, reaching its
-// library now.
+// isHeldBy is whether holder, or the viewer it also is, holds the playback.
 func (playback *tokenPlayback) isHeldBy(holder Holder) bool {
-	return playback.userID == holder.UserID && playback.sessionKey == holder.SessionKey &&
-		holder.Reach.Reaches(&playback.libraryID)
+	return playback.isHeldByOne(holder) || (holder.Viewer != nil && playback.isHeldByOne(*holder.Viewer))
+}
+
+// isHeldByOne is whether one holder holds the playback: its person, under its session, reaching its
+// library now, and for a viewer, the film the session plays now.
+func (playback *tokenPlayback) isHeldByOne(holder Holder) bool {
+	return holder.SessionKey != "" && playback.userID == holder.UserID &&
+		playback.sessionKey == holder.SessionKey && holder.Reach.Reaches(&playback.libraryID) &&
+		(holder.OnlyFileID == 0 || holder.OnlyFileID == playback.fileID)
 }
 
 // takeReport marks report seq of a token's playback taken, when holder holds it, and says whether

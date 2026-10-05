@@ -16,13 +16,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
-// secretBytes is a join link's or a membership credential's length before encoding: 256 random
-// bits, which no one guesses.
+// secretBytes is a link's or a membership credential's length before encoding: 256 random bits,
+// which no one guesses.
 const secretBytes = 32
-
-// DefaultCap is a new session's cap on people, which its host may raise: two, the case the design
-// is best at (D243 §9, D69).
-const DefaultCap = 2
 
 // The codes a refused command or join is told (cut-a §5.2).
 const (
@@ -34,28 +30,16 @@ const (
 
 var (
 	// ErrNoSession is a session, link or credential that is not, or no longer, a live one.
-	ErrNoSession = errors.New("no such Watch Together session, or its link has changed")
-	// ErrFull is a join refused because the session holds as many people as its cap.
-	ErrFull = errors.New("the session is full")
+	ErrNoSession = errors.New("no such Watch Together session, or the link was used or withdrawn")
 	// ErrNotHost is something only the host may do.
 	ErrNotHost = errors.New("only the session's host may do that")
 	// ErrNoMember is a member the session does not hold.
 	ErrNoMember = errors.New("no such member")
+	// ErrNoLink is a link the session does not hold.
+	ErrNoLink = errors.New("no such link")
+	// ErrNoNote is a link without the host's note of who it is for, which it must have (D246 §3).
+	ErrNoNote = errors.New("a link needs a note of who it is for")
 )
-
-// Transport is who may play, pause and seek (D121): the whole group, or the host alone.
-type Transport string
-
-// The transport abilities.
-const (
-	TransportGroup Transport = "group"
-	TransportHost  Transport = "host"
-)
-
-// Abilities are what the host granted at the session's start (D121).
-type Abilities struct {
-	Transport Transport `json:"transport"`
-}
 
 // Person is a signed-in person a member is, or nobody.
 type Person struct {
@@ -77,27 +61,30 @@ type Hub struct {
 
 	mutex    sync.Mutex
 	sessions map[int64]*session // guarded by mutex
-	lastID   int64              // the last id given a session, member or device; guarded by mutex
+	lastID   int64              // the last id given a session, link, member or device; guarded by mutex
 }
 
-// NewHub returns an empty hub, which asks mayPlay whether a host may play what they change the
-// session to.
+// NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on.
 func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay) *Hub {
 	return &Hub{clock: clockSource, random: random, mayPlay: mayPlay, sessions: map[int64]*session{}}
 }
 
-// session is one Watch Together session (D122): what plays is state on it.
+// session is one Watch Together session (D122): what plays is state on it, the host's to change.
 type session struct {
 	id         int64
 	hostUserID int64
-	joinHash   [sha256.Size]byte
-	peopleCap  int
-	abilities  Abilities
 	group      group
+	links      map[int64]*link
 	members    map[int64]*member
-	// refusedJoins counts the joins refused at the cap since the start: several in a row is the
-	// earliest sign a link leaked (watch-together.md).
-	refusedJoins int
+}
+
+// link is one person's way in (D246 §3): single use, with the host's note of who it is for.
+type link struct {
+	id         int64
+	secretHash [sha256.Size]byte
+	adminNote  string
+	// usedBy is the member who joined by it, or 0 while it waits.
+	usedBy int64
 }
 
 // group is the group's state: Position is where it was at At, moving at Rate while it plays.
@@ -115,9 +102,11 @@ type group struct {
 
 // member is a person in the session, with their devices (D120).
 type member struct {
-	id             int64
-	name           string
-	isHost         bool
+	id     int64
+	name   string
+	isHost bool
+	// adminNote is the host's note of who the member is, from their link; only the host sees it.
+	adminNote      string
 	person         *Person
 	credentialHash [sha256.Size]byte
 	devices        map[int64]*device
@@ -131,62 +120,177 @@ type device struct {
 	buffering  bool
 	suspended  SuspendReason
 	rttMs      int64
-	send       Sender
+	// hasBeenReady is whether it has once said it is ready to play along: until then the group
+	// does not wait for it, so one still choosing its speakers or loading holds no one up (D246 §6).
+	hasBeenReady bool
+	send         Sender
+}
+
+// takeState keeps what a device says of itself: a state report's buffering and round trip, the first
+// that is not buffering making it one the group waits for; a suspension, or its end.
+func (each *device) takeState(message Inbound) {
+	switch message.Type {
+	case MessageState:
+		each.buffering = message.Buffering
+		if !message.Buffering {
+			each.hasBeenReady = true
+		}
+		if message.RTTMs > 0 {
+			each.rttMs = message.RTTMs
+		}
+	case MessageSuspend:
+		each.suspended = message.Reason
+	case MessageResume:
+		each.suspended = ""
+	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageWelcome, MessagePong, MessageGroup,
+		MessageRoster, MessageRejected, MessageEnded:
+	}
 }
 
 // isReady is whether the device plays along: not buffering, not suspended.
 func (each *device) isReady() bool { return !each.buffering && each.suspended == "" }
 
-// Created is a new session: its id, the join link's secret, and the host's membership credential.
-type Created struct {
+// Opened is the host's session: its id, and a membership credential the host's devices say hello
+// with.
+type Opened struct {
 	SessionID            int64
-	JoinSecret           string
 	MembershipCredential string
+	// IsNew is whether the session was started now, rather than one the host already had.
+	IsNew bool
 }
 
-// Create starts a session, hosted by host, playing fileID, with abilities and a cap on people.
-func (hub *Hub) Create(host Person, fileID int64, abilities Abilities, peopleCap int) (Created, error) {
-	if abilities.Transport != TransportGroup && abilities.Transport != TransportHost {
-		return Created{}, fmt.Errorf("transport %q: want group or host", abilities.Transport)
-	}
-	if peopleCap < 1 {
-		peopleCap = DefaultCap
-	}
-	joinSecret, err := randbytes.Base64URLSecret(hub.random, secretBytes)
-	if err != nil {
-		return Created{}, fmt.Errorf("make a join link: %w", err)
-	}
+// Open starts a session hosted by host, nothing playing, or gives back the one they already host,
+// with a new credential for their devices, for a page that was reloaded. A host has one session.
+func (hub *Hub) Open(host Person) (Opened, error) {
 	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
-		return Created{}, fmt.Errorf("make a membership credential: %w", err)
+		return Opened{}, fmt.Errorf("make a membership credential: %w", err)
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
+	for _, each := range hub.sessions {
+		if each.hostUserID != host.UserID {
+			continue
+		}
+		for _, hostMember := range each.members {
+			if hostMember.isHost {
+				hostMember.credentialHash = sha256.Sum256([]byte(credential))
+			}
+		}
+		return Opened{SessionID: each.id, MembershipCredential: credential}, nil
+	}
 	hub.lastID++
-	created := &session{
-		id: hub.lastID, hostUserID: host.UserID, joinHash: sha256.Sum256([]byte(joinSecret)), peopleCap: peopleCap,
-		abilities: abilities, members: map[int64]*member{},
-		group: group{state: GroupPaused, rate: 1, fileID: fileID, at: hub.clock.Now()},
+	opened := &session{
+		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
+		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()},
 	}
 	hub.lastID++
 	hostPerson := host
-	created.members[hub.lastID] = &member{
+	opened.members[hub.lastID] = &member{
 		id: hub.lastID, name: host.Name, isHost: true, person: &hostPerson,
 		credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
 	}
-	hub.sessions[created.id] = created
-	return Created{SessionID: created.id, JoinSecret: joinSecret, MembershipCredential: credential}, nil
+	hub.sessions[opened.id] = opened
+	return Opened{SessionID: opened.id, MembershipCredential: credential, IsNew: true}, nil
 }
 
-// Joined is a membership: its session, and the credential its devices say hello with.
+// LinkMade is a new link: its id, and its secret, which goes after # in the address (D243 §3).
+type LinkMade struct {
+	LinkID int64
+	Secret string
+}
+
+// AddLink makes a link for one person to join by, once, with the host's note of who it is for,
+// which only the host sees (D246 §3).
+func (hub *Hub) AddLink(sessionID, hostUserID int64, adminNote string) (LinkMade, error) {
+	if adminNote == "" {
+		return LinkMade{}, ErrNoNote
+	}
+	secret, err := randbytes.Base64URLSecret(hub.random, secretBytes)
+	if err != nil {
+		return LinkMade{}, fmt.Errorf("make a link: %w", err)
+	}
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	hosted, err := hub.hostedSession(sessionID, hostUserID)
+	if err != nil {
+		return LinkMade{}, err
+	}
+	hub.lastID++
+	hosted.links[hub.lastID] = &link{id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), adminNote: adminNote}
+	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
+}
+
+// RemoveLink withdraws a link: it admits no one from now on, and a member who joined by it stays.
+func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	hosted, err := hub.hostedSession(sessionID, hostUserID)
+	if err != nil {
+		return err
+	}
+	if _, found := hosted.links[linkID]; !found {
+		return ErrNoLink
+	}
+	delete(hosted.links, linkID)
+	return nil
+}
+
+// LinkView is a link as its host sees it.
+type LinkView struct {
+	ID        int64
+	AdminNote string
+	// UsedBy is the member who joined by it, or 0 while it waits.
+	UsedBy int64
+}
+
+// MemberDetail is a member as their host sees them: with the note of the link they joined by.
+type MemberDetail struct {
+	ID        int64
+	Name      string
+	AdminNote string
+	IsHost    bool
+}
+
+// Details is a session as its host sees it: its links and members, with the host's notes, and
+// what plays.
+type Details struct {
+	SessionID int64
+	Links     []LinkView
+	Members   []MemberDetail
+	Group     GroupView
+}
+
+// DetailsOf is the session sessionID, for its host.
+func (hub *Hub) DetailsOf(sessionID, hostUserID int64) (Details, error) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	hosted, err := hub.hostedSession(sessionID, hostUserID)
+	if err != nil {
+		return Details{}, err
+	}
+	details := Details{SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now())}
+	for _, each := range hosted.links {
+		details.Links = append(details.Links, LinkView{ID: each.id, AdminNote: each.adminNote, UsedBy: each.usedBy})
+	}
+	for _, each := range hosted.members {
+		details.Members = append(details.Members, MemberDetail{
+			ID: each.id, Name: each.name, AdminNote: each.adminNote, IsHost: each.isHost,
+		})
+	}
+	return details, nil
+}
+
+// Joined is a membership: its session, and the credential its devices say hello with, which is
+// also what its player plays by (D246 §3).
 type Joined struct {
 	SessionID            int64
 	MemberID             int64
 	MembershipCredential string
 }
 
-// Join admits a person by the join link's secret, as a member named name (D119): the link admits,
-// the membership persists. A session at its cap refuses, and counts it for its host.
+// Join admits the person a link was made for, once, as a member named name, the name the others
+// see (D246 §3).
 func (hub *Hub) Join(secret, name string) (Joined, error) {
 	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
@@ -194,38 +298,18 @@ func (hub *Hub) Join(secret, name string) (Joined, error) {
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	joined := hub.sessionByJoinSecret(secret)
-	if joined == nil {
+	joined, used := hub.sessionByLink(secret)
+	if used == nil || used.usedBy != 0 {
 		return Joined{}, ErrNoSession
 	}
-	if len(joined.members) >= joined.peopleCap {
-		joined.refusedJoins++
-		joined.sendRoster()
-		return Joined{}, ErrFull
-	}
 	hub.lastID++
+	used.usedBy = hub.lastID
 	joined.members[hub.lastID] = &member{
-		id: hub.lastID, name: name, credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
+		id: hub.lastID, name: name, adminNote: used.adminNote,
+		credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
 	}
 	joined.sendRoster()
 	return Joined{SessionID: joined.id, MemberID: hub.lastID, MembershipCredential: credential}, nil
-}
-
-// Rotate gives the session a new join link: the old admits no one new, and everyone already in is
-// undisturbed (D119).
-func (hub *Hub) Rotate(sessionID, hostUserID int64) (string, error) {
-	secret, err := randbytes.Base64URLSecret(hub.random, secretBytes)
-	if err != nil {
-		return "", fmt.Errorf("make a join link: %w", err)
-	}
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	hosted, err := hub.hostedSession(sessionID, hostUserID)
-	if err != nil {
-		return "", err
-	}
-	hosted.joinHash = sha256.Sum256([]byte(secret))
-	return secret, nil
 }
 
 // Eject removes a member: each of their devices is told the session ended for them, and their
@@ -245,24 +329,32 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "ejected"})
 	}
 	delete(hosted.members, memberID)
+	hosted.settle(hub.clock.Now())
 	hosted.sendRoster()
 	return nil
 }
 
-// SetCap changes the session's cap on people (D119).
-func (hub *Hub) SetCap(sessionID, hostUserID int64, peopleCap int) error {
+// Leave takes a member out of the session at their own asking (D246 §5); the host ends it instead.
+func (hub *Hub) Leave(credential string) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	hosted, err := hub.hostedSession(sessionID, hostUserID)
-	if err != nil {
-		return err
+	left, leaving := hub.memberByCredential(credential)
+	if leaving == nil {
+		return ErrNoSession
 	}
-	hosted.peopleCap = max(peopleCap, 1)
-	hosted.sendRoster()
+	if leaving.isHost {
+		return ErrNotHost
+	}
+	for _, each := range leaving.devices {
+		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "left"})
+	}
+	delete(left.members, leaving.id)
+	left.settle(hub.clock.Now())
+	left.sendRoster()
 	return nil
 }
 
-// End ends the session: every device is told, and every credential admits nothing more.
+// End ends the session: every device is told, and every credential and link admits nothing more.
 func (hub *Hub) End(sessionID, hostUserID int64) error {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -275,6 +367,30 @@ func (hub *Hub) End(sessionID, hostUserID int64) error {
 	return nil
 }
 
+// Viewer is a member who is not the host, as their player plays: the film the session plays now,
+// and whose libraries it must be in, the host's (D246 §3, D243 §4).
+type Viewer struct {
+	SessionID  int64
+	MemberID   int64
+	HostUserID int64
+	// FileID is what the session plays now, or 0 while nothing does.
+	FileID int64
+}
+
+// ViewerOf is the viewer a membership credential names, while the membership lasts; false for an
+// unknown credential and for the host's, who plays as themselves.
+func (hub *Hub) ViewerOf(credential string) (Viewer, bool) {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	viewed, viewing := hub.memberByCredential(credential)
+	if viewing == nil || viewing.isHost {
+		return Viewer{}, false
+	}
+	return Viewer{
+		SessionID: viewed.id, MemberID: viewing.id, HostUserID: viewed.hostUserID, FileID: viewed.group.fileID,
+	}, true
+}
+
 // Attachment is a device attached to its member: what it is, and how it leaves.
 type Attachment struct {
 	SessionID int64
@@ -285,8 +401,8 @@ type Attachment struct {
 }
 
 // Attach attaches a device to the member its credential names, with a role, its messages going to
-// send, and welcomes it: the session, its member, the abilities, the group and the roster. A device
-// of a person signed in makes the membership theirs (D243 §2).
+// send, and welcomes it: the session, its member, the group and the roster. A device of a person
+// signed in makes the membership theirs (D243 §2).
 func (hub *Hub) Attach(credential string, role DeviceRole, canSetRate bool, signedIn *Person, send Sender) (
 	Attachment, error,
 ) {
@@ -307,21 +423,17 @@ func (hub *Hub) Attach(credential string, role DeviceRole, canSetRate bool, sign
 	attachedMember.devices[hub.lastID] = &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
-		MemberID: attachedMember.id, DeviceID: hub.lastID, Abilities: &attached.abilities,
+		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
 		Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(),
 	})
 	attached.sendRoster()
-	if role.plays() {
-		// A device that joins a playing group waits for it until it is ready.
-		attached.settle(hub.clock.Now())
-	}
 	return Attachment{
 		SessionID: attached.id, MemberID: attachedMember.id, DeviceID: hub.lastID, Person: attachedMember.person,
 	}, nil
 }
 
-// Detach removes a device whose connection ended. A playing group waits for it: a drop is a state,
-// "reconnecting", not an ending (watch-together.md, What each person sees).
+// Detach removes a device whose connection ended. A playing group waits for it if it was playing
+// along: a drop is a state, "reconnecting", not an ending (watch-together.md, What each person sees).
 func (hub *Hub) Detach(attachment Attachment) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -339,7 +451,7 @@ func (hub *Hub) Detach(attachment Attachment) {
 	}
 	delete(left.devices, attachment.DeviceID)
 	now := hub.clock.Now()
-	if gone.role.plays() && detached.group.state == GroupPlaying {
+	if gone.role.plays() && gone.hasBeenReady && detached.group.state == GroupPlaying {
 		detached.change(now, GroupWaiting, "left", left.id)
 	}
 	detached.sendRoster()
@@ -370,19 +482,8 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	switch message.Type {
 	case MessagePing:
 		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
-	case MessageState:
-		from.buffering = message.Buffering
-		if message.RTTMs > 0 {
-			from.rttMs = message.RTTMs
-		}
-		handled.settle(now)
-		handled.sendRoster()
-	case MessageSuspend:
-		from.suspended = message.Reason
-		handled.settle(now)
-		handled.sendRoster()
-	case MessageResume:
-		from.suspended = ""
+	case MessageState, MessageSuspend, MessageResume:
+		from.takeState(message)
 		handled.settle(now)
 		handled.sendRoster()
 	case MessageCommand:
@@ -394,22 +495,40 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	}
 }
 
-// command applies a command in arrival order (cut-a §5.1): one the sender may not give is refused;
-// a seek based on a group another seek has changed since is the stale one and is refused.
+// command applies the host's command in arrival order (cut-a §5.1): in Cut A only the host controls
+// playback (D246 §8); a seek based on a group another seek has changed since is refused as stale.
 func (current *session) command(now time.Time, sender *member, from *device, message Inbound) {
 	refuse := func(code string) {
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, BasedOnSeq: message.BasedOnSeq, Code: code})
 	}
-	if message.Command == CommandChangeItem {
-		if code := current.changeItem(now, sender, message.FileID); code != "" {
-			refuse(code)
-		}
-		return
-	}
-	if current.abilities.Transport == TransportHost && !sender.isHost {
+	if !sender.isHost {
 		refuse(codeForbidden)
 		return
 	}
+	isPlaying := current.group.fileID != 0
+	switch message.Command {
+	case CommandChangeItem:
+		if message.FileID == 0 {
+			refuse(codeNotFound) // one the host may not play was given as 0 (Handle)
+			return
+		}
+		current.changeItem(now, sender, message.FileID, time.Duration(message.PositionMs)*time.Millisecond)
+	case CommandStop:
+		current.group.fileID, current.group.position = 0, 0
+		current.change(now, GroupIdle, "stopped", sender.id)
+	case CommandPlay, CommandPause, CommandSeek, CommandRate:
+		if !isPlaying {
+			refuse(codeInvalid)
+			return
+		}
+		current.transport(now, sender, message, refuse)
+	default:
+		refuse(codeInvalid)
+	}
+}
+
+// transport plays, pauses, seeks or changes the rate of what plays.
+func (current *session) transport(now time.Time, sender *member, message Inbound, refuse func(code string)) {
 	switch message.Command {
 	case CommandPlay:
 		current.change(now, GroupWaiting, "played", sender.id)
@@ -430,25 +549,16 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 		current.group.position, current.group.at = current.positionAt(now), now
 		current.group.rate = message.Rate
 		current.change(now, current.group.state, "changed the rate", sender.id)
-	case CommandChangeItem:
-	default:
-		refuse(codeInvalid)
+	case CommandChangeItem, CommandStop:
 	}
 }
 
-// changeItem makes the group play fileID from its start, as the host asked; a file the host may not
-// play was given as 0 (Handle), and is refused as not found. It answers the refusal's code, or "".
-func (current *session) changeItem(now time.Time, sender *member, fileID int64) string {
-	if !sender.isHost {
-		return codeForbidden
-	}
-	if fileID == 0 {
-		return codeNotFound
-	}
-	current.group.fileID, current.group.position = fileID, 0
+// changeItem puts fileID on for everyone, from position, as the host played it: the group waits
+// until every player that has been ready loads it, then plays (D246 §5).
+func (current *session) changeItem(now time.Time, sender *member, fileID int64, position time.Duration) {
+	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
 	current.change(now, GroupWaiting, "changed what plays", sender.id)
 	current.settle(now)
-	return ""
 }
 
 // seek moves the group to position; a playing group waits there until every player is ready.
@@ -464,24 +574,24 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 	current.settle(now)
 }
 
-// settle starts a waiting group playing once every device that plays is ready, or stops a playing
-// one that has one not ready; a group with no device to play waits.
+// settle starts a waiting group playing once every device that plays along is ready, or stops a
+// playing one that has one not ready. A device that has not yet once been ready, still choosing
+// its speakers or loading, is not waited for (D246 §6); a group with no such device plays.
 func (current *session) settle(now time.Time) {
-	allReady, anyPlayer := true, false
+	allReady := true
 	var waitingFor int64
 	for _, each := range current.members {
 		for _, attached := range each.devices {
-			if !attached.role.plays() {
+			if !attached.role.plays() || !attached.hasBeenReady {
 				continue
 			}
-			anyPlayer = true
 			if !attached.isReady() {
 				allReady, waitingFor = false, each.id
 			}
 		}
 	}
 	switch {
-	case current.group.state == GroupWaiting && allReady && anyPlayer:
+	case current.group.state == GroupWaiting && allReady:
 		current.change(now, GroupPlaying, "everyone is ready", 0)
 	case current.group.state == GroupPlaying && !allReady:
 		current.change(now, GroupWaiting, "buffering", waitingFor)
@@ -542,7 +652,7 @@ func (current *session) relay(from *device, message Inbound) {
 	}
 }
 
-// roster is every member and their devices.
+// roster is every member and their devices, as everyone sees them: never the host's notes.
 func (current *session) roster() []MemberView {
 	views := make([]MemberView, 0, len(current.members))
 	for _, each := range current.members {
@@ -558,11 +668,9 @@ func (current *session) roster() []MemberView {
 	return views
 }
 
-// sendRoster tells every device the roster, and the host how many joins the cap refused.
+// sendRoster tells every device the roster.
 func (current *session) sendRoster() {
-	current.broadcast(Outbound{
-		V: ProtocolVersion, Type: MessageRoster, Roster: current.roster(), RefusedJoins: current.refusedJoins,
-	})
+	current.broadcast(Outbound{V: ProtocolVersion, Type: MessageRoster, Roster: current.roster()})
 }
 
 // broadcast sends message to every device of every member.
@@ -574,15 +682,17 @@ func (current *session) broadcast(message Outbound) {
 	}
 }
 
-// sessionByJoinSecret is the session whose join link is secret, or nil.
-func (hub *Hub) sessionByJoinSecret(secret string) *session {
+// sessionByLink is the session and link a link's secret names, or nils.
+func (hub *Hub) sessionByLink(secret string) (*session, *link) {
 	hash := sha256.Sum256([]byte(secret))
 	for _, each := range hub.sessions {
-		if subtle.ConstantTimeCompare(each.joinHash[:], hash[:]) == 1 {
-			return each
+		for _, candidate := range each.links {
+			if subtle.ConstantTimeCompare(candidate.secretHash[:], hash[:]) == 1 {
+				return each, candidate
+			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // memberByCredential is the session and member a membership credential names, or nils.

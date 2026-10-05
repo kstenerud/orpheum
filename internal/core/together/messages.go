@@ -27,7 +27,7 @@ const (
 )
 
 // ProtocolVersion is the version of the messages, every message's v (cut-a §5.1).
-const ProtocolVersion = 1
+const ProtocolVersion = 2
 
 // DeviceRole is what a device does for its member (D120): plays the film, carries voice, or both.
 type DeviceRole string
@@ -52,6 +52,8 @@ const (
 	CommandSeek       CommandKind = "seek"
 	CommandRate       CommandKind = "rate"
 	CommandChangeItem CommandKind = "changeItem"
+	// CommandStop ends what plays: everyone's screen goes back to black (D246 §5).
+	CommandStop CommandKind = "stop"
 )
 
 // SuspendReason is why a device detaches from the group for a while (watch-together.md, Sync).
@@ -101,12 +103,12 @@ type Outbound struct {
 	V    int         `json:"v"`
 	Type MessageType `json:"type"`
 	Seq  int64       `json:"seq,omitempty"`
-	// Welcome's: the session, the device's own member, the abilities and the roster; and every
-	// group message's group.
+	// Welcome's: the session, the device's own member, whether it is the host's, who alone
+	// controls playback (D246 §8), and the roster; and every group message's group.
 	SessionID int64        `json:"sessionId,omitempty"`
 	MemberID  int64        `json:"memberId,omitempty"`
 	DeviceID  int64        `json:"deviceId,omitempty"`
-	Abilities *Abilities   `json:"abilities,omitempty"`
+	IsHost    bool         `json:"isHost,omitempty"`
 	Group     *GroupView   `json:"group,omitempty"`
 	Roster    []MemberView `json:"roster,omitempty"`
 	TMono     int64        `json:"tMono,omitempty"`
@@ -119,8 +121,6 @@ type Outbound struct {
 	Candidate    string `json:"candidate,omitempty"`
 	// Ended's reason.
 	Reason string `json:"reason,omitempty"`
-	// RefusedJoins, in a roster, is how many joins the cap refused: several is a leaked link.
-	RefusedJoins int `json:"refusedJoins,omitempty"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every

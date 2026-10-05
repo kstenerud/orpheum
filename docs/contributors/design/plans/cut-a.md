@@ -294,7 +294,7 @@ single-playback token that the core maps to a grant.
 | Play state | `POST /playback/{token}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/preferences` (sync offset, subtitle choice); `PUT /me/preferences` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
 | Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/master.m3u8` and `GET /bytes/media/hls/{token}/{renditionName}/{fileName}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{fileName}` (the stream's ASS or WebVTT; the parameters were `{rendition}` and `{file}` until D227) — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)). "Get this ready" (`POST /files/{id}/prepare`) is M5's (plan-deviations P36) |
 | Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the server's OpenSubtitles account's daily downloads, as OpenSubtitles counts them, D224 §4) |
-| Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}`, `PUT /together/{id}/cap`, `DELETE /together/{id}` (host) |
+| Watch Together | `POST /together` (host: a session with nothing on, or the one the host has, and a credential for the host's devices; D246 §5); `GET /together/{id}` (host: links and members, with the host's notes); `POST /together/{id}/links` (host: one person's link, with a note of who it is for; D246 §3), `DELETE /together/{id}/links/{link}`; `POST /together/join` (a link and the name the others see → membership credential); `GET /together/ws` (WebSocket, §5.1); `POST /together/playback` (a viewer, by their credential: what is on now, and the viewer cookie for the byte paths); `POST /together/leave`; `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/eject/{member}`, `DELETE /together/{id}` (host) |
 | Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups` (a backup of the persistent directory now, the key in it only when asked; D242 §5); `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons); `POST /system/reachability` (the public name and the voice relay checked from outside in, a failure naming its hop, D243 §7) and `GET /reachability/{nonce}` (unauthenticated: that check's own request, answered 204 only for a nonce this server made) |
 
 Restore is a command-line operation with the server stopped (`orpheum restore`), never an endpoint.
@@ -311,16 +311,16 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | client → | `hello` | `credential` (the membership's), `sessionToken` (a signed-in person's, optional; D243 §2), `role` (`playback`, `voice`, `both`), `canSetRate` — within 10 s of opening |
 | client → | `ping` | `tMono` |
 | client → | `state` | `positionMs`, `tMono`, `playing`, `buffering`, `rttMs` (the shortest round trip its pings measured) — sent on every change and every 60 s |
-| client → | `command` | `command`: `play`, `pause`, `seek` (`positionMs`), `rate` (`rate`), `changeItem` (`fileId`; host, to a film the host reaches); with `basedOnSeq` |
+| client → | `command` | the host's alone: `command`: `play`, `pause`, `seek` (`positionMs`), `rate` (`rate`), `changeItem` (`fileId` and `positionMs`, to a film the host reaches), `stop` (nothing on, every screen black; D246 §5); with `basedOnSeq` |
 | client → | `suspend` / `resume` | `reason`: `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, `userPausedLocally`, `userIsChangingCurrentTime` |
 | client → | `rtc` | `toDeviceId`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |
-| → client | `welcome` | `sessionId`, `memberId`, `deviceId`, `abilities`, `roster`, the current `group` |
+| → client | `welcome` | `sessionId`, `memberId`, `deviceId`, `isHost` (only the host controls playback in Cut A, D246 §8), `roster`, the current `group` |
 | → client | `pong` | the echoed `tMono` |
 | → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188) |
-| → client | `roster` | `roster`: members (`id`, `name`, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`); `refusedJoins`, the joins the cap refused |
+| → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`); never the host's notes |
 | → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalid_request`, `not_found`) |
 | → client | `rtc` | `fromDeviceId`, and the relayed signalling |
-| → client | `ended` | `reason` (`hostEnded`, `ejected`); the socket closes after it |
+| → client | `ended` | `reason` (`hostEnded`, `ejected`, `left`); the socket closes after it |
 
 **The server applies commands in arrival order, and each `group` it sends carries a new
 `seq`.** A command that names a stale `basedOnSeq` is still applied if it is not a conflict.

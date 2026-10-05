@@ -90,8 +90,6 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 		{"whether a file can be read", get("/files/1/availability"), served},
 		{"subtitle candidates", get("/files/2/subtitle-candidates?language=de"), served},
 		{"a new playback", send(http.MethodPost, "/playback", chrome(1)), served},
-		{"a Watch Together session of it", send(http.MethodPost, "/together",
-			map[string]any{"fileId": 1, "transport": "group"}), served},
 		{"the playing film's bytes", func() response {
 			bytes := harness.getBytePath(t, playing.URL, partner, true, "")
 			return response{status: bytes.status, body: bytes.body}
@@ -170,7 +168,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getFileAvailability", "getSubtitleCandidates", "postFileSubtitle", "startPlayback", "getDirect",
 		"headDirect", "getMasterPlaylist", "getRenditionFile", "getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "createTogether",
+		"deleteOverride", "postItemRefresh",
+		// A viewer's playback is reach-checked against the host's libraries
+		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
+		"playTogether",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
@@ -178,10 +179,10 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getWaitingCode", "issueDeviceCode", "changePassword", "setMyPreferences", "getClientSettings",
 		// Signing in and setting up, before there is a caller.
 		"getHealth", "setup", "signIn", "signOut", "signInWithCode", "register", "getLinkKind",
-		// A Watch Together session's own management: the link is the grant (D117), the host's reach was
-		// checked when it started, and the host changes what plays only to what they reach (D122,
-		// TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
-		"joinTogether", "rotateTogether", "ejectFromTogether", "setTogetherCap", "endTogether",
+		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
+		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
+		"openTogether", "getTogether", "addTogetherLink", "removeTogetherLink", "joinTogether", "leaveTogether",
+		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.
 		"echoReachability",
 	}
