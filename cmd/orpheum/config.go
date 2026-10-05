@@ -30,6 +30,7 @@ import (
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
 	HTTPS    HTTPSConfig    `toml:"https"`
+	TURN     TURNConfig     `toml:"turn"`
 	Database DatabaseConfig `toml:"database"`
 	Node     NodeConfig     `toml:"node"`
 	Log      LogConfig      `toml:"log"`
@@ -70,6 +71,39 @@ func (https HTTPSConfig) check() error {
 	if !strings.Contains(https.Contact, "@") {
 		problems = append(problems,
 			fmt.Errorf("https.contact %q: want the e-mail address the CA writes to", https.Contact))
+	}
+	return errors.Join(problems...)
+}
+
+// TURNConfig is the relay that carries Watch Together's voice when two browsers cannot reach each
+// other (D243 §8): where it listens, the public address the browsers are told, and the ports
+// relayed media flows through. An empty public address serves no relay.
+type TURNConfig struct {
+	Listen        string `toml:"listen"`
+	PublicAddress string `toml:"public_address"`
+	RelayPortMin  int    `toml:"relay_port_min"`
+	RelayPortMax  int    `toml:"relay_port_max"`
+}
+
+// isOn is whether the server relays voice.
+func (relay TURNConfig) isOn() bool { return relay.PublicAddress != "" }
+
+// check refuses a public address that is not an IP address, a listen address with no port, and a
+// relay port range that is not one.
+func (relay TURNConfig) check() error {
+	if !relay.isOn() {
+		return nil
+	}
+	var problems []error
+	if net.ParseIP(relay.PublicAddress) == nil {
+		problems = append(problems, fmt.Errorf("turn.public_address %q: want an IP address", relay.PublicAddress))
+	}
+	if _, _, err := net.SplitHostPort(relay.Listen); err != nil {
+		problems = append(problems, fmt.Errorf("turn.listen %q: want host:port", relay.Listen))
+	}
+	if relay.RelayPortMin < 1 || relay.RelayPortMax > 65535 || relay.RelayPortMin > relay.RelayPortMax {
+		problems = append(problems, fmt.Errorf("turn.relay_port_min %d and turn.relay_port_max %d: want a range "+
+			"of ports, the least first", relay.RelayPortMin, relay.RelayPortMax))
 	}
 	return errors.Join(problems...)
 }
@@ -121,10 +155,15 @@ type LogConfig struct {
 // logToStderr is the log destination that writes to standard error.
 const logToStderr = "stderr"
 
+// keyListen is the key of a table's address and port to listen on: the server's, HTTPS's and the
+// voice relay's.
+const keyListen = "listen"
+
 // The file's tables.
 const (
 	tableServer   = "server"
 	tableHTTPS    = "https"
+	tableTURN     = "turn"
 	tableDatabase = "database"
 	tableNode     = "node"
 	tableLog      = "log"
@@ -155,7 +194,7 @@ func configKeys(kind instanceKind) []configKey {
 // coreConfigKeys are the full config's keys for the core, in the order the file is written.
 func coreConfigKeys() []configKey {
 	return []configKey{
-		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
+		{tableServer, keyListen, "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
@@ -163,7 +202,14 @@ func coreConfigKeys() []configKey {
 			`the public name served over HTTPS, "media.orpheum-app.com"; empty serves none (D243 §6)`,
 		},
 		{tableHTTPS, "contact", `""`, "the e-mail address the certificate's CA writes to about it"},
-		{tableHTTPS, "listen", `":443"`, "the address and port HTTPS is served on"},
+		{tableHTTPS, keyListen, `":443"`, "the address and port HTTPS is served on"},
+		{
+			tableTURN, "public_address", `""`,
+			"the IP address browsers reach the voice relay at, the VPS's; empty serves none (D243 §7, §8)",
+		},
+		{tableTURN, keyListen, `":3478"`, "the UDP address and port the voice relay is served on (D243 §8)"},
+		{tableTURN, "relay_port_min", "49160", "the least UDP port relayed voice flows through (D243 §8)"},
+		{tableTURN, "relay_port_max", "49199", "the greatest UDP port relayed voice flows through (D243 §8)"},
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
@@ -367,7 +413,8 @@ func (config *Config) check(kind instanceKind) error {
 	if kind == kindNode {
 		problems = append(problems, config.Node.check())
 	} else {
-		problems = append(problems, config.Server.check(), config.HTTPS.check(), config.Database.check())
+		problems = append(problems, config.Server.check(), config.HTTPS.check(), config.TURN.check(),
+			config.Database.check())
 	}
 	return errors.Join(problems...)
 }

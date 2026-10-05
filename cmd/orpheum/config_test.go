@@ -129,6 +129,15 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 			kindNode, strings.Replace(node, `destination = "stderr"`, `destination = "orpheum.log"`, 1),
 			"log.destination",
 		},
+		"a relay address that is not an IP address": {
+			kindCore, strings.Replace(core, `public_address = ""`, `public_address = "vps.example.org"`, 1),
+			"turn.public_address",
+		},
+		"a relay port range the wrong way round": {
+			kindCore, strings.Replace(strings.Replace(core, `public_address = ""`, `public_address = "203.0.113.7"`, 1),
+				"relay_port_min = 49160", "relay_port_min = 49200", 1),
+			"turn.relay_port_min",
+		},
 		"not TOML at all":  {kindCore, "server = [", "config"},
 		"a wrong key type": {kindCore, "[server]\nlisten = 8432\n", "listen"},
 	}
@@ -151,6 +160,12 @@ shutdown_grace_seconds = 10
 domain = ""
 contact = ""
 listen = ":443"
+
+[turn]
+public_address = ""
+listen = ":3478"
+relay_port_min = 49160
+relay_port_max = 49199
 
 [database]
 read_connections_minimum = 4

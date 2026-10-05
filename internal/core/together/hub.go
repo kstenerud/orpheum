@@ -598,6 +598,18 @@ func (hub *Hub) memberByCredential(credential string) (*session, *member) {
 	return nil, nil
 }
 
+// IsMember is whether memberID is a member of the live session sessionID: what a voice relay's
+// credentials are good for, which end with the membership (D243 §8).
+func (hub *Hub) IsMember(sessionID, memberID int64) bool {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	if live, found := hub.sessions[sessionID]; found {
+		_, isMember := live.members[memberID]
+		return isMember
+	}
+	return false
+}
+
 // hostOf is the user who hosts a session, or 0.
 func (hub *Hub) hostOf(sessionID int64) int64 {
 	hub.mutex.Lock()
