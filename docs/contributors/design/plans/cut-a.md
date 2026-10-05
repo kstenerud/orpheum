@@ -184,7 +184,8 @@ internal/core/      # GPL. May not import os/exec, internal/node, or any media/i
   auth/  secrets/  settings/  preferences/  backup/  certificate/  webclient/
   library/  identify/  providers/  textindex/  artwork/  jobs/  nodes/
   decide/  playback/  loudness/  subtitles/  renditions/
-  together/  turn/  # M4's; doc.go only
+  together/         # Watch Together's sessions, in memory (M4)
+  turn/             # M4's; doc.go only
   instancedir/      # the only core package that touches the filesystem
 internal/node/      # GPL. Imports nothing from core
   agent/  scan/  probe/  hash/  prepare/  prepared/  subtitle/  loudness/  artwork/  hardware/
@@ -287,7 +288,7 @@ single-playback token that the core maps to a grant.
 | Play state | `POST /playback/{token}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/preferences` (sync offset, subtitle choice); `PUT /me/preferences` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
 | Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/master.m3u8` and `GET /bytes/media/hls/{token}/{renditionName}/{fileName}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{fileName}` (the stream's ASS or WebVTT; the parameters were `{rendition}` and `{file}` until D227) — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)). "Get this ready" (`POST /files/{id}/prepare`) is M5's (plan-deviations P36) |
 | Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the server's OpenSubtitles account's daily downloads, as OpenSubtitles counts them, D224 §4) |
-| Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}` (host) |
+| Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}`, `PUT /together/{id}/cap`, `DELETE /together/{id}` (host) |
 | Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups` (a backup of the persistent directory now, the key in it only when asked; D242 §5); `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
 
 Restore is a command-line operation with the server stopped (`orpheum restore`), never an endpoint.
@@ -301,22 +302,22 @@ the sender's monotonic time, and round trips are measured with `ping`.
 
 | Direction | `type` | Fields |
 | --- | --- | --- |
-| client → | `hello` | membership credential, device role (`playback`, `voice`, `both`), `can_set_rate` |
-| client → | `ping` | `t_mono` |
-| client → | `state` | `position_ms`, `t_mono`, `playing`, `buffering` — sent on every change and every 60 s |
-| client → | `command` | `play`, `pause`, `seek{position_ms}`, `rate{r}`, `change_item{file_id}` (host), with `based_on_seq` |
+| client → | `hello` | `credential` (the membership's), `sessionToken` (a signed-in person's, optional; D243 §2), `role` (`playback`, `voice`, `both`), `canSetRate` — within 10 s of opening |
+| client → | `ping` | `tMono` |
+| client → | `state` | `positionMs`, `tMono`, `playing`, `buffering`, `rttMs` (the shortest round trip its pings measured) — sent on every change and every 60 s |
+| client → | `command` | `command`: `play`, `pause`, `seek` (`positionMs`), `rate` (`rate`), `changeItem` (`fileId`; host, to a film the host reaches); with `basedOnSeq` |
 | client → | `suspend` / `resume` | `reason`: `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, `userPausedLocally`, `userIsChangingCurrentTime` |
-| client → | `rtc` | `to`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |
-| → client | `welcome` | session, roster, abilities, current `group` |
-| → client | `pong` | the echoed `t_mono` |
-| → client | `group` | `seq`, `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `position_ms`, `rate`, `item`, and the member whose command caused it (named events, D188) |
-| → client | `roster` | members, their devices, per-member health and suspensions |
-| → client | `rejected` | `based_on_seq`, `code` (§5.2) |
-| → client | `rtc` | relayed signalling |
-| → client | `ended` | reason |
+| client → | `rtc` | `toDeviceId`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |
+| → client | `welcome` | `sessionId`, `memberId`, `deviceId`, `abilities`, `roster`, the current `group` |
+| → client | `pong` | the echoed `tMono` |
+| → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188) |
+| → client | `roster` | `roster`: members (`id`, `name`, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`); `refusedJoins`, the joins the cap refused |
+| → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalid_request`, `not_found`) |
+| → client | `rtc` | `fromDeviceId`, and the relayed signalling |
+| → client | `ended` | `reason` (`hostEnded`, `ejected`); the socket closes after it |
 
 **The server applies commands in arrival order, and each `group` it sends carries a new
-`seq`.** A command that names a stale `based_on_seq` is still applied if it is not a conflict.
+`seq`.** A command that names a stale `basedOnSeq` is still applied if it is not a conflict.
 If it is (a seek against a seek), the latest wins and the loser receives `rejected`. Drift is
 corrected by the client: nudge the rate if it can, otherwise seek. The thresholds are in the
 plan and are measured in the device lab.

@@ -5,8 +5,10 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -68,4 +70,18 @@ func reachOfRole(ctx context.Context, queries *sqlcgen.Queries, roleID int64, ca
 		return Reach{}, fmt.Errorf("read role %d's libraries: %w", roleID, err)
 	}
 	return LibrariesOnly(libraryIDs...), nil
+}
+
+// ReachOfUser is the libraries a person reaches now, by their role (D243 §4): what Authenticate
+// reads for a request, read for someone who is not the one asking, a Watch Together session's
+// host. A person not there reaches none.
+func (service *Service) ReachOfUser(ctx context.Context, userID int64) (Reach, error) {
+	user, err := liveUser(ctx, service.database.Read(), userID)
+	if errors.Is(err, ErrNoUser) {
+		return Reach{}, nil
+	}
+	if err != nil {
+		return Reach{}, err
+	}
+	return reachOfRole(ctx, service.database.Read(), user.RoleID, strings.Split(user.Capabilities, ","))
 }

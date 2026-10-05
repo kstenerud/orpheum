@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -71,6 +72,8 @@ type Dependencies struct {
 	Subtitles *subtitles.Service
 	// Renditions says what each node's prepares made, for the System page (D225 §3).
 	Renditions *renditions.Service
+	// Together holds the Watch Together sessions, in memory (D119).
+	Together *together.Hub
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
 	Backups *backup.Service
 	// Preferences keeps a person's own choices, which hold in every file (D230).
@@ -149,6 +152,8 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerPerson()
 	server.registerRoles()
 	server.registerNowPlaying()
+	server.registerTogether()
+	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
 	return server
 }
