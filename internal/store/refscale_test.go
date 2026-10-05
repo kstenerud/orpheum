@@ -411,12 +411,13 @@ func fullyScannedTables(t *testing.T, database *Database, query listQuery) []str
 // query that no longer scans fails until it is taken off (sql.md section 11).
 func fullScansAllowed() map[string]string {
 	return map[string]string{
-		"ListArtworkSourceSha256s": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
 			"and sorts them: walking item_added would pass every film and episode",
 		"ListTitlesByIdentification":    "the admin's needs-a-match list: 1.3 ms at the reference scale",
 		"ListSeriesByIdentification":    "the same list's series, which are few",
 		"ListLibraries":                 "a household has a handful of libraries",
+		"ListRoles":                     "a household has a handful of roles, which the admin lists (D243 section 4)",
+		"ListRoleLibraries":             "each role reaches a handful of libraries, which the admin lists (D243 section 4)",
 		"ListLiveNodes":                 "a household has a handful of nodes",
 		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",
 		"ListLiveLibraryIDs":            "a household has a handful of libraries; the identification sweep lists them",
@@ -460,22 +461,30 @@ func checkPageBudgets(t *testing.T, database *Database) {
 	ctx := t.Context()
 	pages := map[string]func() error{
 		"films by name": func() error {
-			first := sqlcgen.ListFilmsByNameParams{Locale: "en", AfterKey: []byte{}, MaxRows: 60}
+			first := sqlcgen.ListFilmsByNameParams{
+				Locale: "en", AfterKey: []byte{}, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+			}
 			_, err := queries.ListFilmsByName(ctx, first)
 			return err //nolint:wrapcheck // a test
 		},
 		"films newest first": func() error {
-			first := sqlcgen.ListFilmsByAddedParams{BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60}
+			first := sqlcgen.ListFilmsByAddedParams{
+				BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+			}
 			_, err := queries.ListFilmsByAdded(ctx, first)
 			return err //nolint:wrapcheck // a test
 		},
 		"series by name": func() error {
-			first := sqlcgen.ListSeriesByNameParams{Locale: "en", AfterKey: []byte{}, MaxRows: 60}
+			first := sqlcgen.ListSeriesByNameParams{
+				Locale: "en", AfterKey: []byte{}, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+			}
 			_, err := queries.ListSeriesByName(ctx, first)
 			return err //nolint:wrapcheck // a test
 		},
 		"series newest first": func() error {
-			first := sqlcgen.ListSeriesByAddedParams{BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60}
+			first := sqlcgen.ListSeriesByAddedParams{
+				BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+			}
 			_, err := queries.ListSeriesByAdded(ctx, first)
 			return err //nolint:wrapcheck // a test
 		},
