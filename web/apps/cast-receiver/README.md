@@ -1,7 +1,7 @@
 # @orpheum/cast-receiver
 
 Our Google Cast receiver: a second Vite app over the same SDK and player, served from
-`https://media.<domain>/cast/`. MPL-2.0. Does nothing until M5.
+`https://media.<domain>/cast/`. MPL-2.0. Does nothing until M6, the first milestone after Cut A (D245).
 
 ## Invariants
 
@@ -20,4 +20,4 @@ Our Google Cast receiver: a second Vite app over the same SDK and player, served
 ## Where to change
 
 - The entry point: `src/main.ts`.
-- The CAF receiver SDK script tag: `index.html`, in M5.
+- The CAF receiver SDK script tag: `index.html`, in M6.
