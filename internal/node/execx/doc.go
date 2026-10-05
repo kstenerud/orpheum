@@ -34,6 +34,8 @@
 //     TestRun_RefusesMoreOutputThanAllowed.
 //   - A watched run can return the end of the tool's log, where FFmpeg's filters write what they
 //     measured, and none of its output. TestRunWatched_ReturnsTheEndOfTheLogAndNotTheOutput.
+//   - A watched run can give its stdout to a writer as it comes, keeping none, for an answer too
+//     long to hold. TestRunWatched_GivesStdoutToItsWriterAsItComesAndKeepsNone.
 //   - A watched run is stalled when its position (out_time, or the frame count) has not advanced:
 //     not within its start grace, not for its stall window once it has, or not to its end by its
 //     deadline. Progress lines that arrive with the position where it was are not movement.
