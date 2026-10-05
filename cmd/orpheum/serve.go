@@ -244,8 +244,7 @@ func openPlayback(
 ) (jobServices, *playback.Service) {
 	services, queue := opened.jobServices, opened.jobServices.queue
 	services.readThrough = readthrough.NewService(readthrough.Parts{
-		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Clock: clock.System{},
+		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges, Clock: clock.System{},
 	})
 	levels := loudness.NewService(loudness.Parts{Database: database, Settings: opened.settings})
 	services.subtitles = subtitles.NewService(subtitles.Parts{

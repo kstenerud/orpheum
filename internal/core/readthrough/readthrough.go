@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -36,7 +35,6 @@ type Queue interface {
 // Parts are what the read-through service is built from.
 type Parts struct {
 	Database *store.Database
-	Cache    *store.Cache
 	Queue    Queue
 	Nodes    Nodes
 	// Exchanges are how a read-through asks its node and takes its answer; the service records its
@@ -46,10 +44,9 @@ type Parts struct {
 }
 
 // Service has each video read through once, and keeps what the read learned by the file's payload
-// hash: its sounds' loudness in persistent.db (D226), its picture's timeline in cache.db (D247 §10).
+// hash in persistent.db: its sounds' loudness (D226) and its picture's timeline (D247 §10).
 type Service struct {
 	database  *store.Database
-	cache     *store.Cache
 	queue     Queue
 	nodes     Nodes
 	exchanges *nodes.Exchanges
@@ -59,7 +56,7 @@ type Service struct {
 // NewService returns the read-through service, recording the nodes' read-throughs with exchanges.
 func NewService(parts Parts) *Service {
 	service := &Service{
-		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes,
+		database: parts.Database, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, clock: parts.Clock,
 	}
 	parts.Exchanges.Record(nodeproto.CommandReadThrough, service.record)
@@ -91,13 +88,6 @@ func (service *Service) FilesToReadThrough(ctx context.Context) ([]int64, error)
 			return nil, fmt.Errorf("list files to read through: %w", listErr)
 		}
 		for _, row := range rows {
-			isLacking, lackErr := service.lacksAnything(ctx, row)
-			if lackErr != nil {
-				return nil, lackErr
-			}
-			if !isLacking {
-				continue
-			}
 			_, isUnavailable, underErr := unavailability.Under(ctx, row.NodeID, row.ReportedPathRaw)
 			if underErr != nil {
 				return nil, underErr
@@ -108,22 +98,6 @@ func (service *Service) FilesToReadThrough(ctx context.Context) ([]int64, error)
 		}
 	}
 	return ids, nil
-}
-
-// lacksAnything is whether a listed file's bytes lack their loudness, which the listing says, or
-// the timeline of their picture, which cache.db says.
-func (service *Service) lacksAnything(ctx context.Context, row sqlcgen.ListFilesToReadThroughRow) (bool, error) {
-	if row.LacksLoudness != 0 {
-		return true, nil
-	}
-	if row.HasPicture == 0 {
-		return false, nil
-	}
-	timelineCount, err := service.cache.Read().CountVideoTimelinesOfPayload(ctx, row.PayloadHash)
-	if err != nil {
-		return false, fmt.Errorf("look for the timeline of file %d: %w", row.ID, err)
-	}
-	return timelineCount == 0, nil
 }
 
 // QueueReadThroughs queues a read-through for every file FilesToReadThrough finds (D226 §2), behind
@@ -226,7 +200,7 @@ func (service *Service) whatIsLacking(
 	if !hasPicture {
 		return command, nil
 	}
-	_, err = store.OrNotFound(service.cache.Read().GetVideoTimeline(ctx, cachegen.GetVideoTimelineParams{
+	_, err = store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
 		PayloadHash: file.PayloadHash, VideoStreamIndex: int64(picture.StreamIndex),
 	}))
 	switch {
@@ -301,26 +275,45 @@ func (service *Service) record(ctx context.Context, _ int64, result nodeproto.Re
 	return service.keep(ctx, payloadHash, *command, *answer)
 }
 
-// keep keeps a node's answer by the file's payload hash, each part the command asked for: each
-// track's sounds and the picture's timeline, or, when FFmpeg could not read the file, its words, for
-// each track as stereo and for the picture, so the sweep does not ask again.
+// keep keeps a node's answer by the file's payload hash, each part the command asked for, in one
+// write: each track's sounds and the picture's timeline, or, when FFmpeg could not read the file, its
+// words, for each track as stereo and for the picture, so the sweep does not ask again.
 func (service *Service) keep(
 	ctx context.Context, payloadHash []byte, command nodeproto.ReadThrough, answer nodeproto.ReadThroughResult,
 ) error {
-	if err := service.keepLoudness(ctx, payloadHash, command.LoudnessTracks, answer); err != nil {
-		return err
+	now := service.clock.Now().UnixMilli()
+	loudnessRows := loudnessRows(payloadHash, command.LoudnessTracks, answer, now)
+	var timeline *sqlcgen.UpsertVideoTimelineParams
+	if command.VideoTimeline != nil {
+		var err error
+		if timeline, err = timelineRow(payloadHash, command.VideoTimeline.VideoStreamIndex, answer, now); err != nil {
+			return err
+		}
 	}
-	if command.VideoTimeline == nil {
+	if len(loudnessRows) == 0 && timeline == nil {
 		return nil
 	}
-	return service.keepTimeline(ctx, payloadHash, command.VideoTimeline.VideoStreamIndex, answer)
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		for _, each := range loudnessRows {
+			if err := queries.UpsertLoudness(ctx, each); err != nil {
+				return err
+			}
+		}
+		if timeline != nil {
+			return queries.UpsertVideoTimeline(ctx, *timeline)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("keep what the read-through found: %w", err)
+	}
+	return nil
 }
 
-// keepLoudness keeps each measured track's sounds, or FFmpeg's word for each asked track as stereo.
-func (service *Service) keepLoudness(
-	ctx context.Context, payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.ReadThroughResult,
-) error {
-	now := service.clock.Now().UnixMilli()
+// loudnessRows are each measured track's sounds, or FFmpeg's word for each asked track as stereo.
+func loudnessRows(
+	payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.ReadThroughResult, now int64,
+) []sqlcgen.UpsertLoudnessParams {
 	var rows []sqlcgen.UpsertLoudnessParams
 	if answer.Failure != "" {
 		for _, track := range tracks {
@@ -337,21 +330,7 @@ func (service *Service) keepLoudness(
 				loudnessRow(payloadHash, track.StreamIndex, decide.MixMultichannel, *track.Multichannel, now))
 		}
 	}
-	if len(rows) == 0 {
-		return nil
-	}
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		for _, each := range rows {
-			if err := queries.UpsertLoudness(ctx, each); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("keep the loudness: %w", err)
-	}
-	return nil
+	return rows
 }
 
 // loudnessRow is one measured sound as persistent.db keeps it.
@@ -365,14 +344,15 @@ func loudnessRow(
 	}
 }
 
-// keepTimeline keeps the picture's timeline, or FFmpeg's word that the file could not be read.
-// An answer that lacks the timeline it was asked for keeps nothing, and the next sweep asks again.
-func (service *Service) keepTimeline(
-	ctx context.Context, payloadHash []byte, videoStreamIndex int, answer nodeproto.ReadThroughResult,
-) error {
-	row := cachegen.UpsertVideoTimelineParams{
+// timelineRow is the picture's timeline as persistent.db keeps it, or FFmpeg's word that the file
+// could not be read; nil for an answer that lacks the timeline it was asked for, which keeps
+// nothing, so the next sweep asks again.
+func timelineRow(
+	payloadHash []byte, videoStreamIndex int, answer nodeproto.ReadThroughResult, now int64,
+) (*sqlcgen.UpsertVideoTimelineParams, error) {
+	row := sqlcgen.UpsertVideoTimelineParams{
 		PayloadHash: payloadHash, VideoStreamIndex: int64(videoStreamIndex), KeyframesMsJSON: "[]",
-		BytesInEachSecondJSON: "[]", MadeAt: service.clock.Now().UnixMilli(),
+		BytesInEachSecondJSON: "[]", MadeAt: now,
 	}
 	switch {
 	case answer.Failure != "":
@@ -380,21 +360,15 @@ func (service *Service) keepTimeline(
 	case answer.VideoTimeline != nil:
 		keyframes, err := json.Marshal(answer.VideoTimeline.KeyframesMs)
 		if err != nil {
-			return fmt.Errorf("encode the keyframes: %w", err)
+			return nil, fmt.Errorf("encode the keyframes: %w", err)
 		}
 		seconds, err := json.Marshal(answer.VideoTimeline.BytesInEachSecond)
 		if err != nil {
-			return fmt.Errorf("encode the bytes in each second: %w", err)
+			return nil, fmt.Errorf("encode the bytes in each second: %w", err)
 		}
 		row.KeyframesMsJSON, row.BytesInEachSecondJSON = string(keyframes), string(seconds)
 	default:
-		return nil
+		return nil, nil //nolint:nilnil // no timeline to keep is not an error
 	}
-	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.UpsertVideoTimeline(ctx, row)
-	})
-	if err != nil {
-		return fmt.Errorf("keep the timeline: %w", err)
-	}
-	return nil
+	return &row, nil
 }

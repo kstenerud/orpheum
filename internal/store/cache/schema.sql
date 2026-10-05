@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 29
+-- cache schema version 30
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,13 +125,3 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   sent_at     INTEGER NOT NULL
 );
 CREATE INDEX node_attempt_job ON node_attempt(job_id);
-
-CREATE TABLE video_timeline (                              -- D247 section 10: a picture's timeline
-  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as persistent.db's file has them (D179)
-  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
-  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
-  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
-  failure     TEXT,                      -- FFmpeg's word that the file could not be read through; the JSON is then empty
-  made_at     INTEGER NOT NULL,
-  PRIMARY KEY (payload_hash, video_stream_index)
-) WITHOUT ROWID;

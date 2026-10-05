@@ -11,7 +11,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -213,12 +212,12 @@ func (harness testHarness) shelvePictures(t *testing.T) {
 }
 
 // timelineOf is the timeline kept for the bytes with payloadHash, of stream 0.
-func (harness testHarness) timelineOf(t *testing.T, payloadHash []byte) (cachegen.VideoTimeline, bool) {
+func (harness testHarness) timelineOf(t *testing.T, payloadHash []byte) (sqlcgen.VideoTimeline, bool) {
 	t.Helper()
-	timeline, err := store.OrNotFound(harness.cache.Read().GetVideoTimeline(t.Context(),
-		cachegen.GetVideoTimelineParams{PayloadHash: payloadHash, VideoStreamIndex: 0}))
+	timeline, err := store.OrNotFound(harness.database.Read().GetVideoTimeline(t.Context(),
+		sqlcgen.GetVideoTimelineParams{PayloadHash: payloadHash, VideoStreamIndex: 0}))
 	if errors.Is(err, store.ErrNotFound) {
-		return cachegen.VideoTimeline{}, false
+		return sqlcgen.VideoTimeline{}, false
 	}
 	if err != nil {
 		t.Fatal(err)

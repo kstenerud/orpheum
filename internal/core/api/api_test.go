@@ -136,7 +136,7 @@ func newHarness(t *testing.T) testHarness {
 	queue.OnCancel(exchanges.Cancelled)
 	loudnessService := loudness.NewService(loudness.Parts{Database: database, Settings: seeded})
 	readThroughService := readthrough.NewService(readthrough.Parts{
-		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges, Clock: now,
+		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Clock: now,
 	})
 	subtitlesService := subtitles.NewService(subtitles.Parts{
 		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Subtitler: subtitler, Clock: now,

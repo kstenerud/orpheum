@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 33
--- compatible_version 33
+-- user_version 35
+-- compatible_version 34
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -32,6 +32,9 @@ CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 
 -- index grant_user
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
+
+-- index invitation_role
+CREATE INDEX invitation_role ON invitation(role_id);
 
 -- index item_added
 CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;
@@ -270,6 +273,14 @@ CREATE TABLE group_text (                                  -- a season's name, a
   name          TEXT,
   overview      TEXT,
   PRIMARY KEY (collection_id, group_number, language)
+);
+
+-- table invitation
+CREATE TABLE invitation (                                  -- class A (D246 section 2)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+  admin_note    TEXT NOT NULL CHECK (admin_note <> '')
 );
 
 -- table item
@@ -647,9 +658,9 @@ CREATE TABLE user (                                        -- class A
   name          TEXT NOT NULL,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
-  is_outsider   INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
   created_at    INTEGER NOT NULL,
-  removed_at    INTEGER
+  removed_at    INTEGER,
+  admin_note    TEXT                     -- who the account is for, the admin's alone (D246 section 2)
 );
 
 -- table user_deny
@@ -672,6 +683,17 @@ CREATE TABLE version (                                     -- class I
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
+
+-- table video_timeline
+CREATE TABLE video_timeline (                              -- class O: what the node read (D247 section 10)
+  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as file.payload_hash (D179)
+  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
+  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
+  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
+  failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
+  made_at     INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, video_stream_index)
+) WITHOUT ROWID;
 
 -- table watchlist
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,

@@ -3,24 +3,11 @@
 //   sqlc v1.31.1
 // source: video_timeline.sql
 
-package cachegen
+package sqlcgen
 
 import (
 	"context"
 )
-
-const countVideoTimelinesOfPayload = `-- name: CountVideoTimelinesOfPayload :one
-SELECT COUNT(*) AS timeline_count FROM video_timeline WHERE payload_hash = ?
-`
-
-// How many of a file's bytes' pictures have a timeline, or the word that they cannot be read: a
-// sweep reads files through whose bytes have none.
-func (q *Queries) CountVideoTimelinesOfPayload(ctx context.Context, payloadHash []byte) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countVideoTimelinesOfPayload, payloadHash)
-	var timeline_count int64
-	err := row.Scan(&timeline_count)
-	return timeline_count, err
-}
 
 const getVideoTimeline = `-- name: GetVideoTimeline :one
 
@@ -34,8 +21,8 @@ type GetVideoTimelineParams struct {
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Each picture's timeline, as a read-through found it (schema.md, cache.db; D247 section 10): its
-// keyframes and its bytes in each second, by the bytes it was read from.
+// Each picture's timeline, as a read-through found it (D247 section 10): its keyframes and its bytes
+// in each second, by the bytes it was read from.
 func (q *Queries) GetVideoTimeline(ctx context.Context, arg GetVideoTimelineParams) (VideoTimeline, error) {
 	row := q.db.QueryRowContext(ctx, getVideoTimeline, arg.PayloadHash, arg.VideoStreamIndex)
 	var i VideoTimeline

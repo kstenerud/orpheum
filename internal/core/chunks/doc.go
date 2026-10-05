@@ -3,9 +3,9 @@
 // Package chunks cuts a film into chunks made when a player first asks for one, so a slow link
 // gets lower qualities hls.js switches between by itself (D247 §10, chunks.md). It holds, for now,
 // the grid: a film's chunk boundaries, its main picture's keyframes, which a read-through keeps in
-// cache.db (internal/core/readthrough), merged so each chunk is at least hls_segment_length_seconds
-// long. The node's making of chunks, the playlists and the player's move to them come after
-// (chunks.md §5).
+// persistent.db (internal/core/readthrough), merged so each chunk is at least
+// hls_segment_length_seconds long. The node's making of chunks, the playlists and the player's
+// move to them come after (chunks.md §5).
 //
 // # Invariants
 //

@@ -13,7 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // ErrCannotBeCut is a film whose picture has no grid and never will, as its bytes are: FFmpeg could
@@ -67,22 +67,20 @@ type Settings interface {
 
 // Parts are what the chunks service is built from.
 type Parts struct {
+	// Database holds the files and their pictures' timelines, which internal/core/readthrough keeps.
 	Database *store.Database
-	// Cache holds the pictures' timelines, which internal/core/readthrough keeps.
-	Cache    *store.Cache
 	Settings Settings
 }
 
 // Service cuts films into chunks made on request (D247 §10): for now, the grid each is cut on.
 type Service struct {
 	database *store.Database
-	cache    *store.Cache
 	settings Settings
 }
 
 // NewService returns the chunks service.
 func NewService(parts Parts) *Service {
-	return &Service{database: parts.Database, cache: parts.Cache, settings: parts.Settings}
+	return &Service{database: parts.Database, settings: parts.Settings}
 }
 
 // Grid is the grid the file's film is cut on, from its main picture's timeline as a read-through
@@ -104,7 +102,7 @@ func (service *Service) Grid(ctx context.Context, fileID int64) (Grid, bool, err
 	if !hasPicture {
 		return Grid{}, false, fmt.Errorf("%w: file %d has no picture", ErrCannotBeCut, fileID)
 	}
-	timeline, err := store.OrNotFound(service.cache.Read().GetVideoTimeline(ctx, cachegen.GetVideoTimelineParams{
+	timeline, err := store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
 		PayloadHash: file.PayloadHash, VideoStreamIndex: int64(picture.StreamIndex),
 	}))
 	if errors.Is(err, store.ErrNotFound) {

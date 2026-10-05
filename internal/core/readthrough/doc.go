@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package readthrough has each video read through once by its node, one FFmpeg reading the whole
-// file, and keeps what the read learned by the file's payload hash: how loud each audio track is,
-// in persistent.db's loudness (D226), which internal/core/loudness turns into gains; and its main
-// picture's timeline, its keyframes and its bytes in each second, in cache.db's video_timeline
-// (D247 §10), which internal/core/chunks cuts films by. A read asks only for what the bytes lack,
-// so one whose loudness is kept and whose timeline is not reads only the picture. It owns the
-// read_through job, its sweep and its node's answer.
+// file, and keeps what the read learned by the file's payload hash, in persistent.db, since making
+// it again reads the whole file (the architecture map's F1): how loud each audio track is, in
+// loudness (D226), which internal/core/loudness turns into gains; and its main picture's timeline,
+// its keyframes and its bytes in each second, in video_timeline (D247 §10), which
+// internal/core/chunks cuts films by. Both parts of an answer are kept in one write. A read asks
+// only for what the bytes lack, so one whose loudness is kept and whose timeline is not reads only
+// the picture. It owns the read_through job, its sweep and its node's answer.
 //
 // # Invariants
 //

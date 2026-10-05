@@ -11,7 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
-	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -99,7 +99,7 @@ func TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut(t *testing.T) {
 // film 4 is one FFmpeg could not read; film 5 has only sound. The segment length is two seconds.
 func serviceWithFilms(t *testing.T) *Service {
 	t.Helper()
-	database, cache := storetest.OpenMigrated(t), storetest.OpenCache(t)
+	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	probes := map[int64]string{
@@ -117,8 +117,8 @@ func serviceWithFilms(t *testing.T) *Service {
 			fileID, libraryID, nodeID, fileID, fileID, probe))
 	}
 	failure := "Invalid data found"
-	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
-		for _, row := range []cachegen.UpsertVideoTimelineParams{
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for _, row := range []sqlcgen.UpsertVideoTimelineParams{
 			{PayloadHash: []byte{0x01}, VideoStreamIndex: 0, KeyframesMsJSON: "[0]", BytesInEachSecondJSON: "[]"},
 			{
 				PayloadHash: []byte{0x01}, VideoStreamIndex: 1, KeyframesMsJSON: "[0,1000,2000,4000,6000]",
@@ -138,7 +138,7 @@ func serviceWithFilms(t *testing.T) *Service {
 	}
 	seeded := settingstest.Seeded(t, database)
 	settingstest.Set(t, seeded, settings.HLSSegmentLengthSeconds, "2")
-	return NewService(Parts{Database: database, Cache: cache, Settings: seeded})
+	return NewService(Parts{Database: database, Settings: seeded})
 }
 
 func TestGrid_IsTheMainPicturesKeptTimelineMergedToTheSegmentLength(t *testing.T) {

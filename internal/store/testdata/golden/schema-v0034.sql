@@ -659,8 +659,9 @@ CREATE TABLE user (                                        -- class A
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
   created_at    INTEGER NOT NULL,
-  removed_at    INTEGER
-, admin_note TEXT);
+  removed_at    INTEGER,
+  admin_note    TEXT                     -- who the account is for, the admin's alone (D246 section 2)
+);
 
 -- table user_deny
 CREATE TABLE user_deny (                                   -- class A: narrows only
