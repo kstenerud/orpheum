@@ -25,6 +25,8 @@ type Nodes interface {
 	// SlowestReadBytesPerSecond is the slowest a node reads a whole file, as its hello said; zero
 	// when not known.
 	SlowestReadBytesPerSecond(nodeID int64) int64
+	// ParkUnlessConnected parks a job on a node that is not connected, until its hello.
+	ParkUnlessConnected(ctx context.Context, nodeID int64) error
 }
 
 // Queue is the job queue: jobs.Queue.
@@ -169,6 +171,12 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 	}
 	if command.Video, err = library.BytesFileOf(ctx, queries, located); err != nil {
 		return jobs.MarkPermanent(err)
+	}
+	// A node not yet heard from since the server started has not said how fast it reads: the job
+	// waits for its hello, and is not failed, which each restart of the server had done once
+	// until it failed for good (the owner's log, 2026-10-05).
+	if err := service.nodes.ParkUnlessConnected(ctx, file.NodeID); err != nil {
+		return err
 	}
 	if service.nodes.SlowestReadBytesPerSecond(file.NodeID) <= 0 {
 		return fmt.Errorf("node %d has not said how fast it reads, so a read-through of file %d cannot be "+
