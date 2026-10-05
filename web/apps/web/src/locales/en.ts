@@ -453,6 +453,30 @@ export const en = {
       none: "There is no backup yet.",
       backup: "{{name}}, {{size}}, made {{at}}",
     },
+    reachability: {
+      heading: "Reached from outside",
+      what: "Checks the way a browser outside the house reaches the server: its public name, through the VPS and the tunnel, and the voice relay's port.",
+      check: "Check now",
+      checkedAt: "Checked {{at}}.",
+      points: "{{name}} points at {{addresses}}.",
+      hop: {
+        https: "HTTPS to {{name}}",
+        relayUdp: "The voice relay over UDP",
+        relayTcp: "The voice relay over TCP",
+      },
+      outcome: {
+        reached: "{{hop}}: reached this server.",
+        notChecked: "{{hop}}: not set up in the config, so not checked.",
+        nameUnresolved: "{{hop}}: the name has no address. Check its DNS records.",
+        notAnswering:
+          "{{hop}}: nothing answered. Check that the VPS is up, that it forwards the port, and that the tunnel is connected.",
+        certificateRefused:
+          "{{hop}}: something answered, but not with a certificate for the name. The certificate may not have been issued yet.",
+        anotherServer:
+          "{{hop}}: another server answered for the name. Check where its DNS records point.",
+      },
+      detail: "The cause: {{detail}}",
+    },
     offline: "Offline",
     offlineRoot: "{{node}}: {{path}}, in {{library}}: offline since {{since}}",
     offlineDisk: "The disk at {{node}}: {{path}}, in {{library}}: missing since {{since}}",

@@ -189,6 +189,7 @@ internal/core/      # GPL. May not import os/exec, internal/node, or any media/i
   auth/  secrets/  settings/  preferences/  backup/  certificate/  webclient/
   library/  identify/  providers/  textindex/  artwork/  jobs/  nodes/
   decide/  playback/  loudness/  subtitles/  renditions/
+  reachability/     # the System page's check of the public path, from outside in (M4)
   together/         # Watch Together's sessions, in memory (M4)
   turn/             # the TURN relay embedded for voice (M4)
   instancedir/      # the only core package that touches the filesystem
@@ -294,7 +295,7 @@ single-playback token that the core maps to a grant.
 | Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/master.m3u8` and `GET /bytes/media/hls/{token}/{renditionName}/{fileName}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{fileName}` (the stream's ASS or WebVTT; the parameters were `{rendition}` and `{file}` until D227) — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)). "Get this ready" (`POST /files/{id}/prepare`) is M5's (plan-deviations P36) |
 | Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the server's OpenSubtitles account's daily downloads, as OpenSubtitles counts them, D224 §4) |
 | Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}`, `PUT /together/{id}/cap`, `DELETE /together/{id}` (host) |
-| Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups` (a backup of the persistent directory now, the key in it only when asked; D242 §5); `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
+| Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups` (a backup of the persistent directory now, the key in it only when asked; D242 §5); `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons); `POST /system/reachability` (the public name and the voice relay checked from outside in, a failure naming its hop, D243 §7) and `GET /reachability/{nonce}` (unauthenticated: that check's own request, answered 204 only for a nonce this server made) |
 
 Restore is a command-line operation with the server stopped (`orpheum restore`), never an endpoint.
 

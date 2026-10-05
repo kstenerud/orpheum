@@ -932,6 +932,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reachability/{nonce}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Answer a reachability check's own request, which came back through the public name */
+        get: operations["echoReachability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/registration": {
         parameters: {
             query?: never;
@@ -1118,6 +1135,23 @@ export interface paths {
         get: operations["getSystem"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/reachability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check the public name and voice relay from outside in, naming a failing hop (admin; D243 §7) */
+        post: operations["checkReachability"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2379,6 +2413,25 @@ export interface components {
              * @description How long the provider asks us to wait
              */
             retryAfterMs: number;
+        };
+        ReachabilityOutputBody: {
+            /** @description Where the name points */
+            addresses: string[] | null;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            checkedAt: number;
+            https: components["schemas"]["ReachabilityResult"];
+            /** @description The public name; empty when the server has none */
+            name: string;
+            relayTcp: components["schemas"]["ReachabilityResult"];
+            relayUdp: components["schemas"]["ReachabilityResult"];
+        };
+        ReachabilityResult: {
+            detail?: string;
+            /** @enum {string} */
+            outcome: "reached" | "notChecked" | "nameUnresolved" | "notAnswering" | "certificateRefused" | "anotherServer";
         };
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
@@ -4973,6 +5026,35 @@ export interface operations {
             };
         };
     };
+    echoReachability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nonce: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -5497,6 +5579,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkReachability: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReachabilityOutputBody"];
                 };
             };
             /** @description Error */
