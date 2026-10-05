@@ -18019,7 +18019,7 @@ paused often; in the group it played a frame and froze, over and over.
    maintainers advise turning them off (slow-links.md §2). The player measures the film's own
    segments as they arrive, which hls.js already does, and starts cautiously.
 2. **The original plays first; a lower version is made at a viewer's first stall, and played from
-   their second.** The owner: *"It should try the original version first"*, and *"The moment a
+   their second** (its mechanism is §10). The owner: *"It should try the original version first"*, and *"The moment a
    client stalls for the first time, we begin preparing the alternative streams in case it stalls
    again."* At the first stall, prepare starts a lower version in the background from where the
    film is, at a bitrate the player's own measurement of the original's download says the link
@@ -18045,5 +18045,42 @@ paused often; in the group it played a frame and froze, over and over.
    skips ahead, by then usually on a lower variant (§2). The numbers are Silo's, to be measured.
 5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
    `refillAheadMs`), not at its first frame, which was the loop.
+
+6. **The lower versions are a fixed set of standard qualities**, about 3 Mbps at 720p, 2 Mbps at
+   540p, 1.2 Mbps at 480p and 0.7 Mbps at 432p (Apple's authoring spec's low rungs, to be tuned on
+   the owner's films). A stall chooses the highest one within about 70% of the speed the player
+   measured. The owner: *"Have a set of standard bitrates that can be chosen. When a client fails,
+   we use the bandwidth situation to choose from those bitrates and begin transcoding."* Our own
+   encodes cap their peaks, which the original's do not.
+7. **A version is the film at a quality, shared by every viewer.** One another viewer's stall
+   already started is used if it is within the viewer's measured speed and not far from what would
+   have been chosen: the same quality, or the one below it. The owner: *"If a client stalls, and
+   another client has already stalled and triggered a lower bitrate transcode, we just use that if
+   it's within bandwidth capability and not too far off from what we would have chosen
+   otherwise."*
+8. **A stall on a lower version steps down again**, chosen afresh from the measured speed, not one
+   step at a time. **At the bottom, the person is told it will not work**: a stall at the lowest
+   quality, or a measured speed below what it needs, says so with both numbers, and in Watch
+   Together the group is told too. The owner: *"At a certain point the quality will be so bad that
+   we're probably better off telling the user this won't work."*
+9. **A viewer steps back up when the link has recovered with confidence**: the speed measured
+   while chunks download (never across the pauses between them, which read slow) stays at about
+   1.5× the next quality's rate for a couple of minutes, with a healthy buffer, and the step is one
+   quality at a time. The owner asked: *"Is there a way to detect that the network situation has
+   improved (with good confidence) and then step them back up?"*
+10. **Every quality, the original's own picture among them, is cut into chunks at the source's
+    keyframes and listed in one playlist**, so hls.js switches between them without a pause
+    ([transcoding.md](../design/plans/transcoding.md) §(b), Kyoo's design in slow-links.md §4). A
+    chunk is made when a player first asks for it and kept, so a seek, a viewer joining mid-film
+    and a stall all start encoding where they are. A film still starts from the original file
+    (§2); the first stall starts the chosen quality where the viewer is, and the second moves the
+    player into the chunked playlist, once, with a short pause; every step after it is seamless.
+    This replaces §3's "later refinement".
+11. **Nothing detects whether a viewer is at home or away.** The owner: *"I'd avoid detecting a
+    home network or lan. If it's a high bandwidth local network, none of this machinery should
+    trigger unless there's a real problem (such as flaky wifi)."* The playback request's
+    `network` goes, and with it the remote bitrate ceiling that chose `h264-8m` for a large file
+    played away (cut-a.md §6); the only signals are the speed a player measures and its stalls.
+    A slow film over flaky Wi-Fi at home is treated as one away.
 
 **Status:** Decided 2026-10-05; to be built in M4.
