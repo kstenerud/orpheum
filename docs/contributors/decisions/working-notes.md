@@ -18000,7 +18000,7 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ---
 
-## D247 — A slow link gets lower prepared variants that the player switches between by itself, and a group waits for a stalled viewer once, then lets them catch up alone
+## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
 **Decided** (2026-10-05), by the project owner, after the first Watch Together test and the
 research it prompted ([slow-links.md](../design/research/slow-links.md)). **Revises**
@@ -18018,15 +18018,22 @@ paused often; in the group it played a frame and froze, over and over.
    one; the servers that do (Jellyfin, Emby) have had bugs in theirs for years and their
    maintainers advise turning them off (slow-links.md §2). The player measures the film's own
    segments as they arrive, which hls.js already does, and starts cautiously.
-2. **Prepare also makes lower variants**, about 1.2 and 2.2 Mbps H.264 (to be measured on the
-   owner's films), in the same HLS master playlist as the rendition it makes now, so hls.js
-   switches between them by itself. Every variant's segments start at the same source times,
-   the source's own keyframes, as [transcoding.md](../design/plans/transcoding.md) §(b) already
-   requires: the encoded variants force an IDR frame at each. They are encoded ahead of the
-   viewer, as prepare already writes while the film plays, and kept as a cache
-   ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)).
-3. **The switch is automatic, and the player shows which quality is playing.** Plex asks first
-   because its switch is not seamless; aligned variants are.
+2. **The original plays first; a lower version is made at a viewer's first stall, and played from
+   their second.** The owner: *"It should try the original version first"*, and *"The moment a
+   client stalls for the first time, we begin preparing the alternative streams in case it stalls
+   again."* At the first stall, prepare starts a lower version in the background from where the
+   film is, at a bitrate the player's own measurement of the original's download says the link
+   carries (§1). It is encoded faster than the film plays, so it is ahead of the viewer within
+   seconds. At a second stall the player changes over to it at its position. The changeover is
+   not seamless (a plain file and a segmented stream cannot be swapped without rebuilding the
+   player), but it falls inside a stall that is happening anyway. The version is kept as a cache
+   ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)),
+   so a later play has it ready. A film already playing as a prepared rendition (its sound or
+   container needed one) gets the same: a lower version at the first stall, the change at the
+   second.
+3. **The change is automatic, and the player shows which quality is playing.** Variants aligned on
+   the source's keyframes in one playlist, switched by hls.js without a pause
+   ([transcoding.md](../design/plans/transcoding.md) §(b)), remain the later refinement.
 4. **A stalled viewer holds the group once, then catches up alone** (Silo-Server's design,
    slow-links.md §5). A stall pauses the group only if that viewer has not stalled in the last
    5 minutes and the group has not waited for anyone in the last minute. Otherwise the others play
