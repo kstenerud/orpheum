@@ -48,7 +48,10 @@ export type Api = Omit<Client<paths>, Uppercase<ApiMethod>> & {
 export interface ApiOptions {
   /** The server's origin; the page's own when omitted. */
   readonly origin?: string;
-  /** Reads the session token, sent in the Authorization header and never in a URL (D154). */
+  /**
+   * Reads the session token, sent in the Authorization header and never in a URL (D154), unless the
+   * call names its own: a Watch Together member's membership credential (D246 §3).
+   */
   readonly getToken: () => string | undefined;
   /** What sends a request: the browser's fetch when omitted, or a test's stand-in server. */
   readonly fetch?: (request: Request) => Promise<Response>;
@@ -64,7 +67,7 @@ export function createApi(options: ApiOptions): Api {
   const authorise: Middleware = {
     onRequest({ request }) {
       const token = options.getToken();
-      if (token !== undefined) {
+      if (token !== undefined && !request.headers.has("Authorization")) {
         request.headers.set("Authorization", `Bearer ${token}`);
       }
       return request;

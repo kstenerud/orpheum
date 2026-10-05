@@ -22,6 +22,19 @@ describe("the API client", () => {
     expect(seen).toEqual(["Bearer secret-token", null]);
   });
 
+  it("sends a call's own Authorization in place of the session token: a membership's (D246 §3)", async () => {
+    const seen: (string | null)[] = [];
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "session-token" });
+    await api.POST("/together/leave", {
+      headers: { authorization: "Bearer membership" },
+      fetch: (request: Request) => {
+        seen.push(request.headers.get("Authorization"));
+        return Promise.resolve(new Response(null, { status: 204 }));
+      },
+    });
+    expect(seen).toEqual(["Bearer membership"]);
+  });
+
   it("addresses an image by its hash and size, with nothing secret in the address", () => {
     expect(artUrl("ab12", "portrait-m")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
     expect(artUrl("ab12", "landscape-l", "jpeg")).toBe("/api/v1/bytes/art/ab12/landscape-l.jpeg");
