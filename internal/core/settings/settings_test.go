@@ -63,6 +63,23 @@ func jsonByKey(pairs ...string) map[string]json.RawMessage {
 	return encoded
 }
 
+// A setting is read on every playback request, and a waiting chunk request reads several four times
+// a second: a lookup that built the registry, compiling its patterns, cost 2 ms and 1.5 MB a read,
+// and stalled the owner's playback on a busy machine (2026-10-05).
+func TestLookup_FindsADefinitionWithoutBuildingTheRegistry(t *testing.T) {
+	definition, known := Lookup(MediaTokenIdleExpiryHours)
+	if !known || definition.Key != MediaTokenIdleExpiryHours {
+		t.Fatalf("Lookup(%s) = %+v, %v; want its definition", MediaTokenIdleExpiryHours, definition, known)
+	}
+	if _, known = Lookup("no_such_setting"); known {
+		t.Error("Lookup found a key the registry does not have")
+	}
+	allocations := testing.AllocsPerRun(100, func() { Lookup(MediaTokenIdleExpiryHours) })
+	if allocations != 0 {
+		t.Errorf("a lookup allocates %.0f times; want none: it builds the registry again", allocations)
+	}
+}
+
 func TestRegistry_EveryStartingValueIsAValidValueOrAQuestion(t *testing.T) {
 	t.Parallel()
 	if len(Registry()) == 0 {
