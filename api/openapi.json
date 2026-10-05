@@ -4260,6 +4260,10 @@
             ],
             "type": "string"
           },
+          "fileBitRateKbps": {
+            "format": "int64",
+            "type": "integer"
+          },
           "isPreparing": {
             "type": "boolean"
           },
@@ -4329,7 +4333,8 @@
           "preferences",
           "resumePositionMs",
           "mediaToken",
-          "levelling"
+          "levelling",
+          "fileBitRateKbps"
         ],
         "type": "object"
       },

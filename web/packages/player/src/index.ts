@@ -15,6 +15,8 @@ export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
 export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
+export { meterBufferGrowth } from "./link.ts";
+export type { LinkMeter, MeteredMedia } from "./link.ts";
 export { PlayReporter, ReportRefused, reportEveryMs, seekTo } from "./report.ts";
 export type { PlayEvent, PlayEventKind, PlayReport, PlaySpan } from "./report.ts";
 export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";

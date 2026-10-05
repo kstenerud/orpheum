@@ -19,6 +19,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     resumePositionMs: 0,
     mediaToken: "t",
     levelling: unlevelled.levelling,
+    fileBitRateKbps: 2400,
     ...changes,
   };
 }

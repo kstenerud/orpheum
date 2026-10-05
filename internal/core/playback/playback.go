@@ -124,6 +124,9 @@ type Started struct {
 	// Levelling is what brings the main sound to the level: the one played as it is, or, when
 	// prepared, its stereo mix (D226). Each audio rendition carries its own.
 	Levelling decide.Levelling
+	// FileBitRateBps is the file's own average bit rate, by which a player playing it as it is
+	// measures its link from how fast its buffer grows (D247 §1); 0 when the probe has none.
+	FileBitRateBps int64
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -160,7 +163,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	decision := decisionFor(request, probe, started)
-	started.Decision = decision
+	started.Decision, started.FileBitRateBps = decision, probe.Format.BitRateBps
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return Started{}, err
