@@ -485,9 +485,10 @@ func (sink *recordingResultSink) Interrupt(_ context.Context, nodeID int64, star
 	sink.interrupted = append(sink.interrupted, interruption{nodeID: nodeID, startID: startID})
 }
 
-// Every hello, the first since the core started too, has the work given to any other start of its
-// node interrupted, by the start it names: a node that started again lost the work it held in memory
-// (D238 §3), whether or not this core heard its last start.
+// Every hello, even the first since the core itself started, has the work given to any other start
+// of its node interrupted, by the start it names: a node that started again lost the work it held in
+// memory (D238 §3), whether or not this core heard its last start. The work its own start was given
+// is left with it, as the start ids it was given under say.
 func TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
