@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -51,6 +52,8 @@ type seedLibrary struct {
 	MetadataSource  string `toml:"metadata_source"`
 	ChangeDetection string `toml:"change_detection"`
 	IsWritable      bool   `toml:"is_writable"`
+	// Roles are the roles whose people reach it (D243 §4); a new library is otherwise the admin's.
+	Roles []string `toml:"roles"`
 }
 
 // devSecrets maps the environment variables `make dev` passes on to the secrets they seal
@@ -128,7 +131,8 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	err = seedUsers(ctx, database, settingsService, seed.Users, report)
+	authService := auth.NewService(database, clock.System{}, rand.Reader, settingsService)
+	err = seedUsers(ctx, authService, seed.Users, report)
 	if err != nil {
 		return err
 	}
@@ -141,14 +145,15 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	return seedLibraries(ctx, database, seed.NodeName, seed.Libraries, report)
+	return seedLibraries(ctx, database, authService, seed.NodeName, seed.Libraries, report)
 }
 
 // seedLibraries creates each library that does not exist yet, on the node the seed names,
 // which it enrols if the node has not said hello. A root is recorded as the node reports it:
 // with symlinks resolved.
 func seedLibraries(
-	ctx context.Context, database *store.Database, nodeName string, libraries []seedLibrary, report *strings.Builder,
+	ctx context.Context, database *store.Database, authService *auth.Service, nodeName string,
+	libraries []seedLibrary, report *strings.Builder,
 ) error {
 	if len(libraries) == 0 {
 		return nil
@@ -165,7 +170,8 @@ func seedLibraries(
 		if resolved, resolveErr := filepath.EvalSymlinks(root); resolveErr == nil {
 			root = resolved
 		}
-		_, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
+		var libraryID int64
+		libraryID, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
 			Name: wantedLibrary.Name, Kind: wantedLibrary.Kind, MetadataSource: wantedLibrary.MetadataSource,
 			ChangeDetection: wantedLibrary.ChangeDetection, IsWritable: wantedLibrary.IsWritable, NodeID: nodeID,
 			Roots: []string{root},
@@ -177,16 +183,41 @@ func seedLibraries(
 			return fmt.Errorf("seed library %q: %w", wantedLibrary.Name, err)
 		default:
 			fmt.Fprintf(report, "seed: library %q covers %s on node %q\n", wantedLibrary.Name, root, nodeName)
+			if err = giveRolesLibrary(ctx, authService, wantedLibrary.Roles, libraryID); err != nil {
+				return fmt.Errorf("seed library %q: %w", wantedLibrary.Name, err)
+			}
+			for _, roleName := range wantedLibrary.Roles {
+				fmt.Fprintf(report, "seed: role %s reaches library %q\n", roleName, wantedLibrary.Name)
+			}
 		}
 	}
 	return nil
 }
 
-func seedUsers(
-	ctx context.Context, database *store.Database, settingsService *settings.Service, users []seedUser,
-	report *strings.Builder,
-) error {
-	service := auth.NewService(database, clock.System{}, rand.Reader, settingsService)
+// giveRolesLibrary adds a library to each named role's, keeping the libraries it reached.
+func giveRolesLibrary(ctx context.Context, authService *auth.Service, roleNames []string, libraryID int64) error {
+	roles, err := authService.ListRoles(ctx)
+	if err != nil {
+		return err
+	}
+	for _, roleName := range roleNames {
+		index := slices.IndexFunc(roles, func(role auth.RoleSummary) bool { return role.Name == roleName })
+		if index < 0 {
+			return fmt.Errorf("no role %q", roleName)
+		}
+		role := roles[index]
+		err = authService.UpdateRole(ctx, role.ID, auth.RoleChange{
+			Name: role.Name, Capabilities: role.Capabilities,
+			Libraries: append(role.Libraries, auth.RoleLibrary{LibraryID: libraryID}),
+		})
+		if err != nil {
+			return fmt.Errorf("give role %q the library: %w", roleName, err)
+		}
+	}
+	return nil
+}
+
+func seedUsers(ctx context.Context, service *auth.Service, users []seedUser, report *strings.Builder) error {
 	for _, user := range users {
 		if err := seedUserOnce(ctx, service, user, report); err != nil {
 			return fmt.Errorf("seed user %q: %w", user.Name, err)

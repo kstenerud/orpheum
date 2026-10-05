@@ -46,6 +46,7 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	for _, want := range []string{
 		"user owner (admin)", "user partner (user)", "sealed tmdb_api_key",
 		"sealed opensubtitles_password", `library "Dev films" covers`, `library "Dev shows" covers`,
+		`role user reaches library "Dev films"`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("the seed's report does not say %q:\n%s", want, output)
@@ -72,7 +73,12 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	if !strings.Contains(serverSecrets.body, tmdbSet) || !strings.Contains(serverSecrets.body, loginSet) {
 		t.Errorf("the seeded secrets are not set:\n%s", serverSecrets.body)
 	}
-	signInAs(t, server.baseURL, "partner", "partner")
+	partner := signInAs(t, server.baseURL, "partner", "partner")
+	partnersLibraries := requestAPI(t, http.MethodGet, server.baseURL+"/libraries", partner, nil)
+	if !strings.Contains(partnersLibraries.body, `"name":"Dev films"`) ||
+		!strings.Contains(partnersLibraries.body, `"name":"Dev shows"`) {
+		t.Errorf("the seeded partner does not reach the seed's libraries: %s", partnersLibraries.body)
+	}
 	people := requestAPI(t, http.MethodGet, server.baseURL+"/users", token, nil)
 	if !strings.Contains(people.body, `"name":"partner","role":"user","adminNote":"the remote partner"`) {
 		t.Errorf("the seeded partner has not the seed's note of who they are for: %s", people.body)
