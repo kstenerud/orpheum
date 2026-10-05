@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -114,6 +115,25 @@ func TestReadThrough_AReadThroughOnANodeThatDidNotSayHowFastItReadsIsNotSent(t *
 	err := harness.readThrough.HandleReadThrough(t.Context(), job)
 	if err == nil || !strings.Contains(err.Error(), "has not said how fast it reads") {
 		t.Errorf("measuring on a node that did not say how fast it reads: %v, want it not waited for", err)
+	}
+	if len(harness.nodes.queued) != 0 {
+		t.Errorf("the node was sent %+v, want nothing", harness.nodes.queued)
+	}
+}
+
+// A read-through for a node not yet heard from since the server started waits for its hello, which
+// says how fast it reads: it is not failed for not knowing.
+func TestReadThrough_AReadThroughForANodeNotYetHeardFromWaitsForItsHello(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.nodes.isReadRateUnknown = true
+	harness.nodes.isAway.Store(true)
+	job := jobs.Job{ID: 5, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}}
+	err := harness.readThrough.HandleReadThrough(t.Context(), job)
+	if parking, isParked := jobqueue.ParkingOf(err); !isParked || parking.Destination != jobs.NodeDestination(1) {
+		t.Errorf("a read-through for a node not heard from = %v; want it parked until the node's hello", err)
 	}
 	if len(harness.nodes.queued) != 0 {
 		t.Errorf("the node was sent %+v, want nothing", harness.nodes.queued)
