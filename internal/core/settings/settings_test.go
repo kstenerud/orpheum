@@ -565,3 +565,19 @@ func TestZone_IsTheMachinesUntilOneIsChosenAndAMisspeltOneIsRefused(t *testing.T
 		t.Errorf("time_zone Europe/Berlin = %v (%v)", zone.Name(), err)
 	}
 }
+
+// A database that kept the retired remote bit-rate ceiling lists its row as unused, saying when
+// and why it went, rather than as a typo (D247 §11).
+func TestUnused_TheRemoteCeilingsRowSaysItWasRetiredAndWhy(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	storetest.ExecRaw(t, service.database.Path(),
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('remote_bit_rate_ceiling_kbps', '10000', 1)")
+	unused, err := service.Unused(t.Context())
+	if err != nil || len(unused) != 1 {
+		t.Fatalf("Unused = %v, %v; want the ceiling's row", unused, err)
+	}
+	if retired := unused[0].Retired; retired == nil || !strings.Contains(retired.Reason, "D247") {
+		t.Errorf("the ceiling's row reads as %+v; want retired, with D247's reason", retired)
+	}
+}
