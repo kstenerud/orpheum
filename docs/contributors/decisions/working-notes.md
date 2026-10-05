@@ -17997,3 +17997,46 @@ answering the three questions that review left (§7–§9). **Revises**
    again someone could just rewind..."*
 
 **Status:** Decided 2026-10-05; to be built in M4 in place of what it revises.
+
+---
+
+## D247 — A slow link gets lower prepared variants that the player switches between by itself, and a group waits for a stalled viewer once, then lets them catch up alone
+
+**Decided** (2026-10-05), by the project owner, after the first Watch Together test and the
+research it prompted ([slow-links.md](../design/research/slow-links.md)). **Revises**
+[D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback)
+§9, and Cut A's "no ladder" in
+[D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)
+and [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)
+§2. The owner: *"Cut A was just a guess at what we'd need for my gf and I to use this for real.
+The design was not intended to become inflexible in the face of reality."*
+
+The test: the host on mobile data, the film 2.4 Mbps, the only rendition the remux. Alone it
+paused often; in the group it played a frame and froze, over and over.
+
+1. **No separate speed test.** The owner asked for one before playback. No production player runs
+   one; the servers that do (Jellyfin, Emby) have had bugs in theirs for years and their
+   maintainers advise turning them off (slow-links.md §2). The player measures the film's own
+   segments as they arrive, which hls.js already does, and starts cautiously.
+2. **Prepare also makes lower variants**, about 1.2 and 2.2 Mbps H.264 (to be measured on the
+   owner's films), in the same HLS master playlist as the rendition it makes now, so hls.js
+   switches between them by itself. Every variant's segments start at the same source times,
+   the source's own keyframes, as [transcoding.md](../design/plans/transcoding.md) §(b) already
+   requires: the encoded variants force an IDR frame at each. They are encoded ahead of the
+   viewer, as prepare already writes while the film plays, and kept as a cache
+   ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)).
+3. **The switch is automatic, and the player shows which quality is playing.** Plex asks first
+   because its switch is not seamless; aligned variants are.
+4. **A stalled viewer holds the group once, then catches up alone** (Silo-Server's design,
+   slow-links.md §5). A stall pauses the group only if that viewer has not stalled in the last
+   5 minutes and the group has not waited for anyone in the last minute. Otherwise the others play
+   on and the viewer catches up by itself, its seek aimed ahead by its last load time. A wait
+   ends after 10 s for a re-buffer, or 60 s for a first load, and the group is told who it is
+   continuing without. A viewer still loading gets no corrections. This answers the owner's worry
+   in D246 §9, that a viewer who falls behind misses a crucial point, in the way that fits two
+   people: a single hiccup costs no one anything, and only someone who stalls again and again
+   skips ahead, by then usually on a lower variant (§2). The numbers are Silo's, to be measured.
+5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
+   `refillAheadMs`), not at its first frame, which was the loop.
+
+**Status:** Decided 2026-10-05; to be built in M4.
