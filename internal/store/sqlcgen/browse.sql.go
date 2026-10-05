@@ -151,6 +151,29 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 	return i, err
 }
 
+const getTitleOfFile = `-- name: GetTitleOfFile :one
+SELECT file.path, title.id AS title_id, item_text.name
+FROM file
+LEFT JOIN version ON version.id = file.version_id
+LEFT JOIN title ON title.id = version.title_id
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+WHERE file.id = ?1
+`
+
+type GetTitleOfFileRow struct {
+	Path    string
+	TitleID *int64
+	Name    *string
+}
+
+// What a file is, for now playing: its title and name when one is filed, and its path.
+func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileRow, error) {
+	row := q.db.QueryRowContext(ctx, getTitleOfFile, id)
+	var i GetTitleOfFileRow
+	err := row.Scan(&i.Path, &i.TitleID, &i.Name)
+	return i, err
+}
+
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
 SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
 FROM title

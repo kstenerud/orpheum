@@ -121,7 +121,7 @@ func (harness testHarness) watch(t *testing.T, sessionToken string, fileID int64
 	t.Helper()
 	playing := harness.startIn(t, sessionToken, fileID)
 	if answer := harness.report(t, sessionToken, playing.answer, reportBody(1, 5000, 10)); answer.status !=
-		http.StatusNoContent {
+		http.StatusOK {
 		t.Fatalf("reporting file %d playing: %d %s", fileID, answer.status, answer.body)
 	}
 }

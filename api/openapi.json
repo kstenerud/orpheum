@@ -2295,6 +2295,103 @@
         ],
         "type": "object"
       },
+      "NowPlayingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "description": "direct or hls",
+            "type": "string"
+          },
+          "deviceName": {
+            "description": "Absent for a session with no device",
+            "type": "string"
+          },
+          "fileId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Names the playback to stop it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastHeardAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "The title's name, or the file's path when it has none",
+            "type": "string"
+          },
+          "notDirectReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "personName": {
+            "type": "string"
+          },
+          "positionMs": {
+            "description": "Where its last report said it was",
+            "format": "int64",
+            "type": "integer"
+          },
+          "profile": {
+            "description": "The prepared copy's profile; absent for direct play",
+            "type": "string"
+          },
+          "startedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "description": "Absent for a file filed as no title",
+            "format": "int64",
+            "type": "integer"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "personName",
+          "fileId",
+          "name",
+          "delivery",
+          "notDirectReasons",
+          "positionMs",
+          "startedAt",
+          "lastHeardAt"
+        ],
+        "type": "object"
+      },
+      "NowPlayingOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "playbacks": {
+            "items": {
+              "$ref": "#/components/schemas/NowPlayingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "playbacks"
+        ],
+        "type": "object"
+      },
       "OfflineBody": {
         "additionalProperties": false,
         "properties": {
@@ -3098,6 +3195,16 @@
         ],
         "type": "object"
       },
+      "ReportOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "stop": {
+            "$ref": "#/components/schemas/StopBody",
+            "description": "The admin stopped this playback: stop, and show the message"
+          }
+        },
+        "type": "object"
+      },
       "RequestProblemBody": {
         "additionalProperties": false,
         "properties": {
@@ -3894,6 +4001,31 @@
           "resumePositionMs",
           "mediaToken",
           "levelling"
+        ],
+        "type": "object"
+      },
+      "StopBody": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "StopPlaybackInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
         ],
         "type": "object"
       },
@@ -7366,6 +7498,103 @@
         ]
       }
     },
+    "/now-playing": {
+      "get": {
+        "operationId": "getNowPlaying",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlayingOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Every playback heard from lately: who, on which device, what, and how (admin)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/now-playing/{id}/stop": {
+      "post": {
+        "operationId": "stopPlayback",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopPlaybackInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop a playback, with a message its player shows within one report interval (admin; D243 §9)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
     "/offline-reminder": {
       "get": {
         "operationId": "getOfflineReminder",
@@ -7530,8 +7759,15 @@
           "required": true
         },
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOutputBody"
+                }
+              }
+            },
+            "description": "OK"
           },
           "default": {
             "content": {

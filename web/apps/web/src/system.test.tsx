@@ -103,7 +103,11 @@ async function shown(node: SystemNode): Promise<string> {
   mounted = await mount(
     withServices(
       <System />,
-      servedBy({ "GET /system": [200, report(node)], "GET /backups": noBackups }),
+      servedBy({
+        "GET /system": [200, report(node)],
+        "GET /backups": noBackups,
+        "GET /now-playing": [200, { playbacks: [] }],
+      }),
     ),
   );
   return mounted.container.textContent;
@@ -236,6 +240,7 @@ it("the System page says what is not answering, and each outside service's limit
       <System />,
       servedBy({
         "GET /backups": noBackups,
+        "GET /now-playing": [200, { playbacks: [] }],
         "GET /system": [
           200,
           {

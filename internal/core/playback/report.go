@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -74,26 +75,49 @@ func serverTimeMs(nowMs, sentMonoMs, monoMs int64) (int64, error) {
 // session was signed in on (deviceID 0 for none). The events and spans are appended to the log;
 // the position moves only when the watching it describes is later than the watching that set
 // the stored one, so two devices reporting out of order never rewind it (D217 §7). A report sent
-// again changes nothing.
+// again changes nothing. A playback the admin stopped is told so in the answer, its message
+// returned, and ends: its token is forgotten once its report is kept (D243 §9).
 func (service *Service) Report(
 	ctx context.Context, token string, holder Holder, deviceID int64, report Report,
-) error {
-	userID := holder.UserID
+) (stopMessage *string, err error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	now := service.clock.Now()
 	playback, isNew, found := service.tokens.takeReport(token, holder, report.ReportSeq, now, idle)
 	if !found {
+		return nil, ErrNoToken
+	}
+	if isNew {
+		keepErr := service.keepReport(ctx, playback, holder.UserID, deviceID, now.UnixMilli(), report)
+		if keepErr != nil {
+			service.tokens.returnReport(token, report.ReportSeq, playback.lastReportSeq)
+			return nil, keepErr
+		}
+		service.tokens.keepPosition(token, report.PositionMs)
+	}
+	if playback.stopMessage != nil {
+		service.tokens.end(token)
+	}
+	return playback.stopMessage, nil
+}
+
+// nowPlayingHeardWithin is how lately a playback must have been heard from, by a report or a byte
+// request, to be playing now: three of the player's ten-second reports (D243 §9), so one lost
+// report does not drop it from the list. Tied to the player's interval, not an opinion.
+const nowPlayingHeardWithin = 30 * time.Second
+
+// NowPlaying is every playback heard from lately, oldest first (cut-a §5).
+func (service *Service) NowPlaying() []NowPlaying {
+	return service.tokens.nowPlaying(service.clock.Now().Add(-nowPlayingHeardWithin))
+}
+
+// Stop stops a playback now playing, with a message its player shows: told in the answer to its
+// next report, within a report interval (D243 §9). ErrNoToken when there is none.
+func (service *Service) Stop(playbackID int64, message string) error {
+	if !service.tokens.stop(playbackID, message) {
 		return ErrNoToken
-	}
-	if !isNew {
-		return nil
-	}
-	if err := service.keepReport(ctx, playback, userID, deviceID, now.UnixMilli(), report); err != nil {
-		service.tokens.returnReport(token, report.ReportSeq, playback.lastReportSeq)
-		return err
 	}
 	return nil
 }

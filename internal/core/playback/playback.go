@@ -177,6 +177,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	started.Levelling = decide.DirectLevelling(levels, probe)
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
+		deviceID: request.DeviceID, decision: decision,
 	}
 	if decision.Delivery == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)

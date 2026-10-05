@@ -148,6 +148,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerWaitingCode()
 	server.registerPerson()
 	server.registerRoles()
+	server.registerNowPlaying()
 	server.registerJobs()
 	return server
 }

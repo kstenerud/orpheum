@@ -39,7 +39,7 @@ func TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition(t *testin
 	harness.shelveFilms(t)
 	onTablet, onTelevision := harness.play(t, tablet, chrome(1)), harness.play(t, television, chrome(1))
 
-	if sent := harness.report(t, tablet, onTablet, reportBody(1, 600_000, 0)); sent.status != http.StatusNoContent {
+	if sent := harness.report(t, tablet, onTablet, reportBody(1, 600_000, 0)); sent.status != http.StatusOK {
 		t.Fatalf("the tablet's report: %d %s", sent.status, sent.body)
 	}
 	harness.clock.Advance(time.Minute)
@@ -75,7 +75,7 @@ func TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching(t *test
 	body["spans"] = []any{map[string]any{
 		"fromPositionMs": 0, "toPositionMs": 90_000, "startedMonoMs": 910_000, "endedMonoMs": 1_000_000,
 	}}
-	if sent := harness.report(t, user, decided, body); sent.status != http.StatusNoContent {
+	if sent := harness.report(t, user, decided, body); sent.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", sent.status, sent.body)
 	}
 	now := harness.clock.Now().UnixMilli()

@@ -56,6 +56,17 @@ describe("play state", () => {
     expect(heard).toEqual([{ methodAndPath: "POST /playback/abc/report", body: report }]);
   });
 
+  it("hands back the admin's stop, which the server says in a report's answer (D243 §9)", async () => {
+    const { api } = servedBy({
+      "POST /playback/abc/report": [
+        [200, {}],
+        [200, { stop: { message: "Back soon" } }],
+      ],
+    });
+    expect(await sendReport(api, "abc", report)).toBeUndefined();
+    expect(await sendReport(api, "abc", report)).toEqual({ message: "Back soon" });
+  });
+
   it("gives up on a playback the server refuses for good, and not on a passing failure", async () => {
     const gone = await sendingFailsWith(refusal(404, "not_found"));
     expect(gone instanceof ReportRefused && gone.cause instanceof ApiProblem).toBe(true);

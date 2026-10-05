@@ -183,3 +183,12 @@ ORDER BY ordering.collection_id, file.id;
 -- name: GetLibraryOfItem :one
 -- An item's library, which says who may reach it (D243 section 4); NULL for one in none.
 SELECT library_id FROM item WHERE id = sqlc.arg(id);
+
+-- name: GetTitleOfFile :one
+-- What a file is, for now playing: its title and name when one is filed, and its path.
+SELECT file.path, title.id AS title_id, item_text.name
+FROM file
+LEFT JOIN version ON version.id = file.version_id
+LEFT JOIN title ON title.id = version.title_id
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+WHERE file.id = sqlc.arg(id);

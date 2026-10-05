@@ -48,13 +48,24 @@ type SpanBody struct {
 func (server *Server) registerReport() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "reportPlayback", Method: http.MethodPost, Path: "/playback/{token}/report",
-		Summary:       "Report where a playback is and what changed; the position never moves back (D217 §7)",
-		Tags:          []string{tagPlayback},
-		DefaultStatus: http.StatusNoContent,
+		Summary: "Report where a playback is and what changed; the position never moves back (D217 §7)",
+		Tags:    []string{tagPlayback},
 	}, server.reportPlayback)
 }
 
-func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*struct{}, error) {
+// ReportOutput answers a play report: empty, or the admin's stop, which ends the playback (D243 §9).
+type ReportOutput struct {
+	Body struct {
+		Stop *StopBody `doc:"The admin stopped this playback: stop, and show the message" json:"stop,omitempty"`
+	}
+}
+
+// StopBody is the admin's stop of a playback, and what they said.
+type StopBody struct {
+	Message string `json:"message"`
+}
+
+func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*ReportOutput, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -74,10 +85,14 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 			StartedMonoMs: span.StartedMonoMs, EndedMonoMs: span.EndedMonoMs, IsUnattended: span.IsUnattended,
 		})
 	}
-	err = dependencies.Playback.Report(
+	stopMessage, err := dependencies.Playback.Report(
 		ctx, input.Token, playback.HolderOf(principal), principal.DeviceID, report)
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
-	return &struct{}{}, nil
+	output := &ReportOutput{}
+	if stopMessage != nil {
+		output.Body.Stop = &StopBody{Message: *stopMessage}
+	}
+	return output, nil
 }
