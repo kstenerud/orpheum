@@ -76,7 +76,7 @@ describe("accounts", () => {
       },
       sent,
     );
-    await createAccount(api, { name: "partner", role: "user" }, "click-1");
+    await createAccount(api, { name: "partner", role: "user", isOutsider: false }, "click-1");
     await register(
       api,
       { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },
@@ -86,7 +86,7 @@ describe("accounts", () => {
     await issueDeviceCode(api, { target: { deviceName: "Bedroom TV" }, userId: 7 }, "click-4");
     await signInWithCode(api, { code: "abcd-efgh", previousDeviceId: 7 }, "click-5");
     expect(sent).toEqual([
-      { methodAndPath: "POST /users", body: { name: "partner", role: "user" } },
+      { methodAndPath: "POST /users", body: { name: "partner", role: "user", isOutsider: false } },
       {
         methodAndPath: "POST /registration",
         body: { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },

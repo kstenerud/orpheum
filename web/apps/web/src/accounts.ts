@@ -38,7 +38,7 @@ export async function listAccounts(api: Api): Promise<Account[]> {
 /** Makes a person, and their registration invitation. */
 export async function createAccount(
   api: Api,
-  account: { readonly name: string; readonly role: "admin" | "user" },
+  account: { readonly name: string; readonly role: string; readonly isOutsider: boolean },
   idempotencyKey: string,
 ): Promise<{
   account: Account;
@@ -46,7 +46,7 @@ export async function createAccount(
 }> {
   return dataOrThrow(
     await api.POST("/users", {
-      body: { name: account.name, role: account.role },
+      body: { name: account.name, role: account.role, isOutsider: account.isOutsider },
       ...idempotent(idempotencyKey),
     }),
   );

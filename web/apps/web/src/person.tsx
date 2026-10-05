@@ -25,6 +25,7 @@ import {
   type IssuedInvitation,
 } from "./people.tsx";
 import { fieldProblemText } from "./problem.ts";
+import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useRequest } from "./use-request.ts";
@@ -83,6 +84,7 @@ function usePersonActions(
 ): {
   readonly actions: {
     readonly rename: (name: string) => void;
+    readonly giveRole: (role: string) => void;
     readonly issueLink: (name: string) => void;
     readonly issueCode: (
       name: string,
@@ -104,6 +106,12 @@ function usePersonActions(
     rename: (name: string): void => {
       runRequest(async () => {
         await renamePerson(api, userId, name);
+        reloads.reloadPerson();
+      });
+    },
+    giveRole: (role: string): void => {
+      runRequest(async () => {
+        await setPersonsRole(api, userId, role);
         reloads.reloadPerson();
       });
     },
@@ -134,6 +142,7 @@ function PersonHead(props: {
   readonly person: Person;
   readonly actions: {
     readonly rename: (name: string) => void;
+    readonly giveRole: (role: string) => void;
     readonly issueLink: (name: string) => void;
     readonly issueCode: (name: string, device: { deviceName: string }) => void;
   };
@@ -158,6 +167,7 @@ function PersonHead(props: {
         submitLabel={t("person.rename")}
         onSubmit={props.actions.rename}
       />
+      <RoleChoice current={account.role} onGive={props.actions.giveRole} />
       <button
         type="button"
         onClick={() => {
@@ -173,6 +183,43 @@ function PersonHead(props: {
         isMaking={false}
       />
     </>
+  );
+}
+
+/** The person's role, their whole access, which the admin may change (D243 §4). */
+function RoleChoice(props: {
+  readonly current: string;
+  readonly onGive: (role: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [roles] = useResource("person-roles", () => listRoles(api));
+  const [role, setRole] = useState(props.current);
+  const names =
+    roles.state === "loaded" ? roles.value.roles.map((each) => each.name) : [props.current];
+  return (
+    <FormRow
+      onSubmit={() => {
+        props.onGive(role);
+      }}
+    >
+      <label>
+        {t("people.role")}{" "}
+        <select
+          value={role}
+          onChange={(event) => {
+            setRole(event.target.value);
+          }}
+        >
+          {names.map((name) => (
+            <option key={name} value={name}>
+              {roleLabel(t, name)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button type="submit">{t("person.changeRole")}</button>
+    </FormRow>
   );
 }
 

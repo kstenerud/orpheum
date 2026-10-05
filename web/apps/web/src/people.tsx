@@ -8,6 +8,8 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { createAccount, listAccounts, registrationUrl, type Account } from "./accounts.ts";
+import { listRoles, roleLabel } from "./roles.ts";
+import { RolesSection } from "./roles-section.tsx";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, type FormWords } from "./problem.ts";
 import { Link } from "./link.tsx";
@@ -40,6 +42,9 @@ export function People(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [accounts, reload] = useResource("accounts", () => listAccounts(api));
+  const [roles, reloadRoles] = useResource("people-roles", () => listRoles(api));
+  const roleNames =
+    roles.state === "loaded" ? roles.value.roles.map((role) => role.name) : ["user"];
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
@@ -49,11 +54,12 @@ export function People(): JSX.Element {
       <h1 id="people-heading">{t("people.heading")}</h1>
       <BusyGroup isBusy={isBusy}>
         <AddPerson
-          onAdd={(name, role) => {
+          roleNames={roleNames}
+          onAdd={(name, role, isOutsider) => {
             runRequest(async (idempotencyKey) => {
               const { registrationInvitation } = await createAccount(
                 api,
-                { name, role },
+                { name, role, isOutsider },
                 idempotencyKey,
               );
               setIssued({ kind: "link", name, invitation: registrationInvitation });
@@ -65,6 +71,7 @@ export function People(): JSX.Element {
       {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
+      <RolesSection onChange={reloadRoles} />
     </section>
   );
 }
@@ -89,15 +96,20 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/** Adds a person: their name and role, whose registration invitation the page shows to pass on. */
+/**
+ * Adds a person: their name, their role, which is their whole access, and whether they are from
+ * outside the house, an invitee (D243 §4); the page shows their registration link to pass on.
+ */
 function AddPerson(props: {
-  readonly onAdd: (name: string, role: "admin" | "user") => void;
+  readonly roleNames: readonly string[];
+  readonly onAdd: (name: string, role: string, isOutsider: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("user");
+  const [role, setRole] = useState("user");
+  const [isOutsider, setIsOutsider] = useState(false);
   const submit = (): void => {
-    props.onAdd(name, role);
+    props.onAdd(name, role, isOutsider);
   };
   return (
     <FormRow onSubmit={submit}>
@@ -118,12 +130,25 @@ function AddPerson(props: {
         <select
           value={role}
           onChange={(event) => {
-            setRole(event.target.value === "admin" ? "admin" : "user");
+            setRole(event.target.value);
           }}
         >
-          <option value="user">{t("people.roleUser")}</option>
-          <option value="admin">{t("people.roleAdmin")}</option>
+          {props.roleNames.map((roleName) => (
+            <option key={roleName} value={roleName}>
+              {roleLabel(t, roleName)}
+            </option>
+          ))}
         </select>
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={isOutsider}
+          onChange={() => {
+            setIsOutsider(!isOutsider);
+          }}
+        />{" "}
+        {t("people.outsider")}
       </label>
       <button type="submit">{t("people.create")}</button>
     </FormRow>
