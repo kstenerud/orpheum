@@ -156,7 +156,7 @@ func newHarness(t *testing.T) testHarness {
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,
 		Renditions: renditionsService, Subtitles: subtitlesService, Preferences: preferencesService,
-		Loudness: loudnessService,
+		Loudness: loudnessService, Chunks: chunksService,
 	})
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
 	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, subtitlesService.HandleConvertFetchedSubtitle)

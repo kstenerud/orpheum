@@ -22,6 +22,11 @@ func (service *Service) ChunksOf(ctx context.Context, token string, holder Holde
 	if !found {
 		return chunks.Playback{}, ErrNoToken
 	}
+	return chunksPlaybackOf(playback), nil
+}
+
+// chunksPlaybackOf is a playback as the chunks it is offered see it.
+func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	chunked := chunks.Playback{
 		FileID: playback.fileID, PositionMs: playback.positionMs,
 		// A playback whose picture its decision re-encodes is one whose player cannot decode it.
@@ -30,5 +35,5 @@ func (service *Service) ChunksOf(ctx context.Context, token string, holder Holde
 	if playback.startingAudio != nil {
 		chunked.HasStartingAudio, chunked.StartingAudioTrackIndex = true, playback.startingAudio.AudioTrackIndex
 	}
-	return chunked, nil
+	return chunked
 }

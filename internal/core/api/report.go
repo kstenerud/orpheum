@@ -26,7 +26,16 @@ type ReportInput struct {
 		PositionReadMonoMs int64       `json:"positionReadMonoMs" minimum:"0"`
 		Events             []EventBody `json:"events"`
 		Spans              []SpanBody  `json:"spans"`
+		// Stalls are where the player stalled since its last report (D247 §2), which the play log
+		// does not keep; LinkKbps is its link's speed as it measured it, 0 when it has not.
+		Stalls   []StallBody `json:"stalls,omitempty" required:"false"`
+		LinkKbps int64       `json:"linkKbps,omitempty" minimum:"0" required:"false"`
 	}
+}
+
+// StallBody is one stall: a wait for data, while the player played, where it was.
+type StallBody struct {
+	PositionMs int64 `json:"positionMs" minimum:"0"`
 }
 
 // EventBody is one change of play state.
@@ -57,7 +66,21 @@ func (server *Server) registerReport() {
 type ReportOutput struct {
 	Body struct {
 		Stop *StopBody `doc:"The admin stopped this playback: stop, and show the message" json:"stop,omitempty"`
+		//nolint:lll // one struct tag
+		LowerQuality *LowerQualityBody `doc:"A lower quality to move to: the player stalled again (D247 §2)" json:"lowerQuality,omitempty"`
 	}
+}
+
+// LowerQualityBody is a lower quality a stalled player moves to: its film cut into chunks, at every
+// quality, starting at the one chosen for its link (D247 §2, §6, §10).
+type LowerQualityBody struct {
+	URL string `doc:"The chunked master playlist" json:"url"`
+	// StartAtBps is the chosen quality's BANDWIDTH in the master playlist, which names it there.
+	StartAtBps  int64 `json:"startAtBps"`
+	QualityKbps int   `json:"qualityKbps"`
+	Height      int   `json:"height"`
+	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured (D247 §8).
+	IsBelowTheLowest bool `json:"isBelowTheLowest"`
 }
 
 // StopBody is the admin's stop of a playback, and what they said.
@@ -66,13 +89,16 @@ type StopBody struct {
 }
 
 func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*ReportOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	reporter, err := server.reporterOf(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	report := playback.Report{
 		ReportSeq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
-		PositionReadMonoMs: input.Body.PositionReadMonoMs,
+		PositionReadMonoMs: input.Body.PositionReadMonoMs, LinkKbps: input.Body.LinkKbps,
+	}
+	for _, stall := range input.Body.Stalls {
+		report.Stalls = append(report.Stalls, playback.Stall{PositionMs: stall.PositionMs})
 	}
 	for _, event := range input.Body.Events {
 		report.Events = append(report.Events, playback.Event{
@@ -85,14 +111,45 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 			StartedMonoMs: span.StartedMonoMs, EndedMonoMs: span.EndedMonoMs, IsUnattended: span.IsUnattended,
 		})
 	}
-	stopMessage, err := dependencies.Playback.Report(
-		ctx, input.Token, playback.HolderOf(principal), principal.DeviceID, report)
+	answer, err := reporter.dependencies.Playback.Report(ctx, input.Token, reporter.holder, reporter.deviceID, report)
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
 	output := &ReportOutput{}
-	if stopMessage != nil {
-		output.Body.Stop = &StopBody{Message: *stopMessage}
+	if answer.StopMessage != nil {
+		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
+	}
+	if offer := answer.LowerQuality; offer != nil {
+		output.Body.LowerQuality = &LowerQualityBody{
+			URL: Prefix + "/bytes/media/chunks/" + input.Token + "/master.m3u8", StartAtBps: offer.StartAtBps,
+			QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
+		}
 	}
 	return output, nil
+}
+
+// reporter is who reports on a playback, and from which device: 0 for none.
+type reporter struct {
+	dependencies *Dependencies
+	holder       playback.Holder
+	deviceID     int64
+}
+
+// reporterOf is who reports on a playback: a signed-in person, on their device, or a Watch Together
+// viewer by their membership, whose reports keep nothing (D243 §2) but whose stalls are answered as
+// anyone's (D247 §2).
+func (server *Server) reporterOf(ctx context.Context, authorization string) (reporter, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
+	if err == nil {
+		holder := playback.HolderOf(principal)
+		return reporter{dependencies: dependencies, holder: holder, deviceID: principal.DeviceID}, nil
+	}
+	ready, readyErr := server.readyDependencies()
+	if readyErr != nil {
+		return reporter{}, err
+	}
+	if viewer, isViewer := server.viewerHolder(ctx, ready, bearerToken(authorization)); isViewer {
+		return reporter{dependencies: ready, holder: viewer}, nil
+	}
+	return reporter{}, err
 }

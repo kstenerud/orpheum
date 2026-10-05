@@ -42,6 +42,15 @@
 //     TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackIsOffered
 //     (internal/core/api).
 //
+//   - A stall is offered the highest quality within 70% of its link, the lowest when the link is not
+//     measured or too slow for any (said so), or the one below whose chunks another stall is already
+//     making there; the quality's run and the starting sound's are started from the stall's chunk
+//     (D247 §2, §6–§8). Enforced by
+//     TestStalled_OffersTheHighestQualityTheLinkCarriesAndStartsItWhereThePlayerIs,
+//     TestStalled_OffersTheLowestWhenTheLinkIsUnknownOrTooSlowForAny,
+//     TestStalled_TakesTheQualityBelowThatAnotherStallIsAlreadyMaking and
+//     TestStalled_AFilmWithNoLowerQualitySaysSo.
+//
 //   - A chunk asked for queues at most one run, at play priority on the film's node, from the first
 //     chunk in the minute of film from it that is neither made nor on its way, through at most five
 //     minutes of film and never over a chunk made or a run's. Its job targets the store's chunk_store

@@ -63,6 +63,13 @@ func (known *storeRuns) isCoveredLocked(n int) bool {
 	return false
 }
 
+// isCovered is whether chunk n of the store is made, or a run of it will make it.
+func (tracker *runTracker) isCovered(dir string, n int) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	return tracker.storeLocked(dir).isCoveredLocked(n)
+}
+
 // plan finds the run a player asking for chunk wanted of the store needs, and records it on its
 // way: the first chunk of those that start within lookaheadMs of film from wanted's start that is
 // neither made nor to be made by a run, through the earliest of runSpanMs of film, the chunk before

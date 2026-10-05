@@ -265,7 +265,7 @@ func openPlayback(
 	return services, playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
-		Preferences: preferencesService, Loudness: levels,
+		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks,
 	})
 }
 

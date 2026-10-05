@@ -2304,6 +2304,38 @@
         ],
         "type": "object"
       },
+      "LowerQualityBody": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isBelowTheLowest": {
+            "type": "boolean"
+          },
+          "qualityKbps": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "startAtBps": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The chunked master playlist",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "startAtBps",
+          "qualityKbps",
+          "height",
+          "isBelowTheLowest"
+        ],
+        "type": "object"
+      },
       "MadeBackupOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -3495,6 +3527,11 @@
               "null"
             ]
           },
+          "linkKbps": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "positionMs": {
             "format": "int64",
             "minimum": 0,
@@ -3523,6 +3560,15 @@
               "array",
               "null"
             ]
+          },
+          "stalls": {
+            "items": {
+              "$ref": "#/components/schemas/StallBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -3538,6 +3584,10 @@
       "ReportOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "lowerQuality": {
+            "$ref": "#/components/schemas/LowerQualityBody",
+            "description": "A lower quality to move to: the player stalled again (D247 §2)"
+          },
           "stop": {
             "$ref": "#/components/schemas/StopBody",
             "description": "The admin stopped this playback: stop, and show the message"
@@ -4200,6 +4250,20 @@
           "toPositionMs",
           "startedMonoMs",
           "endedMonoMs"
+        ],
+        "type": "object"
+      },
+      "StallBody": {
+        "additionalProperties": false,
+        "properties": {
+          "positionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positionMs"
         ],
         "type": "object"
       },

@@ -56,6 +56,8 @@ type Parts struct {
 	Preferences *preferences.Service
 	// Loudness says the gains that level a file's sounds (D226).
 	Loudness Loudness
+	// Chunks offers a stalled playback a lower quality (D247 §2); nil offers none.
+	Chunks Chunks
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
@@ -75,6 +77,7 @@ type Service struct {
 	subtitles   *subtitles.Service
 	preferences *preferences.Service
 	loudness    Loudness
+	chunks      Chunks
 }
 
 // NewService returns the playback service.
@@ -84,6 +87,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
+		chunks: parts.Chunks,
 	}
 }
 

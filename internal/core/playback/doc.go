@@ -25,6 +25,12 @@
 //     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
 //
+//   - A playback's first stall starts the lower quality its link carries where its player was, and
+//     the answer to the report of a later stall offers it, once; a Watch Together viewer reports by
+//     their membership and nothing of their watching is kept (D247 §2, D243 §2). Enforced by
+//     TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted and
+//     TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered (internal/core/api).
+//
 //   - A playback starts with the subtitle and audio tracks internal/core/preferences works out
 //     from the file's tracks as they are now, and a play report keeps what it started with as what
 //     the started file used (D230). Enforced by

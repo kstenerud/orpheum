@@ -2284,6 +2284,17 @@ export interface components {
             /** @description A registration link's person; absent for an invitation */
             name?: string;
         };
+        LowerQualityBody: {
+            /** Format: int64 */
+            height: number;
+            isBelowTheLowest: boolean;
+            /** Format: int64 */
+            qualityKbps: number;
+            /** Format: int64 */
+            startAtBps: number;
+            /** @description The chunked master playlist */
+            url: string;
+        };
         MadeBackupOutputBody: {
             includesKey: boolean;
         };
@@ -2667,6 +2678,8 @@ export interface components {
         ReportInputBody: {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
+            linkKbps?: number;
+            /** Format: int64 */
             positionMs: number;
             /** Format: int64 */
             positionReadMonoMs: number;
@@ -2675,8 +2688,11 @@ export interface components {
             /** Format: int64 */
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
+            stalls?: components["schemas"]["StallBody"][] | null;
         };
         ReportOutputBody: {
+            /** @description A lower quality to move to: the player stalled again (D247 §2) */
+            lowerQuality?: components["schemas"]["LowerQualityBody"];
             /** @description The admin stopped this playback: stop, and show the message */
             stop?: components["schemas"]["StopBody"];
         };
@@ -2870,6 +2886,10 @@ export interface components {
             startedMonoMs: number;
             /** Format: int64 */
             toPositionMs: number;
+        };
+        StallBody: {
+            /** Format: int64 */
+            positionMs: number;
         };
         StartPlaybackInputBody: {
             /** Format: int64 */
