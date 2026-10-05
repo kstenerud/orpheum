@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { followGroup, type GroupCommand } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
@@ -13,7 +13,11 @@ import { monotonicMs, useTogether } from "./use-together.ts";
 /** What the host's player is given: the film, its video, and where it starts. */
 interface HostPlayer {
   readonly fileId: number;
-  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  /**
+   * The video playing the film now, null while there is none: another when the player moves to a
+   * lower quality, which the session follows without stopping the film for everyone.
+   */
+  readonly video: HTMLVideoElement | null;
   /** Where the film starts: where the host left it (play-state.md). */
   readonly startPositionMs: number;
 }
@@ -55,7 +59,7 @@ function HostLeading(
     sessionToken: token,
     commandOnLeaving: stopForEveryone,
   });
-  const { fileId, videoRef, startPositionMs, onOver } = props;
+  const { fileId, video, startPositionMs, onOver } = props;
   const isWelcomed = snapshot?.status === "connected";
   const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;
   const hasPutOnRef = useRef(false);
@@ -66,20 +70,20 @@ function HostLeading(
     }
     hasPutOnRef.current = true;
     if (connection.snapshot().group?.fileId !== fileId) {
-      const video = videoRef.current;
       const positionMs =
         video !== null && video.readyState >= HTMLMediaElement.HAVE_METADATA
           ? video.currentTime * 1000
           : startPositionMs;
       connection.command({ command: "changeItem", fileId, positionMs });
     }
-  }, [connection, isWelcomed, fileId, videoRef, startPositionMs]);
-  useEffect(() => {
-    const video = videoRef.current;
-    return video === null || connection === undefined
-      ? undefined
-      : followGroup(video, connection, { fileId, isLeading: true, monotonicMs });
-  }, [connection, fileId, videoRef]);
+  }, [connection, isWelcomed, fileId, video, startPositionMs]);
+  useEffect(
+    () =>
+      video === null || connection === undefined
+        ? undefined
+        : followGroup(video, connection, { fileId, isLeading: true, monotonicMs }),
+    [connection, fileId, video],
+  );
   useEffect(() => {
     if (isOver) {
       onOver();
