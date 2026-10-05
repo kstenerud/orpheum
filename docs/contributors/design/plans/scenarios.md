@@ -405,6 +405,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   running on the node at no cost of an attempt, tried again after the first retry delay; a long
   absence parks them until the hello (`TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt`,
   `TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure`);
+  since 2026-10-05 also when the core started again with it, at an update or a reboot: each attempt
+  keeps in cache.db the start of the node it was given to, where before the node's first status
+  found the work lost, a broken invariant
+  (`TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasGiven`);
   a prepare that fails for good fails its rendition (`TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`);
   the commands of the jobs it ended are withdrawn (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
 

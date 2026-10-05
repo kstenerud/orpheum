@@ -106,7 +106,7 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	interrupt := func() { harness.exchanges.Interrupt(t.Context(), 1) }
+	interrupt := func() { harness.exchanges.Interrupt(t.Context(), 1, "started again") }
 	measure := func(previousAttemptToolFailed bool) error {
 		job := jobs.Job{
 			ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2},

@@ -21,6 +21,8 @@ type Attempt struct {
 	JobID  int64
 	Kind   jobs.Kind
 	NodeID int64
+	// NodeStartID is the start of the node it was given to, as its hello named it (D238 §3).
+	NodeStartID string
 	// Work is the work as sent, without the bytes it carried.
 	Work   nodeproto.Work
 	SentAt time.Time
@@ -87,7 +89,8 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	command.IsPlayDriven = job.Priority >= jobs.PriorityPlayNow
 	now := all.clock.Now()
 	attempt := Attempt{
-		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, Work: command.WithoutBytes(), SentAt: now,
+		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, NodeStartID: all.sender.StartOf(nodeID),
+		Work: command.WithoutBytes(), SentAt: now,
 	}
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
@@ -164,7 +167,7 @@ func (all *Exchanges) keep(ctx context.Context, attempt Attempt) error {
 	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(ctx, cachegen.InsertNodeAttemptParams{
 			AttemptToken: attempt.Token, JobID: attempt.JobID, JobKind: string(attempt.Kind), NodeID: attempt.NodeID,
-			WorkJSON: string(workJSON), SentAt: attempt.SentAt.UnixMilli(),
+			NodeStartID: attempt.NodeStartID, WorkJSON: string(workJSON), SentAt: attempt.SentAt.UnixMilli(),
 		})
 	})
 	if err != nil {
@@ -224,7 +227,8 @@ func (all *Exchanges) forgetAttempt(ctx context.Context, token string) error {
 }
 
 // Load takes back the attempts cache.db kept through a restart: each, heard of now, is resolved by
-// its node's word, or by its silence (D234 §7, S82).
+// its node's word, or by its silence (D234 §7, S82), or, given to a start of its node that its next
+// hello does not name, as interrupted (Interrupt, D238 §3).
 func (all *Exchanges) Load(ctx context.Context) error {
 	rows, err := all.cache.Read().ListNodeAttempts(ctx)
 	if err != nil {
@@ -240,8 +244,8 @@ func (all *Exchanges) Load(ctx context.Context) error {
 		}
 		all.attempts[row.AttemptToken] = &heldAttempt{
 			Attempt: Attempt{
-				Token: row.AttemptToken, JobID: row.JobID, Kind: jobs.Kind(row.JobKind), NodeID: row.NodeID, Work: work,
-				SentAt: time.UnixMilli(row.SentAt),
+				Token: row.AttemptToken, JobID: row.JobID, Kind: jobs.Kind(row.JobKind), NodeID: row.NodeID,
+				NodeStartID: row.NodeStartID, Work: work, SentAt: time.UnixMilli(row.SentAt),
 			},
 			lastHeard: now,
 		}

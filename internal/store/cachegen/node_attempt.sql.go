@@ -20,8 +20,8 @@ func (q *Queries) DeleteNodeAttempt(ctx context.Context, attemptToken string) er
 
 const insertNodeAttempt = `-- name: InsertNodeAttempt :exec
 
-INSERT INTO node_attempt (attempt_token, job_id, job_kind, node_id, work_json, sent_at)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO node_attempt (attempt_token, job_id, job_kind, node_id, node_start_id, work_json, sent_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertNodeAttemptParams struct {
@@ -29,6 +29,7 @@ type InsertNodeAttemptParams struct {
 	JobID        int64
 	JobKind      string
 	NodeID       int64
+	NodeStartID  string
 	WorkJSON     string
 	SentAt       int64
 }
@@ -42,6 +43,7 @@ func (q *Queries) InsertNodeAttempt(ctx context.Context, arg InsertNodeAttemptPa
 		arg.JobID,
 		arg.JobKind,
 		arg.NodeID,
+		arg.NodeStartID,
 		arg.WorkJSON,
 		arg.SentAt,
 	)
@@ -49,7 +51,7 @@ func (q *Queries) InsertNodeAttempt(ctx context.Context, arg InsertNodeAttemptPa
 }
 
 const listNodeAttempts = `-- name: ListNodeAttempts :many
-SELECT attempt_token, job_id, job_kind, node_id, work_json, sent_at FROM node_attempt ORDER BY sent_at
+SELECT attempt_token, job_id, job_kind, node_id, node_start_id, work_json, sent_at FROM node_attempt ORDER BY sent_at
 `
 
 func (q *Queries) ListNodeAttempts(ctx context.Context) ([]NodeAttempt, error) {
@@ -66,6 +68,7 @@ func (q *Queries) ListNodeAttempts(ctx context.Context) ([]NodeAttempt, error) {
 			&i.JobID,
 			&i.JobKind,
 			&i.NodeID,
+			&i.NodeStartID,
 			&i.WorkJSON,
 			&i.SentAt,
 		); err != nil {

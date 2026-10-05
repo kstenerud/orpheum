@@ -38,7 +38,11 @@ type recordingSender struct {
 	unparked *unparkedDestinations
 	// withdrawn are the attempts whose commands were withdrawn, by token, in order.
 	withdrawn []string
+	// startID is the start its last hello named.
+	startID string
 }
+
+func (sender *recordingSender) StartOf(int64) string { return sender.startID }
 
 func (sender *recordingSender) Unpark(ctx context.Context, destination jobs.Destination) {
 	sender.unparked.Unpark(ctx, destination)
@@ -107,7 +111,9 @@ func (unparked *unparkedDestinations) list() []jobs.Destination {
 func newExchanges(t *testing.T) exchangeBench {
 	t.Helper()
 	bench := exchangeBench{
-		sender: &recordingSender{sent: make(chan nodeproto.Command, 4), unparked: &unparkedDestinations{}},
+		sender: &recordingSender{
+			sent: make(chan nodeproto.Command, 4), unparked: &unparkedDestinations{}, startID: "first start",
+		},
 		now:    clocktest.NewFake(time.Date(2026, time.October, 1, 12, 0, 0, 0, time.UTC)),
 		logged: &bytes.Buffer{},
 	}
@@ -302,7 +308,7 @@ func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
 	elsewhere := bench.exchanges.Assign(t.Context(), 2, jobs.Job{ID: 8, Kind: jobs.KindPrepare}, prepareCommand)
 	jobqueue.HandOver(t.Context(), elsewhere)
 	sentElsewhere := testutil.Receive(t, bench.sender.sent, "job 8's prepare command")
-	bench.exchanges.Interrupt(t.Context(), 1)
+	bench.exchanges.Interrupt(t.Context(), 1, "started again")
 	if ended := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(ended, nodes.ErrNodeRestarted) {
 		t.Errorf("job 7 was resolved with %v, want ErrNodeRestarted", ended)
 	}

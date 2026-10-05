@@ -279,6 +279,8 @@ func (toldSender) ParkUnlessConnected(context.Context, int64) error { return nil
 
 func (toldSender) Withdraw(int64, string) bool { return false }
 
+func (toldSender) StartOf(int64) string { return "" }
+
 func (toldSender) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (toldSender) Unpark(context.Context, jobs.Destination) {}

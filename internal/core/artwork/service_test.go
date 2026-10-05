@@ -81,6 +81,8 @@ func (node *fakeNode) ParkUnlessConnected(_ context.Context, nodeID int64) error
 // Withdraw withdraws nothing: the fake node takes each command at once.
 func (*fakeNode) Withdraw(int64, string) bool { return false }
 
+func (*fakeNode) StartOf(int64) string { return "" }
+
 func (*fakeNode) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (*fakeNode) Unpark(context.Context, jobs.Destination) {}
@@ -386,7 +388,7 @@ func TestService_ANodeThatStartedAgainIsTheToolsFailureAndTwoInARowFailTheJob(t 
 		ended := make(chan error, 1)
 		go func() { ended <- bench.run(t, job) }()
 		testutil.Receive(t, bench.node.enqueued, "the artwork command")
-		bench.service.exchanges.Interrupt(t.Context(), fakeNodeID)
+		bench.service.exchanges.Interrupt(t.Context(), fakeNodeID, "started again")
 		return testutil.Receive(t, ended, "the artwork job to end")
 	}
 	first := reEncodeAfter(false)

@@ -136,6 +136,8 @@ func (nodes *fakeNodes) ParkUnlessConnected(ctx context.Context, nodeID int64) e
 // Withdraw withdraws nothing: the fake node takes each command at once.
 func (*fakeNodes) Withdraw(int64, string) bool { return false }
 
+func (*fakeNodes) StartOf(int64) string { return "" }
+
 func (*fakeNodes) Unanswered(_ context.Context, _ int64, err error) error { return err }
 
 func (*fakeNodes) Unpark(context.Context, jobs.Destination) {}

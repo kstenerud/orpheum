@@ -422,10 +422,11 @@ func TestResult_IsAcknowledgedOnlyOnceTheSinkRecordedIt(t *testing.T) {
 // recordingResultSink records the results and progress it is handed, and the nodes it is told
 // started again.
 type recordingResultSink struct {
-	results     []nodeproto.Result
-	from        []int64
-	progress    []nodeproto.Progress
-	interrupted []int64
+	results  []nodeproto.Result
+	from     []int64
+	progress []nodeproto.Progress
+	// interrupted are the calls to interrupt the work of a node's other starts, in order.
+	interrupted []interruption
 	// refusal, when set, is Deliver's error: a result the sink could not record.
 	refusal error
 	// reconciled are the calls to reconcile what a node holds, in order.
@@ -474,27 +475,30 @@ func TestProgress_ReachesTheResultSinkFromAKnownNodeOnly(t *testing.T) {
 	}
 }
 
-func (sink *recordingResultSink) Interrupt(_ context.Context, nodeID int64) {
-	sink.interrupted = append(sink.interrupted, nodeID)
+// interruption is a call to interrupt the work given to a node under another start than startID.
+type interruption struct {
+	nodeID  int64
+	startID string
 }
 
-// A hello naming another start of the node than the last this core heard is a node that started
-// again, losing the work it held in memory: the jobs waiting on it are told (D238 §3). Its hello
-// after a dropped connection, the same start, interrupts nothing.
+func (sink *recordingResultSink) Interrupt(_ context.Context, nodeID int64, startID string) {
+	sink.interrupted = append(sink.interrupted, interruption{nodeID: nodeID, startID: startID})
+}
+
+// Every hello, the first since the core started too, has the work given to any other start of its
+// node interrupted, by the start it names: a node that started again lost the work it held in memory
+// (D238 §3), whether or not this core heard its last start.
 func TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
 	sink := &recordingResultSink{}
 	harness.service.SetResultSink(sink)
 	first := harness.hello(t, nodeproto.Hello{Name: "local", StartID: "a1"})
-	harness.hello(t, nodeproto.Hello{Name: "local", StartID: "a1"})
-	if len(sink.interrupted) != 0 {
-		t.Errorf("a node's first hello and its hello again from the same start interrupted %v, want none",
-			sink.interrupted)
-	}
 	harness.hello(t, nodeproto.Hello{Name: "local", StartID: "b2"})
-	if len(sink.interrupted) != 1 || sink.interrupted[0] != first.NodeID {
-		t.Errorf("a hello from another start interrupted %v, want node %d once", sink.interrupted, first.NodeID)
+	want := []interruption{{nodeID: first.NodeID, startID: "a1"}, {nodeID: first.NodeID, startID: "b2"}}
+	if !slices.Equal(sink.interrupted, want) {
+		t.Errorf("two hellos interrupted %+v, want the work of every start but each hello's own: %+v",
+			sink.interrupted, want)
 	}
 }
 

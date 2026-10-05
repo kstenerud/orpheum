@@ -72,6 +72,8 @@ func (node fakeNodes) ParkUnlessConnected(context.Context, int64) error { return
 
 func (fakeNodes) Withdraw(int64, string) bool { return false }
 
+func (fakeNodes) StartOf(int64) string { return "" }
+
 func (node fakeNodes) Send(_ context.Context, nodeID int64, command nodeproto.Command) error {
 	node.Enqueue(nodeID, command)
 	return nil

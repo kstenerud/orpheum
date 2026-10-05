@@ -33,6 +33,9 @@ type Sender interface {
 	Withdraw(nodeID int64, token string) bool
 	// Unanswered parks a job whose node went away while it waited, and is err otherwise.
 	Unanswered(ctx context.Context, nodeID int64, err error) error
+	// StartOf is the start of a node its last hello named, which each attempt given to it keeps
+	// (D238 §3).
+	StartOf(nodeID int64) string
 }
 
 // Rooms are what each node can run at once, and the work waiting for room on it: Service (D240 §5).
@@ -253,11 +256,15 @@ func (all *Exchanges) DeliverProgress(ctx context.Context, nodeID int64, progres
 	}
 }
 
-// Interrupt resolves every attempt given to a node that started again, losing the work it held in
-// memory (D238 §3): its hello named another start than the last one this core heard. Their commands
-// not yet taken are withdrawn, so the node that started again is not sent work whose job ended (G4).
-func (all *Exchanges) Interrupt(ctx context.Context, nodeID int64) {
-	all.unanswered(ctx, func(held heldAttempt) bool { return held.NodeID == nodeID }, func(attempt Attempt) error {
+// Interrupt resolves every attempt given to a node under another start than startID, the one its
+// hello names now: the node started again, losing the work it held in memory (D238 §3). Each
+// attempt keeps its node's start in cache.db, so this holds whether or not the core started again
+// too. Their commands not yet taken are withdrawn, so the node that started again is not sent work
+// whose job ended (G4).
+func (all *Exchanges) Interrupt(ctx context.Context, nodeID int64, startID string) {
+	all.unanswered(ctx, func(held heldAttempt) bool {
+		return held.NodeID == nodeID && held.NodeStartID != startID
+	}, func(attempt Attempt) error {
 		all.sender.Withdraw(attempt.NodeID, attempt.Token)
 		all.logger.InfoContext(ctx, "a job's node started again, losing its work", "nodeId", nodeID,
 			"jobId", attempt.JobID, "attemptToken", attempt.Token)

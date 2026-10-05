@@ -60,6 +60,7 @@ type NodeAttempt struct {
 	JobID        int64
 	JobKind      string
 	NodeID       int64
+	NodeStartID  string
 	WorkJSON     string
 	SentAt       int64
 }

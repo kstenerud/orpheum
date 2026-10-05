@@ -119,6 +119,54 @@ func TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord(t *testing.T)
 	}
 }
 
+// An attempt kept through a core restart keeps the start of the node it was given to: a hello from
+// that start interrupts nothing, and a status of that start not holding it is lost, a broken
+// invariant, as it would have been before the restart (D234 §4, §6); a hello from another start
+// interrupts it, the node having started again, and is no broken invariant (D238 §3).
+func TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.assign(t)
+	second := bench.assign(t)
+	if kept, err := bench.cache.Read().ListNodeAttempts(t.Context()); err != nil || len(kept) != 2 ||
+		kept[0].NodeStartID != "first start" || kept[1].NodeStartID != "first start" {
+		t.Fatalf("cache.db keeps %+v, %v; want each attempt with its node's start", kept, err)
+	}
+	restarted := nodes.NewExchanges(nodes.ExchangeParts{
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader,
+		Logger: slog.New(slog.DiscardHandler), Cache: bench.cache, MaxSilence: time.Minute,
+		Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+	})
+	if err := restarted.Load(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	resolved := make(answers, 2)
+	restarted.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	restarted.Interrupt(t.Context(), 1, "first start")
+	select {
+	case answer := <-resolved:
+		t.Fatalf("a hello from the start the work was given to resolved it with %v; want it held", answer)
+	default:
+	}
+	held := []nodeproto.HeldAttempt{{JobID: 7, AttemptToken: second.AttemptToken, State: nodeproto.HeldRunning}}
+	restarted.Reconcile(t.Context(), 1, held, nil)
+	if lost := testutil.Receive(t, resolved, "the lost attempt's answer"); !errors.Is(lost, nodes.ErrWorkLost) ||
+		errors.Is(lost, nodes.ErrNodeRestarted) {
+		t.Errorf("an attempt its node's same start does not hold was resolved with %v; want it lost", lost)
+	}
+	if count := restarted.BrokenInvariants(1); count != 1 {
+		t.Errorf("%d broken invariants, want 1: the attempt its node's same start lost", count)
+	}
+	restarted.Interrupt(t.Context(), 1, "second start")
+	answer := testutil.Receive(t, resolved, "the held attempt's answer")
+	if !errors.Is(answer, nodes.ErrNodeRestarted) {
+		t.Errorf("an attempt given to the node's last start was resolved with %v, want ErrNodeRestarted", answer)
+	}
+	if count := restarted.BrokenInvariants(1); count != 1 {
+		t.Errorf("%d broken invariants after the node started again, want still 1: a restart is not one", count)
+	}
+}
+
 // A node's word on an attempt whose kind no runner resolves yet is not taken: it is sent again.
 func TestDeliver_AResultBeforeItsKindIsResolvedIsNotTaken(t *testing.T) {
 	t.Parallel()
@@ -197,7 +245,7 @@ func TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode(t *testing.T) {
 	}
 	again := bench.assign(t)
 	bench.sender.withdrawn = nil
-	bench.exchanges.Interrupt(t.Context(), 1)
+	bench.exchanges.Interrupt(t.Context(), 1, "started again")
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(answer, nodes.ErrNodeRestarted) {
 		t.Errorf("a node that started again resolved job 7 with %v, want ErrNodeRestarted", answer)
 	}
