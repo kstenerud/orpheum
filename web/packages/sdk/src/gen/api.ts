@@ -2172,7 +2172,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "examine" | "backup" | "renew_certificate";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "scan" | "examine" | "backup" | "renew_certificate";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";

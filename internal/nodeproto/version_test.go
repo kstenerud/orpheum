@@ -49,6 +49,9 @@ var wireShapeByVersion = map[int]string{
 	21: "a9b483b035696bb1912c31aebc850e6012cb9f5edfa9529972c014c264dd1fbb",
 	// 22 tells a measurement the film's length, so its watchdog allows decoding a long film's sound.
 	22: "be406c8890f5721b73757d3aa6cc346f54f36bc69bdefc6168d9eb2f61964f83",
+	// 23 replaces the loudness measurement with a read-through, which measures the loudness and reads
+	// the picture's timeline, its keyframes and its bytes in each second, from one read (D247 §10).
+	23: "b81a47ac1d4856a018cdffb9ba6ba28a4fdaa850508d46dbea3e15620bd1462a",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

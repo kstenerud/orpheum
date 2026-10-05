@@ -61,7 +61,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go, retire.go, move.go). ⚑ R8: scans as `list` and `examine` jobs (scans.go, batches.go; D241), and the one rule for parking work under an unavailable root (`Unavailability`, `ParkIfUnder`; unavailable.go, playable.go) |
 | `internal/core/nodes` | R8 | ⚑ R6a: an admin's reader limit for one of a node's devices (devices.go, D240 §5) |
-| `internal/core/loudness` | R8 (the loudness measurement jobs and their sweep), R3 (the measurements, by payload hash) | — (split out of playback on 2026-10-03, F2) |
+| `internal/core/loudness` | R7 (the gains that level a file's sounds, from its measurements) | — (split out of playback on 2026-10-03, F2; its job, sweep and writes moved to `internal/core/readthrough` on 2026-10-05) |
+| `internal/core/readthrough` | R8 (the read-through jobs and their sweep), R3 (the loudness measurements and the pictures' timelines, by payload hash) | — (was `internal/core/loudness`'s job until 2026-10-05, made general for D247's grid) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
 | `internal/core/renditions` | R8 (the prepare jobs), R3 (the index of prepared copies, in cache.db) | — (split out of playback on 2026-10-03, F2) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
@@ -81,11 +82,11 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/execx` | CONTAIN | — |
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |
-| `internal/node/loudness` | R3 | — (borrows prepare's mix filters, measure.go:99) |
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
 | `internal/node/prepare` | R3 | — |
 | `internal/node/prepared` | R3 (rendition store custody) | — |
 | `internal/node/probe` | R2 | — |
+| `internal/node/readthrough` | R3 | — (borrows prepare's mix filters, loudness.go; was `internal/node/loudness` until 2026-10-05) |
 | `internal/node/scan` | R2 | — |
 | `internal/node/subtitle` | R3 | — |
 | `internal/nodeproto` | R8 | — |
@@ -172,6 +173,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | prepared_rendition (index of node renditions) | cache.db | T3 | no | mitigated by D238 §2: a node's hello lists its renditions, and the core adopts them. cache.db is at version 27 |
+| video_timeline (a picture's keyframes and bytes in each second, by payload hash) | cache.db | T3 (reads the whole file, copying the picture's packets) | no | ⚑ T3 in cache.db, where chunks.md §3 puts it: a discarded cache.db has the read-through sweep read every video through again, F1's cost; the read copies and decodes nothing, but reads every byte |
 | full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
 | secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |
 | setup-code file, sockets, the server's lock | instance's run/ | transient | no | — |

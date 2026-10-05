@@ -251,8 +251,10 @@ token names this sending of the job, so a result is taken only for the attempt t
 - `prepare{video, profile, renditionDir, audio[]}`: a rendition (§6)
 - `extract_subtitle{video, streamIndex}`, `{sidecar}` or `{fetchedSubRip}`: one job makes both ASS
   and WebVTT ([D217](../../decisions/working-notes.md) §6)
-- `measure_loudness{video, tracks[]}`: each audio track's integrated loudness, range and true peak,
-  and its stereo mix's when it has more than two channels, in one read ([D226](../../decisions/working-notes.md) §1)
+- `read_through{video, loudnessTracks[], videoTimeline}` (was `measure_loudness`; [chunks.md](chunks.md) §2):
+  each audio track's integrated loudness, range and true peak, and its stereo mix's when it has more
+  than two channels ([D226](../../decisions/working-notes.md) §1), and the picture's keyframes and
+  bytes in each second (D247 §10), whichever the core asks for, in one read
 - `encode_artwork{images[]}`: images made into the sizes a person sees (D212)
 - `cancel`: the envelope alone; stops the attempt it names
 - `reprioritize`: the envelope alone; the attempt's new priority, and whether it is still

@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 22
+const ProtocolVersion = 23
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -80,7 +80,7 @@ type Capacity struct {
 	RemuxSlotCount  int `json:"remuxSlotCount"`
 	// SlowestReadBytesPerSecond is the slowest the node expects to read a whole file: a busy
 	// spinning disk, or a network mount. Its watchdog allows a run that reads one that long, and the
-	// core waits that long for a loudness measurement.
+	// core waits that long for a read-through.
 	SlowestReadBytesPerSecond int64 `json:"slowestReadBytesPerSecond"`
 }
 

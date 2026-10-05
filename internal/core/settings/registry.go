@@ -72,7 +72,7 @@ const (
 	NewLibraryDefaultScanEveryHours                Key = "new_library_default_scan_every_hours"
 	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
-	LoudnessSweepEveryHours                        Key = "loudness_sweep_every_hours"
+	ReadThroughSweepEveryHours                     Key = "read_through_sweep_every_hours"
 	DerivedWorkSweepEverySeconds                   Key = "derived_work_sweep_every_seconds"
 	BackupEveryDays                                Key = "backup_every_days"
 	BackupHourLocalTZ                              Key = "backup_hour_local_tz"
@@ -410,8 +410,9 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(integerSetting(LoudnessMaxRaiseDB, "20", 0, 60,
 			"the most dB a quiet sound is raised, so its own noise is not brought up with it (D226 §3)"),
 			"D226 §3: the owner's decision, 2026-09-28; best guess, not measured"),
-		sourced(durationSetting(LoudnessSweepEveryHours, time.Hour, "1", 1, 8760,
-			"hours between looks for files whose loudness is not measured yet; a scan also starts one (D226 §2)"),
+		sourced(durationSetting(ReadThroughSweepEveryHours, time.Hour, "1", 1, 8760,
+			"hours between looks for videos to read through, whose loudness or picture's timeline is not "+
+				"known yet; a scan also starts one (D226 §2, D247 §10)"),
 			"best guess: hourly, so a file a scan missed waits no longer than that"),
 		sourced(durationSetting(DerivedWorkSweepEverySeconds, time.Second, "3600", 60, 86400,
 			"seconds between the sweeps that find the first matches owed, the refreshes people asked for, "+

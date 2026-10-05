@@ -6,8 +6,8 @@
 # Each run records what it was given under calls/: its name, its arguments (NUL-separated) and
 # its environment and what it read on stdin, so the test can assert the argument list, the
 # explicit environment and the input. It
-# then replies as the test asked: reply.stdout to stdout, reply.stderr to stderr, and the exit
-# status in reply.status. With reply.hold present it starts a grandchild that holds stdout open,
+# then replies as the test asked: reply.stdout to stdout, or reply.ffmpeg.stdout when it is ffmpeg
+# and that is present, reply.stderr to stderr, and the exit status in reply.status. With reply.hold present it starts a grandchild that holds stdout open,
 # records its pid in grandchild.pid, says "ready" into the FIFO named by reply.hold, and waits,
 # so a test can cancel it and see that the whole process group died. With reply.progress present it
 # writes it to descriptor 3, a watched run's -progress pipe, first. With reply.hang present it then
@@ -53,6 +53,10 @@ if [ -e "$directory/reply.hold" ]; then
 	wait
 fi
 
-/bin/cat "$directory/reply.stdout"
+if [ "$tool" = ffmpeg ] && [ -e "$directory/reply.ffmpeg.stdout" ]; then
+	/bin/cat "$directory/reply.ffmpeg.stdout"
+else
+	/bin/cat "$directory/reply.stdout"
+fi
 /bin/cat "$directory/reply.stderr" >&2
 exit "$(/bin/cat "$directory/reply.status")"

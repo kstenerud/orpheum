@@ -29,7 +29,7 @@ func TestRowCounts_ContinueWatchingTheJobViewAndTheSystemPageListAsManyAsTheirSe
 	harness.setPositionReadAt(t, 2, 60_000, 150) // the pilot, of unknown length
 	harness.setPositionReadAt(t, 1, 500, 200)    // Metropolis, of unknown length, latest
 	for fileID := range int64(3) {
-		request := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 100 + fileID}}
+		request := jobs.Request{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 100 + fileID}}
 		if _, err := harness.queue.Enqueue(t.Context(), request); err != nil {
 			t.Fatal(err)
 		}

@@ -56,8 +56,8 @@ type Workers struct {
 	Preparer Preparer
 	// Subtitler is nil on a node that does not extract subtitles.
 	Subtitler Subtitler
-	// LoudnessMeasurer is nil on a node that does not measure loudness.
-	LoudnessMeasurer Measurer
+	// ThroughReader is nil on a node that does not read videos through.
+	ThroughReader ThroughReader
 	// PreparedShelf keeps the prepared directory within its budget; nil on a node that does not
 	// prepare.
 	PreparedShelf PreparedShelf
@@ -365,8 +365,8 @@ func (agent *Agent) workFor(
 		return agent.prepareWork(nodeCtx, nodeID, held, *command.Prepare), true
 	case command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil:
 		return agent.subtitleWork(nodeCtx, nodeID, held, *command.ExtractSubtitle), true
-	case command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil:
-		return agent.loudnessWork(nodeCtx, nodeID, held, *command.MeasureLoudness), true
+	case command.Type == nodeproto.CommandReadThrough && command.ReadThrough != nil:
+		return agent.readThroughWork(nodeCtx, nodeID, held, *command.ReadThrough), true
 	case command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil:
 		return agent.artworkWork(nodeCtx, nodeID, held, *command.EncodeArtwork), true
 	case command.Type == nodeproto.CommandList && command.List != nil:

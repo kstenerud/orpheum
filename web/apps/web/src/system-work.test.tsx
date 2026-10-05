@@ -30,7 +30,7 @@ it("shows how many of each kind of job wait, since when, and what failed in the 
       <QueueHealth
         queue={[
           {
-            kind: "measure_loudness",
+            kind: "read_through",
             queuedCount: 3,
             oldestQueuedAt: 1_790_000_000_000,
             failedLastDayCount: 0,
@@ -42,7 +42,7 @@ it("shows how many of each kind of job wait, since when, and what failed in the 
     ),
   );
   const text = mounted.container.textContent;
-  expect(text).toContain("Measuring loudness 3 waiting since");
+  expect(text).toContain("Reading a video through 3 waiting since");
   expect(text).toContain("2 failed in the last day");
   expect(text).not.toContain("0 failed");
 });

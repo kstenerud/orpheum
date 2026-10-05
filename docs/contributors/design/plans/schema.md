@@ -937,15 +937,19 @@ reference scale, and removes a failure mode.
 `wanted_until`, past which play-driven work no person waits for falls to background priority (D234
 §3, Phase 4d); version 26 `scan` and `scan_batch`, a root's scan in progress and the batches of files
 it has its node read, and a job's `scan_id` and `scan_batch_id`, the targets of the `scan` and
-`examine` kinds (D240, Phase 4e).
+`examine` kinds (D240, Phase 4e); version 29 renamed the `measure_loudness` job `read_through`, which
+reads a video through once for its loudness and its picture's timeline, and added `video_timeline`,
+that timeline by payload hash (D247 §10, chunks.md §3). Losing it has the sweep read every video
+through again, which reads every byte though it decodes nothing: F1's cost, flagged in the
+architecture map's storage table.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','examine','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','read_through','scan','examine','backup')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
-  -- measure_loudness a file, scan a scan (its listing), examine a scan's batch. At most one is set;
+  -- read_through a file, scan a scan (its listing), examine a scan's batch. At most one is set;
   -- backup, not yet a job, sets none.
   item_id             INTEGER,
   rendition_id        INTEGER,
@@ -1055,6 +1059,16 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   sent_at     INTEGER NOT NULL
 );
 CREATE INDEX node_attempt_job ON node_attempt(job_id);
+
+CREATE TABLE video_timeline (                              -- D247 section 10: a picture's timeline
+  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as persistent.db's file has them (D179)
+  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
+  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
+  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
+  failure     TEXT,                      -- FFmpeg's word that the file could not be read through; the JSON is then empty
+  made_at     INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, video_stream_index)
+) WITHOUT ROWID;
 ```
 
 A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under the node's prepared
@@ -1140,7 +1154,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `item_text` | persistent.db | `internal/core/identify` | |
 | `library` | persistent.db | `internal/core/library` | |
 | `library_root` | persistent.db | `internal/core/library` | |
-| `loudness` | persistent.db | `internal/core/loudness` | |
+| `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
 | `ordering` | persistent.db | `internal/core/identify` | |
 | `play_event` | persistent.db | `internal/core/playback` | |
@@ -1178,6 +1192,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `scan` | cache.db | `internal/core/library` | a root's scan in progress, from its request to its end (D240) |
 | `scan_batch` | cache.db | `internal/core/library` | the batches of files a scan has its node read (D240 §8) |
 | `prepared_rendition` | cache.db | `internal/core/renditions` | |
+| `video_timeline` | cache.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
 
 ## Not in Cut A, and additive
 

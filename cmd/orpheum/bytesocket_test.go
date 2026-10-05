@@ -55,8 +55,8 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	taken := &takenResults{}
 	service.SetResultSink(taken)
 	whole, err := json.Marshal(nodeproto.Result{
-		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandMeasureLoudness},
-		Loudness: &nodeproto.LoudnessResult{Failure: "too large to post, in a test's terms"},
+		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandReadThrough},
+		ReadThrough: &nodeproto.ReadThroughResult{Failure: "too large to post, in a test's terms"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -109,10 +109,10 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	}
 	sum := sha256.Sum256(whole)
 	status, _ := post(nodeproto.PathResult, reply.NodeID, nodeproto.Result{
-		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandMeasureLoudness},
+		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandReadThrough},
 		Held: &nodeproto.HeldResult{SizeBytes: int64(len(whole)), Sha256: hex.EncodeToString(sum[:])},
 	})
-	if status != http.StatusOK || len(taken.results) != 1 || taken.results[0].Loudness == nil {
+	if status != http.StatusOK || len(taken.results) != 1 || taken.results[0].ReadThrough == nil {
 		t.Errorf("a post naming a held result: %d, handed on %+v; want the whole result", status, taken.results)
 	}
 }

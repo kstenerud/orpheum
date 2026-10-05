@@ -70,22 +70,17 @@ func TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot(t *testi
 	}
 }
 
-func TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed(t *testing.T) {
+func TestAgent_AStalledReadThroughOrExtractionIsAnsweredStalledNotFailed(t *testing.T) {
 	t.Parallel()
 	video, _, core := startExtractionAgent(t)
-	command := nodeproto.MeasureLoudness{
-		Video: video, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: stallingStreamIndex, ChannelCount: 2}},
-	}
-	core.commands <- nodeproto.Command{
-		CommandSeq: 1,
-		JobID:      1,
-		Work:       nodeproto.Work{Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command},
-	}
-	measured := receiveLoudness(t, core)
+	core.sendReadThrough(1, nodeproto.ReadThrough{
+		Video: video, LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: stallingStreamIndex, ChannelCount: 2}},
+	})
+	measured := receiveReadThrough(t, core)
 	if measured.Failure != "" || measured.Refusal != "" {
-		t.Errorf("a stalled measurement answered %+v; want a stall, not the file's failure", measured)
+		t.Errorf("a stalled read-through answered %+v; want a stall, not the file's failure", measured)
 	}
-	wantStall(t, "a stalled measurement", measured.Stall)
+	wantStall(t, "a stalled read-through", measured.Stall)
 
 	core.queueExtraction(2, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: stallingStreamIndex})
 	extracted := receiveSubtitle(t, core)

@@ -138,7 +138,7 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 	harness.nodes.awayNodeID = 2
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	for _, fileID := range []int64{10, 1} { // the down node's first, as a doomed attempt would have been
-		measurement := jobs.Request{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}, Reason: "test"}
+		measurement := jobs.Request{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: fileID}, Reason: "test"}
 		if _, err := harness.queue.Enqueue(t.Context(), measurement); err != nil {
 			t.Fatal(err)
 		}
@@ -151,10 +151,10 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 		if !isSent {
 			return
 		}
-		harness.answerLoudness(t, command.JobID,
-			nodeproto.LoudnessResult{Failure: "Invalid data found when processing input"})
+		harness.answerReadThrough(t, command.JobID,
+			nodeproto.ReadThroughResult{Failure: "Invalid data found when processing input"})
 	}()
-	runner := harness.queue.NewRunner(jobs.KindMeasureLoudness, harness.loudness.HandleMeasureLoudness)
+	runner := harness.queue.NewRunner(jobs.KindReadThrough, harness.readThrough.HandleReadThrough)
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 		 VALUES (1, '/media', 'unreadable', 9000, 5000)`)
 	root := jobs.RootDestination(1, "/media")
 	harness.queueWork(t, []jobs.Request{
-		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}, Destination: root},
+		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Destination: root},
 		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
 	}, root)
 	if system := harness.system(t, admin); len(system.Body.Offline) != 1 || system.Body.Offline[0].OfflineAt != 5000 {
@@ -331,7 +331,7 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 		t.Errorf("the retire = %+v; want the root's 3 files removed and both jobs cancelled", retired.Body)
 	}
 	harness.checkAllCancelled(t, admin, root)
-	if queued, err := harness.loudness.QueueMeasurements(t.Context()); err != nil || queued != 0 {
+	if queued, err := harness.readThrough.QueueReadThroughs(t.Context()); err != nil || queued != 0 {
 		t.Errorf("the loudness sweep after the retire queued %d, %v; want nothing for a retired root's files",
 			queued, err)
 	}
@@ -353,7 +353,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 	harness.nodes.isAway.Store(true)
 	node := jobs.NodeDestination(1)
 	harness.queueWork(t, []jobs.Request{
-		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}, Destination: node},
+		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Destination: node},
 		{Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 7}, Destination: node},
 	}, node)
 	retired := harness.retire(t, admin, http.MethodPost, "/nodes/retire", map[string]string{"nodeName": "local"})
@@ -390,7 +390,7 @@ func TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheir
 	}
 	harness.queueWork(t, []jobs.Request{
 		{Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: 30}},
-		{Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: 1}},
+		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}},
 	})
 	retired := harness.retire(t, admin, http.MethodDelete, "/libraries/1", nil)
 	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {

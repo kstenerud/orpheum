@@ -11,7 +11,7 @@ const PathBytesResult = "/bytes/v1/result/"
 
 // MaxPostedResultBytes is the largest result the node posts whole, encoded: one larger is held on
 // the node and posted as a HeldResult, which the core fetches from the byte socket. A mebibyte
-// carries any prepare, measurement or ordinary subtitle; an artwork re-encode's sizes are larger.
+// carries any prepare, read-through or ordinary subtitle; an artwork re-encode's sizes are larger.
 const MaxPostedResultBytes = 1 << 20
 
 // HeldResult names a result the node holds, too large to post: the core fetches it whole, its JSON
@@ -24,7 +24,7 @@ type HeldResult struct {
 }
 
 // Result is the node's word on a job the core gave it, by the job's id and the attempt's token: one of
-// a prepare's reports, a subtitle's text, a loudness measurement, an artwork re-encode, a listing or
+// a prepare's reports, a subtitle's text, a read-through's findings, an artwork re-encode, a listing or
 // an examining. Exactly one is set, the one that answers the command the job sent, or none and a
 // Refusal.
 type Result struct {
@@ -40,13 +40,13 @@ type Result struct {
 	Held *HeldResult `json:"held,omitempty"`
 	// Refusal says why the node took no part of the command: a command it does not know, from a
 	// core of another build, which the core reads as the node needing an update (D233 §9).
-	Refusal  string              `json:"refusal,omitempty"`
-	Prepare  *PrepareReport      `json:"prepare,omitempty"`
-	Subtitle *SubtitleText       `json:"subtitle,omitempty"`
-	Loudness *LoudnessResult     `json:"loudness,omitempty"`
-	Artwork  *ArtworkBatchResult `json:"artwork,omitempty"`
-	Listing  *Listing            `json:"listing,omitempty"`
-	Examined *Examined           `json:"examined,omitempty"`
+	Refusal     string              `json:"refusal,omitempty"`
+	Prepare     *PrepareReport      `json:"prepare,omitempty"`
+	Subtitle    *SubtitleText       `json:"subtitle,omitempty"`
+	ReadThrough *ReadThroughResult  `json:"readThrough,omitempty"`
+	Artwork     *ArtworkBatchResult `json:"artwork,omitempty"`
+	Listing     *Listing            `json:"listing,omitempty"`
+	Examined    *Examined           `json:"examined,omitempty"`
 }
 
 // Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.
@@ -56,8 +56,8 @@ func (result Result) Stall() *Stall {
 		return result.Prepare.Stall
 	case result.Subtitle != nil:
 		return result.Subtitle.Stall
-	case result.Loudness != nil:
-		return result.Loudness.Stall
+	case result.ReadThrough != nil:
+		return result.ReadThrough.Stall
 	case result.Listing != nil:
 		return result.Listing.Stall
 	case result.Examined != nil:

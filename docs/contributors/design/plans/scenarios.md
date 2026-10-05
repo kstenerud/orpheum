@@ -321,7 +321,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   G6 **closed** 2026-09-30 (the jobs rebuild's Phase 2): work reading a
   file under a missing root or disk parks on it, a local image included, and the loudness sweep
   passes such files over
-  (`TestLoudness_AFileUnderAMissingRootIsNotSweptAndItsMeasurementWaitsForTheRoot`,
+  (`TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTheRoot`,
   `TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo`).
 
 ### S23 — The node machine is retired for good
@@ -678,7 +678,7 @@ the backup's size."* In practice: **could cache.db be deleted now at the cost of
 | `prepare` | Play (`want`), and `PrepareAgain` when the node answers 404 | Failed for good on ordinary errors, **leaving the rendition `running`** | By the next play (`want` queues whenever it is not complete) | Yes, by playing | Nothing beyond `prepared_rendition`, which is a cache | cache.db (a note of the node's cache, D217 §5) | G8, G13 |
 | `extract_subtitle` | Play (`wantText`) | — | By the next play | Yes | Nothing | Text by payload hash in cache.db | — |
 | `convert_fetched_subtitle` | Play (`wantText`) | — | By the next play; the body is in persistent.db | Yes | Nothing | — | — |
-| `measure_loudness` (D226 §2) | `QueueMeasurements`: at start, after each pass, and hourly | Derived again; a failure is kept in persistent.db | Yes | No button, and none needed | Nothing | Already in persistent.db | Queues offline roots every hour (G6) |
+| `read_through` (D226 §2, D247 §10; was `measure_loudness`) | `QueueReadThroughs`: at start, after each pass, and hourly; and `ReadForPlay`, at play priority, for a player waiting on a timeline | Derived again; a failure is kept, the loudness's in persistent.db and the timeline's in cache.db | Yes | No button, and none needed | Nothing | The loudness already in persistent.db; the timeline in cache.db, so a discard reads every video through again (F1's cost, flagged in the architecture map) | Queues offline roots every hour (G6) |
 | `scan` (M4; today a node command held in memory) | A node's hello (a setting), or an admin request | An admin's scan of a node that has not said hello since the core started is **dropped silently**; lost on a restart | At the next hello | Yes, by asking again | The request | When it becomes a job, derived from root state (never scanned, withheld, offline, the admin's request) | Mild |
 | `backup` (M4) | Not built | — | — | — | — | Derived from the last backup time against its schedule | Design at M4 |
 
@@ -798,9 +798,9 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 - **S80 — A hung loudness measurement.** *Expected:* as S79. The item is not failed for a hang,
   and the node's measure slot comes back. *Today:* the slot is gone until the node restarts, and
   the file is eventually blamed. **Holds** (2026-10-03): the measurement has its own watchdog, and a
-  stall is free the first time (`TestMeasure_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled`,
-  `TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed`,
-  `TestLoudness_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure`).
+  stall is free the first time (`TestRead_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled`,
+  `TestAgent_AStalledReadThroughOrExtractionIsAnsweredStalledNotFailed`,
+  `TestReadThrough_AStallIsTriedAgainAndTwoInARowAreTheFilesFailure`).
 - **S81 — A finished prepare's `done` is lost in flight.** *Expected:* the outbox redelivers it;
   the core accepts it by run id even if the job gave up; nothing is re-encoded. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a result
   is recorded by its run as it arrives, whether or not its job still waits, and one not

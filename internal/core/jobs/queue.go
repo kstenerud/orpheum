@@ -33,8 +33,9 @@ const (
 	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its target is the
 	// fetched subtitle (D224 §5).
 	KindConvertFetchedSubtitle Kind = "convert_fetched_subtitle"
-	// KindMeasureLoudness measures a video's audio tracks; its target is the file (D226 §2).
-	KindMeasureLoudness Kind = "measure_loudness"
+	// KindReadThrough reads a video through once, for its audio tracks' loudness and its picture's
+	// timeline, whichever its bytes lack; its target is the file (D226 §2, D247 §10).
+	KindReadThrough Kind = "read_through"
 	// KindScan lists a root for its scan and compares what it found; its target is the scan (D240).
 	KindScan Kind = "scan"
 	// KindExamine reads a batch of the files a scan found new or changed; its target is the batch
@@ -52,13 +53,13 @@ const (
 func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle,
-		KindMeasureLoudness, KindScan, KindExamine, KindBackup, KindRenewCertificate,
+		KindReadThrough, KindScan, KindExamine, KindBackup, KindRenewCertificate,
 	}
 }
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for measure_loudness, a scan for scan and a scan's batch for
+// convert_fetched_subtitle, a file for read_through, a scan for scan and a scan's batch for
 // examine. A job is queued with exactly one set and the others zero, but a backup and the
 // certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
 // at a time, since every such job of a kind is one target. Enqueue refuses any other target with ErrNotOneTarget.

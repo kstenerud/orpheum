@@ -25,10 +25,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
-	"github.com/kstenerud/orpheum/internal/node/loudness"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
+	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -183,9 +183,9 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	workers := agent.Workers{
 		Scanner: activeScanner, Artworker: deriver, Preparer: preparer,
-		Subtitler:        subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		LoudnessMeasurer: loudness.NewMeasurer(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		PreparedShelf:    preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
+		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
+		PreparedShelf: preparedShelf, HeldResults: heldResults, Stuck: stuckOf(runner),
 	}
 	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)

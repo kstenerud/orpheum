@@ -285,7 +285,7 @@ func nodeConfigKeys() []configKey {
 		{
 			tableNode, "slowest_read_mib_per_second", "20",
 			"the slowest this node reads a whole file, a busy spinning disk or a network mount: how long a " +
-				"run that reads one is allowed, and how long the core waits for a loudness measurement",
+				"run that reads one is allowed, and how long the core waits for a read-through",
 		},
 	}
 }

@@ -134,7 +134,7 @@ func TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode(t *testing.T) {
 	want := []jobs.Destination{
 		jobs.NodeDestination(node), jobs.DestinationAnyNode,
 		jobs.SlotDestination(node, "encode"), jobs.SlotDestination(node, "remux"),
-		jobs.SlotDestination(node, "extract"), jobs.SlotDestination(node, "measure"),
+		jobs.SlotDestination(node, "extract"), jobs.SlotDestination(node, "read_through"),
 		jobs.SlotDestination(node, "artwork"),
 		jobs.ReaderDestination(node, "zfs:tank"),
 	}

@@ -35,6 +35,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
+	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -77,11 +78,11 @@ type testHarness struct {
 	subtitler *fakeSubtitler
 	// resolver takes the outcome of each job given to the node, and hands a test its answer.
 	resolver *nodestest.Resolver
-	// loudness measures each file's sounds, subtitles makes and fetches their subtitles, and
-	// renditions makes their prepared copies.
-	loudness   *loudness.Service
-	subtitles  *subtitles.Service
-	renditions *renditions.Service
+	// readThrough reads each file through, for its sounds' loudness and its picture's timeline;
+	// subtitles makes and fetches their subtitles, and renditions makes their prepared copies.
+	readThrough *readthrough.Service
+	subtitles   *subtitles.Service
+	renditions  *renditions.Service
 	// backups makes the backups a job asks for (D243 §11).
 	backups *backup.Service
 }
@@ -133,8 +134,9 @@ func newHarness(t *testing.T) testHarness {
 		Settings: seeded, MaxSilence: time.Minute,
 	})
 	queue.OnCancel(exchanges.Cancelled)
-	loudnessService := loudness.NewService(loudness.Parts{
-		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Settings: seeded, Clock: now,
+	loudnessService := loudness.NewService(loudness.Parts{Database: database, Settings: seeded})
+	readThroughService := readthrough.NewService(readthrough.Parts{
+		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges, Clock: now,
 	})
 	subtitlesService := subtitles.NewService(subtitles.Parts{
 		Database: database, Queue: queue, Nodes: nodes, Exchanges: exchanges, Subtitler: subtitler, Clock: now,
@@ -156,7 +158,7 @@ func newHarness(t *testing.T) testHarness {
 	for kind, assignee := range map[jobs.Kind]func(corenodes.Resolver) corenodes.Assignee{
 		jobs.KindPrepare: renditionsService.Assignee, jobs.KindExtractSubtitle: subtitlesService.Assignee,
 		jobs.KindConvertFetchedSubtitle: subtitlesService.Assignee,
-		jobs.KindMeasureLoudness:        loudnessService.Assignee,
+		jobs.KindReadThrough:            readThroughService.Assignee,
 	} {
 		exchanges.Handle(kind, assignee(resolver.Of(queue.NewRunner(kind, nil))))
 	}
@@ -221,7 +223,8 @@ func newHarness(t *testing.T) testHarness {
 		database:     database,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
-		subtitler: subtitler, loudness: loudnessService, subtitles: subtitlesService, renditions: renditionsService,
+		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
+		renditions: renditionsService,
 	}
 }
 
@@ -242,10 +245,10 @@ func (harness testHarness) answerPrepare(t *testing.T, jobID int64, report nodep
 	harness.deliver(t, jobID, nodeproto.Result{Prepare: &report})
 }
 
-// answerLoudness hands node 1's measurement for job jobID to the job.
-func (harness testHarness) answerLoudness(t *testing.T, jobID int64, answer nodeproto.LoudnessResult) {
+// answerReadThrough hands node 1's read-through for job jobID to the job.
+func (harness testHarness) answerReadThrough(t *testing.T, jobID int64, answer nodeproto.ReadThroughResult) {
 	t.Helper()
-	harness.deliver(t, jobID, nodeproto.Result{Loudness: &answer})
+	harness.deliver(t, jobID, nodeproto.Result{ReadThrough: &answer})
 }
 
 // answerSubtitle hands node 1's subtitle text for job jobID to the job.

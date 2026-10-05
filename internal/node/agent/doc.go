@@ -52,7 +52,7 @@
 //     holding no slot, until the core acknowledges it, with a doubling wait and at once at the next
 //     hello, and never given up while the node runs (D234 §5); it never stops the session or the
 //     work running beside it. A session that ends stops none of the node's work: a prepare,
-//     extraction, measurement or re-encode runs on the node's lifetime and posts its result to the
+//     extraction, read-through or re-encode runs on the node's lifetime and posts its result to the
 //     next session's core (D233 §2). TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession,
 //     TestAgent_AResultIsSentUntilTheCoreAcknowledgesIt,
 //     TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello,
@@ -82,9 +82,10 @@
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //     A fetched subtitle's text, which the command carries, is converted as a sidecar is (D224 §5).
 //     TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile.
-//   - A loudness measurement reads only the video the core named, whose payload hash is still the
-//     one named (D100, D226). One measurement runs at once.
-//     TestAgent_MeasuresOnlyTheVideoTheCoreNamed.
+//   - A read-through reads only the video the core named, whose payload hash is still the one
+//     named, and answers what it was asked: the loudness, the picture's timeline, or both (D100,
+//     D226, D247 §10). One read-through runs at once.
+//     TestAgent_ReadsThroughOnlyTheVideoTheCoreNamed, TestAgent_AReadThroughAnswersEachPartItWasAskedFor.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
 //     waits for a slot never starts (cut-a §5.3).
@@ -107,16 +108,16 @@
 //     TestAgent_HoldsWorkByItsAttemptAndEveryReportNamesIt.
 //   - A finished prepare's report says what made its video and how fast (D225 §3).
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.
-//   - A prepare, subtitle or measurement the node did not try (no worker for it, a file outside
+//   - A prepare, subtitle or read-through the node did not try (no worker for it, a file outside
 //     its roots or changed since the scan, a disk with no room) is answered as a refusal, apart
 //     from FFmpeg failing on the bytes, so the core can try a refusal again; a file changed since the
 //     scan is named so (nodeproto.RefusedChanged, S74).
 //     TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
 //     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
-//   - A prepare, subtitle or measurement whose FFmpeg the watchdog stopped is answered as a stall,
+//   - A prepare, subtitle or read-through whose FFmpeg the watchdog stopped is answered as a stall,
 //     with what was seen, apart from a failure and a refusal, and its slot is freed.
 //     TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot,
-//     TestAgent_AStalledMeasurementOrExtractionIsAnsweredStalledNotFailed.
+//     TestAgent_AStalledReadThroughOrExtractionIsAnsweredStalledNotFailed.
 //   - A prepare that ends brings the prepared directory back within its budget then, not only
 //     when the next prepare makes room (D217 §5).
 //     TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget.
@@ -135,6 +136,7 @@
 //   - D212: artwork is re-encoded here, and posted to the core.
 //   - D217 §6: subtitles are extracted when it is cheap to.
 //   - D226: loudness is measured by a job, one read of the file for every track.
+//   - D247 §10: the picture's timeline, read in the same pass as the loudness.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
@@ -144,7 +146,7 @@
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
 //     prepare.go: prepares; hello_test.go: the hello's renditions;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
-//     loudness.go: loudness measurement; working.go: the work held, its slots and priority order,
+//     readthrough.go: reading a video through; working.go: the work held, its slots and priority order,
 //     and cancel.
 //   - held.go: results too large to post, held for the byte socket until acknowledged (D234 §5);
 //     movement.go: when held work last moved, for the watchdog; stall.go: what the core is told

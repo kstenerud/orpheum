@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package agent
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/node/readthrough"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
+)
+
+// fakeThroughReader answers with each track's stream index as its loudness, and the path it was
+// given as the source's range, so a test sees which file was read; a picture's timeline, when asked,
+// has one keyframe at its stream index's seconds. Stream unmeasurable fails, as FFmpeg does on a
+// file it cannot decode.
+type fakeThroughReader struct{}
+
+// unmeasurable is the stream index FFmpeg cannot measure.
+const unmeasurable = 99
+
+func (fakeThroughReader) Read(
+	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, timeline *nodeproto.VideoTimelineAsk,
+	_ time.Duration,
+) (readthrough.Findings, error) {
+	var findings readthrough.Findings
+	if timeline != nil {
+		findings.VideoTimeline = &nodeproto.VideoTimeline{
+			KeyframesMs: []int64{int64(timeline.VideoStreamIndex) * 1000}, BytesInEachSecond: []int64{1},
+		}
+	}
+	if len(tracks) == 0 {
+		return findings, nil
+	}
+	if tracks[0].StreamIndex == stallingStreamIndex {
+		return readthrough.Findings{}, fmt.Errorf("read the video through: %w", errStalled)
+	}
+	if tracks[0].StreamIndex == unmeasurable {
+		return readthrough.Findings{}, errors.New("ffmpeg: Invalid data found when processing input")
+	}
+	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
+	for _, track := range tracks {
+		measured = append(measured, nodeproto.TrackLoudness{
+			StreamIndex: track.StreamIndex,
+			Stereo: nodeproto.Measurement{
+				IntegratedLUFS: -float64(track.StreamIndex), RangeLU: float64(len(videoPath)),
+			},
+		})
+	}
+	findings.Loudness = measured
+	return findings, nil
+}
+
+// jobReadThrough is a read-through's answer with the job id its result carried.
+type jobReadThrough struct {
+	JobID int64
+	nodeproto.ReadThroughResult
+}
+
+func receiveReadThrough(t *testing.T, core *fakeCore) jobReadThrough {
+	t.Helper()
+	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
+	defer stop()
+	select {
+	case result := <-core.readThroughs:
+		return jobReadThrough{JobID: result.JobID, ReadThroughResult: *result.ReadThrough}
+	case <-ctx.Done():
+		t.Fatal("no read-through reached the core")
+	}
+	return jobReadThrough{}
+}
+
+// sendReadThrough sends the core's command to read a video through as job.
+func (core *fakeCore) sendReadThrough(job int64, command nodeproto.ReadThrough) {
+	core.commands <- nodeproto.Command{
+		CommandSeq: job,
+		JobID:      job,
+		Work:       nodeproto.Work{Type: nodeproto.CommandReadThrough, ReadThrough: &command},
+	}
+}
+
+func TestAgent_ReadsThroughOnlyTheVideoTheCoreNamed(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) jobReadThrough {
+		core.sendReadThrough(job, nodeproto.ReadThrough{
+			Video: named, LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
+		})
+		return receiveReadThrough(t, core)
+	}
+	measured := measure(1, video, 1)
+	wantPath := video.RootPath + "/film.mkv"
+	if measured.JobID != 1 || measured.Refusal != "" || len(measured.Loudness) != 1 ||
+		measured.Loudness[0].Stereo.IntegratedLUFS != -1 ||
+		measured.Loudness[0].Stereo.RangeLU != float64(len(wantPath)) || measured.VideoTimeline != nil {
+		t.Errorf("measuring the named video: %+v, want stream 1 of %s, and no timeline, which was not asked for",
+			measured, wantPath)
+	}
+	changed := video
+	changed.PayloadHash = strings.Repeat("0", 64)
+	refused := measure(2, changed, 1)
+	if refused.Refusal == "" || !strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" ||
+		refused.RefusalCode != nodeproto.RefusedChanged {
+		t.Errorf("measuring a changed video: %+v, want it refused, not failed (D100)", refused)
+	}
+	failed := measure(3, video, unmeasurable)
+	if failed.Failure == "" || !strings.Contains(failed.Failure, "Invalid data") || failed.Refusal != "" {
+		t.Errorf("a video FFmpeg cannot measure: %+v, want FFmpeg's failure, which is the file's", failed)
+	}
+}
+
+func TestAgent_AReadThroughAnswersEachPartItWasAskedFor(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	core.sendReadThrough(1, nodeproto.ReadThrough{
+		Video: video, LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}},
+		VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 3},
+	})
+	both := receiveReadThrough(t, core)
+	if len(both.Loudness) != 1 || both.VideoTimeline == nil ||
+		!slices.Equal(both.VideoTimeline.KeyframesMs, []int64{3000}) {
+		t.Errorf("a read-through asked for the loudness and stream 3's timeline answered %+v; want both", both)
+	}
+	core.sendReadThrough(2, nodeproto.ReadThrough{
+		Video: video, VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 4},
+	})
+	timelineOnly := receiveReadThrough(t, core)
+	if timelineOnly.Loudness != nil || timelineOnly.VideoTimeline == nil ||
+		!slices.Equal(timelineOnly.VideoTimeline.KeyframesMs, []int64{4000}) {
+		t.Errorf("a read-through asked for stream 4's timeline alone answered %+v; want only it", timelineOnly)
+	}
+}

@@ -1,53 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package loudness
+package readthrough
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// maxLogBytes is how much of FFmpeg's log a measurement keeps: its end, where each ebur128 filter
-// writes a summary of about 400 bytes as it closes; enough for a file with dozens of tracks.
+// maxLogBytes is how much of FFmpeg's log a read keeps: its end, where each ebur128 filter writes
+// a summary of about 400 bytes as it closes; enough for a file with dozens of tracks.
 const maxLogBytes = 64 << 10
-
-// Runner runs FFmpeg, watched for a stall, and returns the end of its log: execx.Runner.
-type Runner interface {
-	RunWatched(ctx context.Context, run execx.WatchedRun) (execx.Ran, error)
-}
-
-// measureStartGrace is how long a measurement's position may take to first move (execx.Watch):
-// opening the video on a network mount and probing it.
-const measureStartGrace = 2 * time.Minute
-
-// measureStallWindow is how long a measurement's position may stand still. Every audio frame
-// decoded moves it, so it stands still only while FFmpeg reads nothing; three minutes outlasts an
-// NFS client's retries (a 60-second timeout, retransmitted twice by default).
-const measureStallWindow = 3 * time.Minute
-
-// Measurer measures loudness with the bundled FFmpeg.
-type Measurer struct {
-	runner Runner
-	// slowestReadBytesPerSecond is the slowest the node reads a whole file (nodeproto.Capacity).
-	slowestReadBytesPerSecond int64
-}
-
-// NewMeasurer returns the measurer, whose watchdog allows a measurement as long as reading its file
-// at slowestReadBytesPerSecond takes.
-func NewMeasurer(runner Runner, slowestReadBytesPerSecond int64) *Measurer {
-	return &Measurer{runner: runner, slowestReadBytesPerSecond: slowestReadBytesPerSecond}
-}
 
 // The two sounds of a track a measurement names: as it is, and as a stereo device hears it.
 const (
@@ -55,29 +23,10 @@ const (
 	mixStereo       = "stereo"
 )
 
-// Measure measures each track of the video at videoPath, an absolute path the caller has checked,
-// in one read of the file: a track with more than two channels as it is and as the standard stereo
-// mix a prepare makes of it, any other as stereo (D226 §1). The film's length, duration, is 0 when
-// unknown: decoding its sound takes as long as the film plays on the slowest machine, so the
-// watchdog allows the longer of that and reading the file.
-func (measurer *Measurer) Measure(
-	ctx context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, duration time.Duration,
-) ([]nodeproto.TrackLoudness, error) {
-	if len(tracks) == 0 {
-		return nil, errors.New("no audio tracks to measure")
-	}
-	ran, err := measurer.runner.RunWatched(ctx, execx.WatchedRun{
-		Access: confine.Access{Read: []string{videoPath}}, Arguments: arguments(videoPath, tracks),
-		LogLimitBytes: maxLogBytes,
-		Watch: execx.Watch{
-			StartGrace: measureStartGrace, StallWindow: measureStallWindow,
-			Deadline: measureDeadline(videoPath, measurer.slowestReadBytesPerSecond, duration),
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("measure the loudness: %w", err)
-	}
-	summaries := parseSummaries(ran.Log)
+// loudnessOf reads each track's measurements from the summaries in FFmpeg's log, and fails for a
+// track FFmpeg said nothing of.
+func loudnessOf(logged string, tracks []nodeproto.LoudnessTrack) ([]nodeproto.TrackLoudness, error) {
+	summaries := parseSummaries(logged)
 	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
 	for _, track := range tracks {
 		stereo, found := summaries[filterInstanceName(mixStereo, track.StreamIndex)]
@@ -103,9 +52,13 @@ func filterInstanceName(sound string, streamIndex int) string {
 	return sound + "_" + strconv.Itoa(streamIndex)
 }
 
-// arguments read the video as a local file only and send each sound through its own ebur128
-// filter, measuring the true peak, into the null muxer.
-func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
+// loudnessOutput is the output that measures the tracks, none when there are none: each sound
+// through its own ebur128 filter, measuring the true peak, into the null muxer. Each filter logs
+// its summary at info, FFmpeg's own level, as it closes.
+func loudnessOutput(tracks []nodeproto.LoudnessTrack) []string {
+	if len(tracks) == 0 {
+		return nil
+	}
 	const ebur128Options = "=peak=true:framelog=quiet"
 	var graph, maps []string
 	for _, track := range tracks {
@@ -122,10 +75,8 @@ func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
 		}
 		maps = append(maps, "-map", "["+stereo+"]")
 	}
-	// The summaries are logged at info, FFmpeg's own level; -nostats keeps progress out of the log.
-	read := append(append([]string{"-nostats"}, execx.FileInput(videoPath)...),
-		"-filter_complex", strings.Join(graph, ";"))
-	return append(append(read, maps...), "-f", "null", "-")
+	output := append([]string{"-filter_complex", strings.Join(graph, ";")}, maps...)
+	return append(output, "-f", "null", "-")
 }
 
 // The lines of an ebur128 summary that a measurement reads. FFmpeg labels the true peak dBFS.
@@ -176,17 +127,4 @@ func parseSummary(block string) (nodeproto.Measurement, bool) {
 		measurement.TruePeakDBTP = &peak
 	}
 	return measurement, true
-}
-
-// measureDeadline is how long a measurement may run however it moves: the deadline of reading the
-// whole file, or of decoding its sound at real time, the slowest a machine decodes it, whichever is
-// longer. A two-hour film with four tracks over a network mount took sixteen minutes at 7.9 times
-// real time, past the ten its reading allowed, and was stopped near its end (the owner's first
-// Watch Together test, 2026-10-05).
-func measureDeadline(videoPath string, slowestReadBytesPerSecond int64, duration time.Duration) time.Duration {
-	reading := execx.ReadingDeadline(videoPath, slowestReadBytesPerSecond)
-	if duration <= 0 {
-		return reading
-	}
-	return max(reading, execx.DeadlineFor(duration))
 }

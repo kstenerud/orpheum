@@ -558,7 +558,7 @@ export const en = {
       makeArtworkSizes: "Making artwork sizes",
       prepare: "Preparing a copy",
       extractSubtitle: "Extracting subtitles",
-      measureLoudness: "Measuring loudness",
+      readThrough: "Reading a video through",
       convertFetchedSubtitle: "Converting a downloaded subtitle",
       scan: "Listing a folder",
       examine: "Reading new files",

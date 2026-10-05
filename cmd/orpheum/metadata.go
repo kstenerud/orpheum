@@ -17,11 +17,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -32,7 +32,7 @@ import (
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
 // matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
-// matches name, playback's prepares, the subtitles and the loudness measurements.
+// matches name, playback's prepares, the subtitles and the read-throughs.
 type jobServices struct {
 	pass      *identify.Pass
 	queue     *jobs.Queue
@@ -43,8 +43,9 @@ type jobServices struct {
 	artwork   *artwork.Service
 	// renditions runs the prepare jobs, which share the one queue (cut-a §5.3).
 	renditions *renditions.Service
-	// loudness measures each file's sounds (D226).
-	loudness *loudness.Service
+	// readThrough reads each video through, for its sounds' loudness and its picture's timeline
+	// (D226, D247 §10).
+	readThrough *readthrough.Service
 	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
 	subtitles *subtitles.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
@@ -211,10 +212,10 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			services.subtitles.RecordFailure, nil, 1, derivedByAPlay(), services.subtitles.Assignee,
 		},
 		{
-			// A measurement that gave up keeps nothing, so the next sweep asks again (D244 §1).
-			jobs.KindMeasureLoudness, services.loudness.HandleMeasureLoudness, nil, nil, 1,
-			[]string{sweepLoudness},
-			services.loudness.Assignee,
+			// A read-through that gave up keeps nothing, so the next sweep asks again (D244 §1).
+			jobs.KindReadThrough, services.readThrough.HandleReadThrough, nil, nil, 1,
+			[]string{sweepReadThroughs},
+			services.readThrough.Assignee,
 		},
 		{
 			jobs.KindPrepare, services.renditions.HandlePrepare, services.renditions.RecordPrepareFailure, nil, 1,
@@ -238,14 +239,14 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 // image its source said was missing (D213 §1); the refresh of each item whose data is due (D213
 // §3); every library identified again from persistent.db, each item's season listings and images
 // owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
-// file whose sound has none (D226 §2).
+// video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
 const (
 	sweepFirstMatches    = "first matches"
 	sweepRefreshRequests = "refreshes people asked for"
 	sweepRechecks        = "rechecks of missing images"
 	sweepRollingRefresh  = "rolling refresh"
 	sweepPasses          = "identification passes"
-	sweepLoudness        = "loudness measurements"
+	sweepReadThroughs    = "read-throughs"
 	sweepScheduledBackup = "the scheduled backup"
 	sweepCertificate     = "the certificate's renewal"
 )
@@ -280,7 +281,7 @@ const scheduledBackupCheckEvery = 15 * time.Minute
 
 // sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
 func sweepsAfterAPass() []string {
-	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepLoudness}
+	return []string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepReadThroughs}
 }
 
 // sweepCheckEvery is how often the sweeping loop looks for a sweep whose interval has passed: a
@@ -325,9 +326,9 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 			Every: func(context.Context) time.Duration { return scheduledBackupCheckEvery },
 		},
 		{
-			Name: sweepLoudness, Derive: services.loudness.QueueMeasurements,
+			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,
 			Every: func(ctx context.Context) time.Duration {
-				return lengthOrStarting(ctx, services.settings, settings.LoudnessSweepEveryHours, logger)
+				return lengthOrStarting(ctx, services.settings, settings.ReadThroughSweepEveryHours, logger)
 			},
 		},
 	}
