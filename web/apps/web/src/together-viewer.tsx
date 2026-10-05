@@ -15,7 +15,12 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
 import { startingAudioTrack } from "./audio-tracks.tsx";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
-import { CredentialsField, CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
+import {
+  CredentialsField,
+  CredentialsForm,
+  CredentialsNotice,
+  CredentialsProblem,
+} from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
 import {
   LowerQualityNotes,
@@ -78,6 +83,9 @@ export function TogetherViewer(): JSX.Element {
     return <SessionOver reason={endReason} />;
   }
   if (membership === undefined) {
+    if (secret === undefined) {
+      return <NoLink />;
+    }
     return (
       <JoinForm
         secret={secret}
@@ -102,9 +110,19 @@ export function TogetherViewer(): JSX.Element {
   );
 }
 
+/** An address with no link in it, and no session this tab is in: only what to do instead. */
+function NoLink(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <CredentialsNotice heading={t("together.joinHeading")}>
+      <p>{t("together.noLink")}</p>
+    </CredentialsNotice>
+  );
+}
+
 /** Joining by a link: the name the others will see, and Join (watch-together.md: one Join). */
 function JoinForm(props: {
-  readonly secret: string | undefined;
+  readonly secret: string;
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -121,9 +139,6 @@ function JoinForm(props: {
     <CredentialsForm
       heading={t("together.joinHeading")}
       onSubmit={() => {
-        if (secret === undefined) {
-          return;
-        }
         runRequest(async (idempotencyKey) => {
           const joined = dataOrThrow(
             await api.POST("/together/join", {
@@ -135,7 +150,7 @@ function JoinForm(props: {
         });
       }}
     >
-      <p>{t(secret === undefined ? "together.noLink" : "together.joinExplain")}</p>
+      <p>{t("together.joinExplain")}</p>
       <CredentialsField label={t("together.name")}>
         <input
           required
@@ -148,7 +163,7 @@ function JoinForm(props: {
         />
       </CredentialsField>
       {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
-      <button type="submit" disabled={secret === undefined || isBusy}>
+      <button type="submit" disabled={isBusy}>
         {t("together.join")}
       </button>
     </CredentialsForm>

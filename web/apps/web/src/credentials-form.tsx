@@ -39,6 +39,24 @@ export function CredentialsField(props: {
 }
 
 /**
+ * The same page with nothing to fill in: a link that brought no secret says so, and offers no
+ * field or button that could not work.
+ */
+export function CredentialsNotice(props: {
+  readonly heading: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <main className="credentials-form">
+      <section className="credentials-form__form">
+        <h1>{props.heading}</h1>
+        {props.children}
+      </section>
+    </main>
+  );
+}
+
+/**
  * What went wrong, where the person is looking: an alert for what they just did, or a quiet
  * notice for what happened before they arrived (a session the server ended).
  */

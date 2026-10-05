@@ -283,6 +283,15 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("with no link in the address and no session, says so and offers nothing to fill in", async () => {
+    const { services } = viewerServices("/together", {});
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    expect(mounted.container.textContent).toContain("This address has no invitation in it.");
+    expect(mounted.container.querySelector("input")).toBeNull();
+    expect(mounted.container.querySelector("button")).toBeNull();
+    mounted.unmount();
+  });
+
   it("is a page of its own for someone not signed in: no sign-in, no menu", async () => {
     const { services } = viewerServices("/together#link-secret", {});
     const mounted = await mount(withServices(<App />, services));
