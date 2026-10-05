@@ -18043,6 +18043,12 @@ paused often; in the group it played a frame and froze, over and over.
    in D246 §9, that a viewer who falls behind misses a crucial point, in the way that fits two
    people: a single hiccup costs no one anything, and only someone who stalls again and again
    skips ahead, by then usually on a lower variant (§2). The numbers are Silo's, to be measured.
+   **The host's own seek is waited for as long as a first load, for the host** (the owner's
+   choice, 2026-10-05, after a forward jump on a slow link left the host behind): the host chose
+   where to go, so the others wait up to 60 s for the host's player to load there, and 10 s for
+   anyone else's. A seek is the group's as the host makes it, not once it has loaded; each player
+   is ready again only once it says so from the new place, its loading there is no stall, and one
+   catching up is waited for again.
 5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
    `refillAheadMs`), not at its first frame, which was the loop.
 

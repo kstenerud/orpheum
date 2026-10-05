@@ -288,7 +288,11 @@ class GroupFollower {
     } else {
       this.#lead(command);
     }
-    this.#connection.reportState();
+    // While its person's command waits to be sent, the player's loading is of a place the group
+    // has not been told of, and would be taken for a stall: it is told once the command is sent.
+    if (this.#pendingCommand === undefined) {
+      this.#connection.reportState();
+    }
   };
 
   /**
@@ -322,7 +326,7 @@ class GroupFollower {
   /** The browser loaded more: it moves nothing, and tells the group only if it made it ready. */
   readonly loaded = (): void => {
     this.#noteLoading("progress");
-    if (this.#isBuffering() !== this.#wasReportedBuffering) {
+    if (this.#pendingCommand === undefined && this.#isBuffering() !== this.#wasReportedBuffering) {
       this.#connection.reportState();
     }
   };
@@ -367,6 +371,7 @@ class GroupFollower {
   #send(command: GroupCommand): void {
     this.#isAwaitingGroup = true;
     this.#connection.command(command);
+    this.#connection.reportState();
   }
 
   #whereNow(): GroupNow | undefined {
