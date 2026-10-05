@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -534,16 +535,24 @@ func TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettings
 	}
 }
 
-// The server's time zone is a name the zone database knows, UTC until the admin sets it; a
-// misspelt one, the machine's ("Local") and none are refused (D246 §7, D204).
-func TestLocation_IsTheNamedZoneAndAMisspeltOneIsRefused(t *testing.T) {
+// The server's time zone is the machine's own until the admin chooses one, then the one chosen, a
+// name the zone database knows; a misspelt one, and "Local", are refused (D246 §7).
+func TestZone_IsTheMachinesUntilOneIsChosenAndAMisspeltOneIsRefused(t *testing.T) {
 	t.Parallel()
 	service, owner := newSeededService(t)
 	ctx := t.Context()
 	if zone, err := service.Zone(ctx); err != nil || zone.Name() != "UTC" {
-		t.Errorf("the starting time zone = %v (%v); want UTC", zone.Name(), err)
+		t.Errorf("the starting time zone with no machine's told = %v (%v); want UTC", zone.Name(), err)
 	}
-	for _, refused := range []string{`"Europe/Berln"`, `"Local"`, `""`, `"../etc/passwd"`} {
+	tokyo, err := localtime.Named("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.UseMachineZone(tokyo)
+	if zone, zoneErr := service.Zone(ctx); zoneErr != nil || zone.Name() != "Asia/Tokyo" {
+		t.Errorf("the starting time zone on a machine in Tokyo = %v (%v); want the machine's", zone.Name(), zoneErr)
+	}
+	for _, refused := range []string{`"Europe/Berln"`, `"Local"`, `"../etc/passwd"`} {
 		err := service.Set(ctx, jsonByKey(string(TimeZone), refused), &owner, true)
 		if !errors.Is(err, ErrInvalidValue) {
 			t.Errorf("time_zone %s: %v; want it refused", refused, err)

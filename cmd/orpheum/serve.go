@@ -30,6 +30,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -114,6 +115,9 @@ type wiring struct {
 	acmeDirectoryURL   string
 	cloudflareBaseURL  string
 	dnsPropagationWait time.Duration
+	// machineZone is the machine's own time zone, the server's until the admin chooses one
+	// (D246 §7); a test's is UTC.
+	machineZone localtime.Zone
 }
 
 // openedServices is what openAndWire opened and serve must close.
@@ -168,7 +172,7 @@ func openAndWire(
 	if err != nil {
 		return opened, errors.Join(err, database.Close())
 	}
-	dependencies, err := buildDependencies(ctx, directories, database, logger)
+	dependencies, err := buildDependencies(ctx, directories, database, outside.machineZone, logger)
 	if err == nil {
 		dependencies.ConfigFileKeys, err = configFileKeys(config, configReport)
 	}
@@ -345,10 +349,13 @@ func reportMigration(setStatus func(api.Status, string, ...string), logger *slog
 // buildDependencies writes any setting that has no row yet, loads the secret key, builds the
 // services and makes sure a server with no users has a setup code, which it logs.
 func buildDependencies(
-	ctx context.Context, directories *instancedir.Directories, database *store.Database, logger *slog.Logger,
+	ctx context.Context, directories *instancedir.Directories, database *store.Database,
+	machineZone localtime.Zone, logger *slog.Logger,
 ) (api.Dependencies, error) {
 	systemClock := clock.System{}
 	settingsService := settings.NewService(database, systemClock, logger)
+	settingsService.UseMachineZone(machineZone)
+	logger.InfoContext(ctx, "the machine's time zone, the server's until one is chosen", "timeZone", machineZone.Name())
 	seedReport, err := settingsService.Seed(ctx)
 	if err != nil {
 		return api.Dependencies{}, err

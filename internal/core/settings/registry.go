@@ -318,11 +318,12 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			"best guess: 5 of a free account's 20 a day (a VIP account has 1000; opensubtitles-api.md); "+
 				"the owner's choice of a percentage, 2026-09-30"),
 		{
-			Key: TimeZone, Kind: KindString, StartJSON: json.RawMessage(`"UTC"`), IsValid: localtime.IsName,
+			Key: TimeZone, Kind: KindString, StartJSON: json.RawMessage(`""`), IsValid: isTimeZoneOrMachines,
 			IsExposed: true,
 			Description: "the server's time zone, a name such as Europe/Berlin, which the hours of scheduled " +
-				"work such as backups are in; the settings whose keys end _local_tz are in it (D246 §7)",
-			StartSource: "D204: nothing is taken from the machine, so the zone is set here; UTC until it is",
+				"work such as backups are in, and the settings whose keys end _local_tz; empty is the " +
+				"machine's own, as the server read it at start (D246 §7)",
+			StartSource: "the owner, 2026-10-05: the machine's own until one is chosen, for friendliness",
 		},
 		{
 			Key: SortLocale, Kind: KindString, StartJSON: json.RawMessage(`"en"`),
@@ -449,6 +450,9 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"best guess: enough to compare recent encode speeds"),
 	}
 }
+
+// isTimeZoneOrMachines is whether name is a time zone the server knows, or empty, the machine's.
+func isTimeZoneOrMachines(name string) bool { return name == "" || localtime.IsName(name) }
 
 // exposed is definition shown on the settings page.
 func exposed(definition Definition) Definition {

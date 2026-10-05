@@ -54,6 +54,16 @@ type Service struct {
 
 	mutex          sync.Mutex
 	reactionsByKey map[Key][]func(context.Context) error // guarded by mutex
+	// machineZone is the machine's own time zone, the server's while time_zone is empty (D246 §7).
+	machineZone localtime.Zone // guarded by mutex
+}
+
+// UseMachineZone is the machine's own time zone, which the server's is while time_zone is empty:
+// read once by cmd/orpheum, the one reader of the environment (D204, D246 §7).
+func (service *Service) UseMachineZone(zone localtime.Zone) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	service.machineZone = zone
 }
 
 // OnChange runs react after a person sets or resets a server setting, once the change is
@@ -360,12 +370,17 @@ func compactJSON(value json.RawMessage) string {
 	return buffer.String()
 }
 
-// Zone is the server's time zone, the time_zone setting's (D246 §7); never the machine's, which
-// D204 does not let the server read.
+// Zone is the server's time zone: the time_zone setting's, or the machine's own while the admin
+// has chosen none (D246 §7).
 func (service *Service) Zone(ctx context.Context) (localtime.Zone, error) {
 	name, err := service.String(ctx, TimeZone)
 	if err != nil {
 		return localtime.Zone{}, err
+	}
+	if name == "" {
+		service.mutex.Lock()
+		defer service.mutex.Unlock()
+		return service.machineZone, nil
 	}
 	zone, err := localtime.Named(name)
 	if err != nil {
