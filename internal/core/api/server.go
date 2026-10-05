@@ -147,6 +147,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerDevices()
 	server.registerWaitingCode()
 	server.registerPerson()
+	server.registerRoles()
 	server.registerJobs()
 	return server
 }
@@ -268,7 +269,29 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 	case errors.Is(err, auth.ErrNoDevice):
 		return newError(http.StatusNotFound, CodeNotFound, "no such device")
 	}
+	if refused := roleRefusal(err); refused != nil {
+		return refused
+	}
 	return server.logInternalError(ctx, action, err)
+}
+
+// roleRefusal is the API's error for auth's refusal of a change to a role, or nil for another.
+func roleRefusal(err error) *Error {
+	switch {
+	case errors.Is(err, auth.ErrNoRole):
+		return newError(http.StatusNotFound, CodeNotFound, "no such role")
+	case errors.Is(err, auth.ErrRoleNameTaken):
+		return newError(http.StatusConflict, CodeConflict, "another role already has that name")
+	case errors.Is(err, auth.ErrBadRole):
+		return invalidRequestAt(http.StatusBadRequest, "body", err.Error())
+	case errors.Is(err, auth.ErrNoLibraryToGive):
+		return invalidRequestAt(http.StatusBadRequest, "body.libraries", err.Error())
+	case errors.Is(err, auth.ErrBuiltinRole):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrBuiltinRole.Error())
+	case errors.Is(err, auth.ErrRoleHeld):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrRoleHeld.Error())
+	}
+	return nil
 }
 
 // requireAdmin is requireSignedIn for an administrator.

@@ -248,3 +248,7 @@ WHERE node_id = sqlc.arg(node_id) AND library_id = sqlc.arg(library_id) AND remo
 -- name: SetFileSeen :exec
 -- A file a listing found as stored: it was seen, and nothing else changed.
 UPDATE file SET last_seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);
+
+-- name: GetLibraryOfFile :one
+-- A file's library, which says who may reach it (D243 section 4).
+SELECT library_id FROM file WHERE id = sqlc.arg(id);

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -102,14 +103,20 @@ func requestedAtOf(requestedAt *int64) time.Time {
 	return time.UnixMilli(*requestedAt)
 }
 
-// Items lists the titles and series in one state of identification, by name.
-func (chooser *Chooser) Items(ctx context.Context, identification string) ([]ItemSummary, error) {
+// Items lists the titles and series in one state of identification, by name, of the libraries
+// reach reaches (D243 §4).
+func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identification string) ([]ItemSummary, error) {
 	queries := chooser.matcher.database.Read()
-	titles, err := queries.ListTitlesByIdentification(ctx, identification)
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
+		IdentificationState: identification, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list %s titles: %w", identification, err)
 	}
-	series, err := queries.ListSeriesByIdentification(ctx, &identification)
+	series, err := queries.ListSeriesByIdentification(ctx, sqlcgen.ListSeriesByIdentificationParams{
+		IdentificationState: &identification, IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list %s series: %w", identification, err)
 	}

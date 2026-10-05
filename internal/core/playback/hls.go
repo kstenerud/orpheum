@@ -22,13 +22,13 @@ type HLSSource struct {
 
 // HLSSourceOf is where the named file of the rendition a media token refers to is (cut-a §5).
 func (service *Service) HLSSourceOf(
-	ctx context.Context, token, name string, userID int64, sessionKey string,
+	ctx context.Context, token, name string, holder Holder,
 ) (HLSSource, error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return HLSSource{}, err
 	}
-	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
+	playback, found := service.tokens.use(token, holder, service.clock.Now(), idle)
 	if !found || playback.profile == "" {
 		return HLSSource{}, ErrNoToken
 	}

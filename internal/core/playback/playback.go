@@ -125,12 +125,14 @@ type Started struct {
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
-// to the person and the session that asked (D217 §2).
-func (service *Service) Start(ctx context.Context, userID int64, sessionKey string, request Request) (Started, error) {
+// to the person and the session that asked (D217 §2). A file in a library the holder does not
+// reach is library.ErrNoFile, as one that does not exist (D243 §4).
+func (service *Service) Start(ctx context.Context, holder Holder, request Request) (Started, error) {
 	if err := request.PlayableFormats.Validate(); err != nil {
 		return Started{}, err
 	}
-	file, err := library.PlayableFile(ctx, service.database.Read(), request.FileID)
+	userID := holder.UserID
+	file, err := service.reachedFile(ctx, holder, request.FileID)
 	if err != nil {
 		return Started{}, err
 	}
@@ -173,7 +175,9 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	started.Levelling = decide.DirectLevelling(levels, probe)
-	playback := tokenPlayback{userID: userID, sessionKey: sessionKey, fileID: file.ID}
+	playback := tokenPlayback{
+		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
+	}
 	if decision.Delivery == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
 		if prepareErr := service.wantPrepared(ctx, file, probe, levels, playback.profile, &started); prepareErr != nil {
@@ -186,6 +190,18 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	return started, nil
+}
+
+// reachedFile is a file the holder may play: one in a library they do not reach is library.ErrNoFile,
+// as one that does not exist (D243 §4).
+func (service *Service) reachedFile(ctx context.Context, holder Holder, fileID int64) (
+	sqlcgen.GetPlayableFileRow, error,
+) {
+	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
+	if err == nil && !holder.Reach.Reaches(&file.LibraryID) {
+		return file, fmt.Errorf("file %d: %w", fileID, library.ErrNoFile)
+	}
+	return file, err
 }
 
 // decide is how a file plays for the client that asked, with the audio track the playback starts
@@ -295,14 +311,12 @@ type Source struct {
 }
 
 // DirectSource is where the bytes of the file a media token refers to are.
-func (service *Service) DirectSource(
-	ctx context.Context, token string, userID int64, sessionKey string,
-) (Source, error) {
+func (service *Service) DirectSource(ctx context.Context, token string, holder Holder) (Source, error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return Source{}, err
 	}
-	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
+	playback, found := service.tokens.use(token, holder, service.clock.Now(), idle)
 	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}
@@ -364,14 +378,13 @@ func contentType(format nodeproto.ProbeFormat) string {
 // Subtitle is the text, in format, of a subtitle track of the file a media token refers to
 // (cut-a §5). A track of any other file is subtitles.ErrNoSubtitle.
 func (service *Service) Subtitle(
-	ctx context.Context, token string, track preferences.TrackRef, format subtitles.Format, userID int64,
-	sessionKey string,
+	ctx context.Context, token string, track preferences.TrackRef, format subtitles.Format, holder Holder,
 ) (subtitles.Text, error) {
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return subtitles.Text{}, err
 	}
-	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
+	playback, found := service.tokens.use(token, holder, service.clock.Now(), idle)
 	if !found {
 		return subtitles.Text{}, ErrNoToken
 	}

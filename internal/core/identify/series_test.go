@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -159,7 +160,7 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	if file := lib.titlesByPath()[rel]; file.FilingReason == nil || !strings.Contains(*file.FilingReason, "choose") {
 		t.Errorf("an episode of an ambiguous series: %+v", file)
 	}
-	listed, err := lib.chooser.Items(t.Context(), identify.IdentificationAmbiguous)
+	listed, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous)
 	if err != nil || len(listed) != 1 || listed[0].Kind != identify.KindSeries {
 		t.Errorf("Items(ambiguous) = %+v, %v; want the series", listed, err)
 	}

@@ -88,7 +88,7 @@ func (server *Server) registerSubtitleFetch() {
 func (server *Server) getSubtitleCandidates(
 	ctx context.Context, input *SubtitleCandidatesInput,
 ) (*SubtitleCandidatesOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.FileID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (server *Server) getSubtitleCandidates(
 }
 
 func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitleInput) (*FetchSubtitleOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.FileID)
 	if err != nil {
 		return nil, err
 	}

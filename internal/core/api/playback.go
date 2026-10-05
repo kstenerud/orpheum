@@ -197,7 +197,7 @@ type FileAvailabilityOutput struct {
 // getFileAvailability answers whether a file can be read now: a player whose fetch failed mid-play
 // asks, and tells the viewer why, or tries again (D241 §7).
 func (server *Server) getFileAvailability(ctx context.Context, input *ItemInput) (*FileAvailabilityOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		Network:           decide.Network(input.Body.Network),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
-	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
+	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
 	}
@@ -273,7 +273,7 @@ func (server *Server) relayDirect(
 	if err != nil {
 		return nil, err
 	}
-	source, err := dependencies.Playback.DirectSource(ctx, input.Token, principal.UserID, principal.SessionKey)
+	source, err := dependencies.Playback.DirectSource(ctx, input.Token, playback.HolderOf(principal))
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a playback's bytes", err)
 	}
@@ -304,7 +304,7 @@ func (server *Server) relayHLSFile(
 		return nil, err
 	}
 	source, err := dependencies.Playback.HLSSourceOf(
-		ctx, token, renditionPath, principal.UserID, principal.SessionKey)
+		ctx, token, renditionPath, playback.HolderOf(principal))
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a rendition's file", err)
 	}
@@ -356,7 +356,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
 	case errors.Is(err, subtitles.ErrNoSubtitle):
 		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
-	case errors.Is(err, playback.ErrNoItem):
+	case errors.Is(err, playback.ErrNoItem), errors.Is(err, library.ErrNoItem): // one not reached too
 		return newError(http.StatusNotFound, CodeNotFound, "no such item")
 	case errors.Is(err, subtitles.ErrNothingToSearchBy):
 		return newError(http.StatusConflict, CodeConflict,

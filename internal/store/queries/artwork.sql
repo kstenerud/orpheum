@@ -125,3 +125,14 @@ SELECT library.metadata_source
 FROM item
 JOIN library ON library.id = item.library_id
 WHERE item.id = sqlc.arg(item_id);
+
+-- name: IsArtworkReached :one
+-- Whether an image is held by a live item in a library the caller reaches (D243 section 4): an
+-- image is served by its hash to whoever may see something that shows it.
+SELECT EXISTS (
+  SELECT 1 FROM artwork
+  JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
+  WHERE artwork.source_sha256 = sqlc.arg(source_sha256)
+    AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+      OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+) AS is_reached;

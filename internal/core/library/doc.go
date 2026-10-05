@@ -176,9 +176,14 @@
 //   - D42: nodes are sensors; the core is the only thing that decides.
 //   - D240: a scan is a listing the core compares, and the batches it has the node read.
 //   - docs/contributors/design/plans/library-model.md, docs/contributors/design/plans/scanner.md.
+//   - Every list, search and detail a person asks for holds only the libraries their reach reaches,
+//     and one not reached is answered as one that does not exist: the lists in SQL, a detail and a
+//     request about one file or item by ReachFile and ReachItem, an image by ReachArt (D243 §4).
+//     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere.
 //
 // # Where to change
 //
+//   - reach.go: whether a person reaches a file, an item or an image (D243 §4).
 //   - scans.go: a scan's jobs, from its request to its end; compare.go: a listing compared with what
 //     is stored, by the library's rules; batches.go: the batches a scan's node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe

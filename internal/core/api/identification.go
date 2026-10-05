@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
@@ -155,11 +156,11 @@ func (server *Server) registerIdentification() {
 }
 
 func (server *Server) getItemsByIdentification(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	items, err := dependencies.Chooser.Items(ctx, input.IdentificationState)
+	items, err := dependencies.Chooser.Items(ctx, principal.Reach, input.IdentificationState)
 	if err != nil {
 		return nil, server.identifyError(ctx, "list items", err)
 	}
@@ -181,7 +182,7 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 }
 
 func (server *Server) getItemCandidates(ctx context.Context, input *ItemInput) (*CandidatesOutput, error) {
-	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +203,7 @@ func (server *Server) getItemCandidates(ctx context.Context, input *ItemInput) (
 }
 
 func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*struct{}, error) {
-	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +212,7 @@ func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*st
 }
 
 func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
-	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +230,7 @@ func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*R
 }
 
 func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireMetadataEditor(ctx, input.Authorization)
+	dependencies, principal, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -238,12 +239,28 @@ func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) 
 }
 
 func (server *Server) deleteOverride(ctx context.Context, input *OverrideInput) (*struct{}, error) {
-	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
 	err = dependencies.Chooser.ClearOverride(ctx, input.ID, input.Field)
 	return &struct{}{}, server.identifyError(ctx, "remove an override", err)
+}
+
+// requireMetadataEditorReaching is requireMetadataEditor for a request about one title or series,
+// in a library the editor reaches; one that is not is answered as an item that does not exist
+// (D243 §4).
+func (server *Server) requireMetadataEditorReaching(ctx context.Context, authorization string, itemID int64) (
+	*Dependencies, auth.Principal, error,
+) {
+	dependencies, principal, err := server.requireMetadataEditor(ctx, authorization)
+	if err != nil {
+		return nil, principal, err
+	}
+	if err = dependencies.Browser.ReachItem(ctx, principal.Reach, itemID); err != nil {
+		return nil, principal, server.identifyError(ctx, "reach an item", err)
+	}
+	return dependencies, principal, nil
 }
 
 // requireMetadataEditor is requireSignedIn for a role that may edit metadata.
@@ -266,7 +283,7 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, identify.ErrNoItem):
+	case errors.Is(err, identify.ErrNoItem), errors.Is(err, library.ErrNoItem): // one not reached too
 		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, identify.ErrNoOverride):
 		return newError(http.StatusNotFound, CodeNotFound, "the field has no override")

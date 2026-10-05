@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -280,7 +281,7 @@ func TestRefresher_AFirstMatchIsOwedUntilTheItemHasAnAnswerHoweverOftenItsJobIsL
 // onlyUnidentified is the one unidentified item the chooser lists.
 func (lib *testLibrary) onlyUnidentified() identify.ItemSummary {
 	lib.t.Helper()
-	items, err := lib.chooser.Items(lib.t.Context(), identify.IdentificationUnidentified)
+	items, err := lib.chooser.Items(lib.t.Context(), auth.EveryLibrary(), identify.IdentificationUnidentified)
 	if err != nil || len(items) != 1 {
 		lib.t.Fatalf("unidentified items %+v (%v), want one", items, err)
 	}

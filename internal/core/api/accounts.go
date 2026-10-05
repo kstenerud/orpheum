@@ -17,7 +17,7 @@ const tagAccounts = "Accounts"
 type AccountBody struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
-	Role        string `enum:"admin,user" json:"role"`
+	Role        string `doc:"The role's name, their whole access" json:"role"`
 	IsOutsider  bool   `json:"isOutsider"`
 	HasPassword bool   `doc:"False until they register from their link" json:"hasPassword"`
 }
@@ -45,7 +45,9 @@ type CreateAccountInput struct {
 	AuthorizationHeader
 	Body struct {
 		Name string `json:"name" maxLength:"100" minLength:"1"`
-		Role string `enum:"admin,user" json:"role"`
+		Role string `doc:"The role's name, their whole access (D243 §4)" json:"role" maxLength:"100" minLength:"1"`
+		// IsOutsider makes an invitee from outside the house (D174 §1).
+		IsOutsider bool `doc:"From outside the house: an invitee" json:"isOutsider,omitempty"`
 	}
 }
 
@@ -175,12 +177,16 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 		return nil, err
 	}
 	role := auth.Role(input.Body.Role)
-	id, invitation, err := dependencies.Auth.CreateAccount(ctx, input.Body.Name, role)
+	id, invitation, err := dependencies.Auth.CreateAccount(ctx, auth.NewAccount{
+		Name: input.Body.Name, Role: role, IsOutsider: input.Body.IsOutsider,
+	})
 	if err != nil {
 		return nil, server.authError(ctx, "create an account", err)
 	}
 	output := &CreateAccountOutput{}
-	output.Body.Account = AccountBody{ID: id, Name: input.Body.Name, Role: string(role)}
+	output.Body.Account = AccountBody{
+		ID: id, Name: input.Body.Name, Role: string(role), IsOutsider: input.Body.IsOutsider,
+	}
 	output.Body.RegistrationInvitation = issuedSecretBody(invitation)
 	return output, nil
 }

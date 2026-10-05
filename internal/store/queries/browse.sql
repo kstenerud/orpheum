@@ -3,7 +3,9 @@
 -- series' episodes. Search's three routes are in search.go: sqlc cannot parse FTS5's MATCH. Only what has a live file is
 -- listed: a film whose files are all gone is kept, with its history, but not shown. The live-file
 -- check starts from the title's live versions, in that order by CROSS JOIN: started from file, it
--- read every file for every title, seconds at the reference scale (audit-2026-09-25).
+-- read every file for every title, seconds at the reference scale (audit-2026-09-25). Each list
+-- holds only the libraries its caller reaches: all of them, or those in library_ids_json (D243
+-- section 4).
 
 -- name: ListFilmsByName :many
 SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
@@ -12,6 +14,8 @@ JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
 WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'movie' AND item.removed_at IS NULL
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   AND (sort_key.collation_key > sqlc.arg(after_key) OR (sort_key.collation_key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
@@ -26,6 +30,8 @@ FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   AND (item.added_at < sqlc.arg(before_at) OR (item.added_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
@@ -42,6 +48,8 @@ JOIN item ON item.id = sort_key.item_id
 JOIN collection ON collection.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
 WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'series' AND item.removed_at IS NULL
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   AND (sort_key.collation_key > sqlc.arg(after_key) OR (sort_key.collation_key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -62,6 +70,8 @@ FROM collection
 CROSS JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 WHERE collection.kind = 'series' AND item.removed_at IS NULL
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   AND (item.added_at < sqlc.arg(before_at) OR (item.added_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
   AND EXISTS (
     SELECT 1 FROM collection_member
@@ -169,3 +179,7 @@ JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.f
 WHERE ordering.collection_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
   AND ordering.name = 'aired'
 ORDER BY ordering.collection_id, file.id;
+
+-- name: GetLibraryOfItem :one
+-- An item's library, which says who may reach it (D243 section 4); NULL for one in none.
+SELECT library_id FROM item WHERE id = sqlc.arg(id);

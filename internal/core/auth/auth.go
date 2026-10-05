@@ -85,6 +85,8 @@ type Principal struct {
 	Role         Role
 	Capabilities []string
 	IsOutsider   bool
+	// Reach is the libraries the person may browse and play, as their role says now (D243 §4).
+	Reach Reach
 	// DeviceID is the device the session was signed in on (D217 §8), or 0 for a session from
 	// before devices were made at sign-in.
 	DeviceID int64
@@ -154,7 +156,10 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if err := refuseTakenName(ctx, queries, name, 0); err != nil {
 		return 0, err
 	}
-	role, err := queries.GetRoleByName(ctx, string(user.Role))
+	role, err := store.OrNotFound(queries.GetRoleByName(ctx, string(user.Role)))
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, ErrNoRole
+	}
 	if err != nil {
 		return 0, fmt.Errorf("find role %q: %w", user.Role, err)
 	}
@@ -369,6 +374,11 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, err
 	}
+	capabilities := strings.Split(user.Capabilities, ",")
+	reach, err := reachOfRole(ctx, service.database.Read(), user.RoleID, capabilities)
+	if err != nil {
+		return Principal{}, err
+	}
 	if now.Sub(time.UnixMilli(lastUsedAt)) >= useWriteInterval {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.UpdateGrantLastUsed(ctx, sqlcgen.UpdateGrantLastUsedParams{
@@ -381,7 +391,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
-		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.IsOutsider == 1,
+		Capabilities: capabilities, IsOutsider: user.IsOutsider == 1, Reach: reach,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
 	}, nil
 }

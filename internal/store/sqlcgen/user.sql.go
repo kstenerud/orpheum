@@ -21,7 +21,8 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 }
 
 const getLiveUserByID = `-- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, user.role_id, role.name AS role_name,
+  role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL
@@ -32,6 +33,7 @@ type GetLiveUserByIDRow struct {
 	Name         string
 	PasswordHash []byte
 	IsOutsider   int64
+	RoleID       int64
 	RoleName     string
 	Capabilities string
 }
@@ -44,6 +46,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 		&i.Name,
 		&i.PasswordHash,
 		&i.IsOutsider,
+		&i.RoleID,
 		&i.RoleName,
 		&i.Capabilities,
 	)
@@ -161,6 +164,37 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listLibraryIDsOfRole = `-- name: ListLibraryIDsOfRole :many
+SELECT role_library.library_id FROM role_library
+JOIN library ON library.id = role_library.library_id AND library.removed_at IS NULL
+WHERE role_library.role_id = ?1
+ORDER BY role_library.library_id
+`
+
+// The live libraries a role lists, which its members may browse and play (D243 section 4).
+func (q *Queries) ListLibraryIDsOfRole(ctx context.Context, roleID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryIDsOfRole, roleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var library_id int64
+		if err := rows.Scan(&library_id); err != nil {
+			return nil, err
+		}
+		items = append(items, library_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLiveUsers = `-- name: ListLiveUsers :many

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
@@ -17,11 +18,28 @@ import (
 // though a token grants nothing on its own (D217 §2).
 const tokenBytes = 24
 
-// tokenPlayback is what a media token refers to: whose playback of which file, under which session.
+// Holder is who holds a media token: the person, the session the playback was started under, and
+// the libraries the person reaches now (D217 §2, D243 §4).
+type Holder struct {
+	UserID     int64
+	SessionKey string
+	Reach      auth.Reach
+}
+
+// HolderOf is the holder a signed-in principal is.
+func HolderOf(principal auth.Principal) Holder {
+	return Holder{UserID: principal.UserID, SessionKey: principal.SessionKey, Reach: principal.Reach}
+}
+
+// tokenPlayback is what a media token refers to: whose playback of which file, in which library,
+// under which session.
 type tokenPlayback struct {
 	userID     int64
 	sessionKey string
 	fileID     int64
+	// libraryID is the file's library: a holder who no longer reaches it no longer holds the
+	// token, so a library taken back stops its playbacks at their next request (D243 §4).
+	libraryID int64
 	// profile is a prepared playback's rendition; empty for direct play.
 	profile    nodeproto.PrepareProfile
 	lastUsedAt time.Time
@@ -68,11 +86,9 @@ func (all *tokens) issue(random io.Reader, playback tokenPlayback, now time.Time
 	return token, nil
 }
 
-// use is the playback a token refers to, when it is this user's under this session and has not
-// been idle for longer than idle; using it keeps it alive.
-func (all *tokens) use(
-	token string, userID int64, sessionKey string, now time.Time, idle time.Duration,
-) (tokenPlayback, bool) {
+// use is the playback a token refers to, when holder holds it and it has not been idle for longer
+// than idle; using it keeps it alive.
+func (all *tokens) use(token string, holder Holder, now time.Time, idle time.Duration) (tokenPlayback, bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	known, found := all.playbackByToken[token]
@@ -83,23 +99,30 @@ func (all *tokens) use(
 		delete(all.playbackByToken, token)
 		return tokenPlayback{}, false
 	}
-	if known.userID != userID || known.sessionKey != sessionKey {
+	if !known.isHeldBy(holder) {
 		return tokenPlayback{}, false
 	}
 	known.lastUsedAt = now
 	return *known, true
 }
 
-// takeReport marks report seq of a token's playback taken, when it is this user's under this
-// session, and says whether it is new: a report numbered no higher than the last is a repeat. A
+// isHeldBy is whether holder holds the playback: its person, under its session, reaching its
+// library now.
+func (playback *tokenPlayback) isHeldBy(holder Holder) bool {
+	return playback.userID == holder.UserID && playback.sessionKey == holder.SessionKey &&
+		holder.Reach.Reaches(&playback.libraryID)
+}
+
+// takeReport marks report seq of a token's playback taken, when holder holds it, and says whether
+// it is new: a report numbered no higher than the last is a repeat. A
 // report that could not be kept is given back with returnReport, so the player's retry is taken.
 func (all *tokens) takeReport(
-	token string, userID int64, sessionKey string, seq int64, now time.Time, idle time.Duration,
+	token string, holder Holder, seq int64, now time.Time, idle time.Duration,
 ) (playback tokenPlayback, isNew, isFound bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	known, isFound := all.playbackByToken[token]
-	if !isFound || now.Sub(known.lastUsedAt) > idle || known.userID != userID || known.sessionKey != sessionKey {
+	if !isFound || now.Sub(known.lastUsedAt) > idle || !known.isHeldBy(holder) {
 		return tokenPlayback{}, false, false
 	}
 	known.lastUsedAt = now

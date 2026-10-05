@@ -2,8 +2,8 @@
 
 // Package auth is who may do what: local accounts, argon2id password hashes, sessions, issued secrets,
 // and the single grant table from which every credential (session, issued secret, join, cast) is an
-// opaque, revocable, hashed row. There are two roles, admin and user; a Watch Together guest is
-// not a principal.
+// opaque, revocable, hashed row. A person has one role, their whole access (D130, D243 §4): the
+// built-in admin and user, and those the admin makes. A Watch Together guest is not a principal.
 //
 // # Invariants
 //
@@ -76,15 +76,33 @@
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.
+//
 //   - D125: access is role-based with two roles; a Watch Together guest is not a principal.
+//
 //   - D154: one grant table, opaque and revocable.
+//
 //   - D218: accounts by one-time link; a device by a short code. D221: a device keeps its identity.
+//
 //   - D168: entitlement is resolved at the point of use, never pushed.
+//
 //   - D194 §2: argon2id with RFC 9106's second parameters; re-hash on login; rate-limit failures.
+//
 //   - docs/contributors/design/plans/auth.md.
+//
+//   - A principal's reach, the libraries it may browse and play, is its role's, read as each request
+//     is authenticated, so a library given or taken back counts from the next request; a role that
+//     administers reaches every library, and a reach never read reaches none (D243 §4).
+//     TestReach_FailsClosedAndIsWhatTheRoleLists,
+//     TestAuthenticate_ReadsTheRolesLibrariesAtEachRequest.
+//
+//   - A built-in role keeps its name and capabilities and is never deleted; a role's capabilities
+//     come from the closed set (Capabilities); a role someone holds is not deleted.
+//     TestRoles_RefuseWhatARoleCannotBe, TestRoles_AnInviteeReachesOnlyTheirRolesLibraries.
 //
 // # Where to change
 //
+//   - reach.go: a principal's reach. roles.go: the roles, their capabilities and libraries, and a
+//     person's role.
 //   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first

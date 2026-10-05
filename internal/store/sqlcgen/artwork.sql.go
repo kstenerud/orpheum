@@ -149,6 +149,31 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 	return id, err
 }
 
+const isArtworkReached = `-- name: IsArtworkReached :one
+SELECT EXISTS (
+  SELECT 1 FROM artwork
+  JOIN item ON item.id = artwork.item_id AND item.removed_at IS NULL
+  WHERE artwork.source_sha256 = ?1
+    AND (CAST(?2 AS INTEGER) = 1
+      OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+) AS is_reached
+`
+
+type IsArtworkReachedParams struct {
+	SourceSha256   []byte
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+}
+
+// Whether an image is held by a live item in a library the caller reaches (D243 section 4): an
+// image is served by its hash to whoever may see something that shows it.
+func (q *Queries) IsArtworkReached(ctx context.Context, arg IsArtworkReachedParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isArtworkReached, arg.SourceSha256, arg.IsEveryLibrary, arg.LibraryIdsJSON)
+	var is_reached bool
+	err := row.Scan(&is_reached)
+	return is_reached, err
+}
+
 const listArtworkSourceSha256s = `-- name: ListArtworkSourceSha256s :many
 SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,

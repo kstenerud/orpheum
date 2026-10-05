@@ -371,6 +371,11 @@ func TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery(t *testing.T) {
 		t.Fatal(err)
 	}
 	user := harness.signIn(t, "partner", "partner-password")
+	// A new library is the admin's alone until a role is given it (D243 §4).
+	if unseen := harness.do(t, http.MethodGet, "/libraries", user, nil); strings.Contains(unseen.body, "Shows") {
+		t.Errorf("a user's GET /libraries before their role reaches it = %s; want it absent", unseen.body)
+	}
+	harness.giveRoleLibraries(t, admin, "user", 1)
 	listed := harness.do(t, http.MethodGet, "/libraries", user, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"name":"Shows"`) ||
 		strings.Contains(listed.body, "/media/shows") {

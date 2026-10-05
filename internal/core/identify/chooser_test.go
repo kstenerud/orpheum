@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -30,7 +31,7 @@ func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 	t.Parallel()
 	lib, titleID := ambiguousTheGeneral(t)
-	titles, err := lib.chooser.Items(t.Context(), identify.IdentificationAmbiguous)
+	titles, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous)
 	if err != nil || len(titles) != 1 || titles[0].ID != titleID || titles[0].Name != "The General" {
 		t.Fatalf("Items(ambiguous) = %+v, %v", titles, err)
 	}

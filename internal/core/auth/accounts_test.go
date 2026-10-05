@@ -16,7 +16,7 @@ func TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	settingstest.Set(t, fixture.settings, settings.RegistrationInvitationLifeDays, "30")
-	_, invitation, err := fixture.service.CreateAccount(t.Context(), "traveller", RoleUser)
+	_, invitation, err := fixture.service.CreateAccount(t.Context(), NewAccount{Name: "traveller", Role: RoleUser})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	id, invitation, err := fixture.service.CreateAccount(ctx, "partner", RoleUser)
+	id, invitation, err := fixture.service.CreateAccount(ctx, NewAccount{Name: "partner", Role: RoleUser})
 	if err != nil {
 		t.Fatal(err)
 	}

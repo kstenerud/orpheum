@@ -113,7 +113,7 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 }
 
 func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePreferencesInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.FileID)
 	if err != nil {
 		return nil, err
 	}

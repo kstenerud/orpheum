@@ -9,6 +9,7 @@ import (
 	"path"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -38,7 +39,7 @@ type InProgress struct {
 // most recent watching first, at its most recent position that is past resume_min_percent and not
 // past finished_after_percent of its file's length. A file of unknown length counts at any
 // position. A work hidden since its last watching is left out (D188); extras never appear (D162).
-func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]InProgress, error) {
+func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reach auth.Reach) ([]InProgress, error) {
 	thresholds, err := ReadResumeThresholds(ctx, browser.settings)
 	if err != nil {
 		return nil, err
@@ -47,8 +48,10 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 	if err != nil {
 		return nil, fmt.Errorf("read continue_watching_max_works: %w", err)
 	}
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
 	rows, err := browser.database.Read().ListRecentPlayPositions(ctx, sqlcgen.ListRecentPlayPositionsParams{
 		UserID: userID, MaxRows: maxWorks * recentPositionsReadPerWork,
+		IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the recent positions: %w", err)

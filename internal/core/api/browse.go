@@ -220,12 +220,12 @@ func (server *Server) registerBrowse() {
 }
 
 func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*TitlesOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
-		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit,
+		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit, Reach: principal.Reach,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)
@@ -250,7 +250,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	if err != nil {
 		return nil, err
 	}
-	detail, err := dependencies.Browser.Title(ctx, input.ID)
+	detail, err := dependencies.Browser.Title(ctx, principal.Reach, input.ID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a title", err)
 	}
@@ -309,11 +309,11 @@ func episodePlaceBody(place *sqlcgen.GetEpisodePlaceRow) *EpisodePlaceBody {
 }
 
 func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*CollectionOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	series, err := dependencies.Browser.Series(ctx, input.ID)
+	series, err := dependencies.Browser.Series(ctx, principal.Reach, input.ID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a series", err)
 	}
@@ -348,11 +348,11 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 }
 
 func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	hits, err := dependencies.Browser.Search(ctx, input.Query, input.Limit)
+	hits, err := dependencies.Browser.Search(ctx, principal.Reach, input.Query, input.Limit)
 	if err != nil {
 		return nil, server.libraryError(ctx, "search", err)
 	}

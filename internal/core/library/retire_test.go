@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -36,7 +37,7 @@ func newRetiringAdmin(world *harness) retiringAdmin {
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, database: world.database, clock: world.clock}
 	work := &fakeWork{}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(work))
-	libraries, err := admin.List(world.t.Context())
+	libraries, err := admin.List(world.t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 {
 		world.t.Fatalf("List = %+v, %v", libraries, err)
 	}
@@ -69,7 +70,7 @@ func TestRetireRoot_TombstonesItsFilesCancelsTheirWorkForgetsItsDisksAndScansItN
 	if got := work.cancelled[0].Destinations; !slices.Equal(got, wantDestinations) {
 		t.Errorf("destinations forgotten: %v, want the root's and its disk's %v", got, wantDestinations)
 	}
-	libraries, err := admin.List(t.Context())
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 || len(libraries[0].Roots) != 0 {
 		t.Errorf("libraries after the retire: %+v, %v; want the library with no roots", libraries, err)
 	}
@@ -125,7 +126,7 @@ func TestDelete_RemovesTheLibraryItsRootsAndFilesAndCancelsItsWork(t *testing.T)
 	if err != nil || retired.TombstonedFileCount != 3 {
 		t.Fatalf("Delete = %+v, %v; want its 3 files removed", retired, err)
 	}
-	if libraries, err := admin.List(t.Context()); err != nil || len(libraries) != 0 {
+	if libraries, err := admin.List(t.Context(), auth.EveryLibrary()); err != nil || len(libraries) != 0 {
 		t.Errorf("libraries after the delete: %+v, %v; want none", libraries, err)
 	}
 	wantDestinations := []jobs.Destination{jobs.RootDestination(world.nodeID, root)}

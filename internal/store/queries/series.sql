@@ -60,6 +60,8 @@ LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_origin
 LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
 LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ORDER BY item_text.name, collection.id;
 
 -- name: ListSeriesAwaitingMatch :many

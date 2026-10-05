@@ -67,6 +67,10 @@
 //   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
 //     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.
 //
+//   - A media token is held by the person and session that started it while they reach its file's
+//     library: one taken back stops the playback at its next byte or report request (D243 §4).
+//     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere.
+//
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback.

@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 31
--- compatible_version 31
+-- user_version 33
+-- compatible_version 32
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -9,8 +9,14 @@ CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1
 -- index artwork_item
 CREATE INDEX artwork_item ON artwork(item_id, kind);
 
+-- index artwork_source
+CREATE INDEX artwork_source ON artwork(source_sha256) WHERE source_sha256 IS NOT NULL;
+
 -- index device_owner
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
+
+-- index fetched_subtitle_once
+CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provider, provider_file_id);
 
 -- index fetched_subtitle_video
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);
@@ -53,6 +59,9 @@ CREATE INDEX position_order ON position(ordering_id, sort_order);
 
 -- index position_title
 CREATE INDEX position_title ON position(title_id);
+
+-- index role_library_library
+CREATE INDEX role_library_library ON role_library(library_id);
 
 -- index secret_name
 CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
@@ -490,6 +499,14 @@ CREATE TABLE role (                                        -- class A (D130)
   capabilities  TEXT NOT NULL,           -- a set from the closed enum, e.g. 'administer,download'
   predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
 );
+
+-- table role_library
+CREATE TABLE role_library (                                -- class A (D243 section 4)
+  role_id          INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+  library_id       INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
+  may_rebroadcast  INTEGER NOT NULL DEFAULT 0 CHECK (may_rebroadcast IN (0,1)),
+  PRIMARY KEY (role_id, library_id)
+) WITHOUT ROWID;
 
 -- table root_mount
 CREATE TABLE root_mount (                                  -- class O

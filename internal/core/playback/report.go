@@ -76,14 +76,15 @@ func serverTimeMs(nowMs, sentMonoMs, monoMs int64) (int64, error) {
 // the stored one, so two devices reporting out of order never rewind it (D217 §7). A report sent
 // again changes nothing.
 func (service *Service) Report(
-	ctx context.Context, token string, userID int64, sessionKey string, deviceID int64, report Report,
+	ctx context.Context, token string, holder Holder, deviceID int64, report Report,
 ) error {
+	userID := holder.UserID
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return err
 	}
 	now := service.clock.Now()
-	playback, isNew, found := service.tokens.takeReport(token, userID, sessionKey, report.ReportSeq, now, idle)
+	playback, isNew, found := service.tokens.takeReport(token, holder, report.ReportSeq, now, idle)
 	if !found {
 		return ErrNoToken
 	}

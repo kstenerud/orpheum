@@ -37,6 +37,18 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 	return i, err
 }
 
+const getLibraryOfItem = `-- name: GetLibraryOfItem :one
+SELECT library_id FROM item WHERE id = ?1
+`
+
+// An item's library, which says who may reach it (D243 section 4); NULL for one in none.
+func (q *Queries) GetLibraryOfItem(ctx context.Context, id int64) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getLibraryOfItem, id)
+	var library_id *int64
+	err := row.Scan(&library_id)
+	return library_id, err
+}
+
 const getSeriesDetail = `-- name: GetSeriesDetail :one
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name, item_text.overview,
@@ -145,19 +157,23 @@ FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
-  AND (item.added_at < ?1 OR (item.added_at = ?1 AND item.id < ?2))
+  AND (CAST(?1 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  AND (item.added_at < ?3 OR (item.added_at = ?3 AND item.id < ?4))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY item.added_at DESC, item.id DESC
-LIMIT ?3
+LIMIT ?5
 `
 
 type ListFilmsByAddedParams struct {
-	BeforeAt int64
-	BeforeID int64
-	MaxRows  int64
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	BeforeAt       int64
+	BeforeID       int64
+	MaxRows        int64
 }
 
 type ListFilmsByAddedRow struct {
@@ -170,7 +186,13 @@ type ListFilmsByAddedRow struct {
 }
 
 func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedParams) ([]ListFilmsByAddedRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFilmsByAdded, arg.BeforeAt, arg.BeforeID, arg.MaxRows)
+	rows, err := q.db.QueryContext(ctx, listFilmsByAdded,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -207,20 +229,24 @@ JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'movie' AND item.removed_at IS NULL
-  AND (sort_key.collation_key > ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id > ?3))
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND (sort_key.collation_key > ?4 OR (sort_key.collation_key = ?4 AND sort_key.item_id > ?5))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY sort_key.collation_key, sort_key.item_id
-LIMIT ?4
+LIMIT ?6
 `
 
 type ListFilmsByNameParams struct {
-	Locale   string
-	AfterKey []byte
-	AfterID  int64
-	MaxRows  int64
+	Locale         string
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	AfterKey       []byte
+	AfterID        int64
+	MaxRows        int64
 }
 
 type ListFilmsByNameRow struct {
@@ -238,10 +264,14 @@ type ListFilmsByNameRow struct {
 // series' episodes. Search's three routes are in search.go: sqlc cannot parse FTS5's MATCH. Only what has a live file is
 // listed: a film whose files are all gone is kept, with its history, but not shown. The live-file
 // check starts from the title's live versions, in that order by CROSS JOIN: started from file, it
-// read every file for every title, seconds at the reference scale (audit-2026-09-25).
+// read every file for every title, seconds at the reference scale (audit-2026-09-25). Each list
+// holds only the libraries its caller reaches: all of them, or those in library_ids_json (D243
+// section 4).
 func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams) ([]ListFilmsByNameRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilmsByName,
 		arg.Locale,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
 		arg.AfterKey,
 		arg.AfterID,
 		arg.MaxRows,
@@ -362,7 +392,9 @@ FROM collection
 CROSS JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 WHERE collection.kind = 'series' AND item.removed_at IS NULL
-  AND (item.added_at < ?1 OR (item.added_at = ?1 AND item.id < ?2))
+  AND (CAST(?1 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  AND (item.added_at < ?3 OR (item.added_at = ?3 AND item.id < ?4))
   AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
@@ -371,13 +403,15 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
       AND file.removed_at IS NULL
   )
 ORDER BY item.added_at DESC, item.id DESC
-LIMIT ?3
+LIMIT ?5
 `
 
 type ListSeriesByAddedParams struct {
-	BeforeAt int64
-	BeforeID int64
-	MaxRows  int64
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	BeforeAt       int64
+	BeforeID       int64
+	MaxRows        int64
 }
 
 type ListSeriesByAddedRow struct {
@@ -393,7 +427,13 @@ type ListSeriesByAddedRow struct {
 // newest first would pass every film and episode added between them, about seventy for each
 // series at the reference scale.
 func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedParams) ([]ListSeriesByAddedRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByAdded, arg.BeforeAt, arg.BeforeID, arg.MaxRows)
+	rows, err := q.db.QueryContext(ctx, listSeriesByAdded,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +470,9 @@ JOIN item ON item.id = sort_key.item_id
 JOIN collection ON collection.id = sort_key.item_id
 LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at IS NULL
-  AND (sort_key.collation_key > ?2 OR (sort_key.collation_key = ?2 AND sort_key.item_id > ?3))
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND (sort_key.collation_key > ?4 OR (sort_key.collation_key = ?4 AND sort_key.item_id > ?5))
   AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
@@ -439,14 +481,16 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at I
       AND file.removed_at IS NULL
   )
 ORDER BY sort_key.collation_key, sort_key.item_id
-LIMIT ?4
+LIMIT ?6
 `
 
 type ListSeriesByNameParams struct {
-	Locale   string
-	AfterKey []byte
-	AfterID  int64
-	MaxRows  int64
+	Locale         string
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	AfterKey       []byte
+	AfterID        int64
+	MaxRows        int64
 }
 
 type ListSeriesByNameRow struct {
@@ -462,6 +506,8 @@ type ListSeriesByNameRow struct {
 func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNameParams) ([]ListSeriesByNameRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesByName,
 		arg.Locale,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
 		arg.AfterKey,
 		arg.AfterID,
 		arg.MaxRows,
