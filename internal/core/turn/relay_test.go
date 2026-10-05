@@ -80,14 +80,35 @@ func newRelayStage(t *testing.T) relayStage {
 	return relayStage{relay: relay, secrets: kept, clock: fakeClock, ended: ended}
 }
 
-// allocate asks the relay for a relayed address with credentials, as a browser's ICE would.
+// allocate asks the relay for a relayed address with credentials, as a browser's ICE would, over
+// UDP, and returns the error.
 func (stage relayStage) allocate(t *testing.T, credentials Credentials) error {
 	t.Helper()
-	connection, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
+	relayed, err := stage.allocateOver(t, "udp", credentials)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	defer func() { _ = connection.Close() }() //nolint:errcheck // the test's end
+	return relayed.Close() //nolint:wrapcheck // the test reads it
+}
+
+// allocateOver asks the relay for a relayed address over network, "udp" or "tcp".
+func (stage relayStage) allocateOver(t *testing.T, network string, credentials Credentials) (net.PacketConn, error) {
+	t.Helper()
+	var connection net.PacketConn
+	if network == "tcp" {
+		stream, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", stage.relay.Address().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		connection = pionturn.NewSTUNConn(stream)
+	} else {
+		packets, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		connection = packets
+	}
+	t.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test's end
 	client, err := pionturn.NewClient(&pionturn.ClientConfig{
 		STUNServerAddr: stage.relay.Address().String(), TURNServerAddr: stage.relay.Address().String(),
 		Conn: connection, Username: credentials.Username, Password: credentials.Password, Realm: realm,
@@ -96,15 +117,21 @@ func (stage relayStage) allocate(t *testing.T, credentials Credentials) error {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	t.Cleanup(client.Close)
 	if err = client.Listen(); err != nil {
 		t.Fatal(err)
 	}
-	relayed, err := client.Allocate()
+	return client.Allocate() //nolint:wrapcheck // the test reads it
+}
+
+// issue is the live membership's credentials, now.
+func (stage relayStage) issue(t *testing.T) Credentials {
+	t.Helper()
+	secret, err := stage.secrets.Open(t.Context(), secrets.TURNSecret)
 	if err != nil {
-		return err //nolint:wrapcheck // the test reads it
+		t.Fatal(err)
 	}
-	return relayed.Close() //nolint:wrapcheck // the test reads it
+	return Issue(secret, Membership{SessionID: 4, MemberID: 9}, stage.clock.Now())
 }
 
 // The relay admits the credentials it issued to a live membership, and refuses them once the
@@ -117,7 +144,7 @@ func TestRelay_AdmitsAMembershipsCredentialsUntilItEndsOrTheyExpire(t *testing.T
 		t.Fatal(err)
 	}
 	member := Membership{SessionID: 4, MemberID: 9}
-	issued := Issue(secret, member, stage.clock.Now())
+	issued := stage.issue(t)
 	if err = stage.allocate(t, issued); err != nil {
 		t.Fatalf("a live membership's credentials: %v; want a relayed address", err)
 	}
@@ -165,5 +192,27 @@ func TestEnsureSecret_MakesTheSecretOnceAndAgainWhenItCannotBeOpened(t *testing.
 	}
 	if _, err = kept.Open(t.Context(), secrets.TURNSecret); errors.Is(err, secrets.ErrNeedsReentry) {
 		t.Error("EnsureSecret left a secret this server cannot open")
+	}
+}
+
+// A browser that cannot send UDP reaches the relay over TCP on the same port (D243 §7); and a
+// relayed address reaches peers on the public internet only, never the server's own machine or
+// the network it is on.
+func TestRelay_ServesTCPAndRelaysOnlyToThePublicInternet(t *testing.T) {
+	t.Parallel()
+	stage := newRelayStage(t)
+	relayed, err := stage.allocateOver(t, "tcp", stage.issue(t))
+	if err != nil {
+		t.Fatalf("an allocation over TCP: %v; want a relayed address", err)
+	}
+	defer func() { _ = relayed.Close() }() //nolint:errcheck // the test's end
+	public := &net.UDPAddr{IP: net.IPv4(203, 0, 113, 7), Port: 9}
+	if _, err = relayed.WriteTo([]byte("hello"), public); err != nil {
+		t.Errorf("relaying to a public address: %v; want it sent", err)
+	}
+	for _, peer := range []string{"127.0.0.1", "10.0.0.5", "192.168.1.20", "100.64.0.1", "192.0.0.2", "fd00::1"} {
+		if _, err = relayed.WriteTo([]byte("hello"), &net.UDPAddr{IP: net.ParseIP(peer), Port: 9}); err == nil {
+			t.Errorf("relaying to %s was permitted; want the server's own networks refused", peer)
+		}
 	}
 }

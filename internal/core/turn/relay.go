@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 
 	pionturn "github.com/pion/turn/v4"
 
@@ -45,33 +46,86 @@ type Parts struct {
 	Logger   *slog.Logger
 }
 
-// Start serves TURN on config.Listen, admitting the credentials Issue makes while their membership
-// lasts and until they expire. The relay reads the shared secret, and logs, under ctx.
+// Start serves TURN on config.Listen, over UDP and TCP, admitting the credentials Issue makes while
+// their membership lasts and until they expire. Relayed media leaves from the listen address's
+// host, so a relay listening on the tunnel's address answers through the tunnel (D243 §7). The
+// relay reads the shared secret, and logs, under ctx.
 func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
-	connection, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", config.Listen)
+	host, _, err := net.SplitHostPort(config.Listen)
 	if err != nil {
-		return nil, fmt.Errorf("listen for TURN on %s: %w", config.Listen, err)
+		return nil, fmt.Errorf("TURN's listen address %q: %w", config.Listen, err)
+	}
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	packets, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", config.Listen)
+	if err != nil {
+		return nil, fmt.Errorf("listen for TURN on UDP %s: %w", config.Listen, err)
+	}
+	// TCP on the port UDP took, which a listen address with no port chose.
+	streams, err := (&net.ListenConfig{}).Listen(ctx, "tcp", packets.LocalAddr().String())
+	if err != nil {
+		_ = packets.Close() //nolint:errcheck // the listen's error is the one to report
+		return nil, fmt.Errorf("listen for TURN on TCP %s: %w", config.Listen, err)
+	}
+	relayed := func() pionturn.RelayAddressGenerator {
+		return &pionturn.RelayAddressGeneratorPortRange{
+			RelayAddress: config.PublicAddress, Address: host,
+			MinPort: config.RelayPortMin, MaxPort: config.RelayPortMax,
+		}
 	}
 	server, err := pionturn.NewServer(pionturn.ServerConfig{
 		Realm:         realm,
 		AuthHandler:   authHandler(ctx, parts),
 		LoggerFactory: slogFactory{ctx: ctx, logger: parts.Logger},
 		PacketConnConfigs: []pionturn.PacketConnConfig{{
-			PacketConn: connection,
-			RelayAddressGenerator: &pionturn.RelayAddressGeneratorPortRange{
-				RelayAddress: config.PublicAddress, Address: "0.0.0.0",
-				MinPort: config.RelayPortMin, MaxPort: config.RelayPortMax,
-			},
+			PacketConn: packets, RelayAddressGenerator: relayed(), PermissionHandler: mayRelayTo,
+		}},
+		ListenerConfigs: []pionturn.ListenerConfig{{
+			Listener: streams, RelayAddressGenerator: relayed(), PermissionHandler: mayRelayTo,
 		}},
 	})
 	if err != nil {
-		_ = connection.Close() //nolint:errcheck // the start's error is the one to report
+		_ = packets.Close() //nolint:errcheck // the start's error is the one to report
+		_ = streams.Close() //nolint:errcheck // the start's error is the one to report
 		return nil, fmt.Errorf("start the TURN relay: %w", err)
 	}
-	return &Relay{server: server, address: connection.LocalAddr()}, nil
+	return &Relay{server: server, address: packets.LocalAddr()}, nil
 }
 
-// Address is where the relay listens: config.Listen, its port chosen when that named none.
+// notPublic are the IPv4 ranges that are not the public internet though Go counts them global
+// unicast: shared address space (a carrier's NAT), the IETF's (DS-Lite's 192.0.0.0/29 among them),
+// benchmarking, and the reserved.
+func notPublic() []netip.Prefix {
+	return []netip.Prefix{
+		netip.MustParsePrefix("100.64.0.0/10"),
+		netip.MustParsePrefix("192.0.0.0/24"),
+		netip.MustParsePrefix("198.18.0.0/15"),
+		netip.MustParsePrefix("240.0.0.0/4"),
+	}
+}
+
+// mayRelayTo admits a peer on the public internet alone: a member's relay reaches the other members'
+// browsers, never the server's own machine or the network it is on.
+func mayRelayTo(_ net.Addr, peer net.IP) bool {
+	address, isIP := netip.AddrFromSlice(peer)
+	if !isIP {
+		return false
+	}
+	address = address.Unmap()
+	if !address.IsGlobalUnicast() || address.IsPrivate() {
+		return false
+	}
+	for _, prefix := range notPublic() {
+		if prefix.Contains(address) {
+			return false
+		}
+	}
+	return true
+}
+
+// Address is where the relay listens, on UDP and TCP: config.Listen, its port chosen when that
+// named none.
 func (relay *Relay) Address() net.Addr { return relay.address }
 
 // Close stops the relay and every allocation on it.

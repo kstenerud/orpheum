@@ -21,6 +21,12 @@
 //     log line carries it is review-only.
 //   - The relay admits the credentials it issued, while their membership lasts and until they
 //     expire, and nothing else. Enforced by TestRelay_AdmitsAMembershipsCredentialsUntilItEndsOrTheyExpire.
+//   - The relay serves TCP beside UDP on its port, for a browser that cannot send UDP, and relays
+//     to peers on the public internet only: never to the server's own machine or the networks it
+//     is on, which would make a membership a way into the house. Enforced by
+//     TestRelay_ServesTCPAndRelaysOnlyToThePublicInternet.
+//   - Relayed media leaves from the listen address's host, so a relay listening on the tunnel's
+//     address answers through the tunnel (D243 §7). Checked on the owner's VPS: VQ19.
 //   - The secret is made when there is none, or none this server can open, and is never replaced
 //     otherwise. Enforced by TestEnsureSecret_MakesTheSecretOnceAndAgainWhenItCannotBeOpened.
 //
