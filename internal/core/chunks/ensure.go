@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
 // lookaheadMs is how far past a chunk a player asks for the chunks are made or on their way before
@@ -25,20 +26,20 @@ const runSpanMs = 300_000
 var ErrNoGrid = errors.New("the film is not cut into chunks yet")
 
 // runArgs are a make_chunks job's arguments: one run, chunks FirstChunk through LastChunk of the
-// stream named Stream, on the grid named GridID.
+// store the job targets, whose chunk_store row names the film, the stream and the grid.
 type runArgs struct {
-	Stream     string `json:"stream"`
-	GridID     string `json:"gridId"`
-	FirstChunk int    `json:"firstChunk"`
-	LastChunk  int    `json:"lastChunk"`
+	FirstChunk int `json:"firstChunk"`
+	LastChunk  int `json:"lastChunk"`
 }
 
 // Ensure makes sure a player asking for chunk wanted of a film's stream will have it and the chunks
 // after it: of those that start within lookaheadMs of film from it, the first neither made nor on
 // its way starts a run, at play priority on the film's node, through the earliest of runSpanMs of
 // film, the chunk before the next made or on its way, and the film's last chunk. A run is never
-// queued over chunks a run will make. A store with runs on their way is kept wanted (D234 §3). A
-// film with no grid yet is ErrNoGrid.
+// queued over chunks a run will make. Each store is the target of its own runs' jobs, so the runs of
+// a film's streams queue side by side, and a run asked for while another of its store waits queued
+// is folded into that one, as the queue folds any repeat request: the next ask plans it again. A
+// store with runs on their way is kept wanted (D234 §3). A film with no grid yet is ErrNoGrid.
 func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream, wanted int) error {
 	film, isCut, err := service.cut(ctx, fileID)
 	if err != nil {
@@ -54,20 +55,24 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 	dir := StoreDir(fileID, stream, gridID)
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
 	if !isPlanned {
-		if !service.runs.isMaking(dir) {
-			return nil
+		if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
+			return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
 		}
-		return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{FileID: fileID})
+		return nil
 	}
-	args, err := json.Marshal(runArgs{Stream: stream.Name(), GridID: gridID, FirstChunk: first, LastChunk: last})
+	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
+	if err != nil {
+		service.runs.forget(dir, first)
+		return err
+	}
+	service.runs.knowStoreID(dir, storeID)
+	args, err := json.Marshal(runArgs{FirstChunk: first, LastChunk: last})
 	if err != nil {
 		service.runs.forget(dir, first)
 		return fmt.Errorf("encode a run's arguments: %w", err)
 	}
-	// The queue holds one queued job of a kind for a file: a run asked for while another of the film's
-	// waits in it, of another stream, is not queued, and is planned again at the player's next ask.
 	isQueued, err := service.queue.Enqueue(ctx, jobs.Request{
-		Kind: jobs.KindMakeChunks, Target: jobs.Target{FileID: fileID}, ArgsJSON: string(args),
+		Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: storeID}, ArgsJSON: string(args),
 		Priority: jobs.PriorityPlayNow, Reason: "a player is waiting for its chunks",
 		Destination: jobs.NodeDestination(film.file.NodeID),
 	})
@@ -78,4 +83,20 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 		return fmt.Errorf("queue chunks %d to %d of %s: %w", first, last, dir, err)
 	}
 	return nil
+}
+
+// storeIDOf is the chunk_store row of a stream of a film on a grid, made the first time it is named.
+func (service *Service) storeIDOf(ctx context.Context, fileID int64, stream Stream, gridID string) (int64, error) {
+	var storeID int64
+	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		var writeErr error
+		storeID, writeErr = queries.EnsureChunkStore(ctx, cachegen.EnsureChunkStoreParams{
+			SourceFile: fileID, Stream: stream.Name(), GridID: gridID,
+		})
+		return writeErr
+	})
+	if err != nil {
+		return 0, fmt.Errorf("record the store of %s: %w", StoreDir(fileID, stream, gridID), err)
+	}
+	return storeID, nil
 }

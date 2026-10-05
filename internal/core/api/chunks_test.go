@@ -99,19 +99,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 		t.Errorf("a chunk made while the core waited: %d %v %q, want it, cached", chunk.status, chunk.header,
 			chunk.body)
 	}
-	runs := harness.openJobs(t, jobs.KindMakeChunks)
-	var args struct {
-		Stream     string `json:"stream"`
-		GridID     string `json:"gridId"`
-		FirstChunk int    `json:"firstChunk"`
-		LastChunk  int    `json:"lastChunk"`
-	}
-	if len(runs) != 1 || json.Unmarshal([]byte(runs[0].ArgsJSON), &args) != nil || args.Stream != "q700k432p" ||
-		args.GridID != grid.ID() || args.FirstChunk != 1 || args.LastChunk != 2 || runs[0].Priority !=
-		jobs.PriorityPlayNow {
-		t.Errorf("the runs queued = %+v (%+v); want one of the quality from chunk 1 to the last, at play priority",
-			runs, args)
-	}
+	harness.checkOneRunQueued(t, grid.ID())
 	// One no run makes in the time a player waits is too early: the player asks again.
 	if late := harness.getBytePath(t, base+"q700k432p/00002.m4s", user, true, ""); late.status !=
 		http.StatusTooEarly || late.header.Get("Retry-After") != "1" {
@@ -149,5 +137,25 @@ func checkFilmOnesMaster(t *testing.T, master byteAnswer) {
 			`AVERAGE-BANDWIDTH=2192000,AUDIO="audio"`+"\nq2000k540p/stream.m3u8\n") ||
 		!strings.HasSuffix(master.body, "\nq700k432p/stream.m3u8\n") {
 		t.Errorf("film 1's master playlist: %d %v\n%s", master.status, master.header, master.body)
+	}
+}
+
+// checkOneRunQueued fails the test unless one run is queued, at play priority, of chunks 1 to the
+// last, 2, of the store of film 1's q700k432p on the grid gridID.
+func (harness testHarness) checkOneRunQueued(t *testing.T, gridID string) {
+	t.Helper()
+	runs := harness.openJobs(t, jobs.KindMakeChunks)
+	var args struct {
+		FirstChunk int `json:"firstChunk"`
+		LastChunk  int `json:"lastChunk"`
+	}
+	if len(runs) != 1 || runs[0].ChunkStoreID == nil || json.Unmarshal([]byte(runs[0].ArgsJSON), &args) != nil ||
+		args.FirstChunk != 1 || args.LastChunk != 2 || runs[0].Priority != jobs.PriorityPlayNow {
+		t.Fatalf("the runs queued = %+v (%+v); want one of the quality's store from chunk 1 to the last, at "+
+			"play priority", runs, args)
+	}
+	if store, err := harness.cache.Read().GetChunkStore(t.Context(), *runs[0].ChunkStoreID); err != nil ||
+		store.SourceFile != 1 || store.Stream != "q700k432p" || store.GridID != gridID {
+		t.Errorf("the run's store = %+v, %v; want film 1's q700k432p on its grid", store, err)
 	}
 }

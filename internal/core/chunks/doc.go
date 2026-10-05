@@ -44,10 +44,13 @@
 //
 //   - A chunk asked for queues at most one run, at play priority on the film's node, from the first
 //     chunk in the minute of film from it that is neither made nor on its way, through at most five
-//     minutes of film and never over a chunk made or a run's; a run the queue did not take is asked
-//     for again at the next ask. Enforced by
+//     minutes of film and never over a chunk made or a run's. Its job targets the store's chunk_store
+//     row, so the runs of a film's streams queue side by side, and a run asked for while another of
+//     its store waits queued is folded into that one and asked for again at the next ask. Enforced by
 //     TestEnsure_QueuesOneRunFromTheChunkThroughFiveMinutesOfFilmAtPlayPriority,
 //     TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade,
+//     TestEnsure_TwoStreamsOfOneFilmWarmedTogetherEachQueueARun,
+//     TestEnsure_ASecondRunOfAStoreWhileItsRunIsQueuedAddsNone,
 //     TestEnsure_ARunTheQueueDidNotTakeIsAskedForAgainAtTheNextAsk and
 //     TestEnsure_AFilmWithNoGridYetIsSaidSo; through the API by
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).

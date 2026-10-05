@@ -25,6 +25,7 @@ type JobTarget struct {
 	FileID            int64
 	ScanID            int64
 	ScanBatchID       int64
+	ChunkStoreID      int64
 }
 
 // JobStorage is the job queue's storage on cache.db's job table (D231 §2): the queue in
@@ -49,7 +50,7 @@ func (jobStorage *JobStorage) Enqueue(
 		rows, err := queries.ListOpenJobsOfTarget(ctx, cachegen.ListOpenJobsOfTargetParams{
 			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-			ScanID: columns.scan, ScanBatchID: columns.scanBatch,
+			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 		})
 		if err != nil {
 			return fmt.Errorf("list the open %s jobs for %+v: %w", kind, target, err)
@@ -81,7 +82,8 @@ func applyChange(
 		_, err := queries.InsertJob(ctx, cachegen.InsertJobParams{
 			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ArgsJSON: change.ArgsJSON,
+			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
+			ArgsJSON: change.ArgsJSON,
 			Priority: change.Priority, RunnableAt: change.RunnableAt.UnixMilli(), Reason: &change.Reason,
 			Destination: destinationColumn(change.Destination), CreatedAt: change.CreatedAt.UnixMilli(),
 		})
@@ -133,7 +135,7 @@ func (jobStorage *JobStorage) KeepWanted(
 		return queries.KeepJobWanted(ctx, cachegen.KeepJobWantedParams{
 			Until: until.UnixMilli(), Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition,
 			StreamID: columns.stream, FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-			ScanID: columns.scan, ScanBatchID: columns.scanBatch,
+			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 		})
 	})
 }
@@ -356,7 +358,7 @@ func (jobStorage *JobStorage) ListOpen(ctx context.Context) ([]jobqueue.Row[JobT
 
 // jobTargetColumns are a target as the job table holds it: NULL where unset.
 type jobTargetColumns struct {
-	item, rendition, stream, fetchedSubtitle, file, scan, scanBatch *int64
+	item, rendition, stream, fetchedSubtitle, file, scan, scanBatch, chunkStore *int64
 }
 
 // columns are the target's columns.
@@ -365,7 +367,7 @@ func (target JobTarget) columns() jobTargetColumns {
 		item: ptr.NilIfZero(target.ItemID), rendition: ptr.NilIfZero(target.RenditionID),
 		stream: ptr.NilIfZero(target.StreamID), fetchedSubtitle: ptr.NilIfZero(target.FetchedSubtitleID),
 		file: ptr.NilIfZero(target.FileID), scan: ptr.NilIfZero(target.ScanID),
-		scanBatch: ptr.NilIfZero(target.ScanBatchID),
+		scanBatch: ptr.NilIfZero(target.ScanBatchID), chunkStore: ptr.NilIfZero(target.ChunkStoreID),
 	}
 }
 
@@ -377,7 +379,7 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 			ItemID: ptr.ValueOrZero(row.ItemID), RenditionID: ptr.ValueOrZero(row.RenditionID),
 			StreamID: ptr.ValueOrZero(row.StreamID), FetchedSubtitleID: ptr.ValueOrZero(row.FetchedSubtitleID),
 			FileID: ptr.ValueOrZero(row.FileID), ScanID: ptr.ValueOrZero(row.ScanID),
-			ScanBatchID: ptr.ValueOrZero(row.ScanBatchID),
+			ScanBatchID: ptr.ValueOrZero(row.ScanBatchID), ChunkStoreID: ptr.ValueOrZero(row.ChunkStoreID),
 		},
 		State: jobqueue.State(row.State), Destination: jobqueue.Destination(ptr.ValueOrZero(row.Destination)),
 		RunnableAt: time.UnixMilli(row.RunnableAt), IsSnoozed: row.IsSnoozed != 0,

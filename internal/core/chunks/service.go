@@ -45,6 +45,8 @@ type ReadThrough interface {
 type Parts struct {
 	// Database holds the files and their pictures' timelines, which internal/core/readthrough keeps.
 	Database *store.Database
+	// Cache holds the chunk stores, which the runs of chunks target (D247 §10).
+	Cache    *store.Cache
 	Settings Settings
 	Queue    Queue
 	// Nodes say whether a film's node can read it now, for a run to park on (D231 §5).
@@ -62,6 +64,7 @@ type Parts struct {
 // made or on their way.
 type Service struct {
 	database    *store.Database
+	cache       *store.Cache
 	settings    Settings
 	queue       Queue
 	nodes       library.NodeConnections
@@ -76,7 +79,7 @@ type Service struct {
 // NewService returns the chunks service.
 func NewService(parts Parts) *Service {
 	return &Service{
-		database: parts.Database, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
+		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough,
 		runs: newRunTracker(),
 	}

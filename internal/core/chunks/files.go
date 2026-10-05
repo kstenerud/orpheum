@@ -79,10 +79,11 @@ func (service *Service) Served(ctx context.Context, file StoreFile) error {
 	if !file.isInit {
 		service.runs.served(file.storeDir, file.chunk)
 	}
-	if !service.runs.isMaking(file.storeDir) {
+	storeID, isMaking := service.runs.making(file.storeDir)
+	if !isMaking || storeID == 0 {
 		return nil
 	}
-	return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{FileID: file.fileID})
+	return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
 }
 
 // storeFileNamed is the chunk a store's file name names, or that it names the init; false for a

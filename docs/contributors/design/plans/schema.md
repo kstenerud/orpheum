@@ -960,8 +960,9 @@ it has its node read, and a job's `scan_id` and `scan_batch_id`, the targets of 
 reads a video through once for its loudness and its picture's timeline, and added `video_timeline`,
 that timeline by payload hash (D247 §10); version 30 moved `video_timeline` to `persistent.db` (step
 0035, below), since making it again reads the whole file: F1's cost, resolved as for subtitle text and
-loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks of a film, whose
-target is the file (D247 §10).
+loudness; version 31 added the `make_chunks` kind, a run of one stream's chunks of a film (D247
+§10); version 32 gave it a target of its own, the job's `chunk_store_id`, a row of `chunk_store`
+(one stream of a film on one grid), so the runs of a film's streams queue side by side.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -1196,6 +1197,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `version` | persistent.db | `internal/core/identify` | |
 | `watchlist` | persistent.db | none yet | |
 | `art_served` | cache.db | `internal/core/artwork` | |
+| `chunk_store` | cache.db | `internal/core/chunks` | made on a store's first run; its make_chunks jobs target it (D247 §10) |
 | `job` | cache.db | `internal/store` | the job queue's storage, `JobStorage`, which `internal/platform/jobqueue` drives and `internal/core/jobs` uses (D231 §2) |
 | `match_candidate` | cache.db | `internal/core/identify` | |
 | `node_attempt` | cache.db | `internal/core/nodes` | each job given to a node, by its attempt token (D234 §7) |

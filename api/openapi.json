@@ -1995,6 +1995,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "chunkStoreId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "createdAt": {
             "description": "Unix milliseconds",
             "format": "int64",

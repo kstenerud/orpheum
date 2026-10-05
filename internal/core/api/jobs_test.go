@@ -227,7 +227,8 @@ func TestJobs_AJobGivenToANodeSaysWhereItsNodeSaysItIs(t *testing.T) {
 	}
 }
 
-// A scan's jobs name what they work on: a listing its scan, an examining the batch it reads (D240).
+// A scan's jobs name what they work on: a listing its scan, an examining the batch it reads (D240);
+// and a run of chunks names its store (D247 §10).
 func TestJobs_AScansJobsNameTheirScanAndBatch(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -235,6 +236,7 @@ func TestJobs_AScansJobsNameTheirScanAndBatch(t *testing.T) {
 	for _, request := range []jobs.Request{
 		{Kind: jobs.KindScan, Target: jobs.Target{ScanID: 4}, Reason: "test"},
 		{Kind: jobs.KindExamine, Target: jobs.Target{ScanBatchID: 9}, Reason: "test"},
+		{Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: 3}, Reason: "test"},
 	} {
 		if _, err := harness.queue.Enqueue(t.Context(), request); err != nil {
 			t.Fatal(err)
@@ -246,5 +248,8 @@ func TestJobs_AScansJobsNameTheirScanAndBatch(t *testing.T) {
 	}
 	if examine := newestOf(t, listed, jobs.KindExamine); examine.ScanBatchID != 9 || examine.ScanID != 0 {
 		t.Errorf("the examine job shows %+v, want batch 9", examine)
+	}
+	if run := newestOf(t, listed, jobs.KindMakeChunks); run.ChunkStoreID != 3 || run.FileID != 0 {
+		t.Errorf("the run of chunks shows %+v, want chunk store 3", run)
 	}
 }

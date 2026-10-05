@@ -124,9 +124,10 @@ var errNotMadeYet = errors.New("the node has not made it yet")
 
 // relayChunkFile relays a store's init or chunk from its node. One the node has not made is asked
 // for (chunks.Service.Want), and the node asked again every chunkAskEvery until it has it, for up to
-// chunkWaitAtMost, after which the player is told to ask again (425). Asking again for it on each
-// look keeps a run on its way however the queue took the last ask. A file the node served is known
-// made. Neither ever changes once made, so it is cached for a day.
+// chunkWaitAtMost, after which the player is told to ask again (425). It is asked for again on each
+// look: a run asked for while another of its store waits queued, after a seek, is folded into that
+// one, which makes other chunks, and only a later ask queues it once that one has started. A file
+// the node served is known made. Neither ever changes once made, so it is cached for a day.
 func (server *Server) relayChunkFile(
 	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile,
 ) (*huma.StreamResponse, error) {

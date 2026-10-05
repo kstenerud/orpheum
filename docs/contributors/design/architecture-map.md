@@ -176,6 +176,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | scan, scan_batch | cache.db | T4 (a scan in progress; D241) | no | a lost scan is asked for again |
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
+| chunk_store (a stream of a film on a grid, the target of its runs) | cache.db | T4 | no | made again by the next run asked for; the chunks themselves are the node's |
 | prepared_rendition (index of node renditions) | cache.db | T3 | no | mitigated by D238 §2: a node's hello lists its renditions, and the core adopts them. cache.db is at version 27 |
 | full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
 | secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |

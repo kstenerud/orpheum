@@ -18,6 +18,8 @@ type runTracker struct {
 
 // storeRuns are one store's chunks known made and its runs making more, each by its first chunk.
 type storeRuns struct {
+	// storeID is its chunk_store row, which its runs' jobs target; 0 until a run of it is asked for.
+	storeID    int64
 	isMade     map[int]bool
 	runByFirst map[int]*run
 }
@@ -132,9 +134,17 @@ func (tracker *runTracker) served(dir string, n int) {
 	tracker.storeLocked(dir).isMade[n] = true
 }
 
-// isMaking is whether a run of the store is on its way.
-func (tracker *runTracker) isMaking(dir string) bool {
+// making is the chunk_store row of the store, and whether a run of it is on its way.
+func (tracker *runTracker) making(dir string) (storeID int64, isMaking bool) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	return len(tracker.storeLocked(dir).runByFirst) > 0
+	known := tracker.storeLocked(dir)
+	return known.storeID, len(known.runByFirst) > 0
+}
+
+// knowStoreID records the chunk_store row of the store.
+func (tracker *runTracker) knowStoreID(dir string, storeID int64) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	tracker.storeLocked(dir).storeID = storeID
 }
