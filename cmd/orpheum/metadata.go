@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/backup"
+	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -53,6 +55,9 @@ type jobServices struct {
 	scans *library.Scans
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
+	// certificates obtains and renews the HTTPS certificate of the server's public name; nil for a
+	// server with none (D243 §6).
+	certificates *certificate.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -224,6 +229,7 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			derivedByAScanRequest(), services.scans.ExamineAssignee,
 		},
 		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
+		{jobs.KindRenewCertificate, services.renewCertificate, nil, nil, 1, []string{sweepCertificate}, nil},
 	}
 }
 
@@ -241,7 +247,31 @@ const (
 	sweepPasses          = "identification passes"
 	sweepLoudness        = "loudness measurements"
 	sweepScheduledBackup = "the scheduled backup"
+	sweepCertificate     = "the certificate's renewal"
 )
+
+// certificateCheckEvery is how often the certificate's sweep asks whether a renewal is due: daily,
+// against a month's margin before it expires (D243 §6).
+const certificateCheckEvery = 24 * time.Hour
+
+// renewCertificate runs a renewal; a server with no public name has none to renew.
+func (services jobServices) renewCertificate(ctx context.Context, job jobs.Job) error {
+	if services.certificates == nil {
+		return jobs.MarkPermanent(errNoPublicName)
+	}
+	return services.certificates.HandleRenew(ctx, job)
+}
+
+// queueCertificateRenewal asks for a renewal when one is due; none for a server with no public name.
+func (services jobServices) queueCertificateRenewal(ctx context.Context) (int, error) {
+	if services.certificates == nil {
+		return 0, nil
+	}
+	return services.certificates.QueueRenewal(ctx)
+}
+
+// errNoPublicName is a renewal asked of a server with no https.domain.
+var errNoPublicName = errors.New("the server has no public name (https.domain), so no certificate to renew")
 
 // scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due: within
 // a quarter of backup_hour_utc, whenever in the hour the server started; a look at the backup
@@ -286,6 +316,10 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 			},
 		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
+		{
+			Name: sweepCertificate, Derive: services.queueCertificateRenewal,
+			Every: func(context.Context) time.Duration { return certificateCheckEvery },
+		},
 		{
 			Name: sweepScheduledBackup, Derive: services.backups.QueueScheduled,
 			Every: func(context.Context) time.Duration { return scheduledBackupCheckEvery },

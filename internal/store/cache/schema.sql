@@ -3,15 +3,15 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 27
+-- cache schema version 28
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','examine','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch_metadata','make_artwork_sizes','prepare','extract_subtitle','convert_fetched_subtitle','measure_loudness','scan','examine','backup','renew_certificate')),
   -- What it works on, one column by kind (D227 section 2): fetch_metadata and make_artwork_sizes
   -- an item, prepare a rendition, extract_subtitle a stream, convert_fetched_subtitle a fetched subtitle,
   -- measure_loudness a file, scan a scan (its listing), examine a scan's batch. At most one is set;
-  -- backup sets none: it works on the whole persistent directory (D243 section 11).
+  -- backup and renew_certificate set none: they work on the whole server (D243 sections 6, 11).
   item_id             INTEGER,
   rendition_id        INTEGER,
   stream_id           INTEGER,

@@ -147,6 +147,11 @@ listen = "127.0.0.1:8432"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 
+[https]
+domain = ""
+contact = ""
+listen = ":443"
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

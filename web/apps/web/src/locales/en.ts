@@ -510,6 +510,7 @@ export const en = {
       scan: "Listing a folder",
       examine: "Reading new files",
       backup: "Backing up",
+      renewCertificate: "Renewing the server's certificate",
     },
     state: {
       queued: "Waiting",

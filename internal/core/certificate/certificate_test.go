@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package certificate
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/certificate/certificatetest"
+	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
+	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare/cloudflaretest"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
+)
+
+// domain is the name the tests' certificate is for.
+const domain = "media.orpheum-app.com"
+
+// memoryFiles is a persistent directory in memory.
+type memoryFiles struct {
+	mutex sync.Mutex
+	files map[string][]byte
+}
+
+func (files *memoryFiles) ReadPersistentFile(name string) ([]byte, error) {
+	files.mutex.Lock()
+	defer files.mutex.Unlock()
+	contents, found := files.files[name]
+	if !found {
+		return nil, instancedir.ErrNotFound
+	}
+	return contents, nil
+}
+
+func (files *memoryFiles) WritePersistentFile(name string, contents []byte) error {
+	files.mutex.Lock()
+	defer files.mutex.Unlock()
+	files.files[name] = contents
+	return nil
+}
+
+// heardQueue keeps the renewals asked for.
+type heardQueue struct{ requests []jobs.Request }
+
+func (queue *heardQueue) Enqueue(_ context.Context, request jobs.Request) (bool, error) {
+	queue.requests = append(queue.requests, request)
+	return true, nil
+}
+
+// bench is a certificate service over a fake CA and a fake Cloudflare, its files and its queue.
+type bench struct {
+	service   *Service
+	authority *certificatetest.CA
+	dns       *cloudflaretest.Fake
+	files     *memoryFiles
+	queue     *heardQueue
+	clock     *clocktest.Fake
+	parts     Parts
+}
+
+func newBench(t *testing.T, token cloudflaretest.Keys) bench {
+	t.Helper()
+	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	dns := cloudflaretest.New(t, "orpheum-app.com")
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fakeClock := clocktest.NewFake(now)
+	files, queue := &memoryFiles{files: map[string][]byte{}}, &heardQueue{}
+	authority := certificatetest.NewCA(t, dns, now, 90*24*time.Hour)
+	parts := Parts{
+		Domain: domain, Contact: "owner@example.org", DirectoryURL: authority.Directory(), HTTP: httpClient,
+		DNS: cloudflare.New(httpClient, dns.Server.URL, token), Files: files, Queue: queue, Clock: fakeClock,
+		Logger: slog.New(slog.DiscardHandler),
+	}
+	service, err := New(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bench{
+		service: service, authority: authority, dns: dns, files: files, queue: queue, clock: fakeClock, parts: parts,
+	}
+}
+
+// The certificate is obtained by proving the name with a DNS-01 record set through Cloudflare, which
+// is removed again; it is served at once, kept, and served again by a server that starts later
+// (D243 §6).
+func TestObtain_ProvesTheNameByDNSServesTheCertificateAndKeepsIt(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	if _, err := bench.service.GetCertificate(nil); !errors.Is(err, ErrNoCertificate) {
+		t.Errorf("before any is obtained, GetCertificate = %v; want ErrNoCertificate", err)
+	}
+	if err := bench.service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	served, err := bench.service.GetCertificate(nil)
+	if err != nil || served.Leaf == nil || len(served.Leaf.DNSNames) != 1 || served.Leaf.DNSNames[0] != domain {
+		t.Fatalf("GetCertificate = %+v, %v; want a certificate for %s", served, err, domain)
+	}
+	if set := bench.dns.EverSet("_acme-challenge." + domain); len(set) != 1 || bench.dns.RecordCount() != 0 {
+		t.Errorf("the challenge's records: set %v, %d left; want one set and removed", set, bench.dns.RecordCount())
+	}
+	again, err := New(bench.parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, keptErr := again.GetCertificate(nil)
+	if keptErr != nil || kept.Leaf.SerialNumber.Cmp(served.Leaf.SerialNumber) != 0 {
+		t.Errorf("a server started later serves %v, %v; want the kept certificate", kept, keptErr)
+	}
+}
+
+// A renewal is asked for when there is no certificate, and when the one there expires within a
+// month, and not before.
+func TestQueueRenewal_AsksWhenThereIsNoneOrItExpiresWithinAMonth(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	if asked, err := bench.service.QueueRenewal(t.Context()); err != nil || asked != 1 {
+		t.Errorf("with no certificate, QueueRenewal asked for %d (%v); want one", asked, err)
+	}
+	if err := bench.service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if asked, err := bench.service.QueueRenewal(t.Context()); err != nil || asked != 0 {
+		t.Errorf("with a new certificate, QueueRenewal asked for %d (%v); want none", asked, err)
+	}
+	bench.clock.Advance(61 * 24 * time.Hour)
+	if asked, err := bench.service.QueueRenewal(t.Context()); err != nil || asked != 1 {
+		t.Errorf("29 days before it expires, QueueRenewal asked for %d (%v); want one", asked, err)
+	}
+	if len(bench.queue.requests) != 2 || bench.queue.requests[1].Kind != jobs.KindRenewCertificate {
+		t.Errorf("asked for %+v; want two renewals", bench.queue.requests)
+	}
+}
+
+// A token not set, or refused, fails the renewal for the admin to fix, and no certificate is asked
+// of the CA.
+func TestHandleRenew_ARefusedTokenFailsForTheAdminToFix(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, "")
+	err := bench.service.HandleRenew(t.Context(), jobs.Job{Kind: jobs.KindRenewCertificate})
+	if !errors.Is(err, cloudflare.ErrTokenRefused) || bench.authority.Issued() != 0 {
+		t.Errorf("a renewal with no token = %v, %d issued; want ErrTokenRefused and none", err,
+			bench.authority.Issued())
+	}
+}

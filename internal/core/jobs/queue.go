@@ -40,7 +40,11 @@ const (
 	// KindExamine reads a batch of the files a scan found new or changed; its target is the batch
 	// (D240 §8).
 	KindExamine Kind = "examine"
-	KindBackup  Kind = "backup"
+	// KindBackup backs the persistent directory up; it names no target (D243 §11).
+	KindBackup Kind = "backup"
+	// KindRenewCertificate obtains or renews the server's HTTPS certificate; it names no target
+	// (D243 §6).
+	KindRenewCertificate Kind = "renew_certificate"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
@@ -48,20 +52,26 @@ const (
 func Kinds() []Kind {
 	return []Kind{
 		KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle,
-		KindMeasureLoudness, KindScan, KindExamine, KindBackup,
+		KindMeasureLoudness, KindScan, KindExamine, KindBackup, KindRenewCertificate,
 	}
 }
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
 // convert_fetched_subtitle, a file for measure_loudness, a scan for scan and a scan's batch for
-// examine. A job is queued with exactly one set and the others zero, but a backup, which works on
-// the whole persistent directory and names none (D243 §11): one at a time, since every backup is
-// one target. Enqueue refuses any other target with ErrNotOneTarget.
+// examine. A job is queued with exactly one set and the others zero, but a backup and the
+// certificate's renewal, which work on the whole server and name none (D243 §6, §11): one of each
+// at a time, since every such job of a kind is one target. Enqueue refuses any other target with ErrNotOneTarget.
 type Target = store.JobTarget
 
 // ErrNotOneTarget is a job that names no target, or more than one; or a backup that names one.
 var ErrNotOneTarget = errors.New("a job works on one target, and a backup on none")
+
+// isWholeServer is whether a kind works on the whole server and names no target: a backup and the
+// certificate's renewal, one of each at a time.
+func isWholeServer(kind Kind) bool {
+	return kind == KindBackup || kind == KindRenewCertificate
+}
 
 // requireOneTarget refuses a target that names no target or several, but for a backup, which
 // names none.
@@ -75,7 +85,11 @@ func requireOneTarget(kind Kind, target Target) error {
 			setCount++
 		}
 	}
-	if want := 1; setCount != want && (kind != KindBackup || setCount != 0) {
+	want := 1
+	if isWholeServer(kind) {
+		want = 0
+	}
+	if setCount != want {
 		return fmt.Errorf("%w: %s %+v", ErrNotOneTarget, kind, target)
 	}
 	return nil

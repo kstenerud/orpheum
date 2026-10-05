@@ -1864,7 +1864,8 @@
               "measure_loudness",
               "scan",
               "examine",
-              "backup"
+              "backup",
+              "renew_certificate"
             ],
             "type": "string"
           },
