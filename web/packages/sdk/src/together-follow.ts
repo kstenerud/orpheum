@@ -32,6 +32,14 @@ export const fastestNudgeFactor = 2;
  */
 export const scrubPauseWindowMs = 300;
 
+/**
+ * After a stall or a seek, a player is ready again only with this much of the film loaded ahead of
+ * it. Ready at its first frame, a player whose link is slower than the film plays that frame and
+ * stalls again, and a group that waits for it plays and freezes in turn without end (the owner's
+ * first test, 2026-10-05). Alone, the browser waits for more itself; in a group, this is that wait.
+ */
+export const refillAheadMs = 10_000;
+
 /** How often a following player checks its drift while the group plays. */
 export const checkDriftEveryMs = 1000;
 
@@ -84,15 +92,22 @@ export type FollowedMedia = Pick<
   | "ended"
   | "seeking"
   | "readyState"
+  | "networkState"
+  | "buffered"
+  | "duration"
   | "play"
   | "pause"
   | "addEventListener"
   | "removeEventListener"
 >;
 
-/** HTMLMediaElement.HAVE_METADATA and HAVE_FUTURE_DATA, which a plain page may not define. */
+/**
+ * HTMLMediaElement.HAVE_METADATA, HAVE_FUTURE_DATA and NETWORK_IDLE, which a plain page may not
+ * define.
+ */
 const haveMetadata = 1;
 const haveFutureData = 3;
+const networkIdle = 1;
 
 /** How a player follows its group. */
 export interface FollowOptions {
@@ -122,6 +137,28 @@ function isInStep(media: FollowedMedia, expectedMs: number): boolean {
     !media.seeking &&
     Math.abs(positionMsOf(media) - expectedMs) <= seekDriftBeyondMs
   );
+}
+
+/**
+ * Whether the player has loaded enough ahead to play on after a stall or a seek: refillAheadMs, or
+ * up to the film's end, or all the browser will load while it is paused, since the browser has
+ * stopped loading and waiting longer gains nothing.
+ */
+function hasRefilled(media: FollowedMedia): boolean {
+  if (media.readyState < haveFutureData) {
+    return false;
+  }
+  if (media.networkState === networkIdle) {
+    return true;
+  }
+  const { buffered, currentTime } = media;
+  for (let index = 0; index < buffered.length; index++) {
+    const endS = buffered.end(index);
+    if (buffered.start(index) <= currentTime && currentTime <= endS) {
+      return (endS - currentTime) * 1000 >= refillAheadMs || endS >= media.duration;
+    }
+  }
+  return false;
 }
 
 /** The command a leading player's own event is, if any: its person's play, pause or seek. */
@@ -171,6 +208,10 @@ class GroupFollower {
   #nudgeEndsAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
   #hasCaughtUp = false;
+  /** Whether it has stalled or sought, and has not yet loaded enough ahead to play on. */
+  #isRefilling = false;
+  /** Whether the group was last told it buffers, so loading only tells it of a change. */
+  #wasReportedBuffering: boolean | undefined = undefined;
   /**
    * Whether a command this player sent awaits the server's answer: until the group changes, the
    * player is left as its person put it, not pulled back to the group as it was.
@@ -186,12 +227,11 @@ class GroupFollower {
   }
 
   /** The player's state as the group is told it. */
-  readonly playerState = (): PlayerState => ({
-    positionMs: positionMsOf(this.#media),
-    isPlaying: !this.#media.paused,
-    isBuffering:
-      !this.#hasCaughtUp || this.#media.readyState < haveFutureData || this.#media.seeking,
-  });
+  readonly playerState = (): PlayerState => {
+    const isBuffering = this.#isBuffering();
+    this.#wasReportedBuffering = isBuffering;
+    return { positionMs: positionMsOf(this.#media), isPlaying: !this.#media.paused, isBuffering };
+  };
 
   /** The group changed: whatever this player asked for is answered. */
   readonly groupChanged = (): void => {
@@ -215,6 +255,7 @@ class GroupFollower {
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
+    this.#noteLoading(event);
     if (event === "seeking" && this.#pendingPause !== undefined) {
       // A pause and then a seek is a person dragging the timeline: the seek is what they meant.
       clearTimeout(this.#pendingPause);
@@ -231,22 +272,58 @@ class GroupFollower {
         : undefined;
     if (command === undefined) {
       this.apply();
-    } else if (command.command === "pause") {
-      clearTimeout(this.#pendingPause);
-      this.#pendingPause = setTimeout(() => {
-        this.#pendingPause = undefined;
-        this.#send(command);
-      }, scrubPauseWindowMs);
     } else {
-      this.#send(command);
+      this.#lead(command);
     }
     this.#connection.reportState();
+  };
+
+  /** Sends a leading player's command: a pause only once no seek has followed it. */
+  #lead(command: GroupCommand): void {
+    if (command.command !== "pause") {
+      this.#send(command);
+      return;
+    }
+    clearTimeout(this.#pendingPause);
+    this.#pendingPause = setTimeout(() => {
+      this.#pendingPause = undefined;
+      this.#send(command);
+    }, scrubPauseWindowMs);
+  }
+
+  /** The browser loaded more: it moves nothing, and tells the group only if it made it ready. */
+  readonly loaded = (): void => {
+    this.#noteLoading("progress");
+    if (this.#isBuffering() !== this.#wasReportedBuffering) {
+      this.#connection.reportState();
+    }
   };
 
   /** Stops what is pending, as the follower stops. */
   readonly stop = (): void => {
     clearTimeout(this.#pendingPause);
   };
+
+  /** Starts refilling at a stall or a seek, and ends it once enough is loaded ahead. */
+  #noteLoading(event: string): void {
+    const media = this.#media;
+    if (event === "waiting" || event === "seeking" || media.readyState < haveFutureData) {
+      this.#isRefilling = true;
+    } else if (this.#isRefilling && hasRefilled(media)) {
+      this.#isRefilling = false;
+    }
+  }
+
+  /** Whether the player holds the group up: not yet caught up, loading, or refilling. */
+  #isBuffering(): boolean {
+    const media = this.#media;
+    return (
+      !this.#hasCaughtUp ||
+      media.readyState < haveFutureData ||
+      media.seeking ||
+      (this.#isRefilling && !hasRefilled(media))
+    );
+  }
 
   #send(command: GroupCommand): void {
     this.#isAwaitingGroup = true;
@@ -313,7 +390,7 @@ class GroupFollower {
  * the group's position while it is Paused, Waiting or Idle; playing while it is Playing, its drift
  * nudged away by the rate or sought across. It tells the group its state on every change, and
  * counts as buffering until it has once been where the group is, so a player still loading holds
- * no one up (D246 §6). A leading player's own play, pause and seek become commands; the
+ * no one up (D246 §6), and after a stall or a seek until it has refillAheadMs loaded. A leading player's own play, pause and seek become commands; the
  * follower's own do not. Returns the stopping.
  */
 export function followGroup(
@@ -322,15 +399,18 @@ export function followGroup(
   options: FollowOptions,
 ): () => void {
   const follower = new GroupFollower(media, connection, options);
-  const listeners = followedEvents.map(
-    (event) =>
-      [
-        event,
-        () => {
-          follower.heard(event);
-        },
-      ] as const,
-  );
+  const listeners = [
+    ...followedEvents.map(
+      (event) =>
+        [
+          event,
+          () => {
+            follower.heard(event);
+          },
+        ] as const,
+    ),
+    ["progress", follower.loaded] as const,
+  ];
   for (const [event, listener] of listeners) {
     media.addEventListener(event, listener);
   }
