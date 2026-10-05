@@ -120,6 +120,29 @@ func TestRunWatched_ReturnsTheEndOfTheLogAndNotTheOutput(t *testing.T) {
 	}
 }
 
+func TestRunWatched_GivesStdoutToItsWriterAsItComesAndKeepsNone(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "#tb 0: 1/1000\n0, 0, 0, 40, 900, 0x1\n"})
+	var given strings.Builder
+	ran, err := newRunner(t, fake).RunWatched(t.Context(), WatchedRun{
+		Arguments: []string{"-f", "framecrc", "pipe:1"}, StdoutTo: &given,
+		Watch: Watch{StartGrace: time.Hour, StallWindow: time.Hour, Deadline: time.Hour},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if given.String() != "#tb 0: 1/1000\n0, 0, 0, 40, 900, 0x1\n" || ran.Stdout != nil {
+		t.Errorf("the writer was given %q and the run kept %q; want all of stdout given and none kept",
+			given.String(), ran.Stdout)
+	}
+	if _, err := newRunner(t, fake).RunWatched(t.Context(), WatchedRun{
+		Arguments: []string{"-f", "null", "-"}, StdoutTo: &given, StdoutLimitBytes: 10,
+		Watch: Watch{StartGrace: time.Hour, StallWindow: time.Hour, Deadline: time.Hour},
+	}); err == nil {
+		t.Error("a run asked both to keep its stdout and to give it to a writer ran; want it refused")
+	}
+}
+
 func TestNewRunner_RefusesARelativeDirectory(t *testing.T) {
 	t.Parallel()
 	if _, err := NewRunner(".tools/ffmpeg"); err == nil || !strings.Contains(err.Error(), "absolute") {

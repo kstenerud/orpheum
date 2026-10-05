@@ -188,8 +188,11 @@ type WatchedRun struct {
 	// Input is fed to FFmpeg's stdin; nil leaves it closed.
 	Input []byte
 	// StdoutLimitBytes is how much of stdout is kept, and a run that writes more is refused, never
-	// truncated; zero discards stdout.
+	// truncated; zero discards stdout, unless StdoutTo takes it.
 	StdoutLimitBytes int
+	// StdoutTo, when set, is given stdout as FFmpeg writes it, and none of it is kept: an answer
+	// too long to hold, read as it comes. A run sets it or StdoutLimitBytes, not both.
+	StdoutTo io.Writer
 	// LogLimitBytes is how much of the end of stderr is returned, for a tool whose answer is in its
 	// log, as FFmpeg's ebur128 filter writes its summary when it ends; zero returns none.
 	LogLimitBytes int
@@ -197,6 +200,7 @@ type WatchedRun struct {
 }
 
 // Ran is what a watched run left: its stdout and the end of its log, as its WatchedRun asked.
+// Stdout given to a writer (WatchedRun.StdoutTo) is not in it.
 type Ran struct {
 	Stdout []byte
 	Log    string
@@ -212,7 +216,12 @@ func (runner *Runner) RunWatched(ctx context.Context, run WatchedRun) (Ran, erro
 		pausing: pausingOf(ctx), moved: movedOf(ctx),
 	}
 	var stdout *limitedBuffer
-	if run.StdoutLimitBytes > 0 {
+	switch {
+	case run.StdoutTo != nil && run.StdoutLimitBytes > 0:
+		return Ran{}, errors.New("a watched run keeps its stdout or gives it to a writer, not both")
+	case run.StdoutTo != nil:
+		streams.stdout = run.StdoutTo
+	case run.StdoutLimitBytes > 0:
 		stdout = &limitedBuffer{limitBytes: run.StdoutLimitBytes}
 		streams.stdout = stdout
 	}
