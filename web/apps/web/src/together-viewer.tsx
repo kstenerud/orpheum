@@ -54,11 +54,26 @@ import { useResource } from "./use-resource.ts";
  */
 export function TogetherViewer(): JSX.Element {
   const { navigation } = useServices();
-  const [secret] = useState(() => secretFromHash(navigation.fragment()));
+  const [secret, setSecret] = useState(() => secretFromHash(navigation.fragment()));
   const [membership, setMembership] = useState(() =>
     secret === undefined ? readMembership(tabStorage(), "viewer") : undefined,
   );
   const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
+  // A link pasted into a tab already here changes only what follows #, and the page does not load
+  // again: the new link is joined in place of whatever this tab was in.
+  useEffect(
+    () =>
+      navigation.subscribe(() => {
+        const pasted = secretFromHash(navigation.fragment());
+        if (pasted !== undefined) {
+          forgetMembership(tabStorage(), "viewer");
+          setSecret(pasted);
+          setMembership(undefined);
+          setEndReason(undefined);
+        }
+      }),
+    [navigation],
+  );
   if (endReason !== undefined) {
     return <SessionOver reason={endReason} />;
   }
