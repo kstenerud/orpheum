@@ -17923,7 +17923,9 @@ leaves Cut A, and a polished UI takes its place.
 
 ## D246 — What a person may do is their role's, an invite names who it is for, and a Watch Together viewer is an ephemeral account that sees only the host's playback
 
-**Decided** (2026-10-05), by the project owner, reviewing M4's Phases A, B and E as built. **Revises**
+**Decided** (2026-10-05), by the project owner, reviewing M4's Phases A, B and E as built, and
+answering the three questions that review left (§7–§9). **Revises**
+[D121](#d121--an-ability-is-a-row-in-a-closed-table-with-a-two-valued-grant-chosen-at-session-creation),
 [D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source)
 §1, [D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code)
 §1–§2, [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak),
@@ -17968,6 +17970,17 @@ leaves Cut A, and a polished UI takes its place.
    (D184), not when a video is about to start, and **no one waits for it**: once a viewer is
    ready, they start wherever the group's playback is; until something plays, the viewing area
    is black.
-7. **Backups are every *x* days at *y* o'clock** (D243 §11 had hours).
+7. **Backups are every *x* days at *y* o'clock** (D243 §11 had hours), *y* in the server's time
+   zone: a setting, an IANA name such as `Europe/Berlin`, that starts as the machine's own, so a
+   change of clocks for summer time is followed. Anything else the server schedules by the clock
+   uses it too.
+8. **In Cut A only the host controls playback**; D121's choice between the host and the group
+   goes. Later the rights become granular, given per invite link: play and pause, seek, next and
+   previous, and the like. The rights of the last link issued are the next one's defaults, and
+   the first link's are every right.
+9. **When a viewer stalls, everyone waits** for them in Cut A, as watch-together.md's Sync
+   already has it. What is best for more people is open; the owner: *"The problem comes when one
+   member stalls and the rest move on, and then the one member missed a crucial point. But then
+   again someone could just rewind..."*
 
 **Status:** Decided 2026-10-05; to be built in M4 in place of what it revises.
