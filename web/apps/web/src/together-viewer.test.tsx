@@ -44,7 +44,12 @@ const welcome = {
 function viewerServices(
   address: string,
   answers: Answers,
-): { services: ReturnType<typeof servedBy>; heard: Heard[]; server: FakeTogetherServer } {
+): {
+  services: ReturnType<typeof servedBy>;
+  heard: Heard[];
+  server: FakeTogetherServer;
+  place: ReturnType<typeof fakePlace>;
+} {
   const heard: Heard[] = [];
   const server = fakeTogetherServer();
   const place = fakePlace(address);
@@ -56,6 +61,7 @@ function viewerServices(
     },
     heard,
     server,
+    place,
   };
 }
 
@@ -246,6 +252,34 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await server.say(welcome);
     await server.say({ type: "ended", reason: "hostEnded" });
     expect(mounted.container.textContent).toContain("The host ended the session.");
+    mounted.unmount();
+  });
+
+  it("joins by a new link pasted into a tab still on the page, which does not load again", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.sessionStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server, heard, place } = viewerServices("/together", {
+      "POST /together/join": [200, { ...joined, sessionId: 2, membershipCredential: "second" }],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "hostEnded" });
+    // Only the part after # changed: the browser says so, and the page stays.
+    await act(async () => {
+      place.back("/together#second-secret");
+      await Promise.resolve();
+    });
+    const join = buttonWithText(mounted.container, "Join");
+    expect(join?.disabled).toBe(false);
+    await enter(mounted.container.querySelector("input"), "Gran");
+    await submit(mounted.container.querySelector("form"));
+    expect(heard).toEqual([
+      { methodAndPath: "POST /together/join", body: { secret: "second-secret", name: "Gran" } },
+    ]);
     mounted.unmount();
   });
 
