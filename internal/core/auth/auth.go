@@ -42,6 +42,9 @@ func ParseRole(name string) (Role, error) {
 // capabilityAdminister is the capability that makes a principal an administrator (D130).
 const capabilityAdminister = "administer"
 
+// capabilityHostWatchTogether lets a role start a Watch Together session (D125).
+const capabilityHostWatchTogether = "host_watch_together"
+
 // capabilityEditMetadata lets a role fix identification and metadata (the role table's
 // capabilities; the built-in admin role carries it).
 const capabilityEditMetadata = "edit_metadata"
@@ -99,6 +102,11 @@ type Principal struct {
 // IsAdmin reports whether the principal's role carries the administer capability.
 func (principal Principal) IsAdmin() bool {
 	return slices.Contains(principal.Capabilities, capabilityAdminister)
+}
+
+// CanHostWatchTogether reports whether the principal's role may host a Watch Together session.
+func (principal Principal) CanHostWatchTogether() bool {
+	return slices.Contains(principal.Capabilities, capabilityHostWatchTogether)
 }
 
 // CanEditMetadata reports whether the principal's role may fix identification and metadata:

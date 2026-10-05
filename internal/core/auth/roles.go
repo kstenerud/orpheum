@@ -19,7 +19,7 @@ import (
 // library (D243 §4).
 func Capabilities() []string {
 	return []string{
-		capabilityAdminister, "delete_media", "download", capabilityEditMetadata, "host_watch_together",
+		capabilityAdminister, "delete_media", "download", capabilityEditMetadata, capabilityHostWatchTogether,
 		"remote_access",
 	}
 }

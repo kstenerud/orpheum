@@ -4,6 +4,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"io"
@@ -37,6 +38,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -177,10 +179,14 @@ func newHarness(t *testing.T) testHarness {
 			Database: database, Queue: queue,
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
-		Playback:    playbackService,
-		Subtitles:   subtitlesService,
-		Renditions:  renditionsService,
-		Backups:     backups,
+		Playback:   playbackService,
+		Subtitles:  subtitlesService,
+		Renditions: renditionsService,
+		Backups:    backups,
+		Together: together.NewHub(now, rand.Reader, func(ctx context.Context, userID, fileID int64) bool {
+			reach, err := service.ReachOfUser(ctx, userID)
+			return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
+		}),
 		Preferences: preferencesService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,

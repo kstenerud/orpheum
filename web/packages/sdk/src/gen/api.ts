@@ -1141,6 +1141,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a Watch Together session of a film the host may play (D243 §1, §3) */
+        post: operations["createTogether"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End the session for everyone (host) */
+        delete: operations["endTogether"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}/cap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change how many people the session holds (host; D119) */
+        put: operations["setTogetherCap"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}/eject/{member}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a member; their devices are told and their credential admits nothing (host; D119) */
+        post: operations["ejectFromTogether"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give the session a new link; everyone already in stays (host; D119) */
+        post: operations["rotateTogether"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/together/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join a session by its link's secret; no account needed (D117, D119) */
+        post: operations["joinTogether"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -1458,6 +1560,23 @@ export interface components {
         CreateRoleOutputBody: {
             /** Format: int64 */
             id: number;
+        };
+        CreateTogetherInputBody: {
+            /** Format: int64 */
+            fileId: number;
+            /**
+             * Format: int64
+             * @description How many people it holds; two when absent (D243 §9)
+             */
+            peopleCap?: number;
+            /** @enum {string} */
+            transport: "group" | "host";
+        };
+        CreateTogetherOutputBody: {
+            joinSecret: string;
+            membershipCredential: string;
+            /** Format: int64 */
+            sessionId: number;
         };
         CurrentDeviceBody: {
             /** Format: int64 */
@@ -1887,6 +2006,18 @@ export interface components {
         JobsOutputBody: {
             jobs: components["schemas"]["JobBody"][] | null;
         };
+        JoinTogetherInputBody: {
+            /** @description How the others see you */
+            name: string;
+            secret: string;
+        };
+        JoinTogetherOutputBody: {
+            /** Format: int64 */
+            memberId: number;
+            membershipCredential: string;
+            /** Format: int64 */
+            sessionId: number;
+        };
         LevellingBody: {
             /**
              * Format: double
@@ -2055,6 +2186,10 @@ export interface components {
             offlineAt?: number;
             /** Format: int64 */
             rootCount: number;
+        };
+        PeopleCapInputBody: {
+            /** Format: int64 */
+            peopleCap: number;
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
@@ -2376,6 +2511,9 @@ export interface components {
              * @description Of them, those new or changed, to read
              */
             toExamineCount: number;
+        };
+        RotateTogetherOutputBody: {
+            joinSecret: string;
         };
         ScanOutputBody: {
             /** Format: int64 */
@@ -5397,6 +5535,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TitlesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTogetherInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTogetherOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    endTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setTogetherCap: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeopleCapInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ejectFromTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                member: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rotateTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotateTogetherOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    joinTogether: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinTogetherInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinTogetherOutputBody"];
                 };
             };
             /** @description Error */

@@ -657,6 +657,56 @@
         ],
         "type": "object"
       },
+      "CreateTogetherInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "peopleCap": {
+            "description": "How many people it holds; two when absent (D243 §9)",
+            "format": "int64",
+            "maximum": 32,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transport": {
+            "enum": [
+              "group",
+              "host"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "transport"
+        ],
+        "type": "object"
+      },
+      "CreateTogetherOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "joinSecret": {
+            "type": "string"
+          },
+          "membershipCredential": {
+            "type": "string"
+          },
+          "sessionId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessionId",
+          "joinSecret",
+          "membershipCredential"
+        ],
+        "type": "object"
+      },
       "CreatedOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1946,6 +1996,49 @@
         ],
         "type": "object"
       },
+      "JoinTogetherInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "How the others see you",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "name"
+        ],
+        "type": "object"
+      },
+      "JoinTogetherOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "memberId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "membershipCredential": {
+            "type": "string"
+          },
+          "sessionId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessionId",
+          "memberId",
+          "membershipCredential"
+        ],
+        "type": "object"
+      },
       "LevellingBody": {
         "additionalProperties": false,
         "properties": {
@@ -2450,6 +2543,21 @@
           "isShown",
           "rootCount",
           "diskCount"
+        ],
+        "type": "object"
+      },
+      "PeopleCapInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "peopleCap": {
+            "format": "int64",
+            "maximum": 32,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "peopleCap"
         ],
         "type": "object"
       },
@@ -3501,6 +3609,18 @@
           "toExamineCount",
           "examinedCount",
           "isAnotherScanQueued"
+        ],
+        "type": "object"
+      },
+      "RotateTogetherOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "joinSecret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "joinSecret"
         ],
         "type": "object"
       },
@@ -8622,6 +8742,306 @@
         "summary": "Films or series, by name in the library's locale or newest first",
         "tags": [
           "Browse"
+        ]
+      }
+    },
+    "/together": {
+      "post": {
+        "operationId": "createTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTogetherInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTogetherOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a Watch Together session of a film the host may play (D243 §1, §3)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/join": {
+      "post": {
+        "operationId": "joinTogether",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinTogetherInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Join a session by its link's secret; no account needed (D117, D119)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}": {
+      "delete": {
+        "operationId": "endTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "End the session for everyone (host)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}/cap": {
+      "put": {
+        "operationId": "setTogetherCap",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeopleCapInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change how many people the session holds (host; D119)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}/eject/{member}": {
+      "post": {
+        "operationId": "ejectFromTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove a member; their devices are told and their credential admits nothing (host; D119)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/{id}/rotate": {
+      "post": {
+        "operationId": "rotateTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotateTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Give the session a new link; everyone already in stays (host; D119)",
+        "tags": [
+          "Watch Together"
         ]
       }
     },

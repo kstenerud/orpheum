@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -206,8 +207,15 @@ func openAndWire(
 }
 
 // wireJobsInto gives the API the job queue and the outside hosts' provider services, and makes a
-// backup a job, the scheduled ones and an admin's (D243 §11).
+// backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions, whose
+// host may change what plays only to what they reach (D243 §4).
 func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedServices {
+	authService, browser := dependencies.Auth, dependencies.Browser
+	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
+		reach, err := authService.ReachOfUser(ctx, userID)
+		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
+	}
+	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay)
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
