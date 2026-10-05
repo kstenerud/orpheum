@@ -23,7 +23,6 @@ export async function requestTogetherPlayback(
       headers: membershipHeaders(credential),
       body: {
         playableFormats: asked.playableFormats,
-        network: "remote",
         audioOutput: asked.audioOutput,
       },
     }),

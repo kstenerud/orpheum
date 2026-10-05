@@ -49,7 +49,7 @@ export async function requestPlayback(
 ): Promise<PlaybackDecision> {
   return dataOrThrow(
     await api.POST("/playback", {
-      body: { fileId, playableFormats, network: "local" },
+      body: { fileId, playableFormats },
     }),
   );
 }

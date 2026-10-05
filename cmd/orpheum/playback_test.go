@@ -25,7 +25,7 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 	t.Parallel()
 	server, token, filmFileID := playableFilm(t, filmOnNode(t, "nfo"))
 	decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
+		"fileId": filmFileID, "playableFormats": map[string]any{
 			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"}, "subtitleFormats": []string{},
 			"containers": []string{"mkv"},
 		},
@@ -74,7 +74,7 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		`{"index":0,"codec_type":"subtitle","codec_name":"ass","tags":{"language":"eng"}}]}`
 	server, token, filmFileID := playableFilm(t, filmProbedAs(t, "nfo", reply))
 	decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
+		"fileId": filmFileID, "playableFormats": map[string]any{
 			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
 			"subtitleFormats": []string{"ass"},
 			"containers":      []string{"mkv"},
@@ -146,7 +146,7 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	var levelled levelling
 	pollUntil(t, "the film was measured", func() bool {
 		decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-			"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
+			"fileId": filmFileID, "playableFormats": map[string]any{
 				"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
 				"subtitleFormats": []string{},
 				"containers":      []string{"mkv"},

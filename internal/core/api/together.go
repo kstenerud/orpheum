@@ -9,7 +9,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -121,7 +120,6 @@ type ViewerPlaybackInput struct {
 	AuthorizationHeader
 	Body struct {
 		PlayableFormats PlayableFormatsBody `json:"playableFormats"`
-		Network         string              `doc:"Where the client is" enum:"local,remote" json:"network"`
 		AudioOutput     AudioOutputKind     `doc:"The viewer's speaker setup" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
@@ -310,7 +308,7 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 	}
 	started, err := dependencies.Playback.Start(ctx, holder, playback.Request{
 		FileID: holder.OnlyFileID, PlayableFormats: playableFormatsOf(input.Body.PlayableFormats),
-		Network: decide.Network(input.Body.Network), AudioOutput: string(input.Body.AudioOutput),
+		AudioOutput: string(input.Body.AudioOutput),
 	})
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))

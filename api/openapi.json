@@ -4206,14 +4206,6 @@
             "minimum": 1,
             "type": "integer"
           },
-          "network": {
-            "description": "Where the client is",
-            "enum": [
-              "local",
-              "remote"
-            ],
-            "type": "string"
-          },
           "playableFormats": {
             "$ref": "#/components/schemas/PlayableFormatsBody"
           },
@@ -4228,8 +4220,7 @@
         },
         "required": [
           "fileId",
-          "playableFormats",
-          "network"
+          "playableFormats"
         ],
         "type": "object"
       },
@@ -5050,21 +5041,12 @@
             ],
             "type": "string"
           },
-          "network": {
-            "description": "Where the client is",
-            "enum": [
-              "local",
-              "remote"
-            ],
-            "type": "string"
-          },
           "playableFormats": {
             "$ref": "#/components/schemas/PlayableFormatsBody"
           }
         },
         "required": [
-          "playableFormats",
-          "network"
+          "playableFormats"
         ],
         "type": "object"
       },

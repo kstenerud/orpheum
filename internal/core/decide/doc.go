@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package decide is the playback decision: given a file's streams, the device's playable formats
-// (its prioritised list per axis of the menu) and whether its network is local or remote, it
-// answers direct play, or a prepared rendition and its profile, with the transcode reasons.
+// (its prioritised list per axis of the menu), and nothing of where it is (D247 §11), it answers
+// direct play, or a prepared rendition and its profile, with the transcode reasons.
 // Whether that rendition already exists is the caller's. It is a pure function of declared
 // capabilities.
 //

@@ -233,10 +233,10 @@ source, then the newest); library/art.go:21 described it differently until 2026-
 tunables use a second one, the config file with starting values in code. For a person's choices
 there are three places (§1). Play behaviour has one owner (playback/report.go into play_*).
 
-**Sensing vs deciding at the client.** `POST /playback` takes `network: local|remote` from the
-client (cut-a §5 decision), and the web client hard-codes `"local"` (apps/web/src/play.tsx:42).
-Today the remote bit-rate ceiling (`remote_bit_rate_ceiling_kbps`) is applied only if the client
-declares that it is remote.
+**Sensing vs deciding at the client.** `POST /playback` took `network: local|remote` from the
+client, and the web client hard-coded `"local"`. D247 §11 (2026-10-05) removed it and the remote
+bit-rate ceiling with it: nothing knows where a client is, and a slow link shows itself by its
+stalls.
 
 ## 4. Findings, ranked
 
@@ -352,7 +352,8 @@ no schema change, but it is not cheap: `VACUUM INTO` copies the whole file, so e
 a second pass over the copy, and a restore would then have to rebuild the FTS indexes, which the
 start-up re-keying does not do when no name's fold changed.
 
-**F13. Client-declared network locality.** *Decided 2026-09-30; joins M4's questions.*
+**F13. Client-declared network locality.** *Decided 2026-09-30; joins M4's questions.* Answered
+by D247 §11 (2026-10-05): neither; nothing senses locality.
 Before M4's remote person, decide whether the core senses locality (from the request's address or
 the HTTPS name) or trusts the client. The web client currently always says `local`.
 
