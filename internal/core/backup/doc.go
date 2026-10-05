@@ -42,11 +42,19 @@
 //   - D194 §4: backups and the key.
 //   - D242 §5: a backup is a tarball of the persistent directory.
 //   - docs/contributors/design/plans/backup-restore.md.
+//   - A backup is a job, a person's or the schedule's: the schedule's is asked for at
+//     backup_hour_utc once the newest backup is backup_every_hours old, at once when it is a day
+//     overdue, and never holds secret.key; past backups_kept, the oldest backups are pruned, and the
+//     copies kept before a restore or a migration never are (D243 §11).
+//     TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue,
+//     TestPrune_KeepsTheNewestBackupsAndEveryCopyKeptBeforeARestoreOrMigration,
+//     TestJobArgsMerge_HoldsTheKeyWhenEitherAskedAndARunningOneCoversWhatItHolds.
 //
 // # Where to change
 //
 //   - backup.go: Write (orpheum backup, --include-key, and Service.Make for the admin interface),
 //     MakePlan and Restore (orpheum restore). The archive itself is internal/core/instancedir's
 //     (archive.go), the only core package that touches files.
-//     Scheduled backups and pruning are backup jobs, which come in M4 (D223 §6).
+//   - jobs.go: a backup as a job (D243 §11): a person's request, the scheduled one the sweep asks
+//     for, the handler, which prunes past backups_kept, and how two requests merge.
 package backup

@@ -34,6 +34,16 @@ export async function cancelJob(api: Api, jobId: number, idempotencyKey: string)
   );
 }
 
+/**
+ * A job as the list names it: its kind and what it works on, "Preparing a copy #12", or its kind
+ * alone for a backup, which works on the whole server (D243 §11).
+ */
+function jobName(t: TFunction, job: Job): string {
+  const kindText = t(`jobs.kind.${camelKey(job.kind)}`);
+  const target = targetId(job);
+  return target === undefined ? kindText : t("jobs.target", { kind: kindText, target });
+}
+
 /** The id of what a job works on: the one field its kind sets (D227). */
 export function targetId(job: Job): number | undefined {
   return (
@@ -111,16 +121,15 @@ export function JobList(props: {
   return (
     <ul className="jobs">
       {props.jobs.map((job) => {
-        const kindText = t(`jobs.kind.${camelKey(job.kind)}`);
+        const jobText = jobName(t, job);
         return (
           <li key={job.id} className="jobs__job">
-            <strong>{t("jobs.target", { kind: kindText, target: targetId(job) })}</strong>{" "}
-            <span>{t(`jobs.state.${job.state}`)}</span>{" "}
+            <strong>{jobText}</strong> <span>{t(`jobs.state.${job.state}`)}</span>{" "}
             {job.progressFraction === undefined ? null : (
               <progress
                 value={job.progressFraction}
                 max={1}
-                aria-label={t("jobs.progress", { kind: kindText, target: targetId(job) })}
+                aria-label={t("jobs.progress", { job: jobText })}
               />
             )}
             <span>{t("jobs.reason", { reason: job.reason })}</span>
@@ -139,7 +148,7 @@ export function JobList(props: {
             {isCancellable(job) ? (
               <button
                 type="button"
-                aria-label={t("jobs.cancelLabel", { kind: kindText, target: targetId(job) })}
+                aria-label={t("jobs.cancelLabel", { job: jobText })}
                 onClick={() => {
                   props.onCancel(job);
                 }}

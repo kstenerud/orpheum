@@ -182,6 +182,24 @@ describe("each kind of job", () => {
     expect([targetId(scanning), targetId(examining)]).toEqual([4, 9]);
   });
 
+  it("names a backup by its kind alone: it works on the whole server (D243 §11)", async () => {
+    const backingUp: Job = {
+      id: 8,
+      kind: "backup",
+      state: "queued",
+      reason: "an admin asked for a backup now",
+      attemptCount: 0,
+      createdAt: 1,
+    };
+    mounted = await mount(
+      withServices(<Jobs />, servedBy({ "GET /jobs": [200, { jobs: [backingUp] }] })),
+    );
+    expect(mounted.container.querySelector("strong")?.textContent).toBe("Backing up");
+    expect(mounted.container.querySelector("button")?.getAttribute("aria-label")).toBe(
+      "Cancel Backing up",
+    );
+  });
+
   it("has words on the jobs screen", () => {
     expect(isEveryKind).toBe(true);
     for (const kind of everyKind) {

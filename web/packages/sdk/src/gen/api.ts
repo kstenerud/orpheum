@@ -14,7 +14,7 @@ export interface paths {
         /** List the backups directory, newest first (admin; D242 §5) */
         get: operations["listBackups"];
         put?: never;
-        /** Back the persistent directory up now, into the backups directory (admin; D242 §5) */
+        /** Back the persistent directory up now, into the backups directory, as a job the job view shows (admin; D242 §5, D243 §11) */
         post: operations["makeBackup"];
         delete?: never;
         options?: never;
@@ -1888,7 +1888,6 @@ export interface components {
         };
         MadeBackupOutputBody: {
             includesKey: boolean;
-            name: string;
         };
         MakeBackupInputBody: {
             /** @description Put secret.key in it, for moving to another machine (D194 §4) */
@@ -2681,8 +2680,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

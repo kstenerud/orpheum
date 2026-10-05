@@ -3,9 +3,10 @@
 
 # Backup and restore
 
-- **Status:** BUILT for Cut A's manual backups (M1; as D242 changed them, 2026-10-03); scheduled
-  backups are M4's ([D243](../../decisions/working-notes.md): a job every 24 hours, 14 kept, never
-  holding the key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
+- **Status:** BUILT for Cut A: manual backups (M1; as D242 changed them, 2026-10-03), and scheduled
+  ones as jobs (M4, 2026-10-05; [D243](../../decisions/working-notes.md) §11: every
+  `backup_every_hours` at `backup_hour_utc`, the newest `backups_kept` kept, never holding the
+  key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
 - **Depends on:** library-model.md
 
 > **Since [D242](../../decisions/working-notes.md) (built 2026-10-03):** a backup is a gzipped
@@ -91,7 +92,8 @@ viewing to anyone with filesystem access. The sidecar mechanism structurally can
 > **IMPLEMENTED — see `internal/core/backup`** (M1): `orpheum backup` (with `--include-key`) and
 > `orpheum restore`, which says what it will overwrite, keeps it, and runs only with the server
 > stopped. Since D242 an admin also backs up from the System page, the key in it only when the box
-> is ticked. Scheduled backups and their retention are M4's (D243), with the job queue.
+> is ticked, as a job the job view shows; the server makes one on its own each day and prunes past
+> `backups_kept` (D243 §11).
 
 A backup that has never been restored is not a backup, so the deliverable is **a test that
 restores into an empty instance and asserts equivalence of the irreplaceable set** — not a

@@ -78,6 +78,8 @@ type testHarness struct {
 	loudness   *loudness.Service
 	subtitles  *subtitles.Service
 	renditions *renditions.Service
+	// backups makes the backups a job asks for (D243 §11).
+	backups *backup.Service
 }
 
 // handle runs job by its handler, as a runner would, and returns where its answer arrives
@@ -162,6 +164,8 @@ func newHarness(t *testing.T) testHarness {
 	}
 	browser := library.NewBrowser(database, seeded)
 	browser.SetNodeConnections(nodes)
+	backups := backup.NewService(database, directories, now)
+	backups.UseQueue(queue, seeded)
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
@@ -176,7 +180,7 @@ func newHarness(t *testing.T) testHarness {
 		Playback:    playbackService,
 		Subtitles:   subtitlesService,
 		Renditions:  renditionsService,
-		Backups:     backup.NewService(database, directories, now),
+		Backups:     backups,
 		Preferences: preferencesService,
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
@@ -202,7 +206,7 @@ func newHarness(t *testing.T) testHarness {
 		databasePath: database.Path(),
 		database:     database,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
-		nodeBytes: nodeBytes, queue: queue, resolver: resolver,
+		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, loudness: loudnessService, subtitles: subtitlesService, renditions: renditionsService,
 	}
 }

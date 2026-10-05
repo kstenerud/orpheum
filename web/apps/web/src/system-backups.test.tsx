@@ -30,7 +30,7 @@ const made = {
   madeAt: 1_790_000_000_000,
 };
 
-it("backs the server up now, the key only when asked, and lists the backup made (D242 §5)", async () => {
+it("asks for a backup now, the key only when asked, and lists the backup once made (D242 §5, D243 §11)", async () => {
   const heard: Heard[] = [];
   const services = servedBy(
     {
@@ -38,7 +38,7 @@ it("backs the server up now, the key only when asked, and lists the backup made 
         [200, { directory: "/srv/orpheum/backups", backups: [] }],
         [200, { directory: "/srv/orpheum/backups", backups: [made] }],
       ],
-      "POST /backups": [201, { name: made.name, includesKey: false }],
+      "POST /backups": [202, { includesKey: false }],
     },
     heard,
   );
@@ -50,6 +50,7 @@ it("backs the server up now, the key only when asked, and lists the backup made 
   expect(heard.filter((each) => each.methodAndPath === "POST /backups")).toEqual([
     { methodAndPath: "POST /backups", body: { includesKey: false } },
   ]);
+  expect(container.textContent).toContain("A backup is on its way");
   expect(container.textContent).toContain("backup-20261003T120000Z.tar.gz, 2.5 MB");
 });
 

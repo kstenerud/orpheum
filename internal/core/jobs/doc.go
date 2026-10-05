@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
-// (fetches, artwork, prepares, subtitles, loudness, a scan's listing and examining; backups come
-// in M4), their targets,
+// (fetches, artwork, prepares, subtitles, loudness, a scan's listing and examining, backups), their
+// targets,
 // the answers its handlers give, the sweeps that derive their work, and the job view. The rows are
 // cache.db's job table, kept by internal/store's JobStorage, a cache of the work persistent.db
 // implies (D231 §3): each kind's work is derived again by its sweeps, or asked for again by the
@@ -29,7 +29,8 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
-//   - A job names exactly one target. TestEnqueue_QueuesATargetOnceWhileItIsOpen reads it
+//   - A job names exactly one target, but a backup, which names none (D243 §11).
+//     TestEnqueue_QueuesATargetOnceWhileItIsOpen reads it
 //     through the queue; ErrNotOneTarget refuses the rest.
 //   - A target has at most one open job of a kind, and a repeat request merges into it
 //     (internal/platform/jobqueue says how). TestEnqueue_QueuesATargetOnceWhileItIsOpen;
@@ -100,6 +101,5 @@
 //     and cancelling what is retired.
 //     runner.go: a kind's runner, handing each claimed job to its handler as a Job. view.go: the
 //     job view, progress and cancel. readiness.go: how far work a person waits for is. Each
-//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go); backup
-//     jobs come in M4 (D223 §6, D243).
+//     kind's handler, runner count and argument merge are cmd/orpheum's (metadata.go).
 package jobs

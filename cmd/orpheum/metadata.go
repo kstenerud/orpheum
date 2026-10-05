@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
+	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -50,6 +51,8 @@ type jobServices struct {
 	exchanges *nodes.Exchanges
 	// scans run the scans of the nodes' roots: a listing, then the batches it leaves (D240).
 	scans *library.Scans
+	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
+	backups *backup.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -145,7 +148,9 @@ func newHostProviders(
 // jobArgsMerges are the kinds whose repeat requests merge their arguments their own way (D231 §8):
 // a fetch's, which identify's arguments are. The others keep the queued job's.
 func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
-	return map[jobs.Kind]jobs.ArgsMerge{jobs.KindFetchMetadata: identify.FetchArgsMerge()}
+	return map[jobs.Kind]jobs.ArgsMerge{
+		jobs.KindFetchMetadata: identify.FetchArgsMerge(), jobs.KindBackup: backup.JobArgsMerge(),
+	}
 }
 
 // jobRunners are the job queue's runners: each kind, its handler, what records a failed job as
@@ -218,6 +223,7 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			jobs.KindExamine, services.scans.HandleExamine, services.scans.RecordExamineFailure, nil, 1,
 			derivedByAScanRequest(), services.scans.ExamineAssignee,
 		},
+		{jobs.KindBackup, services.backups.HandleBackup, nil, nil, 1, []string{sweepScheduledBackup}, nil},
 	}
 }
 
@@ -234,7 +240,13 @@ const (
 	sweepRollingRefresh  = "rolling refresh"
 	sweepPasses          = "identification passes"
 	sweepLoudness        = "loudness measurements"
+	sweepScheduledBackup = "the scheduled backup"
 )
+
+// scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due: within
+// a quarter of backup_hour_utc, whenever in the hour the server started; a look at the backup
+// directory, nothing more (D243 §11).
+const scheduledBackupCheckEvery = 15 * time.Minute
 
 // sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
 func sweepsAfterAPass() []string {
@@ -274,6 +286,10 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 			},
 		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
+		{
+			Name: sweepScheduledBackup, Derive: services.backups.QueueScheduled,
+			Every: func(context.Context) time.Duration { return scheduledBackupCheckEvery },
+		},
 		{
 			Name: sweepLoudness, Derive: services.loudness.QueueMeasurements,
 			Every: func(ctx context.Context) time.Duration {
