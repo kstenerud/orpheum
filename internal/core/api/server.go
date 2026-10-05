@@ -329,7 +329,13 @@ func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 // logInternalError logs an unexpected error and returns the generic internal error, so nothing
 // about it reaches the client.
 func (server *Server) logInternalError(ctx context.Context, action string, err error) error {
-	server.logger.ErrorContext(ctx, "request failed", "action", action, "err", err)
+	if ctx.Err() != nil {
+		// The client went away, as a player does from a segment it no longer wants: no one reads
+		// the answer, and nothing failed but the asking.
+		server.logger.DebugContext(ctx, "a request's client went away", "action", action, "err", err)
+	} else {
+		server.logger.ErrorContext(ctx, "request failed", "action", action, "err", err)
+	}
 	return newError(http.StatusInternalServerError, CodeInternal, "internal error")
 }
 
