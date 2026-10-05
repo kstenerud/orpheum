@@ -430,6 +430,21 @@ type relayRequest struct {
 	cacheControl string
 }
 
+// nodeReadError is a read from a node's byte socket that failed. One whose client went away first,
+// as a player abandons a segment when it seeks, failed only in the asking: it is no silent node,
+// which a 503 and the log said it was (the owner's log, 2026-10-05). A node that did not answer is
+// logged with why, which the 503's log line does not say.
+func (server *Server) nodeReadError(ctx context.Context, err error) error {
+	if ctx.Err() == nil && errors.Is(err, nodes.ErrNodeSilent) {
+		server.logger.WarnContext(ctx, "a node did not answer a read of its bytes", "err", err)
+		failure := newError(http.StatusServiceUnavailable, CodeNodeSilent,
+			"the node that holds this file is not answering")
+		failure.ErrorBody.Error.FailedHop = HopNode
+		return failure
+	}
+	return server.logInternalError(ctx, "read from the node", err)
+}
+
 // relay streams what a node's byte socket answers, or the refusal when it answers anything but
 // the bytes or a range of them.
 func (server *Server) relay(
@@ -438,14 +453,8 @@ func (server *Server) relay(
 	source := request.source
 	//nolint:bodyclose // closed by the stream below, or on refusal
 	answer, err := dependencies.NodeBytes.Do(ctx, source.NodeID, request.method, source.Target, request.header)
-	if errors.Is(err, nodes.ErrNodeSilent) {
-		failure := newError(http.StatusServiceUnavailable, CodeNodeSilent,
-			"the node that holds this file is not answering")
-		failure.ErrorBody.Error.FailedHop = HopNode
-		return nil, failure
-	}
 	if err != nil {
-		return nil, server.logInternalError(ctx, "read from the node", err)
+		return nil, server.nodeReadError(ctx, err)
 	}
 	switch answer.StatusCode {
 	case http.StatusOK, http.StatusPartialContent, http.StatusRequestedRangeNotSatisfiable:
