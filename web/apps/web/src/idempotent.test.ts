@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { idempotent } from "./idempotent.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 
 /** Every source file of the app, as text, tests left out, by its path. */
 const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}"], {
@@ -53,6 +53,25 @@ describe("a request a click sends is safe to repeat (D244 §4)", () => {
       }
     }
     expect(unkeyed).toEqual([]);
+  });
+
+  it("makes a click's key where the page is not a secure context, as plain HTTP on a LAN name is", () => {
+    const randomUUID = crypto.randomUUID.bind(crypto);
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      const first = newIdempotencyKey();
+      expect(first).toMatch(/^[0-9a-f]{32}$/u);
+      expect(newIdempotencyKey()).not.toBe(first);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: randomUUID, configurable: true });
+    }
+  });
+
+  it("no source makes a key with crypto.randomUUID, which a page on plain HTTP has not", () => {
+    const users = Object.entries(sources)
+      .filter(([, source]) => source.includes("randomUUID("))
+      .map(([path]) => path);
+    expect(users).toEqual([]);
   });
 
   it("every exception it makes is still a file that posts", () => {

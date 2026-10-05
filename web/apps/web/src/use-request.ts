@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { newIdempotencyKey } from "./idempotent.ts";
 import { ApiProblem, reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -145,7 +146,7 @@ export function useRequest(describeFailure: (cause: unknown) => string): Request
   );
   const runRequest = useCallback(
     (request: ClickRequest): void => {
-      run(request, crypto.randomUUID());
+      run(request, newIdempotencyKey());
     },
     [run],
   );
