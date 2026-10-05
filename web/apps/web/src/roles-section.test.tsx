@@ -94,17 +94,18 @@ async function mountPeople(heard: Heard[]): Promise<Mounted> {
           "GET /libraries": [200, libraries],
           "PUT /roles/2": [204, null],
           "POST /roles": [201, { id: 4 }],
-          "POST /users": [
+          "GET /invitations": [200, { invitations: [] }],
+          "POST /invitations": [
             201,
             {
-              account: {
-                id: 5,
-                name: "cousin",
+              invitation: {
+                id: 3,
                 role: "friends",
-                isOutsider: true,
-                hasPassword: false,
+                adminNote: "my cousin",
+                issuedAt: 1,
+                expiresAt: 2,
               },
-              registrationInvitation: { secret: "s", expiresAt: 1 },
+              link: { secret: "s", expiresAt: 2 },
             },
           ],
         },
@@ -142,24 +143,18 @@ it("takes a library back from a role, and makes a role, as the admin asks (D243 
   });
 });
 
-it("invites someone from outside the house into a role", async () => {
+it("invites someone into a role with a note of who it is for, and shows the link to send (D246 §2)", async () => {
   const heard: Heard[] = [];
   mounted = await mountPeople(heard);
-  const add = buttonWithText(mounted.container, "Add, and make their link")?.closest("form");
-  await enter(add?.querySelector("input"), "cousin");
-  const select = add?.querySelector("select");
-  await choose(select, "friends");
-  await click(
-    [...(add?.querySelectorAll("label") ?? [])]
-      .find((label) => label.textContent.includes("an invite"))
-      ?.querySelector("input"),
-  );
-  await submit(add);
-  expect(heard.find((each) => each.methodAndPath === "POST /users")?.body).toEqual({
-    name: "cousin",
+  const invitation = buttonWithText(mounted.container, "Make their link")?.closest("form");
+  await enter(invitation?.querySelector("input"), "my cousin");
+  await choose(invitation?.querySelector("select"), "friends");
+  await submit(invitation);
+  expect(heard.find((each) => each.methodAndPath === "POST /invitations")?.body).toEqual({
     role: "friends",
-    isOutsider: true,
+    adminNote: "my cousin",
   });
+  expect(mounted.container.textContent).toContain("my cousin's link: send it to them");
 });
 
 it("gives a person another role from their page", async () => {
@@ -172,7 +167,7 @@ it("gives a person another role from their page", async () => {
           "GET /users/5": [
             200,
             {
-              account: { id: 5, name: "cousin", role: "user", isOutsider: true, hasPassword: true },
+              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
               watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
             },
           ],

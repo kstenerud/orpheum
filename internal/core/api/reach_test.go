@@ -177,7 +177,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"unhideProgress", "getMe", "listMyDevices", "changeMyDevice", "removeMyDevice", "signOutElsewhere",
 		"getWaitingCode", "issueDeviceCode", "changePassword", "setMyPreferences", "getClientSettings",
 		// Signing in and setting up, before there is a caller.
-		"getHealth", "setup", "signIn", "signOut", "signInWithCode", "register",
+		"getHealth", "setup", "signIn", "signOut", "signInWithCode", "register", "getLinkKind",
 		// A Watch Together session's own management: the link is the grant (D117), the host's reach was
 		// checked when it started, and the host changes what plays only to what they reach (D122,
 		// TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).

@@ -10,6 +10,7 @@ import {
   listPersonDevices,
   removePersonDevice,
   renamePerson,
+  setAdminNote,
   type Device,
   type Person,
 } from "./accounts.ts";
@@ -77,21 +78,22 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
   );
 }
 
+/** What the admin does to a person. */
+interface PersonActions {
+  readonly rename: (name: string) => void;
+  readonly setNote: (note: string) => void;
+  readonly giveRole: (role: string) => void;
+  readonly issueLink: (name: string) => void;
+  readonly issueCode: (name: string, device: { deviceName: string } | { deviceId: number }) => void;
+  readonly remove: (device: Device) => void;
+}
+
 /** What the admin does to a person, one request at a time, and what it issued and why one failed. */
 function usePersonActions(
   userId: number,
   reloads: { readonly reloadPerson: () => void; readonly reloadDevices: () => void },
 ): {
-  readonly actions: {
-    readonly rename: (name: string) => void;
-    readonly giveRole: (role: string) => void;
-    readonly issueLink: (name: string) => void;
-    readonly issueCode: (
-      name: string,
-      device: { deviceName: string } | { deviceId: number },
-    ) => void;
-    readonly remove: (device: Device) => void;
-  };
+  readonly actions: PersonActions;
   readonly issued: IssuedInvitation | undefined;
   readonly isBusy: boolean;
   readonly problem: string | undefined;
@@ -102,18 +104,22 @@ function usePersonActions(
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
+  // A change to the person, after which their page is read again.
+  const change = (request: () => Promise<void>): void => {
+    runRequest(async () => {
+      await request();
+      reloads.reloadPerson();
+    });
+  };
   const actions = {
     rename: (name: string): void => {
-      runRequest(async () => {
-        await renamePerson(api, userId, name);
-        reloads.reloadPerson();
-      });
+      change(() => renamePerson(api, userId, name));
+    },
+    setNote: (note: string): void => {
+      change(() => setAdminNote(api, userId, note));
     },
     giveRole: (role: string): void => {
-      runRequest(async () => {
-        await setPersonsRole(api, userId, role);
-        reloads.reloadPerson();
-      });
+      change(() => setPersonsRole(api, userId, role));
     },
     issueLink: (name: string): void => {
       runRequest(async (idempotencyKey) => {
@@ -142,6 +148,7 @@ function PersonHead(props: {
   readonly person: Person;
   readonly actions: {
     readonly rename: (name: string) => void;
+    readonly setNote: (note: string) => void;
     readonly giveRole: (role: string) => void;
     readonly issueLink: (name: string) => void;
     readonly issueCode: (name: string, device: { deviceName: string }) => void;
@@ -166,6 +173,14 @@ function PersonHead(props: {
         initialValue={account.name}
         submitLabel={t("person.rename")}
         onSubmit={props.actions.rename}
+      />
+      <OneField
+        label={t("people.adminNote")}
+        initialValue={account.adminNote ?? ""}
+        submitLabel={t("person.saveNote")}
+        onSubmit={props.actions.setNote}
+        isOptional
+        maxLength={200}
       />
       <RoleChoice current={account.role} onGive={props.actions.giveRole} />
       <button
@@ -223,12 +238,14 @@ function RoleChoice(props: {
   );
 }
 
-/** A form of one text field and its button. */
+/** A form of one text field and its button; an optional one may be left empty. */
 function OneField(props: {
   readonly label: string;
   readonly initialValue: string;
   readonly submitLabel: string;
   readonly onSubmit: (value: string) => void;
+  readonly isOptional?: boolean;
+  readonly maxLength?: number;
 }): JSX.Element {
   const [value, setValue] = useState(props.initialValue);
   const submit = (): void => {
@@ -239,8 +256,8 @@ function OneField(props: {
       <label>
         {props.label}{" "}
         <input
-          required
-          maxLength={100}
+          required={props.isOptional !== true}
+          maxLength={props.maxLength ?? 100}
           value={value}
           onChange={(event) => {
             setValue(event.target.value);

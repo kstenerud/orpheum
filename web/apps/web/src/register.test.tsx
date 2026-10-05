@@ -7,7 +7,7 @@ import { expect, it } from "vitest";
 
 import { createNavigation } from "./navigation.ts";
 import { Register } from "./register.tsx";
-import { mount, servedBy, submit, type Heard } from "./test-dom.tsx";
+import { enter, mount, servedBy, submit, type Heard } from "./test-dom.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 
 it("registers with the link's secret, and leaves it in neither the address nor the history (D218 §1)", async () => {
@@ -16,6 +16,7 @@ it("registers with the link's secret, and leaves it in neither the address nor t
   const services = {
     ...servedBy(
       {
+        "POST /registration/link": [200, { isInvitation: false, name: "partner" }],
         "POST /registration": [
           201,
           { token: "new-token", user: { device: { id: 9, name: "Phone" } } },
@@ -35,4 +36,34 @@ it("registers with the link's secret, and leaves it in neither the address nor t
   expect(services.session.token()).toBe("new-token");
   expect(services.navigation.route()).toEqual({ screen: "films" });
   expect(place.addresses).toEqual(["/films"]);
+});
+
+it("asks an invitation's person for their own name, and sends it with the password (D246 §2)", async () => {
+  const place = fakePlace("/register#invited");
+  const heard: Heard[] = [];
+  const services = {
+    ...servedBy(
+      {
+        "POST /registration/link": [200, { isInvitation: true }],
+        "POST /registration": [
+          201,
+          { token: "new-token", user: { device: { id: 9, name: "Phone" } } },
+        ],
+      },
+      heard,
+    ),
+    navigation: createNavigation(place),
+  };
+  const mounted = await mount(withServices(<Register />, services));
+  expect(mounted.container.textContent).toContain("Make your account");
+  const [name, password, again] = [...mounted.container.querySelectorAll("input")];
+  await enter(name, "Gran");
+  await enter(password, "secret");
+  await enter(again, "secret");
+  await submit(mounted.container.querySelector("form"));
+  mounted.unmount();
+  expect(heard.at(-1)).toMatchObject({
+    methodAndPath: "POST /registration",
+    body: { secret: "invited", name: "Gran", password: "secret" },
+  });
 });

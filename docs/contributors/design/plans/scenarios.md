@@ -250,8 +250,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 - **S40** — The owner invites the partner; the partner signs in from home; the owner revokes
   access; the partner's next request fails.
-  - **Design:** the invite is a registration link for an outsider account with a role (D243 §4,
-    D218), its secret after `#` (§3), working once. "Revokes" is either of two acts, and both
+  - **Design:** the invite is an invitation under a role, with the admin's note of who it is
+    for, from which the partner fills in their own name and password (D246 §2), its secret after
+    `#` (D243 §3), working once. "Revokes" is either of two acts, and both
     end access at the next request: the admin removes the person (their grants are revoked,
     D154), or takes a library back from their role, after which every answer treats it as absent
     (§4).

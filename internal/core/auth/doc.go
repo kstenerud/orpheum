@@ -35,10 +35,15 @@
 //     written and read as a device code is (D223 §2). Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce and
 //     TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced.
-//   - An account is made with no password and a registration invitation: 256 bits, for
-//     registration_invitation_life_days (seven to start), once, and only the newest works; the old
-//     password works until the new one is set (D218 §1, §5). Enforced by
-//     TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn,
+//   - An account is set up in full by the admin, or made from an invitation: 256 bits, for
+//     registration_invitation_life_days (seven to start), once, under a role and with the admin's
+//     note, which the account keeps; its person fills in their own name and password, and a name
+//     already taken spends nothing. A withdrawn invitation, or one into a role since deleted,
+//     admits no one (D246 §2). Enforced by
+//     TestInvitation_MakesTheAccountItsPersonFillsInOnceAndSignsTheDeviceIn and
+//     TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne.
+//   - A registration link sets a forgotten password, once, and only the newest works; the old
+//     password works until the new one is set (D218 §5). Enforced by
 //     TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
 //     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
 //   - A device code is eight safe32 characters, read as safe32 reads them, for ten minutes, once;

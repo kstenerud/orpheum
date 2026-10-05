@@ -1,13 +1,13 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 299b949955b16dc8d6d5ec12902be4ba697d307fc53b42172edbf9cf82ff7015
--- The baseline (D228): persistent.db's schema at version 32 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0032 (D185's first schema, the steps
+-- orpheum:baseline folds 6c69b189bdc759ab15afa866a4d293c8b6c8d2b7f96a4ca60be4d95fcea699de
+-- The baseline (D228): persistent.db's schema at version 33 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0033 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
 -- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
 -- reader limits a device was given, D240, 0031's dropping of the node's report sequence, D240,
--- and 0032's one fetched subtitle per file, D244), and builds the schema and the seeded rows
--- they built; the checksum above is 0032_fetched_subtitle_once.sql's,
+-- 0032's one fetched subtitle per file, D244, and 0033's libraries each role reaches, D243), and
+-- builds the schema and the seeded rows they built; the checksum above is 0033_role_library.sql's,
 -- which a database migrated through that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
@@ -635,3 +635,16 @@ CREATE TABLE subtitle_text (                               -- class O: what the 
   PRIMARY KEY (source_hash, stream_index),
   CHECK ((failure IS NULL) = (ass IS NOT NULL AND vtt IS NOT NULL))
 );
+
+-- D243 section 4: the libraries a role's members may browse and play, each with whether they may
+-- rebroadcast it (section 5, stored now and offered when it is built). The built-in admin role
+-- reaches every library and has no rows; any other role reaches only those it lists. An image is
+-- served by its hash to whoever reaches an item that holds it, which artwork_source finds.
+CREATE TABLE role_library (                                -- class A (D243 section 4)
+  role_id          INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+  library_id       INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
+  may_rebroadcast  INTEGER NOT NULL DEFAULT 0 CHECK (may_rebroadcast IN (0,1)),
+  PRIMARY KEY (role_id, library_id)
+) WITHOUT ROWID;
+CREATE INDEX role_library_library ON role_library(library_id);
+CREATE INDEX artwork_source ON artwork(source_sha256) WHERE source_sha256 IS NOT NULL;

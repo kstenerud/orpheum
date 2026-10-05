@@ -87,7 +87,6 @@ type Principal struct {
 	Name         string
 	Role         Role
 	Capabilities []string
-	IsOutsider   bool
 	// Reach is the libraries the person may browse and play, as their role says now (D243 §4).
 	Reach Reach
 	// DeviceID is the device the session was signed in on (D217 §8), or 0 for a session from
@@ -133,15 +132,13 @@ func NewService(database *store.Database, clockSource clock.Clock, random io.Rea
 	}
 }
 
-// NewUser describes a user to create.
+// NewUser describes a user to create: set up in full, a name, a password and a role, and the
+// admin's note of who it is for, which only the admin sees (D246 §2).
 type NewUser struct {
-	Name       string
-	Password   string
-	Role       Role
-	IsOutsider bool
-	// AwaitsRegistration makes the user with no password: they set one from a registration invitation
-	// (D218), and until then nobody can sign in as them.
-	AwaitsRegistration bool
+	Name      string
+	Password  string
+	Role      Role
+	AdminNote string
 }
 
 // CreateUser adds a user with an argon2id password hash and returns its id.
@@ -158,8 +155,8 @@ func (service *Service) CreateUser(ctx context.Context, user NewUser) (int64, er
 // insertUser adds a user inside the caller's write transaction.
 func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries, user NewUser) (int64, error) {
 	name := textindex.Line(user.Name)
-	if name == "" || (user.Password == "") != user.AwaitsRegistration {
-		return 0, errors.New("a user needs a name, and a password unless they await registration")
+	if name == "" || user.Password == "" {
+		return 0, errors.New("a user needs a name and a password")
 	}
 	if err := refuseTakenName(ctx, queries, name, 0); err != nil {
 		return 0, err
@@ -171,18 +168,12 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if err != nil {
 		return 0, fmt.Errorf("find role %q: %w", user.Role, err)
 	}
-	var hash []byte
-	if !user.AwaitsRegistration {
-		if hash, err = service.hashWithCurrentCosts(ctx, user.Password); err != nil {
-			return 0, err
-		}
-	}
-	var outsider int64
-	if user.IsOutsider {
-		outsider = 1
+	hash, err := service.hashWithCurrentCosts(ctx, user.Password)
+	if err != nil {
+		return 0, err
 	}
 	id, err := queries.InsertUser(ctx, sqlcgen.InsertUserParams{
-		Name: name, RoleID: role.ID, PasswordHash: hash, IsOutsider: outsider,
+		Name: name, RoleID: role.ID, PasswordHash: hash, AdminNote: ptr.NilIfZero(textindex.Line(user.AdminNote)),
 		CreatedAt: service.clock.Now().UnixMilli(),
 	})
 	if err != nil {
@@ -399,7 +390,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
-		Capabilities: capabilities, IsOutsider: user.IsOutsider == 1, Reach: reach,
+		Capabilities: capabilities, Reach: reach,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
 	}, nil
 }

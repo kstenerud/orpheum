@@ -15,11 +15,12 @@ const tagAccounts = "Accounts"
 
 // AccountBody is one person, as the admin's list shows them.
 type AccountBody struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Role        string `doc:"The role's name, their whole access" json:"role"`
-	IsOutsider  bool   `json:"isOutsider"`
-	HasPassword bool   `doc:"False until they register from their link" json:"hasPassword"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Role string `doc:"The role's name, their whole access" json:"role"`
+	// AdminNote is the admin's note of who the person is for, which only the admin sees (D246 §2).
+	AdminNote   string `json:"adminNote,omitempty"`
+	HasPassword bool   `doc:"False for an account from before D246 that never registered" json:"hasPassword"`
 }
 
 // IssuedSecretBody is a registration invitation's secret or a device code, and when it stops working.
@@ -40,22 +41,22 @@ type AccountsOutput struct {
 	}
 }
 
-// CreateAccountInput is the admin making a person (D218 §1).
+// CreateAccountInput is the admin setting a person's account up in full (D246 §2): a name, a
+// password and a role, and the admin's note of who it is for.
 type CreateAccountInput struct {
 	AuthorizationHeader
 	Body struct {
-		Name string `json:"name" maxLength:"100" minLength:"1"`
-		Role string `doc:"The role's name, their whole access (D243 §4)" json:"role" maxLength:"100" minLength:"1"`
-		// IsOutsider makes an invitee from outside the house (D174 §1).
-		IsOutsider bool `doc:"From outside the house: an invitee" json:"isOutsider,omitempty"`
+		Name      string `json:"name" maxLength:"100" minLength:"1"`
+		Password  string `json:"password" minLength:"1"`
+		Role      string `doc:"The role's name, their whole access (D243 §4)" json:"role" maxLength:"100" minLength:"1"`
+		AdminNote string `doc:"Who it is for; only the admin sees it" json:"adminNote,omitempty" maxLength:"200"`
 	}
 }
 
-// CreateAccountOutput is the new person and their registration invitation.
+// CreateAccountOutput is the new person.
 type CreateAccountOutput struct {
 	Body struct {
-		Account                AccountBody      `json:"account"`
-		RegistrationInvitation IssuedSecretBody `json:"registrationInvitation"`
+		Account AccountBody `json:"account"`
 	}
 }
 
@@ -70,11 +71,13 @@ type IssuedSecretOutput struct {
 	Body IssuedSecretBody
 }
 
-// RegisterInput uses a registration invitation: its secret, the password the person chose, and the
-// device they are on (D218 §2).
+// RegisterInput uses a link: its secret, the name the person chose (an invitation's; a
+// registration link's person has one), the password they chose, and the device they are on (D218
+// §2, D246 §2).
 type RegisterInput struct {
 	Body struct {
 		Secret   string        `json:"secret"   minLength:"1"`
+		Name     string        `doc:"An invitation's: how they are shown and sign in" json:"name,omitempty" maxLength:"100"` //nolint:lll // one struct tag
 		Password string        `json:"password" minLength:"1"`
 		Device   NewDeviceBody `json:"device"`
 	}
@@ -119,17 +122,18 @@ func (server *Server) registerAccounts() {
 	}, server.listAccounts)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createAccount", Method: http.MethodPost, Path: "/users", DefaultStatus: http.StatusCreated,
-		Summary: "Make a person, and a one-time link for them to set a password (D218)", Tags: tags,
+		Summary: "Set a person's account up in full: a name, a password and a role (D246 §2)", Tags: tags,
 	}, server.createAccount)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueRegistrationInvitation", Method: http.MethodPost,
 		Path:    "/users/{id}/registration-invitation",
-		Summary: "A new registration invitation for a person, withdrawing the old; their password works until used",
+		Summary: "A new registration link for a person, withdrawing the old; their password works until used",
 		Tags:    tags,
 	}, server.issueRegistrationInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
-		Summary: "Use a registration invitation: set a password and sign this device in", Tags: tags,
+		Summary: "Use an invitation or a registration link: make the account or set a new password, and sign in",
+		Tags:    tags,
 	}, server.register)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueDeviceCode", Method: http.MethodPost, Path: "/device-codes",
@@ -149,7 +153,7 @@ func (server *Server) registerAccounts() {
 
 func accountBody(account auth.Account) AccountBody {
 	return AccountBody{
-		ID: account.ID, Name: account.Name, Role: string(account.Role), IsOutsider: account.IsOutsider,
+		ID: account.ID, Name: account.Name, Role: string(account.Role), AdminNote: account.AdminNote,
 		HasPassword: account.HasPassword,
 	}
 }
@@ -177,17 +181,16 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 		return nil, err
 	}
 	role := auth.Role(input.Body.Role)
-	id, invitation, err := dependencies.Auth.CreateAccount(ctx, auth.NewAccount{
-		Name: input.Body.Name, Role: role, IsOutsider: input.Body.IsOutsider,
+	id, err := dependencies.Auth.CreateUser(ctx, auth.NewUser{
+		Name: input.Body.Name, Password: input.Body.Password, Role: role, AdminNote: input.Body.AdminNote,
 	})
 	if err != nil {
 		return nil, server.authError(ctx, "create an account", err)
 	}
 	output := &CreateAccountOutput{}
 	output.Body.Account = AccountBody{
-		ID: id, Name: input.Body.Name, Role: string(role), IsOutsider: input.Body.IsOutsider,
+		ID: id, Name: input.Body.Name, Role: string(role), AdminNote: input.Body.AdminNote, HasPassword: true,
 	}
-	output.Body.RegistrationInvitation = issuedSecretBody(invitation)
 	return output, nil
 }
 
@@ -210,7 +213,8 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	if err != nil {
 		return nil, err
 	}
-	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Password, newDevice(input.Body.Device))
+	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Name, input.Body.Password,
+		newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "register", err)
 	}

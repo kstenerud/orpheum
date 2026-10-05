@@ -1,6 +1,6 @@
 -- application_id 1447646258
 -- user_version 33
--- compatible_version 32
+-- compatible_version 33
 -- sqlite_sequence role 2
 
 -- index artwork_chosen

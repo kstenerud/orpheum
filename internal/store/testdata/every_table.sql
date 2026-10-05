@@ -11,9 +11,9 @@ INSERT INTO root_scan (node_id, root_path, completed_at) VALUES (1, '/media/film
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES (1, '/media/films', '/media/films/disk2', 2050, 1);
 INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome, last_scan_at) VALUES (1, '/media/films', 2049, 1, 'complete', 1790000002000);
 
-INSERT INTO user (id, name, role_id, password_hash, is_outsider, created_at)
-  VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), 0, 1790000000000),
-         (2, 'partner', 2, NULL, 1, 1790000000000);
+INSERT INTO user (id, name, role_id, password_hash, admin_note, created_at)
+  VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), NULL, 1790000000000),
+         (2, 'partner', 2, NULL, 'Anna, from the bus station', 1790000000000);
 INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0);
 INSERT INTO device (id, user_id, name, platform, audio_output, added_at, last_signed_in_at)
   VALUES (1, 2, 'Living room TV', 'webos', 'built_in_speakers', 1790000000000, 1790000100000);
@@ -76,7 +76,9 @@ INSERT INTO group_text (collection_id, group_number, language, name, overview) V
 
 INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
-  VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1);
+  VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1),
+         (X'02', 'issued_secret', NULL, 'invitation', 1790000000000, 1790600000000, NULL, NULL, NULL);
+INSERT INTO invitation (id, secret_sha256, role_id, admin_note) VALUES (1, X'02', 2, 'Grandma');
 INSERT INTO setting (key, value_json, set_by_user_id, set_at)
   VALUES ('should_check_for_updates', 'false', 1, 1790000000000);
 INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)

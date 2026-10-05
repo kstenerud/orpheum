@@ -21,7 +21,7 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 }
 
 const getLiveUserByID = `-- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.password_hash, user.is_outsider, user.role_id, role.name AS role_name,
+SELECT user.id, user.name, user.password_hash, user.admin_note, user.role_id, role.name AS role_name,
   role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
@@ -32,7 +32,7 @@ type GetLiveUserByIDRow struct {
 	ID           int64
 	Name         string
 	PasswordHash []byte
-	IsOutsider   int64
+	AdminNote    *string
 	RoleID       int64
 	RoleName     string
 	Capabilities string
@@ -45,7 +45,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 		&i.ID,
 		&i.Name,
 		&i.PasswordHash,
-		&i.IsOutsider,
+		&i.AdminNote,
 		&i.RoleID,
 		&i.RoleName,
 		&i.Capabilities,
@@ -54,7 +54,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 }
 
 const getLiveUserByName = `-- name: GetLiveUserByName :one
-SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL
@@ -64,7 +64,6 @@ type GetLiveUserByNameRow struct {
 	ID           int64
 	Name         string
 	PasswordHash []byte
-	IsOutsider   int64
 	RoleName     string
 	Capabilities string
 }
@@ -78,7 +77,6 @@ func (q *Queries) GetLiveUserByName(ctx context.Context, name string) (GetLiveUs
 		&i.ID,
 		&i.Name,
 		&i.PasswordHash,
-		&i.IsOutsider,
 		&i.RoleName,
 		&i.Capabilities,
 	)
@@ -140,7 +138,7 @@ func (q *Queries) GetWatchStats(ctx context.Context, userID int64) (GetWatchStat
 }
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO user (name, role_id, password_hash, is_outsider, created_at)
+INSERT INTO user (name, role_id, password_hash, admin_note, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5)
 RETURNING id
 `
@@ -149,7 +147,7 @@ type InsertUserParams struct {
 	Name         string
 	RoleID       int64
 	PasswordHash []byte
-	IsOutsider   int64
+	AdminNote    *string
 	CreatedAt    int64
 }
 
@@ -158,7 +156,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 		arg.Name,
 		arg.RoleID,
 		arg.PasswordHash,
-		arg.IsOutsider,
+		arg.AdminNote,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -198,7 +196,7 @@ func (q *Queries) ListLibraryIDsOfRole(ctx context.Context, roleID int64) ([]int
 }
 
 const listLiveUsers = `-- name: ListLiveUsers :many
-SELECT user.id, user.name, role.name AS role_name, user.is_outsider, user.password_hash IS NOT NULL AS has_password,
+SELECT user.id, user.name, role.name AS role_name, user.admin_note, user.password_hash IS NOT NULL AS has_password,
   user.created_at
 FROM user
 JOIN role ON role.id = user.role_id
@@ -210,12 +208,13 @@ type ListLiveUsersRow struct {
 	ID          int64
 	Name        string
 	RoleName    string
-	IsOutsider  int64
+	AdminNote   *string
 	HasPassword bool
 	CreatedAt   int64
 }
 
-// Everyone, for the admin's list of people: whether each has set a password yet.
+// Everyone, for the admin's list of people: whether each has set a password yet, and the admin's
+// note of who each is for (D246 section 2).
 func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveUsers)
 	if err != nil {
@@ -229,7 +228,7 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 			&i.ID,
 			&i.Name,
 			&i.RoleName,
-			&i.IsOutsider,
+			&i.AdminNote,
 			&i.HasPassword,
 			&i.CreatedAt,
 		); err != nil {
@@ -257,6 +256,20 @@ type RenameUserParams struct {
 
 func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
 	_, err := q.db.ExecContext(ctx, renameUser, arg.Name, arg.ID)
+	return err
+}
+
+const setUserAdminNote = `-- name: SetUserAdminNote :exec
+UPDATE user SET admin_note = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type SetUserAdminNoteParams struct {
+	AdminNote *string
+	ID        int64
+}
+
+func (q *Queries) SetUserAdminNote(ctx context.Context, arg SetUserAdminNoteParams) error {
+	_, err := q.db.ExecContext(ctx, setUserAdminNote, arg.AdminNote, arg.ID)
 	return err
 }
 

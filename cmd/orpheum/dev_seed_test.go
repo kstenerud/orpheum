@@ -72,10 +72,10 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	if !strings.Contains(serverSecrets.body, tmdbSet) || !strings.Contains(serverSecrets.body, loginSet) {
 		t.Errorf("the seeded secrets are not set:\n%s", serverSecrets.body)
 	}
-	partner := signInAs(t, server.baseURL, "partner", "partner")
-	me := requestAPI(t, http.MethodGet, server.baseURL+"/me", partner, nil)
-	if !strings.Contains(me.body, `"isOutsider":true`) {
-		t.Errorf("partner is not an outsider: %s", me.body)
+	signInAs(t, server.baseURL, "partner", "partner")
+	people := requestAPI(t, http.MethodGet, server.baseURL+"/users", token, nil)
+	if !strings.Contains(people.body, `"name":"partner","role":"user","adminNote":"the remote partner"`) {
+		t.Errorf("the seeded partner has not the seed's note of who they are for: %s", people.body)
 	}
 	if err = server.stop(); err != nil {
 		t.Fatal(err)

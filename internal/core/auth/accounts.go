@@ -21,8 +21,10 @@ import (
 // single use, each in its own scope.
 const (
 	grantKindIssuedSecret = "issued_secret"
-	// A registration invitation, which lets its person set a password (D218 §1).
+	// A registration link, which lets its person set a new password (D218 §5).
 	grantScopeRegister = "register"
+	// An invitation, which makes an account under a role (D246 §2).
+	grantScopeInvitation = "invitation"
 	// A device code, which signs a new device in as its person (D218 §3).
 	grantScopeAddDevice = "add_device"
 )
@@ -46,35 +48,14 @@ type IssuedSecret struct {
 	ExpiresAt time.Time
 }
 
-// Account is one person, as the admin's list shows them.
+// Account is one person, as the admin's list shows them: with the admin's note of who they are
+// (D246 §2).
 type Account struct {
 	ID          int64
 	Name        string
 	Role        Role
-	IsOutsider  bool
+	AdminNote   string
 	HasPassword bool
-}
-
-// NewAccount is a person the admin makes, who sets a password from a registration link (D218): their
-// name, their role, which is their whole access (D243 §4), and whether they are from outside the
-// house (D174 §1), an invitee.
-type NewAccount struct {
-	Name       string
-	Role       Role
-	IsOutsider bool
-}
-
-// CreateAccount makes a person with a name and role and no password, and a registration invitation for
-// them to set one (D218 §1).
-func (service *Service) CreateAccount(ctx context.Context, account NewAccount) (int64, IssuedSecret, error) {
-	id, err := service.CreateUser(ctx, NewUser{
-		Name: account.Name, Role: account.Role, IsOutsider: account.IsOutsider, AwaitsRegistration: true,
-	})
-	if err != nil {
-		return 0, IssuedSecret{}, err
-	}
-	invitation, err := service.IssueRegistrationInvitation(ctx, id)
-	return id, invitation, err
 }
 
 // Accounts lists everyone.
@@ -86,16 +67,16 @@ func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
 	accounts := make([]Account, 0, len(rows))
 	for _, row := range rows {
 		accounts = append(accounts, Account{
-			ID: row.ID, Name: row.Name, Role: Role(row.RoleName), IsOutsider: row.IsOutsider == 1,
+			ID: row.ID, Name: row.Name, Role: Role(row.RoleName), AdminNote: ptr.ValueOrZero(row.AdminNote),
 			HasPassword: row.HasPassword,
 		})
 	}
 	return accounts, nil
 }
 
-// IssueRegistrationInvitation makes a person's registration invitation, withdrawing any earlier one: the
-// first for a new account, or a new one for a forgotten password, when the old password works
-// until the new one is set (D218 §1, §5). It takes the person out of the failed-sign-in limit.
+// IssueRegistrationInvitation makes a person's registration link, withdrawing any earlier one: for
+// a forgotten password, when the old password works until the new one is set (D218 §5). It takes
+// the person out of the failed-sign-in limit.
 func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID int64) (IssuedSecret, error) {
 	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
@@ -131,12 +112,21 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
-// Register uses a registration invitation: it sets its person's password, signs them in on the device
-// that opened it, which becomes theirs, and spends the invitation (D218 §2). The failed-sign-in limit
-// does not hold it back: its 256 bits cannot be guessed (D221 §4).
-func (service *Service) Register(ctx context.Context, secret, password string, device NewDevice) (string, error) {
+// Register uses a link: an invitation makes the account, with the name the person chose, under the
+// invitation's role and with the admin's note (D246 §2); a registration link sets its person's new
+// password (D218 §5), and name is not asked. Either signs them in on the device that opened it,
+// which becomes theirs, and spends the link. The failed-sign-in limit does not hold it back: its
+// 256 bits cannot be guessed (D221 §4).
+func (service *Service) Register(
+	ctx context.Context, secret, name, password string, device NewDevice,
+) (string, error) {
 	if password == "" {
 		return "", errors.New("a password is needed")
+	}
+	if isInvitation, err := service.isInvitation(ctx, secret); err != nil {
+		return "", err
+	} else if isInvitation {
+		return service.acceptInvitation(ctx, secret, name, password, device)
 	}
 	grant, err := service.spend(ctx, secret, grantScopeRegister)
 	if err != nil {
@@ -310,7 +300,8 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 		if lookErr != nil {
 			return lookErr
 		}
-		if found.Kind != grantKindIssuedSecret || found.Scope != scope || found.UserID == nil {
+		if found.Kind != grantKindIssuedSecret || found.Scope != scope || (found.UserID == nil) !=
+			(scope == grantScopeInvitation) {
 			return store.ErrNotFound
 		}
 		grant = found

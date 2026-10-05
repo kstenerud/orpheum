@@ -150,6 +150,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerReport()
 	server.registerHome()
 	server.registerAccounts()
+	server.registerInvitations()
 	server.registerDevices()
 	server.registerWaitingCode()
 	server.registerPerson()
@@ -288,6 +289,10 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 // roleRefusal is the API's error for auth's refusal of a change to a role, or nil for another.
 func roleRefusal(err error) *Error {
 	switch {
+	case errors.Is(err, auth.ErrNoNote):
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.adminNote", auth.ErrNoNote.Error())
+	case errors.Is(err, auth.ErrNoInvitation):
+		return newError(http.StatusNotFound, CodeNotFound, auth.ErrNoInvitation.Error())
 	case errors.Is(err, auth.ErrNoRole):
 		return newError(http.StatusNotFound, CodeNotFound, "no such role")
 	case errors.Is(err, auth.ErrRoleNameTaken):

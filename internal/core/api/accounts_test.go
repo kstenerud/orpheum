@@ -29,33 +29,38 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	created := harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
-	var made struct {
-		Account                AccountBody      `json:"account"`
-		RegistrationInvitation IssuedSecretBody `json:"registrationInvitation"`
+	wantError(t, harness.do(t, http.MethodPost, "/invitations", admin, map[string]string{"role": "user"}),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	invitation := harness.invite(t, admin, "user", "the partner")
+	if pending := harness.do(t, http.MethodGet, "/invitations", admin, nil); !strings.Contains(pending.body,
+		`"role":"user","adminNote":"the partner"`) {
+		t.Errorf("GET /invitations = %s, want the partner's", pending.body)
 	}
-	if err := json.Unmarshal([]byte(created.body), &made); err != nil || created.status != http.StatusCreated ||
-		made.RegistrationInvitation.Secret == "" {
-		t.Fatalf("POST /users = %d %s", created.status, created.body)
-	}
-	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
-	if !strings.Contains(listed.body, `"name":"partner","role":"user","isOutsider":false,"hasPassword":false`) {
-		t.Errorf("GET /users = %s, want partner without a password yet", listed.body)
+	kind := harness.do(t, http.MethodPost, "/registration/link", "",
+		map[string]string{"secret": invitation.Link.Secret})
+	if !strings.Contains(kind.body, `"isInvitation":true`) {
+		t.Errorf("POST /registration/link = %d %s, want an invitation", kind.status, kind.body)
 	}
 
 	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": made.RegistrationInvitation.Secret, "password": "partner-password", "device": testDevice,
+		"secret": invitation.Link.Secret, "name": "partner", "password": "partner-password",
+		"device": testDevice,
 	})
 	partner, name := readSignIn(t, registered)
 	if name != "partner" {
 		t.Errorf("registering signed in as %q, want partner", name)
 	}
+	var made struct{ Account AccountBody }
+	made.Account = harness.accountNamed(t, admin, "partner")
+	if made.Account.AdminNote != "the partner" || !made.Account.HasPassword {
+		t.Errorf("GET /users lists partner as %+v, want the invitation's note and a password", made.Account)
+	}
 	again := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": made.RegistrationInvitation.Secret, "password": "x", "device": testDevice,
+		"secret": invitation.Link.Secret, "name": "another", "password": "x", "device": testDevice,
 	})
 	wantError(t, again, http.StatusUnauthorized, CodeAuthRequired)
-	wantError(t, harness.do(t, http.MethodPost, "/users", partner, map[string]string{"name": "x", "role": "user"}),
-		http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPost, "/invitations", partner,
+		map[string]string{"role": "user", "adminNote": "x"}), http.StatusForbidden, CodeForbidden)
 
 	code := harness.do(t, http.MethodPost, "/device-codes", partner, map[string]string{"deviceName": "Living room TV"})
 	var issued IssuedSecretBody
@@ -180,7 +185,21 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
+	created := harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "user", "adminNote": "Anna"})
+	if created.status != http.StatusCreated ||
+		!strings.Contains(created.body, `"adminNote":"Anna","hasPassword":true`) {
+		t.Fatalf("POST /users, set up in full = %d %s", created.status, created.body)
+	}
+	if _, name := readSignIn(t, harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": "partner", "password": "partner-password", "device": testDevice,
+	})); name != "partner" {
+		t.Errorf("an account set up in full signs in as %q, want partner", name)
+	}
+	noted := harness.do(t, http.MethodPut, "/users/2/admin-note", admin, map[string]string{"adminNote": "Anna B."})
+	if noted.status != http.StatusNoContent {
+		t.Errorf("PUT /users/2/admin-note = %d %s", noted.status, noted.body)
+	}
 	wantError(t, harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "OWNER"}),
 		http.StatusConflict, CodeConflict)
 	if renamed := harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "Sam"}); renamed.status !=
@@ -188,7 +207,8 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 		t.Fatalf("rename = %d %s", renamed.status, renamed.body)
 	}
 	page := harness.do(t, http.MethodGet, "/users/2", admin, nil)
-	if !strings.Contains(page.body, `"name":"Sam"`) || !strings.Contains(page.body, `"watchedMs":0`) {
+	if !strings.Contains(page.body, `"name":"Sam"`) || !strings.Contains(page.body, `"adminNote":"Anna B."`) ||
+		!strings.Contains(page.body, `"watchedMs":0`) {
 		t.Errorf("GET /users/2 = %d %s", page.status, page.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/users/99", admin, nil), http.StatusNotFound, CodeNotFound)
@@ -243,4 +263,39 @@ func TestDeviceCodes_TooManyWrongCodesAreTooManyFailedSignIns(t *testing.T) {
 	wantErrorSaying(t, harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "owner-password", "device": testDevice}),
 		http.StatusTooManyRequests, CodeRateLimited, "too many failed sign-ins; wait and try again")
+}
+
+// invite makes an invitation into role, with the admin's note, and returns it and its link.
+func (harness testHarness) invite(t *testing.T, admin, role, note string) InvitationAndLink {
+	t.Helper()
+	invited := harness.do(t, http.MethodPost, "/invitations", admin, map[string]string{"role": role, "adminNote": note})
+	var made InviteOutput
+	if err := json.Unmarshal([]byte(invited.body), &made.Body); err != nil || invited.status != http.StatusCreated ||
+		made.Body.Link.Secret == "" || made.Body.Invitation.AdminNote != note || made.Body.Invitation.Role != role {
+		t.Fatalf("POST /invitations = %d %s", invited.status, invited.body)
+	}
+	return InvitationAndLink{Invitation: made.Body.Invitation, Link: made.Body.Link}
+}
+
+// InvitationAndLink is an invitation and its link, as POST /invitations answers.
+type InvitationAndLink struct {
+	Invitation InvitationBody
+	Link       IssuedSecretBody
+}
+
+// accountNamed is the person named name, as the admin's list shows them.
+func (harness testHarness) accountNamed(t *testing.T, admin, name string) AccountBody {
+	t.Helper()
+	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
+	var everyone AccountsOutput
+	if err := json.Unmarshal([]byte(listed.body), &everyone.Body); err != nil {
+		t.Fatal(err)
+	}
+	for _, account := range everyone.Body.Accounts {
+		if account.Name == name {
+			return account
+		}
+	}
+	t.Fatalf("GET /users lists no %s: %s", name, listed.body)
+	return AccountBody{}
 }
