@@ -10,6 +10,7 @@ import type {
   TogetherSnapshot,
 } from "./together-connection.ts";
 import {
+  aimAheadAtMostMs,
   checkDriftEveryMs,
   scrubPauseWindowMs,
   driftCorrection,
@@ -343,5 +344,62 @@ describe("a player following its group", () => {
     media.fire("waiting");
     media.fire("canplay");
     expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
+  it("tells a waiting group its state each check, so the server can end the wait on time", () => {
+    const media = new FakeMedia();
+    const { connection, reports, setGroup } = fakeConnection({ ...paused, state: "Waiting" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    const reportsBefore = reports.length;
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(reports.length - reportsBefore).toBe(3);
+    setGroup({ ...paused, state: "Paused" }, 0);
+    const reportsPaused = reports.length;
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(reports).toHaveLength(reportsPaused);
+  });
+
+  it("corrects nothing while it is still loading, which a correction would only start again", () => {
+    const media = new FakeMedia();
+    media.readyState = 2;
+    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    monotonicNowMs = 30_000;
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(media.currentTime).toBe(0);
+    expect(media.paused).toBe(false);
+  });
+
+  it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {
+    const media = new FakeMedia();
+    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    expect(media.currentTime).toBe(60); // its first seek, with no load timed yet
+    media.readyState = 2;
+    media.fire("seeking");
+    monotonicNowMs = 2000;
+    media.currentTime = 0; // it fell behind while it loaded
+    media.readyState = 4;
+    media.fire("canplay");
+    expect(media.currentTime).toBe(62 + 2);
+    media.readyState = 2;
+    media.fire("seeking");
+    monotonicNowMs = 2000 + 3 * aimAheadAtMostMs;
+    media.currentTime = 0;
+    media.readyState = 4;
+    media.fire("canplay");
+    expect(media.currentTime).toBe((monotonicNowMs + 60_000 + aimAheadAtMostMs) / 1000);
   });
 });

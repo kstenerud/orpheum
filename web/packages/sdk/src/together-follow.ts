@@ -40,7 +40,17 @@ export const scrubPauseWindowMs = 300;
  */
 export const refillAheadMs = 10_000;
 
-/** How often a following player checks its drift while the group plays. */
+/**
+ * The furthest a catch-up seek aims ahead of the group: by the time a seek has loaded the group has
+ * moved on, so it aims ahead by how long the last one took to load, up to this (D247 §4,
+ * Silo-Server's number).
+ */
+export const aimAheadAtMostMs = 10_000;
+
+/**
+ * How often a following player checks its drift while the group plays, and reports its state while
+ * the group waits.
+ */
 export const checkDriftEveryMs = 1000;
 
 /**
@@ -217,6 +227,10 @@ class GroupFollower {
    * player is left as its person put it, not pulled back to the group as it was.
    */
   #isAwaitingGroup = false;
+  /** When its own last seek started, on the monotonic clock, until it has loaded; else undefined. */
+  #seekStartedAtMs: number | undefined = undefined;
+  /** How long its own last seek took to load. */
+  #lastLoadMs = 0;
   /** A leading player's pause not yet sent, which a seek that follows it at once withdraws. */
   #pendingPause: ReturnType<typeof setTimeout> | undefined = undefined;
 
@@ -291,6 +305,17 @@ class GroupFollower {
     }, scrubPauseWindowMs);
   }
 
+  /**
+   * Each checkDriftEveryMs: applies the group, and while it waits tells it this player's state, by
+   * which the server ends a wait whose time is up (D247 §4).
+   */
+  readonly tick = (): void => {
+    this.apply();
+    if (this.#connection.snapshot().group?.state === "Waiting") {
+      this.#connection.reportState();
+    }
+  };
+
   /** The browser loaded more: it moves nothing, and tells the group only if it made it ready. */
   readonly loaded = (): void => {
     this.#noteLoading("progress");
@@ -304,9 +329,20 @@ class GroupFollower {
     clearTimeout(this.#pendingPause);
   };
 
-  /** Starts refilling at a stall or a seek, and ends it once enough is loaded ahead. */
+  /**
+   * Starts refilling at a stall or a seek, and ends it once enough is loaded ahead; times how long
+   * its own seek took to load.
+   */
   #noteLoading(event: string): void {
     const media = this.#media;
+    if (
+      this.#seekStartedAtMs !== undefined &&
+      media.readyState >= haveFutureData &&
+      !media.seeking
+    ) {
+      this.#lastLoadMs = this.#options.monotonicMs() - this.#seekStartedAtMs;
+      this.#seekStartedAtMs = undefined;
+    }
     if (event === "waiting" || event === "seeking" || media.readyState < haveFutureData) {
       this.#isRefilling = true;
     } else if (this.#isRefilling && hasRefilled(media)) {
@@ -346,6 +382,7 @@ class GroupFollower {
 
   #seek(toMs: number): void {
     this.#isOwnSeekPending = true;
+    this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
   }
 
@@ -355,7 +392,13 @@ class GroupFollower {
     if (media.paused && !media.ended) {
       media.play().catch(() => undefined); // a refused play stays paused, and is tried again
     }
-    if (where.nowMs < this.#nudgeEndsAtMs || media.seeking || media.ended) {
+    // A player still loading is corrected by nothing: each correction would start its load again.
+    if (
+      where.nowMs < this.#nudgeEndsAtMs ||
+      media.seeking ||
+      media.ended ||
+      media.readyState < haveFutureData
+    ) {
       return;
     }
     const correction = driftCorrection({
@@ -367,7 +410,7 @@ class GroupFollower {
     if (correction.kind === "nudge") {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
     } else if (correction.kind === "seek") {
-      this.#seek(correction.toMs);
+      this.#seek(correction.toMs + Math.min(this.#lastLoadMs, aimAheadAtMostMs) * where.group.rate);
     }
   }
 
@@ -416,7 +459,7 @@ export function followGroup(
   }
   connection.setPlayer(follower.playerState);
   const unsubscribe = connection.subscribe(follower.groupChanged);
-  const checker = setInterval(follower.apply, checkDriftEveryMs);
+  const checker = setInterval(follower.tick, checkDriftEveryMs);
   follower.apply();
   connection.reportState();
   return () => {

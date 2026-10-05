@@ -31,6 +31,9 @@ describe("the group's changes as named events (D188)", () => {
     expect(groupEventText(i18n.t, group("buffering", 2), roster)).toBe(
       "Someone is buffering… everyone waits",
     );
+    expect(groupEventText(i18n.t, group("continuedWithout", 1), roster)).toBe(
+      "Continuing without Karl, who will catch up",
+    );
   });
 
   it("says nothing of an event it does not know, or of none", () => {

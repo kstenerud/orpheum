@@ -23,6 +23,11 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's.
   `src/together-follow.test.ts`.
+- **After a stall or a seek, a following player is ready again only with `refillAheadMs` loaded
+  ahead**, the film's end, or all the browser will load; it corrects nothing while it is still
+  loading; a catch-up seek aims ahead by how long its last seek took to load, up to
+  `aimAheadAtMostMs`; and while the group waits it reports its state at every check, so the server
+  can end the wait on time (D247 §4, §5). `src/together-follow.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
   the hello. `src/together-connection.test.ts`.
