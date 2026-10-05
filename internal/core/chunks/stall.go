@@ -23,6 +23,9 @@ type Offer struct {
 	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured: a player
 	// that stalls on it has no quality left to go to (D247 §8).
 	IsBelowTheLowest bool
+	// SoundCarriedGainDB is the levelling gain the starting sound's chunks carry, as a prepared
+	// copy's do (D226 §4), so the player, which levels after its volume, does not level it again.
+	SoundCarriedGainDB float64
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -62,15 +65,21 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 	if err := service.Ensure(ctx, playback.FileID, quality, chunk); err != nil {
 		return Offer{}, err
 	}
+	offer := Offer{
+		Quality: quality.Quality, StartAtBps: film.variantOf(quality).bandwidthBps, IsBelowTheLowest: isBelowTheLowest,
+	}
 	if playback.HasStartingAudio {
 		sound := Stream{Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex}
 		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
 			return Offer{}, err
 		}
+		track, err := service.levelledTrack(ctx, film, sound)
+		if err != nil {
+			return Offer{}, err
+		}
+		offer.SoundCarriedGainDB = track.CarriedGainDB
 	}
-	return Offer{
-		Quality: quality.Quality, StartAtBps: film.variantOf(quality).bandwidthBps, IsBelowTheLowest: isBelowTheLowest,
-	}, nil
+	return offer, nil
 }
 
 // chooseQuality is the place among lower, highest first, of the highest quality within

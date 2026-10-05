@@ -2290,6 +2290,8 @@ export interface components {
             isBelowTheLowest: boolean;
             /** Format: int64 */
             qualityKbps: number;
+            /** Format: double */
+            soundCarriedGainDb: number;
             /** Format: int64 */
             startAtBps: number;
             /** @description The chunked master playlist */

@@ -111,6 +111,27 @@ describe("reporting play state", () => {
     expect(sent[1]?.spans).toHaveLength(1);
   });
 
+  it("tells a stall at once with the link's speed, and again after a report that failed", async () => {
+    const { reporter, sent, setNow, failNext } = fakeReporter();
+    const link: { kbps: number | undefined } = { kbps: undefined };
+    reporter.measureLinkWith(() => link.kbps);
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    expect(sent[0]).not.toHaveProperty("linkKbps"); // not measured yet
+    link.kbps = 1834.6;
+    failNext();
+    reporter.recordStall(61_500);
+    await settled();
+    reporter.flush(62_000);
+    await settled();
+    expect(sent[1]?.stalls).toEqual([{ positionMs: 61_500 }]);
+    expect(sent[1]?.linkKbps).toBe(1835);
+    reporter.flush(70_000);
+    await settled();
+    expect(sent[2]).not.toHaveProperty("stalls");
+  });
+
   it("sends nothing more once a report is refused for good", async () => {
     const { reporter, sent, refuseNext, attempts } = fakeReporter();
     refuseNext();

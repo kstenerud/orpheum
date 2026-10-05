@@ -277,6 +277,14 @@ export const en = {
     prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
     preparing: "Preparing — ready in a few seconds.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
+    lowerQualityStarting:
+      "Your connection could not keep up, so this moves to a lower quality: {{height}}p, {{rate}}.",
+    lowerQuality:
+      "Playing a lower quality for your connection: {{height}}p, {{rate}}. It goes back up when the connection allows.",
+    cannotKeepUpUnmeasured:
+      "Even the lowest quality, {{lowest}}, is too much for this connection: it will keep pausing.",
+    cannotKeepUp:
+      "Your connection carries about {{link}}, and even the lowest quality needs {{lowest}}: it will keep pausing.",
     failure: {
       hlsUnsupported: "this browser cannot play streamed video",
       aborted: "loading it was stopped",

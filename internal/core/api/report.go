@@ -81,6 +81,9 @@ type LowerQualityBody struct {
 	Height      int   `json:"height"`
 	// IsBelowTheLowest is whether even the lowest quality is beyond the link as measured (D247 §8).
 	IsBelowTheLowest bool `json:"isBelowTheLowest"`
+	// SoundCarriedGainDB is the levelling gain the sound's chunks carry, as a prepared copy's do,
+	// which the player does not add again (D226 §4).
+	SoundCarriedGainDB float64 `json:"soundCarriedGainDb"`
 }
 
 // StopBody is the admin's stop of a playback, and what they said.
@@ -123,6 +126,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		output.Body.LowerQuality = &LowerQualityBody{
 			URL: Prefix + "/bytes/media/chunks/" + input.Token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 			QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
+			SoundCarriedGainDB: offer.SoundCarriedGainDB,
 		}
 	}
 	return output, nil

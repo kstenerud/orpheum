@@ -63,8 +63,8 @@ describe("play state", () => {
         [200, { stop: { message: "Back soon" } }],
       ],
     });
-    expect(await sendReport(api, "abc", report)).toBeUndefined();
-    expect(await sendReport(api, "abc", report)).toEqual({ message: "Back soon" });
+    expect(await sendReport(api, "abc", report)).toEqual({});
+    expect(await sendReport(api, "abc", report)).toEqual({ stop: { message: "Back soon" } });
   });
 
   it("gives up on a playback the server refuses for good, and not on a passing failure", async () => {
@@ -102,5 +102,41 @@ describe("play state", () => {
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Where you are is no longer being kept for next time. That is no longer here",
     );
+  });
+
+  it("moves to the lower quality a report's answer offers, and says which (D247 §2)", async () => {
+    const offer = {
+      url: "/api/v1/bytes/media/chunks/slow/master.m3u8",
+      startAtBps: 1_992_000,
+      qualityKbps: 1200,
+      height: 480,
+      isBelowTheLowest: false,
+      soundCarriedGainDb: 0,
+    };
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "slow" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy({ "POST /playback/slow/report": [200, { lowerQuality: offer }] }),
+      ),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      video.dispatchEvent(new Event("playing"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(mounted.container.textContent).toContain(
+      "Your connection could not keep up, so this moves to a lower quality: 480p, 1.2 Mb/s.",
+    );
+    expect(mounted.container.textContent).not.toContain("Playing the original file");
   });
 });

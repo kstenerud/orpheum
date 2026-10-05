@@ -90,8 +90,6 @@ export function adaptQuality(
 export interface ChunkedPlayback extends HlsPlayback {
   /** The quality playing, or undefined before one plays or where the browser chooses itself. */
   readonly playing: () => PlayedLevel | undefined;
-  /** The link's speed in kb/s as hls.js measures its chunks, or undefined where it cannot say. */
-  readonly estimateKbps: () => number | undefined;
   /** Whether it plays its lowest quality: a stall there is one no quality answers (D247 §8). */
   readonly isAtLowest: () => boolean;
 }

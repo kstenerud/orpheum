@@ -20,10 +20,16 @@ export type PlaySpan = Readonly<Schemas["SpanBody"]>;
  * What the player tells the server (cut-a §5): the body of POST /playback/{token}/report. The
  * player always sends its changes and spans, if only none, where the API also takes null.
  */
-export type PlayReport = Readonly<Omit<Schemas["ReportInputBody"], "events" | "spans">> & {
+export type PlayReport = Readonly<
+  Omit<Schemas["ReportInputBody"], "events" | "spans" | "stalls">
+> & {
   readonly events: readonly PlayEvent[];
   readonly spans: readonly PlaySpan[];
+  readonly stalls?: readonly PlayStall[];
 };
+
+/** A stall of the player, where it was (D247 §2): about its link, not what was watched. */
+export type PlayStall = Readonly<Schemas["StallBody"]>;
 
 /** How often a playing player reports where it is (play-state.md: about every ten seconds). */
 export const reportEveryMs = 10_000;
@@ -54,6 +60,8 @@ export class PlayReporter {
   private hasStarted = false;
   private events: PlayEvent[] = [];
   private spans: PlaySpan[] = [];
+  private stalls: PlayStall[] = [];
+  private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
   private isRefused = false;
@@ -95,6 +103,20 @@ export class PlayReporter {
     this.recordEvent("seeked", toMs, now);
   }
 
+  /**
+   * Reports the link's speed, as read measures it, with every report from now on (D247 §1);
+   * undefined when it cannot say yet.
+   */
+  measureLinkWith(read: () => number | undefined): void {
+    this.readLinkKbps = read;
+  }
+
+  /** The player stalled at positionMs (D247 §2); the server is told at once. */
+  recordStall(positionMs: number): void {
+    this.stalls.push({ positionMs: Math.max(0, Math.round(positionMs)) });
+    this.flush(positionMs);
+  }
+
   /** The file played to its end. */
   recordCompleted(positionMs: number): void {
     this.recordEvent("completed", positionMs, this.closeSpan(positionMs));
@@ -113,6 +135,7 @@ export class PlayReporter {
       return;
     }
     const now = this.readMonotonicMs();
+    const linkKbps = this.readLinkKbps();
     const report: PlayReport = {
       reportSeq: this.nextReportSeq(),
       sentMonoMs: now,
@@ -120,9 +143,12 @@ export class PlayReporter {
       positionReadMonoMs: now,
       events: this.events,
       spans: this.spans,
+      ...(this.stalls.length === 0 ? {} : { stalls: this.stalls }),
+      ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
     };
     this.events = [];
     this.spans = [];
+    this.stalls = [];
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -137,6 +163,7 @@ export class PlayReporter {
         // Kept for the next report, which is numbered afresh: the server took none of this one.
         this.events = [...report.events, ...this.events];
         this.spans = [...report.spans, ...this.spans];
+        this.stalls = [...(report.stalls ?? []), ...this.stalls];
       },
     );
   }

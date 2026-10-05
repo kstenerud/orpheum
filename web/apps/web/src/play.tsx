@@ -4,10 +4,16 @@ import "./play.css";
 
 import {
   mediaErrorFailure,
+  meterBufferGrowth,
+  playChunked,
   playHls,
   seekTo,
+  watchStalls,
+  type ChunkedPlayback,
   type HlsPlayback,
+  type LinkMeter,
   type PlaybackFailure,
+  type PlayedLevel,
 } from "@orpheum/player";
 import { whenReady, type Api, type components, type PlayableFormats } from "@orpheum/sdk";
 import {
@@ -24,7 +30,7 @@ import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
-import { usePlayState } from "./play-state.ts";
+import { usePlayState, type LowerQuality } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
@@ -38,10 +44,7 @@ import { useResource } from "./use-resource.ts";
 /** The server's decision on how a file plays here (cut-a §6). */
 export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 
-/**
- * Asks the server how a file plays in this browser. The link is local until M4 gives the
- * server an outside address.
- */
+/** Asks the server how a file plays in this browser; nothing of where it is (D247 §11). */
 export async function requestPlayback(
   api: Api,
   fileId: number,
@@ -65,17 +68,71 @@ export function PlayView(props: {
   /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
   readonly onDecideAgain: () => void;
 }): JSX.Element {
-  if (props.decision.delivery === "direct") {
-    return <DirectVideo {...props} />;
+  // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
+  const [moved, setMoved] = useState<
+    | { readonly mediaToken: string; readonly offer: LowerQuality; readonly positionMs: number }
+    | undefined
+  >(undefined);
+  const { mediaToken } = props.decision;
+  const onLowerQuality = useCallback(
+    (offer: LowerQuality, positionMs: number) => {
+      setMoved((already) => already ?? { mediaToken, offer, positionMs });
+    },
+    [mediaToken],
+  );
+  if (moved?.mediaToken === mediaToken) {
+    return (
+      <ChunkedVideo
+        {...props}
+        offer={moved.offer}
+        positionMs={moved.positionMs}
+        onLowerQuality={onLowerQuality}
+      />
+    );
   }
-  return <PreparedVideo {...props} />;
+  if (props.decision.delivery === "direct") {
+    return <DirectVideo {...props} onLowerQuality={onLowerQuality} />;
+  }
+  return <PreparedVideo {...props} onLowerQuality={onLowerQuality} />;
 }
 
 /**
- * What each way of playing is given: the file, the decision, and what follows a sound change or a
- * fetched subtitle.
+ * What each way of playing is given: the file, the decision, what follows a sound change or a
+ * fetched subtitle, and where a lower quality a stalled player is offered goes (D247 §2).
  */
-type PlayProps = Parameters<typeof PlayView>[0];
+type PlayProps = Parameters<typeof PlayView>[0] & {
+  readonly onLowerQuality: (offer: LowerQuality, positionMs: number) => void;
+};
+
+/** The device's monotonic clock, in milliseconds. */
+function monotonicMs(): number {
+  return performance.now();
+}
+
+/**
+ * Keeps the playback's play state on the server, and hands a lower quality the server offered a
+ * stalled player on, with where the video is (D247 §2).
+ */
+function useReportedPlayState(
+  props: PlayProps & {
+    readonly videoRef: RefObject<HTMLVideoElement | null>;
+    readonly readLinkKbps: () => number | undefined;
+  },
+): { readonly refusal: unknown; readonly stopMessage: string | undefined } {
+  const { api } = useServices();
+  const { onLowerQuality, videoRef } = props;
+  const { refusal, stopMessage, lowerQuality } = usePlayState(api, videoRef, {
+    mediaToken: props.decision.mediaToken,
+    resumePositionMs: props.decision.resumePositionMs,
+    readLinkKbps: props.readLinkKbps,
+  });
+  useEffect(() => {
+    if (lowerQuality !== undefined) {
+      onLowerQuality(lowerQuality, (videoRef.current?.currentTime ?? 0) * 1000);
+    }
+  }, [lowerQuality, onLowerQuality, videoRef]);
+  return { refusal, stopMessage };
+}
 
 /**
  * What sits under a playing video: the host's Watch Together session while one is on, "Start
@@ -90,11 +147,12 @@ function UnderTheVideo(
     readonly onAudioChosen: (track: AudioTrack) => void;
     /** The sound playing now, which levelling levels. */
     readonly level: SoundLevel;
+    /** The link's speed as the playback measures it, undefined until it can say (D247 §1). */
+    readonly readLinkKbps: () => number | undefined;
   },
 ): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const { refusal: reportRefusal, stopMessage } = usePlayState(api, props.videoRef, props.decision);
+  const { refusal: reportRefusal, stopMessage } = useReportedPlayState(props);
   return (
     <>
       {stopMessage === undefined ? null : (
@@ -193,6 +251,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
         {...props}
         videoRef={videoRef}
         level={soundLevelOf(decision, audioTrackIndex)}
+        readLinkKbps={() => playbackRef.current?.estimateKbps()}
         onAudioChosen={(track) => {
           setAudioTrackIndex(track.audioTrackIndex);
           play(track.audioTrackIndex, isBoostOn);
@@ -312,11 +371,36 @@ async function fetchUnavailability(
   return answer.unavailable;
 }
 
+/**
+ * Measures the link of a video playing a file of fileBitRateKbps as it is, from how fast its buffer
+ * grows (D247 §1); none for a file whose bit rate is not known.
+ */
+function useBufferMeter(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  fileBitRateKbps: number,
+): () => number | undefined {
+  const meterRef = useRef<LinkMeter | undefined>(undefined);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null || fileBitRateKbps <= 0) {
+      return undefined;
+    }
+    const meter = meterBufferGrowth(video, { fileBitRateKbps, monotonicMs });
+    meterRef.current = meter;
+    return () => {
+      meter.stop();
+      meterRef.current = undefined;
+    };
+  }, [videoRef, fileBitRateKbps]);
+  return () => meterRef.current?.estimateKbps();
+}
+
 /** The original file, playing; when the browser cannot play it, why, in words. */
 function DirectVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = usePlaybackFailure(props.fileId);
+  const readLinkKbps = useBufferMeter(videoRef, props.decision.fileBitRateKbps);
   const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
     setFailure(playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)));
   };
@@ -339,11 +423,154 @@ function DirectVideo(props: PlayProps): JSX.Element {
         videoRef={videoRef}
         level={soundLevelOf(props.decision, undefined)}
         onAudioChosen={props.onDecideAgain}
+        readLinkKbps={readLinkKbps}
       />
       {failure === undefined ? (
         <p className="play__reason">{t("play.direct")}</p>
       ) : (
         <p role="alert">{t("play.directFailed", { reason: failure })}</p>
+      )}
+    </div>
+  );
+}
+
+/** A bit rate as a person reads it: megabits a second, to one decimal. */
+function rateText(kbps: number): string {
+  return `${(kbps / 1000).toFixed(1)} Mb/s`;
+}
+
+/**
+ * Why the lowest quality cannot keep up, once it stalls there or the link was already below it
+ * (D247 §8): the link's speed as measured, when it is, and what the lowest needs.
+ */
+interface CannotKeepUp {
+  readonly linkKbps: number | undefined;
+  readonly lowestKbps: number;
+}
+
+/**
+ * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
+ * and, once its lowest quality stalls, that the link cannot keep up (D247 §8).
+ */
+function useChunkedPlayback(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  offer: LowerQuality,
+  onFailed: (failure: PlaybackFailure) => void,
+): {
+  readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
+  readonly playing: PlayedLevel | undefined;
+  readonly cannotKeepUp: CannotKeepUp | undefined;
+} {
+  const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
+  const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
+  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) {
+      return undefined;
+    }
+    const playback = playChunked(video, offer.url, {
+      onFailed,
+      startAtBps: offer.startAtBps,
+      monotonicMs,
+    });
+    playbackRef.current = playback;
+    const looking = setInterval(() => {
+      setPlaying(playback.playing());
+    }, 1000);
+    const stopWatching = watchStalls(video, () => {
+      const level = playback.playing();
+      if (playback.isAtLowest() && level !== undefined) {
+        setCannotKeepUp({ linkKbps: playback.estimateKbps(), lowestKbps: level.bitrate / 1000 });
+      }
+    });
+    return () => {
+      clearInterval(looking);
+      stopWatching();
+      playback.destroy();
+      playbackRef.current = undefined;
+    };
+  }, [videoRef, offer.url, offer.startAtBps, onFailed]);
+  return { playbackRef, playing, cannotKeepUp };
+}
+
+/** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
+function LowerQualityNotes(props: {
+  readonly offer: LowerQuality;
+  readonly playing: PlayedLevel | undefined;
+  readonly cannotKeepUp: CannotKeepUp | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { offer, playing, cannotKeepUp } = props;
+  const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
+  const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
+  return (
+    <>
+      <p className="play__reason">
+        {playing === undefined
+          ? t("play.lowerQualityStarting", {
+              height: offer.height,
+              rate: rateText(offer.qualityKbps),
+            })
+          : t("play.lowerQuality", {
+              height: playing.height,
+              rate: rateText(playing.bitrate / 1000),
+            })}
+      </p>
+      {isBeyondTheLink ? (
+        <p role="alert">
+          {cannotKeepUp?.linkKbps === undefined
+            ? t("play.cannotKeepUpUnmeasured", { lowest })
+            : t("play.cannotKeepUp", { link: rateText(cannotKeepUp.linkKbps), lowest })}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * A chunked playback at a lower quality, which a stalled player moved to (D247 §2, §10): every
+ * quality of the film cut into chunks, starting at the one offered for the link, stepping down by
+ * itself and back up with care, from where the player stalled. Its sound carries its levelling, as
+ * a prepared copy's does.
+ */
+function ChunkedVideo(
+  props: PlayProps & { readonly offer: LowerQuality; readonly positionMs: number },
+): JSX.Element {
+  const { t } = useTranslation();
+  const { offer } = props;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [failure, setFailure] = usePlaybackFailure(props.fileId);
+  const onFailed = useCallback(
+    (seen: PlaybackFailure) => {
+      setFailure(playbackFailureText(t, seen));
+    },
+    [setFailure, t],
+  );
+  const { playbackRef, playing, cannotKeepUp } = useChunkedPlayback(videoRef, offer, onFailed);
+  // It starts where the player stalled, not where the person last left the file.
+  const decision = { ...props.decision, resumePositionMs: Math.round(props.positionMs) };
+  const level: SoundLevel = {
+    levelling: { isMeasured: offer.soundCarriedGainDb !== 0, gainDb: offer.soundCarriedGainDb },
+    carriedGainDb: offer.soundCarriedGainDb,
+  };
+  return (
+    <div className="play">
+      <div className="play__stage">
+        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
+        <video className="play__video" ref={videoRef} controls autoPlay playsInline />
+      </div>
+      <UnderTheVideo
+        {...props}
+        decision={decision}
+        videoRef={videoRef}
+        level={level}
+        onAudioChosen={props.onDecideAgain}
+        readLinkKbps={() => playbackRef.current?.estimateKbps()}
+      />
+      <LowerQualityNotes offer={offer} playing={playing} cannotKeepUp={cannotKeepUp} />
+      {failure === undefined ? null : (
+        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
     </div>
   );
