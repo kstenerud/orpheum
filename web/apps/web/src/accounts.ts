@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { idempotent } from "./idempotent.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import type { Api, components } from "@orpheum/sdk";
 
 import type { StringStorage } from "./browser-storage.ts";
@@ -87,7 +87,7 @@ export type LinkKind = components["schemas"]["LinkKindOutputBody"];
  */
 export async function linkKind(api: Api, secret: string): Promise<LinkKind> {
   return dataOrThrow(
-    await api.POST("/registration/link", { body: { secret }, ...idempotent(crypto.randomUUID()) }),
+    await api.POST("/registration/link", { body: { secret }, ...idempotent(newIdempotencyKey()) }),
   );
 }
 
