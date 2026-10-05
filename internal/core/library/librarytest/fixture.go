@@ -35,7 +35,8 @@ func Node(t *testing.T, database *store.Database, name string) int64 {
 }
 
 // LibraryOn makes library, with manual change detection, over its root on the node, and returns
-// its id.
+// its id. The built-in user role is given it, as step 0033 gave that role every library a
+// household had (D243 §4); a test of what a role does not reach takes it back.
 func LibraryOn(t *testing.T, database *store.Database, nodeID int64, library Library) int64 {
 	t.Helper()
 	var libraryID int64
@@ -44,6 +45,16 @@ func LibraryOn(t *testing.T, database *store.Database, nodeID int64, library Lib
 		libraryID, err = queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
 			Name: library.Name, Kind: library.Kind, MetadataSource: library.MetadataSource,
 			ChangeDetection: "manual", CreatedAt: 1,
+		})
+		if err != nil {
+			return err
+		}
+		userRole, err := queries.GetRoleByName(t.Context(), "user")
+		if err != nil {
+			return err
+		}
+		err = queries.InsertRoleLibrary(t.Context(), sqlcgen.InsertRoleLibraryParams{
+			RoleID: userRole.ID, LibraryID: libraryID,
 		})
 		if err != nil || library.Root == "" {
 			return err

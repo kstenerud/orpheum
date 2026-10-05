@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -80,12 +81,13 @@ type Page struct {
 	NextCursor string
 }
 
-// ListQuery asks for one page of a list.
+// ListQuery asks for one page of a list, of the libraries Reach reaches (D243 §4).
 type ListQuery struct {
 	Kind   string // ListFilms or ListSeries
 	Sort   string // SortName or SortAdded
 	Cursor string
 	Limit  int64
+	Reach  auth.Reach
 }
 
 // List is one page of films or series, only those with a live file.
@@ -104,9 +106,11 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	var entries []Entry
 	var keys [][]byte
 	queries := browser.database.Read()
+	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
 	if query.Kind == ListSeries {
 		rows, listErr := queries.ListSeriesByName(ctx, sqlcgen.ListSeriesByNameParams{
 			Locale: locale, AfterKey: afterKey, AfterID: afterID, MaxRows: query.Limit,
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
 		for _, row := range rows {
@@ -120,6 +124,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	} else {
 		rows, listErr := queries.ListFilmsByName(ctx, sqlcgen.ListFilmsByNameParams{
 			Locale: locale, AfterKey: afterKey, AfterID: afterID, MaxRows: query.Limit,
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
 		for _, row := range rows {
@@ -149,9 +154,11 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 	}
 	var entries []Entry
 	queries := browser.database.Read()
+	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
 	if query.Kind == ListSeries {
 		rows, listErr := queries.ListSeriesByAdded(ctx, sqlcgen.ListSeriesByAddedParams{
 			BeforeAt: beforeAddedAt, BeforeID: beforeID, MaxRows: query.Limit,
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
 		for _, row := range rows {
@@ -164,6 +171,7 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 	} else {
 		rows, listErr := queries.ListFilmsByAdded(ctx, sqlcgen.ListFilmsByAddedParams{
 			BeforeAt: beforeAddedAt, BeforeID: beforeID, MaxRows: query.Limit,
+			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
 		for _, row := range rows {
@@ -225,13 +233,20 @@ func (browser *Browser) sortLocale(ctx context.Context) (string, error) {
 	return sorter.Locale(), nil
 }
 
-// Search finds titles and series by name, through the index that can answer the query (D48).
-func (browser *Browser) Search(ctx context.Context, query string, limit int64) ([]store.SearchHit, error) {
+// Search finds titles and series by name, through the index that can answer the query (D48), of
+// the libraries reach reaches (D243 §4).
+func (browser *Browser) Search(
+	ctx context.Context, reach auth.Reach, query string, limit int64,
+) ([]store.SearchHit, error) {
 	plan := textindex.PlanQuery(query)
 	if plan.IndexQuery == "" {
 		return []store.SearchHit{}, nil
 	}
-	hits, err := browser.database.Search(ctx, store.SearchRoute(plan.Route), plan.IndexQuery, limit)
+	isEveryLibrary, libraryIDsJSON := reach.QueryArgs()
+	hits, err := browser.database.Search(ctx, store.SearchQuery{
+		Route: store.SearchRoute(plan.Route), IndexQuery: plan.IndexQuery, Limit: limit,
+		IsEveryLibrary: isEveryLibrary, LibraryIDsJSON: libraryIDsJSON,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}

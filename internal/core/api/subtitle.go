@@ -127,7 +127,7 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 		return nil, err
 	}
 	subtitleText, err := dependencies.Playback.Subtitle(
-		ctx, input.Token, track, format, principal.UserID, principal.SessionKey)
+		ctx, input.Token, track, format, playback.HolderOf(principal))
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a subtitle", err)
 	}

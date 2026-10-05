@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -137,8 +138,8 @@ type RootSummary struct {
 	MissingMountPaths []string
 }
 
-// List is every live library, by name.
-func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
+// List is every live library reach reaches, by name (D243 §4).
+func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, error) {
 	queries := admin.database.Read()
 	libraries, err := queries.ListLibraries(ctx)
 	if err != nil {
@@ -150,6 +151,9 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 	}
 	summaries := make([]Summary, 0, len(libraries))
 	for _, library := range libraries {
+		if !reach.Reaches(&library.ID) {
+			continue
+		}
 		roots, err := rootSummaries(ctx, queries, library.ID)
 		if err != nil {
 			return nil, err

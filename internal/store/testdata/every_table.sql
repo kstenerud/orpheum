@@ -14,6 +14,7 @@ INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, l
 INSERT INTO user (id, name, role_id, password_hash, is_outsider, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), 0, 1790000000000),
          (2, 'partner', 2, NULL, 1, 1790000000000);
+INSERT INTO role_library (role_id, library_id, may_rebroadcast) VALUES (2, 1, 0);
 INSERT INTO device (id, user_id, name, platform, audio_output, added_at, last_signed_in_at)
   VALUES (1, 2, 'Living room TV', 'webos', 'built_in_speakers', 1790000000000, 1790000100000);
 

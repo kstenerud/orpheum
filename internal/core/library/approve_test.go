@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -15,7 +16,7 @@ func adminOf(world *harness) (*Admin, *fakeNodes, int64) {
 	world.t.Helper()
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
-	libraries, err := admin.List(world.t.Context())
+	libraries, err := admin.List(world.t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 {
 		world.t.Fatalf("List = %+v, %v", libraries, err)
 	}

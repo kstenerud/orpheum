@@ -1,13 +1,13 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 40280eb7e0f73ae1a2c26100d52da28da2a69047fdb323db4451a824acdfda9d
--- The baseline (D228): persistent.db's schema at version 31 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0031 (D185's first schema, the steps
+-- orpheum:baseline folds 299b949955b16dc8d6d5ec12902be4ba697d307fc53b42172edbf9cf82ff7015
+-- The baseline (D228): persistent.db's schema at version 32 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0032 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
 -- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
--- reader limits a device was given, D240, and 0031's dropping of the node's report sequence,
--- D240), and builds the schema and the seeded rows they built; the checksum above is
--- 0031_node_report_seq_gone.sql's,
+-- reader limits a device was given, D240, 0031's dropping of the node's report sequence, D240,
+-- and 0032's one fetched subtitle per file, D244), and builds the schema and the seeded rows
+-- they built; the checksum above is 0032_fetched_subtitle_once.sql's,
 -- which a database migrated through that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
@@ -173,6 +173,8 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   release_name TEXT                      -- the provider's file name for it (D224)
 );
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);
+-- One per file and provider's file, since each cost a download (D244 section 4).
+CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provider, provider_file_id);
 
 CREATE TABLE item (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

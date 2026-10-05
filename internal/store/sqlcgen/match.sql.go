@@ -230,8 +230,16 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
 LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = ?1 AND item.removed_at IS NULL
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY item_text.name, title.id
 `
+
+type ListTitlesByIdentificationParams struct {
+	IdentificationState string
+	IsEveryLibrary      int64
+	LibraryIdsJSON      string
+}
 
 type ListTitlesByIdentificationRow struct {
 	ID                  int64
@@ -249,8 +257,8 @@ type ListTitlesByIdentificationRow struct {
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5), with a
 // failure of their own to be fetched and a person's refresh waiting (D231 section 4).
-func (q *Queries) ListTitlesByIdentification(ctx context.Context, identificationState string) ([]ListTitlesByIdentificationRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, identificationState)
+func (q *Queries) ListTitlesByIdentification(ctx context.Context, arg ListTitlesByIdentificationParams) ([]ListTitlesByIdentificationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
 		return nil, err
 	}

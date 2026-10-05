@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -106,21 +107,27 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	world.fileAsFilm("Ödet", "o.mkv")
 	world.fileAsFilm("Fièvre", "a.mkv")
 	world.fileAsFilm("Gone Film", "gone.mkv")
-	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 2})
+	first, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, Limit: 2,
+	})
 	if err != nil || !slices.Equal(entryNames(first), []string{"Fièvre", "Ödet"}) || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
-	next := ListQuery{Kind: ListFilms, Sort: SortName, Cursor: first.NextCursor, Limit: 2}
+	next := ListQuery{Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
 	if err != nil || !slices.Equal(entryNames(rest), []string{"Destiny"}) || rest.NextCursor != "" {
 		t.Errorf("second page = %+v, %v; the film with no live file is not listed", rest, err)
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
-	swedish, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 10})
+	swedish, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, Limit: 10,
+	})
 	if err != nil || !slices.Equal(entryNames(swedish), []string{"Fièvre", "Destiny", "Ödet"}) {
 		t.Errorf("in Swedish = %v, %v; Ö comes after Z", entryNames(swedish), err)
 	}
-	if _, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Cursor: "!", Limit: 1}); err == nil {
+	if _, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kind: ListFilms, Cursor: "!", Limit: 1,
+	}); err == nil {
 		t.Error("a cursor this server did not give was accepted")
 	}
 }
@@ -134,11 +141,13 @@ func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	world.fileAsFilm("First", "a.mkv")
 	world.fileAsFilm("Second", "b.mkv")
 	world.fileAsFilm("Third", "c.mkv")
-	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortAdded, Limit: 2})
+	first, err := world.browser.List(t.Context(), ListQuery{
+		Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortAdded, Limit: 2,
+	})
 	if err != nil || !slices.Equal(entryNames(first), []string{"Third", "Second"}) {
 		t.Fatalf("first page = %v, %v", entryNames(first), err)
 	}
-	next := ListQuery{Kind: ListFilms, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2}
+	next := ListQuery{Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
 	if err != nil || !slices.Equal(entryNames(rest), []string{"First"}) {
 		t.Errorf("second page = %v, %v", entryNames(rest), err)
@@ -150,7 +159,7 @@ func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	world := newShelf(t)
 	world.scan([]nodeproto.ScanRecord{observedRecord("metropolis.mkv", "heat")}, true)
 	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
-	detail, err := world.browser.Title(t.Context(), heat)
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), heat)
 	if err != nil || detail.Name == nil || *detail.Name != "Metropolis" || len(detail.Versions) != 1 {
 		t.Fatalf("Title = %+v, %v", detail, err)
 	}
@@ -158,7 +167,7 @@ func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	if file.Path != root+"/metropolis.mkv" || len(file.Streams) != 2 || detail.Episode != nil {
 		t.Errorf("file %+v; want the video and audio streams, and no episode place", file)
 	}
-	if _, err := world.browser.Title(t.Context(), 999); err == nil {
+	if _, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 999); err == nil {
 		t.Error("the detail of no title was found")
 	}
 }
@@ -182,12 +191,12 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 		"千尋":         "十字路",              // too short for it: the folded substring
 		"up":         "Up",
 	} {
-		hits, err := world.browser.Search(t.Context(), query, 10)
+		hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), query, 10)
 		if err != nil || len(hits) == 0 || hits[0].Name != want {
 			t.Errorf("Search(%q) = %+v, %v; want %q first", query, hits, err, want)
 		}
 	}
-	if hits, err := world.browser.Search(t.Context(), `heat" OR "x`, 10); err != nil {
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), `heat" OR "x`, 10); err != nil {
 		t.Errorf("a query with FTS5 syntax in it = %+v, %v; want it read as words", hits, err)
 	}
 }
@@ -198,12 +207,12 @@ func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{observedRecord("h.mkv", "h"), observedRecord("u.mkv", "u")}, true)
 	world.fileAsFilm("Metropolis", "h.mkv")
 	world.fileAsFilm("Up", "u.mkv")
-	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 1 {
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "heat", 10); err != nil || len(hits) != 1 {
 		t.Fatalf("Search(heat) with its file = %+v, %v; want Metropolis", hits, err)
 	}
 	// A complete scan without h.mkv removes its file; the film is kept, with its history, unlisted.
 	world.scan([]nodeproto.ScanRecord{observedRecord("u.mkv", "u")}, true)
-	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 0 {
+	if hits, err := world.browser.Search(t.Context(), auth.EveryLibrary(), "heat", 10); err != nil || len(hits) != 0 {
 		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
 	}
 }
@@ -236,7 +245,7 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{
 		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
 	}, true)
-	detail, err := world.browser.Title(t.Context(), heat)
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), heat)
 	if err != nil {
 		t.Fatal(err)
 	}

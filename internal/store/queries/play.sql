@@ -57,6 +57,8 @@ JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
 WHERE play_position.user_id = sqlc.arg(user_id)
+  AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
 ORDER BY play_position.position_read_at DESC
 LIMIT sqlc.arg(max_rows);
 

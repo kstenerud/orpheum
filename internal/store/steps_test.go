@@ -274,9 +274,10 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0032 keeps one fetched subtitle per file and provider's file, the first, and refuses a
-// second from then on (D244 section 4, S90).
-func TestMigrate_Step0032KeepsOneFetchedSubtitlePerFileAndRefusesAnother(t *testing.T) {
+// Step 0033 gives each role the libraries it may reach (D243 section 4): the built-in user role is
+// given every live library, so no one loses what they could see, and the admin role, which reaches
+// every library, and a deleted library get no row.
+func TestMigrate_Step0033GivesTheUserRoleEveryLiveLibrary(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -286,18 +287,17 @@ func TestMigrate_Step0032KeepsOneFetchedSubtitlePerFileAndRefusesAnother(t *test
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	loadEveryTable(t, database)
-	const another = `INSERT INTO fetched_subtitle (id, video_file, provider, provider_file_id, language, format,
-		body_gzip, fetched_by_user_id, fetched_at) VALUES (%d, 1, 'opensubtitles', '%s', 'de', 'srt', X'00', 2, 1)`
-	execRaw(t, database, fmt.Sprintf(another, 2, "os-1"), fmt.Sprintf(another, 3, "os-2"))
+	const library = `INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable,
+		created_at, removed_at) VALUES (%d, '%s', 'movies', 'tmdb', 'manual', 0, 1, %s)`
+	execRaw(t, database, fmt.Sprintf(library, 1, "Films", "NULL"), fmt.Sprintf(library, 2, "Gone", "5"),
+		fmt.Sprintf(library, 3, "Shows", "NULL"))
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(queryRows(t, database, "SELECT id, provider_file_id FROM fetched_subtitle ORDER BY id", 2))
-	if want := "[[1 os-1] [3 os-2]]"; got != want {
-		t.Errorf("the fetched subtitles are %s, want %s: the first of the two alike kept", got, want)
-	}
-	if _, err = database.writer.ExecContext(t.Context(), fmt.Sprintf(another, 4, "os-2")); err == nil {
-		t.Error("a second fetched subtitle for the same file and provider's file was taken, want it refused")
+	got := fmt.Sprint(queryRows(t, database, `SELECT role.name, role_library.library_id,
+		role_library.may_rebroadcast FROM role_library JOIN role ON role.id = role_library.role_id
+		ORDER BY role.name, role_library.library_id`, 3))
+	if want := "[[user 1 0] [user 3 0]]"; got != want {
+		t.Errorf("the roles' libraries are %s, want %s: the user role's every live library", got, want)
 	}
 }

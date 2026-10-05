@@ -303,7 +303,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	if err != nil {
 		return nil, err
 	}
-	summaries, err := dependencies.Libraries.List(ctx)
+	summaries, err := dependencies.Libraries.List(ctx, principal.Reach)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list libraries", err)
 	}

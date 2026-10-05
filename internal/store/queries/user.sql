@@ -24,7 +24,8 @@ JOIN role ON role.id = user.role_id
 WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL;
 
 -- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, user.role_id, role.name AS role_name,
+  role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL;
@@ -55,3 +56,10 @@ FROM play_span
 LEFT JOIN file ON file.id = play_span.file_id
 LEFT JOIN version ON version.id = file.version_id
 WHERE play_span.user_id = sqlc.arg(user_id);
+
+-- name: ListLibraryIDsOfRole :many
+-- The live libraries a role lists, which its members may browse and play (D243 section 4).
+SELECT role_library.library_id FROM role_library
+JOIN library ON library.id = role_library.library_id AND library.removed_at IS NULL
+WHERE role_library.role_id = sqlc.arg(role_id)
+ORDER BY role_library.library_id;

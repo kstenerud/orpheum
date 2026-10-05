@@ -234,13 +234,17 @@ JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
 WHERE play_position.user_id = ?1
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY play_position.position_read_at DESC
-LIMIT ?2
+LIMIT ?4
 `
 
 type ListRecentPlayPositionsParams struct {
-	UserID  int64
-	MaxRows int64
+	UserID         int64
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	MaxRows        int64
 }
 
 type ListRecentPlayPositionsRow struct {
@@ -261,7 +265,12 @@ type ListRecentPlayPositionsRow struct {
 // with each file's length where its probe knows it and when its work was last hidden: what
 // Continue Watching is chosen from. Extras are left out (D162).
 func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPlayPositionsParams) ([]ListRecentPlayPositionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRecentPlayPositions, arg.UserID, arg.MaxRows)
+	rows, err := q.db.QueryContext(ctx, listRecentPlayPositions,
+		arg.UserID,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.MaxRows,
+	)
 	if err != nil {
 		return nil, err
 	}

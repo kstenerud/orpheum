@@ -48,12 +48,17 @@ LEFT JOIN collection ON collection.id = item.id`
     CROSS JOIN file ON file.version_id = version.id
     WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
       AND file.removed_at IS NULL)))`
+	// The reach condition keeps only the libraries the caller reaches (D243 section 4): every one,
+	// or those in a JSON array of ids. Its two arguments follow the index's query.
+	searchReachCondition = `(CAST(? AS INTEGER) = 1
+  OR item.library_id IN (SELECT value FROM json_each(CAST(? AS TEXT))))`
 
 	searchWordsSQL = `SELECT ` + searchColumns + `
 FROM item_fts
 JOIN item_text ON item_text.rowid = item_fts.rowid
 ` + searchJoins + `
 WHERE item_fts MATCH ? AND ` + searchLiveCondition + `
+  AND ` + searchReachCondition + `
 ORDER BY bm25(item_fts), item_text.item_id
 LIMIT ?`
 
@@ -62,6 +67,7 @@ FROM item_fts_tri
 JOIN item_text ON item_text.rowid = item_fts_tri.rowid
 ` + searchJoins + `
 WHERE item_fts_tri MATCH ? AND ` + searchLiveCondition + `
+  AND ` + searchReachCondition + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 
@@ -69,30 +75,41 @@ LIMIT ?`
 FROM item_text
 ` + searchJoins + `
 WHERE instr(item_text.search_alternates, ?) > 0 AND ` + searchLiveCondition + `
+  AND ` + searchReachCondition + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 )
 
-// Search asks one index for the items matching indexQuery (D48), at most limit: a folded
-// substring, an FTS5 query or a trigram phrase, as route needs.
-func (database *Database) Search(ctx context.Context, route SearchRoute, indexQuery string, limit int64) (
-	hits []SearchHit, err error,
-) {
+// SearchQuery is one search: the index's query, a folded substring, an FTS5 query or a trigram
+// phrase as Route needs, at most Limit hits, of the libraries the caller reaches.
+type SearchQuery struct {
+	Route      SearchRoute
+	IndexQuery string
+	Limit      int64
+	// IsEveryLibrary is 1 for a caller who reaches every library; otherwise LibraryIDsJSON, a JSON
+	// array of ids, lists those it reaches (auth.Reach.QueryArgs).
+	IsEveryLibrary int64
+	LibraryIDsJSON string
+}
+
+// Search asks one index for the items matching query (D48).
+func (database *Database) Search(ctx context.Context, query SearchQuery) (hits []SearchHit, err error) {
 	statement := map[SearchRoute]string{
 		SearchRouteSubstring: searchSubstringSQL,
 		SearchRouteWords:     searchWordsSQL,
 		SearchRouteTrigram:   searchTrigramSQL,
-	}[route]
+	}[query.Route]
 	if statement == "" {
-		return nil, fmt.Errorf("search: no route %q", route)
+		return nil, fmt.Errorf("search: no route %q", query.Route)
 	}
-	rows, err := database.readers.QueryContext(ctx, statement, indexQuery, limit)
+	rows, err := database.readers.QueryContext(ctx, statement, query.IndexQuery, query.IsEveryLibrary,
+		query.LibraryIDsJSON, query.Limit)
 	if err != nil {
-		return nil, fmt.Errorf("search %s: %w", route, err)
+		return nil, fmt.Errorf("search %s: %w", query.Route, err)
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("search %s: %w", route, closeErr)
+			err = fmt.Errorf("search %s: %w", query.Route, closeErr)
 		}
 	}()
 	hits = []SearchHit{}
@@ -101,7 +118,7 @@ func (database *Database) Search(ctx context.Context, route SearchRoute, indexQu
 		var titleKind sql.NullString
 		var year sql.NullInt64
 		if err := rows.Scan(&hit.ItemID, &hit.ItemKind, &titleKind, &hit.Name, &year); err != nil {
-			return nil, fmt.Errorf("search %s: %w", route, err)
+			return nil, fmt.Errorf("search %s: %w", query.Route, err)
 		}
 		if titleKind.Valid {
 			hit.TitleKind = &titleKind.String
@@ -112,7 +129,7 @@ func (database *Database) Search(ctx context.Context, route SearchRoute, indexQu
 		hits = append(hits, hit)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("search %s: %w", route, err)
+		return nil, fmt.Errorf("search %s: %w", query.Route, err)
 	}
 	return hits, nil
 }

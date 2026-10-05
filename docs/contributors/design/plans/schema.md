@@ -613,6 +613,17 @@ CREATE TABLE role (                                        -- class A (D130)
 -- Ceilings (F31) and the download lease (D169) arrive with their features as columns here
 -- (D180); they were sketched and dropped by the second audit (D193).
 
+-- Migration 0033 (D243 section 4): the libraries a role's members may browse and play. The
+-- built-in admin role reaches every library and has no rows; any other role reaches only those
+-- it lists, so a library taken back is gone from every answer at the next request.
+CREATE TABLE role_library (                                -- class A (D243 section 4)
+  role_id          INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+  library_id       INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
+  may_rebroadcast  INTEGER NOT NULL DEFAULT 0 CHECK (may_rebroadcast IN (0,1)),  -- section 5, later
+  PRIMARY KEY (role_id, library_id)
+) WITHOUT ROWID;
+CREATE INDEX role_library_library ON role_library(library_id);
+
 CREATE TABLE user (                                        -- class A
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT NOT NULL,
@@ -1128,7 +1139,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `progress_hide` | persistent.db | `internal/core/playback` | |
 | `provider_response` | persistent.db | `internal/core/identify` | |
 | `refresh_request` | persistent.db | `internal/core/identify` | |
-| `role` | persistent.db | none yet | the baseline seeds the built-in roles |
+| `role` | persistent.db | `internal/core/auth` | the baseline seeds the built-in roles; the admin makes the rest (D243 §4) |
+| `role_library` | persistent.db | `internal/core/auth` | step 0033 gives the built-in user role every live library |
 | `root_mount` | persistent.db | `internal/core/library` | |
 | `root_scan` | persistent.db | `internal/core/library` | |
 | `root_state` | persistent.db | `internal/core/library` | |

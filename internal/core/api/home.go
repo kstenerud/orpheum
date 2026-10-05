@@ -61,7 +61,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	if err != nil {
 		return nil, err
 	}
-	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID)
+	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID, principal.Reach)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list Continue Watching", err)
 	}
@@ -79,7 +79,8 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 }
 
 func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedInReachingItem(ctx, input.Authorization, input.ItemID,
+		server.playbackError)
 	if err != nil {
 		return nil, err
 	}

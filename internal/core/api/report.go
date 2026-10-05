@@ -75,7 +75,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		})
 	}
 	err = dependencies.Playback.Report(
-		ctx, input.Token, principal.UserID, principal.SessionKey, principal.DeviceID, report)
+		ctx, input.Token, playback.HolderOf(principal), principal.DeviceID, report)
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}

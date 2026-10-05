@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -45,12 +46,21 @@ func (server *Server) registerArt() {
 }
 
 func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, error) {
-	dependencies, _, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
+	dependencies, principal, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
 	sizeName, format, found := strings.Cut(input.Variant, ".")
 	if !found {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such image")
+	}
+	// An image no item the person reaches holds is answered as one that does not exist (D243 §4).
+	sourceSha256, decodeErr := hex.DecodeString(input.SourceSha256)
+	isReached, err := dependencies.Browser.ReachArt(ctx, principal.Reach, sourceSha256)
+	if err != nil {
+		return nil, server.logInternalError(ctx, "read who reaches an image", err)
+	}
+	if decodeErr != nil || !isReached {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such image")
 	}
 	image, err := dependencies.Artwork.Serve(ctx, input.SourceSha256, nodeproto.ArtSizeName(sizeName), format)

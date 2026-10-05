@@ -27,6 +27,12 @@ type RefreshRequest struct {
 	ShouldFetchImages int64
 }
 
+type RoleLibrary struct {
+	RoleID         int64
+	LibraryID      int64
+	MayRebroadcast int64
+}
+
 type Secret struct {
 	Scope       string
 	UserID      *int64

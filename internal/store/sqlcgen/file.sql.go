@@ -122,6 +122,18 @@ func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootPa
 	return library_id, err
 }
 
+const getLibraryOfFile = `-- name: GetLibraryOfFile :one
+SELECT library_id FROM file WHERE id = ?1
+`
+
+// A file's library, which says who may reach it (D243 section 4).
+func (q *Queries) GetLibraryOfFile(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getLibraryOfFile, id)
+	var library_id int64
+	err := row.Scan(&library_id)
+	return library_id, err
+}
+
 const getLiveFileByReportedPathRaw = `-- name: GetLiveFileByReportedPathRaw :one
 SELECT id, payload_hash, last_seen_at
 FROM file

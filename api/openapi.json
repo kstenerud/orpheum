@@ -19,10 +19,7 @@
             "type": "string"
           },
           "role": {
-            "enum": [
-              "admin",
-              "user"
-            ],
+            "description": "The role's name, their whole access",
             "type": "string"
           }
         },
@@ -540,16 +537,19 @@
       "CreateAccountInputBody": {
         "additionalProperties": false,
         "properties": {
+          "isOutsider": {
+            "description": "From outside the house: an invitee",
+            "type": "boolean"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
           },
           "role": {
-            "enum": [
-              "admin",
-              "user"
-            ],
+            "description": "The role's name, their whole access (D243 §4)",
+            "maxLength": 100,
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -641,6 +641,19 @@
           "isWritable",
           "nodeName",
           "rootPaths"
+        ],
+        "type": "object"
+      },
+      "CreateRoleOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
         ],
         "type": "object"
       },
@@ -2362,6 +2375,21 @@
         ],
         "type": "object"
       },
+      "PersonsRoleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "description": "The role's name",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
       "PlayableFormatsBody": {
         "additionalProperties": false,
         "properties": {
@@ -3132,6 +3160,139 @@
         "required": [
           "tombstonedFileCount",
           "cancelledJobCount"
+        ],
+        "type": "object"
+      },
+      "RoleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "holderCount": {
+            "description": "How many people hold it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isBuiltin": {
+            "type": "boolean"
+          },
+          "isEveryLibrary": {
+            "description": "Administers, so reaches every library",
+            "type": "boolean"
+          },
+          "libraries": {
+            "items": {
+              "$ref": "#/components/schemas/RoleLibraryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isBuiltin",
+          "capabilities",
+          "isEveryLibrary",
+          "libraries",
+          "holderCount"
+        ],
+        "type": "object"
+      },
+      "RoleChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "libraries": {
+            "items": {
+              "$ref": "#/components/schemas/RoleLibraryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "capabilities",
+          "libraries"
+        ],
+        "type": "object"
+      },
+      "RoleLibraryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "libraryId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "mayRebroadcast": {
+            "description": "Its members may add it to their own server; offered once rebroadcasting is built (D243 §5)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "libraryId"
+        ],
+        "type": "object"
+      },
+      "RolesOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "description": "The closed set a role's capabilities come from",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "roles",
+          "capabilities"
         ],
         "type": "object"
       },
@@ -7441,6 +7602,196 @@
         ]
       }
     },
+    "/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolesOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Every role, with its capabilities and the libraries it reaches (admin; D243 §4)",
+        "tags": [
+          "Accounts"
+        ]
+      },
+      "post": {
+        "operationId": "createRole",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRoleOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Make a role: its name, capabilities and libraries (admin; D243 §4)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/roles/{id}": {
+      "delete": {
+        "operationId": "deleteRole",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a role the admin made that no one holds (admin)",
+        "tags": [
+          "Accounts"
+        ]
+      },
+      "put": {
+        "operationId": "updateRole",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change a role; a library taken back is gone for its members at their next request (admin; D243 §4)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
     "/search": {
       "get": {
         "operationId": "search",
@@ -8392,6 +8743,61 @@
           }
         },
         "summary": "A new registration invitation for a person, withdrawing the old; their password works until used",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/users/{id}/role": {
+      "put": {
+        "operationId": "setPersonsRole",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonsRoleInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Give a person a role, their whole access, from their next request (admin; D243 §4)",
         "tags": [
           "Accounts"
         ]

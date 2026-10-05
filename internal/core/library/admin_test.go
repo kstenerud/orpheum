@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -113,7 +114,7 @@ func TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt(t *testing.T) {
 	if !slices.Equal(nodes.scanned, []string{"/media/shows"}) {
 		t.Errorf("scans asked for of %v, want the new library's root, as a person's request", nodes.scanned)
 	}
-	libraries, err := admin.List(t.Context())
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 2 || libraries[1].Name != "Shows" || len(libraries[1].Roots) != 1 {
 		t.Errorf("List = %+v, %v", libraries, err)
 	}
@@ -127,7 +128,7 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	}, true)
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
-	libraries, err := admin.List(t.Context())
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 {
 		t.Fatalf("List = %+v, %v", libraries, err)
 	}
@@ -150,7 +151,8 @@ func TestAdmin_ListsARootsScanInProgress(t *testing.T) {
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, scanning: map[ScanRoot]ScanProgress{
 		{NodeID: world.nodeID, RootPath: root}: progress, {NodeID: world.nodeID, RootPath: "/media/other"}: {},
 	}}
-	libraries, err := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).List(t.Context())
+	libraries, err := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).
+		List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 || len(libraries[0].Roots) != 1 {
 		t.Fatalf("List = %+v, %v", libraries, err)
 	}
@@ -158,7 +160,8 @@ func TestAdmin_ListsARootsScanInProgress(t *testing.T) {
 		t.Errorf("the root's scan is %+v, want %+v", got, progress)
 	}
 	nodes.scanning = nil
-	libraries, err = NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).List(t.Context())
+	libraries, err = NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{})).
+		List(t.Context(), auth.EveryLibrary())
 	if err != nil || libraries[0].Roots[0].Scan != nil {
 		t.Errorf("with no scan in progress the root lists %+v (%v), want none", libraries[0].Roots[0].Scan, err)
 	}
@@ -169,7 +172,7 @@ func TestAdmin_ScanAsksEachConnectedRootsNode(t *testing.T) {
 	world := newHarness(t)
 	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
-	libraries, err := admin.List(t.Context())
+	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil {
 		t.Fatal(err)
 	}

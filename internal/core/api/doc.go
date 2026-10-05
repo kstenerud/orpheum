@@ -99,6 +99,8 @@
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.
+//   - Every operation checks the caller's reach, is an admin's, or holds no library content
+//     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.
 //
 // # Read before changing
 //
@@ -112,6 +114,8 @@
 //
 // # Where to change
 //
+//   - reach.go: sign-in for a request about one file or item, which the caller must reach.
+//     roles.go: the roles and a person's role (admin).
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
 //     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, preferences.go, report.go,

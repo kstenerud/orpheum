@@ -55,10 +55,21 @@ type Account struct {
 	HasPassword bool
 }
 
+// NewAccount is a person the admin makes, who sets a password from a registration link (D218): their
+// name, their role, which is their whole access (D243 §4), and whether they are from outside the
+// house (D174 §1), an invitee.
+type NewAccount struct {
+	Name       string
+	Role       Role
+	IsOutsider bool
+}
+
 // CreateAccount makes a person with a name and role and no password, and a registration invitation for
 // them to set one (D218 §1).
-func (service *Service) CreateAccount(ctx context.Context, name string, role Role) (int64, IssuedSecret, error) {
-	id, err := service.CreateUser(ctx, NewUser{Name: name, Role: role, AwaitsRegistration: true})
+func (service *Service) CreateAccount(ctx context.Context, account NewAccount) (int64, IssuedSecret, error) {
+	id, err := service.CreateUser(ctx, NewUser{
+		Name: account.Name, Role: account.Role, IsOutsider: account.IsOutsider, AwaitsRegistration: true,
+	})
 	if err != nil {
 		return 0, IssuedSecret{}, err
 	}

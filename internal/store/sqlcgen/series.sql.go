@@ -184,8 +184,16 @@ LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_origin
 LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
 LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
 ORDER BY item_text.name, collection.id
 `
+
+type ListSeriesByIdentificationParams struct {
+	IdentificationState *string
+	IsEveryLibrary      int64
+	LibraryIdsJSON      string
+}
 
 type ListSeriesByIdentificationRow struct {
 	ID                  int64
@@ -202,8 +210,8 @@ type ListSeriesByIdentificationRow struct {
 
 // The series in one state of identification, for the chooser's list, with a failure of their own
 // to be fetched and a person's refresh waiting (D231 section 4).
-func (q *Queries) ListSeriesByIdentification(ctx context.Context, identificationState *string) ([]ListSeriesByIdentificationRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, identificationState)
+func (q *Queries) ListSeriesByIdentification(ctx context.Context, arg ListSeriesByIdentificationParams) ([]ListSeriesByIdentificationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
 		return nil, err
 	}

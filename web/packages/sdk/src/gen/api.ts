@@ -915,6 +915,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every role, with its capabilities and the libraries it reaches (admin; D243 §4) */
+        get: operations["listRoles"];
+        put?: never;
+        /** Make a role: its name, capabilities and libraries (admin; D243 §4) */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a role; a library taken back is gone for its members at their next request (admin; D243 §4) */
+        put: operations["updateRole"];
+        post?: never;
+        /** Delete a role the admin made that no one holds (admin) */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -1158,6 +1194,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Give a person a role, their whole access, from their next request (admin; D243 §4) */
+        put: operations["setPersonsRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1169,8 +1222,8 @@ export interface components {
             id: number;
             isOutsider: boolean;
             name: string;
-            /** @enum {string} */
-            role: "admin" | "user";
+            /** @description The role's name, their whole access */
+            role: string;
         };
         AccountsOutputBody: {
             accounts: components["schemas"]["AccountBody"][] | null;
@@ -1334,9 +1387,11 @@ export interface components {
             remedy?: string;
         };
         CreateAccountInputBody: {
+            /** @description From outside the house: an invitee */
+            isOutsider?: boolean;
             name: string;
-            /** @enum {string} */
-            role: "admin" | "user";
+            /** @description The role's name, their whole access (D243 §4) */
+            role: string;
         };
         CreateAccountOutputBody: {
             account: components["schemas"]["AccountBody"];
@@ -1365,6 +1420,10 @@ export interface components {
             nodeName: string;
             /** @description Roots the node configured */
             rootPaths: string[] | null;
+        };
+        CreateRoleOutputBody: {
+            /** Format: int64 */
+            id: number;
         };
         CurrentDeviceBody: {
             /** Format: int64 */
@@ -1924,6 +1983,10 @@ export interface components {
             account: components["schemas"]["AccountBody"];
             watchStats: components["schemas"]["WatchStatsBody"];
         };
+        PersonsRoleInputBody: {
+            /** @description The role's name */
+            role: string;
+        };
         PlayableFormatsBody: {
             /** @description Must list aac-stereo */
             audioCodecs: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
@@ -2161,6 +2224,37 @@ export interface components {
         RetireNodeInputBody: {
             /** @description The node's configured name */
             nodeName: string;
+        };
+        RoleBody: {
+            capabilities: string[] | null;
+            /**
+             * Format: int64
+             * @description How many people hold it
+             */
+            holderCount: number;
+            /** Format: int64 */
+            id: number;
+            isBuiltin: boolean;
+            /** @description Administers, so reaches every library */
+            isEveryLibrary: boolean;
+            libraries: components["schemas"]["RoleLibraryBody"][] | null;
+            name: string;
+        };
+        RoleChangeBody: {
+            capabilities: string[] | null;
+            libraries: components["schemas"]["RoleLibraryBody"][] | null;
+            name: string;
+        };
+        RoleLibraryBody: {
+            /** Format: int64 */
+            libraryId: number;
+            /** @description Its members may add it to their own server; offered once rebroadcasting is built (D243 §5) */
+            mayRebroadcast?: boolean;
+        };
+        RolesOutputBody: {
+            /** @description The closed set a role's capabilities come from */
+            capabilities: string[] | null;
+            roles: components["schemas"]["RoleBody"][] | null;
         };
         RootActionInputBody: {
             /** @description The node's configured name */
@@ -4618,6 +4712,142 @@ export interface operations {
             };
         };
     };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleChangeBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateRoleOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleChangeBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     search: {
         parameters: {
             query: {
@@ -5250,6 +5480,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["IssuedSecretBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setPersonsRole: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonsRoleInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

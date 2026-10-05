@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -38,11 +39,12 @@ type FileDetail struct {
 	Streams   []sqlcgen.ListStreamsOfVideoFileRow
 }
 
-// Title is a title's detail.
-func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, error) {
+// Title is a title's detail; one in a library reach does not reach is ErrNoItem, as one that does
+// not exist (D243 §4).
+func (browser *Browser) Title(ctx context.Context, reach auth.Reach, titleID int64) (TitleDetail, error) {
 	queries := browser.database.Read()
 	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
-	if errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(title.LibraryID)) {
 		return TitleDetail{}, fmt.Errorf("title %d: %w", titleID, ErrNoItem)
 	}
 	if err != nil {
@@ -119,11 +121,12 @@ type SeriesDetail struct {
 	Unreadable            *Unreadable
 }
 
-// Series is a series' detail.
-func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetail, error) {
+// Series is a series' detail; one in a library reach does not reach is ErrNoItem, as one that does
+// not exist (D243 §4).
+func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID int64) (SeriesDetail, error) {
 	queries := browser.database.Read()
 	series, err := store.OrNotFound(queries.GetSeriesDetail(ctx, seriesID))
-	if errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(series.LibraryID)) {
 		return SeriesDetail{}, fmt.Errorf("series %d: %w", seriesID, ErrNoItem)
 	}
 	if err != nil {

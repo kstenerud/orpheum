@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -376,7 +377,7 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 	lib := newTestLibrary(t, "movies", "nfo")
 	lib.scan(videoRecord("Sølvi Live (2020).mkv"), videoRecord("Fièvre (2001).mkv"), videoRecord("十字路 (2001).mkv"))
 	browser := library.NewBrowser(lib.database, lib.settings)
-	byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+	byName := library.ListQuery{Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
 	listed, err := browser.List(t.Context(), byName)
 	var order []string
 	for _, entry := range listed.Entries {
@@ -386,7 +387,7 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 		t.Errorf("films by name = %v, %v", order, err)
 	}
 	for query, want := range map[string]string{"solvi": "Sølvi Live", "十字": "十字路", "ame": "Fièvre"} {
-		hits, err := browser.Search(t.Context(), query, 5)
+		hits, err := browser.Search(t.Context(), auth.EveryLibrary(), query, 5)
 		if err != nil || len(hits) == 0 || hits[0].Name != want {
 			t.Errorf("Search(%q) = %+v, %v; want %q", query, hits, err, want)
 		}
@@ -400,7 +401,9 @@ func TestRefreshSortAndSearchKeys_ALocaleChangeTakesEffectWithoutAScan(t *testin
 	browser := library.NewBrowser(lib.database, lib.settings)
 	names := func() []string {
 		t.Helper()
-		byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+		byName := library.ListQuery{
+			Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10,
+		}
 		listed, err := browser.List(t.Context(), byName)
 		if err != nil {
 			t.Fatal(err)
@@ -435,13 +438,13 @@ func TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain(t *testi
 			"WHERE item_id = (SELECT item_id FROM item_text WHERE name = 'Apa')",
 		"UPDATE item_text SET search_alternates = 'sølvi live' WHERE name = 'Sølvi Live'")
 	browser := library.NewBrowser(lib.database, lib.settings)
-	if hits, err := browser.Search(t.Context(), "solvi", 5); err != nil || len(hits) != 0 {
+	if hits, err := browser.Search(t.Context(), auth.EveryLibrary(), "solvi", 5); err != nil || len(hits) != 0 {
 		t.Fatalf("Search(solvi) under the older fold = %+v, %v; the setup did not take", hits, err)
 	}
 	if rewrittenCount, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || rewrittenCount != 2 {
 		t.Fatalf("RefreshSortAndSearchKeys = %d, %v; want Apa keyed and Sølvi folded again", rewrittenCount, err)
 	}
-	byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+	byName := library.ListQuery{Reach: auth.EveryLibrary(), Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
 	listed, err := browser.List(t.Context(), byName)
 	var order []string
 	for _, entry := range listed.Entries {
@@ -450,7 +453,7 @@ func TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain(t *testi
 	if err != nil || !slices.Equal(order, []string{"Apa", "Sølvi Live", "Destiny"}) {
 		t.Errorf("films by name after the refresh = %v, %v", order, err)
 	}
-	hits, err := browser.Search(t.Context(), "solvi", 5)
+	hits, err := browser.Search(t.Context(), auth.EveryLibrary(), "solvi", 5)
 	if err != nil || len(hits) != 1 || hits[0].Name != "Sølvi Live" {
 		t.Errorf("Search(solvi) after the refresh = %+v, %v; want Sølvi Live", hits, err)
 	}
