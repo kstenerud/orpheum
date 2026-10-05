@@ -74,6 +74,10 @@ export function PlayView(props: {
     | { readonly mediaToken: string; readonly offer: LowerQuality; readonly positionMs: number }
     | undefined
   >(undefined);
+  // The video playing now, which the host's Watch Together session follows: kept here, above the
+  // way of playing, so a move to a lower quality is no film stopped and put on again for everyone
+  // (the owner's test, 2026-10-05).
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
     (offer: LowerQuality, positionMs: number) => {
@@ -81,20 +85,25 @@ export function PlayView(props: {
     },
     [mediaToken],
   );
+  const ways = { ...props, onLowerQuality, onVideo: setVideo };
+  let playing: JSX.Element;
   if (moved?.mediaToken === mediaToken) {
-    return (
-      <ChunkedVideo
-        {...props}
-        offer={moved.offer}
-        positionMs={moved.positionMs}
-        onLowerQuality={onLowerQuality}
+    playing = <ChunkedVideo {...ways} offer={moved.offer} positionMs={moved.positionMs} />;
+  } else if (props.decision.delivery === "direct") {
+    playing = <DirectVideo {...ways} />;
+  } else {
+    playing = <PreparedVideo {...ways} />;
+  }
+  return (
+    <>
+      {playing}
+      <HostPlaysTogether
+        fileId={props.fileId}
+        video={video}
+        startPositionMs={props.decision.resumePositionMs}
       />
-    );
-  }
-  if (props.decision.delivery === "direct") {
-    return <DirectVideo {...props} onLowerQuality={onLowerQuality} />;
-  }
-  return <PreparedVideo {...props} onLowerQuality={onLowerQuality} />;
+    </>
+  );
 }
 
 /**
@@ -103,6 +112,8 @@ export function PlayView(props: {
  */
 type PlayProps = Parameters<typeof PlayView>[0] & {
   readonly onLowerQuality: (offer: LowerQuality, positionMs: number) => void;
+  /** Told the video element each way of playing shows, and null as it goes. */
+  readonly onVideo: (video: HTMLVideoElement | null) => void;
 };
 
 /**
@@ -131,8 +142,7 @@ function useReportedPlayState(
 }
 
 /**
- * What sits under a playing video: the host's Watch Together session while one is on, "Start
- * over", the subtitle menu and offset for the decision's
+ * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
  * tracks, finding subtitles, the audio track, the device's sound and levelling. It keeps the
  * playback's play state on the server, starting where the person left the file. A chosen audio
  * track is kept for the person, and onAudioChosen() plays it.
@@ -149,6 +159,13 @@ function UnderTheVideo(
 ): JSX.Element {
   const { t } = useTranslation();
   const { refusal: reportRefusal, stopMessage } = useReportedPlayState(props);
+  const { onVideo, videoRef } = props;
+  useEffect(() => {
+    onVideo(videoRef.current);
+    return () => {
+      onVideo(null);
+    };
+  }, [onVideo, videoRef]);
   return (
     <>
       {stopMessage === undefined ? null : (
@@ -157,11 +174,6 @@ function UnderTheVideo(
       {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
-      <HostPlaysTogether
-        fileId={props.fileId}
-        videoRef={props.videoRef}
-        startPositionMs={props.decision.resumePositionMs}
-      />
       <button
         type="button"
         className="play__start-over"

@@ -3,7 +3,8 @@
 
 import "./i18n.ts";
 
-import { act, createRef } from "react";
+import { act, useState, type JSX } from "react";
+import { stallAfterMs } from "@orpheum/player";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
@@ -124,10 +125,9 @@ describe("the host's player in a session (D246 §5)", () => {
     hostSession();
     const server = fakeTogetherServer();
     const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
-    const videoRef = createRef<HTMLVideoElement>();
     const mounted = await mount(
       withServices(
-        <HostPlaysTogether fileId={5} videoRef={videoRef} startPositionMs={61_000} />,
+        <HostPlaysTogether fileId={5} video={null} startPositionMs={61_000} />,
         services,
       ),
     );
@@ -156,6 +156,89 @@ describe("the host's player in a session (D246 §5)", () => {
     expect(mounted.container.textContent).toContain("Watch Together is on");
     mounted.unmount();
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
+  });
+
+  it("follows the player's new video when it moves to a lower quality, stopping nothing", async () => {
+    hostSession();
+    const server = fakeTogetherServer();
+    const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+    let showVideo: (video: HTMLVideoElement) => void = () => undefined;
+    function Moving(): JSX.Element {
+      const [video, setVideo] = useState(() => document.createElement("video"));
+      showVideo = setVideo;
+      return <HostPlaysTogether fileId={5} video={video} startPositionMs={61_000} />;
+    }
+    const mounted = await mount(withServices(<Moving />, services));
+    await server.accept();
+    await server.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 1,
+      isHost: true,
+      group: { state: "Idle", positionMs: 0, rate: 1, fileId: 0 },
+      roster: [{ ...karl, devices: [{ id: 9, role: "playback" }] }],
+    });
+    await act(async () => {
+      showVideo(document.createElement("video"));
+      await Promise.resolve();
+    });
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Playing", positionMs: 61_000, rate: 1, fileId: 5 },
+    });
+    const commands = server.heard.filter((message) => message["type"] === "command");
+    expect(commands.map((command) => command["command"])).toEqual(["changeItem"]);
+    expect(server.openedCount()).toBe(1);
+    mounted.unmount();
+  });
+
+  it("keeps the session through the play page's move to a lower quality, stopping nothing", async () => {
+    window.localStorage.setItem("orpheum.audioOutput", "speakers");
+    hostSession();
+    const server = fakeTogetherServer();
+    const offer = {
+      url: "/api/v1/bytes/media/chunks/t/master.m3u8",
+      startAtBps: 1_242_000,
+      qualityKbps: 700,
+      height: 432,
+      isBelowTheLowest: false,
+      soundCarriedGainDb: 0,
+    };
+    const services = {
+      ...servedBy({ "POST /playback/t/report": [200, { lowerQuality: offer }] }, [], "token"),
+      openTogetherSocket: server.openSocket,
+    };
+    const mounted = await mount(
+      withServices(
+        <PlayView fileId={5} decision={directDecision()} onDecideAgain={() => undefined} />,
+        services,
+      ),
+    );
+    await server.accept();
+    await server.say({
+      type: "welcome",
+      seq: 1,
+      memberId: 1,
+      isHost: true,
+      group: { state: "Playing", positionMs: 0, rate: 1, fileId: 5 },
+      roster: [{ ...karl, devices: [{ id: 9, role: "playback" }] }],
+    });
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    // Playing, it runs out of data, and the report's answer moves it to the lower quality.
+    Object.defineProperty(video, "paused", { value: false });
+    await act(async () => {
+      video.dispatchEvent(new Event("playing"));
+      video.dispatchEvent(new Event("waiting"));
+      await new Promise((resolve) => setTimeout(resolve, stallAfterMs + 50));
+    });
+    expect(mounted.container.textContent).toContain("moves to a lower quality");
+    expect(server.heard.filter((message) => message["type"] === "command")).toEqual([]);
+    expect(server.openedCount()).toBe(1);
+    mounted.unmount();
   });
 
   it("is what the play page does while this tab hosts a session, and nothing without one", async () => {
