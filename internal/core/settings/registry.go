@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
@@ -140,6 +141,31 @@ func (definition Definition) IsQuestion() bool {
 // Registry is every setting. The starting values are the opinions: each says why it is what it
 // is, or names the decision that chose it.
 func Registry() []Definition {
+	return slices.Clone(built().definitions)
+}
+
+// builtRegistry is the registry, and the same by key for Lookup.
+type builtRegistry struct {
+	definitions []Definition
+	byKey       map[Key]Definition
+}
+
+// built is the registry, built once: building it compiles patterns, which every read of a setting
+// paid for while Lookup built it each time (2 ms and 1.5 MB a read, under the owner's stalled
+// playback, 2026-10-05).
+//
+//nolint:gochecknoglobals // the registry is constant, and Go has no constant of this type: built once, never written
+var built = sync.OnceValue(func() builtRegistry {
+	definitions := buildRegistry()
+	byKey := make(map[Key]Definition, len(definitions))
+	for _, definition := range definitions {
+		byKey[definition.Key] = definition
+	}
+	return builtRegistry{definitions: definitions, byKey: byKey}
+})
+
+// buildRegistry makes every setting's definition.
+func buildRegistry() []Definition {
 	return append([]Definition{
 		{
 			Key: ShouldCheckForUpdates, Kind: KindBool, StartJSON: json.RawMessage("null"),
@@ -496,12 +522,8 @@ func integerSetting(key Key, start string, minimum, maximum int64, description s
 
 // Lookup finds a setting's definition.
 func Lookup(key Key) (Definition, bool) {
-	for _, definition := range Registry() {
-		if definition.Key == key {
-			return definition, true
-		}
-	}
-	return Definition{}, false
+	definition, known := built().byKey[key]
+	return definition, known
 }
 
 // StartingDuration is a length-of-time setting's starting value: what a reader that must go on
