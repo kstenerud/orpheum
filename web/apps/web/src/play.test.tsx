@@ -11,7 +11,7 @@ import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
 
 describe("playing a file", () => {
-  it("asks the server with this browser's playable formats, on the local network", async () => {
+  it("asks the server with this browser's playable formats, and nothing of where it is", async () => {
     const playableFormats = testServices().playableFormats();
     const heard: Heard[] = [];
     const { api } = servedBy(
@@ -20,7 +20,7 @@ describe("playing a file", () => {
     );
     const decision = await requestPlayback(api, 7, playableFormats);
     expect(heard).toEqual([
-      { methodAndPath: "POST /playback", body: { fileId: 7, playableFormats, network: "local" } },
+      { methodAndPath: "POST /playback", body: { fileId: 7, playableFormats } },
     ]);
     expect(decision.delivery).toBe("direct");
   });

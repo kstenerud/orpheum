@@ -82,7 +82,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 
 // chrome is a start-playback body for fileID with the playable formats a desktop Chrome sends.
 func chrome(fileID int64) map[string]any {
-	return map[string]any{"fileId": fileID, "network": "local", "playableFormats": map[string]any{
+	return map[string]any{"fileId": fileID, "playableFormats": map[string]any{
 		"videoCodecs": []string{"hevc-sdr", "h264-sdr"}, "audioCodecs": []string{"aac-stereo", "opus", "flac"},
 		"subtitleFormats": []string{"ass", "webvtt"}, "containers": []string{"mp4"},
 	}}

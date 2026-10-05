@@ -50,27 +50,15 @@ const (
 	ReasonUserChoice Reason = "user_choice"
 )
 
-// Network is where the client is: on the house's network, or outside it.
-type Network string
-
-// The networks.
-const (
-	Local  Network = "local"
-	Remote Network = "remote"
-)
-
 // Input is everything the decision reads. It holds declared capabilities and the file's own
 // facts, never who is asking (D2, D103).
 type Input struct {
 	Probe           nodeproto.Probe
 	PlayableFormats PlayableFormats
-	Network         Network
 	// PreferredDelivery is a person's override of the decision (web-client.md: playback is never a
 	// black box): Direct plays the original whatever it holds, HLS prepares a rendition, and empty
 	// leaves the decision its own.
 	PreferredDelivery Delivery
-	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a client on a remote network.
-	RemoteCeilingKbps int64
 	// IsStereoOutput is whether the device plays two channels that the server folds down for it: TV
 	// speakers or headphones. A sound of more than two channels is then always prepared, so the
 	// dialogue boost can act and be switched mid-film (D222).
@@ -95,12 +83,8 @@ func Decide(input Input) Decision {
 	if input.PreferredDelivery == Direct {
 		return Decision{Delivery: Direct}
 	}
+	// Where the client is plays no part: a slow link shows itself by its stalls (D247 §11).
 	reasons, videoFits := axisReasons(input)
-	isOverRemoteCeiling := input.Network == Remote && input.RemoteCeilingKbps > 0 &&
-		input.Probe.Format.BitRateBps > input.RemoteCeilingKbps*1000
-	if isOverRemoteCeiling {
-		reasons = append(reasons, ReasonBandwidth)
-	}
 	// The boost changes nothing on a source with no centre channel to raise.
 	audio, hasAudio := playedAudio(input)
 	if input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
@@ -116,7 +100,7 @@ func Decide(input Input) Decision {
 		return Decision{Delivery: Direct}
 	}
 	profile := Remux
-	if !videoFits || isOverRemoteCeiling {
+	if !videoFits {
 		profile = H264At8M
 	}
 	return Decision{Delivery: HLS, Profile: profile, NotDirectReasons: reasons}

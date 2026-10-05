@@ -130,7 +130,6 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
         methodAndPath: "POST /together/playback",
         body: {
           playableFormats: services.playableFormats(),
-          network: "remote",
           audioOutput: "receiver",
         },
       },

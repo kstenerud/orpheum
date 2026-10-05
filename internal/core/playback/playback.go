@@ -94,7 +94,6 @@ type Request struct {
 	// a session with no device.
 	DeviceID          int64
 	PlayableFormats   decide.PlayableFormats
-	Network           decide.Network
 	PreferredDelivery decide.Delivery
 	// AudioOutput is how a device with no device row makes sound, a Watch Together viewer's, asked
 	// as they join (D246 §6); a person's device's own answer is read instead.
@@ -160,10 +159,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	decision, err := service.decide(ctx, request, probe, started)
-	if err != nil {
-		return Started{}, err
-	}
+	decision := decisionFor(request, probe, started)
 	started.Decision = decision
 	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
@@ -209,25 +205,18 @@ func (service *Service) reachedFile(ctx context.Context, holder Holder, fileID i
 	return file, err
 }
 
-// decide is how a file plays for the client that asked, with the audio track the playback starts
-// with.
-func (service *Service) decide(
-	ctx context.Context, request Request, probe nodeproto.Probe, started Started,
-) (decide.Decision, error) {
-	remoteCeilingKbps, err := service.settings.Int(ctx, settings.RemoteBitRateCeilingKbps)
-	if err != nil {
-		return decide.Decision{}, fmt.Errorf("read the remote bit-rate ceiling: %w", err)
-	}
+// decisionFor is how a file plays for the client that asked, with the audio track the playback
+// starts with.
+func decisionFor(request Request, probe nodeproto.Probe, started Started) decide.Decision {
 	input := decide.Input{
-		Probe: probe, PlayableFormats: request.PlayableFormats, Network: request.Network,
+		Probe: probe, PlayableFormats: request.PlayableFormats,
 		PreferredDelivery: request.PreferredDelivery,
-		RemoteCeilingKbps: remoteCeilingKbps,
 		IsStereoOutput:    isStereoOutput(started.AudioOutput),
 	}
 	if started.StartingAudio != nil {
 		input.AudioStreamIndex = new(int(started.StartingAudio.StreamIndex))
 	}
-	return decide.Decide(input), nil
+	return decide.Decide(input)
 }
 
 // wantPrepared has a prepared playback's rendition made unless it is, and says in started how far

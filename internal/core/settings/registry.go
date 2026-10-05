@@ -64,7 +64,6 @@ const (
 	MetadataRefreshCheckEveryHours                 Key = "metadata_refresh_check_every_hours"
 	ArtworkCacheCeilingGiB                         Key = "artwork_cache_ceiling_gib"
 	RemovedItemArtworkKeptDays                     Key = "removed_item_artwork_kept_days"
-	RemoteBitRateCeilingKbps                       Key = "remote_bit_rate_ceiling_kbps"
 	MediaTokenIdleExpiryHours                      Key = "media_token_idle_expiry_hours"
 	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
 	ResumeMinPercent                               Key = "resume_min_percent"
@@ -359,9 +358,6 @@ func artworkAndPlaybackDefinitions() []Definition {
 		sourced(durationSetting(RemovedItemArtworkKeptDays, day, "30", 0, 3650,
 			"days a removed item's artwork is kept, in case its disk comes back (D212 §6)"),
 			"best guess (M3): a month, long enough for an unplugged disk to come back (D212 §6)"),
-		sourced(integerSetting(RemoteBitRateCeilingKbps, "10000", 500, 1_000_000,
-			"kb/s above which a file played over a remote link is re-encoded (cut-a §6, reason bandwidth)"),
-			"best guess (M3): what a typical home upload carries; cut-a §6 names the reason, not the number"),
 		sourced(durationSetting(MediaTokenIdleExpiryHours, time.Hour, "4", 1, 168,
 			"hours a playback's media address lasts after its last use (D217 §2)"),
 			"D217 §2: 4 hours"),

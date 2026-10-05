@@ -392,8 +392,7 @@ fetches, prepares, scans and backups.
 
 **The decision (`POST /playback`).** The request carries the file, the device id, the client's
 prioritised `playableFormats` per axis ([D21](../../decisions/working-notes.md)) with the
-containers it plays as they are ([D217](../../decisions/working-notes.md) §1), whether its
-`network` is local or remote, and a person's `preferredDelivery` (`direct` or `hls`, the answer's `delivery` values) when
+containers it plays as they are ([D217](../../decisions/working-notes.md) §1), and a person's `preferredDelivery` (`direct` or `hls`, the answer's `delivery` values) when
 they override it. The answer names every reason that stopped direct play, as
 `notDirectReasons`, not only the first (the names are D227's). The core resolves it in this
 order:
@@ -413,7 +412,7 @@ audio renditions.
 | Profile | Chosen when | Video | Audio renditions |
 | --- | --- | --- | --- |
 | `remux` | the video codec is in the client's list | `-c:v copy` | `aac-stereo` (standard downmix) and `aac-stereo-boost` (centre raised) |
-| `h264-8m` | the video codec is not in the list, or the `network` is remote and the source is above ~10 Mbps | `h264_qsv`, else `h264_nvenc`, else `libx264`; ~8 Mbps, 2 s GOP | the same two |
+| `h264-8m` | the video codec is not in the list (nothing knows where the client is, D247 §11) | `h264_qsv`, else `h264_nvenc`, else `libx264`; ~8 Mbps, 2 s GOP | the same two |
 
 **One FFmpeg run per job** (a sketch; M3 verifies the exact arguments):
 

@@ -133,7 +133,7 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 	// cut-a §8's M3 file: an MKV with H.264, TrueHD and ASS.
 	mkv := probeOf("matroska", videoStream("h264", "High", "yuv420p", "bt709"), audioStream("truehd", "", 8, "default"),
 		nodeproto.ProbeStream{Kind: "subtitle", Codec: "ass"})
-	got := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, Network: decide.Local})
+	got := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser})
 	want := decide.Decision{
 		Delivery: decide.HLS, Profile: decide.Remux,
 		NotDirectReasons: []decide.Reason{decide.ReasonContainer, decide.ReasonAudioCodec},
@@ -147,7 +147,7 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 func TestDecide_PlaysDirectlyWhatFitsEveryAxis(t *testing.T) {
 	t.Parallel()
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
-	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, Network: decide.Local})
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser})
 	if got.Delivery != decide.Direct || len(got.NotDirectReasons) != 0 {
 		t.Errorf("Decide = %+v, want direct with no reason", got)
 	}
@@ -180,22 +180,14 @@ func TestDecide_JudgesTheTrackAPlayerStartsWith(t *testing.T) {
 	}
 }
 
-func TestDecide_AFastFileIsReEncodedForARemoteLinkOnly(t *testing.T) {
+// A file plays as it is whatever its bit rate: nothing knows where the client is, and a link too
+// slow for it shows itself by its stalls (D247 §11).
+func TestDecide_AFileOfAnyBitRatePlaysAsItIs(t *testing.T) {
 	t.Parallel()
 	fast := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
 	fast.Format.BitRateBps = 40_000_000
-	remote := decide.Decide(decide.Input{
-		Probe: fast, PlayableFormats: browser, Network: decide.Remote, RemoteCeilingKbps: 10_000,
-	})
-	if remote.Profile != decide.H264At8M ||
-		!slices.Equal(remote.NotDirectReasons, []decide.Reason{decide.ReasonBandwidth}) {
-		t.Errorf("remote: %+v, want h264-8m for bandwidth", remote)
-	}
-	local := decide.Decide(decide.Input{
-		Probe: fast, PlayableFormats: browser, Network: decide.Local, RemoteCeilingKbps: 10_000,
-	})
-	if local.Delivery != decide.Direct {
-		t.Errorf("local: %+v, want direct", local)
+	if got := decide.Decide(decide.Input{Probe: fast, PlayableFormats: browser}); got.Delivery != decide.Direct {
+		t.Errorf("a 40 Mb/s file: %+v, want direct", got)
 	}
 }
 

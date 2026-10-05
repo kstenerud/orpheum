@@ -20,7 +20,12 @@ type RetiredKey struct {
 // RetiredKeys lists every setting a release stopped reading. A row with one of these keys is left
 // in place — an older release on a downgrade still reads it (D181) — until a person deletes it.
 func RetiredKeys() []RetiredKey {
-	return []RetiredKey{}
+	return []RetiredKey{
+		{
+			Key: "remote_bit_rate_ceiling_kbps", Release: "M4",
+			Reason: "nothing knows where a client is; a slow link shows itself by its stalls (D247 §11)",
+		},
+	}
 }
 
 // UnusedSetting is a setting row no setting of this release reads: a key a release retired, or

@@ -58,7 +58,6 @@ type StartPlaybackInput struct {
 	Body struct {
 		FileID            int64               `json:"fileId" minimum:"1"`
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
-		Network           string              `doc:"Where the client is" enum:"local,remote" json:"network"`
 		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
@@ -221,7 +220,6 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	request := playback.Request{
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
-		Network:           decide.Network(input.Body.Network),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)

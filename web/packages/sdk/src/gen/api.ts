@@ -2838,11 +2838,6 @@ export interface components {
         StartPlaybackInputBody: {
             /** Format: int64 */
             fileId: number;
-            /**
-             * @description Where the client is
-             * @enum {string}
-             */
-            network: "local" | "remote";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
             /**
              * @description A person's override of the decision
@@ -3090,11 +3085,6 @@ export interface components {
              * @enum {string}
              */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
-            /**
-             * @description Where the client is
-             * @enum {string}
-             */
-            network: "local" | "remote";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
         };
         WaitingCodeOutputBody: {
