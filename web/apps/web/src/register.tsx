@@ -1,35 +1,132 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { TFunction } from "i18next";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { register, secretFromHash } from "./accounts.ts";
+import { linkKind, register, secretFromHash, type LinkKind } from "./accounts.ts";
 import { CredentialsForm, CredentialsProblem, PasswordField } from "./credentials-form.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
+import { useResource } from "./use-resource.ts";
 
 /** Why a registration did not go through. */
 export type RegisterProblem = "noLink" | "mismatch" | "refused";
 
 /**
- * Registration from a one-time link (D218 §2): the person chooses a password, and this device is
- * signed in as theirs. The link's secret is after #, so no request carried it here.
+ * Registration from a one-time link: an invitation, from which the person chooses their own name
+ * and password (D246 §2), or a registration link, from which they choose a new password (D218 §5);
+ * either signs this device in as theirs. The link's secret is after #, so no request carried it
+ * here.
  */
 export function Register(): JSX.Element {
   const { t } = useTranslation();
-  const { api, session, navigation } = useServices();
+  const { navigation } = useServices();
   const [secret] = useState(() => secretFromHash(navigation.fragment()));
+  const kind = useLinkKind(secret);
+  const isInvitation = kind?.isInvitation === true;
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [passwordAgain, setPasswordAgain] = useState("");
+  const registration = useRegistration(secret);
+  return (
+    <CredentialsForm
+      heading={t(isInvitation ? "register.invitedHeading" : "register.heading")}
+      onSubmit={() => {
+        registration.submit({ name: isInvitation ? name : undefined, password, passwordAgain });
+      }}
+    >
+      <p>{explainText(t, kind)}</p>
+      {isInvitation ? <NameField value={name} onChange={setName} /> : null}
+      <PasswordField label={t("register.password")} value={password} onChange={setPassword} />
+      <PasswordField
+        label={t("register.again")}
+        value={passwordAgain}
+        onChange={setPasswordAgain}
+      />
+      {registration.problem === undefined ? null : (
+        <CredentialsProblem isAlert>
+          {t(`register.${registration.problem}`, { refusalText: registration.refusalText })}
+        </CredentialsProblem>
+      )}
+      <button type="submit" disabled={secret === undefined || registration.isBusy}>
+        {t("register.submit")}
+      </button>
+    </CredentialsForm>
+  );
+}
+
+/** What the link is for, once the server has said; undefined until then, or with no link. */
+function useLinkKind(secret: string | undefined): LinkKind | undefined {
+  const { api } = useServices();
+  const [kind] = useResource("link-kind", async () =>
+    secret === undefined ? undefined : await linkKind(api, secret),
+  );
+  return kind.state === "loaded" ? kind.value : undefined;
+}
+
+/** What the page says the link is for: an invitation, a person's new password, or a link. */
+function explainText(t: TFunction, kind: LinkKind | undefined): string {
+  if (kind?.isInvitation === true) {
+    return t("register.invitedExplain");
+  }
+  return kind?.name === undefined
+    ? t("register.explain")
+    : t("register.explainFor", { name: kind.name });
+}
+
+/** The name an invitation's person chooses, which the others see and they sign in with. */
+function NameField(props: {
+  readonly value: string;
+  readonly onChange: (name: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <label>
+      {t("register.name")}{" "}
+      <input
+        required
+        maxLength={100}
+        autoComplete="username"
+        value={props.value}
+        onChange={(event) => {
+          props.onChange(event.target.value);
+        }}
+      />
+    </label>
+  );
+}
+
+/** Sending the registration, and why it did not go through. */
+function useRegistration(secret: string | undefined): {
+  readonly submit: (entered: {
+    readonly name: string | undefined;
+    readonly password: string;
+    readonly passwordAgain: string;
+  }) => void;
+  readonly problem: RegisterProblem | undefined;
+  readonly refusalText: string;
+  readonly isBusy: boolean;
+} {
+  const { t } = useTranslation();
+  const { api, session, navigation } = useServices();
   const [problem, setProblem] = useState<RegisterProblem | undefined>(
     secret === undefined ? "noLink" : undefined,
   );
   const [refusalText, setRefusalText] = useState("");
   // The refusal is told by the form's own words; the request only makes the button wait.
   const registering = useRequest(() => "");
-  const submit = (): void => {
+  const submit = ({
+    name,
+    password,
+    passwordAgain,
+  }: {
+    readonly name: string | undefined;
+    readonly password: string;
+    readonly passwordAgain: string;
+  }): void => {
     if (secret === undefined) {
       return;
     }
@@ -40,9 +137,10 @@ export function Register(): JSX.Element {
     setProblem(undefined);
     registering.runRequest(async (idempotencyKey) => {
       try {
+        const device = thisDevice(session);
         const { token, user } = await register(
           api,
-          { secret, password, device: thisDevice(session) },
+          name === undefined ? { secret, password, device } : { secret, name, password, device },
           idempotencyKey,
         );
         // The secret rode in the fragment so no request carried it (D218 §1, the one exception
@@ -53,29 +151,13 @@ export function Register(): JSX.Element {
       } catch (cause: unknown) {
         setRefusalText(
           fieldProblemText(t, cause, {
-            fields: { "body.password": t("register.password") },
-            overrides: { authRequired: t("register.badLink") },
+            fields: { "body.password": t("register.password"), "body.name": t("register.name") },
+            overrides: { authRequired: t("register.badLink"), conflict: t("register.nameTaken") },
           }),
         );
         setProblem("refused");
       }
     });
   };
-  return (
-    <CredentialsForm heading={t("register.heading")} onSubmit={submit}>
-      <p>{t("register.explain")}</p>
-      <PasswordField label={t("register.password")} value={password} onChange={setPassword} />
-      <PasswordField
-        label={t("register.again")}
-        value={passwordAgain}
-        onChange={setPasswordAgain}
-      />
-      {problem === undefined ? null : (
-        <CredentialsProblem isAlert>{t(`register.${problem}`, { refusalText })}</CredentialsProblem>
-      )}
-      <button type="submit" disabled={secret === undefined || registering.isBusy}>
-        {t("register.submit")}
-      </button>
-    </CredentialsForm>
-  );
+  return { submit, problem, refusalText, isBusy: registering.isBusy };
 }

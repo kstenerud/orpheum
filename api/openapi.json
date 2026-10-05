@@ -4,16 +4,16 @@
       "AccountBody": {
         "additionalProperties": false,
         "properties": {
+          "adminNote": {
+            "type": "string"
+          },
           "hasPassword": {
-            "description": "False until they register from their link",
+            "description": "False for an account from before D246 that never registered",
             "type": "boolean"
           },
           "id": {
             "format": "int64",
             "type": "integer"
-          },
-          "isOutsider": {
-            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -27,7 +27,6 @@
           "id",
           "name",
           "role",
-          "isOutsider",
           "hasPassword"
         ],
         "type": "object"
@@ -47,6 +46,20 @@
         },
         "required": [
           "accounts"
+        ],
+        "type": "object"
+      },
+      "AdminNoteInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminNote": {
+            "description": "Empty removes it",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "adminNote"
         ],
         "type": "object"
       },
@@ -553,12 +566,17 @@
       "CreateAccountInputBody": {
         "additionalProperties": false,
         "properties": {
-          "isOutsider": {
-            "description": "From outside the house: an invitee",
-            "type": "boolean"
+          "adminNote": {
+            "description": "Who it is for; only the admin sees it",
+            "maxLength": 200,
+            "type": "string"
           },
           "name": {
             "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
             "minLength": 1,
             "type": "string"
           },
@@ -571,6 +589,7 @@
         },
         "required": [
           "name",
+          "password",
           "role"
         ],
         "type": "object"
@@ -580,14 +599,10 @@
         "properties": {
           "account": {
             "$ref": "#/components/schemas/AccountBody"
-          },
-          "registrationInvitation": {
-            "$ref": "#/components/schemas/IssuedSecretBody"
           }
         },
         "required": [
-          "account",
-          "registrationInvitation"
+          "account"
         ],
         "type": "object"
       },
@@ -1695,6 +1710,95 @@
         ],
         "type": "object"
       },
+      "InvitationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminNote": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "issuedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "adminNote",
+          "issuedAt",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "InvitationsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "invitations": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "invitations"
+        ],
+        "type": "object"
+      },
+      "InviteInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminNote": {
+            "description": "Who it is for: \"Uncle Joe\"; only the admin sees it",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "description": "The role's name, their whole access (D243 §4)",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "adminNote"
+        ],
+        "type": "object"
+      },
+      "InviteOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/InvitationBody"
+          },
+          "link": {
+            "$ref": "#/components/schemas/IssuedSecretBody"
+          }
+        },
+        "required": [
+          "invitation",
+          "link"
+        ],
+        "type": "object"
+      },
       "IssuedSecretBody": {
         "additionalProperties": false,
         "properties": {
@@ -2163,6 +2267,35 @@
           "changeDetection",
           "isWritable",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "LinkKindInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "type": "object"
+      },
+      "LinkKindOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isInvitation": {
+            "type": "boolean"
+          },
+          "name": {
+            "description": "A registration link's person; absent for an invitation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "isInvitation"
         ],
         "type": "object"
       },
@@ -3257,6 +3390,11 @@
         "properties": {
           "device": {
             "$ref": "#/components/schemas/NewDeviceBody"
+          },
+          "name": {
+            "description": "An invitation's: how they are shown and sign in",
+            "maxLength": 100,
+            "type": "string"
           },
           "password": {
             "minLength": 1,
@@ -4740,17 +4878,10 @@
           "isAdmin": {
             "type": "boolean"
           },
-          "isOutsider": {
-            "type": "boolean"
-          },
           "name": {
             "type": "string"
           },
           "role": {
-            "enum": [
-              "admin",
-              "user"
-            ],
             "type": "string"
           }
         },
@@ -4758,8 +4889,7 @@
           "id",
           "name",
           "role",
-          "isAdmin",
-          "isOutsider"
+          "isAdmin"
         ],
         "type": "object"
       },
@@ -6202,6 +6332,143 @@
         "summary": "The home screen: what the person stopped in the middle of",
         "tags": [
           "Browse"
+        ]
+      }
+    },
+    "/invitations": {
+      "get": {
+        "operationId": "listInvitations",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The invitations not yet used (admin)",
+        "tags": [
+          "Accounts"
+        ]
+      },
+      "post": {
+        "operationId": "createInvitation",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Invite someone to make their own account under a role, noting who it is for (admin; D246)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/invitations/{id}": {
+      "delete": {
+        "operationId": "withdrawInvitation",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Withdraw an invitation: its link admits no one (admin)",
+        "tags": [
+          "Accounts"
         ]
       }
     },
@@ -8069,7 +8336,48 @@
             "description": "Error"
           }
         },
-        "summary": "Use a registration invitation: set a password and sign this device in",
+        "summary": "Use an invitation or a registration link: make the account or set a new password, and sign in",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/registration/link": {
+      "post": {
+        "operationId": "getLinkKind",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkKindInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkKindOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What a link is for, without using it: an invitation or a registration link",
         "tags": [
           "Accounts"
         ]
@@ -9293,7 +9601,7 @@
             "description": "Error"
           }
         },
-        "summary": "Make a person, and a one-time link for them to set a password (D218)",
+        "summary": "Set a person's account up in full: a name, a password and a role (D246 §2)",
         "tags": [
           "Accounts"
         ]
@@ -9399,6 +9707,61 @@
           }
         },
         "summary": "Rename a person; names are for display and sign-in, and stay unique",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/users/{id}/admin-note": {
+      "put": {
+        "operationId": "setAdminNote",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminNoteInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change the admin's note of who a person is for (admin)",
         "tags": [
           "Accounts"
         ]
@@ -9557,7 +9920,7 @@
             "description": "Error"
           }
         },
-        "summary": "A new registration invitation for a person, withdrawing the old; their password works until used",
+        "summary": "A new registration link for a person, withdrawing the old; their password works until used",
         "tags": [
           "Accounts"
         ]

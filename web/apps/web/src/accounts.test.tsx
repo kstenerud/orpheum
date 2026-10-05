@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   changePassword,
   createAccount,
+  invite,
   issueDeviceCode,
   keepShownCode,
   register,
@@ -66,30 +67,39 @@ describe("accounts", () => {
     const session = [200, { token: "t", user: {} }] as const;
     const { api } = servedBy(
       {
-        "POST /users": [
-          200,
-          { account: {}, registrationInvitation: { secret: "s", expiresAt: 1 } },
-        ],
+        "POST /users": [200, { account: {} }],
+        "POST /invitations": [200, { invitation: {}, link: { secret: "s", expiresAt: 1 } }],
         "POST /registration": session,
         "POST /device-codes": secret,
         "POST /session/code": session,
       },
       sent,
     );
-    await createAccount(api, { name: "partner", role: "user", isOutsider: false }, "click-1");
+    await createAccount(
+      api,
+      { name: "partner", password: "pw", role: "user", adminNote: "" },
+      "click-1",
+    );
+    await invite(api, { role: "user", adminNote: "Grandma" }, "click-0");
     await register(
       api,
-      { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },
+      { secret: "s", name: "Gran", password: "p", device: { name: "Phone", platform: "web" } },
       "click-2",
     );
     await issueDeviceCode(api, { target: { deviceName: "Living room TV" } }, "click-3");
     await issueDeviceCode(api, { target: { deviceName: "Bedroom TV" }, userId: 7 }, "click-4");
     await signInWithCode(api, { code: "abcd-efgh", previousDeviceId: 7 }, "click-5");
     expect(sent).toEqual([
-      { methodAndPath: "POST /users", body: { name: "partner", role: "user", isOutsider: false } },
+      { methodAndPath: "POST /users", body: { name: "partner", password: "pw", role: "user" } },
+      { methodAndPath: "POST /invitations", body: { role: "user", adminNote: "Grandma" } },
       {
         methodAndPath: "POST /registration",
-        body: { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },
+        body: {
+          secret: "s",
+          name: "Gran",
+          password: "p",
+          device: { name: "Phone", platform: "web" },
+        },
       },
       { methodAndPath: "POST /device-codes", body: { deviceName: "Living room TV" } },
       { methodAndPath: "POST /device-codes", body: { deviceName: "Bedroom TV", userId: 7 } },
@@ -114,8 +124,8 @@ describe("accounts", () => {
       withServices(
         <PeopleList
           accounts={[
-            { id: 1, name: "owner", role: "admin", isOutsider: false, hasPassword: true },
-            { id: 2, name: "partner", role: "user", isOutsider: false, hasPassword: false },
+            { id: 1, name: "owner", role: "admin", hasPassword: true },
+            { id: 2, name: "partner", role: "user", adminNote: "Anna", hasPassword: false },
           ]}
         />,
       ),
@@ -123,6 +133,7 @@ describe("accounts", () => {
     expect(list).toContain("Has a password");
     expect(list).toContain('href="/people/2"');
     expect(list).toContain("Has not used their link yet");
+    expect(list).toContain("(Anna)");
     const code = renderToStaticMarkup(
       withServices(
         <Share kind="code" text="abcd-efgh" invitation={{ secret: "abcd-efgh", expiresAt: 0 }} />,

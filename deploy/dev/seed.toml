@@ -16,7 +16,7 @@ role = "admin"
 name = "partner"
 password = "partner"
 role = "user"
-is_outsider = true          # D174: invited from outside the house
+admin_note = "the remote partner"   # D246 §2: who it is for, the admin's alone
 
 # The three questions asked when a library is created (D184), answered for debugging:
 # metadata from the NFO files the generator writes, so no TMDB key is needed; the watcher on,

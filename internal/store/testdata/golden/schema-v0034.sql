@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 32
--- compatible_version 32
+-- user_version 34
+-- compatible_version 34
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -8,6 +8,9 @@ CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE is_chosen = 1
 
 -- index artwork_item
 CREATE INDEX artwork_item ON artwork(item_id, kind);
+
+-- index artwork_source
+CREATE INDEX artwork_source ON artwork(source_sha256) WHERE source_sha256 IS NOT NULL;
 
 -- index device_owner
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
@@ -29,6 +32,9 @@ CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 
 -- index grant_user
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
+
+-- index invitation_role
+CREATE INDEX invitation_role ON invitation(role_id);
 
 -- index item_added
 CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;
@@ -56,6 +62,9 @@ CREATE INDEX position_order ON position(ordering_id, sort_order);
 
 -- index position_title
 CREATE INDEX position_title ON position(title_id);
+
+-- index role_library_library
+CREATE INDEX role_library_library ON role_library(library_id);
 
 -- index secret_name
 CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
@@ -264,6 +273,14 @@ CREATE TABLE group_text (                                  -- a season's name, a
   name          TEXT,
   overview      TEXT,
   PRIMARY KEY (collection_id, group_number, language)
+);
+
+-- table invitation
+CREATE TABLE invitation (                                  -- class A (D246 section 2)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+  admin_note    TEXT NOT NULL CHECK (admin_note <> '')
 );
 
 -- table item
@@ -494,6 +511,14 @@ CREATE TABLE role (                                        -- class A (D130)
   predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
 );
 
+-- table role_library
+CREATE TABLE role_library (                                -- class A (D243 section 4)
+  role_id          INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
+  library_id       INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
+  may_rebroadcast  INTEGER NOT NULL DEFAULT 0 CHECK (may_rebroadcast IN (0,1)),
+  PRIMARY KEY (role_id, library_id)
+) WITHOUT ROWID;
+
 -- table root_mount
 CREATE TABLE root_mount (                                  -- class O
   node_id           INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
@@ -633,10 +658,9 @@ CREATE TABLE user (                                        -- class A
   name          TEXT NOT NULL,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
-  is_outsider   INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
   created_at    INTEGER NOT NULL,
   removed_at    INTEGER
-);
+, admin_note TEXT);
 
 -- table user_deny
 CREATE TABLE user_deny (                                   -- class A: narrows only

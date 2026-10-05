@@ -274,10 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0033 gives each role the libraries it may reach (D243 section 4): the built-in user role is
-// given every live library, so no one loses what they could see, and the admin role, which reaches
-// every library, and a deleted library get no row.
-func TestMigrate_Step0033GivesTheUserRoleEveryLiveLibrary(t *testing.T) {
+// Step 0034 drops the outsider flag and keeps everyone, each with no admin's note yet; an
+// invitation then needs a note and a role (D246 sections 1 and 2).
+func TestMigrate_Step0034KeepsEveryoneWithoutTheOutsiderFlagAndAnInvitationNeedsANote(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -287,17 +286,19 @@ func TestMigrate_Step0033GivesTheUserRoleEveryLiveLibrary(t *testing.T) {
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	const library = `INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable,
-		created_at, removed_at) VALUES (%d, '%s', 'movies', 'tmdb', 'manual', 0, 1, %s)`
-	execRaw(t, database, fmt.Sprintf(library, 1, "Films", "NULL"), fmt.Sprintf(library, 2, "Gone", "5"),
-		fmt.Sprintf(library, 3, "Shows", "NULL"))
+	const user = `INSERT INTO user (id, name, role_id, is_outsider, created_at) VALUES (%d, '%s', 2, %d, 1)`
+	execRaw(t, database, fmt.Sprintf(user, 1, "partner", 0), fmt.Sprintf(user, 2, "friend", 1))
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(queryRows(t, database, `SELECT role.name, role_library.library_id,
-		role_library.may_rebroadcast FROM role_library JOIN role ON role.id = role_library.role_id
-		ORDER BY role.name, role_library.library_id`, 3))
-	if want := "[[user 1 0] [user 3 0]]"; got != want {
-		t.Errorf("the roles' libraries are %s, want %s: the user role's every live library", got, want)
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, name, admin_note IS NULL FROM user ORDER BY id", 3))
+	if want := "[[1 partner 1] [2 friend 1]]"; got != want {
+		t.Errorf("the people after the step are %s, want %s: everyone kept, no note", got, want)
+	}
+	execRaw(t, database, `INSERT INTO "grant" (secret_sha256, kind, scope, issued_at)
+		VALUES (X'02', 'issued_secret', 'invitation', 1)`)
+	if _, err = database.writer.ExecContext(t.Context(),
+		`INSERT INTO invitation (secret_sha256, role_id, admin_note) VALUES (X'02', 2, '')`); err == nil {
+		t.Error("an invitation with an empty note was taken, want it refused")
 	}
 }

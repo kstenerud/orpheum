@@ -183,6 +183,16 @@ func (service *Service) DeleteRole(ctx context.Context, roleID int64) error {
 		if role.IsBuiltin == 1 {
 			return ErrBuiltinRole
 		}
+		// The role's invitations not yet used go with it; a role someone holds is refused below, and
+		// the transaction keeps them (D246 §2).
+		if err = queries.RevokeInvitationGrantsOfRole(ctx, sqlcgen.RevokeInvitationGrantsOfRoleParams{
+			RevokedAt: new(service.clock.Now().UnixMilli()), RoleID: roleID,
+		}); err != nil {
+			return fmt.Errorf("withdraw role %d's invitations: %w", roleID, err)
+		}
+		if err = queries.DeleteInvitationsOfRole(ctx, roleID); err != nil {
+			return fmt.Errorf("delete role %d's invitations: %w", roleID, err)
+		}
 		deleted, err := queries.DeleteRole(ctx, roleID)
 		if err != nil {
 			return fmt.Errorf("delete role %d: %w", roleID, err)

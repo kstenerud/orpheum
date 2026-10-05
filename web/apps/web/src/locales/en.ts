@@ -107,6 +107,13 @@ export const en = {
   register: {
     heading: "Choose your password",
     explain: "This link is yours, and works once. Choose the password you will sign in with.",
+    explainFor:
+      "This link is {{name}}'s, and works once. Choose the password you will sign in with.",
+    invitedHeading: "Make your account",
+    invitedExplain:
+      "This invitation is yours, and works once. Choose the name the others will see you by and sign in with, and your password.",
+    name: "Your name",
+    nameTaken: "Someone already has that name. Choose another.",
     password: "Password",
     again: "The same password again",
     submit: "Set password and sign in",
@@ -154,11 +161,22 @@ export const en = {
     role: "Role",
     roleUser: "Can watch",
     roleAdmin: "Administrator",
-    create: "Add, and make their link",
+    setUp: "Set up an account",
+    password: "Password",
+    create: "Add the account",
+    invite: "Invite someone",
+    inviteExplain:
+      "They choose their own name and password from the link. Your note is for you alone, so you can tell who is who once they have.",
+    adminNote: "Who it is for (only you see this)",
+    adminNoteExample: "Uncle Joe",
+    makeLink: "Make their link",
+    invitations: "Invitations not yet used",
+    invitation: "{{note}}, as {{role}}, until {{until}}",
+    withdraw: "Withdraw",
+    noted: "({{note}})",
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
-    outsider: "From outside the house: an invite",
     issued: {
       link: "{{name}}'s link: send it to them",
       code: "A code for {{name}}'s device",
@@ -167,6 +185,7 @@ export const en = {
   person: {
     devices: "Their devices",
     rename: "Rename",
+    saveNote: "Keep the note",
     changeRole: "Give this role",
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",

@@ -24,11 +24,11 @@ type SetupInput struct {
 
 // UserBody is a user as the API shows one.
 type UserBody struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Role       string `enum:"admin,user" json:"role"`
-	IsAdmin    bool   `json:"isAdmin"`
-	IsOutsider bool   `json:"isOutsider"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Role is the name of the person's role, which may be one the admin made (D243 §4).
+	Role    string `json:"role"`
+	IsAdmin bool   `json:"isAdmin"`
 	// Device is the device this session is on, so a person can see who is signed in where.
 	Device *CurrentDeviceBody `json:"device,omitempty"`
 }
@@ -236,7 +236,7 @@ func (server *Server) userBody(
 ) (UserBody, error) {
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
-		IsAdmin: principal.IsAdmin(), IsOutsider: principal.IsOutsider,
+		IsAdmin: principal.IsAdmin(),
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)

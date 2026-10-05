@@ -36,10 +36,11 @@ type seedFile struct {
 }
 
 type seedUser struct {
-	Name       string `toml:"name"`
-	Password   string `toml:"password"`
-	Role       string `toml:"role"`
-	IsOutsider bool   `toml:"is_outsider"`
+	Name     string `toml:"name"`
+	Password string `toml:"password"`
+	Role     string `toml:"role"`
+	// AdminNote is the admin's note of who the person is for (D246 §2).
+	AdminNote string `toml:"admin_note"`
 }
 
 // seedLibrary is a library the seed creates, on the config's node, with D184's questions answered.
@@ -201,7 +202,7 @@ func seedUserOnce(ctx context.Context, service *auth.Service, user seedUser, rep
 		return err
 	}
 	_, err = service.CreateUser(ctx, auth.NewUser{
-		Name: user.Name, Password: user.Password, Role: role, IsOutsider: user.IsOutsider,
+		Name: user.Name, Password: user.Password, Role: role, AdminNote: user.AdminNote,
 	})
 	switch {
 	case err == nil:

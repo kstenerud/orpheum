@@ -7,7 +7,19 @@ import { useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import { createAccount, listAccounts, registrationUrl, type Account } from "./accounts.ts";
+import {
+  createAccount,
+  invite,
+  listAccounts,
+  listInvitations,
+  registrationUrl,
+  withdrawInvitation,
+  type Account,
+  type Invitation,
+  type NewAccount,
+} from "./accounts.ts";
+import { dateTimeText } from "./date-time-text.ts";
+import { i18n } from "./i18n.ts";
 import { listRoles, roleLabel } from "./roles.ts";
 import { RolesSection } from "./roles-section.tsx";
 import { FormRow } from "./form-row.tsx";
@@ -35,13 +47,15 @@ export type IssuedInvitation =
     };
 
 /**
- * The household, for the admin (D218): everyone, whether they have registered, a way to add a
- * person, and for each a new registration invitation or a code for a device.
+ * The household, for the admin (D218, D246 §2): everyone, with the admin's note of who each is for;
+ * an account set up in full, or an invitation for someone to fill in their own, under a role and
+ * with that note; and the invitations not yet used.
  */
 export function People(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [accounts, reload] = useResource("accounts", () => listAccounts(api));
+  const [invitations, reloadInvitations] = useResource("invitations", () => listInvitations(api));
   const [roles, reloadRoles] = useResource("people-roles", () => listRoles(api));
   const roleNames =
     roles.state === "loaded" ? roles.value.roles.map((role) => role.name) : ["user"];
@@ -53,16 +67,22 @@ export function People(): JSX.Element {
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
       <BusyGroup isBusy={isBusy}>
-        <AddPerson
+        <InvitePerson
           roleNames={roleNames}
-          onAdd={(name, role, isOutsider) => {
+          onInvite={(role, adminNote) => {
             runRequest(async (idempotencyKey) => {
-              const { registrationInvitation } = await createAccount(
-                api,
-                { name, role, isOutsider },
-                idempotencyKey,
-              );
-              setIssued({ kind: "link", name, invitation: registrationInvitation });
+              const { link } = await invite(api, { role, adminNote }, idempotencyKey);
+              setIssued({ kind: "link", name: adminNote, invitation: link });
+              reloadInvitations();
+            });
+          }}
+        />
+        <SetUpAccount
+          roleNames={roleNames}
+          onCreate={(account) => {
+            runRequest(async (idempotencyKey) => {
+              await createAccount(api, account, idempotencyKey);
+              setIssued(undefined);
               reload();
             });
           }}
@@ -70,6 +90,20 @@ export function People(): JSX.Element {
       </BusyGroup>
       {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
+      <Loaded
+        resource={invitations}
+        render={(list) => (
+          <PendingInvitations
+            invitations={list}
+            onWithdraw={(invitationId) => {
+              runRequest(async () => {
+                await withdrawInvitation(api, invitationId);
+                reloadInvitations();
+              });
+            }}
+          />
+        )}
+      />
       <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
       <RolesSection onChange={reloadRoles} />
     </section>
@@ -96,24 +130,87 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/**
- * Adds a person: their name, their role, which is their whole access, and whether they are from
- * outside the house, an invitee (D243 §4); the page shows their registration link to pass on.
- */
-function AddPerson(props: {
+/** A role chooser over the roles there are. */
+function RoleSelect(props: {
   readonly roleNames: readonly string[];
-  readonly onAdd: (name: string, role: string, isOutsider: boolean) => void;
+  readonly role: string;
+  readonly onChange: (role: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <label>
+      {t("people.role")}{" "}
+      <select
+        value={props.role}
+        onChange={(event) => {
+          props.onChange(event.target.value);
+        }}
+      >
+        {props.roleNames.map((roleName) => (
+          <option key={roleName} value={roleName}>
+            {roleLabel(t, roleName)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Invites someone to make their own account: the role it will have, and the admin's note of who
+ * it is for, which the admin must write and only the admin sees (D246 §2); the page then shows the
+ * link to pass on.
+ */
+function InvitePerson(props: {
+  readonly roleNames: readonly string[];
+  readonly onInvite: (role: string, adminNote: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [role, setRole] = useState("user");
+  const [adminNote, setAdminNote] = useState("");
+  return (
+    <FormRow
+      onSubmit={() => {
+        props.onInvite(role, adminNote);
+      }}
+    >
+      <h2>{t("people.invite")}</h2>
+      <p>{t("people.inviteExplain")}</p>
+      <label>
+        {t("people.adminNote")}{" "}
+        <input
+          required
+          maxLength={200}
+          placeholder={t("people.adminNoteExample")}
+          value={adminNote}
+          onChange={(event) => {
+            setAdminNote(event.target.value);
+          }}
+        />
+      </label>
+      <RoleSelect roleNames={props.roleNames} role={role} onChange={setRole} />
+      <button type="submit">{t("people.makeLink")}</button>
+    </FormRow>
+  );
+}
+
+/** Sets an account up in full: a name, a password, a role, and the admin's note (D246 §2). */
+function SetUpAccount(props: {
+  readonly roleNames: readonly string[];
+  readonly onCreate: (account: NewAccount) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("user");
-  const [isOutsider, setIsOutsider] = useState(false);
-  const submit = (): void => {
-    props.onAdd(name, role, isOutsider);
-  };
+  const [adminNote, setAdminNote] = useState("");
   return (
-    <FormRow onSubmit={submit}>
-      <h2>{t("people.add")}</h2>
+    <FormRow
+      onSubmit={() => {
+        props.onCreate({ name, password, role, adminNote });
+      }}
+    >
+      <h2>{t("people.setUp")}</h2>
       <label>
         {t("people.name")}{" "}
         <input
@@ -126,32 +223,65 @@ function AddPerson(props: {
         />
       </label>
       <label>
-        {t("people.role")}{" "}
-        <select
-          value={role}
-          onChange={(event) => {
-            setRole(event.target.value);
-          }}
-        >
-          {props.roleNames.map((roleName) => (
-            <option key={roleName} value={roleName}>
-              {roleLabel(t, roleName)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
+        {t("people.password")}{" "}
         <input
-          type="checkbox"
-          checked={isOutsider}
-          onChange={() => {
-            setIsOutsider(!isOutsider);
+          required
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
           }}
-        />{" "}
-        {t("people.outsider")}
+        />
+      </label>
+      <RoleSelect roleNames={props.roleNames} role={role} onChange={setRole} />
+      <label>
+        {t("people.adminNote")}{" "}
+        <input
+          maxLength={200}
+          value={adminNote}
+          onChange={(event) => {
+            setAdminNote(event.target.value);
+          }}
+        />
       </label>
       <button type="submit">{t("people.create")}</button>
     </FormRow>
+  );
+}
+
+/** The invitations not yet used, each with who it is for, its role, until when, and a withdrawal. */
+function PendingInvitations(props: {
+  readonly invitations: readonly Invitation[];
+  readonly onWithdraw: (invitationId: number) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.invitations.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="people-invitations">
+      <h2 id="people-invitations">{t("people.invitations")}</h2>
+      <ul>
+        {props.invitations.map((invitation) => (
+          <li key={invitation.id}>
+            {t("people.invitation", {
+              note: invitation.adminNote,
+              role: roleLabel(t, invitation.role),
+              until: dateTimeText(invitation.expiresAt, i18n.language),
+            })}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                props.onWithdraw(invitation.id);
+              }}
+            >
+              {t("people.withdraw")}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -159,7 +289,12 @@ function AddPerson(props: {
 /** How a refusal of a person's name or role is told, on the People page and a person's own. */
 export function personWords(t: TFunction): FormWords {
   return {
-    fields: { "body.name": t("people.name"), "body.role": t("people.role") },
+    fields: {
+      "body.name": t("people.name"),
+      "body.role": t("people.role"),
+      "body.adminNote": t("people.adminNote"),
+      "body.password": t("people.password"),
+    },
     overrides: { conflict: t("people.nameTaken") },
   };
 }
@@ -178,6 +313,9 @@ export function PeopleList(props: { readonly accounts: readonly Account[] }): JS
           <Link to={{ screen: "person", userId: account.id }} className="people__name">
             {account.name}
           </Link>{" "}
+          {account.adminNote === undefined ? null : (
+            <span className="people__note">{t("people.noted", { note: account.adminNote })}</span>
+          )}{" "}
           <span className="people__status">{registrationText(t, account)}</span>
         </li>
       ))}

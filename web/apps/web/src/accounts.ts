@@ -35,19 +35,68 @@ export async function listAccounts(api: Api): Promise<Account[]> {
   return dataOrThrow(await api.GET("/users")).accounts ?? [];
 }
 
-/** Makes a person, and their registration invitation. */
+/** An account the admin sets up in full: a name, a password, a role, and a note of who it is for. */
+export interface NewAccount {
+  readonly name: string;
+  readonly password: string;
+  readonly role: string;
+  readonly adminNote: string;
+}
+
+/** Sets a person's account up in full (D246 §2). */
 export async function createAccount(
   api: Api,
-  account: { readonly name: string; readonly role: string; readonly isOutsider: boolean },
+  account: NewAccount,
   idempotencyKey: string,
-): Promise<{
-  account: Account;
-  registrationInvitation: components["schemas"]["IssuedSecretBody"];
-}> {
+): Promise<Account> {
+  const { adminNote, ...unnoted } = account;
+  const body = adminNote === "" ? unnoted : { ...account };
+  return dataOrThrow(await api.POST("/users", { body, ...idempotent(idempotencyKey) })).account;
+}
+
+/** An invitation not yet used: its role, and the admin's note of who it is for. */
+export type Invitation = components["schemas"]["InvitationBody"];
+
+/** Invites someone to make their own account under a role, with a note of who it is for (D246 §2). */
+export async function invite(
+  api: Api,
+  invitation: { readonly role: string; readonly adminNote: string },
+  idempotencyKey: string,
+): Promise<{ invitation: Invitation; link: components["schemas"]["IssuedSecretBody"] }> {
   return dataOrThrow(
-    await api.POST("/users", {
-      body: { name: account.name, role: account.role, isOutsider: account.isOutsider },
-      ...idempotent(idempotencyKey),
+    await api.POST("/invitations", { body: { ...invitation }, ...idempotent(idempotencyKey) }),
+  );
+}
+
+/** The invitations not yet used, newest first. */
+export async function listInvitations(api: Api): Promise<Invitation[]> {
+  return dataOrThrow(await api.GET("/invitations")).invitations ?? [];
+}
+
+/** Withdraws an invitation: its link admits no one. */
+export async function withdrawInvitation(api: Api, invitationId: number): Promise<void> {
+  throwIfRefused(await api.DELETE("/invitations/{id}", { params: { path: { id: invitationId } } }));
+}
+
+/** What a link is for: an invitation, or a registration link for the person it names. */
+export type LinkKind = components["schemas"]["LinkKindOutputBody"];
+
+/**
+ * What a link is for, without using it: asked as its page opens, not by a click, and a question
+ * that changes nothing, so each asking is its own (D244 §4).
+ */
+export async function linkKind(api: Api, secret: string): Promise<LinkKind> {
+  return dataOrThrow(
+    await api.POST("/registration/link", { body: { secret }, ...idempotent(crypto.randomUUID()) }),
+  );
+}
+
+/** Changes the admin's note of who a person is for; empty removes it. */
+export async function setAdminNote(api: Api, userId: number, adminNote: string): Promise<void> {
+  throwIfRefused(
+    await api.PUT("/users/{id}/admin-note", {
+      params: { path: { id: userId } },
+      body: { adminNote },
     }),
   );
 }
@@ -77,10 +126,18 @@ export async function signIn(
   );
 }
 
-/** Uses a registration invitation: sets the password and signs this device in. */
+/**
+ * Uses a link: an invitation makes the account with the name chosen; a registration link sets the
+ * person's new password. Either signs this device in.
+ */
 export async function register(
   api: Api,
-  registration: { readonly secret: string; readonly password: string; readonly device: NewDevice },
+  registration: {
+    readonly secret: string;
+    readonly name?: string;
+    readonly password: string;
+    readonly device: NewDevice;
+  },
   idempotencyKey: string,
 ): Promise<SignInResult> {
   return dataOrThrow(

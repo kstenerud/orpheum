@@ -64,10 +64,11 @@ probe, and §10 says both are worth surfacing.
 
 ## What "sharing" is here, and the rebroadcast grant
 
-[D174](../../decisions/working-notes.md), 2026-09-23. **Sharing is inviting someone from outside the house**: an account,
-a role, an invite link, and an outsider flag that hides the household from them. Nothing a
-household member does not already have, minus visibility, plus a finite download lease and a
-ceiling.
+[D174](../../decisions/working-notes.md), 2026-09-23, as [D246](../../decisions/working-notes.md)
+§1 revised it. **Sharing is inviting someone**: an account, a role, and an invite link. There is
+no outsider kind of account; what D174 set apart for one (seeing the household, a finite
+download lease, a ceiling) is a capability of a role, added with the feature it governs, so the
+admin chooses the granularity.
 
 **Deferred: the rebroadcast grant** ([D177](../../decisions/working-notes.md)). The grantee is
 an ordinary user with a `rebroadcast` capability. **His core signs in as him and treats our

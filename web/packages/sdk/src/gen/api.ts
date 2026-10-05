@@ -384,6 +384,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The invitations not yet used (admin) */
+        get: operations["listInvitations"];
+        put?: never;
+        /** Invite someone to make their own account under a role, noting who it is for (admin; D246) */
+        post: operations["createInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Withdraw an invitation: its link admits no one (admin) */
+        delete: operations["withdrawInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items": {
         parameters: {
             query?: never;
@@ -958,8 +993,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Use a registration invitation: set a password and sign this device in */
+        /** Use an invitation or a registration link: make the account or set a new password, and sign in */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/registration/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a link is for, without using it: an invitation or a registration link */
+        post: operations["getLinkKind"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1287,7 +1339,7 @@ export interface paths {
         /** Everyone, for the admin */
         get: operations["listAccounts"];
         put?: never;
-        /** Make a person, and a one-time link for them to set a password (D218) */
+        /** Set a person's account up in full: a name, a password and a role (D246 §2) */
         post: operations["createAccount"];
         delete?: never;
         options?: never;
@@ -1306,6 +1358,23 @@ export interface paths {
         get: operations["getPerson"];
         /** Rename a person; names are for display and sign-in, and stay unique */
         put: operations["renamePerson"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/admin-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change the admin's note of who a person is for (admin) */
+        put: operations["setAdminNote"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1356,7 +1425,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A new registration invitation for a person, withdrawing the old; their password works until used */
+        /** A new registration link for a person, withdrawing the old; their password works until used */
         post: operations["issueRegistrationInvitation"];
         delete?: never;
         options?: never;
@@ -1386,17 +1455,21 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AccountBody: {
-            /** @description False until they register from their link */
+            adminNote?: string;
+            /** @description False for an account from before D246 that never registered */
             hasPassword: boolean;
             /** Format: int64 */
             id: number;
-            isOutsider: boolean;
             name: string;
             /** @description The role's name, their whole access */
             role: string;
         };
         AccountsOutputBody: {
             accounts: components["schemas"]["AccountBody"][] | null;
+        };
+        AdminNoteInputBody: {
+            /** @description Empty removes it */
+            adminNote: string;
         };
         AllowanceBody: {
             /** Format: int64 */
@@ -1562,15 +1635,15 @@ export interface components {
             remedy?: string;
         };
         CreateAccountInputBody: {
-            /** @description From outside the house: an invitee */
-            isOutsider?: boolean;
+            /** @description Who it is for; only the admin sees it */
+            adminNote?: string;
             name: string;
+            password: string;
             /** @description The role's name, their whole access (D243 §4) */
             role: string;
         };
         CreateAccountOutputBody: {
             account: components["schemas"]["AccountBody"];
-            registrationInvitation: components["schemas"]["IssuedSecretBody"];
         };
         CreatedOutputBody: {
             /** Format: int64 */
@@ -1936,6 +2009,35 @@ export interface components {
         InvalidRequestDetailBody: {
             problems: components["schemas"]["RequestProblemBody"][] | null;
         };
+        InvitationBody: {
+            adminNote: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            expiresAt: number;
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            issuedAt: number;
+            role: string;
+        };
+        InvitationsOutputBody: {
+            invitations: components["schemas"]["InvitationBody"][] | null;
+        };
+        InviteInputBody: {
+            /** @description Who it is for: "Uncle Joe"; only the admin sees it */
+            adminNote: string;
+            /** @description The role's name, their whole access (D243 §4) */
+            role: string;
+        };
+        InviteOutputBody: {
+            invitation: components["schemas"]["InvitationBody"];
+            link: components["schemas"]["IssuedSecretBody"];
+        };
         IssuedSecretBody: {
             /**
              * Format: int64
@@ -2089,6 +2191,14 @@ export interface components {
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
             roots?: components["schemas"]["RootBody"][] | null;
+        };
+        LinkKindInputBody: {
+            secret: string;
+        };
+        LinkKindOutputBody: {
+            isInvitation: boolean;
+            /** @description A registration link's person; absent for an invitation */
+            name?: string;
         };
         MadeBackupOutputBody: {
             includesKey: boolean;
@@ -2445,6 +2555,8 @@ export interface components {
         };
         RegisterInputBody: {
             device: components["schemas"]["NewDeviceBody"];
+            /** @description An invitation's: how they are shown and sign in */
+            name?: string;
             password: string;
             secret: string;
         };
@@ -2873,10 +2985,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             isAdmin: boolean;
-            isOutsider: boolean;
             name: string;
-            /** @enum {string} */
-            role: "admin" | "user";
+            role: string;
         };
         VersionBody: {
             /**
@@ -3792,6 +3902,106 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HomeOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listInvitations: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createInvitation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    withdrawInvitation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -5095,6 +5305,39 @@ export interface operations {
             };
         };
     };
+    getLinkKind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkKindInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkKindOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listRoles: {
         parameters: {
             query?: never;
@@ -5989,6 +6232,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RenamePersonInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAdminNote: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNoteInputBody"];
             };
         };
         responses: {

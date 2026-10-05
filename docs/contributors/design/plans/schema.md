@@ -629,9 +629,9 @@ CREATE TABLE user (                                        -- class A
   name          TEXT NOT NULL,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
-  is_outsider      INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
   created_at    INTEGER NOT NULL,
-  removed_at    INTEGER
+  removed_at    INTEGER,
+  admin_note    TEXT                     -- 0034: who it is for, the admin's alone (D246 section 2)
 );
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 
@@ -673,15 +673,27 @@ CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;  -- 0023: 
 
 `issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
 [D174](../../decisions/working-notes.md) as `invite` and named for what it covers in migration 0029
-(the jobs rebuild's Phase 3): single use, and redeeming an invitation creates the outsider's user
-with the role **asked when the invite was made**
-([D184](../../decisions/working-notes.md)); ceilings and a lease join that question when they
-exist.
-[D218](../../decisions/working-notes.md)'s accounts use it too, in two scopes: `register`, a
-registration invitation for a person the admin already made, which sets their password (seven days;
-a new one withdraws the old), and `add_device`, a device code whose `device_name` is the name the
-device will be listed under (ten minutes). Both are single use, and like every grant they are
-stored only as a hash.
+(the jobs rebuild's Phase 3). It has three scopes, each single use and, like every grant, stored
+only as a hash: `invite`, an invitation, with no person yet, whose `invitation` row holds the role
+and the admin's note, and which makes the account its person fills in
+([D246](../../decisions/working-notes.md) §2; seven days); `register`, a registration link for a
+person who forgot their password, which sets a new one
+([D218](../../decisions/working-notes.md) §5; a new one withdraws the old); and `add_device`, a
+device code whose `device_name` is the name the device will be listed under (ten minutes).
+
+```sql
+CREATE TABLE invitation (                                  -- class A (D246 section 2), step 0034
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
+  admin_note    TEXT NOT NULL CHECK (admin_note <> '')
+);
+CREATE INDEX invitation_role ON invitation(role_id);
+```
+
+An invitation not yet used. Registering through it makes the account, with the name and password
+its person chose, the role and the note, and deletes the row; withdrawing it, or deleting its role,
+revokes the grant and deletes the row. An expired one's row stays until then, and is not listed.
 
 ```sql
 CREATE TABLE setting (                                     -- class A: the server's (D200)
@@ -1140,6 +1152,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `provider_response` | persistent.db | `internal/core/identify` | |
 | `refresh_request` | persistent.db | `internal/core/identify` | |
 | `role` | persistent.db | `internal/core/auth` | the baseline seeds the built-in roles; the admin makes the rest (D243 §4) |
+| `invitation` | persistent.db | `internal/core/auth` | |
 | `role_library` | persistent.db | `internal/core/auth` | step 0033 gives the built-in user role every live library |
 | `root_mount` | persistent.db | `internal/core/library` | |
 | `root_scan` | persistent.db | `internal/core/library` | |

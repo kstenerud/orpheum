@@ -76,18 +76,9 @@ func TestRoles_AnInviteeReachesOnlyTheirRolesLibraries(t *testing.T) {
 		friends.Libraries[0].LibraryID != 1 || friends.IsBuiltin {
 		t.Errorf("GET /roles lists friends as %+v; want library 1, made by the admin", friends)
 	}
-	invited := harness.do(t, http.MethodPost, "/users", admin,
-		map[string]any{"name": "cousin", "role": "friends", "isOutsider": true})
-	var account struct {
-		Account                AccountBody      `json:"account"`
-		RegistrationInvitation IssuedSecretBody `json:"registrationInvitation"`
-	}
-	if err := json.Unmarshal([]byte(invited.body), &account); err != nil || invited.status != http.StatusCreated ||
-		!account.Account.IsOutsider || account.Account.Role != "friends" {
-		t.Fatalf("POST /users for an invitee = %d %s", invited.status, invited.body)
-	}
+	invitation := harness.invite(t, admin, "friends", "my cousin")
 	cousin, _ := readSignIn(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": account.RegistrationInvitation.Secret, "password": "cousin-password", "device": testDevice,
+		"secret": invitation.Link.Secret, "name": "cousin", "password": "cousin-password", "device": testDevice,
 	}))
 	if page := harness.do(t, http.MethodGet, "/items/30", cousin, nil); page.status != http.StatusOK {
 		t.Errorf("the invitee's role reaches library 1, yet GET /items/30 = %d %s", page.status, page.body)
@@ -98,10 +89,15 @@ func TestRoles_AnInviteeReachesOnlyTheirRolesLibraries(t *testing.T) {
 	harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
 		"name": "nothing", "capabilities": []string{}, "libraries": []any{},
 	})
-	moved := harness.do(t, http.MethodPut, fmt.Sprintf("/users/%d/role", account.Account.ID), admin,
+	var cousinAccount UserBody
+	cousinMe := harness.do(t, http.MethodGet, "/me", cousin, nil)
+	if err := json.Unmarshal([]byte(cousinMe.body), &cousinAccount); err != nil {
+		t.Fatal(err)
+	}
+	moved := harness.do(t, http.MethodPut, fmt.Sprintf("/users/%d/role", cousinAccount.ID), admin,
 		map[string]any{"role": "nothing"})
 	if moved.status != http.StatusNoContent {
-		t.Fatalf("PUT /users/%d/role = %d %s", account.Account.ID, moved.status, moved.body)
+		t.Fatalf("PUT /users/%d/role = %d %s", cousinAccount.ID, moved.status, moved.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items/30", cousin, nil), http.StatusNotFound, CodeNotFound)
 	friends := harness.roleNamed(t, admin, "friends")
