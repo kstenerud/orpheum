@@ -3,12 +3,14 @@
 package together
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -538,8 +540,12 @@ func (current *session) roster() []MemberView {
 				Suspended: attached.suspended, RTTMs: attached.rttMs,
 			})
 		}
+		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })
 		views = append(views, view)
 	}
+	// In the order they joined, the host first: the members are kept by id, and a map's order is
+	// chance, which swapped the names on everyone's screen (the owner's test, 2026-10-05).
+	slices.SortFunc(views, func(one, other MemberView) int { return cmp.Compare(one.ID, other.ID) })
 	return views
 }
 

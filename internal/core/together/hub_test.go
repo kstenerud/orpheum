@@ -3,6 +3,7 @@
 package together
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -185,6 +186,27 @@ func TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack(t *testing.T) {
 	stage.ready(t, back, false)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
 		t.Errorf("the guest back and ready: %s; want Playing", group.State)
+	}
+}
+
+// The roster lists the members in the order they joined, the host first, every time it is sent:
+// kept by id in a map, its order was chance, and the names swapped on everyone's screen.
+func TestHub_TheRosterListsTheMembersInTheOrderTheyJoined(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	var credentials []string
+	for range 3 {
+		credentials = append(credentials, stage.join(t).MembershipCredential)
+	}
+	for range 20 {
+		attached, _ := stage.attach(t, credentials[2], RolePlayback)
+		roster := hostBox.last(MessageRoster).Roster
+		if len(roster) != 4 || !roster[0].IsHost ||
+			!slices.IsSortedFunc(roster, func(one, other MemberView) int { return cmp.Compare(one.ID, other.ID) }) {
+			t.Fatalf("the roster %+v; want the host and then each member in the order they joined", roster)
+		}
+		stage.hub.Detach(attached)
 	}
 }
 
