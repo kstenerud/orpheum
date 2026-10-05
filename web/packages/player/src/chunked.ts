@@ -3,7 +3,14 @@
 import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
 
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
-import { hlsMethod, hlsSupport, playNative, startWithAudio, type HlsPlayback } from "./hls.ts";
+import {
+  hlsMethod,
+  hlsSupport,
+  playNative,
+  startWithAudio,
+  tellOwnMoves,
+  type HlsPlayback,
+} from "./hls.ts";
 import { nextCap } from "./step-up.ts";
 
 /**
@@ -182,6 +189,7 @@ export function playChunked(
     }
   });
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
+  tellOwnMoves(hls, video);
   const stopAdapting = adaptQuality(hls, video, {
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,

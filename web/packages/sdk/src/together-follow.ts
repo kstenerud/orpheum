@@ -110,6 +110,7 @@ export type FollowedMedia = Pick<
   | "pause"
   | "addEventListener"
   | "removeEventListener"
+  | "dispatchEvent"
 >;
 
 /**
@@ -185,12 +186,15 @@ function commandOfEvent(
   if (state === "Playing" && (event === "ended" || (event === "pause" && !media.ended))) {
     return { command: "pause" };
   }
+  // A jump is past the seek threshold: the browser's player moves itself a fraction of a second to
+  // step over a gap in what it loaded, and each such step, taken for its person's seek, made the
+  // whole group wait and load again, without end on a slow link (the owner's test, 2026-10-05).
   const isAJump =
     driftCorrection({
       expectedMs: where.expectedMs,
       actualMs: positionMsOf(media),
       groupRate: where.group.rate,
-    }).kind !== "none";
+    }).kind === "seek";
   // A seek is the group's as its person makes it, not once it has loaded: a host on a slow link
   // would otherwise hold the group up loading a place the group was never told of, and be left
   // behind (the owner's test, 2026-10-05).
@@ -198,6 +202,21 @@ function commandOfEvent(
     ? { command: "seek", positionMs: positionMsOf(media) }
     : undefined;
 }
+
+/**
+ * The event a player fires at its video as it moves the video itself, before the seeking that
+ * follows: hls.js steps over a gap in what it loaded, or nudges a stalled video on. That seek is
+ * the player's, not its person's, and a leading player does not send it to the group (the owner's
+ * test, 2026-10-05, where each such step became a jump for everyone).
+ */
+export const playerMovedItselfEvent = "orpheumplayermoveditself";
+
+/**
+ * The event a following player fires at its video as it seeks to catch up with a group it fell
+ * behind, having once been in step: a stall in all but name, which a player on a slow link never
+ * otherwise counts, every load being a seek's (D247 §2; the owner's test, 2026-10-05).
+ */
+export const fellBehindEvent = "orpheumfellbehind";
 
 /** The events a following player tells the group of, and is moved by. */
 const followedEvents = [
@@ -331,6 +350,11 @@ class GroupFollower {
     }
   };
 
+  /** The player moves the video itself: the seeking that follows is not its person's. */
+  readonly playerMovedItself = (): void => {
+    this.#isOwnSeekPending = true;
+  };
+
   /** Stops what is pending, as the follower stops. */
   readonly stop = (): void => {
     clearTimeout(this.#pendingCommand);
@@ -418,8 +442,19 @@ class GroupFollower {
     if (correction.kind === "nudge") {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
     } else if (correction.kind === "seek") {
-      this.#seek(correction.toMs + Math.min(this.#lastLoadMs, aimAheadAtMostMs) * where.group.rate);
+      this.#catchUp(correction.toMs, where.group.rate);
     }
+  }
+
+  /**
+   * Seeks to catch up with the group at toMs, aimed ahead by how long its last seek took to load,
+   * and says it fell behind if it had been in step.
+   */
+  #catchUp(toMs: number, groupRate: number): void {
+    if (this.#hasCaughtUp) {
+      this.#media.dispatchEvent(new Event(fellBehindEvent));
+    }
+    this.#seek(toMs + Math.min(this.#lastLoadMs, aimAheadAtMostMs) * groupRate);
   }
 
   /** Holds the player paused at the group's position: Paused, Waiting or Idle. */
@@ -466,6 +501,7 @@ export function followGroup(
         ] as const,
     ),
     ["progress", follower.loaded] as const,
+    [playerMovedItselfEvent, follower.playerMovedItself] as const,
   ];
   for (const [event, listener] of listeners) {
     media.addEventListener(event, listener);

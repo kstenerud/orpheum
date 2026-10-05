@@ -18024,7 +18024,11 @@ paused often; in the group it played a frame and froze, over and over.
    again."* At the first stall, prepare starts a lower version in the background from where the
    film is, at a bitrate the player's own measurement of the original's download says the link
    carries (§1). It is encoded faster than the film plays, so it is ahead of the viewer within
-   seconds. At a second stall the player changes over to it at its position. The changeover is
+   seconds. At a second stall the player changes over to it at its position. **A stall is also a
+   load, the first or a seek's, that leaves the player unable to play for 15 s, once for each 15 s,
+   and a Watch Together player that falls behind its group and seeks to catch up** (the owner's
+   choice, 2026-10-05): a player on a link too slow to start never stalled while playing, and a
+   follower catching up only ever loads, so neither was offered a lower version. The changeover is
    not seamless (a plain file and a segmented stream cannot be swapped without rebuilding the
    player), but it falls inside a stall that is happening anyway. The version is kept as a cache
    ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)),
