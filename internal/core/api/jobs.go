@@ -35,7 +35,7 @@ type JobBody struct {
 	Kind JobKind `json:"kind"`
 	// What it works on, one field by kind (D227 §2): an item for fetch_metadata and
 	// make_artwork_sizes, a rendition for prepare, a stream for extract_subtitle, a fetched subtitle
-	// for convert_fetched_subtitle, a file for read_through, a scan for scan, a scan's batch for
+	// for convert_fetched_subtitle, a file for read_through and make_chunks, a scan for scan, a scan's batch for
 	// examine.
 	ItemID            int64 `json:"itemId,omitempty"`
 	RenditionID       int64 `json:"renditionId,omitempty"`

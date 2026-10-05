@@ -59,6 +59,7 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 		t.Fatal(err)
 	}
 	harness.shelveReachableFilm(t, partnerID)
+	harness.keepFilmOnesTimeline(t)
 	partner := harness.signIn(t, "partner", "partner-password")
 	playing := harness.play(t, partner, chrome(1))
 	reportPath := "/playback/" + playing.MediaToken + "/report"
@@ -94,6 +95,11 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 			bytes := harness.getBytePath(t, playing.URL, partner, true, "")
 			return response{status: bytes.status, body: bytes.body}
 		}, served},
+		{"the playing film's chunks", func() response {
+			master := harness.getBytePath(t, Prefix+"/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8", partner,
+				true, "")
+			return response{status: master.status, body: master.body}
+		}, contains("picture/stream.m3u8")},
 		{"a play report", send(http.MethodPost, reportPath, reportBody(1, 1000, 0)), served},
 		{"a file's preferences", send(http.MethodPut, "/files/1/preferences", offset), served},
 		{"hiding the film", send(http.MethodPost, "/items/30/hide", nil), served},
@@ -166,7 +172,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 	reachChecked := []string{
 		"getTitles", "getTitle", "getSeries", "search", "getHome", "getItemsByIdentification", "getLibraries",
 		"getFileAvailability", "getSubtitleCandidates", "postFileSubtitle", "startPlayback", "getDirect",
-		"headDirect", "getMasterPlaylist", "getRenditionFile", "getSubtitle", "reportPlayback",
+		"headDirect", "getMasterPlaylist", "getRenditionFile", "getChunksMasterPlaylist", "getChunkFile",
+		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
 		"deleteOverride", "postItemRefresh",
 		// A viewer's playback is reach-checked against the host's libraries

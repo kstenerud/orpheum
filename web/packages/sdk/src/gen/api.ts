@@ -39,6 +39,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/media/chunks/{token}/{streamName}/{fileName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One stream's playlist, or its init or a chunk, relayed from the film's node and made there when first asked for (D247 §10) */
+        get: operations["getChunkFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bytes/media/chunks/{token}/master.m3u8": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The master playlist of a playback's film cut into chunks at each quality (D247 §10) */
+        get: operations["getChunksMasterPlaylist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bytes/media/direct/{token}": {
         parameters: {
             query?: never;
@@ -2172,7 +2206,7 @@ export interface components {
             /** Format: int64 */
             itemId?: number;
             /** @enum {string} */
-            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "scan" | "examine" | "backup" | "renew_certificate";
+            kind: "fetch_metadata" | "make_artwork_sizes" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "read_through" | "make_chunks" | "scan" | "examine" | "backup" | "renew_certificate";
             lastFailure?: string;
             /** @enum {string} */
             onNode?: "waiting" | "running" | "paused";
@@ -3223,6 +3257,104 @@ export interface operations {
             };
             /** @description The nearest size, while this one is made or when it cannot be */
             307: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getChunkFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */
+                fileName: string;
+                /** @description picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost */
+                streamName: string;
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+                /** @description A Watch Together viewer's, set as their playback starts */
+                orpheum_viewer?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A playlist, an init or a chunk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description A stream the playback is not offered, or a file a stream has no place for */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getChunksMasterPlaylist: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+                /** @description A Watch Together viewer's, set as their playback starts */
+                orpheum_viewer?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A playlist, an init or a chunk */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description A stream the playback is not offered, or a file a stream has no place for */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not made yet: the film is being read for where it can be cut, or the chunk is being made; ask again after Retry-After */
+            425: {
                 headers: {
                     [name: string]: unknown;
                 };

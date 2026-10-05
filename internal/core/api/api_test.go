@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/backup"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
@@ -83,6 +84,8 @@ type testHarness struct {
 	readThrough *readthrough.Service
 	subtitles   *subtitles.Service
 	renditions  *renditions.Service
+	// chunks cuts each film into chunks made on request (D247 §10).
+	chunks *chunks.Service
 	// backups makes the backups a job asks for (D243 §11).
 	backups *backup.Service
 }
@@ -146,6 +149,10 @@ func newHarness(t *testing.T) testHarness {
 		Database: database, Cache: cache, Queue: queue, Nodes: nodes, Exchanges: exchanges, Settings: seeded,
 		Loudness: loudnessService, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 	})
+	chunksService := chunks.NewService(chunks.Parts{
+		Database: database, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
+		Loudness: loudnessService, ReadThrough: readThroughService,
+	})
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,
 		Renditions: renditionsService, Subtitles: subtitlesService, Preferences: preferencesService,
@@ -159,6 +166,7 @@ func newHarness(t *testing.T) testHarness {
 		jobs.KindPrepare: renditionsService.Assignee, jobs.KindExtractSubtitle: subtitlesService.Assignee,
 		jobs.KindConvertFetchedSubtitle: subtitlesService.Assignee,
 		jobs.KindReadThrough:            readThroughService.Assignee,
+		jobs.KindMakeChunks:             chunksService.Assignee,
 	} {
 		exchanges.Handle(kind, assignee(resolver.Of(queue.NewRunner(kind, nil))))
 	}
@@ -191,6 +199,7 @@ func newHarness(t *testing.T) testHarness {
 		Playback:   playbackService,
 		Subtitles:  subtitlesService,
 		Renditions: renditionsService,
+		Chunks:     chunksService,
 		Backups:    backups,
 		Together: together.NewHub(now, rand.Reader, func(ctx context.Context, userID, fileID int64) bool {
 			reach, err := service.ReachOfUser(ctx, userID)
@@ -224,7 +233,7 @@ func newHarness(t *testing.T) testHarness {
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
-		renditions: renditionsService,
+		renditions: renditionsService, chunks: chunksService,
 	}
 }
 

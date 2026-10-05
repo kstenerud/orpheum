@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -60,29 +62,6 @@ func GridOf(keyframesMs []int64, durationMs, minChunkMs int64) ([]int64, error) 
 	return starts, nil
 }
 
-// Settings are the settings the grid reads.
-type Settings interface {
-	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
-}
-
-// Parts are what the chunks service is built from.
-type Parts struct {
-	// Database holds the files and their pictures' timelines, which internal/core/readthrough keeps.
-	Database *store.Database
-	Settings Settings
-}
-
-// Service cuts films into chunks made on request (D247 §10): for now, the grid each is cut on.
-type Service struct {
-	database *store.Database
-	settings Settings
-}
-
-// NewService returns the chunks service.
-func NewService(parts Parts) *Service {
-	return &Service{database: parts.Database, settings: parts.Settings}
-}
-
 // Grid is the grid the file's film is cut on, from its main picture's timeline as a read-through
 // kept it, merged so each chunk is at least hls_segment_length_seconds long. It reports false, with
 // no error, while the picture has no timeline: a sweep reads every film through, and a player that
@@ -90,49 +69,88 @@ func NewService(parts Parts) *Service {
 // picture cannot be cut, fails with ErrCannotBeCut. The film's length is its probe's, or, when the
 // probe does not say, the timeline's seconds.
 func (service *Service) Grid(ctx context.Context, fileID int64) (Grid, bool, error) {
+	film, isCut, err := service.cut(ctx, fileID)
+	return film.grid, isCut, err
+}
+
+// cutFilm is a film as it is cut into chunks: its file, its probe, its main picture, the grid and
+// the picture's bytes in each second of the film, its bit-rate profile (slow-links.md §3).
+type cutFilm struct {
+	file              sqlcgen.GetPlayableFileRow
+	probe             nodeproto.Probe
+	picture           nodeproto.ProbeStream
+	grid              Grid
+	bytesInEachSecond []int64
+}
+
+// cut is the file's film as it is cut into chunks, as Grid says.
+func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, error) {
 	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	if err != nil {
-		return Grid{}, false, fmt.Errorf("file %d: %w", fileID, err)
+		return cutFilm{}, false, fmt.Errorf("file %d: %w", fileID, err)
 	}
 	probe, err := library.ProbeOf(file.ProbeJSON)
 	if err != nil {
-		return Grid{}, false, fmt.Errorf("the probe of file %d: %w", fileID, err)
+		return cutFilm{}, false, fmt.Errorf("the probe of file %d: %w", fileID, err)
 	}
 	picture, hasPicture := decide.MainVideo(probe)
 	if !hasPicture {
-		return Grid{}, false, fmt.Errorf("%w: file %d has no picture", ErrCannotBeCut, fileID)
+		return cutFilm{}, false, fmt.Errorf("%w: file %d has no picture", ErrCannotBeCut, fileID)
 	}
+	film := cutFilm{file: file, probe: probe, picture: picture}
 	timeline, err := store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
 		PayloadHash: file.PayloadHash, VideoStreamIndex: int64(picture.StreamIndex),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return Grid{}, false, nil
+		return film, false, nil
 	}
 	if err != nil {
-		return Grid{}, false, fmt.Errorf("read the timeline of file %d: %w", fileID, err)
+		return film, false, fmt.Errorf("read the timeline of file %d: %w", fileID, err)
 	}
 	if timeline.Failure != nil {
-		return Grid{}, false, fmt.Errorf("%w: FFmpeg could not read file %d through: %s", ErrCannotBeCut, fileID,
+		return film, false, fmt.Errorf("%w: FFmpeg could not read file %d through: %s", ErrCannotBeCut, fileID,
 			*timeline.Failure)
 	}
-	var keyframesMs, bytesInEachSecond []int64
+	var keyframesMs []int64
 	if err = json.Unmarshal([]byte(timeline.KeyframesMsJSON), &keyframesMs); err != nil {
-		return Grid{}, false, fmt.Errorf("the keyframes of file %d: %w", fileID, err)
+		return film, false, fmt.Errorf("the keyframes of file %d: %w", fileID, err)
 	}
-	if err = json.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &bytesInEachSecond); err != nil {
-		return Grid{}, false, fmt.Errorf("the bytes in each second of file %d: %w", fileID, err)
+	if err = json.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &film.bytesInEachSecond); err != nil {
+		return film, false, fmt.Errorf("the bytes in each second of file %d: %w", fileID, err)
 	}
 	minChunk, err := service.settings.Duration(ctx, settings.HLSSegmentLengthSeconds)
 	if err != nil {
-		return Grid{}, false, fmt.Errorf("read hls_segment_length_seconds: %w", err)
+		return film, false, fmt.Errorf("read hls_segment_length_seconds: %w", err)
 	}
 	durationMs := probe.Format.DurationMs
 	if durationMs <= 0 {
-		durationMs = int64(len(bytesInEachSecond)) * time.Second.Milliseconds()
+		durationMs = int64(len(film.bytesInEachSecond)) * time.Second.Milliseconds()
 	}
 	starts, err := GridOf(keyframesMs, durationMs, minChunk.Milliseconds())
 	if err != nil {
-		return Grid{}, false, fmt.Errorf("file %d: %w", fileID, err)
+		return film, false, fmt.Errorf("file %d: %w", fileID, err)
 	}
-	return Grid{StartsMs: starts, FilmDurationMs: durationMs}, true, nil
+	film.grid = Grid{StartsMs: starts, FilmDurationMs: durationMs}
+	return film, true, nil
+}
+
+// lastChunk is the number of the grid's last chunk.
+func (grid Grid) lastChunk() int { return len(grid.StartsMs) - 1 }
+
+// endMs is where chunk n ends in the film: the next chunk's start, or the film's end for the last.
+func (grid Grid) endMs(n int) int64 {
+	if n+1 < len(grid.StartsMs) {
+		return grid.StartsMs[n+1]
+	}
+	return grid.FilmDurationMs
+}
+
+// chunkAt is the chunk the film's time positionMs falls in: the last that starts at or before it,
+// or the first for a time before the first starts.
+func (grid Grid) chunkAt(positionMs int64) int {
+	n, isExact := slices.BinarySearch(grid.StartsMs, positionMs)
+	if isExact || n == 0 {
+		return n
+	}
+	return n - 1
 }

@@ -559,6 +559,7 @@ export const en = {
       prepare: "Preparing a copy",
       extractSubtitle: "Extracting subtitles",
       readThrough: "Reading a video through",
+      makeChunks: "Making a film's chunks",
       convertFetchedSubtitle: "Converting a downloaded subtitle",
       scan: "Listing a folder",
       examine: "Reading new files",

@@ -25,6 +25,9 @@ type fakeNodeBytes struct {
 	files    map[string]string // guarded by mutex
 	isSilent bool              // guarded by mutex
 	status   int               // guarded by mutex: answer this instead, when set
+	// asksBeforeFound is, by target, how many more asks for it are answered 404 before it is found:
+	// a chunk its node makes while the core waits for it. Guarded by mutex.
+	asksBeforeFound map[string]int
 }
 
 func (fake *fakeNodeBytes) Do(
@@ -37,6 +40,10 @@ func (fake *fakeNodeBytes) Do(
 	}
 	recorder := httptest.NewRecorder()
 	contents, found := fake.files[target]
+	if fake.asksBeforeFound[target] > 0 {
+		fake.asksBeforeFound[target]--
+		found = false
+	}
 	switch {
 	case fake.status != 0:
 		recorder.WriteHeader(fake.status)

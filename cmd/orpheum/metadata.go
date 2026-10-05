@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -46,6 +47,8 @@ type jobServices struct {
 	// readThrough reads each video through, for its sounds' loudness and its picture's timeline
 	// (D226, D247 §10).
 	readThrough *readthrough.Service
+	// chunks cuts films into chunks made on request, run by run (D247 §10).
+	chunks *chunks.Service
 	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
 	subtitles *subtitles.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
@@ -216,6 +219,11 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			jobs.KindReadThrough, services.readThrough.HandleReadThrough, nil, nil, 1,
 			[]string{sweepReadThroughs},
 			services.readThrough.Assignee,
+		},
+		{
+			// A run lost is forgotten, so the next player's ask for its chunks queues another.
+			jobs.KindMakeChunks, services.chunks.HandleMakeChunks, services.chunks.RecordMakeChunksFailure, nil, 1,
+			derivedByAPlay(), services.chunks.Assignee,
 		},
 		{
 			jobs.KindPrepare, services.renditions.HandlePrepare, services.renditions.RecordPrepareFailure, nil, 1,

@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -70,6 +71,8 @@ type Dependencies struct {
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.
 	Playback *playback.Service
+	// Chunks are a playback's film cut into chunks at each quality, made on request (D247 §10).
+	Chunks *chunks.Service
 	// Subtitles lists the subtitles a person can fetch for a file (D224).
 	Subtitles *subtitles.Service
 	// Renditions says what each node's prepares made, for the System page (D225 §3).

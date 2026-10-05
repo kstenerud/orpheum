@@ -23,6 +23,7 @@ const everyKind = [
   "extract_subtitle",
   "convert_fetched_subtitle",
   "read_through",
+  "make_chunks",
   "scan",
   "examine",
   "backup",

@@ -69,6 +69,9 @@ type tokenPlayback struct {
 	lastReportSeq int64
 	// used is what the playback started with, which its file keeps once a report says it is started.
 	used usedTracks
+	// startingAudio is the audio track the playback started with, nil for a file with no sound: its
+	// chunks' master playlist starts with that track's standard mix (D247 §10).
+	startingAudio *AudioTrack
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
