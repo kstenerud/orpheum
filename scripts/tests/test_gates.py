@@ -430,6 +430,7 @@ class CommitLint(unittest.TestCase):
         self.assertEqual(self.lint("feat(scan): add payload hash", "Why: identity survives tag edits."), [])
         self.assertEqual(self.lint("added stuff"), ["subject-shape"])
         self.assertEqual(self.lint("docs: fix typo."), ["trailing-period"])
+        self.assertEqual(self.lint("style(store): fit the line"), [])
         self.assertEqual(self.lint("fix(api): stop leaking tokens"), ["missing-body"])
         self.assertIn("bare-claude-trailer", self.lint("docs: x", "Co-Authored-By: Claude <noreply@anthropic.com>"))
 
