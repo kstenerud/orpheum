@@ -347,16 +347,18 @@ function placesOf(answer: components["schemas"]["NodesOutputBody"]): Place[] {
     .flatMap((node) => (node.rootPaths ?? []).map((path) => ({ nodeName: node.name, path })));
 }
 
+/** The libraries the person reaches; an admin sees each one's roots and files too. */
+export async function listLibraries(api: Api): Promise<Library[]> {
+  return dataOrThrow(await api.GET("/libraries")).libraries ?? [];
+}
+
 /** The libraries, each with its roots and files, and a form to create another. */
 export function Libraries(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [libraries, reload] = useResource(
     "libraries",
-    async () => {
-      const librariesBody = dataOrThrow(await api.GET("/libraries"));
-      return librariesBody.libraries ?? [];
-    },
+    () => listLibraries(api),
     useBackgroundChangesPoller(),
   );
   const actions = useLibraryActions(reload);

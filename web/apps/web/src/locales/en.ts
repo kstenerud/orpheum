@@ -158,6 +158,7 @@ export const en = {
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
+    outsider: "From outside the house: an invite",
     issued: {
       link: "{{name}}'s link: send it to them",
       code: "A code for {{name}}'s device",
@@ -166,8 +167,32 @@ export const en = {
   person: {
     devices: "Their devices",
     rename: "Rename",
+    changeRole: "Give this role",
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",
+  },
+  roles: {
+    heading: "Roles",
+    explain:
+      "Each person has one role, their whole access: the libraries they see and play, and what else they may do. A library taken from a role is gone for its people at once.",
+    name: "Name",
+    newName: "A new role's name",
+    create: "Add the role",
+    holders: "{{count}} people",
+    capabilities: "What its people may do",
+    libraries: "The libraries its people see",
+    everyLibrary: "Every library: administrators see everything.",
+    save: "Save",
+    delete: "Delete the role",
+    refused: "That cannot be done: the name is taken, someone holds the role, or it is built in.",
+    capability: {
+      administer: "Run the server (sees every library)",
+      deleteMedia: "Delete media",
+      download: "Download",
+      editMetadata: "Fix identification and information",
+      hostWatchTogether: "Host Watch Together",
+      remoteAccess: "Watch from outside the house",
+    },
   },
   share: {
     link: "It works once, until {{expires}}.",
