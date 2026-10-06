@@ -161,7 +161,12 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     connection.open();
     expect(connection.snapshot().tuning).toEqual(startingTuning);
     sockets.opened[0]!.onOpen();
-    const tuning = { leaveDriftUpToMs: 750, nudgeMostPercent: 5, seekDriftBeyondMs: 4000 };
+    const tuning = {
+      leaveDriftUpToMs: 750,
+      nudgeMostPercent: 5,
+      seekDriftBeyondMs: 4000,
+      catchUpBufferPercent: 60,
+    };
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning }));
     expect(connection.snapshot().tuning).toEqual(tuning);
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning: { nudgeMostPercent: 20 } }));

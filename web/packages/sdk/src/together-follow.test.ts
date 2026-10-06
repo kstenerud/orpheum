@@ -22,6 +22,7 @@ import {
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
   refillAheadMs,
+  playerLoadsAheadMs,
   waitAheadAtMostMs,
   type ChunkLoaded,
   type QualitySwitched,
@@ -310,6 +311,26 @@ describe("a player following its group", () => {
       { kind: "chunkLoaded", ...loaded },
       { kind: "qualitySwitched", ...switched },
     ]);
+  });
+
+  it("nudges no player stalled and refilling, whose position does not move, until it has refilled", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    media.fire("seeked");
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing" }, 1000);
+    media.loaded = [[60, 60.5]]; // it stalls with half a second loaded
+    media.fire("waiting");
+    monotonicNowMs = 1000 + checkDriftEveryMs;
+    vi.advanceTimersByTime(checkDriftEveryMs); // a second behind, stalled
+    expect(media.playbackRate).toBe(1);
+    expect(notes.filter((note) => note.kind === "nudged")).toEqual([]);
+    media.loaded = [[60, 75]]; // refilled
+    media.fire("progress");
+    monotonicNowMs = 1000 + 2 * checkDriftEveryMs;
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.playbackRate).toBeCloseTo(1.1);
   });
 
   it("does not follow a group playing another film", () => {
@@ -607,34 +628,36 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(false);
   });
 
-  it("catching up on a slow link, jumps ahead by its time to load refillAheadMs and waits there", () => {
+  it("catching up on a slow link, jumps ahead by its time to fill 80% of its buffer and waits there", () => {
     const { media } = fallenBehindOnAHalfSpeedLink();
-    // At half a second of film a second, 10 s loaded takes 20 s: the group, at 104 s, is met at 124 s.
-    expect(media.currentTime).toBe(124);
+    // 80% of the 30 s it loads ahead is 24 s, which at half a second of film a second takes 48 s:
+    // the group, at 104 s, is met at 152 s (D250 §4).
+    expect((playerLoadsAheadMs * startingTuning.catchUpBufferPercent) / 100).toBe(24_000);
+    expect(media.currentTime).toBe(152);
     media.fire("seeked");
     expect(media.paused).toBe(true);
-    monotonicNowMs = 14_000;
+    monotonicNowMs = 30_000;
     vi.advanceTimersByTime(checkDriftEveryMs);
-    expect(media.paused).toBe(true); // the group is 10 s away: it waits, loading
-    expect(media.currentTime).toBe(124);
-    monotonicNowMs = 23_950;
+    expect(media.paused).toBe(true); // the group is 22 s away: it waits, loading
+    expect(media.currentTime).toBe(152);
+    monotonicNowMs = 51_950;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.paused).toBe(false); // the group arrived: it plays on from where it waited
-    expect(media.currentTime).toBe(124);
+    expect(media.currentTime).toBe(152);
   });
 
   it("catching up as the host, waits ahead as a viewer does, and its pause to wait is no command", () => {
     const { media, commands } = fallenBehindOnAHalfSpeedLink(true);
-    expect(media.currentTime).toBe(124);
+    expect(media.currentTime).toBe(152);
     media.fire("seeked");
     expect(media.paused).toBe(true);
     media.fire("pause");
     vi.advanceTimersByTime(scrubPauseWindowMs);
     expect(commands).toEqual([]); // the group plays on, not paused by the host's wait
-    monotonicNowMs = 23_950;
+    monotonicNowMs = 51_950;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.paused).toBe(false); // the group arrived: it plays on from where it waited
-    expect(media.currentTime).toBe(124);
+    expect(media.currentTime).toBe(152);
   });
 
   it("jumps no further ahead than its player loads, however slow its link", () => {

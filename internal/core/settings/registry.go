@@ -97,6 +97,7 @@ const (
 	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
+	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 )
 
 // Kind is a setting value's JSON type.
@@ -257,6 +258,12 @@ func togetherDefinitions() []Definition {
 			"seconds a Watch Together group waits for its players at a sync point (a film put on, the "+
 				"host's play after a pause, the host's seek) before playing without those not ready (D250 §3)"),
 			"D250 §3: the owner, 2026-10-06: \"30 seconds is too long. Let's start at 20.\""),
+		sourced(integerSetting(TogetherCatchUpBufferPercent, "80", 10, 100,
+			"percent of what its player loads ahead that a Watch Together player catching up alone aims "+
+				"to have loaded when the group reaches it; it jumps ahead by its link's time to load that "+
+				"(D250 §4)"),
+			"D250 §4: the owner, 2026-10-06: \"target an 80% full buffer by the time the group's playback "+
+				"catches up\""),
 	}
 }
 

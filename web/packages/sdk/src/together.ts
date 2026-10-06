@@ -85,6 +85,8 @@ export interface SyncTuning {
   readonly nudgeMostPercent: number;
   /** How far off a player seeks rather than nudges. */
   readonly seekDriftBeyondMs: number;
+  /** How full a player catching up aims to have its buffer when the group reaches it, in percent. */
+  readonly catchUpBufferPercent: number;
 }
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
@@ -92,6 +94,7 @@ export const startingTuning: SyncTuning = {
   leaveDriftUpToMs: 500,
   nudgeMostPercent: 10,
   seekDriftBeyondMs: 3000,
+  catchUpBufferPercent: 80,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
@@ -208,6 +211,11 @@ function parseTuning(value: unknown): SyncTuning {
     leaveDriftUpToMs: numberIn(record, "leaveDriftUpToMs", startingTuning.leaveDriftUpToMs),
     nudgeMostPercent: numberIn(record, "nudgeMostPercent", startingTuning.nudgeMostPercent),
     seekDriftBeyondMs: numberIn(record, "seekDriftBeyondMs", startingTuning.seekDriftBeyondMs),
+    catchUpBufferPercent: numberIn(
+      record,
+      "catchUpBufferPercent",
+      startingTuning.catchUpBufferPercent,
+    ),
   };
 }
 

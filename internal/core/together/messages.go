@@ -200,6 +200,9 @@ type Tuning struct {
 	NudgeMostPercent int64 `json:"nudgeMostPercent"`
 	// SeekDriftBeyondMs is how far off a player seeks rather than nudges.
 	SeekDriftBeyondMs int64 `json:"seekDriftBeyondMs"`
+	// CatchUpBufferPercent is how full a player catching up aims to have its buffer when the group
+	// reaches it (D250 §4).
+	CatchUpBufferPercent int64 `json:"catchUpBufferPercent"`
 	// SyncWaitMs is how long a sync point waits for the players before playing without those not
 	// ready (D250 §3): the server's own, told so a client may say so.
 	SyncWaitMs int64 `json:"syncWaitMs"`

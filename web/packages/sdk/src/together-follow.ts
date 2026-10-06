@@ -30,11 +30,18 @@ export const refillAheadMs = 10_000;
 export const aimAheadAtMostMs = 10_000;
 
 /**
- * The furthest a viewer catching up alone jumps ahead of the group to wait for it there: what its
- * player loads ahead of where it is, hls.js's maxBufferLength (30 s), which nothing here changes.
- * Further ahead, the player stops loading before the group arrives (D247 §4, amended 2026-10-06).
+ * How much a player loads ahead of where it is, and then stops: hls.js's maxBufferLength (30 s),
+ * which nothing here changes, and the most an iPhone's ManagedMediaSource lets it load
+ * (playback-in-practice.md §1). A player catching up aims to have the tuning's percent of it loaded
+ * when the group arrives (D250 §4).
  */
-export const waitAheadAtMostMs = 30_000;
+export const playerLoadsAheadMs = 30_000;
+
+/**
+ * The furthest a player catching up alone jumps ahead of the group to wait for it there: a person
+ * waits paused for at most about a minute of film, however slow their link (D250 §4).
+ */
+export const waitAheadAtMostMs = 60_000;
 
 /**
  * How the speed a player loads at is measured, as film loaded per second: over the last
@@ -490,7 +497,7 @@ class GroupFollower {
     const isLoading =
       endMs !== undefined &&
       endMs < media.duration * 1000 &&
-      endMs - positionMsOf(media) < waitAheadAtMostMs - loadSampleMarginMs;
+      endMs - positionMsOf(media) < playerLoadsAheadMs - loadSampleMarginMs;
     const last = this.#loadSamples.at(-1);
     if (!isLoading || (last !== undefined && endMs < last.endMs)) {
       this.#loadSamples = [];
@@ -550,12 +557,22 @@ class GroupFollower {
     ) {
       return;
     }
+    this.#correct(where);
+  }
+
+  /** Corrects a playing player's drift from the group: nudged away, or sought across. */
+  #correct(where: GroupNow): void {
+    const media = this.#media;
     const correction = driftCorrection(
       { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
       where.tuning,
     );
-    media.playbackRate = correction.kind === "nudge" ? correction.rate : where.group.rate;
-    if (correction.kind === "nudge") {
+    // A player stalled and refilling is not nudged: its position does not move, and a faster rate
+    // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
+    // iPhone was nudged to 2x second after second).
+    const isNudged = correction.kind === "nudge" && !this.#isRefilling;
+    media.playbackRate = isNudged ? correction.rate : where.group.rate;
+    if (isNudged) {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
       this.#connection.note({
         kind: "nudged",
@@ -564,14 +581,14 @@ class GroupFollower {
         rate: correction.rate,
       });
     } else if (correction.kind === "seek") {
-      this.#catchUp(correction.toMs, where.group.rate);
+      this.#catchUp(correction.toMs, where);
     }
   }
 
   /**
    * Whether a player that jumped ahead still waits there for the group: until the group is within
-   * the tuning's leaveDriftUpToMs of it, or has passed it, or has sought back from it further than it could have
-   * jumped. Then it follows as usual, playing on with what it loaded meanwhile.
+   * the tuning's leaveDriftUpToMs of it, or has passed it, or has sought back from it further
+   * than it could have jumped. Then it follows as usual, playing on with what it loaded meanwhile.
    */
   #isWaitingAhead(where: GroupNow): boolean {
     const waitAtMs = this.#waitAtMs;
@@ -592,31 +609,33 @@ class GroupFollower {
    * had been in step. It waits there for the group, the host's player too: a host on a slow link
    * stalls as a viewer does (the owner, 2026-10-06), and its pause to wait is no command.
    */
-  #catchUp(toMs: number, groupRate: number): void {
+  #catchUp(toMs: number, where: GroupNow): void {
     if (this.#hasCaughtUp) {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
-    const targetMs = toMs + this.#catchUpLeadMs(groupRate);
+    const targetMs = toMs + this.#catchUpLeadMs(where.group.rate, where.tuning);
     this.#seek(targetMs, "catchUp");
     this.#waitAtMs = targetMs;
   }
 
   /**
    * How far ahead of the group a catch-up seek aims: by how long its last seek took to load, and
-   * then by how long its link takes to load refillAheadMs, as measured, so the group finds it with
-   * a full buffer rather than a thin one (D247 §4, amended 2026-10-06); at most waitAheadAtMostMs,
-   * and never less than the last load's time alone, which is all it aims by with no measure yet.
+   * then by how long its link takes, as measured, to load the tuning's catchUpBufferPercent of what
+   * its player loads ahead, so the group finds its buffer that full (D250 §4); at most
+   * waitAheadAtMostMs, and never less than the last load's time alone, which is all it aims by with
+   * no measure yet.
    */
-  #catchUpLeadMs(groupRate: number): number {
+  #catchUpLeadMs(groupRate: number, tuning: SyncTuning): number {
     const aimMs = Math.min(this.#lastLoadMs, aimAheadAtMostMs) * groupRate;
     const ratio = this.#loadRatio;
     if (ratio === undefined) {
       return aimMs;
     }
-    const refillWallMs = ratio > 0 ? refillAheadMs / ratio : Number.POSITIVE_INFINITY;
+    const fillMs = (playerLoadsAheadMs * tuning.catchUpBufferPercent) / 100;
+    const fillWallMs = ratio > 0 ? fillMs / ratio : Number.POSITIVE_INFINITY;
     return Math.max(
       aimMs,
-      Math.min(waitAheadAtMostMs, (this.#lastLoadMs + refillWallMs) * groupRate),
+      Math.min(waitAheadAtMostMs, (this.#lastLoadMs + fillWallMs) * groupRate),
     );
   }
 
