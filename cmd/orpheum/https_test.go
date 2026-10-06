@@ -14,8 +14,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/certificate/certificatetest"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare/cloudflaretest"
+	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -78,5 +80,51 @@ func TestServeHTTPS_ServesTheNamesCertificate(t *testing.T) {
 	body, err := io.ReadAll(answer.Body)
 	if err != nil || string(body) != "hello" {
 		t.Errorf("served %q, %v; want the handler's answer", body, err)
+	}
+}
+
+// Setting the DNS provider's token asks for the certificate at once: the renewal queued at start,
+// before any token, had failed and waited for the sweep's next daily look (staging, 2026-10-06).
+// Clearing it asks for nothing.
+func TestRenewWhenTokenSet_SettingTheTokenAsksForTheCertificateAtOnce(t *testing.T) {
+	t.Parallel()
+	world := newJobsWorld(t, time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC))
+	directories, err := instancedir.Open(instancedir.PathsIn(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificates, err := certificate.New(certificate.Parts{
+		Domain: "media.orpheum-app.com", Files: directories, Queue: world.queue, Clock: world.clock,
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewWhenTokenSet(world.secrets, certificates, slog.New(slog.DiscardHandler))
+	renewals := func() int {
+		listed, listErr := world.cache.Read().ListJobs(t.Context(), 100)
+		if listErr != nil {
+			t.Fatal(listErr)
+		}
+		count := 0
+		for _, job := range listed {
+			if job.Kind == string(jobs.KindRenewCertificate) {
+				count++
+			}
+		}
+		return count
+	}
+	ctx := t.Context()
+	if err = world.secrets.Clear(ctx, secrets.DNSProviderToken); err != nil {
+		t.Fatal(err)
+	}
+	if got := renewals(); got != 0 {
+		t.Fatalf("clearing the token queued %d renewals; want none", got)
+	}
+	if err = world.secrets.Set(ctx, secrets.DNSProviderToken, secrets.NewValue("cloudflare-token"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := renewals(); got != 1 {
+		t.Errorf("setting the token queued %d renewals; want one, at once", got)
 	}
 }

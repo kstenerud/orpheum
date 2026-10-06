@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
+	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -45,7 +46,28 @@ func openCertificates(
 	if _, err = service.QueueRenewal(ctx); err != nil {
 		return opened, err
 	}
+	renewWhenTokenSet(opened.secrets, service, logger)
 	return opened, nil
+}
+
+// renewWhenTokenSet has an admin's setting of the DNS provider's token ask for the certificate at
+// once, by the renewal the sweep asks for, rather than at the sweep's next daily look: the renewal
+// queued at start, before any token, failed for want of one and was not tried again, so staging
+// served no certificate until the core restarted (2026-10-06). A person's action tries again what
+// failed before it (D248). Clearing the token asks for nothing.
+func renewWhenTokenSet(secretStore *secrets.Store, certificates *certificate.Service, logger *slog.Logger) {
+	secretStore.OnChange(func(ctx context.Context, name secrets.Name) {
+		if name != secrets.DNSProviderToken {
+			return
+		}
+		if _, err := secretStore.Open(ctx, name); errors.Is(err, secrets.ErrNotSet) {
+			return
+		}
+		if _, err := certificates.QueueRenewal(ctx); err != nil {
+			logger.ErrorContext(ctx,
+				"the DNS provider's token was set, but the certificate's renewal could not be queued", "err", err)
+		}
+	})
 }
 
 // listenAndServeHTTPS serves handler over HTTPS on https.listen, as serveHTTPS says; nothing for a
