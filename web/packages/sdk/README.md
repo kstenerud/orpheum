@@ -68,6 +68,7 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   cause to the console (`reportFailure`, the one place the client logs): `src/problem.ts`.
 - Watch Together: the wire messages and the browser's socket, `src/together.ts`; the
   connection (hello, ping and the minimum round trip, state reports, commands, reconnecting),
-  `src/together-connection.ts`; following the group with a video element, and the drift
-  thresholds, `src/together-follow.ts`; voice's calls, `src/together-voice.ts`, over the
+  `src/together-connection.ts`; following the group with a video element,
+  `src/together-follow.ts`, by where the group is and what a drift calls for,
+  `src/together-drift.ts`; voice's calls, `src/together-voice.ts`, over the
   browser's microphone, RTCPeerConnection and Web Audio in `src/together-voice-browser.ts`.

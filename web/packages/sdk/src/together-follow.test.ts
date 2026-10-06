@@ -14,11 +14,8 @@ import {
   aimAheadAtMostMs,
   checkDriftEveryMs,
   scrubPauseWindowMs,
-  driftCorrection,
-  expectedPositionMs,
   followGroup,
   fellBehindEvent,
-  nudgeForMs,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -28,6 +25,7 @@ import {
   type ChunkLoaded,
   type QualitySwitched,
 } from "./together-follow.ts";
+import { nudgeForMs } from "./together-drift.ts";
 
 /**
  * A player in step with a group playing from 100 s that has measured its link loading half a
@@ -62,69 +60,6 @@ function fallenBehindOnAHalfSpeedLink(isLeading = false): {
   media.fire("waiting");
   return { media, setGroup, commands };
 }
-
-describe("where the group is (D66: no clock sync)", () => {
-  const playing: GroupView = {
-    state: "Playing",
-    positionMs: 10_000,
-    rate: 1.5,
-    fileId: 1,
-    event: undefined,
-    seekedFromMs: 0,
-    byMemberId: undefined,
-  };
-
-  it("moves on at its rate from when its message arrived while it plays", () => {
-    expect(expectedPositionMs(playing, 500, 1500)).toBe(11_500);
-  });
-
-  it("stays where it was told while it does not play", () => {
-    expect(expectedPositionMs({ ...playing, state: "Waiting" }, 500, 1500)).toBe(10_000);
-  });
-});
-
-describe("correcting drift by the welcome's tuning (D250 §1)", () => {
-  it("leaves a drift within the threshold alone", () => {
-    const leftMs = startingTuning.leaveDriftUpToMs;
-    expect(
-      driftCorrection({ expectedMs: 1000, actualMs: 1000 - leftMs, groupRate: 1 }, startingTuning),
-    ).toEqual({ kind: "none" });
-    expect(startingTuning.leaveDriftUpToMs).toBe(500); // the owner's 500 ms, where it was 60
-  });
-
-  it("nudges the rate to close a drift within about a second, as far as the gentlest nudge allows", () => {
-    const fine: SyncTuning = { ...startingTuning, leaveDriftUpToMs: 50 };
-    const behind = driftCorrection({ expectedMs: 1080, actualMs: 1000, groupRate: 1 }, fine);
-    expect(behind.kind).toBe("nudge");
-    expect(behind.kind === "nudge" ? behind.rate : 0).toBeCloseTo(1.08);
-    const ahead = driftCorrection(
-      { expectedMs: 1000, actualMs: 1600, groupRate: 1 },
-      startingTuning,
-    );
-    expect(ahead.kind === "nudge" ? ahead.rate : 0).toBeCloseTo(0.9);
-  });
-
-  it("nudges no faster than the tuning's percent of the group's rate", () => {
-    expect(
-      driftCorrection({ expectedMs: 3000, actualMs: 100, groupRate: 1.25 }, startingTuning),
-    ).toEqual({ kind: "nudge", rate: 1.25 * 1.1 });
-    const wider: SyncTuning = { ...startingTuning, nudgeMostPercent: 25 };
-    expect(driftCorrection({ expectedMs: 3000, actualMs: 100, groupRate: 1 }, wider)).toEqual({
-      kind: "nudge",
-      rate: 1.25,
-    });
-  });
-
-  it("seeks across a drift beyond the seek threshold", () => {
-    const beyondMs = startingTuning.seekDriftBeyondMs + 1;
-    expect(
-      driftCorrection(
-        { expectedMs: 9000, actualMs: 9000 - beyondMs, groupRate: 1 },
-        startingTuning,
-      ),
-    ).toEqual({ kind: "seek", toMs: 9000 });
-  });
-});
 
 /** A stand-in video element: its position, play state and events, as a test sets them. */
 class FakeMedia {
@@ -188,6 +123,7 @@ class FakeMedia {
 function fakeConnection(
   group: GroupView,
   tuning: SyncTuning = startingTuning,
+  minimumRttMs?: number,
 ): {
   connection: TogetherConnection;
   setGroup: (next: GroupView, receivedAtMs: number) => void;
@@ -203,7 +139,7 @@ function fakeConnection(
     groupReceivedAtMs: 0,
     roster: [],
     endReason: undefined,
-    minimumRttMs: undefined,
+    minimumRttMs,
     lastRejectionCode: undefined,
     tuning,
   };
@@ -400,6 +336,20 @@ describe("a player following its group", () => {
       expect(media.playbackRate).toBeCloseTo(1.1);
       expect(media.preservesPitch).toBe(shouldNudgeKeepPitch);
     }
+  });
+
+  it("takes the group's message as half the shortest round trip old, so it plays where the group is now (D66)", () => {
+    const media = new FakeMedia();
+    // A round trip of 2 s: the group message took 1 s to come, and the group has played on.
+    const { connection, setGroup, notes } = fakeConnection(paused, startingTuning, 2000);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    media.currentTime = 61; // where the group is, a second after it was sent
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing" }, 1000);
+    expect(notes.filter((note) => note.kind === "nudged" || note.kind === "sought")).toEqual([
+      { kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" },
+    ]);
+    expect(media.playbackRate).toBe(1);
   });
 
   it("does not follow a group playing another film", () => {

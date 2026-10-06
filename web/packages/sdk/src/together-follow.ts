@@ -2,9 +2,7 @@
 
 import type { GroupView, SyncTuning } from "./together.ts";
 import type { GroupCommand, PlayerState, TogetherConnection } from "./together-connection.ts";
-
-/** How long one nudge of the rate lasts (watch-together.md, Sync: "for ~1 s"). */
-export const nudgeForMs = 1000;
+import { driftCorrection, expectedPositionMs, nudgeForMs } from "./together-drift.ts";
 
 /**
  * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
@@ -58,44 +56,6 @@ export const loadSampleMarginMs = 5000;
  * the group waits.
  */
 export const checkDriftEveryMs = 1000;
-
-/**
- * Where a group is at the monotonic time nowMs, having been told it at receivedAtMs: a playing
- * group has moved on at its rate since (D66: no clock is shared, only time since arrival counts).
- */
-export function expectedPositionMs(group: GroupView, receivedAtMs: number, nowMs: number): number {
-  return group.state === "Playing"
-    ? group.positionMs + (nowMs - receivedAtMs) * group.rate
-    : group.positionMs;
-}
-
-/** What to do about the distance between where a player is and where the group is. */
-export type DriftCorrection =
-  | { readonly kind: "none" }
-  | { readonly kind: "nudge"; readonly rate: number }
-  | { readonly kind: "seek"; readonly toMs: number };
-
-/**
- * The correction for a player at actualMs while the group is at expectedMs playing at groupRate:
- * none within tuning's leaveDriftUpToMs, a seek beyond its seekDriftBeyondMs, else a rate that
- * closes the gap over nudgeForMs, no further from the group's than its nudgeMostPercent: a larger
- * drift is closed by the nudges that follow (D250 §1).
- */
-export function driftCorrection(
-  drift: { readonly expectedMs: number; readonly actualMs: number; readonly groupRate: number },
-  tuning: SyncTuning,
-): DriftCorrection {
-  const behindMs = drift.expectedMs - drift.actualMs;
-  if (Math.abs(behindMs) <= tuning.leaveDriftUpToMs) {
-    return { kind: "none" };
-  }
-  if (Math.abs(behindMs) > tuning.seekDriftBeyondMs) {
-    return { kind: "seek", toMs: drift.expectedMs };
-  }
-  const most = tuning.nudgeMostPercent / 100;
-  const factor = Math.min(1 + most, Math.max(1 - most, 1 + behindMs / nudgeForMs));
-  return { kind: "nudge", rate: drift.groupRate * factor };
-}
 
 /** The part of a video or audio element that following a group uses. */
 export type FollowedMedia = Pick<
@@ -535,7 +495,12 @@ class GroupFollower {
     return {
       group,
       nowMs,
-      expectedMs: expectedPositionMs(group, snapshot.groupReceivedAtMs, nowMs),
+      // A message's way from the server is taken as half the shortest round trip measured (D66).
+      expectedMs: expectedPositionMs(group, {
+        receivedAtMs: snapshot.groupReceivedAtMs,
+        nowMs,
+        transitMs: (snapshot.minimumRttMs ?? 0) / 2,
+      }),
       tuning: snapshot.tuning,
     };
   }
