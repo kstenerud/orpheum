@@ -5,10 +5,17 @@ package agent
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // fakeChunkMaker makes every chunk of the run in turn, telling each, and ends; a run of a store
@@ -123,4 +130,113 @@ func TestAgent_AJobThatPanicsSaysSoAndTheNodeGoesOn(t *testing.T) {
 	if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone {
 		t.Errorf("the next run ended %+v; want it made, the node going on", done)
 	}
+}
+
+// pacedChunkMaker makes every chunk of the run in turn, each taking chunkTakes of its clock, and
+// ends; a run of a store named "...failing..." fails after its first chunk, and one named
+// "...waiting..." waits after its first chunk until it is stopped.
+type pacedChunkMaker struct {
+	clock      *clocktest.Fake
+	chunkTakes time.Duration
+}
+
+func (maker pacedChunkMaker) Make(
+	ctx context.Context, _ string, command nodeproto.MakeChunks, onChunk func(n int),
+) (int, error) {
+	last := command.FirstChunk + len(command.BoundsMs) - 2
+	for n := command.FirstChunk; n <= last; n++ {
+		maker.clock.Advance(maker.chunkTakes)
+		onChunk(n)
+		switch {
+		case strings.Contains(command.StoreDir, "failing"):
+			return n, errors.New("ffmpeg: Invalid data found when processing input")
+		case strings.Contains(command.StoreDir, "waiting"):
+			<-ctx.Done()
+			return n, ctx.Err()
+		}
+	}
+	return last, nil
+}
+
+// logLines are the lines a logger writes, each as it is written; past 64 unread, one is dropped.
+type logLines chan string
+
+func (lines logLines) Write(written []byte) (int, error) {
+	select {
+	case lines <- string(written):
+	default:
+	}
+	return len(written), nil
+}
+
+// awaitLogLine is the next line logged holding message, the lines before it skipped.
+func awaitLogLine(t *testing.T, lines logLines, message string) string {
+	t.Helper()
+	for {
+		if line := testutil.Receive(t, lines, "a log line holding "+message); strings.Contains(line, message) {
+			return line
+		}
+	}
+}
+
+// checkLogLine fails the test unless line holds every one of parts.
+func checkLogLine(t *testing.T, line string, parts ...string) {
+	t.Helper()
+	for _, part := range parts {
+		if !strings.Contains(line, part) {
+			t.Errorf("logged %s; want it to hold %s", line, part)
+		}
+	}
+}
+
+// A run of chunks, however it ends, is logged with the chunks it made, the film they span, the wall
+// time it took, its speed and the time to its first chunk: whether a run keeps ahead of a player who
+// seeks into it (playback-in-practice.md §3).
+func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	clock := clocktest.NewFake(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
+	lines := make(logLines, 64)
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		ThroughReader: fakeThroughReader{},
+		ChunkMaker:    pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
+	}, func(node *Agent) {
+		node.clock = clock
+		node.logger = slog.New(slog.NewJSONHandler(lines, nil))
+	})
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	video := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	run := func(storeDir string) nodeproto.MakeChunks {
+		return nodeproto.MakeChunks{
+			Video: video, StoreDir: storeDir, FirstChunk: 4, BoundsMs: []int64{8000, 10000, 12000, 14000},
+			Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+		}
+	}
+	// Three chunks of two seconds each in 1.8 s: 3.3 times real time.
+	core.sendMakeChunks(1, run("1/chunks-picture/0123456789abcdef"))
+	receiveChunksReport(t, core)
+	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks finished"`), `"level":"INFO"`, `"jobId":1,`,
+		`"storeDir":"1/chunks-picture/0123456789abcdef"`, `"firstChunk":4,`, `"lastChunk":6,`, `"chunksMade":3,`,
+		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
+	core.sendMakeChunks(2, run("1/chunks-failing/0123456789abcdef"))
+	receiveChunksReport(t, core)
+	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks did not finish"`), `"level":"WARN"`,
+		`"jobId":2,`, `"lastChunk":4,`, `"why":"ffmpeg: Invalid data`, `"chunksMade":1,`, `"filmMadeMs":2000,`,
+		`"wallTimeMs":600,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
+	core.sendMakeChunks(3, run("1/chunks-waiting/0123456789abcdef"))
+	for {
+		if progress := testutil.Receive(t, core.progress, "job 3's first chunk"); progress.JobID == 3 &&
+			progress.ChunksMadeThrough != nil {
+			break
+		}
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 4, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
+	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks was cancelled"`), `"jobId":3,`,
+		`"storeDir":"1/chunks-waiting/0123456789abcdef"`, `"lastChunk":4,`, `"chunksMade":1,`,
+		`"filmMadeMs":2000,`, `"wallTimeMs":600,`, `"firstChunkAfterMs":600`)
 }
