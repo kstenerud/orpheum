@@ -98,10 +98,15 @@ export function SoundChoices(props: {
   );
 }
 
-/** How this device makes sound, under the video, and changing it, which asks for the decision again. */
+/**
+ * How this device makes sound, under the video, and changing it, which asks for the decision again.
+ * The answer is kept on the device's row, or, given keep, where keep puts it: a Watch Together
+ * viewer, who has no row, keeps it in the browser (D246 §6).
+ */
 export function SoundLine(props: {
   readonly current: AudioOutput;
   readonly onChanged: () => void;
+  readonly keep?: ((output: AudioOutput) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const [isChanging, setIsChanging] = useState(false);
@@ -117,8 +122,40 @@ export function SoundLine(props: {
       >
         {t("sound.change")}
       </button>
-      {isChanging ? <SoundQuestion current={props.current} onAnswered={props.onChanged} /> : null}
+      {isChanging ? (
+        <ChangedSound
+          current={props.current}
+          keep={props.keep}
+          onChanged={() => {
+            setIsChanging(false);
+            props.onChanged();
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** The sound question, its answer kept on the device's row or by keep. */
+function ChangedSound(props: {
+  readonly current: AudioOutput;
+  readonly keep: ((output: AudioOutput) => void) | undefined;
+  readonly onChanged: () => void;
+}): JSX.Element {
+  const { keep, onChanged } = props;
+  if (keep === undefined) {
+    return <SoundQuestion current={props.current} onAnswered={onChanged} />;
+  }
+  return (
+    <SoundChoices
+      current={props.current}
+      isBusy={false}
+      problem={undefined}
+      onChosen={(output) => {
+        keep(output);
+        onChanged();
+      }}
+    />
   );
 }
 

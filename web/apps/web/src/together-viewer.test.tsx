@@ -113,6 +113,39 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("lets a viewer change how this browser makes sound, and asks for the film again with it", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.sessionStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, heard, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
+    });
+    expect(mounted.container.textContent).toContain("Sound: Soundbar or receiver");
+    await click(buttonWithText(mounted.container, "Change"));
+    await click(
+      [...mounted.container.querySelectorAll("button")].find((each) =>
+        each.textContent.startsWith("Headphones"),
+      ),
+    );
+    expect(window.localStorage.getItem("orpheum.together.audioOutput")).toBe("headphones");
+    expect(mounted.container.textContent).toContain("Sound: Headphones");
+    expect(heard.map((each) => each.body)).toEqual([
+      { playableFormats: services.playableFormats(), audioOutput: "receiver" },
+      { playableFormats: services.playableFormats(), audioOutput: "headphones" },
+    ]);
+    mounted.unmount();
+  });
+
   it("plays the film the host puts on, asked for by the membership, and names who did it", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.sessionStorage.setItem(
