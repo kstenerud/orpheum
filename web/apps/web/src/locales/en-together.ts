@@ -30,6 +30,30 @@ export const enTogether = {
     away: "{{name}} (reconnecting)",
     someone: "Someone",
     hostPlaying: "Watch Together is on: this plays for everyone in your session.",
+    voice: {
+      label: "Voice",
+      talk: "Talk",
+      headphones: "Use headphones, so the film does not reach your microphone.",
+      starting: "Asking for your microphone…",
+      mute: "Mute",
+      unmute: "Unmute",
+      leave: "Leave voice",
+      partner: "Partner",
+      connecting: "Voice: connecting…",
+      alone: "Voice is on. No one else has turned theirs on yet.",
+      connectingTo: "Voice: connecting to {{names, list}}…",
+      connectedTo: "Voice: connected to {{names, list}}",
+      couldNotReach: "Voice could not reach {{names, list}}.",
+      failure: {
+        refused:
+          "Your microphone was not allowed. Allow it for this site in the browser's settings, then press Talk again.",
+        none: "No microphone was found. Connect one, then press Talk again.",
+        busy: "Your microphone is in use by another app, or could not start. Close that app, then press Talk again.",
+        unsupported:
+          "This page cannot use a microphone. Voice needs the https:// address, in a browser that supports it.",
+        failed: "Your microphone could not start. Press Talk to try again.",
+      },
+    },
     over: {
       hostEnded: "The host ended the session. You can close this page.",
       ejected: "The host removed you from the session. You can close this page.",

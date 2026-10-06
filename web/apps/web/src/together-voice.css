@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.together-voice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+/* A button is as wide as its words, never the page's width. */
+.together-voice > button {
+  justify-self: start;
+}
+
+.together-voice__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.together-voice__partner {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.together-voice__partner input {
+  flex: 1;
+  min-width: 0;
+}
+
+.together-voice__hint {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}

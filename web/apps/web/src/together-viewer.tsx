@@ -41,6 +41,7 @@ import { SoundChoices } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
+import { VoiceControls } from "./together-voice.tsx";
 import {
   forgetMembership,
   keepMembership,
@@ -244,6 +245,7 @@ function ViewerSession(props: {
         />
       )}
       <TogetherNews snapshot={snapshot} />
+      <VoiceControls membership={props.membership} />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
+import type { Api, BrowserVoiceDevices, OpenTogetherSocket, PlayableFormats } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
 import type { Navigation } from "./navigation.ts";
@@ -9,7 +9,7 @@ import type { Session } from "./session.ts";
 
 /**
  * What every screen reaches the world through: the API, the session, navigation, what this browser
- * plays, and the Watch Together socket.
+ * plays, the Watch Together socket, and voice's microphone and calls.
  */
 export interface Services {
   readonly api: Api;
@@ -19,6 +19,8 @@ export interface Services {
   readonly openTogetherSocket: OpenTogetherSocket;
   /** Whether this browser can play in step with a Watch Together group (D250 §7). */
   readonly canFollowAGroup: () => boolean;
+  /** Makes the microphone and calls a Watch Together person's voice goes through. */
+  readonly voiceDevices: () => BrowserVoiceDevices;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

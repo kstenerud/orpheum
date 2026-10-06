@@ -8,6 +8,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { forgetMembership, readMembership, type Membership } from "./together-storage.ts";
+import { VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
 /** What the host's player is given: the film, its video, and where it starts. */
@@ -96,6 +97,7 @@ function HostLeading(
     <div className="together-host">
       <p>{t("together.hostPlaying")}</p>
       <TogetherNews snapshot={snapshot} />
+      <VoiceControls membership={props.membership} sessionToken={token} />
     </div>
   );
 }

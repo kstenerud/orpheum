@@ -158,14 +158,17 @@ export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
 
 /**
  * The browser's microphone and RTCPeerConnection for voice, its voices played through one Web
- * Audio context. Made from a person's gesture (the Talk button), which is what lets the context
- * play.
+ * Audio context. The context is made as the microphone is first asked for, which voice does from
+ * a person's gesture (the Talk button): that is what lets it play.
  */
 export function browserVoiceDevices(): BrowserVoiceDevices {
-  const context = "AudioContext" in window ? new AudioContext() : undefined;
-  void context?.resume().catch(() => undefined);
+  let context: AudioContext | undefined;
   return {
     openMicrophone: async () => {
+      if (context === undefined && "AudioContext" in window) {
+        context = new AudioContext();
+        void context.resume().catch(() => undefined);
+      }
       const microphone = await openBrowserMicrophone();
       // iOS can pause the context as the microphone opens: it plays on once resumed.
       await context?.resume().catch(() => undefined);
@@ -174,6 +177,7 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
     startCall: (setup) => startBrowserCall(setup, context),
     close: () => {
       void context?.close().catch(() => undefined);
+      context = undefined;
     },
   };
 }

@@ -83,6 +83,14 @@ export function testServices(
     // A socket that never opens: a test of Watch Together passes its own stand-in server.
     openTogetherSocket: () => ({ send: () => undefined, close: () => undefined }),
     canFollowAGroup: () => true,
+    // No microphone: a test of voice passes its own stand-in devices.
+    voiceDevices: () => ({
+      openMicrophone: () => Promise.reject(new DOMException("no microphone", "NotFoundError")),
+      startCall: () => {
+        throw new Error("a test of voice passes its own stand-in devices");
+      },
+      close: () => undefined,
+    }),
   };
 }
 

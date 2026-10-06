@@ -29,8 +29,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the dialogue boost starts as the person left it (D222). `src/sound.test.tsx`.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, the speaker question as they join
-  unless this browser has the answer, their own volume and Leave; the link's secret leaves the
-  address once used. `src/together-viewer.test.tsx`.
+  unless this browser has the answer, voice, their own volume and Leave; the link's secret leaves
+  the address once used. `src/together-viewer.test.tsx`.
+- **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
+  the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
+  microphone that cannot open says why. `src/together-voice.test.tsx`.
 - **The host's player leads their session while this tab hosts one, and is as before without
   one**: the film goes on for everyone, and stops as the host leaves the player.
   `src/watch-together.test.tsx`.
@@ -71,7 +74,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
   their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
-  connection), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
+  connection), `together-voice.tsx` (voice's controls), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
   `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
   subtitle a file lacks, from OpenSubtitles, D224).
 - Every user-visible string: `src/locales/en.ts`, through react-i18next (D51).
