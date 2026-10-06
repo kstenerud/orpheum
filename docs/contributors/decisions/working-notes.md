@@ -18290,7 +18290,8 @@ font, and use slightly rounded corners."*
 
 1. **Dark only, for now** (§5.3 question 1): near-black `#121214`, surfaces lighter as they rise,
    true black only behind video. A light palette is a later set of token values, not a redesign.
-2. **One accent, coral** (`#ff8a6b`, question 2, chosen by the owner from six shown side by side):
+2. **One accent, coral** (`#ffa891`, question 2, chosen by the owner from six shown side by side,
+   then a lighter shade of it, from five, so links and the dark text on buttons read easily):
    the primary action, the current place in the menu, progress and range controls. Text on it is
    near-black. Amber came first and was dropped as *"too close to Plex"*; teal next, as *"ugly"*;
    then the owner: *"I like coral."* A problem is crimson (`#ff4d6d`), a hue apart, so it never
