@@ -14,7 +14,6 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -50,6 +49,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 func TestMain(m *testing.M) {
@@ -67,7 +67,7 @@ type testHarness struct {
 	// exchanges are the jobs waiting on the node; answerPrepare and the like hand them its results.
 	exchanges    *corenodes.Exchanges
 	httpServer   *httptest.Server
-	logs         *lockedLog
+	logs         *testutil.Log
 	authService  *auth.Service
 	setupCodes   *authtest.SetupCodes
 	databasePath string
@@ -101,60 +101,6 @@ func (harness testHarness) handle(t *testing.T, handler jobs.Handler, job jobs.J
 // harnessServerBuild is the build the harness's server says it is.
 var harnessServerBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
 
-// lockedLog is the harness's log, safe to read while the server writes to it: a Watch Together
-// device's disconnection is logged in the background, after the test may have read it.
-type lockedLog struct {
-	mutex  sync.Mutex
-	buffer bytes.Buffer
-	// wrote is signalled, without blocking, after each write: what awaitLine waits on.
-	wrote chan struct{}
-}
-
-func (log *lockedLog) Write(written []byte) (int, error) {
-	log.mutex.Lock()
-	defer log.mutex.Unlock()
-	if log.wrote == nil {
-		log.wrote = make(chan struct{}, 1)
-	}
-	select {
-	case log.wrote <- struct{}{}:
-	default:
-	}
-	return log.buffer.Write(written) //nolint:wrapcheck // a buffer's write never fails
-}
-
-// awaitLine waits up to 5 s for a line holding every one of parts, which something the server does
-// in the background logs, and fails the test when none comes.
-func (log *lockedLog) awaitLine(t *testing.T, parts ...string) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	log.mutex.Lock()
-	if log.wrote == nil {
-		log.wrote = make(chan struct{}, 1)
-	}
-	wrote := log.wrote
-	log.mutex.Unlock()
-	for {
-		for line := range strings.Lines(log.String()) {
-			if !slices.ContainsFunc(parts, func(part string) bool { return !strings.Contains(line, part) }) {
-				return
-			}
-		}
-		select {
-		case <-wrote:
-		case <-ctx.Done():
-			t.Fatalf("no log line holds %q:\n%s", parts, log.String())
-		}
-	}
-}
-
-func (log *lockedLog) String() string {
-	log.mutex.Lock()
-	defer log.mutex.Unlock()
-	return log.buffer.String()
-}
-
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
 func newHarness(t *testing.T) testHarness {
 	t.Helper()
@@ -166,7 +112,7 @@ func newHarness(t *testing.T) testHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	logs := &lockedLog{}
+	logs := &testutil.Log{}
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &authtest.SetupCodes{}
 	provider, cache, nodes := identifytest.NewProvider(), storetest.OpenCache(t), &fakeNodes{}
