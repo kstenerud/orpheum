@@ -18145,3 +18145,46 @@ FFmpeg could crash the node and have other crashes blamed on the film.
 
 **Status:** Decided 2026-10-06; to be built in M4.
 
+
+## D249 — Three ways to run: dev as it is, staging from the checkout beside it, and release from a tagged image; the tunnel is a container of the deployment's own
+
+**Decided** (2026-10-06), by the project owner, setting up the VPS of D243 §7 and finding the
+deployment it fronts unbuilt: *"Yes. I want to test deployment. Ideally we'd have dev mode, staging
+mode (which I'll test as soon as it's ready), and release mode. There are no real users yet, and
+won't be until I give the go ahead."* Then, on the proposal: staging beside dev on devnas, starting
+fresh when the schema changed, built from the checkout; release designed now and built later; and
+*"Should wireguard be done on my host, or is it better inside of the container?"*, answered: in a
+container. It builds D235 §2 and §4, and revises D243 §7's core end of the tunnel.
+
+1. **Dev** is the dev loop as it is: `./dev make dev`, the development image, Vite, the seed, plain
+   HTTP, no tunnel.
+2. **Staging and release are one deployment**, D235 §4's: a runtime image (D235 §2's base: Debian
+   and the pinned FFmpeg, plus the binary with the web client in it, run as a non-root user) and one
+   compose file with three services from it:
+   - `orpheum-tunnel`: the core's end of the WireGuard tunnel to the VPS, with Debian's
+     wireguard-tools in the runtime image (no third-party image), `CAP_NET_ADMIN` and nothing more.
+     Nothing is installed or configured on the host: its kernel's WireGuard is all it needs.
+   - `orpheum-core`: shares the tunnel's network, so what came in through the tunnel is answered
+     back through it with no routing rules on the host, and its outbound requests leave through the
+     VPS too. HTTPS on :443 and TURN on the tunnel's address, as D243 §6 and §8 say, and plain HTTP
+     on a port published to the house's network, for the LAN.
+   - `orpheum-node`: the media read-only and `/dev/dri`; the core's socket on a volume both share
+     (D235 §4).
+3. **Staging is built from the checkout, beside dev.** One command on devnas, `./staging`, builds the
+   binary in the development image, builds the runtime image from it, and starts or restarts the
+   compose stack; after `yoloai apply`, it is run again. Its data is a directory of its own, apart
+   from `.dev/`, and its ports never clash with dev's (8432, 5173). Its configs are rendered on
+   every start from templates and one file of the owner's values (the name, the contact address,
+   the VPS's address and key, the media), as dev's are. It is set up as a person meets a new server:
+   the first-run setup with the code in its log, then libraries by hand.
+4. **Staging starts fresh when its database cannot be brought forward.** Until migrations are live
+   (D228), a schema change folds the last step into the baseline, and a staging database that missed
+   two changes is below it, which the core refuses. Staging's core config says to start over then:
+   it sets the old database aside, starts with an empty one, and says so in its log. Release's says
+   to refuse, as D228 and D181 do.
+5. **Release is designed, not built.** The same image and compose file, the image built by
+   GoReleaser from a tagged version and pulled from a registry (D235 §5), the config written once by
+   the admin, migrations live, and refusing what it cannot migrate. Built when the owner nears the
+   go-ahead for real users; until then there are none.
+
+**Status:** Decided 2026-10-06; staging to be built now, release later.
