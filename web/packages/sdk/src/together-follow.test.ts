@@ -484,6 +484,25 @@ describe("a player following its group", () => {
     expect(media.dispatched).toEqual([fellBehindEvent]);
   });
 
+  it("held paused, waits at the start of what it loaded when the group's place falls just before it", () => {
+    const media = new FakeMedia();
+    media.currentTime = 60;
+    media.loaded = [[60.4, 120]]; // a copied picture whose first loaded frame comes a moment late
+    media.readyState = 1;
+    const { connection, reports } = fakeConnection({ ...paused, state: "Waiting" });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    expect(media.currentTime).toBe(60.4);
+    media.readyState = 4;
+    media.fire("seeked");
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(media.currentTime).toBe(60.4); // held there, not sought back into the gap
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {
     const media = new FakeMedia();
     const { connection } = fakeConnection({ ...paused, state: "Playing" });

@@ -467,13 +467,36 @@ class GroupFollower {
     // While its own seek still loads, the browser's player moves it a little as it loads (hls.js
     // steps over a gap at the start of what it loaded): a seek for that would start the load again,
     // and again, and the player never loads at all (the owner's test, 2026-10-05, on a slow link).
-    const awayMs = Math.abs(positionMsOf(media) - where.expectedMs);
+    const holdAtMs = playableAt(media, where.expectedMs);
+    const awayMs = Math.abs(positionMsOf(media) - holdAtMs);
     const isLoadingOwnSeek = this.#seekStartedAtMs !== undefined;
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
     if (isAway && !media.seeking) {
-      this.#seek(where.expectedMs);
+      this.#seek(holdAtMs);
     }
   }
+}
+
+/**
+ * Where a paused player can be held at expectedMs: there, or, when that falls in a gap just
+ * before what it loaded, within the seek threshold, the start of what it loaded. A copied picture
+ * is cut at its source's keyframes, so its first loaded frame can come a moment after the group's
+ * position; a paused player never steps over that gap as a playing one does, is never ready, and
+ * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac).
+ */
+function playableAt(media: FollowedMedia, expectedMs: number): number {
+  const { buffered } = media;
+  const expectedS = expectedMs / 1000;
+  for (let index = 0; index < buffered.length; index++) {
+    const startS = buffered.start(index);
+    if (startS <= expectedS && expectedS <= buffered.end(index)) {
+      return expectedMs;
+    }
+    if (startS > expectedS && (startS - expectedS) * 1000 <= seekDriftBeyondMs) {
+      return startS * 1000;
+    }
+  }
+  return expectedMs;
 }
 
 /**
