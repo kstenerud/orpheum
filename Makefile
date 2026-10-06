@@ -130,11 +130,17 @@ go-vet: ## go vet for the shipped platform, for arm64 Linux, for macOS, for the 
 	@go vet -tags dev ./...
 	@go vet -tags integration ./...
 
+# The dev build's own tests are those in test files only it builds (`//go:build dev`): the rest of
+# ./cmd ran in the release build just before, and running all of them again took 17 s of every
+# make check (2026-10-06).
+DEV_ONLY_TESTS = $(shell grep -l '^//go:build dev$$' cmd/*/*_test.go 2>/dev/null | xargs -r grep -ho '^func Test[A-Za-z0-9_]*' | sed 's/^func //' | paste -sd'|' -)
+
 .PHONY: go-test
-go-test: ## Unit and architecture tests, for release and dev builds
+go-test: ## Unit and architecture tests, for the release build and the dev build's own
 	@$(UNCONTROLLED)
 	@$(HERMETIC) go test ./...
-	@$(HERMETIC) go test -tags dev ./cmd/...
+	@test -n '$(DEV_ONLY_TESTS)' || { echo "go-test: no test file builds only with -tags dev; the dev pass would test nothing"; exit 1; }
+	@$(HERMETIC) go test -tags dev -run '^($(DEV_ONLY_TESTS))$$' ./cmd/...
 
 .PHONY: go-tidy
 go-tidy: ## Fail if go.mod or go.sum is not tidy
@@ -197,10 +203,13 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 .PHONY: check-pr-verbose
 check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), the tiers in parallel, then revert-red; a pass marks HEAD as checked
 	@base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
+	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
+	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
 	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
 	    $(PR_STEPS:%=pr-step-%); \
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
+	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base"
 
 # The loop's re-run: never a pass of check-pr, which is still required before a branch is done.
@@ -256,8 +265,11 @@ test-integration: ## The integration tier: tests that run the pinned FFmpeg and 
 		go test -tags integration -count=1 ./...
 
 .PHONY: test-browser
-test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
-	@$(MAKE) --no-print-directory browser-tier
+# Within check-pr (a BASE given), the tier is skipped when nothing it builds or runs changed: docs,
+# the gates' scripts, tests alone (scripts/browser_tier_needed.py; the owner, 2026-10-06).
+test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4); in check-pr, only when what it builds changed
+	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
+	  $(MAKE) --no-print-directory browser-tier; fi
 
 # The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
 # web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
