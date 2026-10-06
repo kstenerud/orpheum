@@ -231,7 +231,7 @@ func openAndWire(
 		opened.jobServices.chunks
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
-	opened = wireJobsInto(&dependencies, opened)
+	opened = wireJobsInto(&dependencies, opened, logger)
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
 		newReachability(config, opened), newRelayIssuer(config, opened)
@@ -247,13 +247,13 @@ func openAndWire(
 // wireJobsInto gives the API the job queue and the outside hosts' provider services, and makes a
 // backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions, whose
 // host may change what plays only to what they reach (D243 §4).
-func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedServices {
+func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger *slog.Logger) openedServices {
 	authService, browser := dependencies.Auth, dependencies.Browser
 	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
 		reach, err := authService.ReachOfUser(ctx, userID)
 		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
 	}
-	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay)
+	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
 	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)

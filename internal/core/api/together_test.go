@@ -7,6 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -341,6 +345,45 @@ func TestTogether_LogsADeviceConnecting(t *testing.T) {
 		}
 	}
 	t.Errorf("the log does not say a device of %s connected:\n%s", ids, harness.logs.String())
+}
+
+// A device that sends nothing for the silence limit is taken for gone: its socket is closed, it is
+// detached, and the log says why. A phone's connection cut on an airport's network stayed attached,
+// and was waited for, though it said nothing more (staging, 2026-10-06).
+func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.server.togetherSilence.Store(int64(50 * time.Millisecond))
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
+	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
+	viewer.awaitWelcome()
+	harness.logs.awaitLine(t, `"watch together: a device disconnected"`,
+		fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID), "sent nothing for 50ms")
+}
+
+// The server takes a device for gone after three of the pings the web client sends, so a client
+// pinging on time is never closed for silence.
+func TestTogether_TheSilenceLimitIsThreeOfTheClientsPings(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join("..", "..", "..", "web", "packages", "sdk", "src", "together-connection.ts")
+	source, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := regexp.MustCompile(`export const pingEveryMs = ([\d_]+);`).FindSubmatch(source)
+	if found == nil {
+		t.Fatal("together-connection.ts has no pingEveryMs this test can read; say where the client's ping went")
+	}
+	milliseconds, err := strconv.Atoi(strings.ReplaceAll(string(found[1]), "_", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if web := time.Duration(milliseconds) * time.Millisecond; web != clientPingEvery || silenceLimit != 3*web {
+		t.Errorf("the client pings every %v and the server waits %v; want the server's clientPingEvery %v, "+
+			"and a limit of three pings", web, silenceLimit, clientPingEvery)
+	}
 }
 
 // Each member, the host and a viewer, is handed relay credentials of their own for the session

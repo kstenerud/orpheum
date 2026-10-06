@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -60,15 +61,20 @@ type Hub struct {
 	clock   clock.Clock
 	random  io.Reader
 	mayPlay MayPlay
+	// logger hears every change of each session's group (the owner, 2026-10-06).
+	logger *slog.Logger
 
 	mutex    sync.Mutex
 	sessions map[int64]*session // guarded by mutex
 	lastID   int64              // the last id given a session, link, member or device; guarded by mutex
 }
 
-// NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on.
-func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay) *Hub {
-	return &Hub{clock: clockSource, random: random, mayPlay: mayPlay, sessions: map[int64]*session{}}
+// NewHub returns an empty hub, which asks mayPlay whether a host may play what they put on, and
+// logs each group's changes to logger.
+func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay, logger *slog.Logger) *Hub {
+	return &Hub{
+		clock: clockSource, random: random, mayPlay: mayPlay, logger: logger, sessions: map[int64]*session{},
+	}
 }
 
 // session is one Watch Together session (D122): what plays is state on it, the host's to change.
@@ -80,6 +86,8 @@ type session struct {
 	lastStallWait time.Time
 	links         map[int64]*link
 	members       map[int64]*member
+	// logger is the hub's: each change of the group is logged with the session's id.
+	logger *slog.Logger
 }
 
 // link is one person's way in (D246 §3): single use, with the host's note of who it is for.
@@ -200,7 +208,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	hub.lastID++
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
-		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()},
+		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
 	}
 	hub.lastID++
 	hostPerson := host

@@ -3,11 +3,15 @@
 package together
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,8 +45,10 @@ func (box *inbox) last(kind MessageType) Outbound {
 
 // sessionStage is a hub with a session the owner hosts, nothing playing yet, and a clock.
 type sessionStage struct {
-	hub    *Hub
-	clock  *clocktest.Fake
+	hub   *Hub
+	clock *clocktest.Fake
+	// logs is what the hub logged.
+	logs   *bytes.Buffer
 	opened Opened
 	owner  Person
 }
@@ -50,13 +56,15 @@ type sessionStage struct {
 func newStage(t *testing.T) sessionStage {
 	t.Helper()
 	fakeClock := clocktest.NewFake(time.Date(2026, 10, 5, 20, 0, 0, 0, time.UTC))
-	hub := NewHub(fakeClock, rand.Reader, func(_ context.Context, _, fileID int64) bool { return fileID != 13 })
+	logs := &bytes.Buffer{}
+	hub := NewHub(fakeClock, rand.Reader, func(_ context.Context, _, fileID int64) bool { return fileID != 13 },
+		slog.New(slog.NewTextHandler(logs, nil)))
 	owner := Person{UserID: 1, Name: "owner"}
 	opened, err := hub.Open(owner)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return sessionStage{hub: hub, clock: fakeClock, opened: opened, owner: owner}
+	return sessionStage{hub: hub, clock: fakeClock, logs: logs, opened: opened, owner: owner}
 }
 
 // attach attaches a device with credential and role, and returns it and its inbox.
@@ -138,6 +146,30 @@ func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndWaitsForOneThatBuffers(t *tes
 	if resumed := hostBox.last(MessageGroup).Group; resumed.State != GroupPlaying || resumed.PositionMs != 10_000 {
 		t.Errorf("the guest ready again: %+v; want Playing on from 10 s", resumed)
 	}
+}
+
+// Every change of the group is logged: what plays, the event and who caused it, and while it waits,
+// whose player it waits for and until when. A group that would not play on staging could only be
+// guessed at (2026-10-06).
+func TestHub_LogsEachChangeOfTheGroupAndWhoItWaitsFor(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guest := stage.join(t)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	stage.ready(t, host, false)
+	stage.ready(t, guestDevice, false)
+	stage.ready(t, guestDevice, true)
+	stage.command(t, host, CommandChangeItem, 7)
+	waiting := fmt.Sprintf("state=Waiting event=changedItem byMemberId=%d fileId=7", host.MemberID)
+	wantFor := fmt.Sprintf("waitingForMemberIds=[%d]", guest.MemberID)
+	for line := range strings.Lines(stage.logs.String()) {
+		if strings.Contains(line, `msg="watch together: the group changed"`) && strings.Contains(line, waiting) &&
+			strings.Contains(line, wantFor) && strings.Contains(line, "waitUntil=") {
+			return
+		}
+	}
+	t.Errorf("no log line says the group waits on film 7 for member %d:\n%s", guest.MemberID, stage.logs.String())
 }
 
 // Someone who joins while the film plays holds no one up while they choose their speakers and
