@@ -101,8 +101,9 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 // parkIfWindowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
 // work's slot as the node runs at once, and as many reading its device as may read it, each with
 // node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Play-driven work is
-// never held back for its device's readers: the node pauses the background work reading it (D240
-// §6). It is nil while there is room, and for a node whose resources are not known.
+// never held back for its slot or its device's readers: the node pauses the background work reading
+// it, and one person's watching never waits for another's (D240 §6). It is nil while there is room,
+// and for a node whose resources are not known.
 func (all *Exchanges) parkIfWindowFull(
 	ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool,
 ) error {
@@ -115,8 +116,26 @@ func (all *Exchanges) parkIfWindowFull(
 		return fmt.Errorf("read node_jobs_beyond_free_slots: %w", err)
 	}
 	slot, device := work.Slot(), resources.deviceOf(work)
-	var inSlot, onDevice int
+	inSlot, onDevice := all.heldOn(nodeID, resources, slot, device)
+	full := func(destination jobs.Destination) error {
+		return jobs.Park(jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true},
+			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
+	}
+	switch {
+	case slot != "" && !isPlayDriven && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
+		return full(jobs.SlotDestination(nodeID, string(slot)))
+	case device != "" && !isPlayDriven && onDevice >= resources.readerLimit(device)+int(extra):
+		return full(jobs.ReaderDestination(nodeID, device))
+	}
+	return nil
+}
+
+// heldOn counts the attempts a node holds in slot, and reading device; none for "".
+func (all *Exchanges) heldOn(
+	nodeID int64, resources Resources, slot nodeproto.Slot, device string,
+) (inSlot, onDevice int) {
 	all.mutex.Lock()
+	defer all.mutex.Unlock()
 	for _, held := range all.attempts {
 		if held.NodeID != nodeID {
 			continue
@@ -128,18 +147,7 @@ func (all *Exchanges) parkIfWindowFull(
 			onDevice++
 		}
 	}
-	all.mutex.Unlock()
-	full := func(destination jobs.Destination) error {
-		return jobs.Park(jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true},
-			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
-	}
-	switch {
-	case slot != "" && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
-		return full(jobs.SlotDestination(nodeID, string(slot)))
-	case device != "" && !isPlayDriven && onDevice >= resources.readerLimit(device)+int(extra):
-		return full(jobs.ReaderDestination(nodeID, device))
-	}
-	return nil
+	return inSlot, onDevice
 }
 
 // errWindowFull is work a node has no room for in the core's window.
