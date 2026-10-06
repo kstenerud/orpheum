@@ -348,7 +348,7 @@ func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICE
 	if !isMember || sessionID != input.SessionID {
 		return nil, newError(http.StatusNotFound, CodeNotFound, together.ErrNoSession.Error())
 	}
-	servers, err := dependencies.Relay.ICEFor(ctx, turn.Membership{SessionID: sessionID, MemberID: memberID},
+	servers, err := dependencies.Relay.ICEServersFor(ctx, turn.Membership{SessionID: sessionID, MemberID: memberID},
 		dependencies.Clock.Now())
 	if err != nil {
 		return nil, server.logInternalError(ctx, "issue relay credentials", err)
