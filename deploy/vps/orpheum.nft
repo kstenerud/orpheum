@@ -2,9 +2,15 @@
 # rewriting the client's address, so the core sees who connected (D243 §7).
 # Replace 203.0.113.7 with the VPS's public IPv4 address and eth0 with its public interface.
 
+# orpheum-forwards.service loads it at boot; loading it again replaces the table rather than adding
+# a second copy of every rule.
+
 define public_ipv4 = 203.0.113.7
 define core_ipv4 = 10.77.0.2
 define core_ipv6 = fd77::2
+
+table inet orpheum
+delete table inet orpheum
 
 table inet orpheum {
 	chain prerouting {
