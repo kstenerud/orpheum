@@ -11,7 +11,7 @@
 :root {
   /*
    * Dark for watching (owner, 2026-10-06): near-black, not black, with surfaces lighter as they
-   * rise; true black only behind video. Art supplies the colour; one teal accent marks the
+   * rise; true black only behind video. Art supplies the colour; one coral accent marks the
    * primary action, the current place and progress (ui-design-practice-2026-10-05.md §5.1).
    */
   color-scheme: dark;
@@ -21,10 +21,11 @@
   --color-border: #3a3a42;
   --color-text: #ececf1;
   --color-muted: #a3a3ad;
-  --color-accent: #3cc7b4;
-  --color-accent-hover: #6fdccd;
-  --color-on-accent: #04211d;
-  --color-problem: #ff7a7a;
+  --color-accent: #ff8a6b;
+  --color-accent-hover: #ffab94;
+  --color-on-accent: #2e0e06;
+  /* Crimson, a hue apart from the coral accent: a problem never reads as the primary action. */
+  --color-problem: #ff4d6d;
   --color-video-background: #000000;
   --color-qr-background: #ffffff;
   --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);
