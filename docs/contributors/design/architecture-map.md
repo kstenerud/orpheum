@@ -106,11 +106,11 @@ is the evidence. The first column names each package by its path; the check read
 
 | Package / module | Resp. | Notes |
 | --- | --- | --- |
-| `web/packages/sdk` | R9 (client API access) | Also the client's sensing (playable-formats.ts), which is the client-side analogue of "nodes sense, the core decides" |
-| `web/packages/player` | R4 (client end of streaming: hls.ts, subtitles.ts, gain.ts) | R6b capture: report.ts. Its `PlayReport` was a hand copy of the generated `ReportInputBody` until 2026-09-30, and is now derived from it (F10) |
+| `web/packages/sdk` | R9 (client API access) | Also the client's sensing (playable-formats.ts), which is the client-side analogue of "nodes sense, the core decides"; and Watch Together's client (together*.ts: the connection, following the group, voice), a second responsibility the M4 audit flags for a package of its own |
+| `web/packages/player` | R4 (client end of streaming: hls.ts, chunked.ts, link.ts, stalls.ts, step-up.ts, subtitles.ts, gain.ts) | R6b capture: report.ts. Its `PlayReport` was a hand copy of the generated `ReportInputBody` until 2026-09-30, and is now derived from it (F10) |
 | `web/apps/web` | R9 | — |
 | `web/apps/cast-receiver` | R9 (stub until M6, after Cut A) | — |
-| `web/apps/web`: session.ts, accounts.ts, device.ts, signed-out-watch.ts, browser-storage.ts, sign-in/register/code-sign-in/device-code | R5 (client side) | browser storage holds only the session |
+| `web/apps/web`: session.ts, accounts.ts, device.ts, signed-out-watch.ts, browser-storage.ts, sign-in/register/code-sign-in/device-code | R5 (client side) | browser storage holds the session, and for Watch Together each tab's memberships and a viewer's speakers (together-storage.ts) |
 | `web/apps/web`: play-state.ts | R6b capture | sends reports |
 | `web/apps/web`: settings.tsx | R6a | — |
 | `web/apps/web`: sound.tsx, levelling.tsx, subtitles.tsx, subtitle-search.tsx | R6b | — |
@@ -210,12 +210,15 @@ identify and artwork (it is their fetcher); playback uses auth, renditions and s
 these crosses the core–node seam, and `TestArch_EachTableHasOneWritingPackage` holds each table
 to one writer whichever package calls it.
 
-**Fetching (R1).** Clean. All outbound HTTP goes through `outbound.NewClient` and `Exchange`
-(forbidigo `[outbound]`). The callers are tmdb/client.go:67, tmdb/images.go:65,
-opensubtitles/client.go:249 and opensubtitles/requests.go:177, and cmd/orpheum/metadata.go:57
-builds the one client. The failure policy is unified since 2026-09-30: each host is a provider
-service (internal/core/providers) owning its health, rate, quota and credentials, and a host that
-is down parks its destination's work in the queue (D231 §5, §6).
+**Fetching (R1).** Clean. All outbound HTTP goes through the one client `outbound.NewClient`
+makes (forbidigo `[outbound]`), built in cmd/orpheum/metadata.go. The metadata and subtitle
+providers and Cloudflare's DNS (providers/cloudflare/client.go) read through `Exchange`; the
+failure policy is unified since 2026-09-30: each such host is a provider service
+(internal/core/providers) owning its health, rate, quota and credentials, and a host that is down
+parks its destination's work in the queue (D231 §5, §6). Two callers make their own requests on
+that client, by design (M4's audit): ACME, whose library (`golang.org/x/crypto/acme`) speaks its
+protocol and whose failures the certificate job retries on its back-off; and the reachability
+check, which reads only an echo's status and names the hop that failed (D243 §7).
 
 **Transforming (R3).** FFmpeg work happens only on nodes (execx and confine). The core does three
 cheap derivations: textindex folding and CLDR keys; artwork cutting JPEG from its own WebP (the
