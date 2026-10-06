@@ -2,6 +2,8 @@
 
 import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
 
+import type { CannotKeepUp } from "@orpheum/sdk";
+
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
 import {
   hlsMethod,
@@ -11,7 +13,7 @@ import {
   tellOwnMoves,
   type HlsPlayback,
 } from "./hls.ts";
-import { nextCap } from "./step-up.ts";
+import { nextCap, stepUpHeadroom } from "./step-up.ts";
 
 /**
  * How long a chunk may take to begin arriving: longer than the core holds a request for one a run
@@ -80,6 +82,28 @@ export interface AdaptingHls {
   ) => void;
 }
 
+/**
+ * Whether a stall now is beyond the link, with both numbers: one at the lowest quality, on a link
+ * measured below stepUpHeadroom times what it needs, or not measured at all (D247 §8). A stall on
+ * a link measured well above the lowest is something else's doing, and no quality answers it: a
+ * player on a 98 Mbit/s link, held behind its Watch Together group at the 892 kbit/s quality, was
+ * told its link could not keep up (staging, 2026-10-06).
+ */
+export function beyondTheLink(
+  hls: Pick<AdaptingHls, "levels" | "currentLevel" | "bandwidthEstimate">,
+): CannotKeepUp | undefined {
+  const lowest = hls.levels[0];
+  if (hls.currentLevel !== 0 || lowest === undefined) {
+    return undefined;
+  }
+  const linkKbps = hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined;
+  const lowestKbps = lowest.averageBitrate / 1000;
+  if (linkKbps !== undefined && linkKbps >= stepUpHeadroom * lowestKbps) {
+    return undefined;
+  }
+  return { linkKbps, lowestKbps };
+}
+
 /** The part of a video element adapting reads: how much is loaded ahead. */
 export type AdaptedMedia = Pick<HTMLMediaElement, "buffered" | "currentTime">;
 
@@ -142,8 +166,8 @@ export function adaptQuality(
 export interface ChunkedPlayback extends HlsPlayback {
   /** The quality playing, or undefined before one plays or where the browser chooses itself. */
   readonly playing: () => PlayedLevel | undefined;
-  /** Whether it plays its lowest quality: a stall there is one no quality answers (D247 §8). */
-  readonly isAtLowest: () => boolean;
+  /** Whether a stall now is beyond the link, with both numbers (beyondTheLink, D247 §8). */
+  readonly beyondTheLink: () => CannotKeepUp | undefined;
 }
 
 /**
@@ -166,7 +190,7 @@ export function playChunked(
   const unknowing = {
     playing: () => undefined,
     estimateKbps: () => undefined,
-    isAtLowest: () => false,
+    beyondTheLink: () => undefined,
   };
   if (method === "native") {
     return { ...playNative(video, url), ...unknowing };
@@ -206,6 +230,6 @@ export function playChunked(
     },
     playing: () => hls.levels[hls.currentLevel],
     estimateKbps: () => (hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined),
-    isAtLowest: () => hls.currentLevel === 0,
+    beyondTheLink: () => beyondTheLink(hls),
   };
 }

@@ -18096,6 +18096,11 @@ paused often; in the group it played a frame and froze, over and over.
    quality, or a measured speed below what it needs, says so with both numbers, and in Watch
    Together the group is told too. The owner: *"At a certain point the quality will be so bad that
    we're probably better off telling the user this won't work."*
+   **Amended** (2026-10-06), by the owner, after a player on a 98 Mb/s link was told it could not
+   keep up with the 892 kb/s quality: a stall at the lowest quality says so only when the link was
+   not measured, or was measured below 1.5× what that quality needs, the margin a step up needs
+   (§9). A stall on a link well above it is something else's doing, such as falling behind a
+   group that held, and no quality answers it; the player's stall reports carry the link's speed.
 9. **A viewer steps back up when the link has recovered with confidence**: the speed measured
    while chunks download (never across the pauses between them, which read slow) stays at about
    1.5× the next quality's rate for a couple of minutes, with a healthy buffer, and the step is one
