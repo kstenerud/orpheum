@@ -75,3 +75,13 @@
 .poster-grid__card--unavailable .poster {
   opacity: 0.5;
 }
+
+/* Nothing to show yet: a quiet panel that says why and what to do, not a bare line. */
+.browse__empty {
+  max-width: none;
+  padding: var(--space-7) var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-muted);
+  text-align: center;
+}

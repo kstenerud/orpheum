@@ -149,7 +149,7 @@ export function BrowseView(props: {
       resource={props.loadedEntries}
       render={(page) =>
         page.items.length === 0 ? (
-          <p>{t("browse.empty")}</p>
+          <p className="browse__empty">{t("browse.empty")}</p>
         ) : (
           <>
             <PosterGrid kind={props.kind} entries={page.items} />

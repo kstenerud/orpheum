@@ -224,7 +224,7 @@ export function Loaded<T>(props: {
   const { t } = useTranslation();
   const { resource } = props;
   if (resource.state === "loading") {
-    return <p>{t("common.loading")}</p>;
+    return <p className="title__loading">{t("common.loading")}</p>;
   }
   if (resource.state === "failed") {
     const describe = props.describeProblem ?? ((cause: unknown) => problemText(t, cause));

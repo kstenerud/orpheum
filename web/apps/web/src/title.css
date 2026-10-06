@@ -120,3 +120,26 @@
   display: block;
   overflow-wrap: anywhere;
 }
+
+/*
+ * A load under a moment shows nothing; a longer one says so, softly pulsing, rather than a page
+ * that seems empty (ui-design-practice-2026-10-05.md §5.1 item 10).
+ */
+.title__loading {
+  color: var(--color-muted);
+  animation:
+    title-appear 0.2s ease-out 0.4s both,
+    title-pulse 1.6s ease-in-out 0.6s infinite;
+}
+
+@keyframes title-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes title-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
