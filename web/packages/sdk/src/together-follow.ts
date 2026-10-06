@@ -274,10 +274,12 @@ class GroupFollower {
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
   /**
-   * Where a viewer catching up alone waits, paused and loading, for the playing group to arrive;
+   * Where a player catching up alone waits, paused and loading, for the playing group to arrive;
    * undefined while it follows as usual (D247 §4, amended 2026-10-06).
    */
   #waitAtMs: number | undefined = undefined;
+  /** Whether the pause it made to wait ahead is still to be heard: a leading player's is no command. */
+  #isOwnPausePending = false;
   /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
   #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
   /** Film loaded per second of the link, as last measured; undefined until it has been. */
@@ -309,8 +311,9 @@ class GroupFollower {
       return;
     }
     if (where.group.state === "Playing" && this.#isWaitingAhead(where)) {
-      // A viewer that jumped ahead to catch up waits there, paused and loading, for the group.
+      // A player that jumped ahead to catch up waits there, paused and loading, for the group.
       if (!this.#media.paused) {
+        this.#isOwnPausePending = true;
         this.#media.pause();
       }
     } else if (where.group.state === "Playing") {
@@ -324,13 +327,10 @@ class GroupFollower {
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
     this.#noteLoading(event);
-    const isOwnSeek = (event === "seeking" || event === "seeked") && this.#isOwnSeekPending;
-    if (event === "seeked") {
-      this.#isOwnSeekPending = false;
-    }
+    const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
     const command =
-      this.#options.isLeading && where !== undefined && !isOwnSeek
+      this.#options.isLeading && where !== undefined && !isOwn
         ? commandOfEvent(event, this.#media, where)
         : undefined;
     if (command === undefined) {
@@ -344,6 +344,19 @@ class GroupFollower {
       this.#connection.reportState();
     }
   };
+
+  /** Whether event is of a seek or pause the follower made itself, not its person: no command. */
+  #isOwnMove(event: string): boolean {
+    const isOwnSeek = (event === "seeking" || event === "seeked") && this.#isOwnSeekPending;
+    if (event === "seeked") {
+      this.#isOwnSeekPending = false;
+    }
+    const isOwnPause = event === "pause" && this.#isOwnPausePending;
+    if (event === "pause") {
+      this.#isOwnPausePending = false;
+    }
+    return isOwnSeek || isOwnPause;
+  }
 
   /**
    * Sends a leading player's command: a pause or a seek once no seek has followed it within
@@ -509,7 +522,7 @@ class GroupFollower {
   }
 
   /**
-   * Whether a viewer that jumped ahead still waits there for the group: until the group is within
+   * Whether a player that jumped ahead still waits there for the group: until the group is within
    * leaveDriftUpToMs of it, or has passed it, or has sought back from it further than it could have
    * jumped. Then it follows as usual, playing on with what it loaded meanwhile.
    */
@@ -528,8 +541,8 @@ class GroupFollower {
 
   /**
    * Seeks to catch up with the group at toMs, ahead by catchUpLeadMs, and says it fell behind if it
-   * had been in step. A viewer waits there for the group; a leading player's pause would be its
-   * person's command, so the host plays on from there.
+   * had been in step. It waits there for the group, the host's player too: a host on a slow link
+   * stalls as a viewer does (the owner, 2026-10-06), and its pause to wait is no command.
    */
   #catchUp(toMs: number, groupRate: number): void {
     if (this.#hasCaughtUp) {
@@ -537,7 +550,7 @@ class GroupFollower {
     }
     const targetMs = toMs + this.#catchUpLeadMs(groupRate);
     this.#seek(targetMs);
-    this.#waitAtMs = this.#options.isLeading ? undefined : targetMs;
+    this.#waitAtMs = targetMs;
   }
 
   /**
