@@ -122,7 +122,8 @@ def run_make(make_args: list[str], fail_fast: bool) -> tuple[int, str, str]:
     output = "".join(lines)
     if read_up_to is None:
         return code, output, output
-    return code or 1, output, "".join(lines[:read_up_to]) + STOPPED_NOTE + "\n"
+    # make itself was stopped by the signal: the run failed as make's own failure does, with 2.
+    return 2, output, "".join(lines[:read_up_to]) + STOPPED_NOTE + "\n"
 
 
 def main(argv: list[str]) -> int:
