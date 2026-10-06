@@ -3129,6 +3129,7 @@
                   "file_unavailable",
                   "preparing",
                   "prepare_failed",
+                  "no_room_to_make",
                   "migrating",
                   "internal"
                 ],

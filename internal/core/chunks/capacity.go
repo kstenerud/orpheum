@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package chunks
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
+)
+
+// How a run of chunks is watched to stay faster than playback, or the players waiting on it never
+// catch up: the owner, "Live transcoding only works when it's faster than playback" (D250 §6).
+const (
+	// How far back a run's speed is measured, and how long after an eviction its node is left to
+	// settle before another.
+	speedWindow = 20 * time.Second
+	// How much of the window a run must have been sampled over to be judged.
+	speedSpanAtLeast = 10 * time.Second
+	// How lately a player must have asked for a store's chunks for its run to be in use: a playing
+	// player asks every chunk, every few seconds.
+	inUseWithin = 30 * time.Second
+)
+
+// ErrNoRoomToMake is a store whose run was evicted to keep its node's other runs faster than
+// playback (D250 §6): its players are told why their playback stops, until a stall asks for it
+// again.
+var ErrNoRoomToMake = errors.New("its node has no room to make it as fast as it plays")
+
+// speedSample is how much of the film a run had made at a moment: the end of its last chunk made.
+type speedSample struct {
+	at        time.Time
+	madeEndMs int64
+}
+
+// sample records that the run of the store from first had made the film through madeEndMs at now,
+// keeping the samples of the last two speed windows.
+func (tracker *runTracker) sample(dir string, first int, now time.Time, madeEndMs int64) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	each, found := tracker.storeLocked(dir).runByFirst[first]
+	if !found {
+		return
+	}
+	each.samples = append(slices.DeleteFunc(each.samples, func(old speedSample) bool {
+		return now.Sub(old.at) > 2*speedWindow
+	}), speedSample{at: now, madeEndMs: madeEndMs})
+}
+
+// speedAt is the run's speed at now, film made per wall time over the last speedWindow (6.2 is 6.2
+// times playback), and whether it has been sampled long enough to say.
+func (each *run) speedAt(now time.Time) (float64, bool) {
+	from := slices.IndexFunc(each.samples, func(sample speedSample) bool {
+		return now.Sub(sample.at) <= speedWindow
+	})
+	if from < 0 {
+		return 0, false
+	}
+	first, latest := each.samples[from], each.samples[len(each.samples)-1]
+	if latest.at.Sub(first.at) < speedSpanAtLeast {
+		return 0, false
+	}
+	return float64(latest.madeEndMs-first.madeEndMs) / float64(latest.at.Sub(first.at).Milliseconds()), true
+}
+
+// runningRun is a run a node is making, as the capacity watch sees it.
+type runningRun struct {
+	dir                 string
+	first, last         int
+	jobID               int64
+	startedAt           time.Time
+	speed               float64
+	isMeasured, isInUse bool
+}
+
+// runningOn is every run nodeID is making at now, with its speed where it is measured and whether
+// a player has asked for its store's chunks lately.
+func (tracker *runTracker) runningOn(nodeID int64, now time.Time) []runningRun {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	var running []runningRun
+	for dir, known := range tracker.storeByDir {
+		for _, each := range known.runByFirst {
+			if each.nodeID != nodeID || each.jobID == 0 {
+				continue
+			}
+			speed, isMeasured := each.speedAt(now)
+			running = append(running, runningRun{
+				dir: dir, first: each.first, last: each.last, startedAt: each.startedAt, speed: speed,
+				isMeasured: isMeasured, isInUse: now.Sub(known.lastAskedAt) <= inUseWithin, jobID: each.jobID,
+			})
+		}
+	}
+	return running
+}
+
+// evict forgets the run of the store from first, evicted from nodeID at now, and marks its store
+// evicted, so its players are told (ErrNoRoomToMake).
+func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	delete(known.runByFirst, first)
+	known.evictedAt = now
+	tracker.evictedOnAt[nodeID] = now
+}
+
+// lastEvictionOn is when a run was last evicted from nodeID; zero for never.
+func (tracker *runTracker) lastEvictionOn(nodeID int64) time.Time {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	return tracker.evictedOnAt[nodeID]
+}
+
+// asked records that a player asked for one of the store's chunks at now: its run is in use.
+func (tracker *runTracker) asked(dir string, now time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	tracker.storeLocked(dir).lastAskedAt = now
+}
+
+// isEvicted is whether a run of the store was evicted, and not asked for again by a stall since.
+func (tracker *runTracker) isEvicted(dir string) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	return !tracker.storeLocked(dir).evictedAt.IsZero()
+}
+
+// unevict clears the store's eviction: a player's stall asks for it again, a new try.
+func (tracker *runTracker) unevict(dir string) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	tracker.storeLocked(dir).evictedAt = time.Time{}
+}
+
+// keepRunsFast keeps the runs nodeID is making faster than playback (D250 §6): when one of two or
+// more measures slower than chunk_run_slowest_speed_percent of it, one run is evicted, the oldest no
+// player has asked for lately, or, when every one is in use, the newest, and its players are told
+// why their playback stops. After an eviction the node's runs are left speedWindow to settle.
+func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
+	now := service.clock.Now()
+	if last := service.runs.lastEvictionOn(nodeID); !last.IsZero() && now.Sub(last) < speedWindow {
+		return nil
+	}
+	slowestPercent, err := service.settings.Int(ctx, settings.ChunkRunSlowestSpeedPercent)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", settings.ChunkRunSlowestSpeedPercent, err)
+	}
+	running := service.runs.runningOn(nodeID, now)
+	isTooSlow := slices.ContainsFunc(running, func(each runningRun) bool {
+		return each.isMeasured && each.speed*100 < float64(slowestPercent)
+	})
+	if len(running) < 2 || !isTooSlow {
+		return nil
+	}
+	victim := evictee(running)
+	service.runs.evict(victim.dir, victim.first, nodeID, now)
+	speeds := make([]string, 0, len(running))
+	for _, each := range running {
+		speeds = append(speeds, fmt.Sprintf("%s@%d:%.2f", each.dir, each.first, each.speed))
+	}
+	service.logger.WarnContext(ctx, "evicted a run of chunks: its node could not keep every run faster than playback",
+		"nodeId", nodeID, "storeDir", victim.dir, "firstChunk", victim.first, "lastChunk", victim.last,
+		"wasInUse", victim.isInUse, "slowestPercent", slowestPercent, "runSpeeds", speeds)
+	return service.queue.Cancel(ctx, victim.jobID)
+}
+
+// evictee is the run to evict of those running: the oldest no player has asked for lately, or,
+// when every one is in use, the newest (D250 §6).
+func evictee(running []runningRun) runningRun {
+	byAge := slices.Clone(running)
+	slices.SortFunc(byAge, func(a, b runningRun) int { return a.startedAt.Compare(b.startedAt) })
+	for _, each := range byAge {
+		if !each.isInUse {
+			return each
+		}
+	}
+	return byAge[len(byAge)-1]
+}

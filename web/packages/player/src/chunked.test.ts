@@ -143,5 +143,9 @@ describe("loading a chunk the core is making (D250 §5)", () => {
     expect((retry?.maxNumRetry ?? 0) * (retry?.retryDelayMs ?? 0)).toBeGreaterThan(
       waitAheadAtMostMs,
     );
+    // A 429, the core having no room to make it, is not asked for again (D250 §6).
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 429 }, true)).toBe(
+      false,
+    );
   });
 });

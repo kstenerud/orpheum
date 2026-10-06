@@ -226,6 +226,10 @@ func (server *Server) chunksError(ctx context.Context, action string, err error)
 		return newError(http.StatusNotFound, CodeNotFound, "no such stream of this playback's chunks")
 	case errors.Is(err, chunks.ErrCannotBeCut):
 		return newError(http.StatusNotFound, CodeNotFound, "this film cannot be cut into chunks")
+	case errors.Is(err, chunks.ErrNoRoomToMake):
+		// 429, which nothing else on a chunk's path answers: the player stops, and says why (D250 §6).
+		return newError(http.StatusTooManyRequests, CodeNoRoomToMake,
+			"the machine has no room to make this quality as fast as it plays, for the other films it makes")
 	}
 	return server.playbackError(ctx, action, err)
 }

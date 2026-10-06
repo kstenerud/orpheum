@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"sync"
+	"time"
 )
 
 // runTracker knows, for each store, the chunks known made and the runs making more: in memory,
@@ -14,6 +15,9 @@ type runTracker struct {
 	mutex sync.Mutex
 	// storeByDir is each store's chunks and runs, by its directory (StoreDir); guarded by mutex.
 	storeByDir map[string]*storeRuns
+	// evictedOnAt is when a run was last evicted from each node, by its id (capacity.go); guarded by
+	// mutex.
+	evictedOnAt map[int64]time.Time
 }
 
 // storeRuns are one store's chunks known made and its runs making more, each by its first chunk.
@@ -22,6 +26,12 @@ type storeRuns struct {
 	storeID    int64
 	isMade     map[int]bool
 	runByFirst map[int]*run
+	// lastAskedAt is when a player last asked for one of its chunks: a store asked for lately is in
+	// use (capacity.go).
+	lastAskedAt time.Time
+	// evictedAt is when a run of it was evicted to keep its node's others faster than playback; zero
+	// unless it was, until a player's stall asks for it again (D250 §6).
+	evictedAt time.Time
 }
 
 // run is one run of a store's chunks, first through last, made in order.
@@ -31,13 +41,18 @@ type run struct {
 	first, last int
 	// madeThrough is the last chunk it has made, first-1 before it made any.
 	madeThrough int
+	// nodeID is the node making it, and startedAt when it was given to it; zero while it is queued.
+	nodeID    int64
+	startedAt time.Time
+	// samples are the film it had made at moments of its progress, oldest first, for its speed.
+	samples []speedSample
 }
 
 // willMake is whether the run is still to make chunk n.
 func (each *run) willMake(n int) bool { return n > each.madeThrough && n <= each.last }
 
 func newRunTracker() *runTracker {
-	return &runTracker{storeByDir: map[string]*storeRuns{}}
+	return &runTracker{storeByDir: map[string]*storeRuns{}, evictedOnAt: map[int64]time.Time{}}
 }
 
 // storeLocked is a store's chunks and runs, made empty the first time it is named.
@@ -138,9 +153,9 @@ func (tracker *runTracker) covering(dir string, n int) (RunSpan, bool) {
 	return RunSpan{}, false
 }
 
-// begin records a run its handler is giving to its node: one planned, or one its job tried again
-// after it ended.
-func (tracker *runTracker) begin(dir string, first, last int, jobID int64) {
+// begin records a run its handler is giving to nodeID at now: one planned, or one its job tried
+// again after it ended.
+func (tracker *runTracker) begin(dir string, first, last int, jobID, nodeID int64, now time.Time) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
@@ -149,7 +164,10 @@ func (tracker *runTracker) begin(dir string, first, last int, jobID int64) {
 		each = &run{first: first, madeThrough: first - 1}
 		known.runByFirst[first] = each
 	}
-	each.jobID, each.last = jobID, last
+	each.jobID, each.last, each.nodeID = jobID, last, nodeID
+	if each.startedAt.IsZero() {
+		each.startedAt = now
+	}
 }
 
 // madeThrough records that the run of the store from first has made every chunk through last.

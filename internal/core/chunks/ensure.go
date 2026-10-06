@@ -55,8 +55,8 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 	}
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
-	if cancelErr := service.cancelFarRuns(ctx, film, stream, wanted); cancelErr != nil {
-		return cancelErr
+	if askErr := service.ask(ctx, film, stream, wanted); askErr != nil {
+		return askErr
 	}
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
 	if !isPlanned {
@@ -95,6 +95,17 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 			"lastChunkEndMs", film.grid.endMs(last))
 	}
 	return nil
+}
+
+// ask records a player's ask for chunk wanted of the store: its runs are in use. An evicted store
+// refuses it (ErrNoRoomToMake, D250 §6); runs it is a seek far past are cancelled (cancelFarRuns).
+func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
+	dir := StoreDir(film.file.ID, stream, film.grid.ID())
+	service.runs.asked(dir, service.clock.Now())
+	if service.runs.isEvicted(dir) {
+		return fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
+	}
+	return service.cancelFarRuns(ctx, film, stream, wanted)
 }
 
 // cancelFarRuns cancels the runs of the store chunk wanted is a seek far past (runTracker.cutFar,

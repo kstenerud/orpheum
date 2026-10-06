@@ -4,11 +4,14 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -144,6 +147,21 @@ func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
 	harness.checkOneRunQueued(t, grid.ID())
 	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`,
 		`"outcome":"askAgain"`, `"heldMs":0,`)
+}
+
+// A chunk of a quality whose run was evicted to keep its machine's other runs faster than playback
+// is answered 429, which nothing else on a chunk's path answers, so the player stops and says why
+// (D250 §6).
+func TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	err := harness.server.chunksError(t.Context(), "have a chunk made", fmt.Errorf("1/chunks-q700k432p/x: %w",
+		chunks.ErrNoRoomToMake))
+	var refused *Error
+	if !errors.As(err, &refused) || refused.GetStatus() != http.StatusTooManyRequests ||
+		refused.ErrorBody.Error.Code != CodeNoRoomToMake {
+		t.Errorf("an evicted quality's chunk = %v; want 429 %s", err, CodeNoRoomToMake)
+	}
 }
 
 func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {

@@ -22,6 +22,12 @@ describe("a playback failure", () => {
     ]);
     expect(mediaErrorFailure(null)).toBe("unknown");
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.NETWORK_ERROR })).toBe("network");
+    expect(
+      hlsErrorFailure({
+        type: Hls.ErrorTypes.NETWORK_ERROR,
+        response: { url: "1.m4s", code: 429 },
+      }),
+    ).toBe("too_busy"); // the core has no room to make it (D250 §6)
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.MEDIA_ERROR })).toBe("decode");
     expect(hlsErrorFailure({ type: Hls.ErrorTypes.OTHER_ERROR })).toBe("unknown");
     for (const failure of [

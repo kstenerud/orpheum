@@ -72,6 +72,13 @@
   `chunk_new_run_beyond_seconds` (90) of film past the chunk a run of its store makes next was
   sought to, since a player catching up jumps at most a minute ahead: that run is cancelled, no one
   following it now, and a run is queued from the request. A request nearer waits for the run.
+- **Every run stays faster than playback** (D250 §6). The core measures each run's speed from its
+  progress, over 20 s. When one of a node's two or more runs falls below
+  `chunk_run_slowest_speed_percent` (110) of playback, it evicts one: the oldest no player has
+  asked for in 30 s, or, when every one is in use, the newest. Its job is cancelled, and its store
+  answers its players 429, `no_room_to_make`, which the player does not retry and words as the
+  reason its playback stops, until a stall asks for that quality again. A node whose encode slots
+  hold its runs one at a time rarely meets this: its runs wait for a slot instead.
 - **A run is cancelled** when no player has asked for its store's chunks for a while and it is
   far ahead of the last asked: nobody is coming.
 

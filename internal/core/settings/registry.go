@@ -100,6 +100,7 @@ const (
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
+	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
 )
 
 // Kind is a setting value's JSON type.
@@ -446,6 +447,11 @@ func artworkAndPlaybackDefinitions() []Definition {
 				"there, cancelling that one: a seek's; a Watch Together player catching up jumps at most a "+
 				"minute ahead, and waits for the run already making its quality (D250 §5)"),
 			"D250 §5: more than a catch-up's furthest jump, 60 s"),
+		sourced(integerSetting(ChunkRunSlowestSpeedPercent, "110", 100, 1000,
+			"percent of playback speed every run of chunks on a node must keep: when one of two or more is "+
+				"slower, one is evicted, the oldest no one plays from or else the newest, and its players are "+
+				"told why their playback stops (D250 §6)"),
+			"D250 §6: the owner, 2026-10-06: \"fall below 1.1x\""),
 		sourced(integerSetting(ChunkHoldMs, "0", 0, 30_000,
 			"ms a request for a chunk not made yet is held for it before the player is told to ask again; "+
 				"a player counts a hold as the chunk's download, and takes its link for slower (D250 §5)"),
