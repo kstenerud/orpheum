@@ -164,6 +164,28 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     mounted.unmount();
   });
 
+  it("starts off, and turns off saying so when its call fails, Talk trying again", async () => {
+    const devices = fakeDevices();
+    const { services, server } = voiceServices(devices);
+    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
+    expect(server.openedCount()).toBe(0);
+    await click(buttonWithText(mounted.container, "Talk"));
+    await server.accept();
+    await server.say(welcome);
+    act(() => {
+      devices.calls[0]!.setup.events.onState("failed");
+    });
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Voice could not connect to the others and is off. Press Talk to try again.",
+    );
+    expect(buttonWithText(mounted.container, "Mute")).toBeUndefined();
+    await click(buttonWithText(mounted.container, "Talk"));
+    expect(server.openedCount()).toBe(2);
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+    mounted.unmount();
+  });
+
   it("says the microphone was not allowed when it is refused, and Talk tries again", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     const { services, server } = voiceServices(devices);

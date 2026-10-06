@@ -43,7 +43,6 @@ export const enTogether = {
       alone: "Voice is on. No one else has turned theirs on yet.",
       connectingTo: "Voice: connecting to {{names, list}}…",
       connectedTo: "Voice: connected to {{names, list}}",
-      couldNotReach: "Voice could not reach {{names, list}}.",
       failure: {
         refused:
           "Your microphone was not allowed. Allow it for this site in the browser's settings, then press Talk again.",
@@ -52,6 +51,7 @@ export const enTogether = {
         unsupported:
           "This page cannot use a microphone. Voice needs the https:// address, in a browser that supports it.",
         failed: "Your microphone could not start. Press Talk to try again.",
+        unreachable: "Voice could not connect to the others and is off. Press Talk to try again.",
       },
     },
     over: {
