@@ -4,7 +4,8 @@
 # ABOUTME: (deploy/compose.yaml) beside the dev loop, with its own data in .staging/.
 """Run Orpheum's staging deployment on this machine, from this checkout (D249).
 
-    ./staging             build the image from the checkout and start or restart staging
+    ./staging             build the image from the checkout and start or restart staging, keeping
+                          the run it replaces' logs in .staging/logs/
     ./staging logs        follow the three services' logs
     ./staging status      show the services and whether they are healthy
     ./staging setup-code  print the one-time code that makes the first admin
@@ -34,6 +35,7 @@ import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -43,6 +45,8 @@ CONTAINERFILE = ROOT / "deploy" / "Containerfile"
 COMPOSE_FILE = ROOT / "deploy" / "compose.yaml"
 VALUES = DIR / "staging.toml"
 MEDIA_OVERRIDE = DIR / "compose.media.yaml"
+# Each deploy keeps the run it replaces here, since recreating a container drops its logs.
+LOGS = DIR / "logs"
 IMAGE = "orpheum-runtime:staging"
 PROJECT = "orpheum-staging"
 # Inside the containers (deploy/compose.yaml).
@@ -229,6 +233,20 @@ def run(command: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(command, check=True, **kwargs)
 
 
+def save_logs(env: dict[str, str], now: datetime) -> Path | None:
+    """Keep the running services' logs in LOGS before a deploy replaces them, which drops their logs:
+    a test's log was lost to the deploy of its fix (2026-10-06). Returns the file, or None when
+    nothing ran."""
+    logs = subprocess.run(compose_command("logs", "--no-color", "--timestamps"), env=env,
+                          capture_output=True, text=True, check=False).stdout
+    if not logs.strip():
+        return None
+    LOGS.mkdir(parents=True, exist_ok=True)
+    saved = LOGS / f"{now.astimezone(timezone.utc).strftime('%Y-%m-%dT%H-%M-%SZ')}.log"
+    saved.write_text(logs)
+    return saved
+
+
 def build_image() -> str:
     """Build the runtime image from the checkout, and return its ID."""
     print(f"staging: building {IMAGE} from this checkout", flush=True)
@@ -311,6 +329,9 @@ def up() -> int:
     make_instances(uid, gid)
     write_configs(values, private_key)
     env = compose_environment(values, uid, gid, dict(os.environ), image)
+    saved = save_logs(env, datetime.now(timezone.utc))
+    if saved is not None:
+        print(f"staging: kept the last run's logs in {saved}", flush=True)
     # Recreated every time: a tunnel container restarted on its own leaves the core outside its
     # network, and recreating both is what mends it (deploy/compose.yaml).
     run(compose_command("up", "--detach", "--remove-orphans", "--force-recreate", "--wait"), env=env)
