@@ -370,13 +370,21 @@ function GroupFilm(props: {
         const onLowerQuality = (offer: LowerQuality): void => {
           setMoved((already) => already ?? { mediaToken: value.mediaToken, offer });
         };
+        let film: JSX.Element;
         if (moved?.mediaToken === value.mediaToken) {
-          return <ChunkedFilm {...films} offer={moved.offer} />;
+          film = <ChunkedFilm {...films} offer={moved.offer} />;
+        } else if (value.delivery === "direct") {
+          film = <DirectFilm {...films} onLowerQuality={onLowerQuality} />;
+        } else {
+          film = <PreparedFilm {...films} onLowerQuality={onLowerQuality} />;
         }
-        return value.delivery === "direct" ? (
-          <DirectFilm {...films} onLowerQuality={onLowerQuality} />
-        ) : (
-          <PreparedFilm {...films} onLowerQuality={onLowerQuality} />
+        return (
+          <>
+            {value.titleName === undefined ? null : (
+              <p className="together-viewer__title">{value.titleName}</p>
+            )}
+            {film}
+          </>
         );
       }}
     />

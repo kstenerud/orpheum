@@ -4398,6 +4398,9 @@
               "null"
             ]
           },
+          "titleName": {
+            "type": "string"
+          },
           "url": {
             "description": "Where the bytes are: the file, or a rendition's master playlist",
             "type": "string"

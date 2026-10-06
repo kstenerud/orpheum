@@ -2926,6 +2926,7 @@ export interface components {
             /** Format: int64 */
             startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
+            titleName?: string;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
         };

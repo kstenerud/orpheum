@@ -103,8 +103,10 @@ export function PlayView(props: {
   } else {
     playing = <PreparedVideo {...ways} />;
   }
+  const { titleName } = props.decision;
   return (
     <>
+      {titleName === undefined ? null : <h1 className="play__title">{titleName}</h1>}
       {playing}
       <HostPlaysTogether
         fileId={props.fileId}
