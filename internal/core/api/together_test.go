@@ -357,7 +357,7 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
-	want := together.Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000}
+	want := together.Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, SyncWaitMs: 20_000}
 	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
 		*welcome.Tuning != want {
 		t.Errorf("the welcome's tuning = %+v; want the settings' starting values %+v", welcome.Tuning, want)

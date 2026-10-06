@@ -44,7 +44,10 @@ func (box *inbox) last(kind MessageType) Outbound {
 }
 
 // testTuning is how the tests' devices are welcomed to follow their group.
-var testTuning = Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000}
+var testTuning = Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, SyncWaitMs: 20_000}
+
+// testSyncWait is testTuning's sync wait.
+const testSyncWait = 20 * time.Second
 
 // sessionStage is a hub with a session the owner hosts, nothing playing yet, and a clock.
 type sessionStage struct {
@@ -114,9 +117,9 @@ func (stage sessionStage) tick(t *testing.T, attachment Attachment) {
 }
 
 // A session starts with nothing playing; what the host puts on waits until every player that has
-// been ready is, then plays; one that buffers makes the group wait for it and name it, and when it
-// is ready again the group plays on from where it waited (watch-together.md, Sync; D246 §5, §9).
-func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndWaitsForOneThatBuffers(t *testing.T) {
+// been ready is, then plays; one that buffers then stops no one: the group plays on, naming it, and
+// it catches up alone (watch-together.md, Sync; D246 §5; D250 §2).
+func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
@@ -140,14 +143,16 @@ func TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndWaitsForOneThatBuffers(t *tes
 	}
 	stage.clock.Advance(10 * time.Second)
 	stage.ready(t, guestDevice, true)
-	waiting := hostBox.last(MessageGroup).Group
-	if waiting.State != GroupWaiting || waiting.ByMemberID != guest.MemberID || waiting.PositionMs != 10_000 {
-		t.Errorf("the guest buffering 10 s in: %+v; want Waiting at 10 s, for the guest", waiting)
+	playingOn := hostBox.last(MessageGroup).Group
+	if playingOn.State != GroupPlaying || playingOn.Event != EventContinuedWithout ||
+		playingOn.ByMemberID != guest.MemberID || playingOn.PositionMs != 10_000 {
+		t.Errorf("the guest buffering 10 s in: %+v; want Playing on from 10 s without the guest", playingOn)
 	}
+	seq := hostBox.last(MessageGroup).Seq
 	stage.clock.Advance(5 * time.Second)
 	stage.ready(t, guestDevice, false)
-	if resumed := hostBox.last(MessageGroup).Group; resumed.State != GroupPlaying || resumed.PositionMs != 10_000 {
-		t.Errorf("the guest ready again: %+v; want Playing on from 10 s", resumed)
+	if hostBox.last(MessageGroup).Seq != seq {
+		t.Errorf("the guest ready again changed the group: %+v", hostBox.last(MessageGroup).Group)
 	}
 }
 
@@ -197,14 +202,14 @@ func TestHub_AJoiningViewerHoldsNoOneUpUntilReady(t *testing.T) {
 	}
 	stage.ready(t, guestDevice, false)
 	stage.ready(t, guestDevice, true)
-	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
-		t.Errorf("the viewer, once ready, buffering: %s, want Waiting for them", state)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != guest.MemberID {
+		t.Errorf("the viewer, once ready, buffering: %+v, want Playing on without them (D250 §2)", group)
 	}
 }
 
-// A drop is a state, not an ending: a playing group waits for the device that left, and plays on
-// when it is back and ready (watch-together.md, What each person sees).
-func TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack(t *testing.T) {
+// A drop stops no one (D250 §2): a playing group plays on while the device is gone, and a sync point
+// waiting for it plays once the rest are ready.
+func TestHub_ADroppedPlayerStopsNoOne(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
@@ -213,14 +218,22 @@ func TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack(t *testing.T) {
 	stage.ready(t, host, false)
 	stage.ready(t, guestDevice, false)
 	stage.command(t, host, CommandChangeItem, 7)
+	seq := hostBox.last(MessageGroup).Seq
 	stage.hub.Detach(guestDevice)
-	if dropped := hostBox.last(MessageGroup).Group; dropped.State != GroupWaiting || dropped.Event != EventLeft {
-		t.Errorf("the guest's device dropped: %+v; want Waiting, for the one who left", dropped)
+	if hostBox.last(MessageGroup).Seq != seq || hostBox.last(MessageGroup).Group.State != GroupPlaying {
+		t.Errorf("the guest's device dropped: %+v; want the group playing on, unchanged", hostBox.last(MessageGroup))
 	}
 	back, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
 	stage.ready(t, back, false)
+	stage.ready(t, back, true)
+	stage.command(t, host, CommandPause, 0)
+	stage.command(t, host, CommandPlay, 0)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("the host's play with the guest loading: %+v; want Waiting for the guest", group)
+	}
+	stage.hub.Detach(back)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
-		t.Errorf("the guest back and ready: %s; want Playing", group.State)
+		t.Errorf("the guest it waited for dropped: %+v; want Playing", group)
 	}
 }
 
@@ -604,79 +617,81 @@ func playing(t *testing.T) playingStage {
 	return playingStage{sessionStage: stage, host: host, guestDevice: guestDevice, hostBox: hostBox, guest: guest}
 }
 
-// A player that stalls holds the group once; stalling again within stallCooldown, it catches up
-// alone while the group plays on, and it is waited for again once the cooldown has passed
-// (D247 §4).
-func TestHub_AStalledPlayerHoldsTheGroupOnceThenCatchesUpAlone(t *testing.T) {
+// A player that stalls stops no one, the first time or any other: the group plays on, naming it, and
+// it catches up alone, its reports while it does changing nothing (D250 §2).
+func TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
 	hostBox, guestDevice := stage.hostBox, stage.guestDevice
 	guest := stage.guest
-	stage.ready(t, guestDevice, true)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventBuffering {
-		t.Fatalf("the guest's first stall: %+v, want Waiting for it", group)
-	}
-	stage.ready(t, guestDevice, false)
-	stage.clock.Advance(groupWaitCooldown + time.Second)
-	stage.ready(t, guestDevice, true)
-	again := hostBox.last(MessageGroup).Group
-	if again.State != GroupPlaying || again.Event != EventContinuedWithout || again.ByMemberID != guest.MemberID {
-		t.Errorf("the guest stalling again within the cooldown: %+v; want Playing on without the guest", again)
-	}
-	seq := hostBox.last(MessageGroup).Seq
-	stage.ready(t, guestDevice, true)
-	stage.ready(t, guestDevice, false)
-	if hostBox.last(MessageGroup).Seq != seq {
-		t.Errorf("the guest catching up changed the group: %+v", hostBox.last(MessageGroup).Group)
-	}
-	stage.clock.Advance(stallCooldown)
-	stage.ready(t, guestDevice, true)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
-		t.Errorf("the guest stalling after the cooldown: %s; want Waiting for it again", group.State)
+	for stall := range 3 {
+		stage.ready(t, guestDevice, true)
+		group := hostBox.last(MessageGroup).Group
+		if group.State != GroupPlaying || group.Event != EventContinuedWithout || group.ByMemberID != guest.MemberID {
+			t.Errorf("the guest's stall %d: %+v; want Playing on without the guest", stall+1, group)
+		}
+		seq := hostBox.last(MessageGroup).Seq
+		stage.ready(t, guestDevice, true)
+		stage.ready(t, guestDevice, false)
+		if hostBox.last(MessageGroup).Seq != seq {
+			t.Errorf("the guest catching up changed the group: %+v", hostBox.last(MessageGroup).Group)
+		}
+		stage.clock.Advance(time.Minute)
 	}
 }
 
-// Within groupWaitCooldown of the group waiting for one member, another member's stall pauses no
-// one (D247 §4).
-func TestHub_AStallSoonAfterTheGroupWaitedPausesNoOne(t *testing.T) {
-	t.Parallel()
-	stage := playing(t)
-	hostBox, guestDevice := stage.hostBox, stage.guestDevice
-	second := stage.join(t)
-	secondDevice, _ := stage.attach(t, second.MembershipCredential, RolePlayback)
-	stage.ready(t, secondDevice, false)
-	stage.ready(t, guestDevice, true)
-	stage.ready(t, guestDevice, false)
-	stage.clock.Advance(groupWaitCooldown - time.Second)
-	stage.ready(t, secondDevice, true)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.ByMemberID != second.MemberID {
-		t.Errorf("a second member stalling just after the group waited: %+v; want Playing on without them", group)
-	}
-}
-
-// A wait ends at its time once a player is ready: the players not ready catch up alone (D247 §4).
-func TestHub_AWaitEndsAtItsTimeAndThePlayersNotReadyCatchUp(t *testing.T) {
+// A sync point waits at most the sync wait its devices were welcomed with, once a player is ready:
+// then the players not ready, the host's as anyone's, catch up alone (D250 §3).
+func TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
 	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
 	guest := stage.guest
-	stage.ready(t, guestDevice, true)
-	stage.clock.Advance(reloadWait - time.Second)
+	seek := func(positionMs int64) {
+		stage.hub.Handle(t.Context(), host, Inbound{
+			Type: MessageCommand, Command: CommandSeek, PositionMs: positionMs,
+			BasedOnSeq: hostBox.last(MessageGroup).Seq,
+		})
+	}
+	seek(600_000)
+	stage.ready(t, host, false) // the host has loaded the new place; the guest has not
+	stage.clock.Advance(testSyncWait - time.Second)
 	stage.tick(t, host)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
-		t.Fatalf("before the wait's time: %s, want Waiting", state)
+		t.Fatalf("before the sync wait's time: %s, want Waiting", state)
 	}
 	stage.clock.Advance(time.Second)
 	stage.tick(t, host)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventContinuedWithout ||
 		group.ByMemberID != guest.MemberID {
-		t.Errorf("at the wait's time: %+v; want Playing on without the guest", group)
+		t.Errorf("at the sync wait's time: %+v; want Playing on without the guest", group)
+	}
+	stage.ready(t, guestDevice, false)
+	seek(1_200_000)
+	stage.ready(t, guestDevice, false) // now the guest has loaded it, and the host has not
+	stage.clock.Advance(testSyncWait)
+	stage.tick(t, guestDevice)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying ||
+		group.ByMemberID != host.MemberID {
+		t.Errorf("at the sync wait's time, the host still loading: %+v; want Playing on without the host", group)
+	}
+	short := Tuning{SyncWaitMs: 5000}
+	_, err := stage.hub.Attach(guest.MembershipCredential, RoleVoice, true, nil, short, (&inbox{}).send)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage.ready(t, host, false)
+	seek(1_800_000)
+	stage.ready(t, host, false)
+	stage.clock.Advance(5 * time.Second)
+	stage.tick(t, host)
+	if state := hostBox.last(MessageGroup).Group.State; state != GroupPlaying {
+		t.Errorf("5 s after a seek, the last device welcomed with a 5 s sync wait: %s; want Playing", state)
 	}
 }
 
 // After a seek the group waits for every player to say it is ready from the new place, not from
-// what it said of the old one, and loading there is no stall: a stall soon after still holds the
-// group (D247 §4).
+// what it said of the old one, and loading there is no stall: a stall after it is (D250 §2, §3).
 func TestHub_AfterASeekEachPlayerLoadsTheNewPlaceWithoutStalling(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
@@ -693,52 +708,14 @@ func TestHub_AfterASeekEachPlayerLoadsTheNewPlaceWithoutStalling(t *testing.T) {
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
 		t.Fatalf("both loaded where the host jumped to: %+v; want Playing", group)
 	}
-	stage.clock.Advance(groupWaitCooldown)
 	stage.ready(t, guestDevice, true)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventBuffering {
-		t.Errorf("the guest's first stall after loading the new place: %+v; want Waiting for it", group)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying || group.Event != EventContinuedWithout {
+		t.Errorf("the guest's first stall after loading the new place: %+v; want Playing on without it", group)
 	}
 }
 
-// Where the host jumps to is waited for, for the host, as long as a film put on; a guest still
-// loading there is waited for as for a stall (the owner's choice, 2026-10-05).
-func TestHub_TheHostIsWaitedForAfterTheirOwnSeekAsForAFirstLoad(t *testing.T) {
-	t.Parallel()
-	stage := playing(t)
-	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
-	seek := func(positionMs int64) {
-		stage.hub.Handle(t.Context(), host, Inbound{
-			Type: MessageCommand, Command: CommandSeek, PositionMs: positionMs,
-			BasedOnSeq: hostBox.last(MessageGroup).Seq,
-		})
-	}
-	seek(600_000)
-	stage.ready(t, guestDevice, false) // the guest has loaded the new place; the host has not
-	stage.clock.Advance(reloadWait)
-	stage.tick(t, guestDevice)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
-		t.Fatalf("a stall's wait after the host's seek, the host still loading: %+v; want Waiting", group)
-	}
-	stage.clock.Advance(firstLoadWait - reloadWait)
-	stage.tick(t, guestDevice)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying ||
-		group.Event != EventContinuedWithout || group.ByMemberID == stage.guest.MemberID {
-		t.Errorf("a first load's wait after the host's seek: %+v; want Playing on without the host", group)
-	}
-	stage.ready(t, host, false)
-	seek(1_200_000)
-	stage.ready(t, host, false) // now the host has loaded it, and the guest has not
-	stage.clock.Advance(reloadWait)
-	stage.tick(t, host)
-	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying ||
-		group.ByMemberID != stage.guest.MemberID {
-		t.Errorf("a stall's wait after the host's seek, the guest loading: %+v; "+
-			"want Playing on without the guest", group)
-	}
-}
-
-// The host's player that puts a film on is waited for as long as a first load, though it has not
-// yet said it is ready: it connected as the host's player page opened.
+// The host's player that puts a film on is waited for at the sync point, though it has not yet said
+// it is ready: it connected as the host's player page opened.
 func TestHub_TheHostsPlayerIsWaitedForAsItLoadsWhatTheHostPutOn(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -750,10 +727,10 @@ func TestHub_TheHostsPlayerIsWaitedForAsItLoadsWhatTheHostPutOn(t *testing.T) {
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
 		t.Fatalf("film 7 put on, the host's player not yet loaded: %+v; want Waiting for it", group)
 	}
-	stage.clock.Advance(reloadWait)
+	stage.clock.Advance(testSyncWait - time.Second)
 	stage.tick(t, guestDevice)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
-		t.Fatalf("a stall's wait after the host put film 7 on: %+v; want still Waiting", group)
+		t.Fatalf("within the sync wait after the host put film 7 on: %+v; want still Waiting", group)
 	}
 	stage.ready(t, host, false)
 	if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
@@ -761,32 +738,23 @@ func TestHub_TheHostsPlayerIsWaitedForAsItLoadsWhatTheHostPutOn(t *testing.T) {
 	}
 }
 
-// What the host puts on is waited for longer than a stall, while no player is ready the group
-// waits on, and a player catching up is waited for again by what the host puts on next (D247 §4).
-func TestHub_AFirstLoadIsWaitedForLongerThanAStall(t *testing.T) {
+// While no player is ready a sync point waits on past its time, so the group never plays to no one,
+// and a player catching up is waited for again by what the host puts on next (D250 §3).
+func TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime(t *testing.T) {
 	t.Parallel()
 	stage := playing(t)
 	host, hostBox, guestDevice := stage.host, stage.hostBox, stage.guestDevice
 	guest := stage.guest
-	stage.clock.Advance(groupWaitCooldown)
-	stage.ready(t, guestDevice, true)
-	stage.ready(t, guestDevice, false)
-	stage.clock.Advance(groupWaitCooldown)
-	stage.ready(t, guestDevice, true) // within its cooldown: it catches up alone
+	stage.ready(t, guestDevice, true) // it catches up alone
 	stage.command(t, host, CommandChangeItem, 8)
-	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
-		t.Fatalf("film 8 put on with the guest, catching up, still loading: %s, want Waiting for it", state)
-	}
-	stage.clock.Advance(reloadWait)
-	stage.tick(t, host)
-	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
-		t.Errorf("a first load after a stall's wait: %s, want still Waiting", state)
+	if group := hostBox.last(MessageGroup).Group; group.State != GroupWaiting {
+		t.Fatalf("film 8 put on with the guest, catching up, still loading: %+v, want Waiting for it", group)
 	}
 	stage.ready(t, host, true)
-	stage.clock.Advance(firstLoadWait)
+	stage.clock.Advance(testSyncWait)
 	stage.tick(t, host)
 	if state := hostBox.last(MessageGroup).Group.State; state != GroupWaiting {
-		t.Errorf("past the first load's time with no player ready: %s, want still Waiting", state)
+		t.Errorf("past the sync wait with no player ready: %s, want still Waiting", state)
 	}
 	stage.ready(t, host, false)
 	stage.tick(t, host)

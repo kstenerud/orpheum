@@ -23,19 +23,18 @@
 //   - Starts no goroutine: a device's reading and writing are the API's, and the hub sends to a
 //     device through the Sender it attached with, which must never block. Review-only (standards/go.md,
 //     Concurrency); the race detector runs in make test-all.
-//   - What the host puts on waits until every player that has once been ready is, then plays, and
-//     the group waits while any of them buffers or is gone; one still choosing its speakers or
-//     loading holds no one up (D246 §6). Enforced by
-//     TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndWaitsForOneThatBuffers,
-//     TestHub_AJoiningViewerHoldsNoOneUpUntilReady and
-//     TestHub_ADroppedPlayerMakesTheGroupWaitUntilItIsBack.
-//   - A stalled player holds the group once: stalling again within stallCooldown, or within
-//     groupWaitCooldown of the group's last wait, it catches up alone while the group plays on. A
-//     wait ends after reloadWait, or firstLoadWait for what the host put on, once a player is ready
-//     (D247 §4). Enforced by TestHub_AStalledPlayerHoldsTheGroupOnceThenCatchesUpAlone,
-//     TestHub_AStallSoonAfterTheGroupWaitedPausesNoOne,
-//     TestHub_AWaitEndsAtItsTimeAndThePlayersNotReadyCatchUp and
-//     TestHub_AFirstLoadIsWaitedForLongerThanAStall.
+//   - The group waits for its players only at its sync points: a film put on, the host's play after
+//     a pause, and the host's seek, each waiting for every player that has once been ready, those
+//     catching up too; one still choosing its speakers or loading holds no one up (D246 §6, D250 §2).
+//     Enforced by TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers and
+//     TestHub_AJoiningViewerHoldsNoOneUpUntilReady.
+//   - The group never stops for one member: a stall or a drop leaves it playing, and the player
+//     catches up alone (D250 §2). Enforced by TestHub_AStalledPlayerStopsNoOneAndCatchesUpAlone and
+//     TestHub_ADroppedPlayerStopsNoOne.
+//   - A sync point waits at most the sync wait its devices were welcomed with, then plays without
+//     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3). Enforced
+//     by TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady and
+//     TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime.
 //   - Only the host controls playback in Cut A, and stopping leaves nothing on; a seek made against
 //     a group another seek has changed is refused as stale (D246 §5, §8). Enforced by
 //     TestHub_OnlyTheHostControlsPlayback, TestHub_TheHostStoppingLeavesNothingPlaying and

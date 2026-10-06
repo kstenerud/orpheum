@@ -24,8 +24,6 @@ const eventKeys: Readonly<Record<Exclude<GroupEvent, "seeked">, string>> = {
   paused: "paused",
   changedItem: "changedItem",
   stopped: "stopped",
-  buffering: "buffering",
-  left: "dropped",
   everyoneReady: "everyoneReady",
   changedRate: "changedRate",
   continuedWithout: "continuedWithout",

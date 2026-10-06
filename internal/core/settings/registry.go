@@ -96,6 +96,7 @@ const (
 	TogetherNudgeMostPercent                       Key = "together_nudge_most_percent"
 	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
+	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -252,6 +253,10 @@ func togetherDefinitions() []Definition {
 			"ms a Watch Together player may be off the group's position before it seeks rather than nudges "+
 				"(D250 §1)"),
 			"watch-together.md's Sync: \"seek beyond that\", 3 s, kept by D250 §1"),
+		sourced(durationSetting(TogetherSyncWaitSeconds, time.Second, "20", 1, 600,
+			"seconds a Watch Together group waits for its players at a sync point (a film put on, the "+
+				"host's play after a pause, the host's seek) before playing without those not ready (D250 §3)"),
+			"D250 §3: the owner, 2026-10-06: \"30 seconds is too long. Let's start at 20.\""),
 	}
 }
 

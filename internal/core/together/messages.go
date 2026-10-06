@@ -200,6 +200,9 @@ type Tuning struct {
 	NudgeMostPercent int64 `json:"nudgeMostPercent"`
 	// SeekDriftBeyondMs is how far off a player seeks rather than nudges.
 	SeekDriftBeyondMs int64 `json:"seekDriftBeyondMs"`
+	// SyncWaitMs is how long a sync point waits for the players before playing without those not
+	// ready (D250 §3): the server's own, told so a client may say so.
+	SyncWaitMs int64 `json:"syncWaitMs"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every
@@ -240,11 +243,8 @@ const (
 	EventChangedItem   EventKind = "changedItem"
 	EventStopped       EventKind = "stopped"
 	EventEveryoneReady EventKind = "everyoneReady"
-	EventBuffering     EventKind = "buffering"
-	// EventLeft is a playing device gone: a drop, which the group waits out.
-	EventLeft EventKind = "left"
-	// EventContinuedWithout is the group playing on while a member's player catches up alone
-	// (D247 §4).
+	// EventContinuedWithout is the group playing on while a member's player catches up alone: it
+	// never stops for one member (D250 §2).
 	EventContinuedWithout EventKind = "continuedWithout"
 )
 
