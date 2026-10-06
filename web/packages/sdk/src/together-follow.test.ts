@@ -430,7 +430,7 @@ describe("a player following its group", () => {
       monotonicMs,
     });
     expect(media.paused).toBe(false);
-    setGroup({ ...paused, state: "Waiting", event: "buffering", byMemberId: 2 }, 0);
+    setGroup({ ...paused, state: "Waiting", event: "played", byMemberId: 2 }, 0);
     expect(media.paused).toBe(true);
     media.fire("pause");
     expect(commands).toEqual([]);

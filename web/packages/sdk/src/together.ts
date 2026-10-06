@@ -17,8 +17,6 @@ export type GroupEvent =
   | "changedItem"
   | "stopped"
   | "everyoneReady"
-  | "buffering"
-  | "left"
   | "continuedWithout";
 
 const groupEvents: readonly GroupEvent[] = [
@@ -29,8 +27,6 @@ const groupEvents: readonly GroupEvent[] = [
   "changedItem",
   "stopped",
   "everyoneReady",
-  "buffering",
-  "left",
   "continuedWithout",
 ];
 

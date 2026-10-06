@@ -82,10 +82,11 @@ type session struct {
 	id         int64
 	hostUserID int64
 	group      group
-	// lastStallWait is when the group last waited for a player that stalled; zero for never.
-	lastStallWait time.Time
-	links         map[int64]*link
-	members       map[int64]*member
+	// syncWait is how long a sync point waits for the players (D250 §3): the setting's, as the last
+	// device to attach brought it.
+	syncWait time.Duration
+	links    map[int64]*link
+	members  map[int64]*member
 	// logger is the hub's: each change of the group is logged with the session's id.
 	logger *slog.Logger
 }
@@ -112,10 +113,8 @@ type group struct {
 	// seekedFrom is where the last event, a seek, jumped from.
 	seekedFrom time.Duration
 	lastSeek   int64 // the seq of the last seek, for a stale one's conflict
-	// waitUntil is when a Waiting group stops waiting for players not yet ready.
+	// waitUntil is when a group Waiting at a sync point stops waiting for players not yet ready.
 	waitUntil time.Time
-	// hostWaitUntil is when it stops waiting for the host's: later after the host's own seek.
-	hostWaitUntil time.Time
 }
 
 // member is a person in the session, with their devices (D120).
@@ -128,9 +127,6 @@ type member struct {
 	person         *Person
 	credentialHash [sha256.Size]byte
 	devices        map[int64]*device
-	// lastStall is when one of the member's players last stalled while the group played; zero for
-	// never.
-	lastStall time.Time
 }
 
 // device is one connected client of a member.
@@ -216,6 +212,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
 		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
+		syncWait: startingSyncWait,
 	}
 	hub.lastID++
 	hostPerson := host
@@ -452,6 +449,9 @@ func (hub *Hub) Attach(
 		person := *signedIn
 		attachedMember.person = &person
 	}
+	if tuning.SyncWaitMs > 0 {
+		attached.syncWait = time.Duration(tuning.SyncWaitMs) * time.Millisecond
+	}
 	hub.lastID++
 	attachedMember.devices[hub.lastID] = &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
 	send(Outbound{
@@ -465,8 +465,8 @@ func (hub *Hub) Attach(
 	}, nil
 }
 
-// Detach removes a device whose connection ended. A playing group waits for it if it was playing
-// along: a drop is a state, "reconnecting", not an ending (watch-together.md, What each person sees).
+// Detach removes a device whose connection ended. The group never stops for it (D250 §2): its
+// member stays, and it catches up alone once it is back. A sync point no longer waits for it.
 func (hub *Hub) Detach(attachment Attachment) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -478,15 +478,11 @@ func (hub *Hub) Detach(attachment Attachment) {
 	if !found {
 		return
 	}
-	gone, found := left.devices[attachment.DeviceID]
-	if !found {
+	if _, found = left.devices[attachment.DeviceID]; !found {
 		return
 	}
 	delete(left.devices, attachment.DeviceID)
-	now := hub.clock.Now()
-	if gone.role.plays() && gone.hasBeenReady && detached.group.state == GroupPlaying {
-		detached.change(now, GroupWaiting, EventLeft, left.id)
-	}
+	detached.settle(hub.clock.Now())
 	detached.sendRoster()
 }
 

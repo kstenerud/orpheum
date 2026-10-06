@@ -28,8 +28,8 @@ describe("the group's changes as named events (D188)", () => {
     expect(groupEventText(i18n.t, group("seeked", 1, 723_000), roster)).toBe(
       "Karl jumped from 12:03 to 41:12",
     );
-    expect(groupEventText(i18n.t, group("buffering", 2), roster)).toBe(
-      "Someone is buffering… everyone waits",
+    expect(groupEventText(i18n.t, group("continuedWithout", 2), roster)).toBe(
+      "Continuing without Someone, who will catch up",
     );
     expect(groupEventText(i18n.t, group("continuedWithout", 1), roster)).toBe(
       "Continuing without Karl, who will catch up",

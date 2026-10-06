@@ -7,19 +7,9 @@ import (
 	"time"
 )
 
-// How long a group waits for its players, and when it does not wait at all: a stalled player holds
-// the group once, then catches up alone (D247 §4). Silo-Server's numbers, to be measured.
-const (
-	// The group waits this long for its players to load what the host put on, and for the host's
-	// to load where the host jumped to (the owner's choice, 2026-10-05).
-	firstLoadWait = 60 * time.Second
-	// The group waits this long for a player that stalled, or for its players after a play or a seek.
-	reloadWait = 10 * time.Second
-	// For this long after a member's stall, another of theirs pauses no one.
-	stallCooldown = 5 * time.Minute
-	// For this long after the group waited for a stall, another stall pauses no one.
-	groupWaitCooldown = time.Minute
-)
+// startingSyncWait is how long a sync point waits for the players before a device has brought the
+// setting's, together_sync_wait_seconds: its starting value (D250 §3).
+const startingSyncWait = 20 * time.Second
 
 // command applies the host's command in arrival order (cut-a §5.1): in Cut A only the host controls
 // playback (D246 §8); a seek based on a group another seek has changed since is refused as stale.
@@ -57,6 +47,7 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 func (current *session) transport(now time.Time, sender *member, message Inbound, refuse func(code string)) {
 	switch message.Command {
 	case CommandPlay:
+		current.waitForEveryone()
 		current.change(now, GroupWaiting, EventPlayed, sender.id)
 		current.settle(now)
 	case CommandPause:
@@ -79,17 +70,23 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 	}
 }
 
+// waitForEveryone makes a sync point wait for every player again, those catching up alone too
+// (D250 §2): a film put on, the host's play after a pause, and the host's seek.
+func (current *session) waitForEveryone() {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			attached.isCatchingUp = false
+		}
+	}
+}
+
 // changeItem puts fileID on for everyone, from position, as the host played it: the group waits
 // until every player that has been ready loads it, those catching up too, then plays (D246 §5,
 // D247 §4). The host's player that put it on is waited for though it has not yet once said it is
 // ready: the host's player page connects as it opens, and the host chose the film (the owner's
 // test, 2026-10-05, where the group played on as the host's player still loaded).
 func (current *session) changeItem(now time.Time, sender *member, from *device, fileID int64, position time.Duration) {
-	for _, each := range current.members {
-		for _, attached := range each.devices {
-			attached.isCatchingUp = false // a new film is waited for by everyone
-		}
-	}
+	current.waitForEveryone()
 	if from.role.plays() && !from.hasBeenReady {
 		from.hasBeenReady, from.buffering = true, true
 	}
@@ -120,47 +117,35 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 	current.settle(now)
 }
 
-// stalled takes a player's stall: while the group plays, it pauses the group only if neither its
-// member nor the group has stalled lately; otherwise the group plays on and the player catches up
-// alone (D247 §4).
+// stalled takes a player's stall: the group never stops for one member (D250 §2). While it plays,
+// it plays on, and the player catches up alone, its member named to everyone.
 func (current *session) stalled(now time.Time, who *member, stalledDevice *device) {
 	if current.group.state != GroupPlaying || stalledDevice.isCatchingUp {
 		return
 	}
-	hasStalledLately := !who.lastStall.IsZero() && now.Sub(who.lastStall) < stallCooldown
-	hasWaitedLately := !current.lastStallWait.IsZero() && now.Sub(current.lastStallWait) < groupWaitCooldown
-	who.lastStall = now
-	if hasStalledLately || hasWaitedLately {
-		stalledDevice.isCatchingUp = true
-		current.change(now, GroupPlaying, EventContinuedWithout, who.id)
-		return
-	}
-	current.lastStallWait = now // settle makes the group wait for it
+	stalledDevice.isCatchingUp = true
+	current.change(now, GroupPlaying, EventContinuedWithout, who.id)
 }
 
-// endWait ends a Waiting group's wait once its time is up and a player is ready: the players not
-// yet ready catch up alone, and the group plays on without them (D247 §4). While no player is
-// ready, or the host's is not and its own longer time is not up, the group waits on. It runs at
-// every message a device sends; a ready player sends one each second while the group waits, so the
-// wait ends on time.
+// endWait ends a sync point's wait once its time, the sync wait, is up and a player is ready: the
+// players not yet ready catch up alone, and the group plays without them (D250 §3). While no player
+// is ready the group waits on, so it never plays to no one. It runs at every message a device
+// sends; a ready player sends one each second while the group waits, so the wait ends on time.
 func (current *session) endWait(now time.Time) {
 	if current.group.state != GroupWaiting || now.Before(current.group.waitUntil) {
 		return
 	}
 	var late []*device
-	isAnyReady, isHostWaitedFor := false, now.Before(current.group.hostWaitUntil)
-	without := current.group.byMember // one that left, if no player is late
+	isAnyReady := false
+	without := current.group.byMember // the host whose command it was, if no player is late
 	for _, each := range current.members {
 		for _, attached := range each.devices {
 			if !attached.role.plays() || !attached.hasBeenReady || attached.isCatchingUp {
 				continue
 			}
-			switch {
-			case attached.isReady():
+			if attached.isReady() {
 				isAnyReady = true
-			case each.isHost && isHostWaitedFor:
-				return
-			default:
+			} else {
 				late, without = append(late, attached), each.id
 			}
 		}
@@ -174,28 +159,22 @@ func (current *session) endWait(now time.Time) {
 	current.change(now, GroupPlaying, EventContinuedWithout, without)
 }
 
-// settle starts a waiting group playing once every device that plays along is ready, or stops a
-// playing one that has one not ready. A device that has not yet once been ready, still choosing
-// its speakers or loading, is not waited for (D246 §6); a group with no such device plays.
+// settle starts a group waiting at a sync point playing once every device that plays along is
+// ready. A playing group is never stopped by a player that is not (D250 §2). A device that has not
+// yet once been ready, still choosing its speakers or loading, is not waited for (D246 §6); a group
+// with no such device plays.
 func (current *session) settle(now time.Time) {
-	allReady := true
-	var waitingFor int64
+	if current.group.state != GroupWaiting {
+		return
+	}
 	for _, each := range current.members {
 		for _, attached := range each.devices {
-			if !attached.role.plays() || !attached.hasBeenReady || attached.isCatchingUp {
-				continue
-			}
-			if !attached.isReady() {
-				allReady, waitingFor = false, each.id
+			if attached.role.plays() && attached.hasBeenReady && !attached.isCatchingUp && !attached.isReady() {
+				return
 			}
 		}
 	}
-	switch {
-	case current.group.state == GroupWaiting && allReady:
-		current.change(now, GroupPlaying, EventEveryoneReady, 0)
-	case current.group.state == GroupPlaying && !allReady:
-		current.change(now, GroupWaiting, EventBuffering, waitingFor)
-	}
+	current.change(now, GroupPlaying, EventEveryoneReady, 0)
 }
 
 // change moves the group to state, naming the event and who caused it, and tells every device.
@@ -211,15 +190,7 @@ func (current *session) announce(
 	current.group.state = state
 	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
 	if state == GroupWaiting {
-		current.group.waitUntil = now.Add(reloadWait)
-		if event == EventChangedItem {
-			current.group.waitUntil = now.Add(firstLoadWait)
-		}
-		current.group.hostWaitUntil = current.group.waitUntil
-		if event == EventSeeked {
-			// The host chose where to go: the others wait for them as for a film put on.
-			current.group.hostWaitUntil = now.Add(firstLoadWait)
-		}
+		current.group.waitUntil = now.Add(current.syncWait)
 	}
 	current.group.seq++
 	current.logChange(now)
@@ -239,8 +210,7 @@ func (current *session) logChange(now time.Time) {
 	}
 	if current.group.state == GroupWaiting {
 		attributes = append(attributes, "waitingForMemberIds", current.membersNotReady(),
-			"waitUntil", current.group.waitUntil.UTC().Format(time.RFC3339),
-			"hostWaitUntil", current.group.hostWaitUntil.UTC().Format(time.RFC3339))
+			"waitUntil", current.group.waitUntil.UTC().Format(time.RFC3339))
 	}
 	current.logger.Info("watch together: the group changed", attributes...)
 }
