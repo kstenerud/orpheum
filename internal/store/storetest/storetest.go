@@ -124,10 +124,13 @@ func InsertUser(tb testing.TB, database *store.Database, name, role string) int6
 }
 
 // ExecRaw runs statements directly on the database file at path, bypassing the store, to build
-// states the store itself never produces: a file a newer release upgraded, a foreign file.
+// states the store itself never produces: a file a newer release upgraded, a foreign file. It
+// waits for a lock as the store's own connections do: with none, a lock held for an instant just
+// after a server stopped failed TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain about one
+// run in fifty (2026-10-06).
 func ExecRaw(tb testing.TB, path string, statements ...string) {
 	tb.Helper()
-	pool, err := sql.Open("sqlite", path)
+	pool, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(15000)")
 	if err != nil {
 		tb.Fatalf("open %s: %v", path, err)
 	}
