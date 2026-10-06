@@ -5,7 +5,7 @@
 # owner knows.
 
 [node]
-name = "devnas"
+name = {node_name}   # staging.toml's [node] name, or this machine's host name
 core_socket = "/run/orpheum/core/core.sock"
 root_paths = {media_roots}
 ffmpeg_dir = "/opt/orpheum/ffmpeg"

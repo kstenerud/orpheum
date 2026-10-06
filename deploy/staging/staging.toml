@@ -26,6 +26,11 @@ public_key = ""
 # The media directories the node serves, read-only, at the same paths inside it. Fill in.
 roots = []
 
+[node]
+# The name the media node goes by: the machine list in the new-library form shows it. Left out, it
+# is this machine's host name.
+# name = "devnas"
+
 [http]
 # Where the house's network reaches staging over plain HTTP: http://<this machine>:8440. "0.0.0.0"
 # is every interface; "127.0.0.1" only this machine.
