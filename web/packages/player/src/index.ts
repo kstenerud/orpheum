@@ -13,7 +13,7 @@ export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.
 export type { PlaybackFailure } from "./failure.ts";
 export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
-export { hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
+export { canFollowAGroup, hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
 export { adaptQuality, lookForStepUpEveryMs, playChunked } from "./chunked.ts";
 export type { AdaptingHls, ChunkedPlayback, PlayedLevel } from "./chunked.ts";

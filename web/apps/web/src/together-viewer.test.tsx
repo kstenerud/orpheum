@@ -322,6 +322,20 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("tells a browser that cannot keep in step to update, before anyone joins (D250 §7)", async () => {
+    const { services, heard } = viewerServices("/together#link-secret", {});
+    const mounted = await mount(
+      withServices(<TogetherViewer />, { ...services, canFollowAGroup: () => false }),
+    );
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "update to iOS 17.1 or later",
+    );
+    expect(mounted.container.querySelector("input")).toBeNull();
+    expect(mounted.container.querySelector("button")).toBeNull();
+    expect(heard).toEqual([]);
+    mounted.unmount();
+  });
+
   it("is a page of its own for someone not signed in: no sign-in, no menu", async () => {
     const { services } = viewerServices("/together#link-secret", {});
     const mounted = await mount(withServices(<App />, services));

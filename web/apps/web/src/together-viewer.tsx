@@ -130,7 +130,7 @@ function JoinForm(props: {
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
+  const { api, canFollowAGroup } = useServices();
   const token = useToken();
   // What was typed, once anything was: a late answer about who is signed in never replaces it.
   const [typedName, setTypedName] = useState<string | undefined>(undefined);
@@ -145,6 +145,14 @@ function JoinForm(props: {
     }),
   );
   const { secret } = props;
+  if (!canFollowAGroup()) {
+    // Told before joining, so no one waits for a device that could never keep up (D250 §7).
+    return (
+      <CredentialsNotice heading={t("together.joinHeading")}>
+        <p role="alert">{t("together.cannotFollow")}</p>
+      </CredentialsNotice>
+    );
+  }
   return (
     <CredentialsForm
       heading={t("together.joinHeading")}

@@ -17,6 +17,8 @@ export interface Services {
   readonly navigation: Navigation;
   readonly playableFormats: () => PlayableFormats;
   readonly openTogetherSocket: OpenTogetherSocket;
+  /** Whether this browser can play in step with a Watch Together group (D250 §7). */
+  readonly canFollowAGroup: () => boolean;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

@@ -18266,5 +18266,15 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    work. The owner: *"depending on the market share we may simply opt to not support them, pending
    an ios app."*
 
-**Status:** Decided 2026-10-06.
+   **Amended 2026-10-06**, after [safari-versions.md](../design/research/safari-versions.md): the
+   floor is **iOS and iPadOS 17.1**, the first an iPhone runs hls.js on (ManagedMediaSource), about
+   95.6% of iPhone traffic. Native HLS is not made to follow the group. A browser that cannot run
+   hls.js is told, before it joins or starts a session, that it cannot keep in step and to update.
+   The test is the player's own (`Hls.isSupported()`), never the User-Agent; watching alone still
+   falls back to native HLS. Every supported Apple device then runs the same player, so the
+   follower's Safari care (a frozen `currentTime` after play, seek and rate changes) is one set of
+   rules. The owner: *"I'll have her update her phone when she lands, so we can set the floor to
+   ios 17.1."*
+
+**Status:** Decided 2026-10-06; §7 amended the same day.
 
