@@ -116,6 +116,15 @@ func TestCheck_ReachesThisServerByItsNameOrNamesTheHopThatFailed(t *testing.T) {
 	if outcome := newStage(t, another, true).checker.Check(t.Context()).HTTPS.Outcome; outcome != AnotherServer {
 		t.Errorf("another server answering = %s; want %s", outcome, AnotherServer)
 	}
+	// A proxy that cannot reach the server behind it answers 502, 503 or 504: nothing answered.
+	for _, status := range []int{http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
+		proxy := func(*Checker) http.HandlerFunc {
+			return func(writer http.ResponseWriter, _ *http.Request) { writer.WriteHeader(status) }
+		}
+		if outcome := newStage(t, proxy, true).checker.Check(t.Context()).HTTPS.Outcome; outcome != NotAnswering {
+			t.Errorf("a proxy answering %d = %s; want %s", status, outcome, NotAnswering)
+		}
+	}
 }
 
 // A nonce is recognised for a minute after its check, and one never made never is.
