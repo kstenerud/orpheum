@@ -6,6 +6,7 @@ import type { TogetherSocketListeners } from "./together.ts";
 import { firstReconnectWaitMs } from "./together-connection.ts";
 import {
   createTogetherVoice,
+  iceServersFreshForMs,
   partnerGainMost,
   microphoneFailureOf,
   type TogetherVoice,
@@ -133,6 +134,8 @@ interface Rig {
 const relay: RTCIceServer = { urls: ["turn:orpheum.test:443"], username: "u", credential: "p" };
 
 let open: TogetherVoice[] = [];
+/** The rig's monotonic clock, which a test moves on. */
+let rigNowMs = 1000;
 
 function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
   const server = fakeServer();
@@ -143,7 +146,7 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
   const voice = createTogetherVoice({
     credential: "membership",
     openSocket: server.open,
-    monotonicMs: () => 1000,
+    monotonicMs: () => rigNowMs,
     fetchIceServers: () => {
       iceAsked.push(iceAsked.length);
       return Promise.resolve([relay]);
@@ -218,6 +221,7 @@ async function talking(): Promise<Rig> {
 }
 
 afterEach(() => {
+  rigNowMs = 1000;
   for (const voice of open) {
     voice.stop();
   }
@@ -383,6 +387,19 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     server.tell({ type: "rtc", fromDeviceId: 30, sdp: "answer-sdp" });
     await settle();
     expect(voice.snapshot()).toMatchObject({ status: "failed", failure: "unreachable" });
+  });
+
+  it("asks for the relay's servers again for a call made long after it last asked (D243 §8)", async () => {
+    const { server, calls, iceAsked } = await talking();
+    expect(iceAsked).toHaveLength(1);
+    rigNowMs += iceServersFreshForMs + 1;
+    server.tell({
+      type: "roster",
+      roster: [...roster, { id: 6, name: "Bo", devices: [{ id: 50, role: "voice" }] }],
+    });
+    await settle();
+    expect(iceAsked).toHaveLength(2);
+    expect(calls).toHaveLength(3);
   });
 
   it("says why when the microphone is refused, and attaches nothing", async () => {

@@ -182,6 +182,13 @@ const offSnapshot: VoiceSnapshot = {
   partners: [],
 };
 
+/**
+ * How long the relay's ICE servers are used before a new call asks for them again: half of their
+ * credentials' day (D243 §8), so a call made late in a long session is not refused by the relay
+ * (M4's audit).
+ */
+export const iceServersFreshForMs = 12 * 60 * 60 * 1000;
+
 /** The roles of devices that carry a person's voice (D120). */
 const voiceRoles: ReadonlySet<string> = new Set(["voice", "both"]);
 
@@ -271,6 +278,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   /** This device's id on the voice connection now: a new one on each welcome. */
   #ownDeviceId: number | undefined;
   #iceServers: Promise<readonly RTCIceServer[]> = Promise.resolve([]);
+  /** When the ICE servers were last asked for, on the monotonic clock. */
+  #iceServersAskedAtMs = 0;
   #lastIceServers: readonly RTCIceServer[] = [];
 
   constructor(options: TogetherVoiceOptions<Microphone>) {
@@ -387,7 +396,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       // this one, and every call is made again.
       this.#closeCalls();
       this.#ownDeviceId = session.deviceId;
-      this.#iceServers = this.#fetchIceServers();
+      this.#askForIceServers();
     }
     if (session.status === "ended") {
       this.#closeCalls();
@@ -398,6 +407,11 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   }
 
   /** The relay's ICE servers, or the last ones given when asking fails. */
+  #askForIceServers(): void {
+    this.#iceServersAskedAtMs = this.#options.monotonicMs();
+    this.#iceServers = this.#fetchIceServers();
+  }
+
   async #fetchIceServers(): Promise<readonly RTCIceServer[]> {
     try {
       this.#lastIceServers = await this.#options.fetchIceServers();
@@ -428,6 +442,10 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       this.#setState(entry, "failed");
     });
     const microphone = this.#microphone;
+    // A call made long after the last ask asks again: the relay's credentials last a day (D243 §8).
+    if (this.#options.monotonicMs() - this.#iceServersAskedAtMs > iceServersFreshForMs) {
+      this.#askForIceServers();
+    }
     const iceServers = this.#iceServers;
     entry.run(async () => {
       const servers = await iceServers;
