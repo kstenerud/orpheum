@@ -25,6 +25,14 @@ export const stateEveryMs = 60_000;
  */
 export const pingEveryMs = 15_000;
 
+/**
+ * How many pings in a row may go unanswered, nothing at all heard since, before the device takes
+ * its socket for dead and connects again: a phone whose network dropped it may never be told its
+ * socket closed, and kept missing the host's pauses and seeks long after the server had given up
+ * on it at three (staging, 2026-10-06).
+ */
+export const deadAfterUnansweredPings = 2;
+
 /** The first wait before connecting again after a drop, doubled on each failure up to the last. */
 export const firstReconnectWaitMs = 500;
 
@@ -213,6 +221,8 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   /** Which socket is the current one: each open and reconnect makes a new one. */
   #generation = 0;
+  /** Pings sent on the current socket since anything was last heard on it. */
+  #unansweredPings = 0;
 
   constructor(options: TogetherConnectionOptions) {
     this.#options = options;
@@ -299,8 +309,20 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   }
 
   readonly #ping = (): void => {
+    if (this.#unansweredPings >= deadAfterUnansweredPings) {
+      this.#dropDeadSocket();
+      return;
+    }
+    this.#unansweredPings += 1;
     this.#send({ type: "ping", tMono: Math.max(1, this.#now()) });
   };
+
+  /** Gives up on a socket nothing is heard on, as if it closed: it connects again after a wait. */
+  #dropDeadSocket(): void {
+    this.#generation += 1; // its close, whenever it comes, is not heard
+    this.#socket?.close();
+    this.#reconnectLater();
+  }
 
   #stopTimers(): void {
     for (const timer of this.#timers) {
@@ -321,6 +343,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   }
 
   #hear(text: string): void {
+    this.#unansweredPings = 0;
     const message = parseTogetherMessage(text);
     if (message === undefined || this.#snapshot.status === "ended") {
       return;
@@ -345,6 +368,12 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
       this.#change({ ...this.#snapshot, status: "ended", endReason: "gone" });
       return;
     }
+    this.#reconnectLater();
+  }
+
+  /** Says it is connecting again, and does after a wait that grows with each failure. */
+  #reconnectLater(): void {
+    this.#stopTimers();
     this.#change({ ...this.#snapshot, status: "reconnecting" });
     this.#reconnectTimer = setTimeout(() => {
       this.#connect();
@@ -355,6 +384,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   /** Opens a socket; what an earlier one, closed since, still says is not heard. */
   #connect(): void {
     this.#generation += 1;
+    this.#unansweredPings = 0;
     const generation = this.#generation;
     const isCurrent = (): boolean => generation === this.#generation;
     let wasWelcomed = false;
