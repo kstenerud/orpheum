@@ -142,8 +142,11 @@ func byPriority(first, second *heldWork) int {
 }
 
 // startDue continues the paused work there is room for again, then starts each waiting job whose
-// kind has a free slot and whose device a free reader, the highest priority first; play-driven work
-// whose device has none pauses background work there to have one. The caller holds the mutex.
+// kind has a free slot and whose device a free reader, the highest priority first. Play-driven
+// work pauses background work on its device for a reader, and starts even when another's
+// play-driven work still reads there: one person's watching never waits for another's (the
+// owner's choice, 2026-10-05, D240 §6), as a lower quality made for one viewer did for the whole
+// of another's prepare. The caller holds the mutex.
 func (list *workList) startDue() {
 	ordered := slices.Clone(list.held)
 	slices.SortFunc(ordered, byPriority)
@@ -155,7 +158,7 @@ func (list *workList) startDue() {
 		if !list.hasFreeReader(work.device) && work.isPlayDriven {
 			list.pauseBackgroundFor(work.device, ordered)
 		}
-		if !list.hasFreeReader(work.device) {
+		if !list.hasFreeReader(work.device) && !work.isPlayDriven {
 			continue
 		}
 		list.running[work.slot]++
