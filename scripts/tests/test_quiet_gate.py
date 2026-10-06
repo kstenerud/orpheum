@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -47,7 +48,8 @@ class Summary(unittest.TestCase):
 
 
 class Running(unittest.TestCase):
-    def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None) -> tuple[int, str, Path]:
+    def run_gate(self, makefile: str, verbose: bool = False, root: Path | None = None,
+                 fail_fast: bool = False) -> tuple[int, str, Path]:
         # A make the tests run under (CI's `make check`) passes its jobserver down in MAKEFLAGS; this
         # gate's own make, a top-level one, would warn that the jobserver is unavailable after the
         # gate's last line, which is the line a pass prints.
@@ -65,7 +67,7 @@ class Running(unittest.TestCase):
         try:
             os.chdir(root)
             with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
-                code = qg.main(["make gate", "gate"])
+                code = qg.main([*(["--fail-fast"] if fail_fast else []), "make gate", "gate"])
         finally:
             os.chdir(cwd)
         return code, out.getvalue(), root / ".git" / "gate-logs" / "gate.log"
@@ -94,6 +96,29 @@ class Running(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertNotIn("the hang", log.read_text())
         self.assertIn("the hang, diagnosed", failed.read_text())
+
+    def test_fail_fast_stops_the_steps_still_running_at_the_first_failure(self):
+        """A lint error waited for the Go linter and the test suites to finish (the owner, 2026-10-06)."""
+        makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"
+                    "fast:\n\t@echo 'lint: broken'\n\t@false\n"
+                    "slow:\n\t@sleep 30\n\t@echo 'slow step finished'\n")
+        started = time.monotonic()
+        code, printed, log = self.run_gate(makefile, fail_fast=True)
+        self.assertLess(time.monotonic() - started, 20, "the slow step was waited for")
+        self.assertNotEqual(code, 0)
+        self.assertIn("lint: broken", printed)
+        self.assertIn(qg.STOPPED_NOTE, printed)
+        self.assertNotIn("slow step finished", log.read_text())
+        self.assertIn("make gate: FAILED", printed)
+
+    def test_without_fail_fast_every_running_step_finishes(self):
+        makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"
+                    "fast:\n\t@echo 'lint: broken'\n\t@false\n"
+                    "slow:\n\t@sleep 1\n\t@echo 'slow step finished'\n")
+        code, printed, log = self.run_gate(makefile)
+        self.assertNotEqual(code, 0)
+        self.assertIn("slow step finished", log.read_text())
+        self.assertNotIn(qg.STOPPED_NOTE, printed)
 
     def test_verbose_prints_everything(self):
         code, _, log = self.run_gate("gate:\n\t@echo 'ok  \tpkg\t1s'\n", verbose=True)
