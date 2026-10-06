@@ -112,14 +112,14 @@ type Issuer struct {
 	Secrets Secrets
 }
 
-// ICE is a browser's RTCIceServer: where, and the credentials.
-type ICE struct {
+// ICEServer is one of a browser's ICE servers (its RTCIceServer): where, and the credentials.
+type ICEServer struct {
 	URLs        []string
 	Credentials Credentials
 }
 
-// ICEFor is membership's ICE servers now; none when the server relays nothing.
-func (issuer *Issuer) ICEFor(ctx context.Context, membership Membership, now time.Time) ([]ICE, error) {
+// ICEServersFor is membership's ICE servers now; none when the server relays nothing.
+func (issuer *Issuer) ICEServersFor(ctx context.Context, membership Membership, now time.Time) ([]ICEServer, error) {
 	if issuer == nil || issuer.Address == "" {
 		return nil, nil
 	}
@@ -127,7 +127,7 @@ func (issuer *Issuer) ICEFor(ctx context.Context, membership Membership, now tim
 	if err != nil {
 		return nil, fmt.Errorf("read the TURN secret: %w", err)
 	}
-	return []ICE{{
+	return []ICEServer{{
 		URLs:        []string{"turn:" + issuer.Address + "?transport=udp", "turn:" + issuer.Address + "?transport=tcp"},
 		Credentials: Issue(secret, membership, now),
 	}}, nil
