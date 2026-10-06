@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -138,6 +139,34 @@ func (service *Service) ReadForPlay(ctx context.Context, fileID int64) (bool, er
 		return false, fmt.Errorf("queue a read-through of file %d: %w", fileID, err)
 	}
 	return added, nil
+}
+
+// RetryFailedForPlay tries again, for a person who pressed play at before, a read-through of the
+// file's picture that failed before then: its kept failure goes, and the file is read through at
+// play priority. It reports whether there was such a failure. A failure kept since then, on the
+// attempt the play made, stands: it is the one the person sees (D248 §4).
+func (service *Service) RetryFailedForPlay(
+	ctx context.Context, fileID int64, payloadHash []byte, videoStreamIndex int, before time.Time,
+) (bool, error) {
+	var forgotten int64
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var deleteErr error
+		forgotten, deleteErr = queries.DeleteVideoTimelineFailedBefore(ctx,
+			sqlcgen.DeleteVideoTimelineFailedBeforeParams{
+				PayloadHash: payloadHash, VideoStreamIndex: int64(videoStreamIndex), Before: before.UnixMilli(),
+			})
+		return deleteErr
+	})
+	if err != nil {
+		return false, fmt.Errorf("forget file %d's failed read-through: %w", fileID, err)
+	}
+	if forgotten == 0 {
+		return false, nil
+	}
+	if _, err = service.ReadForPlay(ctx, fileID); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // HandleReadThrough runs one read-through job (jobs.KindReadThrough): the node that holds the file

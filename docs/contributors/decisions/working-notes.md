@@ -18103,3 +18103,38 @@ paused often; in the group it played a frame and froze, over and over.
     A slow film over flaky Wi-Fi at home is treated as one away.
 
 **Status:** Decided 2026-10-05; to be built in M4.
+
+---
+
+## D248 — Lost work never counts against a film, a crash in one job ends only that job, and a person's play tries again whatever failed before
+
+**Decided** (2026-10-05 and 06), by the project owner, after films on devnas were marked failed
+for good because the dev loop restarted the node while it read them through ("the tool failed on
+two attempts in a row: node 1 does not hold read_through job 12"), and the owner asked whether
+FFmpeg could crash the node and have other crashes blamed on the film.
+
+1. **Lost work is never the file's failure.** A node that no longer holds work it was given
+   (it started again, or its status no longer lists the work) says nothing of the file: an update,
+   a power cut, the machine's memory running out and a bug in the node's own code lose work as
+   surely as a file does, and FFmpeg failing on a file is reported as FFmpeg's failure, never as
+   work lost. Lost work is an attempt like any other's failure, tried again after the retry delay;
+   a job its node loses on every attempt fails at the end of its attempts as the job's alone, kept
+   as no file's failure, and a sweep queues it again. This revises D233 §6 and D238 §3, under
+   which a second tool failure in a row was the target's.
+2. **A crash in one job ends that job, not the node.** The node recovers a panic in any job's work,
+   logs it with its stack, and says so to the core (`Result.Crashed`); the core takes it as a
+   failed attempt, tried again, never the file's. The work's FFmpeg is stopped with it.
+3. **FFmpeg is the first the kernel kills when memory runs out.** The shim raises the tool's
+   `oom_score_adj` to 1000 before it becomes FFmpeg, so a film that drives FFmpeg's memory up fails
+   FFmpeg on that film, which is kept as FFmpeg's failure, and the node and every other job go on.
+   No hard limit: FFmpeg's threads reserve address space a limit would refuse.
+4. **A person's play tries again whatever failed before they pressed play** (the owner: *"If the
+   user has an option to play a video, we should be making every attempt to make that happen"*).
+   A kept failure stops background work from trying a file again; a play is the highest priority
+   there is, and tries once more: a prepared copy that failed is prepared again, a subtitle track
+   that could not be made is made again (both did already), and a picture whose read-through failed
+   is read through again for a lower quality (D247). Only a failure on the attempt the play made is
+   the one the person sees.
+
+**Status:** Decided 2026-10-06; to be built in M4.
+

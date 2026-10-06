@@ -4,6 +4,7 @@ package confine
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"syscall"
 
@@ -16,12 +17,25 @@ func MechanismStates() []State {
 	return []State{landlockState(), seccompState()}
 }
 
+// oomScoreAdjPath is where a process says how willing it is to be killed when the machine runs out
+// of memory.
+const oomScoreAdjPath = "/proc/self/oom_score_adj"
+
+// beKilledFirst makes the tool the first the kernel kills when the machine runs out of memory, by
+// raising its oom_score_adj to the highest, which any process may do: a film that drove FFmpeg to
+// use memory without end fails as FFmpeg's failure on it, and the node, and every other job, goes
+// on (the owner, 2026-10-05, D248). Best effort: a machine with no /proc runs the tool as it is.
+func beKilledFirst(path string) {
+	_ = os.WriteFile(path, []byte("1000"), 0o600) //nolint:errcheck // best effort, as above
+}
+
 // confineAndExec puts every mechanism the machine offers in force on this thread, then executes
 // the tool from it, so the tool starts confined. A mechanism the machine does not offer is left
 // out, as the node reported; one it offers that fails stops the run (ErrNotConfined).
 func confineAndExec(spec Spec) error {
 	// Landlock and a seccomp filter confine the thread that asks, and exec keeps only that thread.
 	runtime.LockOSThread()
+	beKilledFirst(oomScoreAdjPath)
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		return fmt.Errorf("%w: set no_new_privs: %w", ErrNotConfined, err)
 	}

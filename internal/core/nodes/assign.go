@@ -306,6 +306,12 @@ func (all *Exchanges) resolveResult(
 			return jobs.ParkOnNodeNeedingUpdate(attempt.NodeID,
 				fmt.Errorf("it refused %s job %d: %s", attempt.Kind, attempt.JobID, result.Refusal))
 		}
+		if result.Crashed != "" {
+			// Our own code failed, not the file: an attempt like any other's failure, tried again,
+			// and never kept as the file's (the owner, 2026-10-05).
+			return fmt.Errorf("node %d's own code failed running %s job %d: %s", attempt.NodeID, attempt.Kind,
+				attempt.JobID, result.Crashed)
+		}
 		if isAnswered, answer := all.parkOnStalledDisk(ctx, job, attempt, result); isAnswered {
 			return answer
 		}

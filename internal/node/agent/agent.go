@@ -330,6 +330,11 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 	}
 	work.attempt, work.priority, work.isPlayDriven, work.slot = held, command.Priority, command.IsPlayDriven,
 		command.Slot()
+	work.crashed = func(why string) {
+		agent.logger.ErrorContext(ctx, "the node's own code failed running a job; the job ends and the node goes on",
+			"jobId", held.jobID, "attemptToken", held.token, "why", why)
+		agent.postResult(nodeCtx, nodeID, "a job that crashed", held.named(nodeproto.Result{Crashed: why}))
+	}
 	if file, isMedia := command.MediaFile(); isMedia {
 		work.device = agent.deviceOf(filepath.Join(file.RootPath, string(file.Path)))
 	}

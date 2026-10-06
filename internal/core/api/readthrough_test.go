@@ -4,9 +4,11 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -137,6 +139,39 @@ func TestReadThrough_AReadThroughForANodeNotYetHeardFromWaitsForItsHello(t *test
 	}
 	if len(harness.nodes.queued) != 0 {
 		t.Errorf("the node was sent %+v, want nothing", harness.nodes.queued)
+	}
+}
+
+// A person's play tries again a read-through of a picture that failed before they pressed play: the
+// failure goes and the film is read through at play priority. One that failed after, on the play's
+// own attempt, stands (D248 §4).
+func TestReadThrough_APlayRetriesAPictureThatFailedBeforeItAndNotOneThatFailedAfter(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.shelveFilms(t)
+	failAt := func(madeAtMs int64) {
+		t.Helper()
+		storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
+			`INSERT OR REPLACE INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
+			 bytes_in_each_second_json, failure, made_at) VALUES (X'0a0b', 0, '[]', '[]', 'Invalid data', %d)`,
+			madeAtMs))
+	}
+	pressedPlay := time.UnixMilli(10_000)
+	failAt(5_000)
+	isRetried, err := harness.readThrough.RetryFailedForPlay(t.Context(), 1, []byte{0x0a, 0x0b}, 0, pressedPlay)
+	if err != nil || !isRetried {
+		t.Fatalf("retrying film 1's read-through that failed before the play = %t, %v; want retried", isRetried, err)
+	}
+	views, err := harness.queue.List(t.Context(), 5)
+	if err != nil || len(views) != 1 || views[0].Kind != jobs.KindReadThrough ||
+		!strings.Contains(views[0].Reason, "a player is waiting") {
+		t.Errorf("after the retry the queue holds %+v, %v; want film 1 read through for the player", views, err)
+	}
+	failAt(20_000)
+	isRetried, err = harness.readThrough.RetryFailedForPlay(t.Context(), 1, []byte{0x0a, 0x0b}, 0, pressedPlay)
+	if err != nil || isRetried {
+		t.Errorf("retrying a read-through that failed on the play's own attempt = %t, %v; want it to stand",
+			isRetried, err)
 	}
 }
 

@@ -106,9 +106,9 @@ func TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasG
 	after := startCore(t, restartedFixture(t, before.fixture), cache)
 	after.hello(t, nodeproto.Hello{Name: "local", StartID: "second"})
 	answer := testutil.Receive(t, after.resolved, "job 7's answer")
-	if !errors.Is(answer, ErrNodeRestarted) || !strings.HasPrefix(answer.Error(), "interrupted: ") {
-		t.Errorf("job 7, its node started again with the core, was resolved with %v; want it interrupted, "+
-			"tried again at no cost of an attempt", answer)
+	if !errors.Is(answer, ErrNodeRestarted) {
+		t.Errorf("job 7, its node started again with the core, was resolved with %v; want its work lost, "+
+			"tried again", answer)
 	}
 	after.postStatus(t, reply.NodeID, nodeproto.Status{SentAt: 1})
 	select {

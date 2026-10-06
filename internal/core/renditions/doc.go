@@ -70,9 +70,10 @@
 //
 //   - A node's word that FFmpeg stalled on a prepare costs its job no attempt, and two in a row are
 //     the rendition's failure. Enforced by
-//     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure. So does its node
-//     starting again while it held the work, which it lost (D238 §3).
-//     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure.
+//     TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure. Its node starting
+//     again while it held the work, which it lost, is an attempt's failure and never the
+//     rendition's (D248).
+//     TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndNeverTheRenditionsFailure.
 //
 //   - A prepare the node holds waiting for a slot outlives the silence limit; how long it waits is
 //     bounded by whether the work ahead of it moves (internal/core/nodes, D233 §5). Enforced by

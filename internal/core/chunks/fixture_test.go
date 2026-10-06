@@ -128,6 +128,22 @@ func (fakeLoudness) Levels(context.Context, []byte) (decide.Levels, error) {
 type fakeReadThrough struct {
 	mutex sync.Mutex
 	asked []int64
+	// failedBeforePlay are the files whose read-through failed before a play, which it tries again.
+	failedBeforePlay map[int64]bool
+	retried          []int64
+}
+
+func (reader *fakeReadThrough) RetryFailedForPlay(
+	_ context.Context, fileID int64, _ []byte, _ int, _ time.Time,
+) (bool, error) {
+	reader.mutex.Lock()
+	defer reader.mutex.Unlock()
+	if !reader.failedBeforePlay[fileID] {
+		return false, nil
+	}
+	delete(reader.failedBeforePlay, fileID)
+	reader.retried = append(reader.retried, fileID)
+	return true, nil
 }
 
 func (reader *fakeReadThrough) ReadForPlay(_ context.Context, fileID int64) (bool, error) {

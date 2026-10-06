@@ -144,27 +144,19 @@ var ErrNotMoving = errors.New("the node says the work has not moved")
 // five past ffprobe's timeout, so it catches only what the node's watchdog did not.
 const MovementWindow = 30 * time.Minute
 
-// UnansweredOutcome is a handler's answer to a wait for its node that ended in err. A node that no
-// longer holds the work, having started again or lost it otherwise (ErrWorkLost), is the tool's
-// failure, as a stall is: tried again at no cost of an attempt (jobs.MarkInterrupted), and the
-// target's failure, kept by keepFailure when it is not nil, when its last attempt's tool failed too
-// (D238 §3, D233 §6). Work that stopped moving (ErrNotMoving) is a stall (StallOutcome). Any other
-// err is as it is.
+// UnansweredOutcome is a handler's answer to a wait for its node that ended in err. Work that
+// stopped moving (ErrNotMoving) is a stall (StallOutcome). A node that no longer holds the work,
+// having started again or lost it otherwise (ErrWorkLost), says nothing of the file: an update, a
+// power cut, the machine's memory running out, the node's own bug lose work as surely as a file
+// does, and FFmpeg failing on a file is said as FFmpeg's failure, not as work lost. So it is an
+// attempt like any other's failure, tried again after a while, never kept as the file's, and a job
+// its node loses on every attempt fails as the job's alone (D248, revising D233 §6 and D238 §3).
+// Any other err is as it is.
 func UnansweredOutcome(job jobs.Job, err error, keepFailure func(failure string) error) error {
 	if errors.Is(err, ErrNotMoving) {
 		return StallOutcome(job, err, jobs.StalledTwice, keepFailure)
 	}
-	if !errors.Is(err, ErrWorkLost) {
-		return err
-	}
-	if !job.PreviousAttemptToolFailed {
-		return jobs.MarkInterrupted(err)
-	}
-	if keepFailure == nil {
-		return jobs.MarkPermanent(fmt.Errorf("%s%w", jobs.ToolFailedTwice, err))
-	}
-	failure := jobs.ToolFailedTwice + err.Error()
-	return jobs.MarkPermanent(errors.Join(errors.New(failure), keepFailure(failure)))
+	return err
 }
 
 // StallOutcome is a handler's answer to a node's word that the work stalled and was stopped: a
@@ -230,7 +222,7 @@ func (all *Exchanges) Deliver(ctx context.Context, nodeID int64, result nodeprot
 	all.mutex.Lock()
 	record, isRecorded := all.recorders[result.Work.Type]
 	all.mutex.Unlock()
-	if isRecorded && result.Refusal == "" {
+	if isRecorded && result.Refusal == "" && result.Crashed == "" {
 		if err := record(ctx, nodeID, result); err != nil {
 			return fmt.Errorf("record job %d's result from node %d: %w", result.JobID, nodeID, err)
 		}

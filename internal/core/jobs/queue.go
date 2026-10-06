@@ -293,20 +293,9 @@ func (policy settingsPolicy) FirstRetryDelay(ctx context.Context) (time.Duration
 // replace that.
 func MarkStalled(err error) error { return jobqueue.ToolFailed(fmt.Errorf("stalled: %w", err)) }
 
-// ToolFailedTwice begins the failure of a target whose tool failed on two attempts in a row
-// otherwise than by a stall: its node started again while it held the work (D233 §6, D238 §3).
-const ToolFailedTwice = "the tool failed on two attempts in a row: "
-
 // StalledTwice begins the failure of a target whose work stalled on the second of two attempts in a
 // row whose tool failed (D233 §6).
 const StalledTwice = "stalled on two attempts in a row: "
-
-// MarkInterrupted marks a handler's error as a node that started again while it held the job's
-// work, which it lost (D238 §3): the tool's failure, as a stall is (MarkStalled), at no cost of an
-// attempt, and a second tool failure in a row is the handler's to make the target's.
-func MarkInterrupted(err error) error {
-	return jobqueue.ToolFailed(fmt.Errorf("interrupted: %w", err))
-}
 
 // MarkPermanent marks a handler's error as one no retry can fix.
 func MarkPermanent(err error) error { return jobqueue.Permanent(err) }

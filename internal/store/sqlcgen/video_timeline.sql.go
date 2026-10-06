@@ -9,6 +9,28 @@ import (
 	"context"
 )
 
+const deleteVideoTimelineFailedBefore = `-- name: DeleteVideoTimelineFailedBefore :execrows
+DELETE FROM video_timeline
+WHERE payload_hash = ?1 AND video_stream_index = ?2
+  AND failure IS NOT NULL AND made_at < ?3
+`
+
+type DeleteVideoTimelineFailedBeforeParams struct {
+	PayloadHash      []byte
+	VideoStreamIndex int64
+	Before           int64
+}
+
+// A person's play tries again what failed before they pressed play: the failure goes, and the
+// picture is read through again.
+func (q *Queries) DeleteVideoTimelineFailedBefore(ctx context.Context, arg DeleteVideoTimelineFailedBeforeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteVideoTimelineFailedBefore, arg.PayloadHash, arg.VideoStreamIndex, arg.Before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getVideoTimeline = `-- name: GetVideoTimeline :one
 
 SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at

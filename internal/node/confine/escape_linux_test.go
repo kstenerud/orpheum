@@ -56,6 +56,11 @@ func attemptEscape(what string, arguments []string) string {
 		_, err = os.ReadFile(arguments[0])
 	case "write":
 		err = os.WriteFile(arguments[0], []byte("escaped"), 0o600)
+	case "oom-score":
+		var score []byte
+		if score, err = os.ReadFile("/proc/self/oom_score_adj"); err == nil {
+			return "allowed " + strings.TrimSpace(string(score))
+		}
 	case "inet-socket":
 		var socket int
 		socket, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
@@ -121,6 +126,17 @@ func requireMechanisms(t *testing.T) {
 			absent = errors.New(state.Reason + "; " + state.Remedy)
 		}
 		testutil.Require(t, state.Mechanism, absent)
+	}
+}
+
+// The confined tool is the first the kernel kills when the machine runs out of memory, so a film
+// that drives FFmpeg's memory up fails FFmpeg, not the node (D248).
+func TestEscape_AConfinedToolIsTheFirstKilledWhenMemoryRunsOut(t *testing.T) {
+	t.Parallel()
+	requireMechanisms(t)
+	access := confine.Access{Read: []string{"/proc/self/oom_score_adj"}}
+	if got := attemptConfined(t, access, "oom-score"); got != "allowed 1000" {
+		t.Errorf("the confined tool's oom_score_adj: %s; want 1000", got)
 	}
 }
 

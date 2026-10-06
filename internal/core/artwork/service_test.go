@@ -378,7 +378,7 @@ func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
 // A node that started again lost the re-encode it held (D238 §3): the tool's failure, tried again
 // at no cost the first time, and the job's failure on the second in a row; nothing is sent to stop
 // what the node no longer has.
-func TestService_ANodeThatStartedAgainIsTheToolsFailureAndTwoInARowFailTheJob(t *testing.T) {
+func TestService_ANodeThatStartedAgainIsAnAttemptLikeAnyOthersFailureEveryTime(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
 	bench.node.enqueued = make(chan struct{}, 1)
@@ -391,13 +391,10 @@ func TestService_ANodeThatStartedAgainIsTheToolsFailureAndTwoInARowFailTheJob(t 
 		bench.service.exchanges.Interrupt(t.Context(), fakeNodeID, "started again")
 		return testutil.Receive(t, ended, "the artwork job to end")
 	}
-	first := reEncodeAfter(false)
-	if !errors.Is(first, nodes.ErrNodeRestarted) || !strings.HasPrefix(first.Error(), "interrupted: ") {
-		t.Errorf("a first restart of the node ended %v; want it tried again as the tool's failure", first)
-	}
-	second := reEncodeAfter(true)
-	if !errors.Is(second, nodes.ErrNodeRestarted) || !strings.HasPrefix(second.Error(), jobs.ToolFailedTwice) {
-		t.Errorf("a second tool failure in a row ended %v; want the job's failure, saying so", second)
+	for _, previousAttemptToolFailed := range []bool{false, true} {
+		if ended := reEncodeAfter(previousAttemptToolFailed); !errors.Is(ended, nodes.ErrNodeRestarted) {
+			t.Errorf("a restart of the node ended %v; want it tried again, the node's work lost (D248)", ended)
+		}
 	}
 	bench.node.mutex.Lock()
 	defer bench.node.mutex.Unlock()
@@ -568,8 +565,8 @@ func TestHandle_GivesAJobsImagesToTheNodeInOneCommand(t *testing.T) {
 }
 
 // A node whose status no longer lists the re-encode it took lost it otherwise than by starting
-// again (D238 §3): that too is the tool's failure, tried again at no cost the first time.
-func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTheToolsFailure(t *testing.T) {
+// again: an attempt like any other's failure, tried again (D248).
+func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTriedAgainAsWorkLost(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
 	bench.node.enqueued = make(chan struct{}, 1)
@@ -580,9 +577,7 @@ func TestService_AReEncodeTheNodesStatusNoLongerHoldsIsTheToolsFailure(t *testin
 	testutil.Receive(t, bench.node.enqueued, "the artwork command")
 	bench.service.exchanges.Reconcile(t.Context(), fakeNodeID, nil, nil)
 	err := testutil.Receive(t, ended, "the artwork job to end")
-	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
-		!strings.HasPrefix(err.Error(), "interrupted: ") {
-		t.Errorf("a re-encode the node's status no longer holds ended %v; want it tried again as the tool's failure",
-			err)
+	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) {
+		t.Errorf("a re-encode the node's status no longer holds ended %v; want it tried again, the work lost", err)
 	}
 }

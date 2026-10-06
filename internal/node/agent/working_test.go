@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,6 +225,28 @@ func TestWorkList_PlayDrivenWorkNeverWaitsForAnothersSlot(t *testing.T) {
 	close(quality.release)
 	testutil.Receive(t, background.started, "the background encode's start once both plays ended")
 	close(background.release)
+}
+
+// A job whose work panics ends, says why with where, and the node goes on to the next: one job's
+// failure in the node's own code takes no one else's work with it (the owner, 2026-10-05).
+func TestWorkList_AJobThatPanicsEndsAloneAndSaysWhy(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{}, heldAt())
+	crashes := make(chan string, 1)
+	panicking := heldWork{
+		attempt: attempt{jobID: 1, token: tokenOf(1)}, slot: nodeproto.SlotArtwork,
+		run:     func(context.Context) { panic("a box shorter than its header") },
+		crashed: func(why string) { crashes <- why },
+	}
+	list.hold(t.Context(), panicking)
+	if why := testutil.Receive(t, crashes, "job 1's crash"); !strings.Contains(why, "a box shorter than its header") ||
+		!strings.Contains(why, "working_test.go") {
+		t.Errorf("job 1 crashed saying %q; want the panic and where it was", why)
+	}
+	next := newBlockingWork()
+	list.hold(t.Context(), next.held(2, 0))
+	testutil.Receive(t, next.started, "job 2's start in the slot job 1 left")
+	close(next.release)
 }
 
 // A device whose limit lets two read runs play-driven and background work side by side, pausing

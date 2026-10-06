@@ -3,12 +3,14 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -94,10 +96,9 @@ func TestSubtitles_AStallIsTriedAgainAndTwoInARowAreTheTracksFailure(t *testing.
 	}
 }
 
-// A node that started again lost the measurement and the extraction it held (D238 §3): each is the
-// tool's failure, as a stall is, tried again at no cost the first time and the target's failure on
-// the second in a row.
-func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailure(t *testing.T) {
+// A node that started again lost the measurement and the extraction it held: each is an attempt
+// like any other's failure, tried again, and never the target's, however many in a row (D248).
+func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndNeverTheTargetsFailure(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -121,24 +122,18 @@ func TestNodeWork_ItsNodeStartingAgainIsTriedAgainAndTwoInARowAreTheTargetsFailu
 		}
 		return answerAfterStall(t, harness, job, harness.subtitles.HandleExtractSubtitle, interrupt)
 	}
-	for kind, run := range map[string]func(bool) error{"a measurement": measure, "an extraction": extract} {
-		if err := run(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {
-			t.Errorf("%s whose node started again ended %v; want it tried again as the tool's failure", kind, err)
+	for _, previousAttemptToolFailed := range []bool{false, true} {
+		for kind, run := range map[string]func(bool) error{"a measurement": measure, "an extraction": extract} {
+			if err := run(previousAttemptToolFailed); !errors.Is(err, corenodes.ErrNodeRestarted) {
+				t.Errorf("%s whose node started again ended %v; want it tried again, the work lost", kind, err)
+			}
+		}
+		if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1, 2}) {
+			t.Errorf("after restarts during film 2's measurement, a sweep finds %v; want it asked again", ids)
 		}
 	}
-	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1, 2}) {
-		t.Errorf("after one restart during film 2's measurement, a sweep finds %v; want it asked again", ids)
-	}
-	for kind, run := range map[string]func(bool) error{"a measurement": measure, "an extraction": extract} {
-		if err := run(true); err == nil || !strings.Contains(err.Error(), "the tool failed on two attempts in a row") {
-			t.Errorf("%s's second tool failure in a row ended %v; want the target's failure", kind, err)
-		}
-	}
-	if ids := harness.filesToReadThrough(t); !slices.Equal(ids, []int64{1}) {
-		t.Errorf("after two tool failures on film 2, a sweep finds %v; want only film 1", ids)
-	}
-	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
-	if failed.status != http.StatusBadGateway || !strings.Contains(failed.body, "two attempts in a row") {
-		t.Errorf("a track whose tool failed twice: %d %s; want it failed, saying so", failed.status, failed.body)
+	track := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
+	if track.status == http.StatusBadGateway {
+		t.Errorf("a track whose node lost its extraction twice: %d %s; want it not failed", track.status, track.body)
 	}
 }

@@ -402,9 +402,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   design does not yet say that a hello also ends the jobs that were **running** on the node.
   Those should go back to the queue at no cost.
 - **Status:** **holds** (2026-10-03, the jobs rebuild's Phases 4–6). A hello from another start ends the jobs
-  running on the node at no cost of an attempt, tried again after the first retry delay; a long
+  running on the node, tried again after the retry delay, never the file's failure (D248); a long
   absence parks them until the hello (`TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt`,
-  `TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure`);
+  `TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndNeverTheRenditionsFailure`);
   since 2026-10-05 also when the core started again with it, at an update or a reboot: each attempt
   keeps in cache.db the start of the node it was given to, where before the node's first status
   found the work lost, a broken invariant

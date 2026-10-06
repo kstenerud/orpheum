@@ -39,6 +39,9 @@ type Loudness interface {
 // is cut from: readthrough.Service.
 type ReadThrough interface {
 	ReadForPlay(ctx context.Context, fileID int64) (bool, error)
+	RetryFailedForPlay(
+		ctx context.Context, fileID int64, payloadHash []byte, videoStreamIndex int, before time.Time,
+	) (bool, error)
 }
 
 // Parts are what the chunks service is built from.
