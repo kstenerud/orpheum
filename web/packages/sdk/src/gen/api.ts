@@ -3300,7 +3300,7 @@ export interface operations {
             path: {
                 /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */
                 fileName: string;
-                /** @description picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost */
+                /** @description picture, a quality such as q1200k480p, or a sound such as sound0-96k or sound0-boost-96k */
                 streamName: string;
                 /** @description The playback's media token */
                 token: string;

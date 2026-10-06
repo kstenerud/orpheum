@@ -68,7 +68,7 @@ func TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackI
 	}
 	for _, unoffered := range []string{
 		"q3000k720p/stream.m3u8", "sound1/00000.m4s", "picture/00003.m4s", "picture/notes.txt",
-		"sound0-boost/init.mp4",
+		"sound0-boost-96k/init.mp4", "sound0-192k/init.mp4",
 	} {
 		if refused := harness.getBytePath(t, base+unoffered, user, true, ""); refused.status != http.StatusNotFound {
 			t.Errorf("%s: %d %s, want 404", unoffered, refused.status, refused.body)
@@ -146,11 +146,11 @@ func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {
 func checkFilmOnesMaster(t *testing.T, master byteAnswer) {
 	t.Helper()
 	if master.status != http.StatusOK || master.header.Get("Content-Type") != "application/vnd.apple.mpegurl" ||
-		!strings.Contains(master.body, `NAME="sound0",LANGUAGE="und",DEFAULT=YES`) ||
+		!strings.Contains(master.body, `NAME="sound0-96k",LANGUAGE="und",DEFAULT=YES`) ||
 		strings.Contains(master.body, "sound0-boost") || strings.Contains(master.body, "q3000k720p") ||
-		!strings.Contains(master.body, "\npicture/stream.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3192000,"+
-			`AVERAGE-BANDWIDTH=2192000,AUDIO="audio"`+"\nq2000k540p/stream.m3u8\n") ||
-		!strings.HasSuffix(master.body, "\nq700k432p/stream.m3u8\n") {
+		!strings.Contains(master.body, "\npicture/stream.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3096000,"+
+			`AVERAGE-BANDWIDTH=2096000,AUDIO="audio"`+"\nq2000k540p/stream.m3u8\n") ||
+		!strings.HasSuffix(master.body, "\nq400k360p/stream.m3u8\n") {
 		t.Errorf("film 1's master playlist: %d %v\n%s", master.status, master.header, master.body)
 	}
 }

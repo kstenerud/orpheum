@@ -91,7 +91,7 @@ func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	t.Parallel()
 	sound := run(nodeproto.ChunkStream{
-		Kind: nodeproto.StreamSound, IsBoosted: true,
+		Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96,
 		Sound: &nodeproto.PrepareAudio{AudioTrackIndex: 1, ChannelCount: 6},
 	})
 	sound.SoundLeadInMs = 88_839
@@ -108,5 +108,8 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	if mapped, mix := valueOf(arguments, "-map"), valueOf(arguments, "-filter:a"); mapped != "0:a:1" ||
 		mix != prepare.MixFilter(*sound.Stream.Sound, true) {
 		t.Errorf("the sound is %s mixed by %q; want track 1's boosted mix", mapped, mix)
+	}
+	if rate := valueOf(arguments, "-b:a"); rate != "96k" {
+		t.Errorf("the sound is encoded at %s; want the run's 96k (chunk_sound_kbps)", rate)
 	}
 }

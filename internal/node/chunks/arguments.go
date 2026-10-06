@@ -17,9 +17,6 @@ import (
 // §10). No two keyframes of the grid are this close.
 const cutEarlyMs = 50
 
-// soundBitRate is a sound chunk's AAC bit rate, as a prepare's (cut-a §6).
-const soundBitRate = "192k"
-
 // rawListName is the segment muxer's list of the raw files it has finished, one line each, in the
 // run's raw directory.
 const rawListName = "list.csv"
@@ -95,7 +92,7 @@ func Arguments(sourcePath, rawPath string, command nodeproto.MakeChunks, encoder
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
 			"-filter:a", prepare.MixFilter(*sound, command.Stream.IsBoosted),
-			"-c:a", "aac", "-b:a", soundBitRate, "-ac", "2")
+			"-c:a", "aac", "-b:a", strconv.Itoa(command.Stream.SoundKbps)+"k", "-ac", "2")
 	}
 	return append(arguments, "-sn", "-dn",
 		"-f", "segment", "-segment_times", cutTimes(command),

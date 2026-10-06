@@ -66,10 +66,15 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		return Offer{}, err
 	}
 	offer := Offer{
-		Quality: quality.Quality, StartAtBps: film.variantOf(quality).bandwidthBps, IsBelowTheLowest: isBelowTheLowest,
+		Quality:          quality.Quality,
+		StartAtBps:       film.variantOf(quality, offered.soundKbps).bandwidthBps,
+		IsBelowTheLowest: isBelowTheLowest,
 	}
 	if playback.HasStartingAudio {
-		sound := Stream{Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex}
+		sound := Stream{
+			Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex,
+			SoundKbps: offered.soundKbps,
+		}
 		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
 			return Offer{}, err
 		}

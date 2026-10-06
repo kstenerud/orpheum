@@ -52,7 +52,7 @@ func TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted(t *test
 	}
 	offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(2, 15_000)))
 	want := LowerQualityBody{
-		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_992_000,
+		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
 		QualityKbps: 1200, Height: 480,
 	}
 	if offered == nil || *offered != want {

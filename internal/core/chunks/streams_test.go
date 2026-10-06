@@ -12,11 +12,11 @@ import (
 func TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string]Stream{
-		"picture":       {Kind: nodeproto.StreamPicture},
-		"q1200k480p":    {Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}},
-		"q50000k2160p":  {Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 50_000, Height: 2160}},
-		"sound0":        {Kind: nodeproto.StreamSound},
-		"sound12-boost": {Kind: nodeproto.StreamSound, AudioTrackIndex: 12, IsBoosted: true},
+		"picture":            {Kind: nodeproto.StreamPicture},
+		"q1200k480p":         {Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}},
+		"q50000k2160p":       {Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 50_000, Height: 2160}},
+		"sound0-96k":         {Kind: nodeproto.StreamSound, SoundKbps: 96},
+		"sound12-boost-128k": {Kind: nodeproto.StreamSound, AudioTrackIndex: 12, IsBoosted: true, SoundKbps: 128},
 	} {
 		got, isStream := StreamNamed(name)
 		if !isStream || got != want || got.Name() != name {
@@ -26,7 +26,7 @@ func TestStreamNamed_ReadsEachStreamsNameBackAndRefusesOthers(t *testing.T) {
 	}
 	for _, name := range []string{
 		"", "Picture", "video", "q1200k", "q01200k480p", "q1200k480", "sound", "sound01", "sound0-boosted",
-		"sound0/../picture", "audio0", "sound1000",
+		"sound0/../picture", "audio0", "sound1000", "sound0", "sound0-boost", "sound0-96", "sound0-0k",
 	} {
 		if got, isStream := StreamNamed(name); isStream {
 			t.Errorf("StreamNamed(%q) = %+v; want no stream", name, got)

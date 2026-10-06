@@ -95,6 +95,7 @@ const (
 	TogetherDriftLeftAloneMs                       Key = "together_drift_left_alone_ms"
 	TogetherNudgeMostPercent                       Key = "together_nudge_most_percent"
 	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
+	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 )
 
 // Kind is a setting value's JSON type.
@@ -419,11 +420,18 @@ func artworkAndPlaybackDefinitions() []Definition {
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
 		sourced(Definition{
 			Key: ChunkQualities, Kind: KindString,
-			StartJSON: json.RawMessage(`"3000k@720p,2000k@540p,1200k@480p,700k@432p"`), IsValid: qualities.IsValid,
+			StartJSON: json.RawMessage(`"3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p"`),
+			IsValid:   qualities.IsValid,
 			Description: "the lower qualities a film is cut into chunks at for a slow link, highest first: each " +
 				"<kbps>k@<height>p, its average bit rate, its peaks capped at one and a half times it, and its " +
 				"picture's height, the width following the film's shape (D247 §6)",
-		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films"),
+		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
+			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
+		sourced(integerSetting(ChunkSoundKbps, "96", 32, 320,
+			"kbit/s of the stereo AAC sound a film cut into chunks for a slow link plays with; a change makes "+
+				"each film's sound again, as its own store, when next played (D247 §6)"),
+			"the owner, 2026-10-06, after an airplane's 0.6 Mb/s link: 192k was a quarter of it; Apple's "+
+				"cellular streams use less (playback-in-practice.md §3)"),
 		sourced(integerSetting(ResumeMinPercent, "5", 0, 50,
 			"percent of a file's length before which a position is not resumed and the file plays from the "+
 				"start; a file of unknown length always resumes (play-state.md)"),

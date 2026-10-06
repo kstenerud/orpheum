@@ -110,13 +110,14 @@ func TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix(t *t
 	t.Parallel()
 	fixture := runsOnAFakeNode(t)
 	gridID := mustGrid(t, fixture.service).ID()
-	ended := fixture.start(t, 8, testRun{"sound0-boost", gridID, runArgs{FirstChunk: 2, LastChunk: 2}})
+	ended := fixture.start(t, 8, testRun{"sound0-boost-96k", gridID, runArgs{FirstChunk: 2, LastChunk: 2}})
 	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
 	want := nodeproto.PrepareAudio{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: -3.5}
 	if sent == nil || sent.Stream.Sound == nil || *sent.Stream.Sound != want || !sent.Stream.IsBoosted ||
-		sent.SoundLeadInMs != 10_000 || !slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
-		t.Fatalf("the node was sent %+v; want the English 5.1 track boosted, levelled as a prepare levels it, "+
-			"led in from chunk 1's start", sent)
+		sent.Stream.SoundKbps != 96 || sent.SoundLeadInMs != 10_000 ||
+		!slices.Equal(sent.BoundsMs, []int64{20_000, 30_000}) {
+		t.Fatalf("the node was sent %+v; want the English 5.1 track boosted at 96 kb/s, levelled as a prepare "+
+			"levels it, led in from chunk 1's start", sent)
 	}
 	select {
 	case err := <-ended:
@@ -124,9 +125,9 @@ func TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix(t *t
 	default:
 	}
 	// The second track is stereo: it has no boosted mix to make.
-	err := testutil.Receive(t, fixture.start(t, 9, testRun{"sound1-boost", gridID, runArgs{LastChunk: 1}}),
+	err := testutil.Receive(t, fixture.start(t, 9, testRun{"sound1-boost-96k", gridID, runArgs{LastChunk: 1}}),
 		"the job of a sound the film does not have to end")
-	if err == nil || !strings.Contains(err.Error(), "no sound sound1-boost") {
+	if err == nil || !strings.Contains(err.Error(), "no sound sound1-boost-96k") {
 		t.Errorf("a run of a boosted stereo track ended %v; want it refused for good", err)
 	}
 }

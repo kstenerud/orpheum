@@ -5472,12 +5472,12 @@
             }
           },
           {
-            "description": "picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost",
+            "description": "picture, a quality such as q1200k480p, or a sound such as sound0-96k or sound0-boost-96k",
             "in": "path",
             "name": "streamName",
             "required": true,
             "schema": {
-              "description": "picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost",
+              "description": "picture, a quality such as q1200k480p, or a sound such as sound0-96k or sound0-boost-96k",
               "type": "string"
             }
           },

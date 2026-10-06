@@ -79,8 +79,9 @@ func TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade(t *testing.T)
 		t.Errorf("the runs asked for = %+v; want a third, chunk 1 alone, between the made ones", runs)
 	}
 	// Another stream is another store.
-	ensured(t, service, Stream{Kind: nodeproto.StreamSound, IsBoosted: true}, 3)
-	if runs := queue.runs(t, service); len(runs) != 4 || runs[3].stream != "sound0-boost" || runs[3].firstChunk != 3 {
+	ensured(t, service, Stream{Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96}, 3)
+	if runs := queue.runs(t, service); len(runs) != 4 || runs[3].stream != "sound0-boost-96k" ||
+		runs[3].firstChunk != 3 {
 		t.Errorf("the runs asked for = %+v; want a fourth, of the boosted sound from chunk 3", runs)
 	}
 	if queue.keptWanted == 0 {
@@ -191,7 +192,7 @@ func TestEnsure_TwoStreamsOfOneFilmWarmedTogetherEachQueueARun(t *testing.T) {
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	// A first stall warms a quality and the sound before any chunk is asked for (chunks.md §4).
 	ensured(t, service, Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}, 3)
-	ensured(t, service, Stream{Kind: nodeproto.StreamSound}, 3)
+	ensured(t, service, Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}, 3)
 	if runs := openRuns(t, cache); len(runs) != 2 {
 		t.Errorf("the runs queued = %+v; want one for each stream's store", runs)
 	}

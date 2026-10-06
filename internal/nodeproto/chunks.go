@@ -36,6 +36,8 @@ type ChunkStream struct {
 	Sound *PrepareAudio `json:"sound,omitempty"`
 	// IsBoosted is whether a sound is the dialogue boost's mix.
 	IsBoosted bool `json:"isBoosted,omitempty"`
+	// SoundKbps is a sound's AAC bit rate, chunk_sound_kbps when the run was asked for.
+	SoundKbps int `json:"soundKbps,omitempty"`
 }
 
 // MakeChunks is one run: chunks FirstChunk to FirstChunk+len(BoundsMs)-2 of one stream, made in

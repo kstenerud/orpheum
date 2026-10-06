@@ -32,19 +32,19 @@ func TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEveryS
 	// The picture's peak is its busiest second, 1.2 MB, as bits with the sound's; its average is its
 	// seconds' over the film's twenty minutes, with the sound's.
 	const want = "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
-		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=NO,` +
-		`CHANNELS="2",URI="sound0/stream.m3u8"` + "\n" +
-		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0-boost",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=NO,` +
-		`CHANNELS="2",URI="sound0-boost/stream.m3u8"` + "\n" +
-		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound1",LANGUAGE="und",DEFAULT=YES,AUTOSELECT=YES,` +
-		`CHANNELS="2",URI="sound1/stream.m3u8"` + "\n" +
-		`#EXT-X-STREAM-INF:BANDWIDTH=9792000,AVERAGE-BANDWIDTH=4196666,RESOLUTION=1920x1080,AUDIO="audio"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0-96k",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=NO,` +
+		`CHANNELS="2",URI="sound0-96k/stream.m3u8"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound0-boost-96k",LANGUAGE="en",DEFAULT=NO,AUTOSELECT=NO,` +
+		`CHANNELS="2",URI="sound0-boost-96k/stream.m3u8"` + "\n" +
+		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="sound1-96k",LANGUAGE="und",DEFAULT=YES,AUTOSELECT=YES,` +
+		`CHANNELS="2",URI="sound1-96k/stream.m3u8"` + "\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=9696000,AVERAGE-BANDWIDTH=4100666,RESOLUTION=1920x1080,AUDIO="audio"` + "\n" +
 		"picture/stream.m3u8\n" +
-		`#EXT-X-STREAM-INF:BANDWIDTH=4692000,AVERAGE-BANDWIDTH=3192000,RESOLUTION=1280x720,AUDIO="audio"` + "\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=4596000,AVERAGE-BANDWIDTH=3096000,RESOLUTION=1280x720,AUDIO="audio"` + "\n" +
 		"q3000k720p/stream.m3u8\n" +
-		`#EXT-X-STREAM-INF:BANDWIDTH=1992000,AVERAGE-BANDWIDTH=1392000,RESOLUTION=854x480,AUDIO="audio"` + "\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=1896000,AVERAGE-BANDWIDTH=1296000,RESOLUTION=854x480,AUDIO="audio"` + "\n" +
 		"q1200k480p/stream.m3u8\n" +
-		`#EXT-X-STREAM-INF:BANDWIDTH=1242000,AVERAGE-BANDWIDTH=892000,RESOLUTION=768x432,AUDIO="audio"` + "\n" +
+		`#EXT-X-STREAM-INF:BANDWIDTH=1146000,AVERAGE-BANDWIDTH=796000,RESOLUTION=768x432,AUDIO="audio"` + "\n" +
 		"q700k432p/stream.m3u8\n"
 	if text != want {
 		t.Errorf("the master playlist =\n%s\nwant\n%s", text, want)
@@ -115,8 +115,8 @@ func TestStoreFileOf_OffersOnlyTheStreamsAndFilesThePlaybackHas(t *testing.T) {
 			t.Errorf("%s/%s = %+v, %v; want ErrNoStream", refused.stream, refused.file, file, err)
 		}
 	}
-	file, err := service.StoreFileOf(t.Context(), playback, "sound0-boost", "000042.m4s")
-	if err != nil || file.NodeID != 1 || file.Target != nodeproto.PathBytesChunks+"1/chunks-sound0-boost/"+gridID+
+	file, err := service.StoreFileOf(t.Context(), playback, "sound0-boost-96k", "000042.m4s")
+	if err != nil || file.NodeID != 1 || file.Target != nodeproto.PathBytesChunks+"1/chunks-sound0-boost-96k/"+gridID+
 		"/00042.m4s" || file.ContentType != "video/iso.segment" || file.runFrom != 42 {
 		t.Errorf("chunk 42 of the boosted sound = %+v, %v; want it on node 1 as the node names it", file, err)
 	}
