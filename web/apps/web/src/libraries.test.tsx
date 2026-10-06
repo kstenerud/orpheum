@@ -11,6 +11,7 @@ import {
   checkEveryHoursToStart,
   CreateLibraryForm,
   hasARoot,
+  onAConnectedNode,
   withChangeDetection,
   withRootChosen,
 } from "./create-library.tsx";
@@ -247,6 +248,47 @@ describe("libraries", () => {
     expect(form([])).toMatch(/<button type="submit" disabled="">Create and scan<\/button>/u);
     expect(form(["/media/films"])).toContain('<button type="submit">Create and scan</button>');
     expect(hasARoot(blankLibrary())).toBe(false);
+  });
+
+  it("starts on the first connected machine, whatever it is called, and lists its folders (2026-10-06)", () => {
+    const nodes = [
+      { name: "attic", isConnected: false, rootPaths: [] },
+      { name: "sandbox", isConnected: true, rootPaths: ["/home/media"] },
+    ];
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={blankLibrary()}
+          nodes={nodes}
+          checkEveryHoursToStart={24}
+          problem=""
+          onDraftChange={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    expect(markup).toContain("<code>/home/media</code>");
+    expect(onAConnectedNode(blankLibrary(), nodes).nodeName).toBe("sandbox");
+    const onAway = { ...blankLibrary(), nodeName: "attic", rootPaths: ["/old"] };
+    expect(onAConnectedNode(onAway, nodes)).toMatchObject({ nodeName: "sandbox", rootPaths: [] });
+    const chosen = { ...blankLibrary(), nodeName: "sandbox", rootPaths: ["/home/media"] };
+    expect(onAConnectedNode(chosen, nodes)).toBe(chosen);
+  });
+
+  it("says a connected machine has not listed its folders yet, rather than show an empty list", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={blankLibrary()}
+          nodes={[{ name: "sandbox", isConnected: true, rootPaths: [] }]}
+          checkEveryHoursToStart={24}
+          problem=""
+          onDraftChange={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    expect(markup).toContain("sandbox has not said which folders it offers yet.");
   });
 
   it("says to start a node when none is connected, rather than offer nothing to choose", () => {

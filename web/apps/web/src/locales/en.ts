@@ -704,6 +704,8 @@ export const en = {
       "Tick at least one. Only the folders the node's configuration lists (node.root_paths) appear here; to add one, list it there and restart the node.",
     noNodes:
       "No node has connected since the server started. Start one, and its folders show here.",
+    noRootsYet:
+      "{{name}} has not said which folders it offers yet. Reload this page in a moment; if none appear, its configuration lists none (node.root_paths).",
     create: "Create and scan",
   },
   files: {

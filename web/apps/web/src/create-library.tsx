@@ -23,7 +23,8 @@ export function blankLibrary(): NewLibrary {
     metadataSource: "nfo_then_tmdb",
     changeDetection: "manual",
     isWritable: false,
-    nodeName: "local",
+    // No machine yet: onAConnectedNode puts the first connected one here once they are known.
+    nodeName: "",
     rootPaths: [],
   };
 }
@@ -73,6 +74,28 @@ export function withRootChosen(
   return isChosen ? [...new Set([...roots, root])] : roots.filter((chosen) => chosen !== root);
 }
 
+/**
+ * The draft on a machine that is connected: its own when that one is, else the first connected one,
+ * with no folders ticked. The form started on the dev loop's machine, "local", so on a server whose
+ * machine had another name it listed no folders, while the list showed that machine as chosen
+ * (staging, 2026-10-06).
+ */
+export function onAConnectedNode(draft: NewLibrary, nodes: readonly LibraryNode[]): NewLibrary {
+  if (nodes.some((node) => node.isConnected && node.name === draft.nodeName)) {
+    return draft;
+  }
+  const first = nodes.find((node) => node.isConnected);
+  if (first === undefined) {
+    return draft;
+  }
+  // Folders ticked on another machine are not this one's; with none chosen yet, there are none.
+  return {
+    ...draft,
+    nodeName: first.name,
+    rootPaths: draft.nodeName === "" ? draft.rootPaths : [],
+  };
+}
+
 /** Whether the draft has a folder to read: the server refuses a library without one. */
 export function hasARoot(draft: NewLibrary): boolean {
   return (draft.rootPaths ?? []).length > 0;
@@ -112,6 +135,9 @@ function WhereItIs(props: {
       <fieldset>
         <legend>{t("libraries.roots")}</legend>
         <p>{t("libraries.rootsHelp")}</p>
+        {chosenNode !== undefined && (chosenNode.rootPaths ?? []).length === 0 ? (
+          <p>{t("libraries.noRootsYet", { name: chosenNode.name })}</p>
+        ) : null}
         {(chosenNode?.rootPaths ?? []).map((root) => (
           <label key={root}>
             <input
@@ -289,7 +315,7 @@ export function CreateLibraryForm(props: {
   readonly onSubmit: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { draft } = props;
+  const draft = onAConnectedNode(props.draft, props.nodes);
   const setAnswer: SetAnswer = (key, value) => {
     props.onDraftChange({ ...draft, [key]: value });
   };
@@ -334,9 +360,11 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
       checkEveryHoursToStart: checkEveryHoursToStart(dataOrThrow(configAnswer).settings ?? []),
     };
   });
+  const nodes = choices.state === "loaded" ? choices.value.nodes : [];
   const submit = (): void => {
+    const body = onAConnectedNode(draft, nodes);
     creating.runRequest(async (idempotencyKey) => {
-      throwIfRefused(await api.POST("/libraries", { body: draft, ...idempotent(idempotencyKey) }));
+      throwIfRefused(await api.POST("/libraries", { body, ...idempotent(idempotencyKey) }));
       setDraft(blankLibrary());
       props.onCreated();
     });
