@@ -184,6 +184,8 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
 		t.Fatalf("POST /together/playback = %d %s", started.status, started.body)
 	}
+	harness.logs.awaitLine(t, `"msg":"a playback started"`, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
+		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs
 	if status := harness.viewerBytes(t, playing.URL, membership.Body.MembershipCredential); status != http.StatusOK {
 		t.Errorf("the viewer's bytes, by their cookie alone = %d, want 200", status)
 	}
@@ -329,7 +331,7 @@ func TestTogether_LogsWhoOpenedJoinedLeftAndEnded(t *testing.T) {
 	}
 }
 
-// A device's connection is logged with whose it is: the log is read once its welcome came, which
+// A device's connection is logged with whose it is and which browser: the log is read once its welcome came, which
 // the server sends after saying so, and before anything else could write.
 func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	t.Parallel()
@@ -340,7 +342,8 @@ func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	harness.dialTogether(t, membership.Body.MembershipCredential).awaitWelcome()
 	ids := fmt.Sprintf(`"sessionId":%d,"memberId":%d`, opened.Body.SessionID, membership.Body.MemberID)
 	for line := range strings.Lines(harness.logs.String()) {
-		if strings.Contains(line, `"watch together: a device connected"`) && strings.Contains(line, ids) {
+		if strings.Contains(line, `"watch together: a device connected"`) && strings.Contains(line, ids) &&
+			strings.Contains(line, `"userAgent":"Go-http-client/1.1"`) {
 			return
 		}
 	}
