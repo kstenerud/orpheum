@@ -55,6 +55,45 @@ export interface PlayerState {
   readonly isBuffering: boolean;
 }
 
+/**
+ * One thing a device's player did, which the server logs to say why a film jumped or froze (the
+ * owner's test, 2026-10-06, where nothing said what a viewer's iPhone did between its jumps):
+ * - nudged: played at rate for a moment, driftMs behind the group (ahead when negative);
+ * - sought: moved itself from positionMs to toMs, why: "catchUp" (jumping ahead of a group it fell
+ *   behind) or "hold" (to where a stopped group is);
+ * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at kbps, of a quality
+ *   of qualityKbps;
+ * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at estimateKbps;
+ * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
+ *   (nothing was heard on it).
+ */
+export type PlayerNote =
+  | {
+      readonly kind: "nudged";
+      readonly positionMs: number;
+      readonly driftMs: number;
+      readonly rate: number;
+    }
+  | {
+      readonly kind: "sought";
+      readonly positionMs: number;
+      readonly toMs: number;
+      readonly why: "catchUp" | "hold";
+    }
+  | {
+      readonly kind: "chunkLoaded";
+      readonly track: "video" | "audio";
+      readonly loadMs: number;
+      readonly kbps: number;
+      readonly qualityKbps: number;
+    }
+  | {
+      readonly kind: "qualitySwitched";
+      readonly qualityKbps: number;
+      readonly estimateKbps: number;
+    }
+  | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" };
+
 /** A command only the host sends (D246 §8): play, pause, seek, put a film on, or stop. */
 export type GroupCommand =
   | { readonly command: "play" }
@@ -97,6 +136,8 @@ export interface TogetherConnection {
   readonly reportState: () => void;
   /** Sends the host's command, based on the group as last told. */
   readonly command: (command: GroupCommand) => void;
+  /** Tells the server one thing its player did, for its log; dropped while not connected. */
+  readonly note: (note: PlayerNote) => void;
   /** Connects, from the start: after creating it, or again after closing it. */
   readonly open: () => void;
   /** Closes the connection, and connects no more until opened again. */
@@ -223,6 +264,8 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   #generation = 0;
   /** Pings sent on the current socket since anything was last heard on it. */
   #unansweredPings = 0;
+  /** When, on the monotonic clock, and how the last socket was lost, until a welcome again. */
+  #lost: { readonly atMs: number; readonly why: "closed" | "silent" } | undefined;
 
   constructor(options: TogetherConnectionOptions) {
     this.#options = options;
@@ -274,12 +317,23 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
     this.#send({ type: "command", ...command, ...position, basedOnSeq: this.#seq });
   };
 
+  readonly note = (note: PlayerNote): void => {
+    const whole = Object.fromEntries(
+      Object.entries(note).map(([name, value]) => [
+        name,
+        typeof value === "number" && name !== "rate" ? Math.round(value) : value,
+      ]),
+    );
+    this.#send({ type: "note", note: whole });
+  };
+
   readonly open = (): void => {
     clearTimeout(this.#reconnectTimer);
     this.#stopTimers();
     this.#socket?.close();
     this.#change(startingSnapshot);
     this.#attempt = 0;
+    this.#lost = undefined; // a fresh connection, not one connecting again
     this.#connect();
   };
 
@@ -321,7 +375,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   #dropDeadSocket(): void {
     this.#generation += 1; // its close, whenever it comes, is not heard
     this.#socket?.close();
-    this.#reconnectLater();
+    this.#reconnectLater("silent");
   }
 
   #stopTimers(): void {
@@ -335,6 +389,11 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
     this.#attempt = 0;
     this.#ping();
     this.reportState();
+    const lost = this.#lost;
+    this.#lost = undefined;
+    if (lost !== undefined) {
+      this.note({ kind: "reconnected", offlineMs: this.#now() - lost.atMs, why: lost.why });
+    }
     this.#stopTimers();
     this.#timers = [
       setInterval(this.#ping, pingEveryMs),
@@ -368,11 +427,12 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
       this.#change({ ...this.#snapshot, status: "ended", endReason: "gone" });
       return;
     }
-    this.#reconnectLater();
+    this.#reconnectLater("closed");
   }
 
   /** Says it is connecting again, and does after a wait that grows with each failure. */
-  #reconnectLater(): void {
+  #reconnectLater(why: "closed" | "silent"): void {
+    this.#lost ??= { atMs: this.#now(), why };
     this.#stopTimers();
     this.#change({ ...this.#snapshot, status: "reconnecting" });
     this.#reconnectTimer = setTimeout(() => {

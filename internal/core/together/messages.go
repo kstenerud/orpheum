@@ -14,6 +14,8 @@ const (
 	MessageSuspend MessageType = "suspend"
 	MessageResume  MessageType = "resume"
 	MessageRTC     MessageType = "rtc"
+	// MessageNote is one thing a device's player did, for the server's log alone (PlayerNote).
+	MessageNote MessageType = "note"
 )
 
 // The messages the server sends.
@@ -68,6 +70,65 @@ const (
 	SuspendUserChangingTime        SuspendReason = "userIsChangingCurrentTime"
 )
 
+// NoteKind is what a PlayerNote says a device's player did.
+type NoteKind string
+
+// The kinds of note, as the web client's PlayerNote names them.
+const (
+	NoteNudged          NoteKind = "nudged"
+	NoteSought          NoteKind = "sought"
+	NoteChunkLoaded     NoteKind = "chunkLoaded"
+	NoteQualitySwitched NoteKind = "qualitySwitched"
+	NoteReconnected     NoteKind = "reconnected"
+)
+
+// PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
+// viewer's film jumped or froze, where nothing said what her iPhone did between its jumps (the
+// owner's test, 2026-10-06). Its fields are its kind's; the others are zero.
+type PlayerNote struct {
+	Kind NoteKind `json:"kind"`
+	// PositionMs is where the player was; ToMs, where a seek took it.
+	PositionMs int64 `json:"positionMs,omitempty"`
+	ToMs       int64 `json:"toMs,omitempty"`
+	// DriftMs is how far behind the group a nudge found it (ahead when negative); Rate, the rate it
+	// played at for the nudge.
+	DriftMs int64   `json:"driftMs,omitempty"`
+	Rate    float64 `json:"rate,omitempty"`
+	// Why is a seek's ("catchUp", "hold") or a reconnection's ("closed", "silent").
+	Why string `json:"why,omitempty"`
+	// Track, LoadMs and Kbps are a chunk's: "video" or "audio", how long it took, and how fast.
+	Track  string `json:"track,omitempty"`
+	LoadMs int64  `json:"loadMs,omitempty"`
+	Kbps   int64  `json:"kbps,omitempty"`
+	// QualityKbps is the quality a chunk was of, or that the player switched to; EstimateKbps, the
+	// player's estimate of its link at the switch.
+	QualityKbps  int64 `json:"qualityKbps,omitempty"`
+	EstimateKbps int64 `json:"estimateKbps,omitempty"`
+	// OfflineMs is how long a reconnecting device was without its socket.
+	OfflineMs int64 `json:"offlineMs,omitempty"`
+}
+
+// positionMsAttribute names a position, in ms, in a log line.
+const positionMsAttribute = "positionMs"
+
+// isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
+func isNoteWord(word string) bool {
+	switch word {
+	case "", "catchUp", "hold", "closed", "silent", "video", "audio":
+		return true
+	}
+	return false
+}
+
+// isKnown is whether the note is one the server logs: a known kind, carrying only known words.
+func (note PlayerNote) isKnown() bool {
+	switch note.Kind {
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
+		return isNoteWord(note.Why) && isNoteWord(note.Track)
+	}
+	return false
+}
+
 // Inbound is one message a client sends, its fields by its type.
 type Inbound struct {
 	V    int         `json:"v"`
@@ -94,6 +155,8 @@ type Inbound struct {
 	FileID       int64         `json:"fileId,omitempty"`
 	BasedOnSeq   int64         `json:"basedOnSeq,omitempty"`
 	Reason       SuspendReason `json:"reason,omitempty"`
+	// Note is a note's: one thing the device's player did, for the server's log.
+	Note *PlayerNote `json:"note,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
 	// member's device.
 	ToDeviceID int64  `json:"toDeviceId,omitempty"`

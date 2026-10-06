@@ -10,6 +10,7 @@ import {
   hlsSupport,
   playNative,
   startWithAudio,
+  tellLoading,
   tellOwnMoves,
   type HlsPlayback,
 } from "./hls.ts";
@@ -214,6 +215,7 @@ export function playChunked(
   });
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
+  tellLoading(hls, video);
   const stopAdapting = adaptQuality(hls, video, {
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,

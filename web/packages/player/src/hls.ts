@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { playerMovedItselfEvent } from "@orpheum/sdk";
-import Hls, { type ErrorData } from "hls.js";
+import {
+  playerLoadedChunkEvent,
+  playerMovedItselfEvent,
+  playerSwitchedQualityEvent,
+  type ChunkLoaded,
+  type QualitySwitched,
+} from "@orpheum/sdk";
+import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
 
@@ -106,6 +112,45 @@ export function tellOwnMoves(hls: OwnMoves, video: Pick<EventTarget, "dispatchEv
   });
 }
 
+/** What telling what hls.js loads needs of it: its qualities, its link estimate, its events. */
+export interface LoadingHls {
+  readonly levels: readonly { readonly bitrate: number }[];
+  readonly bandwidthEstimate: number;
+  on: Hls["on"];
+}
+
+/**
+ * Tells video what hls.js loads, for a Watch Together player's log: each chunk, by
+ * playerLoadedChunkEvent, with how long it took and how fast, and each quality it begins playing,
+ * by playerSwitchedQualityEvent, with its link estimate then. A viewer's iPhone froze every few
+ * seconds and nothing said what it loaded, or how fast (staging, 2026-10-06).
+ */
+export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchEvent">): void {
+  hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
+    const { frag } = data;
+    const isVideo = frag.type === PlaylistLevelType.MAIN;
+    if (!isVideo && frag.type !== PlaylistLevelType.AUDIO) {
+      return;
+    }
+    const { loading, total } = frag.stats;
+    const loadMs = Math.max(0, loading.end - loading.start);
+    const loaded: ChunkLoaded = {
+      track: isVideo ? "video" : "audio",
+      loadMs,
+      kbps: loadMs > 0 ? (total * 8) / loadMs : 0,
+      qualityKbps: isVideo ? (hls.levels[frag.level]?.bitrate ?? 0) / 1000 : 0,
+    };
+    video.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
+  });
+  hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+    const switched: QualitySwitched = {
+      qualityKbps: (hls.levels[data.level]?.bitrate ?? 0) / 1000,
+      estimateKbps: hls.bandwidthEstimate / 1000,
+    };
+    video.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
+  });
+}
+
 /**
  * How hls.js plays a prepared rendition: from its start. A rendition still being prepared has an
  * open playlist (EVENT, no ENDLIST yet), which hls.js reads as live and, left to itself, starts
@@ -150,6 +195,7 @@ export function playHls(
   });
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
+  tellLoading(hls, video);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

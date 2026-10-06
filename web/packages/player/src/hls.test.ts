@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { playerMovedItselfEvent } from "@orpheum/sdk";
+import {
+  playerLoadedChunkEvent,
+  playerMovedItselfEvent,
+  playerSwitchedQualityEvent,
+} from "@orpheum/sdk";
 import Hls from "hls.js";
 
 import {
@@ -10,6 +14,7 @@ import {
   playNative,
   preparedHlsConfig,
   startWithAudio,
+  tellLoading,
   tellOwnMoves,
   type AudioStart,
   type NativeTarget,
@@ -69,6 +74,46 @@ describe("playing a prepared rendition", () => {
     listener?.(undefined, { details: Hls.ErrorDetails.FRAG_LOAD_ERROR });
     listener?.(undefined, { details: Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL });
     expect(told).toEqual([playerMovedItselfEvent, playerMovedItselfEvent]);
+  });
+
+  it("tells the video each chunk hls.js loads, how fast, and each quality it switches to", () => {
+    const listeners = new Map<string, (event: unknown, data: unknown) => void>();
+    tellLoading(
+      {
+        levels: [{ bitrate: 800_000 }, { bitrate: 1_200_000 }],
+        bandwidthEstimate: 2_500_000,
+        on: ((event: string, listener: (event: unknown, data: unknown) => void) => {
+          listeners.set(event, listener);
+        }) as Hls["on"],
+      },
+      {
+        dispatchEvent: (event) => {
+          told.push({ type: event.type, detail: (event as CustomEvent).detail });
+          return true;
+        },
+      },
+    );
+    const told: { type: string; detail: unknown }[] = [];
+    const loaded = (type: string, level: number): void => {
+      listeners.get(Hls.Events.FRAG_LOADED)?.(undefined, {
+        frag: { type, level, stats: { loading: { start: 100, end: 2100 }, total: 500_000 } },
+      });
+    };
+    loaded("main", 1);
+    loaded("audio", 0);
+    loaded("subtitle", 0); // not a chunk of film
+    listeners.get(Hls.Events.LEVEL_SWITCHED)?.(undefined, { level: 0 });
+    expect(told).toEqual([
+      {
+        type: playerLoadedChunkEvent,
+        detail: { track: "video", loadMs: 2000, kbps: 2000, qualityKbps: 1200 },
+      },
+      {
+        type: playerLoadedChunkEvent,
+        detail: { track: "audio", loadMs: 2000, kbps: 2000, qualityKbps: 0 },
+      },
+      { type: playerSwitchedQualityEvent, detail: { qualityKbps: 800, estimateKbps: 2500 } },
+    ]);
   });
 
   it("starts with the chosen mix once the master playlist is read, and leaves the default alone", () => {

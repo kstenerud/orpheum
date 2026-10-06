@@ -235,7 +235,7 @@ func (current *session) logChange(now time.Time) {
 	attributes := []any{
 		"sessionId", current.id, "state", string(current.group.state), "event", string(current.group.event),
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
-		"positionMs", current.positionAt(now).Milliseconds(),
+		positionMsAttribute, current.positionAt(now).Milliseconds(),
 	}
 	if current.group.state == GroupWaiting {
 		attributes = append(attributes, "waitingForMemberIds", current.membersNotReady(),

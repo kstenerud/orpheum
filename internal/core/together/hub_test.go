@@ -513,6 +513,42 @@ func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.
 	}
 }
 
+// A device's note of what its player did is logged with its kind's fields alone; a note of no
+// known kind, or carrying an unknown word, is refused as invalid and logged as nothing.
+func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 50_000, ToMs: 124_000, Why: "catchUp",
+	}})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteChunkLoaded, Track: "video", LoadMs: 5200, Kbps: 2300, QualityKbps: 1200,
+	}})
+	logged := stage.logs.String()
+	for _, want := range []string{
+		`kind=sought positionMs=50000 toMs=124000 why=catchUp`,
+		`kind=chunkLoaded loadMs=5200 kbps=2300 qualityKbps=1200 track=video`,
+	} {
+		isNoted := strings.Contains(logged, `msg="watch together: a device's player noted"`)
+		if !isNoted || !strings.Contains(logged, want) {
+			t.Errorf("the log does not note %q:\n%s", want, logged)
+		}
+	}
+	for _, unknown := range []*PlayerNote{nil, {Kind: "danced"}, {Kind: NoteSought, Why: "a\nforged line"}} {
+		box.mutex.Lock()
+		box.messages = nil
+		box.mutex.Unlock()
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
+		if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
+		}
+	}
+	if strings.Count(stage.logs.String(), "a device's player noted") != 2 {
+		t.Errorf("an unknown note was logged:\n%s", stage.logs)
+	}
+}
+
 // A group's change is named by a code a client words, never by words; a seek says where it jumped
 // from as well as to (D188).
 func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {

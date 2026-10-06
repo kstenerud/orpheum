@@ -235,6 +235,66 @@ export const playerMovedItselfEvent = "orpheumplayermoveditself";
  */
 export const fellBehindEvent = "orpheumfellbehind";
 
+/**
+ * The event a player fires at its video as it loads a chunk: a ChunkLoaded in its detail, which a
+ * following player tells the server for its log.
+ */
+export const playerLoadedChunkEvent = "orpheumplayerloadedchunk";
+
+/** One chunk a player loaded, as playerLoadedChunkEvent tells it. */
+export interface ChunkLoaded {
+  readonly track: "video" | "audio";
+  readonly loadMs: number;
+  readonly kbps: number;
+  /** The quality the chunk is of, in kbit/s. */
+  readonly qualityKbps: number;
+}
+
+/**
+ * The event a player fires at its video as it begins playing another quality: a QualitySwitched
+ * in its detail, which a following player tells the server for its log.
+ */
+export const playerSwitchedQualityEvent = "orpheumplayerswitchedquality";
+
+/** A quality a player began playing, as playerSwitchedQualityEvent tells it. */
+export interface QualitySwitched {
+  readonly qualityKbps: number;
+  readonly estimateKbps: number;
+}
+
+/** The detail an event carries, when it is a CustomEvent whose detail has every one of fields. */
+function detailWith(event: Event, fields: readonly string[]): Record<string, unknown> | undefined {
+  if (!(event instanceof CustomEvent)) {
+    return undefined;
+  }
+  const detail: unknown = event.detail;
+  if (typeof detail !== "object" || detail === null) {
+    return undefined;
+  }
+  const record: Record<string, unknown> = { ...detail };
+  return fields.every((field) => field in record) ? record : undefined;
+}
+
+/** A playerLoadedChunkEvent's chunk, or undefined when the event carries none. */
+function chunkLoadedOf(event: Event): ChunkLoaded | undefined {
+  const detail = detailWith(event, ["track", "loadMs", "kbps", "qualityKbps"]);
+  const { track, loadMs, kbps, qualityKbps } = detail ?? {};
+  return (track === "video" || track === "audio") &&
+    typeof loadMs === "number" &&
+    typeof kbps === "number" &&
+    typeof qualityKbps === "number"
+    ? { track, loadMs, kbps, qualityKbps }
+    : undefined;
+}
+
+/** A playerSwitchedQualityEvent's quality, or undefined when the event carries none. */
+function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
+  const { qualityKbps, estimateKbps } = detailWith(event, ["qualityKbps", "estimateKbps"]) ?? {};
+  return typeof qualityKbps === "number" && typeof estimateKbps === "number"
+    ? { qualityKbps, estimateKbps }
+    : undefined;
+}
+
 /** The events a following player tells the group of, and is moved by. */
 const followedEvents = [
   "loadedmetadata",
@@ -486,7 +546,8 @@ class GroupFollower {
     };
   }
 
-  #seek(toMs: number): void {
+  #seek(toMs: number, why: "catchUp" | "hold"): void {
+    this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSamples = [];
     this.#isOwnSeekPending = true;
     this.#seekStartedAtMs = this.#options.monotonicMs();
@@ -516,6 +577,12 @@ class GroupFollower {
     media.playbackRate = correction.kind === "nudge" ? correction.rate : where.group.rate;
     if (correction.kind === "nudge") {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
+      this.#connection.note({
+        kind: "nudged",
+        positionMs: positionMsOf(media),
+        driftMs: where.expectedMs - positionMsOf(media),
+        rate: correction.rate,
+      });
     } else if (correction.kind === "seek") {
       this.#catchUp(correction.toMs, where.group.rate);
     }
@@ -549,7 +616,7 @@ class GroupFollower {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
     const targetMs = toMs + this.#catchUpLeadMs(groupRate);
-    this.#seek(targetMs);
+    this.#seek(targetMs, "catchUp");
     this.#waitAtMs = targetMs;
   }
 
@@ -594,7 +661,7 @@ class GroupFollower {
       !isLoadingOwnSeek && holdAtMs !== where.expectedMs && !isOnLoaded(media);
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
     if ((isAway || isBeforeWhatItLoaded) && !media.seeking) {
-      this.#seek(holdAtMs);
+      this.#seek(holdAtMs, "hold");
     }
   }
 }
@@ -669,6 +736,24 @@ export function followGroup(
     ),
     ["progress", follower.loaded] as const,
     [playerMovedItselfEvent, follower.playerMovedItself] as const,
+    [
+      playerLoadedChunkEvent,
+      (event: Event) => {
+        const loaded = chunkLoadedOf(event);
+        if (loaded !== undefined) {
+          connection.note({ kind: "chunkLoaded", ...loaded });
+        }
+      },
+    ] as const,
+    [
+      playerSwitchedQualityEvent,
+      (event: Event) => {
+        const switched = qualitySwitchedOf(event);
+        if (switched !== undefined) {
+          connection.note({ kind: "qualitySwitched", ...switched });
+        }
+      },
+    ] as const,
   ];
   for (const [event, listener] of listeners) {
     media.addEventListener(event, listener);
