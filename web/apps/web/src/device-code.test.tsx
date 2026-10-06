@@ -53,7 +53,7 @@ describe("a device code on the account page", () => {
   it("says so when asking whether it was used is refused, and keeps showing it", async () => {
     mounted = await accountWithCodeMade({ "GET /me/device-code": refusal(503, "migrating") });
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
-      "The server is updating. Try again in a minute.",
+      "The server is starting up, or updating. It will answer in a moment.",
     );
     expect(mounted.container.textContent).toContain("abcd-efgh");
     expect(mounted.container.textContent).toContain(`open ${testOrigin}, choose I have a code`);

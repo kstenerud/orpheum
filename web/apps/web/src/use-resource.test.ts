@@ -86,16 +86,19 @@ describe("useResource", () => {
     const poller = handPoller();
     const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let isServerUp = false;
+    const seen: Resource<number>[] = [];
     function Probe(): null {
-      useResource(
+      const [resource] = useResource(
         "probe",
         () => (isServerUp ? Promise.resolve(1) : Promise.reject(new TypeError("Failed to fetch"))),
         poller,
       );
+      seen.push(resource);
       return null;
     }
     const mounted = await mount(createElement(Probe));
     expect(await pollOnce(poller)).toBe("failed");
+    expect(seen.at(-1)).toMatchObject({ state: "failed", willAskAgain: true });
     isServerUp = true;
     expect(await pollOnce(poller)).toBe("changed");
     mounted.unmount();
@@ -138,6 +141,14 @@ describe("useResource", () => {
     );
     const unknown = problemText(t, new ApiProblem({ code: "brand_new", message: "odd" }));
     expect(unknown).toContain("Something went wrong");
+    // A proxy's answer for a server that is down is expected, with words of its own; any other
+    // answer not in the server's shape is not, and gets the words that ask for a fix.
+    expect(problemText(t, new ApiProblem({ code: "not_answering", message: "502" }))).toBe(
+      "The server is not answering: it may be restarting, or the machine it runs on may be off.",
+    );
+    expect(problemText(t, new ApiProblem({ code: "unreadable_answer", message: "418" }))).toBe(
+      unknown,
+    );
     expect(unknown).not.toContain("odd");
     expect(problemText(t, new Error("the browser's own words"))).toBe(unknown);
     expect(problemText(t, new TypeError("Failed to fetch"))).toBe(

@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { artUrl, createApi } from "./client.ts";
+import { ApiProblem, dataOrThrow } from "./problem.ts";
 
 describe("the API client", () => {
   it("sends the session token in the Authorization header, and none when signed out", async () => {
@@ -33,6 +34,36 @@ describe("the API client", () => {
       },
     });
     expect(seen).toEqual(["Bearer membership"]);
+  });
+
+  it("reads a proxy's answer for a server that is down as not answering, and keeps the server's own", async () => {
+    const answered = async (response: Response): Promise<unknown> => {
+      const api = createApi({
+        origin: "http://orpheum.test",
+        getToken: () => undefined,
+        fetch: () => Promise.resolve(response),
+      });
+      try {
+        dataOrThrow(await api.GET("/me"));
+      } catch (cause: unknown) {
+        return cause instanceof ApiProblem ? cause.code : cause;
+      }
+      return "no failure";
+    };
+    // Vite's dev proxy, and a reverse proxy, with nothing behind them (2026-10-06).
+    for (const status of [502, 503, 504]) {
+      expect(await answered(new Response("", { status }))).toBe("not_answering");
+      expect(await answered(new Response("<html>Bad Gateway</html>", { status }))).toBe(
+        "not_answering",
+      );
+    }
+    expect(await answered(new Response("teapot", { status: 418 }))).toBe("unreadable_answer");
+    const migrating = JSON.stringify({ error: { code: "migrating", message: "starting" } });
+    expect(
+      await answered(
+        new Response(migrating, { status: 503, headers: { "Content-Type": "application/json" } }),
+      ),
+    ).toBe("migrating");
   });
 
   it("addresses an image by its hash and size, with nothing secret in the address", () => {

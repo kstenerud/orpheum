@@ -31,7 +31,7 @@ describe("sign-in", () => {
     expect(await problemShownFor(refusal(409, "setup_required"))).toContain("setup code");
     // Every other refusal is told by its code, as on every other screen.
     expect(await problemShownFor(refusal(503, "migrating"))).toBe(
-      "The server is updating. Try again in a minute.",
+      "The server is starting up, or updating. It will answer in a moment.",
     );
     expect(await problemShownFor(unreachable)).toContain("could not be reached");
     const markup = renderToStaticMarkup(

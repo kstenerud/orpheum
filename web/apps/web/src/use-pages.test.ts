@@ -101,7 +101,7 @@ describe("usePages", () => {
     }
     const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const mounted = await mount(createElement(Probe));
-    expect(pages?.loadedSoFar.state).toBe("failed");
+    expect(pages?.loadedSoFar).toMatchObject({ state: "failed", willAskAgain: true });
     expect(await pollOnce(poller)).toBe("failed");
     isServerUp = true;
     expect(await pollOnce(poller)).toBe("changed");

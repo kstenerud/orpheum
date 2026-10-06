@@ -9,6 +9,7 @@ import createClient, {
 } from "openapi-fetch";
 
 import type { paths } from "./gen/api.ts";
+import { foreignAnswerProblem, serversProblemIn } from "./problem.ts";
 
 /** Where the API lives on the server that served the page (plans/cut-a.md §5). */
 export const apiPrefix = "/api/v1";
@@ -73,10 +74,28 @@ export function createApi(options: ApiOptions): Api {
       return request;
     },
   };
-  api.use(authorise);
+  api.use(authorise, inTheServersShape);
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the same client: Api narrows only how a call's options are checked
   return api as Api;
 }
+
+/**
+ * Puts an error answer that is not the server's own, from a proxy in front of it, in the server's
+ * shape with foreignAnswerProblem's code, so every caller reads it as a refusal it has words for
+ * rather than a failure with none.
+ */
+const inTheServersShape: Middleware = {
+  async onResponse({ response }) {
+    if (response.ok || (await serversProblemIn(response.clone())) !== undefined) {
+      return response;
+    }
+    return new Response(JSON.stringify({ error: foreignAnswerProblem(response.status) }), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+};
 
 /** The sizes an image is served at (D212): a closed set, as the server names them. */
 export type ArtSize =
