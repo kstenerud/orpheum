@@ -18088,6 +18088,10 @@ paused often; in the group it played a frame and froze, over and over.
    its bit rate and picture height, which the admin can change; the numbers above are its starting
    value. The owner: *"Those standard qualities should be a list in config rather than
    hard-coded."*
+   **Amended** (2026-10-06), by the owner, after a viewer on an airplane's Wi-Fi measured 0.6 Mb/s
+   against a lowest quality that needed 0.9 Mb/s with its sound: a fifth quality, 0.4 Mbps at 360p,
+   is added to the starting list, and the sound of a film cut into chunks is 96 kb/s, a setting
+   (`chunk_sound_kbps`), where it was 192 kb/s, a quarter of her link.
 7. **A version is the film at a quality, shared by every viewer.** One another viewer's stall
    already started is used if it is within the viewer's measured speed and not far from what would
    have been chosen: the same quality, or the one below it. The owner: *"If a client stalls, and

@@ -15,11 +15,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// Settings are the settings the chunks read: the segment length a grid is merged to, and the
-// qualities a slow link is offered.
+// Settings are the settings the chunks read: the segment length a grid is merged to, the
+// qualities a slow link is offered, and the sound's bit rate.
 type Settings interface {
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 	String(ctx context.Context, key settings.Key) (string, error)
+	Int(ctx context.Context, key settings.Key) (int64, error)
 }
 
 // Queue is the job queue: jobs.Queue.

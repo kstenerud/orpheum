@@ -124,6 +124,7 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 			return command, err
 		}
 		command.Stream.Sound, command.Stream.IsBoosted = &track, stream.IsBoosted
+		command.Stream.SoundKbps = stream.SoundKbps
 		if args.FirstChunk > 0 {
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
@@ -257,9 +258,10 @@ func (service *Service) takeEnd(
 }
 
 // hasSound is whether a film whose sounds are those a prepare makes of its audio tracks has the sound
-// stream: a track it has, and a boosted mix only of a track a prepare makes one of.
+// stream, at whatever bit rate: a track it has, and a boosted mix only of a track a prepare makes one
+// of.
 func hasSound(sounds []renditions.AudioRendition, stream Stream) bool {
 	return slices.ContainsFunc(sounds, func(sound renditions.AudioRendition) bool {
-		return soundStream(sound) == stream
+		return soundStream(sound, stream.SoundKbps) == stream
 	})
 }

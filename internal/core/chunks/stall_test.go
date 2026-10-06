@@ -32,13 +32,13 @@ func TestStalled_OffersTheHighestQualityTheLinkCarriesAndStartsItWhereThePlayerI
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	offer := stalledAt(t, service, 2000) // 1400 kb/s for the picture: 1200k, not 2000k
-	if offer.Quality != (qualities.Quality{Kbps: 1200, Height: 480}) || offer.StartAtBps != 1_992_000 ||
+	if offer.Quality != (qualities.Quality{Kbps: 1200, Height: 480}) || offer.StartAtBps != 1_896_000 ||
 		offer.IsBelowTheLowest || offer.SoundCarriedGainDB != -3.5 {
 		t.Errorf("the offer = %+v; want 1200k at 480p, its BANDWIDTH 1.5 × 1.2 Mb/s and the sound's, "+
 			"and the sound's levelling, -3.5 dB, carried in it", offer)
 	}
 	// The stall at 95 s is in chunk 9, from 90 s.
-	want := []askedRun{{"q1200k480p", 9, 38}, {"sound0", 9, 38}}
+	want := []askedRun{{"q1200k480p", 9, 38}, {"sound0-96k", 9, 38}}
 	if runs := queue.runs(t, service); !slices.Equal(runs, want) {
 		t.Errorf("the runs asked for = %+v; want the quality's and the sound's, from chunk 9", runs)
 	}
@@ -49,11 +49,11 @@ func TestStalled_OffersTheHighestQualityTheLinkCarriesAndStartsItWhereThePlayerI
 func TestStalled_OffersTheLowestWhenTheLinkIsUnknownOrTooSlowForAny(t *testing.T) {
 	t.Parallel()
 	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
-	if offer := stalledAt(t, service, 0); offer.Quality.Kbps != 700 || offer.IsBelowTheLowest {
-		t.Errorf("with the link not measured, the offer = %+v; want the lowest, 700k", offer)
+	if offer := stalledAt(t, service, 0); offer.Quality.Kbps != 400 || offer.IsBelowTheLowest {
+		t.Errorf("with the link not measured, the offer = %+v; want the lowest, 400k", offer)
 	}
-	if offer := stalledAt(t, service, 900); offer.Quality.Kbps != 700 || !offer.IsBelowTheLowest {
-		t.Errorf("on a link of 900 kb/s, the offer = %+v; want the lowest, said to be beyond it", offer)
+	if offer := stalledAt(t, service, 500); offer.Quality.Kbps != 400 || !offer.IsBelowTheLowest {
+		t.Errorf("on a link of 500 kb/s, the offer = %+v; want the lowest, said to be beyond it", offer)
 	}
 }
 

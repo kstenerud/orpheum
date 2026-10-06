@@ -55,8 +55,9 @@
   in the background as loudness is, so a film's grid is there before anyone stalls; a film without
   one is read through at play-now priority at a player's first stall.
 - **The qualities** are the setting `chunk_qualities`, a list such as
-  `3000k@720p,2000k@540p,1200k@480p,700k@432p` (D247 §6): each a bit rate and a picture height,
-  highest first. A quality's peak is capped at 1.5× its bit rate.
+  `3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p` (D247 §6): each a bit rate and a picture
+  height, highest first. A quality's peak is capped at 1.5× its bit rate. The sound is stereo AAC
+  at the setting `chunk_sound_kbps` (96), every picture's playlist bandwidth counting it.
 - **The master playlist**, at `/bytes/media/chunks/<token>/master.m3u8`, lists the copied picture
   when the client plays the source's codec, then every quality below the source's own bit rate,
   each with its sound group: every audio track's standard and boosted mixes, as prepare carries
@@ -97,7 +98,8 @@
    chunk's time cannot be negative.*
 3. The core's playlists, chunk requests and runs, and the `chunk_qualities` setting.
    *Built 2026-10-05: `internal/core/chunks` (`Stream`, named `picture`, `q<kbps>k<height>p` and
-   `sound<track>` or `sound<track>-boost`; `Grid.ID`, the first 16 hex characters of the SHA-256 of
+   `sound<track>-<kbps>k` or `sound<track>-boost-<kbps>k`, so a changed `chunk_sound_kbps` makes a
+   store of its own; `Grid.ID`, the first 16 hex characters of the SHA-256 of
    the grid; `StoreDir`; `MasterPlaylist`, `MediaPlaylist`, `StoreFileOf`; `Ensure`, with
    `lookaheadMs` 60 s and `runSpanMs` 5 min; the `make_chunks` job, `HandleMakeChunks` and its
    `Assignee`), `internal/core/chunks/qualities` (`Parse`, the setting's one check and reading),

@@ -37,10 +37,6 @@ type Playback struct {
 	StartedAt time.Time
 }
 
-// soundBitRateBps is the bit rate a sound's chunks are encoded at, as a prepare's sound is: AAC
-// stereo at 192 kb/s (internal/node/chunks, internal/node/prepare). Every picture plays with it.
-const soundBitRateBps = 192_000
-
 // qualityPeakPerAverage is how far over its average a quality's bit rate may rise: the node caps
 // its encode's peaks at one and a half times it (internal/node/prepare's QualityArguments).
 const qualityPeakPerAverage = 1.5
@@ -50,19 +46,24 @@ const qualityPeakPerAverage = 1.5
 type offer struct {
 	pictures []Stream
 	sounds   []renditions.AudioRendition
+	// soundKbps is chunk_sound_kbps: every sound's bit rate, which every picture plays with.
+	soundKbps int
 }
 
 // has is whether the offer has the stream.
 func (offered offer) has(stream Stream) bool {
 	if stream.Kind == nodeproto.StreamSound {
-		return hasSound(offered.sounds, stream)
+		return stream.SoundKbps == offered.soundKbps && hasSound(offered.sounds, stream)
 	}
 	return slices.Contains(offered.pictures, stream)
 }
 
-// soundStream is the stream of one of a film's sounds.
-func soundStream(sound renditions.AudioRendition) Stream {
-	return Stream{Kind: nodeproto.StreamSound, AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted}
+// soundStream is the stream of one of a film's sounds, at kbps.
+func soundStream(sound renditions.AudioRendition, kbps int) Stream {
+	return Stream{
+		Kind: nodeproto.StreamSound, AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted,
+		SoundKbps: kbps,
+	}
 }
 
 // offerOf is what the film offers the playback (chunks.md §3): its picture copied, unless the
@@ -77,7 +78,13 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	if err != nil {
 		return offer{}, fmt.Errorf("read chunk_qualities: %w", err)
 	}
-	offered := offer{sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe))}
+	soundKbps, err := service.settings.Int(ctx, settings.ChunkSoundKbps)
+	if err != nil {
+		return offer{}, fmt.Errorf("read chunk_sound_kbps: %w", err)
+	}
+	offered := offer{
+		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
+	}
 	if playback.IsSourcePictureDecodable {
 		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamPicture})
 	}
@@ -112,8 +119,10 @@ func (film cutFilm) picturePeakBps() int64 {
 	return slices.Max(film.bytesInEachSecond) * 8
 }
 
-// variantOf is a picture as the master playlist offers it, the sound's bit rate added to its own.
-func (film cutFilm) variantOf(stream Stream) variant {
+// variantOf is a picture as the master playlist offers it, the sound's bit rate, soundKbps, added
+// to its own.
+func (film cutFilm) variantOf(stream Stream, soundKbps int) variant {
+	soundBitRateBps := int64(soundKbps) * 1000
 	picture := variant{uri: stream.Name() + "/stream.m3u8"}
 	sourceWidth, sourceHeight := film.picture.Video.Width, film.picture.Video.Height
 	if stream.Kind == nodeproto.StreamQuality {
@@ -177,7 +186,7 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	}
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
-		name := soundStream(sound).Name()
+		name := soundStream(sound, offered.soundKbps).Name()
 		language := sound.Language
 		if !langtag.IsWellFormed(language) {
 			language = langtag.Undetermined
@@ -194,7 +203,7 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	}
 	variants := make([]variant, 0, len(offered.pictures))
 	for _, picture := range offered.pictures {
-		variants = append(variants, film.variantOf(picture))
+		variants = append(variants, film.variantOf(picture, offered.soundKbps))
 	}
 	return masterPlaylist(sounds, variants), nil
 }

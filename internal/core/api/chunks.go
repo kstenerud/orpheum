@@ -24,7 +24,7 @@ type ChunksMasterInput struct {
 type ChunkFileInput struct {
 	MediaCredentials
 	Token      string `doc:"The playback's media token" path:"token"`
-	StreamName string `doc:"picture, a quality such as q1200k480p, or a sound such as sound0 or sound0-boost" path:"streamName"` //nolint:lll // one struct tag
+	StreamName string `doc:"picture, a quality such as q1200k480p, or a sound such as sound0-96k or sound0-boost-96k" path:"streamName"` //nolint:lll // one struct tag
 	FileName   string `doc:"stream.m3u8, init.mp4 or a chunk, NNNNN.m4s" path:"fileName"`
 }
 
