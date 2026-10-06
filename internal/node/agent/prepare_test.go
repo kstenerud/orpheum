@@ -154,7 +154,7 @@ func TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails(t *t
 // evictingShelf tells evictions of each eviction.
 type evictingShelf struct{ evictions chan struct{} }
 
-func (shelf evictingShelf) Evict() (prepared.Usage, error) {
+func (shelf evictingShelf) Evict(context.Context) (prepared.Usage, error) {
 	shelf.evictions <- struct{}{}
 	return prepared.Usage{}, nil
 }

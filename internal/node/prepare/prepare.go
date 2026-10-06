@@ -48,7 +48,7 @@ var ErrBadRenditionDir = errors.New("a rendition's directory must be <file_id>/<
 // Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
 type Keeper interface {
 	// MakeRoom makes room for a prepare, or says why there is none.
-	MakeRoom() error
+	MakeRoom(ctx context.Context) error
 	// MarkWriting marks a rendition being written, which eviction leaves alone, until finishWriting is called.
 	MarkWriting(renditionDir string) (finishWriting func())
 	// Shelve writes a made rendition's manifest beside it (D238 §2).
@@ -103,7 +103,7 @@ func (preparer *Preparer) Prepare(
 		return Made{}, fmt.Errorf("%w, not %q", ErrBadRenditionDir, command.RenditionDir)
 	}
 	// A prepare the disk has no room for is refused rather than fill it (D217 §5).
-	if err := preparer.keeper.MakeRoom(); err != nil {
+	if err := preparer.keeper.MakeRoom(ctx); err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
 	finishWriting := preparer.keeper.MarkWriting(command.RenditionDir)

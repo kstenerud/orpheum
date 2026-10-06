@@ -3,10 +3,13 @@
 package prepared
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +40,7 @@ func shelfWith(t *testing.T, budget Budget, diskPercent *int, runs map[string]st
 			t.Fatal(err)
 		}
 	}
-	shelf := New(directory, budget, clocktest.NewFake(now))
+	shelf := New(directory, budget, clocktest.NewFake(now), slog.New(slog.DiscardHandler))
 	shelf.diskUsedPercent = func(string) (int, error) { return *diskPercent, nil }
 	return shelf
 }
@@ -72,7 +75,7 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeing
 	})
 	done := shelf.MarkWriting("1/remux/aaaaaaaaaaaaaaaa")
 	defer done()
-	usage, err := shelf.Evict()
+	usage, err := shelf.Evict(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +87,35 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeing
 	}
 	if _, err := os.Stat(filepath.Join(shelf.directory, "2")); !os.IsNotExist(err) {
 		t.Errorf("an evicted run's empty file folder is still there: %v", err)
+	}
+}
+
+// Every eviction is logged, with why and the numbers that made it: one within its kept time as a
+// warning, one past it as information. A disk past its limit evicted a film while it played on
+// staging, and nothing said so (2026-10-06).
+func TestEvict_SaysWhatItRemovedAndWhy(t *testing.T) {
+	t.Parallel()
+	disk := 97
+	budget := Budget{MaxBytes: 1 << 30, KeptAfterLastPlay: 72 * time.Hour, DiskUsedLimitPercent: 95}
+	shelf := shelfWith(t, budget, &disk, map[string]struct {
+		bytes int
+		ago   time.Duration
+	}{
+		"1/remux/aaaaaaaaaaaaaaaa": {100, 5 * 24 * time.Hour},
+		"2/remux/bbbbbbbbbbbbbbbb": {100, 1 * time.Hour},
+	})
+	var logged bytes.Buffer
+	shelf.logger = slog.New(slog.NewTextHandler(&logged, nil))
+	if _, err := shelf.Evict(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(logged.String()), "\n")
+	if len(lines) != 2 ||
+		!strings.Contains(lines[0], "level=INFO") || !strings.Contains(lines[0], "1/remux/aaaaaaaaaaaaaaaa") ||
+		!strings.Contains(lines[1], "level=WARN") || !strings.Contains(lines[1], "2/remux/bbbbbbbbbbbbbbbb") ||
+		!strings.Contains(lines[1], "its disk is past its limit") || !strings.Contains(lines[1], "diskUsedPercent=97") {
+		t.Errorf("the evictions were logged as:\n%s\nwant the one past its kept time as INFO, then the one within "+
+			"it as WARN, each saying the disk is past its limit at 97%%", logged.String())
 	}
 }
 
@@ -104,7 +136,7 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 		}
 		return disk, nil
 	}
-	if _, err := shelf.Evict(); err != nil {
+	if _, err := shelf.Evict(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"2/remux/bbbbbbbbbbbbbbbb"}) {
@@ -116,11 +148,11 @@ func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.
 	t.Parallel()
 	disk := 99
 	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, KeptAfterLastPlay: time.Hour, DiskUsedLimitPercent: 95}, &disk, nil)
-	if err := shelf.MakeRoom(); !errors.Is(err, ErrNoRoom) {
+	if err := shelf.MakeRoom(t.Context()); !errors.Is(err, ErrNoRoom) {
 		t.Errorf("MakeRoom with the disk 99%% full and nothing to evict: %v, want ErrNoRoom", err)
 	}
 	disk = 50
-	if err := shelf.MakeRoom(); err != nil {
+	if err := shelf.MakeRoom(t.Context()); err != nil {
 		t.Errorf("MakeRoom with the disk half full: %v, want room", err)
 	}
 }
@@ -137,7 +169,7 @@ func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 		"2/remux/bbbbbbbbbbbbbbbb": {100, 2 * time.Hour},
 	})
 	shelf.MarkServed("1/remux/aaaaaaaaaaaaaaaa") // played now: the other is the least recently used
-	if _, err := shelf.Evict(); err != nil {
+	if _, err := shelf.Evict(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"1/remux/aaaaaaaaaaaaaaaa"}) {
@@ -163,14 +195,14 @@ func TestMakeRoom_KeepsTheDisksFloorOfFreeSpace(t *testing.T) {
 		}
 		return free / 2, nil
 	}
-	if err := shelf.MakeRoom(); !errors.Is(err, ErrNoRoom) {
+	if err := shelf.MakeRoom(t.Context()); !errors.Is(err, ErrNoRoom) {
 		t.Errorf("MakeRoom with 10 MiB free and a floor of 100: %v, want ErrNoRoom", err)
 	}
 	if got := remainingRunDirs(t, shelf); len(got) != 0 {
 		t.Errorf("left %v below the floor, want every rendition evicted for it", got)
 	}
 	free = 200 << 20
-	if err := shelf.MakeRoom(); err != nil {
+	if err := shelf.MakeRoom(t.Context()); err != nil {
 		t.Errorf("MakeRoom with 200 MiB free: %v, want room", err)
 	}
 }

@@ -154,12 +154,12 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	scanner := newScanner(config, roots, runner, hello)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
-	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen)
+	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen, logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
 		defer readonly.Close(directory.root)
-		if _, evictErr := directory.shelf.Evict(); evictErr != nil {
+		if _, evictErr := directory.shelf.Evict(ctx); evictErr != nil {
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
 		}
 	}
@@ -255,7 +255,9 @@ func preparedBudget(config Config) prepared.Budget {
 
 // openPreparedDirectory makes the node's prepared directory, in its instance's cache directory
 // (D242 §3), if it is missing, and opens it.
-func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
+func openPreparedDirectory(
+	config Config, runner *execx.Runner, encoder prepare.Encoder, logger *slog.Logger,
+) (preparedDirectory, error) {
 	path := config.Instance.preparedDir()
 	if err := os.MkdirAll(path, 0o750); err != nil {
 		return preparedDirectory{}, fmt.Errorf("make the prepared directory: %w", err)
@@ -264,7 +266,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	if err != nil {
 		return preparedDirectory{}, err
 	}
-	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{})
+	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{}, logger)
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
 	if err != nil {
 		return preparedDirectory{}, errors.Join(err, root.Close())

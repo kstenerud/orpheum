@@ -3,6 +3,7 @@
 package agent
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -14,7 +15,8 @@ import (
 // fakePreparedShelf is a prepared shelf whose last eviction left usage.
 type fakePreparedShelf struct{ usage prepared.Usage }
 
-func (kept fakePreparedShelf) Evict() (prepared.Usage, error)    { return kept.usage, nil }
+func (kept fakePreparedShelf) Evict(context.Context) (prepared.Usage, error) { return kept.usage, nil }
+
 func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
 
 func (fakePreparedShelf) Inventory() ([]nodeproto.RenditionManifest, error) { return nil, nil }

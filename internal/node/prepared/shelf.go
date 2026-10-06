@@ -3,8 +3,10 @@
 package prepared
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -54,6 +56,8 @@ type Shelf struct {
 	directory string
 	budget    Budget
 	clock     clock.Clock
+	// logger hears every eviction: what went, and why (the owner, 2026-10-06).
+	logger *slog.Logger
 	// diskUsedPercent says how full the filesystem at a path is, and diskAvailableBytes how much of
 	// it is free; a test's stand in for statfs.
 	diskUsedPercent    func(path string) (int, error)
@@ -73,9 +77,10 @@ func (shelf *Shelf) LastUsage() (Usage, bool) {
 }
 
 // New returns the shelf over directory, an absolute path.
-func New(directory string, budget Budget, clockSource clock.Clock) *Shelf {
+func New(directory string, budget Budget, clockSource clock.Clock, logger *slog.Logger) *Shelf {
 	return &Shelf{
-		directory: directory, budget: budget, clock: clockSource, diskUsedPercent: filesystemUsedPercent,
+		directory: directory, budget: budget, clock: clockSource, logger: logger,
+		diskUsedPercent:       filesystemUsedPercent,
 		diskAvailableBytes:    filesystemAvailableBytes,
 		writersByRenditionDir: map[string]int{},
 	}
@@ -107,8 +112,8 @@ func (shelf *Shelf) MarkWriting(renditionDir string) (finishWriting func()) {
 
 // MakeRoom makes room for a prepare: it evicts what the budget and the disk need, and refuses when
 // the disk is still past its limit, or below its floor of free space (D217 §5).
-func (shelf *Shelf) MakeRoom() error {
-	usage, err := shelf.Evict()
+func (shelf *Shelf) MakeRoom(ctx context.Context) error {
+	usage, err := shelf.Evict(ctx)
 	if err != nil {
 		return err
 	}
@@ -129,7 +134,7 @@ type run struct {
 // Evict removes renditions, least recently used first, until the directory is within its budget
 // and its disk within its limit: every one past its kept time before any within it, and never one
 // being written. It returns what is left.
-func (shelf *Shelf) Evict() (Usage, error) {
+func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 	runs, err := shelf.listRuns()
 	if err != nil {
 		return Usage{}, err
@@ -164,6 +169,7 @@ func (shelf *Shelf) Evict() (Usage, error) {
 		if removeErr := shelf.removeRun(each.renditionDir); removeErr != nil {
 			return Usage{}, removeErr
 		}
+		shelf.logEviction(ctx, each, usage, isPastKeptTime(each))
 		total -= each.sizeBytes
 		if usage, err = shelf.measure(total); err != nil {
 			return Usage{}, err
@@ -173,6 +179,28 @@ func (shelf *Shelf) Evict() (Usage, error) {
 	shelf.lastUsage = usage
 	shelf.mutex.Unlock()
 	return usage, nil
+}
+
+// logEviction says what an eviction removed and why, with the numbers that made it: a rendition
+// removed while still within its kept time is a warning, since someone may be about to play it, or
+// be playing it. A disk filling up was found only by reading the code (staging, 2026-10-06).
+func (shelf *Shelf) logEviction(ctx context.Context, each run, before Usage, wasPastKeptTime bool) {
+	why := "the prepared directory is over its budget"
+	if !before.isDiskWithin() {
+		why = "its disk is past its limit, or below its floor of free space"
+	}
+	attributes := []any{
+		"why", why, "rendition", each.renditionDir, "sizeMiB", each.sizeBytes >> 20,
+		"lastUsed", each.lastUse.UTC().Format(time.RFC3339),
+		"usedMiB", before.UsedBytes >> 20, "budgetMiB", before.BudgetBytes >> 20,
+		"diskUsedPercent", before.DiskUsedPercent, "diskUsedLimitPercent", before.DiskUsedLimitPercent,
+		"diskFreeMiB", before.DiskAvailableBytes >> 20, "diskMinFreeMiB", before.DiskMinFreeBytes >> 20,
+	}
+	if wasPastKeptTime {
+		shelf.logger.InfoContext(ctx, "evicted a prepared rendition past its kept time", attributes...)
+		return
+	}
+	shelf.logger.WarnContext(ctx, "evicted a prepared rendition still within its kept time", attributes...)
 }
 
 // measure is what the directory holds, total, against its budget, and its filesystem now.
