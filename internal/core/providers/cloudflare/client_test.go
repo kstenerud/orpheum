@@ -4,6 +4,7 @@ package cloudflare_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -38,6 +39,22 @@ func TestClient_SetsAndRemovesATXTRecordInTheNamesZone(t *testing.T) {
 	}
 	if err = client.RemoveTXT(t.Context(), record); err != nil || fake.RecordCount() != 0 {
 		t.Errorf("RemoveTXT = %v, %d records left; want none", err, fake.RecordCount())
+	}
+}
+
+// The name's zone is found however many zones the token reaches: Cloudflare lists them a page at a
+// time, and the zone was missed beyond the first (M4's audit).
+func TestClient_FindsTheNamesZoneAmongMoreThanAPageOfZones(t *testing.T) {
+	t.Parallel()
+	zones := make([]string, 0, 60)
+	for index := range 59 {
+		zones = append(zones, fmt.Sprintf("zone-%02d.example.org", index))
+	}
+	fake := cloudflaretest.New(t, append(zones, "orpheum-app.com")...)
+	client := newClient(t, fake.Server.URL, cloudflaretest.Token)
+	name := "_acme-challenge.media.orpheum-app.com"
+	if record, err := client.SetTXT(t.Context(), name, "proof"); err != nil || record.ZoneID != "zone60" {
+		t.Errorf("SetTXT = %+v, %v; want it set in orpheum-app.com's zone, the 60th", record, err)
 	}
 }
 
