@@ -15,8 +15,34 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   timeout: 120_000,
+  // A fake microphone, handed over without asking, and host candidates by their addresses, not
+  // mDNS names a container cannot resolve: two pages of one browser call each other (D252 §3).
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: {
+          args: [
+            "--use-fake-device-for-media-stream",
+            "--use-fake-ui-for-media-stream",
+            "--disable-features=WebRtcHideLocalIpsWithMdns",
+          ],
+        },
+      },
+    },
+    {
+      name: "firefox",
+      use: {
+        ...devices["Desktop Firefox"],
+        launchOptions: {
+          firefoxUserPrefs: {
+            "media.navigator.streams.fake": true,
+            "media.navigator.permission.disabled": true,
+            "media.peerconnection.ice.obfuscate_host_addresses": false,
+          },
+        },
+      },
+    },
   ],
 });
