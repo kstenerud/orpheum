@@ -33,6 +33,11 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
   the hello. `src/together-connection.test.ts`.
+- **Voice attaches a second device of the membership with the `voice` role** (D120), and keeps
+  one call with every other person's `voice` or `both` device in the roster, never its own
+  person's; the lower device id makes the offer; a device leaving the roster ends its call, and a
+  new welcome makes every call again. `src/together-voice.test.ts`. Whether two browsers hear each
+  other only a device can show: VQ21.
 - **A call's own Authorization wins over the session token**: a Watch Together member's
   requests carry their membership credential (D246 §3). `src/client.test.ts`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and
@@ -42,7 +47,8 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 
 [D28](../../../docs/contributors/decisions/working-notes.md), [D66](../../../docs/contributors/decisions/working-notes.md), [D80](../../../docs/contributors/decisions/working-notes.md),
 [D85](../../../docs/contributors/decisions/working-notes.md), [D154](../../../docs/contributors/decisions/working-notes.md),
-[D191](../../../docs/contributors/decisions/working-notes.md), [D193](../../../docs/contributors/decisions/working-notes.md) §6,
+[D120](../../../docs/contributors/decisions/working-notes.md),
+[D191](../../../docs/contributors/decisions/working-notes.md), [D193](../../../docs/contributors/decisions/working-notes.md) §4, §6,
 [D246](../../../docs/contributors/decisions/working-notes.md);
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §5;
 [watch-together.md](../../../docs/contributors/design/plans/watch-together.md), Sync;
@@ -60,4 +66,5 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - Watch Together: the wire messages and the browser's socket, `src/together.ts`; the
   connection (hello, ping and the minimum round trip, state reports, commands, reconnecting),
   `src/together-connection.ts`; following the group with a video element, and the drift
-  thresholds, `src/together-follow.ts`.
+  thresholds, `src/together-follow.ts`; voice's calls, `src/together-voice.ts`, over the
+  browser's microphone, RTCPeerConnection and Web Audio in `src/together-voice-browser.ts`.
