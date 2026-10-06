@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
+// @vitest-environment happy-dom
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
+import { click, fire, mount } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -73,5 +75,85 @@ describe("AppShell", () => {
     );
     expect(markup).not.toContain("/watch-together");
     expect(markup).toContain('href="/films"');
+  });
+
+  it("keeps the places for watching in view, the admin's under Manage, and the person's under their name", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="jobs"
+          onSignOut={ignore}
+          signedInAs={{ name: "karl", deviceName: undefined }}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    const watching = /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
+    expect(watching).toContain('href="/films"');
+    expect(watching).toContain('href="/watch-together"');
+    expect(watching).not.toContain('href="/jobs"');
+    expect(markup).toMatch(
+      /<details class="app-shell__menu app-shell__menu--current"><summary>Manage<\/summary><ul>.*href="\/jobs"/u,
+    );
+    expect(markup).toMatch(
+      /<details class="app-shell__menu app-shell__menu--own"><summary>karl<\/summary><ul>.*href="\/account".*href="\/about".*Sign out/u,
+    );
+  });
+
+  it("offers no Manage to someone who is not an admin", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    expect(markup).not.toContain("Manage");
+    expect(markup).toContain("<summary>You</summary>");
+  });
+
+  it("closes a menu when one of its places is chosen, on a press outside it, and on Escape", async () => {
+    const mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={true}
+          canHostWatchTogether={true}
+          currentScreen="films"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    const manage = mounted.container.querySelector("details");
+    if (manage === null) {
+      throw new Error("no Manage menu");
+    }
+    manage.open = true;
+    await click(manage.querySelector('a[href="/jobs"]'));
+    expect(manage.open).toBe(false);
+    manage.open = true;
+    await fire(
+      mounted.container.querySelector("main"),
+      new Event("pointerdown", { bubbles: true }),
+    );
+    expect(manage.open).toBe(false);
+    manage.open = true;
+    await fire(manage, new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(manage.open).toBe(false);
+    manage.open = true;
+    await fire(manage.querySelector("summary"), new Event("pointerdown", { bubbles: true }));
+    expect(manage.open).toBe(true);
+    mounted.unmount();
   });
 });

@@ -7,6 +7,20 @@
   align-items: start;
 }
 
+/* On a phone the art floats at the start and the words wrap around it, then use the full width. */
+@media (max-width: 599px) {
+  .series__head {
+    display: flow-root;
+  }
+
+  .series__head > :first-child {
+    float: inline-start;
+    width: 8.5rem;
+    margin-block-end: var(--space-3);
+    margin-inline-end: var(--space-4);
+  }
+}
+
 @media (min-width: 600px) {
   .series__head {
     grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);

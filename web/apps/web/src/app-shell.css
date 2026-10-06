@@ -43,28 +43,36 @@
   display: flex;
   flex: 1 1 100%;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .app-shell__nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-shell__nav li {
+  margin: 0;
+}
+
+/* The places for watching: one row that scrolls sideways when the window is narrow. */
+.app-shell__watching {
   display: flex;
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
-  margin: 0;
-  padding: 0;
   overflow-x: auto;
-  list-style: none;
   scrollbar-width: none;
 }
 
-.app-shell__nav li {
+.app-shell__watching li {
   flex: none;
-  margin: 0;
 }
 
-.app-shell__nav a {
+.app-shell__watching a,
+.app-shell__menu > summary {
   display: block;
   padding: var(--space-2) var(--space-3) var(--space-3);
   border-block-end: 2px solid transparent;
@@ -72,40 +80,125 @@
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.app-shell__nav a:hover {
+.app-shell__watching a:hover,
+.app-shell__menu > summary:hover {
   color: var(--color-text);
 }
 
-.app-shell__nav [aria-current="page"] a {
+.app-shell__watching [aria-current="page"] a,
+.app-shell__menu--current > summary {
   border-block-end-color: var(--color-accent);
   color: var(--color-text);
 }
 
-.app-shell__who {
+/* A menu's name, with a small mark that it opens; the browser's own triangle is hidden. */
+.app-shell__menu {
+  position: relative;
+  flex: none;
+}
+
+.app-shell__menu > summary {
+  list-style: none;
+}
+
+.app-shell__menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-shell__menu > summary::after {
+  content: "";
+  display: inline-block;
+  margin-inline-start: var(--space-2);
+  border: 0.3em solid transparent;
+  border-block-start-color: currentcolor;
+  border-block-end-width: 0;
+  vertical-align: middle;
+}
+
+/* What a menu holds: a raised list under its name, at the window's end. */
+.app-shell__menu > ul {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  z-index: 2;
+  display: grid;
+  min-width: 13rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+.app-shell__menu a,
+.app-shell__menu button {
+  display: block;
+  width: 100%;
+  min-height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+  font-weight: normal;
+  text-align: start;
+  text-decoration: none;
+}
+
+.app-shell__menu a:hover,
+.app-shell__menu button:hover:not(:disabled) {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.app-shell__menu [aria-current="page"] a {
+  color: var(--color-accent);
+}
+
+.app-shell__menu .app-shell__who {
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+  margin-block-end: var(--space-1);
   color: var(--color-muted);
   font-size: var(--font-size-small);
-  white-space: nowrap;
 }
 
-.app-shell__nav > button {
-  flex: none;
-  min-height: auto;
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--font-size-small);
-}
-
-/* A phone has no room for who is signed in; Sign out moves up beside the product's name. */
+/*
+ * On a phone the row is tighter, so the places and Manage fit a phone's width; the person's menu
+ * sits beside the product's name, a quiet button.
+ */
 @media (max-width: 599px) {
-  .app-shell__who {
-    display: none;
+  .app-shell__watching a,
+  .app-shell__menu:not(.app-shell__menu--own) > summary {
+    padding-inline: var(--space-2);
+    font-size: var(--font-size-small);
   }
 
-  .app-shell__nav > button {
+  .app-shell__watching {
+    gap: 0;
+    margin-inline-start: calc(-1 * var(--space-2));
+  }
+
+  .app-shell__menu--own {
     position: absolute;
-    inset-block-start: var(--space-3);
+    inset-block-start: var(--space-2);
     inset-inline-end: var(--space-page);
+  }
+
+  .app-shell__menu--own > summary {
+    max-width: 10rem;
+    padding: var(--space-1) var(--space-3);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    text-overflow: ellipsis;
+  }
+
+  .app-shell__menu--own.app-shell__menu--current > summary {
+    border-color: var(--color-accent);
   }
 }
 
@@ -119,12 +212,13 @@
     flex: 1 1 auto;
   }
 
-  .app-shell__nav ul {
+  .app-shell__watching {
     gap: 0;
   }
 
-  .app-shell__nav a {
-    padding: var(--space-4) var(--space-2);
+  .app-shell__watching a,
+  .app-shell__menu > summary {
+    padding: var(--space-4) var(--space-3);
   }
 }
 
