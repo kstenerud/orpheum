@@ -263,6 +263,7 @@ export const en = {
     place: "{{series}} · season {{season}}, episode {{number}}",
     versions: "Versions",
     version: "Version {{index}}",
+    fileDetails: "File details",
     extras: "Extras",
     unidentified: "Not identified yet",
     streamVideo: "Video: {{codec}}",

@@ -155,7 +155,16 @@ function Versions(props: {
                   {t("title.play")}
                 </Link>
               ) : null}
-              {file.path === undefined ? null : <code>{file.path}</code>}
+              {/* What the file is, for whoever wants it, kept out of the way (the owner, 2026-10-06). */}
+              <details className="title__details">
+                <summary>{t("title.fileDetails")}</summary>
+                {file.path === undefined ? null : <code>{file.path}</code>}
+                <ul>
+                  {(file.streams ?? []).map((stream) => (
+                    <StreamLine key={stream.id} stream={stream} />
+                  ))}
+                </ul>
+              </details>
               {/* An admin sees the path, and says a file that cannot be read now is gone (D241 §5). */}
               {props.isPlayable ||
               file.path === undefined ||
@@ -167,11 +176,6 @@ function Versions(props: {
                   onConfirm={() => props.onRetireFile?.(file.id)}
                 />
               )}
-              <ul>
-                {(file.streams ?? []).map((stream) => (
-                  <StreamLine key={stream.id} stream={stream} />
-                ))}
-              </ul>
             </div>
           ))}
         </div>

@@ -13,11 +13,26 @@
   color: var(--color-muted);
 }
 
-/* No poster: a quiet card, never a broken image. */
+/* No poster: a quiet card with an open clapperboard, never a broken image. */
 .poster--blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   background: linear-gradient(160deg, var(--color-surface-raised), var(--color-surface));
-  font-size: var(--font-size-small);
   text-align: center;
+}
+
+.poster__clapperboard {
+  width: 45%;
+  height: auto;
+  opacity: 0.45;
+}
+
+.poster__caption {
+  font-size: var(--font-size-small);
+  opacity: 0.8;
 }
