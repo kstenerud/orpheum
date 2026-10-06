@@ -119,6 +119,36 @@ class DevLoop(unittest.TestCase):
         roots = tomllib.loads(dev.with_media_root(config, "/tank/media"))["node"]["root_paths"]
         self.assertEqual(roots, ["/tank/media", "/r/.dev/media/movies", "/r/.dev/media/shows"])
 
+    def test_a_wildcard_listen_address_is_reached_on_loopback(self):
+        self.assertEqual(dev.dial_address("0.0.0.0:8432"), ("127.0.0.1", 8432))
+        self.assertEqual(dev.dial_address("[::]:8432"), ("::1", 8432))
+        self.assertEqual(dev.dial_address("127.0.0.1:9000"), ("127.0.0.1", 9000))
+        self.assertEqual(dev.dial_address("[fd00::2]:8432"), ("fd00::2", 8432))
+
+    def test_vite_waits_until_the_core_accepts_a_connection(self):
+        """Vite started before the Go build and logged a refused proxy per request (2026-10-06)."""
+        tries = []
+
+        class Connection:
+            def close(self):
+                pass
+
+        def connect(target, timeout):
+            tries.append(target)
+            if len(tries) < 3:
+                raise ConnectionRefusedError
+            return Connection()
+
+        self.assertTrue(dev.wait_until_listening("0.0.0.0:8432", connect=connect, sleep=lambda _: None))
+        self.assertEqual(tries, [("127.0.0.1", 8432)] * 3)
+
+    def test_a_core_that_never_listens_ends_the_wait(self):
+        def refused(target, timeout):
+            raise ConnectionRefusedError
+
+        self.assertFalse(dev.wait_until_listening("127.0.0.1:8432", timeout=1, connect=refused,
+                                                  sleep=lambda _: None))
+
     def test_vite_binds_the_host_dev_listen_gives(self):
         self.assertEqual(dev.web_host(None), "127.0.0.1")
         self.assertEqual(dev.web_host("0.0.0.0:8432"), "0.0.0.0")
