@@ -10,7 +10,7 @@ import {
   reconnectWaitMs,
   stateEveryMs,
 } from "./together-connection.ts";
-import { parseTogetherMessage, type TogetherSocketListeners } from "./together.ts";
+import { parseTogetherMessage, startingTuning, type TogetherSocketListeners } from "./together.ts";
 
 /** A stand-in for the server's end of each socket the connection opens. */
 interface FakeSockets {
@@ -149,6 +149,23 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       group: { positionMs: 14_000 },
       groupReceivedAtMs: 6000,
     });
+  });
+
+  it("follows the group by the welcome's tuning, or by the starting one where it names none (D250 §1)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    expect(connection.snapshot().tuning).toEqual(startingTuning);
+    sockets.opened[0]!.onOpen();
+    const tuning = { leaveDriftUpToMs: 750, nudgeMostPercent: 5, seekDriftBeyondMs: 4000 };
+    sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning }));
+    expect(connection.snapshot().tuning).toEqual(tuning);
+    sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning: { nudgeMostPercent: 20 } }));
+    expect(connection.snapshot().tuning).toEqual({ ...startingTuning, nudgeMostPercent: 20 });
   });
 
   it("pings at once and every so often, keeping the shortest round trip it measured", () => {

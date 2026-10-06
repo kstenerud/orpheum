@@ -2,7 +2,7 @@
 
 import "./i18n.ts";
 
-import type { TogetherSnapshot } from "@orpheum/sdk";
+import { startingTuning, type TogetherSnapshot } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -38,6 +38,7 @@ const snapshot: TogetherSnapshot = {
   endReason: undefined,
   minimumRttMs: undefined,
   lastRejectionCode: undefined,
+  tuning: startingTuning,
 };
 
 describe("what everyone in a session is told", () => {

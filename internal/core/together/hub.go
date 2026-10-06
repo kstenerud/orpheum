@@ -434,11 +434,11 @@ type Attachment struct {
 }
 
 // Attach attaches a device to the member its credential names, with a role, its messages going to
-// send, and welcomes it: the session, its member, the group and the roster. A device of a person
-// signed in makes the membership theirs (D243 §2).
-func (hub *Hub) Attach(credential string, role DeviceRole, canSetRate bool, signedIn *Person, send Sender) (
-	Attachment, error,
-) {
+// send, and welcomes it: the session, its member, the group, the roster and how to follow the group,
+// tuning. A device of a person signed in makes the membership theirs (D243 §2).
+func (hub *Hub) Attach(
+	credential string, role DeviceRole, canSetRate bool, signedIn *Person, tuning Tuning, send Sender,
+) (Attachment, error) {
 	if !role.plays() && role != RoleVoice {
 		return Attachment{}, fmt.Errorf("role %q: want playback, voice or both", role)
 	}
@@ -457,7 +457,7 @@ func (hub *Hub) Attach(credential string, role DeviceRole, canSetRate bool, sign
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
-		Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(),
+		Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(), Tuning: &tuning,
 	})
 	attached.sendRoster()
 	return Attachment{

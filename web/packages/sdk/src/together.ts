@@ -81,6 +81,23 @@ export interface RosterMember {
  */
 export type TogetherEndReason = "hostEnded" | "ejected" | "left" | "gone";
 
+/** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
+export interface SyncTuning {
+  /** How far off the group's position a player is left alone. */
+  readonly leaveDriftUpToMs: number;
+  /** The most a nudge plays faster or slower, as a percent of the group's rate. */
+  readonly nudgeMostPercent: number;
+  /** How far off a player seeks rather than nudges. */
+  readonly seekDriftBeyondMs: number;
+}
+
+/** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
+export const startingTuning: SyncTuning = {
+  leaveDriftUpToMs: 500,
+  nudgeMostPercent: 10,
+  seekDriftBeyondMs: 3000,
+};
+
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
 export type TogetherServerMessage =
   | {
@@ -90,6 +107,7 @@ export type TogetherServerMessage =
       readonly isHost: boolean;
       readonly group: GroupView;
       readonly roster: readonly RosterMember[];
+      readonly tuning: SyncTuning;
     }
   | { readonly type: "group"; readonly seq: number; readonly group: GroupView }
   | { readonly type: "roster"; readonly roster: readonly RosterMember[] }
@@ -187,6 +205,16 @@ function cannotKeepUpIn(value: unknown): CannotKeepUp | undefined {
 
 const endReasons: readonly TogetherEndReason[] = ["hostEnded", "ejected", "left"];
 
+/** A welcome's tuning, each number the starting one where it says none. */
+function parseTuning(value: unknown): SyncTuning {
+  const record = recordOf(value) ?? {};
+  return {
+    leaveDriftUpToMs: numberIn(record, "leaveDriftUpToMs", startingTuning.leaveDriftUpToMs),
+    nudgeMostPercent: numberIn(record, "nudgeMostPercent", startingTuning.nudgeMostPercent),
+    seekDriftBeyondMs: numberIn(record, "seekDriftBeyondMs", startingTuning.seekDriftBeyondMs),
+  };
+}
+
 /** The parsed form of one of the messages a client follows the group by. */
 function parseFollowed(
   record: Readonly<Record<string, unknown>>,
@@ -203,6 +231,7 @@ function parseFollowed(
             isHost: record["isHost"] === true,
             group,
             roster: parseRoster(record["roster"]),
+            tuning: parseTuning(record["tuning"]),
           };
     case "group":
       return group === undefined

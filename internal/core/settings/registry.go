@@ -92,6 +92,9 @@ const (
 	ScreenRefreshFirstWaitSeconds                  Key = "screen_refresh_first_wait_seconds"
 	ScreenRefreshLongestWaitSeconds                Key = "screen_refresh_longest_wait_seconds"
 	ScreenRefreshFailedWaitSeconds                 Key = "screen_refresh_failed_wait_seconds"
+	TogetherDriftLeftAloneMs                       Key = "together_drift_left_alone_ms"
+	TogetherNudgeMostPercent                       Key = "together_nudge_most_percent"
+	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
 )
 
 // Kind is a setting value's JSON type.
@@ -229,8 +232,26 @@ func buildRegistry() []Definition {
 			"D208 §3: the owner's twenty, 2026-09-24"),
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
-		backupDefinitions(),
+		backupDefinitions(), togetherDefinitions(),
 	)...)
+}
+
+// togetherDefinitions are how a Watch Together device follows its group, sent to it in its welcome
+// so they are tuned while testing (D250 §1).
+func togetherDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(TogetherDriftLeftAloneMs, "500", 0, 10_000,
+			"ms a Watch Together player may be off the group's position before it is corrected (D250 §1)"),
+			"D250 §1: the owner, 2026-10-06: \"I'm fine with leaving up to 500ms instead of the 60ms\""),
+		sourced(integerSetting(TogetherNudgeMostPercent, "10", 1, 100,
+			"percent of the group's rate a Watch Together player's nudge plays faster or slower by at most, "+
+				"to close a drift too small to seek across (D250 §1)"),
+			"D250 §1: the owner, 2026-10-06: \"10% max speed drift also sounds fine\""),
+		sourced(integerSetting(TogetherSeekDriftBeyondMs, "3000", 500, 600_000,
+			"ms a Watch Together player may be off the group's position before it seeks rather than nudges "+
+				"(D250 §1)"),
+			"watch-together.md's Sync: \"seek beyond that\", 3 s, kept by D250 §1"),
+	}
 }
 
 // backupDefinitions are when the server backs itself up, and how many backups it keeps (D243 §11).

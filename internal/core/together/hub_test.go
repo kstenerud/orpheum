@@ -43,6 +43,9 @@ func (box *inbox) last(kind MessageType) Outbound {
 	return Outbound{}
 }
 
+// testTuning is how the tests' devices are welcomed to follow their group.
+var testTuning = Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000}
+
 // sessionStage is a hub with a session the owner hosts, nothing playing yet, and a clock.
 type sessionStage struct {
 	hub   *Hub
@@ -71,7 +74,7 @@ func newStage(t *testing.T) sessionStage {
 func (stage sessionStage) attach(t *testing.T, credential string, role DeviceRole) (Attachment, *inbox) {
 	t.Helper()
 	box := &inbox{}
-	attachment, err := stage.hub.Attach(credential, role, true, nil, box.send)
+	attachment, err := stage.hub.Attach(credential, role, true, nil, testTuning, box.send)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +360,7 @@ func TestHub_AnEjectedMemberIsGone(t *testing.T) {
 	if ended := guestPhone.last(MessageEnded); ended.Reason != "ejected" {
 		t.Errorf("the ejected member's phone was told %+v; want ended, ejected", ended)
 	}
-	_, err = stage.hub.Attach(guest.MembershipCredential, RolePlayback, true, nil, (&inbox{}).send)
+	_, err = stage.hub.Attach(guest.MembershipCredential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("the ejected member's credential = %v; want it to admit nothing", err)
 	}
@@ -376,7 +379,8 @@ func TestHub_OpeningAgainGivesTheHostTheirSession(t *testing.T) {
 		again.MembershipCredential == stage.opened.MembershipCredential {
 		t.Errorf("opening again = %+v; want the same session, not new, with a new credential", again)
 	}
-	if _, err = stage.hub.Attach(again.MembershipCredential, RolePlayback, true, nil, (&inbox{}).send); err != nil {
+	_, err = stage.hub.Attach(again.MembershipCredential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
+	if err != nil {
 		t.Errorf("the new credential = %v; want it to admit the host", err)
 	}
 	if _, isViewer := stage.hub.ViewerOf(again.MembershipCredential); isViewer {

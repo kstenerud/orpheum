@@ -350,6 +350,30 @@ func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	t.Errorf("the log does not say a device of %s connected:\n%s", ids, harness.logs.String())
 }
 
+// A device is welcomed with how to follow its group as the settings say when it connects, so the
+// numbers are tuned while testing without a new client (D250 §1).
+func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	want := together.Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000}
+	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
+		*welcome.Tuning != want {
+		t.Errorf("the welcome's tuning = %+v; want the settings' starting values %+v", welcome.Tuning, want)
+	}
+	changed := harness.do(t, http.MethodPut, "/config", admin,
+		map[string]any{"valuesByKey": map[string]any{"together_drift_left_alone_ms": 750}})
+	if changed.status != http.StatusOK {
+		t.Fatalf("PUT /config = %d %s", changed.status, changed.body)
+	}
+	want.LeaveDriftUpToMs = 750
+	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
+		*welcome.Tuning != want {
+		t.Errorf("after the setting changed, the welcome's tuning = %+v; want %+v", welcome.Tuning, want)
+	}
+}
+
 // A device that sends nothing for the silence limit is taken for gone: its socket is closed, it is
 // detached, and the log says why. A phone's connection cut on an airport's network stayed attached,
 // and was waited for, though it said nothing more (staging, 2026-10-06).
