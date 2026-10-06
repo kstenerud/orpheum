@@ -22,8 +22,41 @@ import {
   playerMovedItselfEvent,
   refillAheadMs,
   seekDriftBeyondMs,
+  waitAheadAtMostMs,
   type FollowedMedia,
 } from "./together-follow.ts";
+
+/**
+ * A viewer in step with a group playing from 100 s that has measured its link loading half a
+ * second of film each second, and then falls 54 s behind: its catch-up jump, made at 4 s.
+ */
+function fallenBehindOnAHalfSpeedLink(): {
+  media: FakeMedia;
+  setGroup: (next: GroupView, receivedAtMs: number) => void;
+} {
+  const media = new FakeMedia();
+  media.currentTime = 100;
+  media.loaded = [[0, 105]];
+  const { connection, setGroup } = fakeConnection({
+    ...paused,
+    state: "Playing",
+    positionMs: 100_000,
+  });
+  followGroup(media as unknown as FollowedMedia, connection, {
+    fileId: 5,
+    isLeading: false,
+    monotonicMs,
+  });
+  for (let atMs = 1000; atMs <= 4000; atMs += 1000) {
+    monotonicNowMs = atMs;
+    media.currentTime = 100 + atMs / 1000;
+    media.loaded = [[0, 105 + (0.5 * atMs) / 1000]];
+    media.fire("progress");
+  }
+  media.currentTime = 50; // a stall the group played on through
+  media.fire("waiting");
+  return { media, setGroup };
+}
 
 describe("where the group is (D66: no clock sync)", () => {
   const playing: GroupView = {
@@ -519,6 +552,56 @@ describe("a player following its group", () => {
     vi.advanceTimersByTime(checkDriftEveryMs * 3);
     expect(media.currentTime).toBe(0.04); // held there, not sought back into the gap
     expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
+  it("catching up on a slow link, jumps ahead by its time to load refillAheadMs and waits there", () => {
+    const { media } = fallenBehindOnAHalfSpeedLink();
+    // At half a second of film a second, 10 s loaded takes 20 s: the group, at 104 s, is met at 124 s.
+    expect(media.currentTime).toBe(124);
+    media.fire("seeked");
+    expect(media.paused).toBe(true);
+    monotonicNowMs = 14_000;
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.paused).toBe(true); // the group is 10 s away: it waits, loading
+    expect(media.currentTime).toBe(124);
+    monotonicNowMs = 23_950;
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.paused).toBe(false); // the group arrived: it plays on from where it waited
+    expect(media.currentTime).toBe(124);
+  });
+
+  it("jumps no further ahead than its player loads, however slow its link", () => {
+    const media = new FakeMedia();
+    media.currentTime = 100;
+    media.loaded = [[0, 105]];
+    const { connection } = fakeConnection({ ...paused, state: "Playing", positionMs: 100_000 });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    for (let atMs = 1000; atMs <= 4000; atMs += 1000) {
+      monotonicNowMs = atMs;
+      media.currentTime = 100 + atMs / 1000;
+      media.loaded = [[0, 105 + (0.1 * atMs) / 1000]];
+      media.fire("progress");
+    }
+    media.currentTime = 50;
+    media.fire("waiting");
+    expect(media.currentTime).toBe(104 + waitAheadAtMostMs / 1000);
+  });
+
+  it("waiting ahead, follows a group that pauses to where it paused, and plays on from there", () => {
+    const { media, setGroup } = fallenBehindOnAHalfSpeedLink();
+    media.fire("seeked");
+    monotonicNowMs = 10_000;
+    setGroup({ ...paused, positionMs: 110_000 }, 10_000);
+    expect(media.currentTime).toBe(110);
+    media.fire("seeked");
+    monotonicNowMs = 12_000;
+    setGroup({ ...paused, state: "Playing", positionMs: 110_000 }, 12_000);
+    expect(media.paused).toBe(false);
+    expect(media.currentTime).toBe(110); // not back to where it had waited
   });
 
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {

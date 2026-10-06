@@ -49,6 +49,23 @@ export const refillAheadMs = 10_000;
 export const aimAheadAtMostMs = 10_000;
 
 /**
+ * The furthest a viewer catching up alone jumps ahead of the group to wait for it there: what its
+ * player loads ahead of where it is, hls.js's maxBufferLength (30 s), which nothing here changes.
+ * Further ahead, the player stops loading before the group arrives (D247 §4, amended 2026-10-06).
+ */
+export const waitAheadAtMostMs = 30_000;
+
+/**
+ * How the speed a player loads at is measured, as film loaded per second: over the last
+ * loadWindowMs, from at least loadSpanAtLeastMs of samples, and only while it is loading, its buffer
+ * short of what it fills to by loadSampleMarginMs, since a full buffer loads nothing and would read
+ * as a link that stopped (D247 §4, amended 2026-10-06).
+ */
+export const loadWindowMs = 10_000;
+export const loadSpanAtLeastMs = 3000;
+export const loadSampleMarginMs = 5000;
+
+/**
  * How often a following player checks its drift while the group plays, and reports its state while
  * the group waits.
  */
@@ -256,6 +273,15 @@ class GroupFollower {
   #lastLoadMs = 0;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
+  /**
+   * Where a viewer catching up alone waits, paused and loading, for the playing group to arrive;
+   * undefined while it follows as usual (D247 §4, amended 2026-10-06).
+   */
+  #waitAtMs: number | undefined = undefined;
+  /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
+  #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
+  /** Film loaded per second of the link, as last measured; undefined until it has been. */
+  #loadRatio: number | undefined = undefined;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
@@ -282,7 +308,12 @@ class GroupFollower {
     if (where === undefined || this.#isAwaitingGroup || this.#media.readyState < haveMetadata) {
       return;
     }
-    if (where.group.state === "Playing") {
+    if (where.group.state === "Playing" && this.#isWaitingAhead(where)) {
+      // A viewer that jumped ahead to catch up waits there, paused and loading, for the group.
+      if (!this.#media.paused) {
+        this.#media.pause();
+      }
+    } else if (where.group.state === "Playing") {
       this.#play(where);
     } else {
       this.#holdAt(where);
@@ -336,6 +367,7 @@ class GroupFollower {
    * which the server ends a wait whose time is up (D247 §4).
    */
   readonly tick = (): void => {
+    this.#sampleLoading();
     this.apply();
     if (this.#connection.snapshot().group?.state === "Waiting") {
       this.#connection.reportState();
@@ -345,6 +377,7 @@ class GroupFollower {
   /** The browser loaded more: it moves nothing, and tells the group only if it made it ready. */
   readonly loaded = (): void => {
     this.#noteLoading("progress");
+    this.#sampleLoading();
     if (this.#pendingCommand === undefined && this.#isBuffering() !== this.#wasReportedBuffering) {
       this.#connection.reportState();
     }
@@ -392,6 +425,34 @@ class GroupFollower {
     );
   }
 
+  /**
+   * Samples how far the player has loaded, and from the samples of the last loadWindowMs measures
+   * how much film it loads per second. A sample is taken only while it loads short of a full
+   * buffer; a seek, or loading that stops, starts the samples again.
+   */
+  #sampleLoading(): void {
+    const media = this.#media;
+    const nowMs = this.#options.monotonicMs();
+    const endMs = loadedEndMs(media);
+    const isLoading =
+      endMs !== undefined &&
+      endMs < media.duration * 1000 &&
+      endMs - positionMsOf(media) < waitAheadAtMostMs - loadSampleMarginMs;
+    const last = this.#loadSamples.at(-1);
+    if (!isLoading || (last !== undefined && endMs < last.endMs)) {
+      this.#loadSamples = [];
+      return;
+    }
+    this.#loadSamples = [
+      ...this.#loadSamples.filter((sample) => nowMs - sample.atMs <= loadWindowMs),
+      { atMs: nowMs, endMs },
+    ];
+    const first = this.#loadSamples[0];
+    if (first !== undefined && nowMs - first.atMs >= loadSpanAtLeastMs) {
+      this.#loadRatio = (endMs - first.endMs) / (nowMs - first.atMs);
+    }
+  }
+
   #send(command: GroupCommand): void {
     this.#isAwaitingGroup = true;
     this.#connection.command(command);
@@ -413,6 +474,7 @@ class GroupFollower {
   }
 
   #seek(toMs: number): void {
+    this.#loadSamples = [];
     this.#isOwnSeekPending = true;
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
@@ -447,19 +509,60 @@ class GroupFollower {
   }
 
   /**
-   * Seeks to catch up with the group at toMs, aimed ahead by how long its last seek took to load,
-   * and says it fell behind if it had been in step.
+   * Whether a viewer that jumped ahead still waits there for the group: until the group is within
+   * leaveDriftUpToMs of it, or has passed it, or has sought back from it further than it could have
+   * jumped. Then it follows as usual, playing on with what it loaded meanwhile.
+   */
+  #isWaitingAhead(where: GroupNow): boolean {
+    const waitAtMs = this.#waitAtMs;
+    if (waitAtMs === undefined) {
+      return false;
+    }
+    const aheadMs = waitAtMs - where.expectedMs;
+    if (aheadMs > leaveDriftUpToMs && aheadMs <= waitAheadAtMostMs + seekDriftBeyondMs) {
+      return true;
+    }
+    this.#waitAtMs = undefined;
+    return false;
+  }
+
+  /**
+   * Seeks to catch up with the group at toMs, ahead by catchUpLeadMs, and says it fell behind if it
+   * had been in step. A viewer waits there for the group; a leading player's pause would be its
+   * person's command, so the host plays on from there.
    */
   #catchUp(toMs: number, groupRate: number): void {
     if (this.#hasCaughtUp) {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
-    this.#seek(toMs + Math.min(this.#lastLoadMs, aimAheadAtMostMs) * groupRate);
+    const targetMs = toMs + this.#catchUpLeadMs(groupRate);
+    this.#seek(targetMs);
+    this.#waitAtMs = this.#options.isLeading ? undefined : targetMs;
+  }
+
+  /**
+   * How far ahead of the group a catch-up seek aims: by how long its last seek took to load, and
+   * then by how long its link takes to load refillAheadMs, as measured, so the group finds it with
+   * a full buffer rather than a thin one (D247 §4, amended 2026-10-06); at most waitAheadAtMostMs,
+   * and never less than the last load's time alone, which is all it aims by with no measure yet.
+   */
+  #catchUpLeadMs(groupRate: number): number {
+    const aimMs = Math.min(this.#lastLoadMs, aimAheadAtMostMs) * groupRate;
+    const ratio = this.#loadRatio;
+    if (ratio === undefined) {
+      return aimMs;
+    }
+    const refillWallMs = ratio > 0 ? refillAheadMs / ratio : Number.POSITIVE_INFINITY;
+    return Math.max(
+      aimMs,
+      Math.min(waitAheadAtMostMs, (this.#lastLoadMs + refillWallMs) * groupRate),
+    );
   }
 
   /** Holds the player paused at the group's position: Paused, Waiting or Idle. */
   #holdAt(where: GroupNow): void {
     const media = this.#media;
+    this.#waitAtMs = undefined; // a group that stops is followed where it stopped
     media.playbackRate = where.group.rate;
     if (!media.paused) {
       media.pause();
@@ -490,6 +593,17 @@ class GroupFollower {
  * position; a paused player never steps over that gap as a playing one does, is never ready, and
  * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac).
  */
+/** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
+function loadedEndMs(media: FollowedMedia): number | undefined {
+  const { buffered, currentTime } = media;
+  for (let index = 0; index < buffered.length; index++) {
+    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
+      return buffered.end(index) * 1000;
+    }
+  }
+  return undefined;
+}
+
 /** Whether the player's position is on something it loaded, to within a millisecond. */
 function isOnLoaded(media: FollowedMedia): boolean {
   const { buffered, currentTime } = media;
