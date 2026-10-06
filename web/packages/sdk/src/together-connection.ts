@@ -118,6 +118,16 @@ const startingSnapshot: TogetherSnapshot = {
   lastRejectionCode: undefined,
 };
 
+/** Whether next keeps playing the film current plays, at its rate: the same timeline, told again. */
+function isSameTimeline(current: GroupView | undefined, next: GroupView): current is GroupView {
+  return (
+    current?.state === "Playing" &&
+    next.state === "Playing" &&
+    current.fileId === next.fileId &&
+    current.rate === next.rate
+  );
+}
+
 /** The snapshot after one message from the server, and whether it was the welcome. */
 function afterMessage(
   current: TogetherSnapshot,
@@ -137,6 +147,14 @@ function afterMessage(
         minimumRttMs: undefined,
       };
     case "group":
+      if (isSameTimeline(current.group, message.group)) {
+        // News of a group that plays on as it was, "continuing without" someone, moves no one: the
+        // timeline stays the one first heard, so each message's own delay on the way does not nudge
+        // every player. Re-based on each, a host on a tethered link was nudged every few seconds
+        // while a viewer kept catching up, and Firefox's sound drifted ahead of its picture
+        // (staging, 2026-10-06).
+        return { ...current, group: { ...message.group, positionMs: current.group.positionMs } };
+      }
       return { ...current, group: message.group, groupReceivedAtMs: nowMs };
     case "roster":
       return { ...current, roster: message.roster };
