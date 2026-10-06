@@ -11,6 +11,11 @@
   align-content: start;
 }
 
+.together-viewer__logo {
+  height: 1.375rem;
+  width: auto;
+}
+
 .together-viewer__heading {
   margin: 0;
 }

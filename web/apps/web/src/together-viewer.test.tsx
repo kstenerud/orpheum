@@ -77,8 +77,13 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/join": [200, joined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // The product's wordmark heads the join card, and then the session's page.
+    const wordmark = (): Element | null =>
+      mounted.container.querySelector('img[alt="Orpheum"][src$="orpheum-logo.svg"]');
+    expect(wordmark()).not.toBeNull();
     await enter(mounted.container.querySelector("input"), "Gran");
     await submit(mounted.container.querySelector("form"));
+    expect(wordmark()).not.toBeNull();
     expect(heard).toEqual([
       { methodAndPath: "POST /together/join", body: { secret: "link-secret", name: "Gran" } },
     ]);

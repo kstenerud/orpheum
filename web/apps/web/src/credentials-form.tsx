@@ -4,11 +4,13 @@ import "./credentials-form.css";
 
 import type { JSX, ReactNode } from "react";
 
+import logo from "./assets/orpheum-logo.svg";
 import { submitWith } from "./form-row.tsx";
+import { productName } from "./product-name.ts";
 
 /**
- * The page every way in is: signing in, registering, a device code. One form, headed, alone in
- * the middle of the page, so the three look the same and share one set of styles.
+ * The page every way in is: signing in, registering, a device code. The product's mark above one
+ * form, headed, in the middle of the page, so the three look the same and share one set of styles.
  */
 export function CredentialsForm(props: {
   readonly heading: string;
@@ -17,6 +19,7 @@ export function CredentialsForm(props: {
 }): JSX.Element {
   return (
     <main className="credentials-form">
+      <img className="credentials-form__logo" src={logo} alt={productName} />
       <form className="credentials-form__form" onSubmit={submitWith(props.onSubmit)}>
         <h1>{props.heading}</h1>
         {props.children}
@@ -48,6 +51,7 @@ export function CredentialsNotice(props: {
 }): JSX.Element {
   return (
     <main className="credentials-form">
+      <img className="credentials-form__logo" src={logo} alt={productName} />
       <section className="credentials-form__form">
         <h1>{props.heading}</h1>
         {props.children}
