@@ -18,6 +18,7 @@ export type Route =
   | { readonly screen: "people" }
   | { readonly screen: "person"; readonly userId: number }
   | { readonly screen: "account" }
+  | { readonly screen: "this-device" }
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
@@ -63,6 +64,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/people\/?$/u, toRoute: () => ({ screen: "people" }) },
   { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (userId) => ({ screen: "person", userId }) },
   { pattern: /^\/account\/?$/u, toRoute: () => ({ screen: "account" }) },
+  { pattern: /^\/this-device\/?$/u, toRoute: () => ({ screen: "this-device" }) },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },

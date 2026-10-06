@@ -25,6 +25,7 @@ interface Destination {
     | "settings"
     | "jobs"
     | "system"
+    | "thisDevice"
     | "account"
     | "about";
   /** Who it shows to: everyone, an admin, or a person whose role may host Watch Together. */
@@ -57,6 +58,7 @@ const destinations: readonly Destination[] = [
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },
+  { route: { screen: "this-device" }, labelKey: "thisDevice", audience: "everyone", group: "own" },
   { route: { screen: "account" }, labelKey: "account", audience: "everyone", group: "own" },
   { route: { screen: "about" }, labelKey: "about", audience: "everyone", group: "own" },
 ];

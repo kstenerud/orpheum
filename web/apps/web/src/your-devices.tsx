@@ -189,7 +189,7 @@ function DeviceSound(props: {
 }
 
 /** A device's name, which can be changed in place. */
-function DeviceName(props: {
+export function DeviceName(props: {
   readonly device: Device;
   readonly onRename: (device: Device, name: string) => void;
 }): JSX.Element {
