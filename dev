@@ -126,7 +126,9 @@ def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, 
     publish = env.get("ORPHEUM_DEV_PUBLISH", DEFAULT_PUBLISH)
     args = [engine, "run", "--detach", "--init", "--label", f"{LABEL}=1",
             "--mount", f"type=bind,src={root},dst={root}",
-            "--env", f"DEV_LISTEN={CONTAINER_LISTEN}"]
+            "--env", f"DEV_LISTEN={CONTAINER_LISTEN}",
+            # tc shapes the container's own loopback for make test-acceptance (D252 §1).
+            "--cap-add", "NET_ADMIN"]
     if engine == "podman":
         args.append("--userns=keep-id")  # rootless podman: map the host user to the same uid inside
     cache_dir = env.get(CACHE_DIR_ENV)

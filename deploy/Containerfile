@@ -106,9 +106,12 @@ ENV PATH=/opt/node/bin:$PATH
 # ---------------------------------------------------------------------------------------------
 FROM toolchain AS dev
 
-# shellcheck: `make check-scripts`.
+# shellcheck: `make check-scripts`. iproute2's tc: `make test-acceptance` shapes the container's
+# loopback with netem (D252 §1), as the developer, by the file capability set here; `./dev` gives
+# the container the right to (NET_ADMIN), which no other step uses.
 RUN apt-get update -q \
- && apt-get install -y -q --no-install-recommends shellcheck \
+ && apt-get install -y -q --no-install-recommends shellcheck iproute2 libcap2-bin \
+ && setcap cap_net_admin+ep "$(command -v tc)" \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=fetch /opt/orpheum/tools/mkvtoolnix /opt/orpheum/tools/mkvtoolnix

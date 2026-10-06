@@ -141,6 +141,8 @@ class RunArgs(unittest.TestCase):
 
     def test_the_clone_is_mounted_at_its_own_path(self):
         self.assertIn("type=bind,src=/home/k/orpheum,dst=/home/k/orpheum", pairs(self.run_args(), "--mount"))
+        # tc shapes the container's loopback for make test-acceptance (D252 §1), and nothing more.
+        self.assertEqual(pairs(self.run_args(), "--cap-add"), ["NET_ADMIN"])
 
     def test_the_caches_are_named_volumes(self):
         mounts = pairs(self.run_args(), "--mount")
