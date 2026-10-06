@@ -184,6 +184,17 @@ environment, never a `.env` file (`envDir: false`), and refuses to serve without
   server's `message`. `code` is typed as a string (the OpenAPI document declares no
   enumeration), so a new code falls to the general words rather than breaking a `switch`. —
   `no-restricted-syntax` (the server's message is never shown); the rest review-only.
+- **Every failure we expect has words of its own; the general words mean a bug.** The owner,
+  2026-10-06: *"Unknown Error should only happen for truly novel situations, and be a prod for
+  us to find and fix the bug, then produce messaging for that scenario."* A failure the client
+  can foresee gets a code and its own words: the server's codes, the network's own failure
+  (`unreachable`), and an answer from something in front of the server rather than the server,
+  which the SDK's client gives a code of its own (`not_answering` for a gateway's 502, 503 or
+  504; `unreadable_answer` for any other, which nothing expected sends). Only a failure no one
+  foresaw reaches `problem.unknown`, whose words say it is likely a bug; when one turns up, find
+  its cause, fix it, and give it words. A screen that asks again by itself says so
+  (`willAskAgain`), so the person knows they need not. — `client.test.ts`, `use-resource.test.ts`;
+  the rest review-only.
 - **Parse, don't assert.** Data from outside (a WebSocket message, `localStorage`, a URL
   parameter) is `unknown` until a parser returns a typed value. — `consistent-type-assertions`.
 - **No swallowed rejection.** `no-floating-promises`, `no-misused-promises`. An empty `catch`

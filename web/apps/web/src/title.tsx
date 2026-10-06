@@ -209,7 +209,8 @@ function Extras(props: {
 
 /**
  * Shows what a resource holds, or that it is loading, or why it failed: in problemText's words,
- * or in describeProblem's for a screen that knows more about its failures.
+ * or in describeProblem's for a screen that knows more about its failures, and that it is asked
+ * for again by itself when its poller will.
  */
 export function Loaded<T>(props: {
   readonly resource: Resource<T>;
@@ -223,7 +224,12 @@ export function Loaded<T>(props: {
   }
   if (resource.state === "failed") {
     const describe = props.describeProblem ?? ((cause: unknown) => problemText(t, cause));
-    return <p role="alert">{describe(resource.cause)}</p>;
+    const why = describe(resource.cause);
+    return (
+      <p role="alert">
+        {resource.willAskAgain === true ? `${why} ${t("problem.askingAgain")}` : why}
+      </p>
+    );
   }
   return props.render(resource.value);
 }

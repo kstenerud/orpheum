@@ -79,13 +79,16 @@ export const en = {
     nextCheck: "; it will be checked again at {{at}}",
     preparing: "It is still being prepared. Wait a moment.",
     prepareFailed: "This could not be prepared for this device.",
-    migrating: "The server is updating. Try again in a minute.",
+    migrating: "The server is starting up, or updating. It will answer in a moment.",
     setupRequired: "The server has not been set up yet.",
     internal:
       "Something went wrong on the server. Try again; if it keeps happening, the server's log says why.",
     unreachable: "The server could not be reached. Check the connection and try again.",
+    notAnswering:
+      "The server is not answering: it may be restarting, or the machine it runs on may be off.",
+    askingAgain: "This page tries again by itself.",
     unknown:
-      "Something went wrong. Try again; if it keeps happening, the server's log may say why.",
+      "Something went wrong that this app does not expect, which is likely a bug. Try again; the browser's console and the server's log say what happened.",
     providerReason: {
       noKey: "The outside service has no key set up. An admin can set it in Settings.",
       keyRefused: "The outside service refused its key. An admin can change it in Settings.",

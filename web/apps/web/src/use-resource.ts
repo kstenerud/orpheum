@@ -8,12 +8,13 @@ import type { AskOutcome, Poller } from "./polling.ts";
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
  * its cause, which a screen tells the person in their words (problemText), and the console is
- * told it as it is (reportFailure).
+ * told it as it is (reportFailure); one a poller will ask again after says so (willAskAgain), so
+ * the person is told they need not.
  */
 export type Resource<T> =
   | { readonly state: "loading" }
   | { readonly state: "loaded"; readonly value: T }
-  | { readonly state: "failed"; readonly cause: unknown };
+  | { readonly state: "failed"; readonly cause: unknown; readonly willAskAgain?: boolean };
 
 /**
  * Loads a value when the component mounts and whenever key changes, and reloads when the returned
@@ -54,7 +55,8 @@ export function useResource<T>(
           reportFailure(cause);
           lastAnswer = undefined;
           if (isCurrent) {
-            setHeld({ key, resource: { state: "failed", cause } });
+            const asked = poller === undefined ? {} : { willAskAgain: true };
+            setHeld({ key, resource: { state: "failed", cause, ...asked } });
           }
           answered?.("failed");
         },

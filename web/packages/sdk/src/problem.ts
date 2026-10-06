@@ -74,20 +74,41 @@ function problemOf(errorBody: { error: ProblemBody } | undefined): Error {
     : new ApiProblem(errorBody.error);
 }
 
-/** The ApiProblem in an error answer's body, or one naming only its status when it has none. */
-export async function problemFromAnswer(answer: Response): Promise<ApiProblem> {
+/**
+ * The codes this client gives an error answer that is not in the server's shape, which the server
+ * never sends: something between the client and the server answered instead. not_answering is a
+ * gateway's 502, 503 or 504, which a proxy in front of a server that is down or restarting
+ * answers (Vite's dev proxy among them); unreadable_answer is any other, which nothing expected
+ * sends, so its words are the general ones and the console says what came.
+ */
+export const notAnsweringCode = "not_answering";
+export const unreadableAnswerCode = "unreadable_answer";
+
+/** The problem for an error answer with status that is not in the server's shape. */
+export function foreignAnswerProblem(status: number): UnknownProblemBody {
+  const isGateway = status === 502 || status === 503 || status === 504;
+  return {
+    code: isGateway ? notAnsweringCode : unreadableAnswerCode,
+    message: `something other than the server answered ${String(status)}`,
+  };
+}
+
+/** The server's error in an answer's body, or undefined when the body is not in its shape. */
+export async function serversProblemIn(answer: Response): Promise<UnknownProblemBody | undefined> {
   try {
     const body: unknown = await answer.json();
     if (typeof body === "object" && body !== null && "error" in body && isProblemBody(body.error)) {
-      return new ApiProblem(body.error);
+      return body.error;
     }
   } catch {
-    // Not our error shape; the status says what there is.
+    // Not JSON: not the server's shape.
   }
-  return new ApiProblem({
-    code: "internal",
-    message: `the server answered ${String(answer.status)}`,
-  });
+  return undefined;
+}
+
+/** The ApiProblem in an error answer's body, or foreignAnswerProblem's when it is not the server's. */
+export async function problemFromAnswer(answer: Response): Promise<ApiProblem> {
+  return new ApiProblem((await serversProblemIn(answer)) ?? foreignAnswerProblem(answer.status));
 }
 
 /** Whether a value is the server's error shape: a code and a message. */

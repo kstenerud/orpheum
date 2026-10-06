@@ -71,8 +71,19 @@ describe("browse", () => {
         state: "failed",
         cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
       }),
-    ).toContain("The server is updating. Try again in a minute.");
+    ).toContain("The server is starting up, or updating. It will answer in a moment.");
     expect(itemRoute("series", 4)).toEqual({ screen: "series-page", collectionId: 4 });
+  });
+
+  it("says a server down behind its proxy is not answering, and that the list asks again by itself", () => {
+    const shown = renderBrowseView({
+      state: "failed",
+      cause: new ApiProblem({ code: "not_answering", message: "502" }),
+      willAskAgain: true,
+    });
+    expect(shown).toContain("The server is not answering: it may be restarting");
+    expect(shown).toContain("This page tries again by itself.");
+    expect(shown).not.toContain("Something went wrong");
   });
 });
 

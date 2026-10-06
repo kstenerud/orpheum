@@ -62,7 +62,8 @@ describe("waiting for a prepared rendition", () => {
       fetch: () => Promise.resolve(fakeResponse(500, {}, "not json")),
       sleep: () => Promise.resolve(),
     }).catch((cause: unknown) => cause);
-    expect(shapeless instanceof ApiProblem ? shapeless.code : "").toBe("internal");
+    // The server's own 500 is in its shape: one that is not came from something in front of it.
+    expect(shapeless instanceof ApiProblem ? shapeless.code : "").toBe("unreadable_answer");
   });
 
   it("gives up after its attempts", async () => {

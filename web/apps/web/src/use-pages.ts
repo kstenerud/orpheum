@@ -175,5 +175,10 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>, poller?:
       },
     );
   };
-  return { loadedSoFar, isLoadingMore, loadMore };
+  // A failure its poller reads again after says so: the poller, not the read, decides it.
+  const shownSoFar =
+    loadedSoFar.state === "failed" && poller !== undefined
+      ? { ...loadedSoFar, willAskAgain: true }
+      : loadedSoFar;
+  return { loadedSoFar: shownSoFar, isLoadingMore, loadMore };
 }
