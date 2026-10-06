@@ -6,6 +6,7 @@ import type { TogetherSocketListeners } from "./together.ts";
 import { firstReconnectWaitMs } from "./together-connection.ts";
 import {
   createTogetherVoice,
+  partnerGainMost,
   microphoneFailureOf,
   type TogetherVoice,
   type VoiceCall,
@@ -344,6 +345,12 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     voice.setPartnerGain(0.4);
     expect(calls.map((call) => call.gain)).toEqual([0.4, 0.4]);
     expect(voice.snapshot().partnerGain).toBe(0.4);
+    // A quiet microphone is made louder than it came, up to partnerGainMost.
+    voice.setPartnerGain(3);
+    expect(calls.map((call) => call.gain)).toEqual([3, 3]);
+    voice.setPartnerGain(9);
+    expect(voice.snapshot().partnerGain).toBe(partnerGainMost);
+    voice.setPartnerGain(0.4);
     server.tell({
       type: "roster",
       roster: [...roster, { id: 6, name: "Bo", devices: [{ id: 50, role: "voice" }] }],

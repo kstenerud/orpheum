@@ -281,12 +281,13 @@ func togetherDefinitions() []Definition {
 			StartSource: "the browser's own default; safari-versions.md §3 (device test T2) is to settle it",
 		},
 		{
-			Key: ShouldTogetherVoiceProcessMicrophone, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Key: ShouldTogetherVoiceProcessMicrophone, Kind: KindBool, StartJSON: json.RawMessage("false"),
 			Description: "whether the browser's echo cancelling, noise suppression and gain control work on a Watch " +
 				"Together person's microphone; with headphones none is needed (D63), and on Android they may " +
 				"put the phone in a call, turning the film down and taking its volume buttons",
-			StartSource: "the browser's own default; the owner's test, 2026-10-06: the film barely audible on " +
-				"an Android host with voice on",
+			StartSource: "the owner's test, 2026-10-06, an Android host with headphones: with it on the film was " +
+				"barely audible and its volume buttons dead; \"With the flag off I was able to control the volume " +
+				"while talk was enabled\"",
 		},
 	}
 }

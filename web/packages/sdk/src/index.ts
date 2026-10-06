@@ -48,7 +48,7 @@ export type {
   TogetherConnection,
   TogetherSnapshot,
 } from "./together-connection.ts";
-export { createTogetherVoice, microphoneFailureOf } from "./together-voice.ts";
+export { createTogetherVoice, microphoneFailureOf, partnerGainMost } from "./together-voice.ts";
 export type {
   MicrophoneFailure,
   VoiceFailure,

@@ -80,7 +80,7 @@ function playVoice(stream: MediaStream, context: AudioContext | undefined): Play
   if (context === undefined || !isMixed) {
     return {
       setGain: (gain) => {
-        element.volume = gain;
+        element.volume = Math.min(1, gain); // an element plays no louder than it came
       },
       stop: () => {
         element.srcObject = null;
