@@ -290,6 +290,59 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 	}
 }
 
+// Every change to who is in a session is logged, with its ids: a member who vanished from a host's
+// list on staging could be explained only by reading the code (2026-10-06).
+func TestTogether_LogsWhoOpenedJoinedLeftAndEnded(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	var link TogetherLinkOutput
+	if err := json.Unmarshal([]byte(harness.do(t, http.MethodPost, path+"/links", admin,
+		map[string]string{"adminNote": "a cousin"}).body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	var membership JoinTogetherOutput
+	if err := json.Unmarshal([]byte(harness.do(t, http.MethodPost, "/together/join", "",
+		map[string]any{"secret": link.Body.Secret, "name": "Kim"}).body), &membership.Body); err != nil {
+		t.Fatal(err)
+	}
+	harness.do(t, http.MethodPost, "/together/leave", membership.Body.MembershipCredential, nil)
+	harness.do(t, http.MethodDelete, path, admin, nil)
+	logged := harness.logs.String()
+	for _, want := range []string{
+		"watch together: a host opened a session", "watch together: the host made a link",
+		"watch together: someone joined by a link", "watch together: a member left at their own asking",
+		"watch together: the host ended the session",
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log does not say %q", want)
+		}
+	}
+	if !strings.Contains(logged, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID)) {
+		t.Errorf("the log does not name the member who joined and left, %d", membership.Body.MemberID)
+	}
+}
+
+// A device's connection is logged with whose it is: the log is read once its welcome came, which
+// the server sends after saying so, and before anything else could write.
+func TestTogether_LogsADeviceConnecting(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
+	harness.dialTogether(t, membership.Body.MembershipCredential).awaitWelcome()
+	ids := fmt.Sprintf(`"sessionId":%d,"memberId":%d`, opened.Body.SessionID, membership.Body.MemberID)
+	for line := range strings.Lines(harness.logs.String()) {
+		if strings.Contains(line, `"watch together: a device connected"`) && strings.Contains(line, ids) {
+			return
+		}
+	}
+	t.Errorf("the log does not say a device of %s connected:\n%s", ids, harness.logs.String())
+}
+
 // Each member, the host and a viewer, is handed relay credentials of their own for the session
 // they are in, by their membership credential, and nothing for another session (D243 §8).
 func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {

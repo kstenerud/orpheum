@@ -25,6 +25,6 @@ remux_slot_count = 2
 slowest_read_mib_per_second = 20
 
 [log]
-level = "info"
+level = "debug"
 format = "text"
 destination = "stderr"

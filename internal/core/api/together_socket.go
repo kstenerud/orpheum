@@ -64,21 +64,32 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		select {
 		case outbox <- message:
 		default:
-			closing.Do(cancel) // too far behind: it reads nothing
+			closing.Do(func() {
+				server.logger.WarnContext(ctx, "watch together: a device fell too far behind; closing it")
+				cancel()
+			}) // too far behind: it reads nothing
 		}
 	}
 	attachment, err := dependencies.Together.Attach(hello.Credential, hello.Role, hello.CanSetRate, person, send)
 	if err != nil {
+		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
+			"role", string(hello.Role), "err", err)
 		_ = connection.Close(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
 		return
 	}
+	device := []any{
+		"sessionId", attachment.SessionID, "memberId", attachment.MemberID, "deviceId", attachment.DeviceID,
+		"role", string(hello.Role),
+	}
+	server.logger.InfoContext(ctx, "watch together: a device connected", device...)
 	written := make(chan struct{})
 	go func() {
 		defer close(written)
 		writeOutbox(ctx, connection, outbox, cancel)
 	}()
-	readInto(ctx, connection, dependencies.Together, attachment)
+	ended := readInto(ctx, connection, dependencies.Together, attachment)
 	dependencies.Together.Detach(attachment) // nothing is sent to it after this
+	server.logger.InfoContext(ctx, "watch together: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
 	<-written
 }
@@ -97,12 +108,15 @@ func readHello(ctx context.Context, connection *websocket.Conn) (together.Inboun
 	return hello, nil
 }
 
-// readInto hands each message the device sends to the hub, until the socket or ctx ends.
-func readInto(ctx context.Context, connection *websocket.Conn, hub *together.Hub, attachment together.Attachment) {
+// readInto hands each message the device sends to the hub, until the socket or ctx ends, and says
+// why it ended: the close the device sent, the connection lost, or the server closing it.
+func readInto(
+	ctx context.Context, connection *websocket.Conn, hub *together.Hub, attachment together.Attachment,
+) error {
 	for {
 		var message together.Inbound
 		if err := wsjson.Read(ctx, connection, &message); err != nil {
-			return
+			return err //nolint:wrapcheck // the socket's own words are the why
 		}
 		hub.Handle(ctx, attachment, message)
 	}
