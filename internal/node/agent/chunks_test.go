@@ -12,12 +12,16 @@ import (
 )
 
 // fakeChunkMaker makes every chunk of the run in turn, telling each, and ends; a run of a store
-// named "...failing..." fails after its first chunk, as FFmpeg does on bytes it cannot read.
+// named "...failing..." fails after its first chunk, as FFmpeg does on bytes it cannot read, and
+// one named "...panicking..." panics, as the node's own code reading FFmpeg's output might.
 type fakeChunkMaker struct{}
 
 func (fakeChunkMaker) Make(
 	_ context.Context, _ string, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
+	if strings.Contains(command.StoreDir, "panicking") {
+		panic("a box shorter than its header")
+	}
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	if strings.Contains(command.StoreDir, "failing") {
 		last = command.FirstChunk
@@ -92,5 +96,31 @@ func TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade(t *tes
 	if refused := receiveChunksReport(t, core); refused.State != nodeproto.PrepareRefused ||
 		refused.RefusalCode != nodeproto.RefusedChanged || refused.LastChunk != -1 {
 		t.Errorf("a run of a changed video ended %+v; want refused untried (D100)", refused)
+	}
+}
+
+// A job whose work panics in the node's own code ends alone and says why to the core; the node goes
+// on, and makes the next run (D248 §2).
+func TestAgent_AJobThatPanicsSaysSoAndTheNodeGoesOn(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	core.sendMakeChunks(1, nodeproto.MakeChunks{
+		Video: video, StoreDir: "1/chunks-panicking/0123456789abcdef", FirstChunk: 0,
+		BoundsMs: []int64{0, 2000}, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+	})
+	select {
+	case crashed := <-core.crashes:
+		if crashed.JobID != 1 || !strings.Contains(crashed.Crashed, "a box shorter than its header") {
+			t.Errorf("the node said %+v; want job 1's crash, with the panic", crashed)
+		}
+	case <-t.Context().Done():
+		t.Fatal("the node said nothing of the job that panicked")
+	}
+	core.sendMakeChunks(2, nodeproto.MakeChunks{
+		Video: video, StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 0,
+		BoundsMs: []int64{0, 2000}, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+	})
+	if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone {
+		t.Errorf("the next run ended %+v; want it made, the node going on", done)
 	}
 }
