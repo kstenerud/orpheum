@@ -4,6 +4,7 @@ import "./together-voice.css";
 
 import {
   createTogetherVoice,
+  partnerGainMost,
   type Api,
   type TogetherVoice,
   type VoiceSnapshot,
@@ -117,7 +118,7 @@ function VoiceOn(props: {
         <input
           type="range"
           min={0}
-          max={100}
+          max={partnerGainMost * 100}
           value={Math.round(snapshot.partnerGain * 100)}
           onChange={(event) => {
             voice.setPartnerGain(Number(event.target.value) / 100);

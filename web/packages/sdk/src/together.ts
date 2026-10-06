@@ -115,7 +115,7 @@ export const startingTuning: SyncTuning = {
   catchUpBufferPercent: 80,
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
-  shouldProcessMicrophone: true,
+  shouldProcessMicrophone: false,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */

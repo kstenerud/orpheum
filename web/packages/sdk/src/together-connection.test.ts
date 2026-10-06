@@ -168,7 +168,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       catchUpBufferPercent: 60,
       settleAfterChangeMs: 450,
       shouldNudgeKeepPitch: false,
-      shouldProcessMicrophone: false,
+      shouldProcessMicrophone: true,
     };
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning }));
     expect(connection.snapshot().tuning).toEqual(tuning);

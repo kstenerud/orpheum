@@ -80,7 +80,7 @@ export interface VoiceCall {
   readonly accept: (answerSdp: string) => Promise<void>;
   /** Takes one of the other's ICE candidates, as the JSON text it sent. */
   readonly addCandidate: (candidate: string) => Promise<void>;
-  /** How loud the other device's voice plays, from 0 (silent) to 1 (as it came). */
+  /** How loud the other device's voice plays, from 0 (silent) through 1 (as it came) to louder. */
   readonly setGain: (gain: number) => void;
   readonly close: () => void;
 }
@@ -126,7 +126,10 @@ export interface VoiceSnapshot {
    */
   readonly browserReason: string | undefined;
   readonly isMuted: boolean;
-  /** How loud the others' voices play, from 0 to 1: apart from the film's volume. */
+  /**
+   * How loud the others' voices play, from 0 to partnerGainMost, 1 as they came: apart from the
+   * film's volume.
+   */
   readonly partnerGain: number;
   /** Whether the voice device's own connection to the session is up. */
   readonly isConnected: boolean;
@@ -161,6 +164,13 @@ export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> {
   readonly fetchIceServers: () => Promise<readonly RTCIceServer[]>;
   readonly devices: VoiceDevices<Microphone>;
 }
+
+/**
+ * The most the others' voices are made louder than they came: a microphone with no gain control
+ * (shouldProcessMicrophone off) came through too quiet beside the film even at 1 (the owner's
+ * test, 2026-10-06).
+ */
+export const partnerGainMost = 4;
 
 const offSnapshot: VoiceSnapshot = {
   status: "off",
@@ -329,7 +339,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   };
 
   readonly setPartnerGain = (gain: number): void => {
-    const partnerGain = Math.min(1, Math.max(0, gain));
+    const partnerGain = Math.min(partnerGainMost, Math.max(0, gain));
     for (const entry of this.#calls.values()) {
       entry.call?.setGain(partnerGain);
     }
