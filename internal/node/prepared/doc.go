@@ -18,6 +18,9 @@
 //   - A rendition within its kept time is evicted only when the budget or the disk still needs it,
 //     after every rendition past its kept time; one being written, never.
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
+//   - One being watched, served within node.prepared_watched_minutes, is never evicted either,
+//     whatever the disk says; a prepare the disk then has no room for is refused instead, so a film
+//     playing does not break (the owner, 2026-10-06). TestEvict_NeverRemovesOneBeingWatched.
 //   - A prepare the disk has no room for is refused, with why.
 //     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
 //   - Each made rendition has a manifest beside it (nodeproto.ManifestName), so a node holding no

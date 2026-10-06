@@ -24,6 +24,9 @@ type Budget struct {
 	// KeptAfterLastPlay is how long after its last play a rendition is kept before any past it is
 	// evicted.
 	KeptAfterLastPlay time.Duration
+	// WatchedWithin is how recently a rendition served a file for it to count as being watched,
+	// which eviction never removes (node.prepared_watched_minutes; the owner, 2026-10-06).
+	WatchedWithin time.Duration
 	// DiskUsedLimitPercent is how full the directory's filesystem may be, whatever MaxBytes says: a
 	// fixed budget cannot know what else shares the disk.
 	DiskUsedLimitPercent int
@@ -133,7 +136,8 @@ type run struct {
 
 // Evict removes renditions, least recently used first, until the directory is within its budget
 // and its disk within its limit: every one past its kept time before any within it, and never one
-// being written. It returns what is left.
+// being written or being watched (served within WatchedWithin). It returns what is left; a disk
+// still past its limit then refuses the next prepare (MakeRoom), rather than break a film playing.
 func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 	runs, err := shelf.listRuns()
 	if err != nil {
@@ -149,21 +153,18 @@ func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 	}
 	now := shelf.clock.Now()
 	isPastKeptTime := func(each run) bool { return now.Sub(each.lastUse) >= shelf.budget.KeptAfterLastPlay }
-	// Oldest first, and every one past its kept time before any within it.
-	slices.SortStableFunc(runs, func(one, other run) int {
-		if isPastKeptTime(one) != isPastKeptTime(other) {
-			if isPastKeptTime(one) {
-				return -1
-			}
-			return 1
-		}
-		return one.lastUse.Compare(other.lastUse)
-	})
+	isWatched := func(each run) bool { return now.Sub(each.lastUse) < shelf.budget.WatchedWithin }
+	var spared []string
+	sortForEviction(runs, isPastKeptTime)
 	for _, each := range runs {
 		if usage.UsedBytes <= shelf.budget.MaxBytes && usage.isDiskWithin() {
 			break
 		}
 		if shelf.isWriting(each.renditionDir) {
+			continue
+		}
+		if isWatched(each) {
+			spared = append(spared, each.renditionDir)
 			continue
 		}
 		if removeErr := shelf.removeRun(each.renditionDir); removeErr != nil {
@@ -175,10 +176,37 @@ func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 			return Usage{}, err
 		}
 	}
+	shelf.logKeptWatched(ctx, spared, usage)
 	shelf.mutex.Lock()
 	shelf.lastUsage = usage
 	shelf.mutex.Unlock()
 	return usage, nil
+}
+
+// sortForEviction orders runs as eviction takes them: oldest first, and every one past its kept time
+// before any within it.
+func sortForEviction(runs []run, isPastKeptTime func(run) bool) {
+	slices.SortStableFunc(runs, func(one, other run) int {
+		if isPastKeptTime(one) != isPastKeptTime(other) {
+			if isPastKeptTime(one) {
+				return -1
+			}
+			return 1
+		}
+		return one.lastUse.Compare(other.lastUse)
+	})
+}
+
+// logKeptWatched says, once per eviction, which renditions being watched were kept though the
+// directory or its disk still needs room, which the next prepare's refusal follows from.
+func (shelf *Shelf) logKeptWatched(ctx context.Context, spared []string, usage Usage) {
+	if len(spared) == 0 || (usage.UsedBytes <= shelf.budget.MaxBytes && usage.isDiskWithin()) {
+		return
+	}
+	shelf.logger.WarnContext(ctx, "kept prepared renditions being watched though the directory or its disk needs room",
+		"watched", spared, "usedMiB", usage.UsedBytes>>20, "budgetMiB", usage.BudgetBytes>>20,
+		"diskUsedPercent", usage.DiskUsedPercent, "diskUsedLimitPercent", usage.DiskUsedLimitPercent,
+		"diskFreeMiB", usage.DiskAvailableBytes>>20, "diskMinFreeMiB", usage.DiskMinFreeBytes>>20)
 }
 
 // logEviction says what an eviction removed and why, with the numbers that made it: a rendition
