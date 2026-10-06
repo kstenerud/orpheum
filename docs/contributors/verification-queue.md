@@ -180,9 +180,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   allocation on the same relay back in (D243 §7, §8). (`internal/core/turn/relay.go`, M4 Phase F/G)
 - [ ] **VQ20** — On the iPhone, and in a desktop browser, against staging: look at the sign-in
   page, Films, a title's page, Watch Together with a link made (its QR code), the joining page a
-  scanned link opens, the viewer's page, and Jobs. Passes when every page is dark with teal only
+  scanned link opens, the viewer's page, and Jobs. Passes when every page is dark with coral only
   on its main action and the current place, nothing is cut off or runs past the screen's edge,
   every field and button is the skin's and none the browser's default, and the QR code scans
   from another phone. Only an eye can say a page looks right
-  ([D251](decisions/working-notes.md#d251--the-web-clients-first-skin-is-dark-with-one-teal-accent-the-system-typeface-and-slightly-rounded-corners)).
+  ([D251](decisions/working-notes.md#d251--the-web-clients-first-skin-is-dark-with-one-coral-accent-the-system-typeface-and-slightly-rounded-corners)).
   (`web/apps/web/src/*.css`, `base.css`)
