@@ -13,6 +13,18 @@ type ContainerName = NonNullable<PlayableFormats["containers"]>[number];
 export interface MediaProbe {
   readonly canPlayType: (type: string) => string;
   readonly isTypeSupported: (type: string) => boolean;
+  /** The browser's user agent, for the claims it is not taken at its word on. */
+  readonly userAgent?: string;
+}
+
+/**
+ * Whether the browser's yes to HEVC is not believed. Firefox 156 on a Mac says it plays HEVC, 10-bit
+ * HDR and 8-bit, and played a copied HEVC picture not at all: it loaded and never showed a frame
+ * (the owner's test, 2026-10-06). Firefox is given H.264 until a player that cannot decode what it
+ * was given says so and is given another (the owner's choice: this is temporary).
+ */
+function isHevcClaimDoubted(userAgent: string | undefined): boolean {
+  return userAgent?.includes("Firefox/") === true;
 }
 
 // One representative codec string per menu entry: the entry is a named bundle (D21), so asking
@@ -44,9 +56,13 @@ const containerProbes: readonly (readonly [ContainerName, readonly string[]])[] 
 export function playableFormatsFrom(probe: MediaProbe): PlayableFormats {
   const isPlayable = (type: string): boolean =>
     probe.isTypeSupported(type) || probe.canPlayType(type) !== "";
+  const isDoubted = (name: VideoCodecName): boolean =>
+    name.startsWith("hevc-") && isHevcClaimDoubted(probe.userAgent);
   return {
     videoCodecs: [
-      ...videoCodecProbes.filter(([, type]) => isPlayable(type)).map(([name]) => name),
+      ...videoCodecProbes
+        .filter(([name, type]) => !isDoubted(name) && isPlayable(type))
+        .map(([name]) => name),
       "h264-sdr",
     ],
     audioCodecs: [
@@ -69,5 +85,6 @@ export function browserPlayableFormats(): PlayableFormats {
   return playableFormatsFrom({
     canPlayType: (type) => element.canPlayType(type),
     isTypeSupported: (type) => hasMediaSource && MediaSource.isTypeSupported(type),
+    userAgent: navigator.userAgent,
   });
 }
