@@ -98,6 +98,7 @@ const (
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
+	ChunkHoldMs                                    Key = "chunk_hold_ms"
 )
 
 // Kind is a setting value's JSON type.
@@ -439,6 +440,10 @@ func artworkAndPlaybackDefinitions() []Definition {
 				"picture's height, the width following the film's shape (D247 §6)",
 		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
 			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
+		sourced(integerSetting(ChunkHoldMs, "0", 0, 30_000,
+			"ms a request for a chunk not made yet is held for it before the player is told to ask again; "+
+				"a player counts a hold as the chunk's download, and takes its link for slower (D250 §5)"),
+			"D250 §5: answered at once, where it was held 20 s (playback-in-practice.md §3)"),
 		sourced(integerSetting(ChunkSoundKbps, "96", 32, 320,
 			"kbit/s of the stereo AAC sound a film cut into chunks for a slow link plays with; a change makes "+
 				"each film's sound again, as its own store, when next played (D247 §6)"),

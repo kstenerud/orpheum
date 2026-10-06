@@ -18,10 +18,17 @@ import { nextCap, stepUpHeadroom } from "./step-up.ts";
 
 /**
  * How long a chunk may take to begin arriving: longer than the core holds a request for one a run
- * is still making (internal/core/api's chunkWaitAtMost, 20 s), so a chunk on its way is waited
- * for, not given up on (D247 §10).
+ * is still making, at most 30 s (chunk_hold_ms; by default it does not), so a chunk on its way is
+ * waited for, not given up on (D247 §10).
  */
 export const chunkFirstByteWaitMs = 30_000;
+
+/**
+ * How many times a chunk the core says is being made (425) is asked for again, a second or two
+ * apart: over a minute and a half, longer than a player catching up waits for the run already
+ * making its quality to reach where it jumped to, at most a minute of film ahead (D250 §4, §5).
+ */
+export const chunkAskAgainCount = 90;
 
 /** HTTP's 425 Too Early: the core's word that a chunk is being made, and to ask again. */
 const tooEarly = 425;
@@ -39,9 +46,9 @@ function retriesTooEarly(
 }
 
 /**
- * How a chunked playback loads its chunks: waiting as long as the core does for one being made,
- * and asking again after the core's 425, "being prepared", as it says to; hls.js's own defaults
- * give up after ten seconds, and never ask again after a 425.
+ * How a chunked playback loads its chunks: waiting as long as the core may hold one being made,
+ * and asking again after the core's 425, "being made", every second or two for chunkAskAgainCount
+ * times; hls.js's own defaults give up after ten seconds, and never ask again after a 425.
  */
 export const chunkLoadPolicy: LoadPolicy = {
   default: {
@@ -49,9 +56,9 @@ export const chunkLoadPolicy: LoadPolicy = {
     maxLoadTimeMs: 120_000,
     timeoutRetry: { maxNumRetry: 2, retryDelayMs: 0, maxRetryDelayMs: 0 },
     errorRetry: {
-      maxNumRetry: 12,
+      maxNumRetry: chunkAskAgainCount,
       retryDelayMs: 1000,
-      maxRetryDelayMs: 4000,
+      maxRetryDelayMs: 2000,
       shouldRetry: retriesTooEarly,
     },
   },

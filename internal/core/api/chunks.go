@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
 // ChunksMasterInput asks for the master playlist of a playback's film cut into chunks.
@@ -31,15 +32,11 @@ type ChunkFileInput struct {
 // streamPlaylistName is the name of a stream's playlist, which the core writes itself.
 const streamPlaylistName = "stream.m3u8"
 
-// How a request for a chunk its node has not made waits for it (chunks.md §3): it asks the node
-// again every quarter second, and after 20 seconds the player is told to ask again. A quarter
-// second is under a tenth of a chunk, so a chunk is relayed soon after it is made; 20 seconds is
-// what a run's FFmpeg needs to start and make its first chunk on a slow machine, and under the time
-// hls.js gives a fragment's load before it gives up.
-const (
-	chunkAskEvery   = 250 * time.Millisecond
-	chunkWaitAtMost = 20 * time.Second
-)
+// chunkAskEvery is how often a request held for a chunk its node has not made asks the node again
+// (chunks.md §3): under a tenth of a chunk, so a chunk is relayed soon after it is made. How long it
+// is held is chunk_hold_ms, by default not at all: hls.js counts a hold as the chunk's download,
+// and on a held chunk took a link of megabits for one of kilobits (D250 §5).
+const chunkAskEvery = 250 * time.Millisecond
 
 func (server *Server) registerChunks() {
 	responses := map[string]*huma.Response{
@@ -124,7 +121,7 @@ var errNotMadeYet = errors.New("the node has not made it yet")
 
 // relayChunkFile relays a store's init or chunk from its node. One the node has not made is asked
 // for (chunks.Service.Want), and the node asked again every chunkAskEvery until it has it, for up to
-// chunkWaitAtMost, after which the player is told to ask again (425). It is asked for again on each
+// chunk_hold_ms, after which the player is told to ask again (425). It is asked for again on each
 // look: a run asked for while another of its store waits queued, after a seek, is folded into that
 // one, which makes other chunks, and only a later ask queues it once that one has started. A file
 // the node served is known made. Neither ever changes once made, so it is cached for a day. A file
@@ -134,8 +131,12 @@ func (server *Server) relayChunkFile(
 ) (*huma.StreamResponse, error) {
 	source := playback.Source{NodeID: file.NodeID, Target: file.Target, ContentType: file.ContentType}
 	request := relayRequest{http.MethodGet, source, http.Header{}, cacheForADay}
+	hold, err := dependencies.Settings.Int(ctx, settings.ChunkHoldMs)
+	if err != nil {
+		return nil, server.settingsError(ctx, "read "+string(settings.ChunkHoldMs), err)
+	}
 	askedAt := dependencies.Clock.Now()
-	giveUpAt := askedAt.Add(chunkWaitAtMost)
+	giveUpAt := askedAt.Add(time.Duration(hold) * time.Millisecond)
 	var wait *chunkWait
 	for {
 		answer, err := server.relay(ctx, dependencies, request, func() error { return errNotMadeYet })
@@ -176,7 +177,7 @@ type chunkWait struct {
 }
 
 // How a wait for a file not made yet ended: relayed once made; the player told to ask again after
-// chunkWaitAtMost (425); the player gone before either; or failed.
+// chunk_hold_ms (425); the player gone before either; or failed.
 const (
 	chunkWaitServed     = "served"
 	chunkWaitAskAgain   = "askAgain"

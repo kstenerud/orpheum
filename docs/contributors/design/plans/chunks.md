@@ -64,8 +64,10 @@
   them (D217 §3). Each media playlist is VOD, every chunk from the grid, `#EXT-X-ENDLIST`.
 - **A chunk request** is relayed to the node. When the node has not made it, the core finds a run
   of that store that will reach it soon (its last chunk made is before it, and within about 60 s
-  of film), or queues one from it at play-now priority, and waits for the chunk, asking the node
-  again each quarter second, for up to 20 s; then 425 with `Retry-After`.
+  of film), or queues one from it at play-now priority, and answers 425 with `Retry-After` at once
+  (D250 §5): a player counts a held request as the chunk's download, and took its link for slower.
+  A hold, asking the node again each quarter second, is the setting `chunk_hold_ms` (0); the
+  player asks again every second or two for over a minute and a half.
 - **A run is cancelled** when no player has asked for its store's chunks for a while and it is
   far ahead of the last asked: nobody is coming.
 
