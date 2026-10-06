@@ -17859,7 +17859,7 @@ before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md
     *"I'd prefer to have a checkbox to include secret.key for the 'back up now' in the system
     page"*), and starts a job shown in the job view.
 
-**Status:** Decided 2026-10-04; to be built in M4, except §5, which waits for its own milestone.
+**Status:** Decided 2026-10-04; built in M4, except §5, which waits for its own milestone, §2's recording, which waits with D246 §4, and §9's cap, which D246 removed ([M4's audit](../design/research/audit-2026-10-06.md)).
 
 ## D244 — The audit before M4's other questions: a kept failure is FFmpeg's alone, the System page shows what it promised, contract names are fixed now, and every request a click sends is safe to repeat
 
@@ -17895,7 +17895,7 @@ recommendations"*, *"Everything except A4 sounds good"*.
    to stop: both fixed before M4. A prepare on a node gone silent parks, and a repointed root's
    parked work is asked for again when needed: both accepted.
 
-**Status:** Decided 2026-10-04; to be built before M4's first feature.
+**Status:** Decided 2026-10-04; built before M4's first feature.
 
 ## D245 — Cut A ends with a polished, skinned web UI built on research, and the remote TV comes right after it
 
@@ -18008,7 +18008,7 @@ answering the three questions that review left (§7–§9). **Revises**
    member stalls and the rest move on, and then the one member missed a crucial point. But then
    again someone could just rewind..."*
 
-**Status:** Decided 2026-10-05; to be built in M4 in place of what it revises.
+**Status:** Decided 2026-10-05; built in M4 in place of what it revises, except §4, later by decision.
 
 ---
 
@@ -18129,7 +18129,7 @@ paused often; in the group it played a frame and froze, over and over.
     played away (cut-a.md §6); the only signals are the speed a player measures and its stalls.
     A slow film over flaky Wi-Fi at home is treated as one away.
 
-**Status:** Decided 2026-10-05; to be built in M4.
+**Status:** Decided 2026-10-05; built in M4, §4 superseded by D250.
 
 ---
 
@@ -18163,7 +18163,7 @@ FFmpeg could crash the node and have other crashes blamed on the film.
    is read through again for a lower quality (D247). Only a failure on the attempt the play made is
    the one the person sees.
 
-**Status:** Decided 2026-10-06; to be built in M4.
+**Status:** Decided 2026-10-06; built in M4.
 
 
 ## D249 — Three ways to run: dev as it is, staging from the checkout beside it, and release from a tagged image; the tunnel is a container of the deployment's own
@@ -18344,5 +18344,10 @@ that delays and drops, and a separate run against one inside every branch gate, 
    invalidates once the user actually selects a name and starts. If they reload the page before
    doing so, the link must still work"*), which is how it was built; the acceptance reloads the
    page before joining to keep it so.
+
+**As built** (2026-10-06): one profile per run, applied by netem to the development container's
+loopback, which every packet between the two browsers and the server crosses, so host and guest
+share it (§1 said each client its own). The short *home* run inside the branch gate (§2) waits on
+`NET_ADMIN` in CI's container, and the nuc13 confirmation is VQ24 (M4's audit, Q2).
 
 **Status:** Decided 2026-10-06.

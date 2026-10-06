@@ -20,7 +20,7 @@ const realm = "orpheum"
 
 // Config is where the relay listens and what it tells the browsers (D243 §8).
 type Config struct {
-	// Listen is the UDP address TURN is served on, ":3478".
+	// Listen is the address TURN is served on, over UDP and TCP on the same port, ":3478".
 	Listen string
 	// PublicAddress is the IP address the browsers reach the relay at: the VPS's (D243 §7).
 	PublicAddress net.IP

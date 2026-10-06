@@ -40,6 +40,79 @@ counted:
 
 ## Log
 
+### P50 — A tuning number and an acceptance bound were decided days apart, and contradicted (M4, 2026-10-06) · plan-gap
+
+- **Planned:** D243 §9 bounds two clients to 200 ms apart 95% of the time; D250 §1 then set the
+  drift a follower leaves alone to 500 ms, the owner's comfort after testing.
+- **What happened:** the first netem run left a guest 430 ms off for good, in step by its own
+  rules and out of the bound. Both decisions stood; neither named the other.
+- **Why the plan missed it:** the bound was written as an acceptance number, the allowance as a
+  setting; nothing tied a setting's starting value to the acceptance it must meet.
+- **Cost:** a failed acceptance and an owner question (M4's audit, Q1).
+- **Process lesson:** when a setting governs a measured bound, write the bound beside the
+  setting's description, and let a decision that changes either cite the other.
+
+### P49 — The netem acceptance was planned for a VM and ran first in a container that could not shape its network (M4, 2026-10-06) · environment
+
+- **Planned:** cut-a's M4 row: two clients on D190's remote-household VM under its netem
+  profiles; m4.md: the profiles "run in the sandbox's containers for the gate".
+- **What happened:** the development container had no `tc` and no right to shape its network.
+  D252: the kernel's netem on the container's loopback, one profile per run, in `make
+  test-acceptance`, with the VM as VQ24. Its first runs found a follower defect (the message's
+  transit) and P50.
+- **Why the plan missed it:** "the sandbox's containers" was written without checking what the
+  container could do.
+- **Cost:** a decision, a development image change, a launcher change.
+- **Process lesson:** for every test environment a plan names, check before the milestone starts
+  that it can do what the test needs (a capability, a device, a network).
+
+### P48 — Watch Together was rebuilt mid-milestone after the owner used it (M4, 2026-10-05) · requirement-emerged
+
+- **Planned:** D243 §1–§3 and D121's abilities: a shared link with a cap and rotation, guests
+  with a per-film cookie, abilities chosen by the host.
+- **What happened:** D246 replaced them: one link per person with a note, the host alone in
+  control, an ephemeral viewer; D250 then reworked sync points, catch-up and stalls after the
+  owner's tests on phones and an airplane's network.
+- **Why the plan missed it:** the design came from other products' Watch Together, not from the
+  two people who would use it; the first hour of real use changed it.
+- **Cost:** Phase E built twice, two decisions, and design documents that lag (M4's audit §4).
+- **Process lesson:** put a rough version in the owner's hands before the design is frozen in
+  detail, for any feature whose value is how it feels between people.
+
+### P47 — A quality ladder Cut A ruled out arrived because real links were slower than the film (M4, 2026-10-05) · requirement-emerged
+
+- **Planned:** Cut A: no adaptive ladder (D86, D193 §2); a viewer plays the original or one
+  prepared copy.
+- **What happened:** the owner's tests on a phone's network stalled; D247 and D250 added chunked
+  runs at lower qualities, a step down after a stall and a step up when the link allows, and
+  capacity eviction on the node.
+- **Why the plan missed it:** remote playback was planned at home bandwidths; the remote viewer's
+  link was the unknown, and nobody measured one before deciding.
+- **Cost:** two decisions, new packages on both sides, three protocol bumps and a migration.
+- **Process lesson:** measure the slowest real link a feature must serve before ruling out
+  machinery for it.
+
+### P46 — A signed-in guest's history is in M4's acceptance, and its design was deferred (M4, 2026-10-06) · plan-gap
+
+- **Planned:** cut-a's M4 row: "a signed-in guest's history advances".
+- **What happened:** D246 §4 deferred recording a signed-in recipient's viewing ("later"), and M4
+  ends with the acceptance unmet (M4's audit, Q3).
+- **Why the plan missed it:** a later decision changed what a guest is, and the acceptance row was
+  not revisited with it.
+- **Cost:** an acceptance item open at the milestone's end.
+- **Process lesson:** a decision that defers something names every acceptance line it touches,
+  and moves or drops each one there and then.
+
+### P45 — The skin was pulled forward from M5 for a conference (M4, 2026-10-06) · requirement-emerged
+
+- **Planned:** D245: the polished skin is M5's, after the research and the UI principles.
+- **What happened:** the owner's week of demonstrations brought D251: a dark skin, coral accent,
+  the logo, the menu split, in a day, ahead of M5's restructuring.
+- **Why the plan missed it:** a demo date is an external event no milestone plan carried.
+- **Cost:** a day; M5 now starts from a skin rather than none.
+- **Process lesson:** keep a "presentable in a day" path (tokens and plain-element styles) cheap
+  at all times, so a demo needs no milestone reordering.
+
 ### P44 — Decision and scenario statuses drifted from the code, because only doc.go citations are checked (before M4, 2026-10-03) · gate-design
 
 - **Planned:** each decision's **Status** line and each scenario's status say what is built, and

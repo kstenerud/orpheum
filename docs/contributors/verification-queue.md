@@ -216,3 +216,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   buttons come back, and whether the other person still hears you clearly. Only a real Android
   phone shows whether the browser's microphone processing puts it in a call
   (`web/packages/sdk/src/together-voice-browser.ts`)
+- [ ] **VQ24** — `make test-acceptance` on D190's remote-household VM on nuc13 (device-lab.md), each
+  of the two browsers behind its own netem profile rather than one shared loopback: passes when
+  `ORPHEUM_ACCEPTANCE_MINUTES=30` holds the two within 200 ms 95% of the time and voice within its
+  bounds under each profile, as in the development container (D252 §2; M4's audit).
+  (`web/e2e/acceptance.spec.ts`)

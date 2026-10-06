@@ -17,12 +17,13 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`;
   `not-into-another-package-by-path` and `no-barrel-files` stop other routes in.
 - **Watch Together keeps no shared clock** (D66): a playing group's expected position is its
-  position plus the local monotonic time since its message arrived, times its rate; drift within
-  `leaveDriftUpToMs` is left, up to `seekDriftBeyondMs` nudged by the rate for about a second,
-  beyond it sought across (watch-together.md, Sync). For `settleAfterChangeMs` after it starts
+  position plus the local monotonic time since its message was sent, the time since it arrived
+  and half the shortest round trip, times its rate; drift within `leaveDriftUpToMs` is left, up to
+  `seekDriftBeyondMs` nudged for about a second by at most `nudgeMostPercent` of the rate, beyond
+  it sought across (D250 §1); each of these the welcome's tuning, from the settings. For `settleAfterChangeMs` after it starts
   playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands
   still then (D250 §7); a drift to seek across is still sought across at once.
-  `src/together-follow.test.ts`.
+  `src/together-drift.test.ts`, `src/together-follow.test.ts`.
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's.
   `src/together-follow.test.ts`.
@@ -31,8 +32,8 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   loading; a catch-up seek aims ahead by how long its last seek took to load, up to
   `aimAheadAtMostMs`, and once its link's speed is measured, further, by how long the link takes to
   load `refillAheadMs`, up to `waitAheadAtMostMs`, where a viewer waits paused for the group to
-  arrive (D247 §4, amended 2026-10-06); and while the group waits it reports its state at every
-  check, so the server can end the wait on time (D247 §4, §5). `src/together-follow.test.ts`.
+  arrive (D250 §4); and while the group waits it reports its state at every check, so the server
+  can end the wait on time (D250 §3). `src/together-follow.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
   the hello. `src/together-connection.test.ts`.
