@@ -503,6 +503,24 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(false);
   });
 
+  it("held paused at the film's start, steps onto its first loaded frame however small the gap", () => {
+    const media = new FakeMedia();
+    media.currentTime = 0;
+    media.loaded = [[0.04, 60.03]]; // a prepared copy's first frame, 40 ms in (staging, 2026-10-06)
+    media.readyState = 4;
+    const { connection, reports } = fakeConnection({ ...paused, state: "Waiting", positionMs: 0 });
+    followGroup(media as unknown as FollowedMedia, connection, {
+      fileId: 5,
+      isLeading: false,
+      monotonicMs,
+    });
+    expect(media.currentTime).toBe(0.04);
+    media.fire("seeked");
+    vi.advanceTimersByTime(checkDriftEveryMs * 3);
+    expect(media.currentTime).toBe(0.04); // held there, not sought back into the gap
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
   it("aims a catch-up seek ahead by how long its last seek took to load, up to a limit", () => {
     const media = new FakeMedia();
     const { connection } = fakeConnection({ ...paused, state: "Playing" });

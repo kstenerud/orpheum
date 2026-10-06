@@ -470,8 +470,14 @@ class GroupFollower {
     const holdAtMs = playableAt(media, where.expectedMs);
     const awayMs = Math.abs(positionMsOf(media) - holdAtMs);
     const isLoadingOwnSeek = this.#seekStartedAtMs !== undefined;
+    // A player held just before the first frame it loaded, by however little, is moved onto it: a
+    // paused player never steps over the gap, and one not on what it loaded is never ready. Both
+    // players held at 0 with 0.04 s to 60 s loaded, a gap under leaveDriftUpToMs, and held the
+    // group up for good (staging, 2026-10-06).
+    const isBeforeWhatItLoaded =
+      !isLoadingOwnSeek && holdAtMs !== where.expectedMs && !isOnLoaded(media);
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
-    if (isAway && !media.seeking) {
+    if ((isAway || isBeforeWhatItLoaded) && !media.seeking) {
       this.#seek(holdAtMs);
     }
   }
@@ -484,6 +490,17 @@ class GroupFollower {
  * position; a paused player never steps over that gap as a playing one does, is never ready, and
  * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac).
  */
+/** Whether the player's position is on something it loaded, to within a millisecond. */
+function isOnLoaded(media: FollowedMedia): boolean {
+  const { buffered, currentTime } = media;
+  for (let index = 0; index < buffered.length; index++) {
+    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function playableAt(media: FollowedMedia, expectedMs: number): number {
   const { buffered } = media;
   const expectedS = expectedMs / 1000;
