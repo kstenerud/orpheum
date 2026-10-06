@@ -210,7 +210,7 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	cache := storetest.OpenCache(t)
 	service := NewService(Parts{
 		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
-		ReadThrough: reader,
+		ReadThrough: reader, Logger: slog.New(slog.DiscardHandler),
 		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			Cache: cache, Settings: seeded, MaxSilence: time.Hour,

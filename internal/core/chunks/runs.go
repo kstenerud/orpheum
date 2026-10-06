@@ -100,6 +100,24 @@ func (tracker *runTracker) plan(dir string, grid Grid, wanted int) (first, last 
 	return first, last, true
 }
 
+// RunSpan is a run of a store's chunks as the core knows it: its first and last chunk, and the last
+// it has made, First-1 before it made any.
+type RunSpan struct {
+	First, Last, MadeThrough int
+}
+
+// covering is the run of the store whose chunks include chunk n, and whether there is one.
+func (tracker *runTracker) covering(dir string, n int) (RunSpan, bool) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	for _, each := range tracker.storeLocked(dir).runByFirst {
+		if n >= each.first && n <= each.last {
+			return RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough}, true
+		}
+	}
+	return RunSpan{}, false
+}
+
 // begin records a run its handler is giving to its node: one planned, or one its job tried again
 // after it ended.
 func (tracker *runTracker) begin(dir string, first, last int, jobID int64) {

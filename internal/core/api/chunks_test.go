@@ -100,10 +100,25 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 			chunk.body)
 	}
 	harness.checkOneRunQueued(t, grid.ID())
+	// The wait is logged: the chunk, its hold of three quarter-second waits, and the run queued for it,
+	// which had made none of its chunks when asked.
+	waited := `"msg":"waited for a chunk not made yet"`
+	storeDir := `"storeDir":"1/chunks-q700k432p/` + grid.ID() + `"`
+	harness.logs.awaitLine(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
+		`"isCovered":true`, `"runFirstChunk":1,`, `"runLastChunk":2,`, `"runMadeThrough":0`)
 	// One no run makes in the time a player waits is too early: the player asks again.
 	if late := harness.getBytePath(t, base+"q700k432p/00002.m4s", user, true, ""); late.status !=
 		http.StatusTooEarly || late.header.Get("Retry-After") != "1" {
 		t.Errorf("a chunk not made in time: %d %v, want 425 with Retry-After 1", late.status, late.header)
+	}
+	harness.logs.awaitLine(t, waited, storeDir, `"wantedChunk":2,`, `"outcome":"askAgain"`, `"heldMs":20000,`,
+		`"runFirstChunk":1,`)
+	// A chunk the node has at once was not waited for, and says nothing.
+	if again := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); again.status != http.StatusOK {
+		t.Errorf("a chunk made, asked for again: %d, want it", again.status)
+	}
+	if count := strings.Count(harness.logs.String(), waited); count != 2 {
+		t.Errorf("%d waits logged; want 2, none for a chunk the node had at once:\n%s", count, harness.logs.String())
 	}
 }
 
