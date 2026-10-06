@@ -218,6 +218,8 @@ func (server *Server) openTogether(ctx context.Context, input *AuthorizationHead
 	if err != nil {
 		return nil, server.togetherError(ctx, "start a session", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: a host opened a session",
+		"sessionId", opened.SessionID, "hostUserId", principal.UserID, "isNew", opened.IsNew)
 	output := &OpenTogetherOutput{}
 	output.Body.SessionID, output.Body.MembershipCredential = opened.SessionID, opened.MembershipCredential
 	output.Body.IsNew = opened.IsNew
@@ -259,6 +261,8 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 	if err != nil {
 		return nil, server.togetherError(ctx, "make a link", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: the host made a link",
+		"sessionId", input.SessionID, "linkId", made.LinkID, "adminNote", input.Body.AdminNote)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
 	return output, nil
@@ -272,6 +276,8 @@ func (server *Server) removeTogetherLink(ctx context.Context, input *RemoveToget
 	if err = dependencies.Together.RemoveLink(input.SessionID, principal.UserID, input.LinkID); err != nil {
 		return nil, server.togetherError(ctx, "withdraw a link", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: the host withdrew a link",
+		"sessionId", input.SessionID, "linkId", input.LinkID)
 	return &struct{}{}, nil
 }
 
@@ -286,8 +292,11 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	}
 	joined, err := dependencies.Together.Join(input.Body.Secret, name)
 	if err != nil {
+		server.logger.InfoContext(ctx, "watch together: a join was refused", "name", name, "err", err)
 		return nil, server.togetherError(ctx, "join a session", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: someone joined by a link",
+		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name)
 	output := &JoinTogetherOutput{}
 	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
 	output.Body.MembershipCredential = joined.MembershipCredential
@@ -351,9 +360,14 @@ func (server *Server) leaveTogether(ctx context.Context, input *LeaveTogetherInp
 	if err != nil {
 		return nil, err
 	}
-	if err = dependencies.Together.Leave(bearerToken(input.Authorization)); err != nil {
+	credential := bearerToken(input.Authorization)
+	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
+	if err = dependencies.Together.Leave(credential); err != nil {
+		server.logger.InfoContext(ctx, "watch together: a leave was refused", "err", err)
 		return nil, server.togetherError(ctx, "leave a session", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: a member left at their own asking",
+		"sessionId", sessionID, "memberId", memberID)
 	return &struct{}{}, nil
 }
 
@@ -365,6 +379,8 @@ func (server *Server) ejectFromTogether(ctx context.Context, input *EjectInput) 
 	if err = dependencies.Together.Eject(input.SessionID, principal.UserID, input.MemberID); err != nil {
 		return nil, server.togetherError(ctx, "eject a member", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: the host removed a member",
+		"sessionId", input.SessionID, "memberId", input.MemberID, "hostUserId", principal.UserID)
 	return &struct{}{}, nil
 }
 
@@ -376,6 +392,7 @@ func (server *Server) endTogether(ctx context.Context, input *TogetherInput) (*s
 	if err = dependencies.Together.End(input.SessionID, principal.UserID); err != nil {
 		return nil, server.togetherError(ctx, "end a session", err)
 	}
+	server.logger.InfoContext(ctx, "watch together: the host ended the session", "sessionId", input.SessionID)
 	return &struct{}{}, nil
 }
 

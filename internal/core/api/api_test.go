@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,7 +67,7 @@ type testHarness struct {
 	// exchanges are the jobs waiting on the node; answerPrepare and the like hand them its results.
 	exchanges    *corenodes.Exchanges
 	httpServer   *httptest.Server
-	logs         *bytes.Buffer
+	logs         *lockedLog
 	authService  *auth.Service
 	setupCodes   *authtest.SetupCodes
 	databasePath string
@@ -100,6 +101,25 @@ func (harness testHarness) handle(t *testing.T, handler jobs.Handler, job jobs.J
 // harnessServerBuild is the build the harness's server says it is.
 var harnessServerBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
 
+// lockedLog is the harness's log, safe to read while the server writes to it: a Watch Together
+// device's disconnection is logged in the background, after the test may have read it.
+type lockedLog struct {
+	mutex  sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (log *lockedLog) Write(written []byte) (int, error) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+	return log.buffer.Write(written) //nolint:wrapcheck // a buffer's write never fails
+}
+
+func (log *lockedLog) String() string {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+	return log.buffer.String()
+}
+
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
 func newHarness(t *testing.T) testHarness {
 	t.Helper()
@@ -111,7 +131,7 @@ func newHarness(t *testing.T) testHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	logs := &bytes.Buffer{}
+	logs := &lockedLog{}
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &authtest.SetupCodes{}
 	provider, cache, nodes := identifytest.NewProvider(), storetest.OpenCache(t), &fakeNodes{}

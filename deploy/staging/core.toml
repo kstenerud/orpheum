@@ -32,6 +32,6 @@ migrate_free_space_db_multiple = 3
 when_unmigratable = "start_over"
 
 [log]
-level = "info"
+level = "debug"
 format = "text"
 destination = "stderr"
