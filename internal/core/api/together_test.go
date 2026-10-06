@@ -399,7 +399,7 @@ func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
 	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
 	viewer.awaitWelcome()
 	harness.logs.AwaitLine(t, `"watch together: a device disconnected"`,
-		fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID), "sent nothing for 50ms")
+		fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID), "sent nothing for 50ms: ")
 }
 
 // The server takes a device for gone after three of the pings the web client sends, so a client

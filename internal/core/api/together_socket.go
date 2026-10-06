@@ -199,7 +199,7 @@ func readInto(
 		isSilent := errors.Is(context.Cause(readContext), errSilent)
 		cancel()
 		if isSilent {
-			return fmt.Errorf("sent nothing for %s, three missed pings: %w", silence, errSilent)
+			return fmt.Errorf("sent nothing for %s: %w", silence, errSilent)
 		}
 		if err != nil {
 			return err //nolint:wrapcheck // the socket's own words are the why
