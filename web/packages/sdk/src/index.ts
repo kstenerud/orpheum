@@ -27,6 +27,7 @@ export type { WaitOptions } from "./ready.ts";
 export { browserTogetherSocket, parseTogetherMessage, startingTuning } from "./together.ts";
 export type {
   CannotKeepUp,
+  DeviceRole,
   GroupEvent,
   GroupState,
   GroupView,
@@ -34,6 +35,7 @@ export type {
   RosterMember,
   SyncTuning,
   TogetherEndReason,
+  VoiceSignal,
 } from "./together.ts";
 export { createTogetherConnection } from "./together-connection.ts";
 export type {
@@ -41,6 +43,7 @@ export type {
   GroupCommand,
   PlayerNote,
   PlayerState,
+  RelaysVoiceSignals,
   TellsCannotKeepUp,
   TogetherConnection,
   TogetherSnapshot,
