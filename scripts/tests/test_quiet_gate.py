@@ -100,12 +100,12 @@ class Running(unittest.TestCase):
     def test_fail_fast_stops_the_steps_still_running_at_the_first_failure(self):
         """A lint error waited for the Go linter and the test suites to finish (the owner, 2026-10-06)."""
         makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"
-                    "fast:\n\t@echo 'lint: broken'\n\t@false\n"
+                    "fast:\n\t@sleep 0.5\n\t@echo 'lint: broken'\n\t@false\n"
                     "slow:\n\t@sleep 30\n\t@echo 'slow step finished'\n")
         started = time.monotonic()
         code, printed, log = self.run_gate(makefile, fail_fast=True)
         self.assertLess(time.monotonic() - started, 20, "the slow step was waited for")
-        self.assertNotEqual(code, 0)
+        self.assertEqual(code, 2, "a stopped run fails as make does, not with the signal's status")
         self.assertIn("lint: broken", printed)
         self.assertIn(qg.STOPPED_NOTE, printed)
         self.assertNotIn("slow step finished", log.read_text())
@@ -113,7 +113,7 @@ class Running(unittest.TestCase):
 
     def test_without_fail_fast_every_running_step_finishes(self):
         makefile = ("gate:\n\t@$(MAKE) --no-print-directory -j2 fast slow\n"
-                    "fast:\n\t@echo 'lint: broken'\n\t@false\n"
+                    "fast:\n\t@sleep 0.5\n\t@echo 'lint: broken'\n\t@false\n"
                     "slow:\n\t@sleep 1\n\t@echo 'slow step finished'\n")
         code, printed, log = self.run_gate(makefile)
         self.assertNotEqual(code, 0)
