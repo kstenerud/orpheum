@@ -20,6 +20,8 @@ const toolingFiles = [
   "*/*/vite.config.ts",
   "e2e/playwright.config.ts",
   "e2e/server.ts",
+  "e2e/acceptance.config.ts",
+  "e2e/acceptance-server.ts",
 ];
 const sdkFiles = ["packages/sdk/**"];
 

@@ -288,6 +288,15 @@ browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (outs
 
 # The browser tier without installing the web packages: revert-red runs it in a worktree whose
 # packages are links to the working tree's, which an install would replace.
+# M4's acceptance (D252): two browsers for ORPHEUM_ACCEPTANCE_MINUTES (30) under each of the three
+# netem profiles, an hour and a half; at a milestone's end, never in check-pr. It shapes the dev
+# container's loopback with tc, so it runs in the development image (./dev make test-acceptance).
+.PHONY: test-acceptance
+test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under each netem profile (D252); at a milestone's end
+	@$(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts
+
+E2E_CONFIG ?= web/e2e/playwright.config.ts
+
 .PHONY: browser-tier
 browser-tier:
 	@npm --prefix web run --silent build
@@ -295,7 +304,7 @@ browser-tier:
 	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
 	@go build -tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum; status=$$?; $(WEBCLIENT_CLEAR); exit $$status
 	@$(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum-browser" ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" \
-		npm --prefix web exec -- playwright test --config web/e2e/playwright.config.ts
+		npm --prefix web exec -- playwright test --config $(E2E_CONFIG)
 
 # ---------------------------------------------------------------------------------------------
 # Building and generating

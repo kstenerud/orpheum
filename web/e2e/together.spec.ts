@@ -7,58 +7,22 @@
  */
 
 import { readFileSync } from "node:fs";
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
-import { isPlaying, openFilm, serverUrl, signIn } from "./pages.ts";
+import { isPlaying, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
+import {
+  endSession,
+  expectVoiceWithinBounds,
+  hostPlays,
+  join,
+  pageWithMicrophone,
+  startSessionWithLink,
+  talkBothWays,
+} from "./together-pages.ts";
 
-/** D243 §9: voice one-way under 300 ms, and audible loss under 2%. */
-const voiceOneWayAtMostMs = 300;
-const voiceConcealedAtMostShare = 0.02;
 /** How long two people talk before their voice is measured. */
 const talkForMs = 15_000;
-
-/** The host's session, started on the Watch Together screen, with one link made for Anna. */
-async function startSessionWithLink(host: Page): Promise<string> {
-  await host.goto(`${serverUrl()}/watch-together`);
-  await host.getByRole("button", { name: "Start a session" }).click();
-  await host.getByLabel("Who it is for (only you see this)").fill("Anna");
-  await host.getByRole("button", { name: "Make a link" }).click();
-  const link = host.locator("output.share__link");
-  await expect(link).toContainText("#");
-  return (await link.textContent()) ?? "";
-}
-
-/** Ends the host's session, so the next test, or the next browser's run, starts with none. */
-async function endSession(host: Page): Promise<void> {
-  await host.goto(`${serverUrl()}/watch-together`);
-  await host.getByRole("button", { name: "End the session" }).click();
-  await host.getByRole("button", { name: "End it" }).click();
-  await expect(host.getByRole("button", { name: "Start a session" })).toBeVisible();
-}
-
-/** The guest joins by link with their name, and says they listen with headphones. */
-async function join(guest: Page, link: string): Promise<void> {
-  await guest.getByLabel("Your name").fill("Anna");
-  await guest.getByRole("button", { name: "Join" }).click();
-  await guest.getByRole("button", { name: /Headphones/ }).click();
-  await expect(guest.getByText(/Here: /)).toBeVisible();
-  expect(guest.url()).not.toContain(link.slice(link.indexOf("#") + 1));
-}
-
-/** The host plays the warm-up film, which goes on for everyone in the session. */
-async function hostPlays(host: Page): Promise<void> {
-  await openFilm(host, warmUpFilm);
-  await host.getByRole("link", { name: "Play" }).click();
-  // A device not asked yet is asked how it plays sound first; one asked before plays at once.
-  const question = host.getByRole("button", { name: /Built-in speakers/ });
-  const leading = host.getByText("Watch Together is on");
-  await expect(question.or(leading)).toBeVisible({ timeout: 30_000 });
-  if (await question.isVisible()) {
-    await question.click();
-  }
-  await expect(leading).toBeVisible({ timeout: 30_000 });
-}
 
 /** Every value a context holds that lets it act: its cookies and its stored tokens. */
 async function credentialsOf(context: BrowserContext, page: Page): Promise<string[]> {
@@ -115,7 +79,7 @@ test("an invitation works once, only once joined, and no credential is ever in a
   await expect(guest.getByRole("button", { name: "Join" })).toBeVisible();
   await guest.reload();
   await join(guest, link);
-  await hostPlays(host);
+  await hostPlays(host, warmUpFilm);
   await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
 
   // Joined, it is spent: another browser opening it is told so.
@@ -144,75 +108,6 @@ test("an invitation works once, only once joined, and no credential is ever in a
   }
 });
 
-/** What one browser's voice call measures, from its own WebRTC statistics. */
-interface VoiceMeasure {
-  readonly roundTripMs: number;
-  readonly jitterBufferMs: number;
-  readonly concealedShare: number;
-  readonly samplesReceived: number;
-}
-
-/** Keeps every RTCPeerConnection the page makes, so its statistics can be read. */
-async function keepPeers(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const Original = window.RTCPeerConnection;
-    const kept: RTCPeerConnection[] = [];
-    Reflect.set(window, "keptPeers", kept);
-    window.RTCPeerConnection = class extends Original {
-      constructor(config?: RTCConfiguration) {
-        super(config);
-        kept.push(this);
-      }
-    };
-  });
-}
-
-/** The page's voice call, measured: its round trip, its jitter buffer and its concealed share. */
-async function measureVoice(page: Page): Promise<VoiceMeasure> {
-  return await page.evaluate(async () => {
-    const kept: unknown = Reflect.get(window, "keptPeers");
-    const peer = (Array.isArray(kept) ? kept : []).find(
-      (each: unknown): each is RTCPeerConnection =>
-        each instanceof RTCPeerConnection && each.connectionState === "connected",
-    );
-    if (peer === undefined) {
-      throw new Error("no voice call connected");
-    }
-    let roundTripMs = Number.NaN;
-    let jitterBufferMs = Number.NaN;
-    let concealedShare = Number.NaN;
-    let samplesReceived = 0;
-    (await peer.getStats()).forEach((report: Record<string, unknown>) => {
-      const number = (key: string): number => {
-        const value = report[key];
-        return typeof value === "number" ? value : Number.NaN;
-      };
-      if (report["type"] === "remote-inbound-rtp" && report["kind"] === "audio") {
-        roundTripMs = number("roundTripTime") * 1000;
-      }
-      if (report["type"] === "inbound-rtp" && report["kind"] === "audio") {
-        jitterBufferMs = (number("jitterBufferDelay") / number("jitterBufferEmittedCount")) * 1000;
-        samplesReceived = number("totalSamplesReceived");
-        concealedShare = number("concealedSamples") / samplesReceived;
-      }
-    });
-    return { roundTripMs, jitterBufferMs, concealedShare, samplesReceived };
-  });
-}
-
-/** A page whose browser hands it a fake microphone without asking. */
-async function pageWithMicrophone(
-  browser: Browser,
-): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext();
-  if (browser.browserType().name() === "chromium") {
-    await context.grantPermissions(["microphone"]);
-  }
-  const page = await context.newPage();
-  await keepPeers(page);
-  return { context, page };
-}
-
 test("voice between two fake microphones arrives one-way under 300 ms with under 2% concealed (D243 §9)", async ({
   browser,
 }) => {
@@ -224,26 +119,14 @@ test("voice between two fake microphones arrives one-way under 300 ms with under
   const link = await startSessionWithLink(host);
   await guest.goto(link);
   await join(guest, link);
-  await hostPlays(host);
-  await host.getByRole("button", { name: "Talk" }).click();
-  await guest.getByRole("button", { name: "Talk" }).click();
-  await expect(host.getByText("Voice: connected to Anna")).toBeVisible({ timeout: 30_000 });
-  await expect(guest.getByText(/Voice: connected to /)).toBeVisible({ timeout: 30_000 });
+  await hostPlays(host, warmUpFilm);
+  await talkBothWays(host, guest);
   await host.waitForTimeout(talkForMs);
 
-  for (const [who, page] of [
+  await expectVoiceWithinBounds([
     ["the host", host],
     ["the guest", guest],
-  ] as const) {
-    const measured = await measureVoice(page);
-    test.info().annotations.push({ type: `${who}'s voice`, description: JSON.stringify(measured) });
-    expect(measured.samplesReceived, `${who} heard nothing`).toBeGreaterThan(0);
-    const oneWayMs = measured.roundTripMs / 2 + measured.jitterBufferMs;
-    expect(oneWayMs, `${who}'s one-way delay`).toBeLessThan(voiceOneWayAtMostMs);
-    expect(measured.concealedShare, `${who}'s concealed share`).toBeLessThan(
-      voiceConcealedAtMostShare,
-    );
-  }
+  ]);
   await endSession(host);
   await hosting.context.close();
   await joining.context.close();

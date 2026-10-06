@@ -2,9 +2,13 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
+import { chromiumArguments, firefoxUserPrefs } from "./browsers.ts";
+
 /** The browser tier: real browsers against a real server (D217 §4). `make test-browser` runs it. */
 export default defineConfig({
   testDir: ".",
+  // M4's acceptance runs for an hour and a half, at a milestone's end (D252 §2).
+  testIgnore: "acceptance.spec.ts",
   // Traces and screenshots of a failure, beside the dev loop's state and ignored by git.
   outputDir: "../../.dev/browser-results",
   globalSetup: "./server.ts",
@@ -15,33 +19,19 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   timeout: 120_000,
-  // A fake microphone, handed over without asking, and host candidates by their addresses, not
-  // mDNS names a container cannot resolve: two pages of one browser call each other (D252 §3).
   projects: [
     {
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        launchOptions: {
-          args: [
-            "--use-fake-device-for-media-stream",
-            "--use-fake-ui-for-media-stream",
-            "--disable-features=WebRtcHideLocalIpsWithMdns",
-          ],
-        },
+        launchOptions: { args: chromiumArguments },
       },
     },
     {
       name: "firefox",
       use: {
         ...devices["Desktop Firefox"],
-        launchOptions: {
-          firefoxUserPrefs: {
-            "media.navigator.streams.fake": true,
-            "media.navigator.permission.disabled": true,
-            "media.peerconnection.ice.obfuscate_host_addresses": false,
-          },
-        },
+        launchOptions: { firefoxUserPrefs },
       },
     },
   ],

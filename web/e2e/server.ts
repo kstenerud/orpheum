@@ -18,6 +18,9 @@ import path from "node:path";
 export const owner = { name: "owner", password: "owner-browser-test" } as const;
 export const warmUpFilm = "Warm Up Film";
 
+/** Where the last run's server log is kept, beside the dev loop's state and ignored by git. */
+const serverLogPath = new URL("../../.dev/browser-server.log", import.meta.url);
+
 /** The environment variable that carries the server's address from the setup to the spec. */
 export const serverAddressEnvVariable = "ORPHEUM_BROWSER_SERVER";
 
@@ -59,17 +62,16 @@ function nfoXml(title: string, year: number): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<movie>\n  <title>${title}</title>\n  <year>${String(year)}</year>\n</movie>\n`;
 }
 
+/** A film a test needs: its name, and how FFmpeg makes it. */
+export interface Film {
+  readonly title: string;
+  readonly year: number;
+  readonly extension: string;
+  readonly ffmpegInputArguments: readonly string[];
+}
+
 /** Makes one film, in its own folder with an NFO naming it, as a library holds one. */
-function makeFilm(
-  ffmpeg: string,
-  library: string,
-  film: {
-    title: string;
-    year: number;
-    extension: string;
-    ffmpegInputArguments: readonly string[];
-  },
-): void {
+function makeFilm(ffmpeg: string, library: string, film: Film): void {
   const folder = path.join(library, `${film.title} (${String(film.year)})`);
   mkdirSync(folder, { recursive: true });
   writeFileSync(
@@ -264,11 +266,17 @@ function makeInstances(paths: {
   return instances;
 }
 
-/**
- * Makes the library, starts the server — the core, then the node beside it, two services as in
- * deployment (D235 §4) — and returns what stops both and removes everything.
- */
+/** The browser tier's setup: the server, over the films every spec uses. */
 export default async function globalSetup(): Promise<() => Promise<void>> {
+  return await startServer([]);
+}
+
+/**
+ * Makes the library, with extraFilms beside the films every spec uses, starts the server — the
+ * core, then the node beside it, two services as in deployment (D235 §4) — and returns what
+ * stops both and removes everything.
+ */
+export async function startServer(extraFilms: readonly Film[]): Promise<() => Promise<void>> {
   const binary = requiredEnv("ORPHEUM_TEST_BINARY");
   const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
   const ffmpeg = path.join(ffmpegDirectory, "ffmpeg");
@@ -282,6 +290,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     extension: "mp4",
     ffmpegInputArguments: warmUpArguments,
   });
+  for (const film of extraFilms) {
+    makeFilm(ffmpeg, library, film);
+  }
   browsers.forEach((browser, index) => {
     makeFilm(ffmpeg, library, {
       title: timingFilm(browser),
@@ -327,6 +338,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     node.kill("SIGTERM");
     core.kill("SIGTERM");
     await Promise.all(exited);
+    // The server's log outlives the run, beside its results: a failure is read from it.
+    writeFileSync(serverLogPath, log);
     rmSync(root, { recursive: true, force: true });
   };
 }
