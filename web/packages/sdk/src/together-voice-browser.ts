@@ -178,8 +178,10 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
         void context.resume().catch(() => undefined);
       }
       const microphone = await openBrowserMicrophone(isProcessed);
-      // iOS can pause the context as the microphone opens: it plays on once resumed.
-      await context?.resume().catch(() => undefined);
+      // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
+      // for: Firefox keeps a resume pending until it lets the page play sound, and voice hung at
+      // "Asking for your microphone" (the browser tier, 2026-10-06).
+      void context?.resume().catch(() => undefined);
       return microphone;
     },
     startCall: (setup) => startBrowserCall(setup, context),
