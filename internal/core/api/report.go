@@ -118,6 +118,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
+	server.logReport(ctx, reporter, report, answer)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -130,6 +131,32 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		}
 	}
 	return output, nil
+}
+
+// logReport says what a report brought that a person would ask about: stalls, with where and the
+// link's speed, and a lower quality offered for them (D247 §2). A viewer in Singapore saw a still
+// frame every few seconds, and nothing said what her player reported or was offered (staging,
+// 2026-10-06). Who is the holder's user, 0 for a viewer, and the file they may play; never the
+// session's key.
+func (server *Server) logReport(
+	ctx context.Context, reporter reporter, report playback.Report, answer playback.Answer,
+) {
+	who := []any{
+		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+		"positionMs", report.PositionMs, "linkKbps", report.LinkKbps,
+	}
+	if len(report.Stalls) > 0 {
+		positions := make([]int64, 0, len(report.Stalls))
+		for _, stall := range report.Stalls {
+			positions = append(positions, stall.PositionMs)
+		}
+		server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions)...)
+	}
+	if offer := answer.LowerQuality; offer != nil {
+		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
+			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
+			"isBelowTheLowest", offer.IsBelowTheLowest)...)
+	}
 }
 
 // reporter is who reports on a playback, and from which device: 0 for none.

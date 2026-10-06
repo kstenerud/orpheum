@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -59,6 +60,14 @@ func TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted(t *test
 	}
 	if again := lowerQualityOf(t, harness.report(t, user, playing, stallReport(3, 18_000))); again != nil {
 		t.Errorf("a third stall was answered with %+v; want nothing: the player was told", again)
+	}
+	// Each stall, and the offer, is logged with where and the quality (staging, 2026-10-06).
+	logged := harness.logs.String()
+	if !strings.Contains(logged, `"msg":"a player reported stalls"`) ||
+		!strings.Contains(logged, `"stallPositionsMs":[15000]`) ||
+		!strings.Contains(logged, `"msg":"a stalling player was offered a lower quality"`) ||
+		!strings.Contains(logged, `"qualityKbps":1200`) {
+		t.Errorf("the stalls and the offer were not logged as they happened:\n%s", logged)
 	}
 }
 
