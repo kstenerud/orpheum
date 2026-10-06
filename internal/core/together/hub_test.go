@@ -58,7 +58,7 @@ func newStage(t *testing.T) sessionStage {
 	fakeClock := clocktest.NewFake(time.Date(2026, 10, 5, 20, 0, 0, 0, time.UTC))
 	logs := &bytes.Buffer{}
 	hub := NewHub(fakeClock, rand.Reader, func(_ context.Context, _, fileID int64) bool { return fileID != 13 },
-		slog.New(slog.NewTextHandler(logs, nil)))
+		slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	owner := Person{UserID: 1, Name: "owner"}
 	opened, err := hub.Open(owner)
 	if err != nil {
@@ -483,6 +483,33 @@ func TestHub_TheRosterTellsEveryoneADeviceCannotKeepUp(t *testing.T) {
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageState})
 	if got := guestInHostsRoster().CannotKeepUp; got != nil {
 		t.Errorf("after a report without it, the guest still cannot keep up: %+v", got)
+	}
+}
+
+// A device's player beginning or stopping playing or buffering is logged, with where it is, how far
+// behind the group, and how long its last state lasted; a report that changes neither is not.
+func TestHub_LogsADevicesPlayerStartingAndStoppingPlayingOrBuffering(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 1000})
+	stage.clock.Advance(3 * time.Second)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Playing: true, PositionMs: 4000})
+	stage.clock.Advance(time.Second)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Buffering: true, PositionMs: 5000})
+	var changes []string
+	for line := range strings.Lines(stage.logs.String()) {
+		if strings.Contains(line, `"watch together: a device's player changed"`) {
+			changes = append(changes, line)
+		}
+	}
+	if len(changes) != 2 {
+		t.Fatalf("logged %d player changes, want 2, the start and the stall:\n%s", len(changes), stage.logs)
+	}
+	for _, want := range []string{"playing=false", "buffering=true", "positionMs=5000", "lastStateMs=4000"} {
+		if !strings.Contains(changes[1], want) {
+			t.Errorf("the stall's line %q does not say %s", changes[1], want)
+		}
 	}
 }
 
