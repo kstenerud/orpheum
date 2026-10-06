@@ -3,7 +3,7 @@
 import { reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useState } from "react";
 
-import type { Poller } from "./polling.ts";
+import type { AskOutcome, Poller } from "./polling.ts";
 
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
@@ -38,8 +38,8 @@ export function useResource<T>(
   useEffect(() => {
     let isCurrent = true;
     let lastAnswer: string | undefined;
-    // One read; answered, when polling, hears whether it changed what is shown.
-    const read = (answered?: (isChanged: boolean) => void): void => {
+    // One read; answered, when polling, hears what it came to.
+    const read = (answered?: (outcome: AskOutcome) => void): void => {
       load().then(
         (value) => {
           const answer = JSON.stringify(value);
@@ -48,16 +48,15 @@ export function useResource<T>(
           if (isCurrent && isChanged) {
             setHeld({ key, resource: { state: "loaded", value } });
           }
-          answered?.(isChanged);
+          answered?.(isChanged ? "changed" : "unchanged");
         },
         (cause: unknown) => {
           reportFailure(cause);
-          const isChanged = lastAnswer !== undefined;
           lastAnswer = undefined;
           if (isCurrent) {
             setHeld({ key, resource: { state: "failed", cause } });
           }
-          answered?.(isChanged);
+          answered?.("failed");
         },
       );
     };

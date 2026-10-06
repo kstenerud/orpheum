@@ -14,10 +14,15 @@ describe("polling (D237)", () => {
     let waitMs = backgroundChangeWaits.firstMs;
     for (let ask = 0; ask < 6; ask += 1) {
       waits.push(waitMs);
-      waitMs = nextWaitMs(backgroundChangeWaits, waitMs, false);
+      waitMs = nextWaitMs(backgroundChangeWaits, waitMs, "unchanged");
     }
     expect(waits).toEqual([2000, 4000, 8000, 16000, 30000, 30000]);
-    expect(nextWaitMs(backgroundChangeWaits, 30000, true)).toBe(2000);
+    expect(nextWaitMs(backgroundChangeWaits, 30000, "changed")).toBe(2000);
+  });
+
+  it("asks again at the first wait after a failure, which is no answer to back off from (2026-10-06)", () => {
+    expect(nextWaitMs(backgroundChangeWaits, 30000, "failed")).toBe(2000);
+    expect(nextWaitMs(backgroundChangeWaits, 2000, "failed")).toBe(2000);
   });
 
   it("asks on its schedule until it is stopped, and not after", async () => {
@@ -25,7 +30,7 @@ describe("polling (D237)", () => {
     let asked = 0;
     const stop = pollUntilStopped(backgroundChangeWaits, (answered) => {
       asked += 1;
-      answered(false);
+      answered("unchanged");
     });
     await vi.advanceTimersByTimeAsync(2000 + 4000 + 8000);
     expect(asked).toBe(3);

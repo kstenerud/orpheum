@@ -11,8 +11,11 @@ export interface PollWaits {
   readonly longestMs: number;
 }
 
-/** One ask of a poll: it reads, and tells answered whether what it read changed what is shown. */
-export type Ask = (answered: (isChanged: boolean) => void) => void;
+/** What one ask of a poll came to: what it read changed what is shown, or did not, or it failed. */
+export type AskOutcome = "changed" | "unchanged" | "failed";
+
+/** One ask of a poll: it reads, and tells answered what that came to. */
+export type Ask = (answered: (outcome: AskOutcome) => void) => void;
 
 /** What polls for a screen: start runs ask as its schedule says until the returned stop. */
 export interface Poller {
@@ -37,9 +40,13 @@ export const backgroundChangeWaits: PollWaits = { firstMs: 2000, longestMs: 30_0
  */
 export const backgroundChangesPoller: Poller = backingOffPoller(backgroundChangeWaits);
 
-/** The wait before the next ask, after lastWaitMs and an answer that changed or did not. */
-export function nextWaitMs(polling: PollWaits, lastWaitMs: number, isChanged: boolean): number {
-  if (isChanged) {
+/**
+ * The wait before the next ask, after lastWaitMs and what the last ask came to. Only an unchanged
+ * answer backs off: a failure is no answer, and a screen open while the server restarts asks again
+ * soon, so it shows the server's answer within the first wait of it being up (2026-10-06).
+ */
+export function nextWaitMs(polling: PollWaits, lastWaitMs: number, outcome: AskOutcome): number {
+  if (outcome !== "unchanged") {
     return polling.firstMs;
   }
   return Math.min(lastWaitMs * 2, polling.longestMs);
@@ -48,18 +55,18 @@ export function nextWaitMs(polling: PollWaits, lastWaitMs: number, isChanged: bo
 /**
  * Asks again and again as polling says, until the returned function stops it: the first ask after
  * polling.firstMs, and each after the wait nextWaitMs gives once the last ask said, through
- * answered, whether what it read changed.
+ * answered, what it came to.
  */
 export function pollUntilStopped(polling: PollWaits, ask: Ask): () => void {
   let isStopped = false;
   let waitMs = polling.firstMs;
   let timer = setTimeout(askNow, waitMs);
   function askNow(): void {
-    ask((isChanged) => {
+    ask((outcome) => {
       if (isStopped) {
         return;
       }
-      waitMs = nextWaitMs(polling, waitMs, isChanged);
+      waitMs = nextWaitMs(polling, waitMs, outcome);
       timer = setTimeout(askNow, waitMs);
     });
   }

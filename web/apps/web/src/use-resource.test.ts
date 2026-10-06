@@ -5,7 +5,7 @@ import { act, createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import type { Ask, Poller } from "./polling.ts";
+import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { mount, refusal, servedBy } from "./test-dom.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -43,22 +43,22 @@ function handPoller(): Poller & { readonly asks: Ask[] } {
 }
 
 /** Runs the newest poll's ask once and returns whether it said what is shown changed. */
-async function pollOnce(poller: { readonly asks: readonly Ask[] }): Promise<boolean> {
+async function pollOnce(poller: { readonly asks: readonly Ask[] }): Promise<AskOutcome> {
   const ask = poller.asks.at(-1);
   if (ask === undefined) {
     throw new Error("nothing is polling");
   }
-  let wasChanged: boolean | undefined;
+  let cameTo: AskOutcome | undefined;
   await act(async () => {
-    ask((isChanged) => {
-      wasChanged = isChanged;
+    ask((outcome) => {
+      cameTo = outcome;
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  if (wasChanged === undefined) {
+  if (cameTo === undefined) {
     throw new Error("the ask never answered");
   }
-  return wasChanged;
+  return cameTo;
 }
 
 describe("useResource", () => {
@@ -73,13 +73,33 @@ describe("useResource", () => {
     }
     const mounted = await mount(createElement(Probe));
     expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
-    expect(await pollOnce(poller)).toBe(false); // 1 again: the wait doubles
-    expect(await pollOnce(poller)).toBe(true); // 2: back to 2 s
+    expect(await pollOnce(poller)).toBe("unchanged"); // 1 again: the wait doubles
+    expect(await pollOnce(poller)).toBe("changed"); // 2: back to 2 s
     expect(seen.at(-1)).toEqual({ state: "loaded", value: 2 });
-    expect(await pollOnce(poller)).toBe(false);
+    expect(await pollOnce(poller)).toBe("unchanged");
     const firstLoaded = seen.findIndex((state) => state.state === "loaded");
     expect(seen.slice(firstLoaded).every((state) => state.state === "loaded")).toBe(true);
     mounted.unmount();
+  });
+
+  it("says a failed read failed, so its poller asks again at the first wait (2026-10-06)", async () => {
+    const poller = handPoller();
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let isServerUp = false;
+    function Probe(): null {
+      useResource(
+        "probe",
+        () => (isServerUp ? Promise.resolve(1) : Promise.reject(new TypeError("Failed to fetch"))),
+        poller,
+      );
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    expect(await pollOnce(poller)).toBe("failed");
+    isServerUp = true;
+    expect(await pollOnce(poller)).toBe("changed");
+    mounted.unmount();
+    written.mockRestore();
   });
 
   it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {
