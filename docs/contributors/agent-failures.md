@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A22 — A browser blamed for a codec it plays, and a fix shipped on the blame (2026-10-06)
+
+- **What happened:** the owner's Mac Firefox loaded a copied HEVC picture and never played it. I
+  concluded Firefox says yes to HEVC and cannot decode it, had the owner confirm only that it
+  says yes, and shipped a change that gave Firefox no HEVC (a23361e2). The owner then ran the
+  commit before it, which carried my gap fix, and HEVC played perfectly: the decoding
+  was never the fault. The belief came from the one fact I asked for, the browser's yes, which
+  fits both "it lies" and "it is fine"; and the earlier test that still spun had likely not
+  included the gap fix, which I did not ask.
+- **Caught by:** the owner: "I checked out the commit before the firefox fix and tried again, and
+  it works perfectly playing hevc."
+- **Gate:** none. The practice: before a fix that removes a capability, ask for the test that
+  separates the hypotheses (the same film played in that browser on the exact build), and ask
+  which commit the failing test ran.
+
 ### A21 — A research finding led with a cause the owner could check in one command (2026-10-05)
 
 - **What happened:** the slow-links research note's first finding was that the owner's link "was
