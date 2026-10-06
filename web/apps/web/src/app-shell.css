@@ -37,6 +37,12 @@
   max-width: none;
 }
 
+/* The logo, a link home (the owner, 2026-10-06: no button brought a person to the home page). */
+.app-shell__home {
+  display: block;
+  border-radius: var(--radius-control);
+}
+
 /* The wordmark: the laurel stands in for the O (the owner's logo, 2026-10-06). */
 .app-shell__logo {
   display: block;

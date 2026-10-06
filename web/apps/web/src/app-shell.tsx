@@ -110,7 +110,10 @@ export function AppShell(props: {
     <div className="app-shell">
       <header className="app-shell__banner">
         <p className="app-shell__title">
-          <img className="app-shell__logo" src={logo} alt={productName} />
+          {/* The logo is the way home, to the library's first shelf, as on most sites. */}
+          <Link to={{ screen: "films" }} className="app-shell__home">
+            <img className="app-shell__logo" src={logo} alt={productName} />
+          </Link>
         </p>
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
