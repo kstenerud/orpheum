@@ -174,7 +174,7 @@ func (each *device) takeState(message Inbound) (hasStalled bool) {
 		each.suspended = message.Reason
 	case MessageResume:
 		each.suspended = ""
-	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageWelcome, MessagePong, MessageGroup,
+	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageWelcome, MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
 	return wasReady && each.buffering
@@ -517,25 +517,39 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessagePing:
 		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
 	case MessageState, MessageSuspend, MessageResume:
-		couldKeepUp := from.cannotKeepUp == nil
-		handled.logPlayer(ctx, now, sender, from, message)
-		if from.takeState(message) {
-			handled.stalled(now, sender, from)
-		}
-		if couldKeepUp && from.cannotKeepUp != nil {
-			hub.logger.InfoContext(ctx, "watch together: a device cannot keep up even at its lowest quality",
-				"sessionId", handled.id, "memberId", sender.id, "deviceId", from.id,
-				"linkKbps", from.cannotKeepUp.LinkKbps, "lowestKbps", from.cannotKeepUp.LowestKbps)
-		}
-		handled.settle(now)
-		handled.sendRoster()
+		handled.takeState(ctx, now, sender, from, message)
 	case MessageCommand:
 		handled.command(now, sender, from, message)
 	case MessageRTC:
 		handled.relay(from, message)
+	case MessageNote:
+		handled.logNote(ctx, sender, from, message.Note)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
+}
+
+// takeState takes what a device says of itself: a stall it tells of, the group settled on its
+// readiness, and everyone told. Its first word that even its lowest quality is beyond its link is
+// logged.
+func (current *session) takeState(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
+	couldKeepUp := from.cannotKeepUp == nil
+	current.logPlayer(ctx, now, who, from, message)
+	if from.takeState(message) {
+		current.stalled(now, who, from)
+	}
+	if couldKeepUp && from.cannotKeepUp != nil {
+		current.logger.InfoContext(ctx, "watch together: a device cannot keep up even at its lowest quality",
+			append(current.deviceAttributes(who, from),
+				"linkKbps", from.cannotKeepUp.LinkKbps, "lowestKbps", from.cannotKeepUp.LowestKbps)...)
+	}
+	current.settle(now)
+	current.sendRoster()
+}
+
+// deviceAttributes name a device in a log line: its session, its member and itself.
+func (current *session) deviceAttributes(who *member, from *device) []any {
+	return []any{"sessionId", current.id, "memberId", who.id, "deviceId", from.id}
 }
 
 // logPlayer logs, at debug, a state that says a device's player began or stopped playing or
@@ -546,16 +560,51 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 		(!from.playerChangedAt.IsZero() && message.Playing == from.playing && message.Buffering == from.buffering) {
 		return
 	}
-	attributes := []any{
-		"sessionId", current.id, "memberId", who.id, "deviceId", from.id,
-		"playing", message.Playing, "buffering", message.Buffering, "positionMs", message.PositionMs,
-		"behindGroupMs", current.positionAt(now).Milliseconds() - message.PositionMs,
-	}
+	attributes := append(current.deviceAttributes(who, from),
+		"playing", message.Playing, "buffering", message.Buffering, positionMsAttribute, message.PositionMs,
+		"behindGroupMs", current.positionAt(now).Milliseconds()-message.PositionMs)
 	if !from.playerChangedAt.IsZero() {
 		attributes = append(attributes, "lastStateMs", now.Sub(from.playerChangedAt).Milliseconds())
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player changed", attributes...)
 	from.playing, from.playerChangedAt = message.Playing, now
+}
+
+// logNote logs, at debug, one thing a device's player did, with only its kind's fields; a note
+// of no known kind is refused as invalid.
+func (current *session) logNote(ctx context.Context, who *member, from *device, note *PlayerNote) {
+	if note == nil || !note.isKnown() {
+		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
+		return
+	}
+	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))
+	for _, field := range []struct {
+		name  string
+		value int64
+	}{
+		{positionMsAttribute, note.PositionMs},
+		{"toMs", note.ToMs},
+		{"driftMs", note.DriftMs},
+		{"loadMs", note.LoadMs},
+		{"kbps", note.Kbps},
+		{"qualityKbps", note.QualityKbps},
+		{"estimateKbps", note.EstimateKbps},
+		{"offlineMs", note.OfflineMs},
+	} {
+		if field.value != 0 {
+			attributes = append(attributes, field.name, field.value)
+		}
+	}
+	if note.Rate != 0 {
+		attributes = append(attributes, "rate", note.Rate)
+	}
+	if note.Why != "" {
+		attributes = append(attributes, "why", note.Why)
+	}
+	if note.Track != "" {
+		attributes = append(attributes, "track", note.Track)
+	}
+	current.logger.DebugContext(ctx, "watch together: a device's player noted", attributes...)
 }
 
 // relay passes voice signalling to the device it names, in the same session (D193 §4).

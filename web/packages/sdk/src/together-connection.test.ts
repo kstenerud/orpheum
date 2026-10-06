@@ -339,6 +339,41 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[0]!.onClose(1006); // the dead socket's late close starts nothing more
     vi.advanceTimersByTime(reconnectWaitMs(0));
     expect(sockets.opened).toHaveLength(2);
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(JSON.stringify(welcome));
+    expect(sockets.sent.find((each) => each["type"] === "note")?.["note"]).toMatchObject({
+      kind: "reconnected",
+      why: "silent",
+    });
+  });
+
+  it("sends its player's notes in whole numbers, and says how long it was away once back", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    connection.note({ kind: "nudged", positionMs: 1234.6, driftMs: 80.2, rate: 1.05 });
+    expect(sockets.sent.at(-1)).toEqual({
+      v: 2,
+      type: "note",
+      note: { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05 },
+    });
+    sockets.opened[0]!.onClose(1006);
+    connection.note({ kind: "sought", positionMs: 0, toMs: 1, why: "hold" }); // not connected
+    monotonicNowMs = 4000;
+    vi.advanceTimersByTime(reconnectWaitMs(0));
+    sockets.opened[1]!.onOpen();
+    sockets.opened[1]!.onMessage(JSON.stringify(welcome));
+    const notes = sockets.sent.filter((each) => each["type"] === "note");
+    expect(notes.map((each) => each["note"])).toEqual([
+      { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05 },
+      { kind: "reconnected", offlineMs: 3000, why: "closed" },
+    ]);
   });
 
   it("ends, without connecting again, when the server ends it or refuses the hello", () => {

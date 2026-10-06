@@ -38,6 +38,7 @@ export { createTogetherConnection } from "./together-connection.ts";
 export type {
   ConnectionStatus,
   GroupCommand,
+  PlayerNote,
   PlayerState,
   TellsCannotKeepUp,
   TogetherConnection,
@@ -48,9 +49,11 @@ export {
   expectedPositionMs,
   fellBehindEvent,
   followGroup,
+  playerLoadedChunkEvent,
   playerMovedItselfEvent,
+  playerSwitchedQualityEvent,
 } from "./together-follow.ts";
-export type { FollowedMedia } from "./together-follow.ts";
+export type { ChunkLoaded, FollowedMedia, QualitySwitched } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */
