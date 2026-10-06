@@ -364,6 +364,7 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 	want := together.Tuning{
 		LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80,
 		SyncWaitMs: 20_000, SettleAfterChangeMs: 300, ShouldNudgeKeepPitch: true,
+		ShouldProcessMicrophone: true,
 	}
 	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
 		*welcome.Tuning != want {
@@ -372,12 +373,13 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 	changed := harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"valuesByKey": map[string]any{
 			"together_drift_left_alone_ms": 750, "together_settle_after_change_ms": 400,
-			"should_together_nudge_keep_pitch": false,
+			"should_together_nudge_keep_pitch": false, "should_together_voice_process_microphone": false,
 		}})
 	if changed.status != http.StatusOK {
 		t.Fatalf("PUT /config = %d %s", changed.status, changed.body)
 	}
-	want.LeaveDriftUpToMs, want.SettleAfterChangeMs, want.ShouldNudgeKeepPitch = 750, 400, false
+	want.LeaveDriftUpToMs, want.SettleAfterChangeMs = 750, 400
+	want.ShouldNudgeKeepPitch, want.ShouldProcessMicrophone = false, false
 	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
 		*welcome.Tuning != want {
 		t.Errorf("after the setting changed, the welcome's tuning = %+v; want %+v", welcome.Tuning, want)

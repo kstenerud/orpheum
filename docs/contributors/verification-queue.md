@@ -208,3 +208,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   Settings page, join again, and say whether the skips stop. Only a real iPhone shows whether
   Safari's still position just after a change, and its switch of pitch keeping, are answered
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
+- [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against
+  staging and presses **Talk**. Passes when the film stays at its usual loudness and the phone's
+  volume buttons still change it while voice is on. If the film drops to barely audible (the
+  owner's test, 2026-10-06, Firefox), set **should_together_voice_process_microphone** to off on
+  the Settings page, press Leave voice and Talk again, and say whether the film's loudness and the
+  buttons come back, and whether the other person still hears you clearly. Only a real Android
+  phone shows whether the browser's microphone processing puts it in a call
+  (`web/packages/sdk/src/together-voice-browser.ts`)

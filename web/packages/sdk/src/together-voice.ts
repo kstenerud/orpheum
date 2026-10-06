@@ -94,8 +94,11 @@ export interface VoiceCallSetup<Microphone extends VoiceMicrophone> {
 
 /** What voice reaches the microphone and the calls through: the browser's, or a test's. */
 export interface VoiceDevices<Microphone extends VoiceMicrophone> {
-  /** Opens the microphone, or fails with the browser's error (microphoneFailureOf reads it). */
-  readonly openMicrophone: () => Promise<Microphone>;
+  /**
+   * Opens the microphone, with the browser's echo cancelling, noise suppression and gain control
+   * when isProcessed, or fails with the browser's error (microphoneFailureOf reads it).
+   */
+  readonly openMicrophone: (isProcessed: boolean) => Promise<Microphone>;
   readonly startCall: (setup: VoiceCallSetup<Microphone>) => VoiceCall;
 }
 
@@ -136,8 +139,11 @@ export interface TogetherVoice {
   readonly snapshot: () => VoiceSnapshot;
   /** Calls listener whenever the snapshot changes; returns the unsubscribing. */
   readonly subscribe: (listener: () => void) => () => void;
-  /** Opens the microphone and attaches this device for voice: from a person's gesture. */
-  readonly start: () => Promise<void>;
+  /**
+   * Opens the microphone, processed as isProcessed says (the welcome's shouldProcessMicrophone),
+   * and attaches this device for voice: from a person's gesture.
+   */
+  readonly start: (isProcessed: boolean) => Promise<void>;
   /** Ends every call, detaches, and closes the microphone. */
   readonly stop: () => void;
   readonly setMuted: (isMuted: boolean) => void;
@@ -268,7 +274,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     return () => this.#listeners.delete(listener);
   };
 
-  readonly start = async (): Promise<void> => {
+  readonly start = async (isProcessed: boolean): Promise<void> => {
     if (this.#snapshot.status === "starting" || this.#snapshot.status === "on") {
       return;
     }
@@ -277,7 +283,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     this.#change({ ...offSnapshot, status: "starting", partnerGain: this.#snapshot.partnerGain });
     let microphone: Microphone;
     try {
-      microphone = await this.#options.devices.openMicrophone();
+      microphone = await this.#options.devices.openMicrophone(isProcessed);
     } catch (error) {
       if (generation === this.#generation) {
         this.#change({

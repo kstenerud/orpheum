@@ -5,6 +5,7 @@ import "./together-viewer.css";
 import { mediaErrorFailure, type PlaybackFailure } from "@orpheum/player";
 import {
   followGroup,
+  startingTuning,
   type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherEndReason,
@@ -244,7 +245,10 @@ function ViewerSession(props: {
         </>
       )}
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls membership={props.membership} />
+      <VoiceControls
+        membership={props.membership}
+        isMicrophoneProcessed={(snapshot?.tuning ?? startingTuning).shouldProcessMicrophone}
+      />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
