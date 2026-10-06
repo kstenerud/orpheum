@@ -188,7 +188,7 @@ func openAndWire(
 			err = errors.Join(err, opened.lock.Release())
 		}
 	}()
-	database, err := openAndMigrate(ctx, config, directories, reportMigration(server.SetStatus, logger))
+	database, err := openAndMigrateOrStartOver(ctx, config, directories, clock.System{}, server.SetStatus, logger)
 	if err != nil {
 		return opened, err
 	}
@@ -334,8 +334,43 @@ func openByteSocket(service *nodes.Service) *nodes.ByteSocketClient {
 	return byteSocket
 }
 
+// openAndMigrateOrStartOver is openAndMigrate, and with database.when_unmigratable = "start_over"
+// a persistent.db that cannot be brought forward (below the baseline, newer than this binary can
+// use, or a step that differs from the one applied) is set aside in the backups directory, named
+// by now, and an empty one is made in its place (D249 §4). Each step is reported through
+// setStatus, when it is not nil (reportMigration).
+func openAndMigrateOrStartOver(
+	ctx context.Context, config Config, directories *instancedir.Directories, now clock.Clock,
+	setStatus func(api.Status, string, ...string), logger *slog.Logger,
+) (*store.Database, error) {
+	var beforeStep func(step, total int)
+	if setStatus != nil {
+		beforeStep = reportMigration(setStatus, logger)
+	}
+	database, err := openAndMigrate(ctx, config, directories, beforeStep)
+	if err == nil || config.Database.WhenUnmigratable != whenStartOver || !isUnmigratable(err) {
+		return database, err
+	}
+	asideName := "persistent-set-aside-" + now.Now().UTC().Format("20060102T150405Z") + ".db"
+	aside, moveErr := directories.SetPersistentDatabaseAside(asideName)
+	if moveErr != nil {
+		return nil, errors.Join(err, moveErr)
+	}
+	logger.WarnContext(ctx, "the database could not be brought forward; it is set aside and the server starts "+
+		"with an empty one, as database.when_unmigratable says (D249 §4)", "setAsideAt", aside, "reason", err.Error())
+	return openAndMigrate(ctx, config, directories, beforeStep)
+}
+
+// isUnmigratable is whether err is a database this binary's steps cannot bring forward, as opposed
+// to a step that failed or a disk that could not be read.
+func isUnmigratable(err error) bool {
+	var newer *store.NewerDatabaseError
+	return errors.Is(err, store.ErrBeforeBaseline) || errors.Is(err, store.ErrStepChanged) || errors.As(err, &newer)
+}
+
 // openAndMigrate opens persistent.db and migrates it, calling beforeStep, when it is not nil, before
-// each step starts. Serving, the migrate command and the dev seed all open the database this way.
+// each step starts. The migrate command and the dev seed open the database this way; serving does
+// through openAndMigrateOrStartOver.
 func openAndMigrate(
 	ctx context.Context, config Config, directories *instancedir.Directories, beforeStep func(step, total int),
 ) (*store.Database, error) {

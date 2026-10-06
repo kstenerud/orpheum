@@ -264,6 +264,31 @@ func (directories *Directories) ReplacePersistentDatabase(restoredName string) (
 	return syncRoot(root)
 }
 
+// SetPersistentDatabaseAside moves persistent.db into the backups directory under the plain name
+// asideName, with its WAL beside it as asideName-wal when there is one, and removes its
+// shared-memory file, so the next open starts an empty database (D249 §4). It returns the path the
+// database was moved to. The caller has closed the database.
+func (directories *Directories) SetPersistentDatabaseAside(asideName string) (string, error) {
+	if err := checkPlainFileName(asideName); err != nil {
+		return "", err
+	}
+	aside := filepath.Join(directories.backupsDirectory, asideName)
+	for _, moved := range []struct{ from, to string }{
+		{persistentDatabaseName + "-wal", aside + "-wal"},
+		{persistentDatabaseName, aside},
+	} {
+		from := filepath.Join(directories.persistentDirectory, moved.from)
+		if err := ignoreMissing(os.Rename(from, moved.to)); err != nil {
+			return "", fmt.Errorf("move %s to %s: %w", from, moved.to, err)
+		}
+	}
+	shm := filepath.Join(directories.persistentDirectory, persistentDatabaseName+"-shm")
+	if err := ignoreMissing(os.Remove(shm)); err != nil {
+		return "", fmt.Errorf("remove %s: %w", shm, err)
+	}
+	return aside, nil
+}
+
 // PersistentPath is the path of a persistent file, for a caller that must hand a path to SQLite (a
 // restored copy written by VACUUM INTO). It refuses anything but a plain name.
 func (directories *Directories) PersistentPath(name string) (string, error) {
