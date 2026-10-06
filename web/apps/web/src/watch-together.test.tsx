@@ -127,7 +127,12 @@ describe("the host's player in a session (D246 §5)", () => {
     const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
     const mounted = await mount(
       withServices(
-        <HostPlaysTogether fileId={5} video={null} startPositionMs={61_000} />,
+        <HostPlaysTogether
+          fileId={5}
+          video={null}
+          startPositionMs={61_000}
+          cannotKeepUp={undefined}
+        />,
         services,
       ),
     );
@@ -166,7 +171,14 @@ describe("the host's player in a session (D246 §5)", () => {
     function Moving(): JSX.Element {
       const [video, setVideo] = useState(() => document.createElement("video"));
       showVideo = setVideo;
-      return <HostPlaysTogether fileId={5} video={video} startPositionMs={61_000} />;
+      return (
+        <HostPlaysTogether
+          fileId={5}
+          video={video}
+          startPositionMs={61_000}
+          cannotKeepUp={undefined}
+        />
+      );
     }
     const mounted = await mount(withServices(<Moving />, services));
     await server.accept();

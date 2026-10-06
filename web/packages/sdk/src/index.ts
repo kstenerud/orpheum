@@ -26,6 +26,7 @@ export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } fr
 export type { WaitOptions } from "./ready.ts";
 export { browserTogetherSocket, parseTogetherMessage } from "./together.ts";
 export type {
+  CannotKeepUp,
   GroupEvent,
   GroupState,
   GroupView,
@@ -38,6 +39,7 @@ export type {
   ConnectionStatus,
   GroupCommand,
   PlayerState,
+  TellsCannotKeepUp,
   TogetherConnection,
   TogetherSnapshot,
 } from "./together-connection.ts";

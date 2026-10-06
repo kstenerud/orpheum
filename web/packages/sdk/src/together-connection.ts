@@ -3,6 +3,7 @@
 import {
   parseTogetherMessage,
   togetherProtocolVersion,
+  type CannotKeepUp,
   type GroupView,
   type OpenTogetherSocket,
   type RosterMember,
@@ -168,7 +169,20 @@ function helloText(options: TogetherConnectionOptions): string {
 }
 
 /** One device's connection, as connectTogether describes it. */
-class SessionConnection implements TogetherConnection {
+/**
+ * A connection that can tell the group its player cannot keep up (D247 §8): apart from
+ * TogetherConnection, which a group's follower needs, as only the page that plays the chunked
+ * quality knows.
+ */
+export interface TellsCannotKeepUp {
+  /**
+   * Says, from now on, that even this device's lowest quality is beyond its link, or that it
+   * keeps up again (undefined), which everyone in the session is told.
+   */
+  readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
+}
+
+class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
   #snapshot = startingSnapshot;
@@ -176,6 +190,7 @@ class SessionConnection implements TogetherConnection {
   #attempt = 0;
   #socket: TogetherSocket | undefined;
   #readPlayer: (() => PlayerState) | undefined;
+  #cannotKeepUp: CannotKeepUp | undefined;
   #timers: ReturnType<typeof setInterval>[] = [];
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   /** Which socket is the current one: each open and reconnect makes a new one. */
@@ -196,6 +211,11 @@ class SessionConnection implements TogetherConnection {
     this.#readPlayer = read;
   };
 
+  readonly setCannotKeepUp = (cannotKeepUp: CannotKeepUp | undefined): void => {
+    this.#cannotKeepUp = cannotKeepUp;
+    this.reportState();
+  };
+
   readonly reportState = (): void => {
     const state = this.#readPlayer?.();
     if (state !== undefined) {
@@ -206,6 +226,16 @@ class SessionConnection implements TogetherConnection {
         playing: state.isPlaying,
         buffering: state.isBuffering,
         rttMs: this.#snapshot.minimumRttMs ?? 0,
+        ...(this.#cannotKeepUp === undefined
+          ? {}
+          : {
+              cannotKeepUp: {
+                lowestKbps: Math.round(this.#cannotKeepUp.lowestKbps),
+                ...(this.#cannotKeepUp.linkKbps === undefined
+                  ? {}
+                  : { linkKbps: Math.round(this.#cannotKeepUp.linkKbps) }),
+              },
+            }),
       });
     }
   };
@@ -338,6 +368,8 @@ class SessionConnection implements TogetherConnection {
  * or it is closed. A hello the server refuses before any welcome ends it as "gone". Every number
  * it sends is whole, as the server reads them.
  */
-export function createTogetherConnection(options: TogetherConnectionOptions): TogetherConnection {
+export function createTogetherConnection(
+  options: TogetherConnectionOptions,
+): TogetherConnection & TellsCannotKeepUp {
   return new SessionConnection(options);
 }

@@ -85,12 +85,15 @@ type Inbound struct {
 	Buffering  bool  `json:"buffering,omitempty"`
 	// RTTMs, in a state, is the shortest round trip the device's pings have measured: the others
 	// see it in the roster, and only the device can measure it (D66).
-	RTTMs      int64         `json:"rttMs,omitempty"`
-	Command    CommandKind   `json:"command,omitempty"`
-	Rate       float64       `json:"rate,omitempty"`
-	FileID     int64         `json:"fileId,omitempty"`
-	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
-	Reason     SuspendReason `json:"reason,omitempty"`
+	RTTMs int64 `json:"rttMs,omitempty"`
+	// CannotKeepUp, in a state, is the device saying even its lowest quality is beyond its link,
+	// which the group is told in the roster (D247 §8); nil while it keeps up.
+	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
+	Command      CommandKind   `json:"command,omitempty"`
+	Rate         float64       `json:"rate,omitempty"`
+	FileID       int64         `json:"fileId,omitempty"`
+	BasedOnSeq   int64         `json:"basedOnSeq,omitempty"`
+	Reason       SuspendReason `json:"reason,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
 	// member's device.
 	ToDeviceID int64  `json:"toDeviceId,omitempty"`
@@ -184,4 +187,13 @@ type DeviceView struct {
 	IsBuffering bool          `json:"isBuffering,omitempty"`
 	Suspended   SuspendReason `json:"suspended,omitempty"`
 	RTTMs       int64         `json:"rttMs,omitempty"`
+	// CannotKeepUp is the device's word that even its lowest quality is beyond its link (D247 §8).
+	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
+}
+
+// CannotKeepUp is a device whose link carries less than its lowest quality needs, with both
+// numbers, which everyone in the session is told (D247 §8): LinkKbps 0 when it was not measured.
+type CannotKeepUp struct {
+	LinkKbps   int64 `json:"linkKbps,omitempty"`
+	LowestKbps int64 `json:"lowestKbps"`
 }

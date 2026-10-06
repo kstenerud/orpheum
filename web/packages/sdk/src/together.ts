@@ -49,11 +49,22 @@ export interface GroupView {
   readonly byMemberId: number | undefined;
 }
 
+/**
+ * A device whose link carries less than its lowest quality needs, as it said with both numbers
+ * (D247 §8); linkKbps is undefined when it was not measured.
+ */
+export interface CannotKeepUp {
+  readonly linkKbps: number | undefined;
+  readonly lowestKbps: number;
+}
+
 /** One device of a member in the roster, and its health. */
 export interface RosterDevice {
   readonly id: number;
   readonly role: string;
   readonly isBuffering: boolean;
+  /** Its word that even its lowest quality is beyond its link; undefined while it keeps up. */
+  readonly cannotKeepUp: CannotKeepUp | undefined;
 }
 
 /** One member in the roster: the name they chose, whether they host, and their devices. */
@@ -152,12 +163,26 @@ function parseRoster(value: unknown): RosterMember[] {
                   id: numberIn(fields, "id"),
                   role: stringIn(fields, "role") ?? "",
                   isBuffering: fields["isBuffering"] === true,
+                  cannotKeepUp: cannotKeepUpIn(fields["cannotKeepUp"]),
                 },
               ];
         }),
       },
     ];
   });
+}
+
+/** A roster device's cannotKeepUp, or undefined when it has none or it is not its shape. */
+function cannotKeepUpIn(value: unknown): CannotKeepUp | undefined {
+  const fields = recordOf(value);
+  if (fields === undefined || typeof fields["lowestKbps"] !== "number") {
+    return undefined;
+  }
+  const link = fields["linkKbps"];
+  return {
+    linkKbps: typeof link === "number" && link > 0 ? link : undefined,
+    lowestKbps: fields["lowestKbps"],
+  };
 }
 
 const endReasons: readonly TogetherEndReason[] = ["hostEnded", "ejected", "left"];

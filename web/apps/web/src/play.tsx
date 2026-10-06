@@ -15,7 +15,13 @@ import {
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import { whenReady, type Api, type components, type PlayableFormats } from "@orpheum/sdk";
+import {
+  whenReady,
+  type Api,
+  type CannotKeepUp,
+  type components,
+  type PlayableFormats,
+} from "@orpheum/sdk";
 import {
   useCallback,
   useEffect,
@@ -39,6 +45,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { HostPlaysTogether } from "./together-host.tsx";
+import { rateText } from "./rate-text.ts";
 import { useResource } from "./use-resource.ts";
 import { monotonicMs } from "./use-together.ts";
 
@@ -78,6 +85,8 @@ export function PlayView(props: {
   // way of playing, so a move to a lower quality is no film stopped and put on again for everyone
   // (the owner's test, 2026-10-05).
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
+  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
     (offer: LowerQuality, positionMs: number) => {
@@ -85,7 +94,7 @@ export function PlayView(props: {
     },
     [mediaToken],
   );
-  const ways = { ...props, onLowerQuality, onVideo: setVideo };
+  const ways = { ...props, onLowerQuality, onVideo: setVideo, onCannotKeepUp: setCannotKeepUp };
   let playing: JSX.Element;
   if (moved?.mediaToken === mediaToken) {
     playing = <ChunkedVideo {...ways} offer={moved.offer} positionMs={moved.positionMs} />;
@@ -101,6 +110,7 @@ export function PlayView(props: {
         fileId={props.fileId}
         video={video}
         startPositionMs={props.decision.resumePositionMs}
+        cannotKeepUp={cannotKeepUp}
       />
     </>
   );
@@ -114,6 +124,8 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
   readonly onLowerQuality: (offer: LowerQuality, positionMs: number) => void;
   /** Told the video element each way of playing shows, and null as it goes. */
   readonly onVideo: (video: HTMLVideoElement | null) => void;
+  /** Told when even the lowest quality cannot keep up, and undefined when it can (D247 §8). */
+  readonly onCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
 };
 
 /**
@@ -442,20 +454,6 @@ function DirectVideo(props: PlayProps): JSX.Element {
   );
 }
 
-/** A bit rate as a person reads it: megabits a second, to one decimal. */
-function rateText(kbps: number): string {
-  return `${(kbps / 1000).toFixed(1)} Mb/s`;
-}
-
-/**
- * Why the lowest quality cannot keep up, once it stalls there or the link was already below it
- * (D247 §8): the link's speed as measured, when it is, and what the lowest needs.
- */
-interface CannotKeepUp {
-  readonly linkKbps: number | undefined;
-  readonly lowestKbps: number;
-}
-
 /**
  * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
  * and, once its lowest quality stalls, that the link cannot keep up (D247 §8).
@@ -565,6 +563,13 @@ function ChunkedVideo(
     { offer, positionMs: props.positionMs },
     onFailed,
   );
+  const { onCannotKeepUp } = props;
+  useEffect(() => {
+    onCannotKeepUp(cannotKeepUp);
+    return () => {
+      onCannotKeepUp(undefined);
+    };
+  }, [cannotKeepUp, onCannotKeepUp]);
   // It starts where the player stalled, not where the person last left the file.
   const decision = { ...props.decision, resumePositionMs: Math.round(props.positionMs) };
   const level: SoundLevel = {

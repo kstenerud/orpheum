@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { followGroup, type GroupCommand } from "@orpheum/sdk";
+import { followGroup, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -8,7 +8,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { forgetMembership, readMembership, type Membership } from "./together-storage.ts";
-import { monotonicMs, useTogether } from "./use-together.ts";
+import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
 /** What the host's player is given: the film, its video, and where it starts. */
 interface HostPlayer {
@@ -20,6 +20,8 @@ interface HostPlayer {
   readonly video: HTMLVideoElement | null;
   /** Where the film starts: where the host left it (play-state.md). */
   readonly startPositionMs: number;
+  /** Whether even the host's lowest quality cannot keep up, which everyone is told (D247 §8). */
+  readonly cannotKeepUp: CannotKeepUp | undefined;
 }
 
 /**
@@ -84,6 +86,7 @@ function HostLeading(
         : followGroup(video, connection, { fileId, isLeading: true, monotonicMs }),
     [connection, fileId, video],
   );
+  useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
     if (isOver) {
       onOver();

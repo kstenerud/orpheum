@@ -457,6 +457,35 @@ func TestHub_TheRosterShowsEachDevicesRoundTripItReported(t *testing.T) {
 	t.Errorf("the host's roster has no guest; host %d", host.MemberID)
 }
 
+// A device that says even its lowest quality is beyond its link is shown so in everyone's roster,
+// with both numbers, until it says it keeps up again (D247 §8).
+func TestHub_TheRosterTellsEveryoneADeviceCannotKeepUp(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guest := stage.join(t)
+	guestDevice, _ := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestInHostsRoster := func() DeviceView {
+		for _, each := range hostBox.last(MessageRoster).Roster {
+			if each.ID == guest.MemberID && len(each.Devices) == 1 {
+				return each.Devices[0]
+			}
+		}
+		t.Fatal("the host's roster has no guest with one device")
+		return DeviceView{}
+	}
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{
+		Type: MessageState, Buffering: true, CannotKeepUp: &CannotKeepUp{LinkKbps: 600, LowestKbps: 750},
+	})
+	if got := guestInHostsRoster().CannotKeepUp; got == nil || *got != (CannotKeepUp{LinkKbps: 600, LowestKbps: 750}) {
+		t.Errorf("the guest's device in the host's roster cannot keep up = %+v; want 600 kb/s against 750", got)
+	}
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageState})
+	if got := guestInHostsRoster().CannotKeepUp; got != nil {
+		t.Errorf("after a report without it, the guest still cannot keep up: %+v", got)
+	}
+}
+
 // A group's change is named by a code a client words, never by words; a seek says where it jumped
 // from as well as to (D188).
 func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {

@@ -312,14 +312,14 @@ the sender's monotonic time, and round trips are measured with `ping`.
 | --- | --- | --- |
 | client → | `hello` | `credential` (the membership's), `sessionToken` (a signed-in person's, optional; D243 §2), `role` (`playback`, `voice`, `both`), `canSetRate` — within 10 s of opening |
 | client → | `ping` | `tMono` |
-| client → | `state` | `positionMs`, `tMono`, `playing`, `buffering`, `rttMs` (the shortest round trip its pings measured) — sent on every change and every 60 s |
+| client → | `state` | `positionMs`, `tMono`, `playing`, `buffering`, `rttMs` (the shortest round trip its pings measured), `cannotKeepUp` (`linkKbps`, `lowestKbps`) while even its lowest quality is beyond its link (D247 §8) — sent on every change and every 60 s |
 | client → | `command` | the host's alone: `command`: `play`, `pause`, `seek` (`positionMs`), `rate` (`rate`), `changeItem` (`fileId` and `positionMs`, to a film the host reaches), `stop` (nothing on, every screen black; D246 §5); with `basedOnSeq` |
 | client → | `suspend` / `resume` | `reason`: `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, `userPausedLocally`, `userIsChangingCurrentTime` |
 | client → | `rtc` | `toDeviceId`, `sdp` or `candidate` (voice signalling only; media goes browser to TURN) |
 | → client | `welcome` | `sessionId`, `memberId`, `deviceId`, `isHost` (only the host controls playback in Cut A, D246 §8), `roster`, the current `group` |
 | → client | `pong` | the echoed `tMono` |
 | → client | `group` | `seq`, `group`: `state` (`Idle`, `Waiting`, `Paused`, `Playing`), `positionMs`, `rate`, `fileId`, and the `event` with the `byMemberId` whose command caused it (named events, D188): a code a client words, `played`, `paused`, `seeked` (with `seekedFromMs`), `changedRate`, `changedItem`, `stopped`, `everyoneReady`, `buffering` or `left` |
-| → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`); never the host's notes |
+| → client | `roster` | `roster`: members (`id`, `name` each chose, `isHost`) and their devices (`id`, `role`, `isBuffering`, `suspended`, `rttMs`, `cannotKeepUp`); never the host's notes |
 | → client | `rejected` | `basedOnSeq`, `code` (§5.2: `forbidden`, `stale`, `invalid_request`, `not_found`) |
 | → client | `rtc` | `fromDeviceId`, and the relayed signalling |
 | → client | `ended` | `reason` (`hostEnded`, `ejected`, `left`); the socket closes after it |

@@ -19,6 +19,10 @@ export const enTogether = {
     volume: "Volume",
     leave: "Leave",
     connecting: "Connecting…",
+    cannotKeepUp:
+      "{{name}}'s connection carries about {{link}}, and even the lowest quality needs {{lowest}}: their film will keep pausing.",
+    cannotKeepUpUnmeasured:
+      "Even the lowest quality, {{lowest}}, is too much for {{name}}'s connection: their film will keep pausing.",
     reconnecting: "Connection lost. Reconnecting…",
     here: "Here: {{names, list}}",
     away: "{{name}} (reconnecting)",
