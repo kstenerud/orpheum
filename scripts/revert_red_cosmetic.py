@@ -63,9 +63,13 @@ def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
       guard that reads `*p = 0` as a comment would suppress a real finding. Or, under
       the same guard, the two versions differ only in comments and in the text of struct
       tags' `doc:"..."` values (`same_but_doc_text`).
-    * **Python**: the two versions parse to the same AST. That covers `#` comments
-      and formatting together. A docstring edit is *not* covered — docstrings are
-      AST nodes — so it still reports as it does today.
+    * **Python**: the two versions parse to the same AST once function and class
+      docstrings are left out (`_code_of`). That covers `#` comments, formatting and
+      those docstrings together. A module's docstring stays in: the gate scripts hand
+      it to argparse as their `--help` (`description=__doc__`), so rewording it changes
+      what a person is shown. A docstring of a function or class is read by nothing in
+      them; one rewording a renamed path in fetch_ffmpeg.py's `tools_dir` failed a
+      check-pr as a change no test covered (2026-10-06).
     """
     if GO_SOURCE.search(path):
         before = _git("show", f"{base}:{path}", cwd=tree).stdout
@@ -79,13 +83,30 @@ def is_cosmetic(tree: str, base: str, head: str, path: str) -> bool:
 
     if PY_SOURCE.search(path):
         try:
-            before = ast.dump(ast.parse(_git("show", f"{base}:{path}", cwd=tree).stdout))
-            after = ast.dump(ast.parse(_git("show", f"{head}:{path}", cwd=tree).stdout))
+            before = _code_of(_git("show", f"{base}:{path}", cwd=tree).stdout)
+            after = _code_of(_git("show", f"{head}:{path}", cwd=tree).stdout)
         except SyntaxError:
             return False  # unparseable on either side; let the probe speak
         return before == after
 
     return False
+
+
+def _code_of(source: str) -> str:
+    """A Python file's syntax tree without its functions' and classes' docstrings, as text to compare.
+
+    A docstring is the first statement of a body when it is a string constant. One that is a
+    body's only statement is kept, as `pass` would have to take its place.
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and len(node.body) > 1:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(
+                first.value.value, str
+            ):
+                node.body = node.body[1:]
+    return ast.dump(tree)
 
 
 def same_but_doc_text(before: str, after: str) -> bool:
