@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
 import { click, fire, mount } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { testServices, withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
 
@@ -29,13 +29,34 @@ describe("AppShell", () => {
     );
     expect(markup.match(/<main/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<header class="app-shell__banner"><p class="app-shell__title"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/p>/u,
+      /<header class="app-shell__banner"><p class="app-shell__title"><a href="\/films" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).toContain('<a href="/watch-together">Watch Together</a>');
     expect(markup).not.toContain("/libraries");
     expect(markup).not.toContain("/jobs");
     expect(markup).toContain("partner on Firefox on Mac");
+  });
+
+  it("takes a person home, to the films, when the logo is clicked", async () => {
+    const services = testServices(undefined, "/about");
+    const mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={true}
+          currentScreen="about"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        services,
+      ),
+    );
+    await click(mounted.container.querySelector(".app-shell__home"));
+    expect(services.navigation.route()).toEqual({ screen: "films" });
+    mounted.unmount();
   });
 
   it("shows the admin's destinations to an admin", () => {
