@@ -5,6 +5,7 @@ import importlib.machinery
 import importlib.util
 import json
 import sys
+import socket
 import tomllib
 import unittest
 from pathlib import Path
@@ -97,6 +98,14 @@ class Rendering(unittest.TestCase):
         self.assertEqual(config["turn"]["listen"], "10.77.0.2:3478")
         self.assertEqual(config["server"]["listen"], "0.0.0.0:8440")
         self.assertEqual(config["database"]["when_unmigratable"], "start_over")  # D249 §4
+
+    def test_the_node_is_named_by_the_values_file_or_the_machine(self):
+        """Staging's node was always "devnas", wherever it ran (2026-10-06)."""
+        named = staging.parse_values('[node]\nname = "sandbox"\n')
+        self.assertEqual(named.node_name, "sandbox")
+        self.assertEqual(staging.parse_values("").node_name, socket.gethostname())
+        config = tomllib.loads(staging.node_config((TEMPLATES / "node.toml").read_text(), named))
+        self.assertEqual(config["node"]["name"], "sandbox")
 
     def test_the_node_config_names_the_media_and_requires_confinement(self):
         config = tomllib.loads(staging.node_config((TEMPLATES / "node.toml").read_text(), filled()))

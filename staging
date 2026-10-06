@@ -67,6 +67,8 @@ class Values:
     # None: chosen from the endpoint's family (tunnel_mtu).
     mtu: int | None = None
     media_roots: list[str] = field(default_factory=list)
+    # The name the node gives itself, which the library form's machine list shows.
+    node_name: str = ""
     http_publish: str = "0.0.0.0"
     http_port: int = 8440
 
@@ -75,6 +77,7 @@ def parse_values(text: str) -> Values:
     """The values file's values; a missing one is its starting value."""
     data = tomllib.loads(text)
     vps, media, http = data.get("vps", {}), data.get("media", {}), data.get("http", {})
+    node = data.get("node", {})
     return Values(
         domain=str(data.get("domain", "")).strip(),
         contact=str(data.get("contact", "")).strip(),
@@ -83,6 +86,7 @@ def parse_values(text: str) -> Values:
         vps_public_key=str(vps.get("public_key", "")).strip(),
         mtu=int(vps["mtu"]) if "mtu" in vps else None,
         media_roots=[str(root) for root in media.get("roots", [])],
+        node_name=str(node.get("name", "")).strip() or socket.gethostname(),
         http_publish=str(http.get("publish", "0.0.0.0")).strip(),
         http_port=int(http.get("port", 8440)),
     )
@@ -175,7 +179,8 @@ def core_config(template: str, values: Values) -> str:
 
 
 def node_config(template: str, values: Values) -> str:
-    return render(template, {"media_roots": json.dumps(values.media_roots)})
+    return render(template, {"media_roots": json.dumps(values.media_roots),
+                             "node_name": json.dumps(values.node_name)})
 
 
 def tunnel_config(template: str, values: Values, private_key: str) -> str:
