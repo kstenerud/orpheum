@@ -42,10 +42,11 @@ export const enTogether = {
       connecting: "Voice: connecting…",
       alone: "Voice is on. No one else has turned theirs on yet.",
       connectingTo: "Voice: connecting to {{names, list}}…",
+      browserReason: "The browser said: {{reason}}",
       connectedTo: "Voice: connected to {{names, list}}",
       failure: {
         refused:
-          "Your microphone was not allowed. Allow it for this site in the browser's settings, then press Talk again.",
+          "Your microphone was not allowed. Allow it for this site in the browser's settings. On a phone, the browser app itself must also be allowed the microphone, in the phone's settings (Apps, then the browser, then Permissions). Then press Talk again.",
         none: "No microphone was found. Connect one, then press Talk again.",
         busy: "Your microphone is in use by another app, or could not start. Close that app, then press Talk again.",
         unsupported:

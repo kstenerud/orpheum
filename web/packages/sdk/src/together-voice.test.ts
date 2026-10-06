@@ -374,7 +374,11 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
   it("says why when the microphone is refused, and attaches nothing", async () => {
     const refused = rig(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     await refused.voice.start();
-    expect(refused.voice.snapshot()).toMatchObject({ status: "failed", failure: "refused" });
+    expect(refused.voice.snapshot()).toMatchObject({
+      status: "failed",
+      failure: "refused",
+      browserReason: "NotAllowedError: no",
+    });
     expect(refused.server.sockets).toHaveLength(0);
   });
 

@@ -28,7 +28,8 @@
   min-width: 0;
 }
 
-.together-voice__hint {
+.together-voice__hint,
+.together-voice__reason {
   margin: 0;
   color: var(--color-muted);
   font-size: var(--font-size-small);
