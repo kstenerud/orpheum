@@ -16,6 +16,11 @@ export interface WaitOptions {
 
 const statusTooEarly = 425;
 
+/** The browser's fetch, for what the server serves outside its API: what a wait uses by default. */
+export function browserFetch(url: string, init: RequestInit): Promise<Response> {
+  return fetch(url, init);
+}
+
 /**
  * Waits until a prepared rendition's playlist exists: the server answers 425 with a Retry-After
  * while the first segment is being made (cut-a §6). The request carries the media cookie, as the
@@ -60,7 +65,7 @@ function withDefaults(options: WaitOptions): {
   maxAttempts: number;
 } {
   return {
-    get: options.fetch ?? ((address, init) => fetch(address, init)),
+    get: options.fetch ?? browserFetch,
     sleep:
       options.sleep ??
       ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))),

@@ -314,6 +314,7 @@ export function usePreparedPlayback(
   failure: string | undefined;
 } {
   const { t } = useTranslation();
+  const { fetchMedia } = useServices();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
@@ -324,7 +325,7 @@ export function usePreparedPlayback(
       return undefined;
     }
     const aborter = new AbortController();
-    whenReady(decision.url, { signal: aborter.signal }).then(
+    whenReady(decision.url, { fetch: fetchMedia, signal: aborter.signal }).then(
       () => {
         if (!aborter.signal.aborted) {
           setIsWaiting(false);
@@ -347,7 +348,7 @@ export function usePreparedPlayback(
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
-  }, [decision.url, startAudioRenditionIndex, t, setFailure]);
+  }, [decision.url, startAudioRenditionIndex, t, setFailure, fetchMedia]);
   return { videoRef, playbackRef, isWaiting, failure };
 }
 

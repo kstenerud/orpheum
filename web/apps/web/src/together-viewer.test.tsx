@@ -220,6 +220,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const { services, heard, server } = viewerServices("/together", {
       "POST /together/playback": [200, prepared],
       "GET /files/5/availability": [200, {}],
+      "GET /bytes/media/hls/abc/master.m3u8": [200, {}],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
     await server.accept();
@@ -230,7 +231,11 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5 },
     });
     await fire(mounted.container.querySelector("video"), new Event("error"));
-    expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /together/playback"]);
+    // The prepared copy's playlist, waited for, and nothing of the host's file.
+    expect(heard.map((each) => each.methodAndPath)).toEqual([
+      "POST /together/playback",
+      "GET /bytes/media/hls/abc/master.m3u8",
+    ]);
     mounted.unmount();
   });
 
