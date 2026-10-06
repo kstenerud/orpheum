@@ -49,6 +49,17 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A23 — Told the owner a tag would not travel, without checking the tool (2026-10-06)
+
+- **What happened:** asked to tag the demo-safe commit so it would not be forgotten, I tagged it
+  and said a tag made in the sandbox would not carry over with `yoloai apply`, so the owner should
+  re-create it on their side. That is false: `yoloai apply --tags` carries it. The belief came
+  from knowing that branches do not travel (AGENTS.md rule 14) and assuming tags were the same,
+  never looking at what `yoloai apply` offers.
+- **Caught by:** the owner: "point of order: tags do carry over if I use --tags".
+- **Gate:** none. The practice: a claim about what a tool does, where it is not this project's
+  code, is checked against the tool's own help before it is told to the owner, or said as a guess.
+
 ### A22 — A browser blamed for a codec it plays, and a fix shipped on the blame (2026-10-06)
 
 - **What happened:** the owner's Mac Firefox loaded a copied HEVC picture and never played it. I
