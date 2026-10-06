@@ -156,7 +156,13 @@ func (checker *Checker) checkHTTPS(ctx context.Context) ([]string, Result) {
 		return addresses, Result{Outcome: NotAnswering, Detail: err.Error()}
 	}
 	_ = answer.Body.Close() //nolint:errcheck // the status is all it says
-	if answer.StatusCode != http.StatusNoContent {
+	switch answer.StatusCode {
+	case http.StatusNoContent:
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		// A proxy on the way (the VPS's) answered for a server it could not reach, or this one is
+		// not ready: nothing behind the address answered (M4's audit).
+		return addresses, Result{Outcome: NotAnswering, Detail: answer.Status}
+	default:
 		return addresses, Result{Outcome: AnotherServer, Detail: answer.Status}
 	}
 	return addresses, Result{Outcome: Reached}
