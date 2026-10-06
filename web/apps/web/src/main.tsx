@@ -6,6 +6,7 @@ import "./i18n.ts";
 
 import { canFollowAGroup } from "@orpheum/player";
 import {
+  browserFetch,
   browserPlayableFormats,
   browserTogetherSocket,
   browserVoiceDevices,
@@ -38,6 +39,7 @@ const services = {
   openTogetherSocket: browserTogetherSocket(window.location.origin),
   canFollowAGroup,
   voiceDevices: browserVoiceDevices,
+  fetchMedia: browserFetch,
 };
 
 createRoot(rootElement).render(

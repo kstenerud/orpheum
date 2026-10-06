@@ -91,6 +91,12 @@ export function testServices(
       },
       close: () => undefined,
     }),
+    fetchMedia: async (url, init) => {
+      if (send === undefined) {
+        throw new TypeError("Failed to fetch: this test serves no media");
+      }
+      return await send(new Request(new URL(url, testOrigin), init));
+    },
   };
 }
 

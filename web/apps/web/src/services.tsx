@@ -21,6 +21,11 @@ export interface Services {
   readonly canFollowAGroup: () => boolean;
   /** Makes the microphone and calls a Watch Together person's voice goes through. */
   readonly voiceDevices: () => BrowserVoiceDevices;
+  /**
+   * Fetches what the server serves outside its API, a playlist or a subtitle's text, with the
+   * media cookie: the browser's fetch, or a test's server, so no test reaches the network.
+   */
+  readonly fetchMedia: (url: string, init: RequestInit) => Promise<Response>;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

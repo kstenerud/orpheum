@@ -258,6 +258,7 @@ function useSubtitleLayer(
   options: { offsetRef: RefObject<number>; onFailed: (why: string) => void },
 ): RefObject<SubtitleLayer | undefined> {
   const { t } = useTranslation();
+  const { fetchMedia } = useServices();
   const layerRef = useRef<SubtitleLayer | undefined>(undefined);
   const { offsetRef, onFailed } = options;
   useEffect(() => {
@@ -266,7 +267,7 @@ function useSubtitleLayer(
       return undefined;
     }
     const aborter = new AbortController();
-    textWhenReady(assUrl, { signal: aborter.signal }).then(
+    textWhenReady(assUrl, { fetch: fetchMedia, signal: aborter.signal }).then(
       (ass) => {
         if (!aborter.signal.aborted) {
           layerRef.current = drawSubtitles(video, ass, offsetRef.current);
@@ -283,6 +284,6 @@ function useSubtitleLayer(
       layerRef.current?.destroy();
       layerRef.current = undefined;
     };
-  }, [assUrl, videoRef, offsetRef, onFailed, t]);
+  }, [assUrl, videoRef, offsetRef, onFailed, t, fetchMedia]);
   return layerRef;
 }
