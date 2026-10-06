@@ -9,6 +9,8 @@ import { createContext, use } from "react";
 export interface PollWaits {
   readonly firstMs: number;
   readonly longestMs: number;
+  /** The wait after a read that failed, every time. */
+  readonly failedMs: number;
 }
 
 /** What one ask of a poll came to: what it read changed what is shown, or did not, or it failed. */
@@ -28,11 +30,16 @@ export function backingOffPoller(polling: PollWaits): Poller {
 }
 
 /**
- * The waits of a screen showing what the server changes in the background, 2 s to 30 s (D237 §1):
+ * The waits of a screen showing what the server changes in the background, 2 s to 30 s, and 5 s
+ * after a read that failed (D237 §1):
  * the settings' starting values, which the server's client settings replace once read. The core's
  * TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettingsStarts holds them equal.
  */
-export const backgroundChangeWaits: PollWaits = { firstMs: 2000, longestMs: 30_000 };
+export const backgroundChangeWaits: PollWaits = {
+  firstMs: 2000,
+  longestMs: 30_000,
+  failedMs: 5000,
+};
 
 /**
  * The poller of a screen showing what the server changes in the background, a scan,
@@ -43,10 +50,13 @@ export const backgroundChangesPoller: Poller = backingOffPoller(backgroundChange
 /**
  * The wait before the next ask, after lastWaitMs and what the last ask came to. Only an unchanged
  * answer backs off: a failure is no answer, and a screen open while the server restarts asks again
- * soon, so it shows the server's answer within the first wait of it being up (2026-10-06).
+ * after the failed wait each time, so it shows the server's answer soon after it is up (D237).
  */
 export function nextWaitMs(polling: PollWaits, lastWaitMs: number, outcome: AskOutcome): number {
-  if (outcome !== "unchanged") {
+  if (outcome === "failed") {
+    return polling.failedMs;
+  }
+  if (outcome === "changed") {
     return polling.firstMs;
   }
   return Math.min(lastWaitMs * 2, polling.longestMs);
@@ -81,7 +91,13 @@ export function pollUntilStopped(polling: PollWaits, ask: Ask): () => void {
  * waits before they are read. A longest wait shorter than the first is the first.
  */
 export function clientWaits(
-  read: { readonly firstSeconds: number; readonly longestSeconds: number } | undefined,
+  read:
+    | {
+        readonly firstSeconds: number;
+        readonly longestSeconds: number;
+        readonly failedSeconds: number;
+      }
+    | undefined,
 ): PollWaits {
   if (read === undefined) {
     return backgroundChangeWaits;
@@ -89,13 +105,14 @@ export function clientWaits(
   return {
     firstMs: read.firstSeconds * 1000,
     longestMs: Math.max(read.firstSeconds, read.longestSeconds) * 1000,
+    failedMs: read.failedSeconds * 1000,
   };
 }
 
 /**
  * The poller screens showing what the server changes in the background use: backgroundChangesPoller until
- * the server's client settings say the waits an admin set (screen_refresh_first_wait_seconds and
- * screen_refresh_longest_wait_seconds).
+ * the server's client settings say the waits an admin set (screen_refresh_first_wait_seconds,
+ * screen_refresh_longest_wait_seconds and screen_refresh_failed_wait_seconds).
  */
 export const BackgroundChangesContext = createContext<Poller>(backgroundChangesPoller);
 

@@ -101,12 +101,13 @@ function useServersPoller(): Poller {
   const read = clientSettings.state === "loaded" ? clientSettings.value : undefined;
   const firstSeconds = read?.screenRefreshFirstWaitSeconds;
   const longestSeconds = read?.screenRefreshLongestWaitSeconds;
+  const failedSeconds = read?.screenRefreshFailedWaitSeconds;
   return useMemo(
     () =>
-      firstSeconds === undefined || longestSeconds === undefined
+      firstSeconds === undefined || longestSeconds === undefined || failedSeconds === undefined
         ? backgroundChangesPoller
-        : backingOffPoller(clientWaits({ firstSeconds, longestSeconds })),
-    [firstSeconds, longestSeconds],
+        : backingOffPoller(clientWaits({ firstSeconds, longestSeconds, failedSeconds })),
+    [firstSeconds, longestSeconds, failedSeconds],
   );
 }
 

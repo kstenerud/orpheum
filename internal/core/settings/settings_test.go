@@ -536,12 +536,15 @@ func TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettings
 	if err != nil {
 		t.Fatal(err)
 	}
-	waits := regexp.MustCompile(`backgroundChangeWaits: PollWaits = \{ firstMs: ([\d_]+), longestMs: ([\d_]+) \}`).
+	waits := regexp.MustCompile(`backgroundChangeWaits: PollWaits = \{\s*` +
+		`firstMs: ([\d_]+),\s*longestMs: ([\d_]+),\s*failedMs: ([\d_]+),?\s*\}`).
 		FindSubmatch(source)
 	if waits == nil {
 		t.Fatal("polling.ts has no backgroundChangeWaits this test can read; say where the client's copy went")
 	}
-	for index, key := range []Key{ScreenRefreshFirstWaitSeconds, ScreenRefreshLongestWaitSeconds} {
+	for index, key := range []Key{
+		ScreenRefreshFirstWaitSeconds, ScreenRefreshLongestWaitSeconds, ScreenRefreshFailedWaitSeconds,
+	} {
 		milliseconds, parseErr := strconv.ParseInt(strings.ReplaceAll(string(waits[index+1]), "_", ""), 10, 64)
 		if parseErr != nil {
 			t.Fatal(parseErr)

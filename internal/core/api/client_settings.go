@@ -19,6 +19,9 @@ type ClientSettingsBody struct {
 	// ScreenRefreshLongestWaitSeconds is the longest it waits: the wait doubles to it while nothing
 	// changes (D237).
 	ScreenRefreshLongestWaitSeconds int64 `json:"screenRefreshLongestWaitSeconds"`
+	// ScreenRefreshFailedWaitSeconds is how long it waits after a read that failed, every time
+	// (D237).
+	ScreenRefreshFailedWaitSeconds int64 `json:"screenRefreshFailedWaitSeconds"`
 }
 
 // ClientSettingsOutput is GET /client-settings's answer.
@@ -48,6 +51,7 @@ func (server *Server) getClientSettings(
 	}{
 		{settings.ScreenRefreshFirstWaitSeconds, &output.Body.ScreenRefreshFirstWaitSeconds},
 		{settings.ScreenRefreshLongestWaitSeconds, &output.Body.ScreenRefreshLongestWaitSeconds},
+		{settings.ScreenRefreshFailedWaitSeconds, &output.Body.ScreenRefreshFailedWaitSeconds},
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {

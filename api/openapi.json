@@ -366,6 +366,10 @@
       "ClientSettingsBody": {
         "additionalProperties": false,
         "properties": {
+          "screenRefreshFailedWaitSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
           "screenRefreshFirstWaitSeconds": {
             "format": "int64",
             "type": "integer"
@@ -377,7 +381,8 @@
         },
         "required": [
           "screenRefreshFirstWaitSeconds",
-          "screenRefreshLongestWaitSeconds"
+          "screenRefreshLongestWaitSeconds",
+          "screenRefreshFailedWaitSeconds"
         ],
         "type": "object"
       },

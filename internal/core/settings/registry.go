@@ -91,6 +91,7 @@ const (
 	OfflineReminderIntervalDays                    Key = "offline_reminder_interval_days"
 	ScreenRefreshFirstWaitSeconds                  Key = "screen_refresh_first_wait_seconds"
 	ScreenRefreshLongestWaitSeconds                Key = "screen_refresh_longest_wait_seconds"
+	ScreenRefreshFailedWaitSeconds                 Key = "screen_refresh_failed_wait_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -430,6 +431,10 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"the longest such a screen waits before asking again; the wait doubles to it while nothing "+
 				"changes (D237)"),
 			"D237: the owner, 2026-10-02: \"max 30s\""),
+		sourced(durationSetting(ScreenRefreshFailedWaitSeconds, time.Second, "5", 1, 3600,
+			"seconds such a screen waits before asking again after a read that failed, every time, so it "+
+				"shows the server's answer soon after it is back (D237)"),
+			"D237's amendment: the owner, 2026-10-06: \"Make it every 5 seconds\""),
 		sourced(durationSetting(OfflineReminderIntervalDays, day, "7", 1, 365,
 			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
 				"after them while any is still offline (D231 §7)"),

@@ -25,7 +25,7 @@ import { useResource } from "./use-resource.ts";
  * How often a page showing a code asks whether it has been used: every 3 s, with no backing off,
  * since the person is signing the other device in now and waits for this one to notice (D237).
  */
-const codeCheckPolling = backingOffPoller({ firstMs: 3000, longestMs: 3000 });
+const codeCheckPolling = backingOffPoller({ firstMs: 3000, longestMs: 3000, failedMs: 3000 });
 
 /** The device code on screen, and how to make one: what useDeviceCode returns. */
 export interface DeviceCodeState {

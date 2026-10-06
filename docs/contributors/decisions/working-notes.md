@@ -17509,9 +17509,10 @@ each such screen does.
 
 **Amended** (2026-10-06), when a films list opened while the dev server rebuilt stayed failed and
 the home page took up to 30 s more to notice the server back: §1's "unchanged" is an answer, and a
-failed read is none. A failed read asks again after the first wait, and a list whose first read, or
-whose page more, failed is read again from the start (polling.test.ts, use-pages.test.ts). This is
-the agent's reading of a case §1 left open, put to the owner the same day.
+failed read is none, and does not back off. After each failed read a screen asks again after
+`screen_refresh_failed_wait_seconds`, a setting the server gives the client as §4's waits, starting
+at 5 s (the owner: *"Make it every 5 seconds instead of 2"*), and a list whose first read, or whose
+page more, failed is read again from the start (polling.test.ts, use-pages.test.ts).
 
 ## D238 — Each fact has one owner; the node keeps no database, holding its work in memory and its renditions' facts beside them
 

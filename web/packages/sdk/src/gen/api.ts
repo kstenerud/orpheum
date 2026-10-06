@@ -1661,6 +1661,8 @@ export interface components {
         };
         ClientSettingsBody: {
             /** Format: int64 */
+            screenRefreshFailedWaitSeconds: number;
+            /** Format: int64 */
             screenRefreshFirstWaitSeconds: number;
             /** Format: int64 */
             screenRefreshLongestWaitSeconds: number;

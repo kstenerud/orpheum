@@ -20,9 +20,10 @@ describe("polling (D237)", () => {
     expect(nextWaitMs(backgroundChangeWaits, 30000, "changed")).toBe(2000);
   });
 
-  it("asks again at the first wait after a failure, which is no answer to back off from (2026-10-06)", () => {
-    expect(nextWaitMs(backgroundChangeWaits, 30000, "failed")).toBe(2000);
-    expect(nextWaitMs(backgroundChangeWaits, 2000, "failed")).toBe(2000);
+  it("asks again 5 s after each failure, which is no answer to back off from (the owner, 2026-10-06)", () => {
+    expect(nextWaitMs(backgroundChangeWaits, 30000, "failed")).toBe(5000);
+    expect(nextWaitMs(backgroundChangeWaits, 5000, "failed")).toBe(5000);
+    expect(nextWaitMs(backgroundChangeWaits, 5000, "unchanged")).toBe(10000);
   });
 
   it("asks on its schedule until it is stopped, and not after", async () => {
@@ -40,15 +41,17 @@ describe("polling (D237)", () => {
   });
 
   it("waits as the server's client settings say, D237's waits until they are read", () => {
-    expect(clientWaits(undefined)).toEqual({ firstMs: 2000, longestMs: 30_000 });
-    expect(clientWaits({ firstSeconds: 5, longestSeconds: 60 })).toEqual({
+    expect(clientWaits(undefined)).toEqual({ firstMs: 2000, longestMs: 30_000, failedMs: 5000 });
+    expect(clientWaits({ firstSeconds: 5, longestSeconds: 60, failedSeconds: 7 })).toEqual({
       firstMs: 5000,
       longestMs: 60_000,
+      failedMs: 7000,
     });
     // A longest wait shorter than the first is the first.
-    expect(clientWaits({ firstSeconds: 10, longestSeconds: 4 })).toEqual({
+    expect(clientWaits({ firstSeconds: 10, longestSeconds: 4, failedSeconds: 5 })).toEqual({
       firstMs: 10_000,
       longestMs: 10_000,
+      failedMs: 5000,
     });
   });
 });
