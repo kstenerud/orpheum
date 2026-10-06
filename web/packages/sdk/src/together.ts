@@ -93,6 +93,13 @@ export interface SyncTuning {
   readonly seekDriftBeyondMs: number;
   /** How full a player catching up aims to have its buffer when the group reaches it, in percent. */
   readonly catchUpBufferPercent: number;
+  /**
+   * How long after it starts playing, finishes a seek or changes its rate a player's position is
+   * not read for drift: Safari's stands still for up to 250 ms then (D250 §7).
+   */
+  readonly settleAfterChangeMs: number;
+  /** Whether a nudged player's sound keeps its pitch (D250 §7). */
+  readonly shouldNudgeKeepPitch: boolean;
 }
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
@@ -101,6 +108,8 @@ export const startingTuning: SyncTuning = {
   nudgeMostPercent: 10,
   seekDriftBeyondMs: 3000,
   catchUpBufferPercent: 80,
+  settleAfterChangeMs: 300,
+  shouldNudgeKeepPitch: true,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
@@ -219,7 +228,7 @@ function cannotKeepUpIn(value: unknown): CannotKeepUp | undefined {
 
 const endReasons: readonly TogetherEndReason[] = ["hostEnded", "ejected", "left"];
 
-/** A welcome's tuning, each number the starting one where it says none. */
+/** A welcome's tuning, each value the starting one where it says none. */
 function parseTuning(value: unknown): SyncTuning {
   const record = recordOf(value) ?? {};
   return {
@@ -231,6 +240,15 @@ function parseTuning(value: unknown): SyncTuning {
       "catchUpBufferPercent",
       startingTuning.catchUpBufferPercent,
     ),
+    settleAfterChangeMs: numberIn(
+      record,
+      "settleAfterChangeMs",
+      startingTuning.settleAfterChangeMs,
+    ),
+    shouldNudgeKeepPitch:
+      typeof record["shouldNudgeKeepPitch"] === "boolean"
+        ? record["shouldNudgeKeepPitch"]
+        : startingTuning.shouldNudgeKeepPitch,
   };
 }
 

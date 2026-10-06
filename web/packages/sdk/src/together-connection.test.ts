@@ -166,6 +166,8 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       nudgeMostPercent: 5,
       seekDriftBeyondMs: 4000,
       catchUpBufferPercent: 60,
+      settleAfterChangeMs: 450,
+      shouldNudgeKeepPitch: false,
     };
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning }));
     expect(connection.snapshot().tuning).toEqual(tuning);

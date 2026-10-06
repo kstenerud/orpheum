@@ -102,6 +102,7 @@ export type FollowedMedia = Pick<
   HTMLMediaElement,
   | "currentTime"
   | "playbackRate"
+  | "preservesPitch"
   | "paused"
   | "ended"
   | "seeking"
@@ -303,6 +304,8 @@ class GroupFollower {
   /** Whether the last seek was the follower's own, so its seeking is not taken for a person's. */
   #isOwnSeekPending = false;
   #nudgeEndsAtMs = 0;
+  /** Until when (monotonic) it is not nudged: Safari's position stands still after a change. */
+  #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
   #hasCaughtUp = false;
   /** Whether it has stalled or sought, and has not yet loaded enough ahead to play on. */
@@ -373,6 +376,9 @@ class GroupFollower {
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
+    if (event === "playing" || event === "seeked") {
+      this.#settle();
+    }
     this.#noteLoading(event);
     const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
@@ -560,6 +566,12 @@ class GroupFollower {
     this.#correct(where);
   }
 
+  /** Reads no drift from the player's position for the tuning's settleAfterChangeMs from now. */
+  #settle(): void {
+    const { tuning } = this.#connection.snapshot();
+    this.#settlesAtMs = this.#options.monotonicMs() + tuning.settleAfterChangeMs;
+  }
+
   /** Corrects a playing player's drift from the group: nudged away, or sought across. */
   #correct(where: GroupNow): void {
     const media = this.#media;
@@ -567,11 +579,21 @@ class GroupFollower {
       { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
       where.tuning,
     );
+    // Safari's position stands still up to 250 ms after a change (D250 §7): no nudge on that, but a
+    // drift to seek across is far beyond what a still position makes, and is sought across at once.
+    if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
+      return;
+    }
     // A player stalled and refilling is not nudged: its position does not move, and a faster rate
     // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
     // iPhone was nudged to 2x second after second).
     const isNudged = correction.kind === "nudge" && !this.#isRefilling;
-    media.playbackRate = isNudged ? correction.rate : where.group.rate;
+    const rate = isNudged ? correction.rate : where.group.rate;
+    if (rate !== media.playbackRate) {
+      media.preservesPitch = where.tuning.shouldNudgeKeepPitch;
+      media.playbackRate = rate;
+      this.#settle();
+    }
     if (isNudged) {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
       this.#connection.note({

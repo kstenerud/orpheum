@@ -206,6 +206,11 @@ type Tuning struct {
 	// SyncWaitMs is how long a sync point waits for the players before playing without those not
 	// ready (D250 §3): the server's own, told so a client may say so.
 	SyncWaitMs int64 `json:"syncWaitMs"`
+	// SettleAfterChangeMs is how long after it starts playing, finishes a seek or changes its rate
+	// a player's position is not read for drift: Safari's stands still for a moment then (D250 §7).
+	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`
+	// ShouldNudgeKeepPitch is whether a nudged player's sound keeps its pitch (D250 §7).
+	ShouldNudgeKeepPitch bool `json:"shouldNudgeKeepPitch"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every

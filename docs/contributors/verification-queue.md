@@ -200,3 +200,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   real networks show that the microphone, the calls, Web Audio's per-voice gain and the relay
   work together (D193 §4, D63 tier 1). (`web/packages/sdk/src/together-voice-browser.ts`,
   `web/apps/web/src/together-voice.tsx`)
+- [ ] **VQ22** — An iPhone on iOS 17.1 or later follows a group the host plays on a laptop, against
+  staging. Passes when, over five minutes of playing, with a pause, a play and a seek by the host,
+  the iPhone's sound does not skip or stutter as it keeps in step, and staging's log shows its
+  nudges (`"nudged"` notes) no more often than every few seconds, not one after every play or
+  seek. If the sound skips at each nudge, set **should_together_nudge_keep_pitch** to off on the
+  Settings page, join again, and say whether the skips stop. Only a real iPhone shows whether
+  Safari's still position just after a change, and its switch of pitch keeping, are answered
+  (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)

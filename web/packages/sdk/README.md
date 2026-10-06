@@ -19,7 +19,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **Watch Together keeps no shared clock** (D66): a playing group's expected position is its
   position plus the local monotonic time since its message arrived, times its rate; drift within
   `leaveDriftUpToMs` is left, up to `seekDriftBeyondMs` nudged by the rate for about a second,
-  beyond it sought across (watch-together.md, Sync). `src/together-follow.test.ts`.
+  beyond it sought across (watch-together.md, Sync). For `settleAfterChangeMs` after it starts
+  playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands
+  still then (D250 §7); a drift to seek across is still sought across at once.
+  `src/together-follow.test.ts`.
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's.
   `src/together-follow.test.ts`.
