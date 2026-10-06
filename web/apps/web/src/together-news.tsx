@@ -4,6 +4,7 @@ import type { TogetherSnapshot } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { rateText } from "./rate-text.ts";
 import { groupEventText } from "./together-events.ts";
 
 /**
@@ -36,6 +37,26 @@ export function TogetherNews(props: {
           })}
         </p>
       )}
+      {snapshot.roster.flatMap((member) => {
+        const slow = member.devices.find(
+          (device) => device.cannotKeepUp !== undefined,
+        )?.cannotKeepUp;
+        if (slow === undefined) {
+          return [];
+        }
+        const lowest = rateText(slow.lowestKbps);
+        return [
+          <output key={`slow-${String(member.id)}`}>
+            {slow.linkKbps === undefined
+              ? t("together.cannotKeepUpUnmeasured", { name: member.name, lowest })
+              : t("together.cannotKeepUp", {
+                  name: member.name,
+                  link: rateText(slow.linkKbps),
+                  lowest,
+                })}
+          </output>,
+        ];
+      })}
     </div>
   );
 }

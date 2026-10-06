@@ -146,6 +146,8 @@ type device struct {
 	hasBeenReady bool
 	// isCatchingUp is whether the group plays on without it until it is ready again (D247 §4).
 	isCatchingUp bool
+	// cannotKeepUp is what the device last said of a link too slow for its lowest quality (D247 §8).
+	cannotKeepUp *CannotKeepUp
 	send         Sender
 }
 
@@ -163,6 +165,7 @@ func (each *device) takeState(message Inbound) (hasStalled bool) {
 		if message.RTTMs > 0 {
 			each.rttMs = message.RTTMs
 		}
+		each.cannotKeepUp = message.CannotKeepUp
 	case MessageSuspend:
 		each.suspended = message.Reason
 	case MessageResume:
@@ -510,8 +513,14 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessagePing:
 		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
 	case MessageState, MessageSuspend, MessageResume:
+		couldKeepUp := from.cannotKeepUp == nil
 		if from.takeState(message) {
 			handled.stalled(now, sender, from)
+		}
+		if couldKeepUp && from.cannotKeepUp != nil {
+			hub.logger.InfoContext(ctx, "watch together: a device cannot keep up even at its lowest quality",
+				"sessionId", handled.id, "memberId", sender.id, "deviceId", from.id,
+				"linkKbps", from.cannotKeepUp.LinkKbps, "lowestKbps", from.cannotKeepUp.LowestKbps)
 		}
 		handled.settle(now)
 		handled.sendRoster()
@@ -545,7 +554,7 @@ func (current *session) roster() []MemberView {
 		for _, attached := range each.devices {
 			view.Devices = append(view.Devices, DeviceView{
 				ID: attached.id, Role: attached.role, IsBuffering: attached.buffering,
-				Suspended: attached.suspended, RTTMs: attached.rttMs,
+				Suspended: attached.suspended, RTTMs: attached.rttMs, CannotKeepUp: attached.cannotKeepUp,
 			})
 		}
 		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })

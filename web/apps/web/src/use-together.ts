@@ -3,6 +3,8 @@
 import {
   createTogetherConnection,
   type GroupCommand,
+  type CannotKeepUp,
+  type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
@@ -37,7 +39,7 @@ export interface TogetherDevice {
  * credential.
  */
 export function useTogether(device: TogetherDevice): {
-  readonly connection: TogetherConnection | undefined;
+  readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket } = useServices();
@@ -68,4 +70,25 @@ export function useTogether(device: TogetherDevice): {
     connection?.snapshot ?? noSnapshot,
   );
   return { connection, snapshot };
+}
+
+/**
+ * Tells the session, through connection, that even this player's lowest quality cannot keep up,
+ * with both numbers, and that it keeps up again once it does or goes (D247 §8).
+ */
+export function useToldCannotKeepUp(
+  connection: TellsCannotKeepUp | undefined,
+  cannotKeepUp: CannotKeepUp | undefined,
+): void {
+  const linkKbps = cannotKeepUp?.linkKbps;
+  const lowestKbps = cannotKeepUp?.lowestKbps;
+  useEffect(() => {
+    if (connection === undefined || lowestKbps === undefined) {
+      return undefined;
+    }
+    connection.setCannotKeepUp({ linkKbps, lowestKbps });
+    return () => {
+      connection.setCannotKeepUp(undefined);
+    };
+  }, [connection, linkKbps, lowestKbps]);
 }

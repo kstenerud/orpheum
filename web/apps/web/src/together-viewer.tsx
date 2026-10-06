@@ -5,6 +5,7 @@ import "./together-viewer.css";
 import { mediaErrorFailure, type PlaybackFailure } from "@orpheum/player";
 import {
   followGroup,
+  type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherEndReason,
   type TogetherSnapshot,
@@ -47,7 +48,7 @@ import {
   readViewerAudioOutput,
   type Membership,
 } from "./together-storage.ts";
-import { monotonicMs, useTogether } from "./use-together.ts";
+import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -298,7 +299,7 @@ function LeaveButton(props: {
 function ViewingArea(props: {
   readonly membership: Membership;
   readonly audioOutput: AudioOutput;
-  readonly connection: TogetherConnection | undefined;
+  readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly volume: number;
 }): JSX.Element {
@@ -322,7 +323,7 @@ function ViewingArea(props: {
 
 /** What a viewer's video follows: the session's connection, at the viewer's own volume. */
 interface Following {
-  readonly connection: TogetherConnection;
+  readonly connection: TogetherConnection & TellsCannotKeepUp;
   readonly volume: number;
 }
 
@@ -511,6 +512,7 @@ function ChunkedFilm(
     onFailed,
   );
   useFollowing(videoRef, props.fileId, props.following);
+  useToldCannotKeepUp(props.following.connection, cannotKeepUp);
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
