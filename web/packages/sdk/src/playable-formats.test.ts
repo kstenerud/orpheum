@@ -23,6 +23,25 @@ describe("the formats a browser can play", () => {
     expect(formats.containers).toEqual(["mp4", "mkv"]);
   });
 
+  it("does not believe Firefox's yes to HEVC, which it did not play on a Mac, and believes others'", () => {
+    const probe = {
+      canPlayType: () => "",
+      isTypeSupported: (type: string) => type.includes("hvc1"),
+    };
+    const firefox = playableFormatsFrom({
+      ...probe,
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:156.0) Gecko/20100101 Firefox/156.0",
+    });
+    expect(firefox.videoCodecs).toEqual(["h264-sdr"]);
+    const safari = playableFormatsFrom({
+      ...probe,
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/19.0 Safari/605.1.15",
+    });
+    expect(safari.videoCodecs).toEqual(["hevc-hdr10", "hevc-sdr", "h264-sdr"]);
+  });
+
   it("takes canPlayType's word where there is no MSE, as on an iPhone", () => {
     const formats = playableFormatsFrom({
       canPlayType: (type) =>
