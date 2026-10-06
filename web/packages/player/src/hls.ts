@@ -107,6 +107,14 @@ export function tellOwnMoves(hls: OwnMoves, video: Pick<EventTarget, "dispatchEv
 }
 
 /**
+ * How hls.js plays a prepared rendition: from its start. A rendition still being prepared has an
+ * open playlist (EVENT, no ENDLIST yet), which hls.js reads as live and, left to itself, starts
+ * near its newest segment: a film whose prepare had made 46 s began at 40 s (staging,
+ * 2026-10-06). A person's place to resume is a seek after it loads, as for any rendition.
+ */
+export const preparedHlsConfig = { startPosition: 0 } as const;
+
+/**
  * Plays an HLS master playlist in video: with hls.js where the page has MSE, else with the
  * element's own HLS, as on an iPhone. The URL was produced by the SDK; the requests carry the
  * media cookie, never a credential in the address (D154).
@@ -134,7 +142,7 @@ export function playHls(
       estimateKbps: () => undefined,
     };
   }
-  const hls = new Hls();
+  const hls = new Hls(preparedHlsConfig);
   hls.on(Hls.Events.ERROR, (_event, data) => {
     if (data.fatal) {
       onFailed(hlsErrorFailure(data));
