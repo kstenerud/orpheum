@@ -22,6 +22,8 @@ export const en = {
     account: "Your account",
     about: "About",
     signOut: "Sign out",
+    manage: "Manage",
+    you: "You",
     signedInAs: "{{name}}",
     signedInAsOn: "{{name}} on {{device}}",
     label: "Main",
