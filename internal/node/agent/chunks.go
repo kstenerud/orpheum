@@ -29,22 +29,19 @@ func (agent *Agent) chunksWork(
 	return heldWork{saysHowFar: true, run: func(jobCtx context.Context) {
 		times := chunksRunTimes{startedAt: agent.clock.Now()}
 		report := agent.runChunks(jobCtx, nodeID, held, command, &times)
-		figures := agent.chunksRunFigures(command, report, times)
+		run := append([]any{
+			"jobId", jobID, "storeDir", command.StoreDir, "firstChunk", command.FirstChunk,
+			"lastChunk", report.LastChunk,
+		}, agent.chunksRunFigures(command, report, times)...)
 		switch {
 		case jobCtx.Err() != nil && ctx.Err() == nil:
-			agent.logger.InfoContext(ctx, "a run of chunks was cancelled",
-				append([]any{"jobId", jobID, "storeDir", command.StoreDir, "lastChunk", report.LastChunk},
-					figures...)...)
+			agent.logger.InfoContext(ctx, "a run of chunks was cancelled", run...)
 			return
 		case report.State == nodeproto.PrepareDone:
-			agent.logger.InfoContext(ctx, "a run of chunks finished",
-				append([]any{"jobId", jobID, "storeDir", command.StoreDir, "firstChunk", command.FirstChunk,
-					"lastChunk", report.LastChunk}, figures...)...)
+			agent.logger.InfoContext(ctx, "a run of chunks finished", run...)
 		default:
-			agent.logger.WarnContext(ctx, "a run of chunks did not finish",
-				append([]any{"jobId", jobID, "storeDir", command.StoreDir, "state", report.State,
-					"lastChunk", report.LastChunk, "why", report.Failure + report.Refusal + stallDetail(report.Stall)},
-					figures...)...)
+			agent.logger.WarnContext(ctx, "a run of chunks did not finish", append(run,
+				"state", report.State, "why", report.Failure+report.Refusal+stallDetail(report.Stall))...)
 		}
 		agent.postResult(ctx, nodeID, "a run of chunks", held.named(nodeproto.Result{MakeChunks: &report}))
 		agent.evict(ctx)

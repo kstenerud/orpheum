@@ -195,7 +195,7 @@ func chunkWaitOutcomeOf(err error) string {
 // logChunkWait logs, at debug, a file a player waited for, and nothing for one not waited for (a
 // nil wait): its store, the chunk it needs made, how the wait ended and how long it held the
 // request, and the run that covered the chunk when it was asked for, so a chunk asked for far past
-// what its run had made shows. hls.js counts a hold as transfer time and switches down; a viewer on
+// what its run had made shows: hls.js counts a hold as transfer time and switches down, and a viewer on
 // a slow link found playback unwatchable and the log could not say why (playback-in-practice.md §3,
 // 2026-10-06).
 func (server *Server) logChunkWait(

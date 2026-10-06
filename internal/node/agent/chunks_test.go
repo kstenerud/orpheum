@@ -144,39 +144,18 @@ func (maker pacedChunkMaker) Make(
 	ctx context.Context, _ string, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
 	last := command.FirstChunk + len(command.BoundsMs) - 2
-	for n := command.FirstChunk; n <= last; n++ {
+	for chunk := command.FirstChunk; chunk <= last; chunk++ {
 		maker.clock.Advance(maker.chunkTakes)
-		onChunk(n)
+		onChunk(chunk)
 		switch {
 		case strings.Contains(command.StoreDir, "failing"):
-			return n, errors.New("ffmpeg: Invalid data found when processing input")
+			return chunk, errors.New("ffmpeg: Invalid data found when processing input")
 		case strings.Contains(command.StoreDir, "waiting"):
 			<-ctx.Done()
-			return n, ctx.Err()
+			return chunk, ctx.Err()
 		}
 	}
 	return last, nil
-}
-
-// logLines are the lines a logger writes, each as it is written; past 64 unread, one is dropped.
-type logLines chan string
-
-func (lines logLines) Write(written []byte) (int, error) {
-	select {
-	case lines <- string(written):
-	default:
-	}
-	return len(written), nil
-}
-
-// awaitLogLine is the next line logged holding message, the lines before it skipped.
-func awaitLogLine(t *testing.T, lines logLines, message string) string {
-	t.Helper()
-	for {
-		if line := testutil.Receive(t, lines, "a log line holding "+message); strings.Contains(line, message) {
-			return line
-		}
-	}
 }
 
 // checkLogLine fails the test unless line holds every one of parts.
@@ -196,14 +175,14 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	clock := clocktest.NewFake(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
-	lines := make(logLines, 64)
+	logs := &testutil.Log{}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
 		ThroughReader: fakeThroughReader{},
 		ChunkMaker:    pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
 	}, func(node *Agent) {
 		node.clock = clock
-		node.logger = slog.New(slog.NewJSONHandler(lines, nil))
+		node.logger = slog.New(slog.NewJSONHandler(logs, nil))
 	})
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
@@ -220,12 +199,12 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	// Three chunks of two seconds each in 1.8 s: 3.3 times real time.
 	core.sendMakeChunks(1, run("1/chunks-picture/0123456789abcdef"))
 	receiveChunksReport(t, core)
-	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks finished"`), `"level":"INFO"`, `"jobId":1,`,
+	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks finished"`), `"level":"INFO"`, `"jobId":1,`,
 		`"storeDir":"1/chunks-picture/0123456789abcdef"`, `"firstChunk":4,`, `"lastChunk":6,`, `"chunksMade":3,`,
 		`"filmMadeMs":6000,`, `"wallTimeMs":1800,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
 	core.sendMakeChunks(2, run("1/chunks-failing/0123456789abcdef"))
 	receiveChunksReport(t, core)
-	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks did not finish"`), `"level":"WARN"`,
+	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks did not finish"`), `"level":"WARN"`,
 		`"jobId":2,`, `"lastChunk":4,`, `"why":"ffmpeg: Invalid data`, `"chunksMade":1,`, `"filmMadeMs":2000,`,
 		`"wallTimeMs":600,`, `"speed":3.3,`, `"firstChunkAfterMs":600`)
 	core.sendMakeChunks(3, run("1/chunks-waiting/0123456789abcdef"))
@@ -236,7 +215,7 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 		}
 	}
 	core.commands <- nodeproto.Command{CommandSeq: 4, JobID: 3, Work: nodeproto.Work{Type: nodeproto.CommandCancel}}
-	checkLogLine(t, awaitLogLine(t, lines, `"msg":"a run of chunks was cancelled"`), `"jobId":3,`,
+	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks was cancelled"`), `"jobId":3,`,
 		`"storeDir":"1/chunks-waiting/0123456789abcdef"`, `"lastChunk":4,`, `"chunksMade":1,`,
 		`"filmMadeMs":2000,`, `"wallTimeMs":600,`, `"firstChunkAfterMs":600`)
 }

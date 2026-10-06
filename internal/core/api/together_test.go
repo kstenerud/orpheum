@@ -184,7 +184,7 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
 		t.Fatalf("POST /together/playback = %d %s", started.status, started.body)
 	}
-	harness.logs.awaitLine(t, `"msg":"a playback started"`, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
 		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs
 	if status := harness.viewerBytes(t, playing.URL, membership.Body.MembershipCredential); status != http.StatusOK {
 		t.Errorf("the viewer's bytes, by their cookie alone = %d, want 200", status)
@@ -362,7 +362,7 @@ func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
 	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
 	viewer.awaitWelcome()
-	harness.logs.awaitLine(t, `"watch together: a device disconnected"`,
+	harness.logs.AwaitLine(t, `"watch together: a device disconnected"`,
 		fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID), "sent nothing for 50ms")
 }
 

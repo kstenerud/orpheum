@@ -6,7 +6,7 @@
 // pinned tools that way. It installs the fake ffmpeg and ffprobe (testing.md §11), and runs the
 // MKVToolNix that tests edit Matroska files with, which the node never runs. It generates media
 // with the pinned FFmpeg: test images and the M2 acceptance's 200-file fixture tree. Receive is a
-// test's bounded wait on a channel.
+// test's bounded wait on a channel, and Log a logger's output a test waits on for a line.
 //
 // # Invariants
 //

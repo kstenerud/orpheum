@@ -104,14 +104,14 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	// which had made none of its chunks when asked.
 	waited := `"msg":"waited for a chunk not made yet"`
 	storeDir := `"storeDir":"1/chunks-q700k432p/` + grid.ID() + `"`
-	harness.logs.awaitLine(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
+	harness.logs.AwaitLine(t, waited, storeDir, `"wantedChunk":1,`, `"outcome":"served"`, `"heldMs":750,`,
 		`"isCovered":true`, `"runFirstChunk":1,`, `"runLastChunk":2,`, `"runMadeThrough":0`)
 	// One no run makes in the time a player waits is too early: the player asks again.
 	if late := harness.getBytePath(t, base+"q700k432p/00002.m4s", user, true, ""); late.status !=
 		http.StatusTooEarly || late.header.Get("Retry-After") != "1" {
 		t.Errorf("a chunk not made in time: %d %v, want 425 with Retry-After 1", late.status, late.header)
 	}
-	harness.logs.awaitLine(t, waited, storeDir, `"wantedChunk":2,`, `"outcome":"askAgain"`, `"heldMs":20000,`,
+	harness.logs.AwaitLine(t, waited, storeDir, `"wantedChunk":2,`, `"outcome":"askAgain"`, `"heldMs":20000,`,
 		`"runFirstChunk":1,`)
 	// A chunk the node has at once was not waited for, and says nothing.
 	if again := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); again.status != http.StatusOK {
