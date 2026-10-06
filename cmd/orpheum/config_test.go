@@ -170,6 +170,7 @@ relay_port_max = 49199
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3
+when_unmigratable = "refuse"
 
 [log]
 level = "info"

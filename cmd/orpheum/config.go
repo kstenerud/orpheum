@@ -112,7 +112,16 @@ func (relay TURNConfig) check() error {
 type DatabaseConfig struct {
 	ReadConnectionsMinimum     int `toml:"read_connections_minimum"`
 	MigrateFreeSpaceDBMultiple int `toml:"migrate_free_space_db_multiple"`
+	// WhenUnmigratable is what the core does with a persistent.db it cannot bring forward:
+	// whenRefuse, or whenStartOver, which staging uses (D249 §4).
+	WhenUnmigratable string `toml:"when_unmigratable"`
 }
+
+// The values of database.when_unmigratable (D249 §4).
+const (
+	whenRefuse    = "refuse"
+	whenStartOver = "start_over"
+)
 
 // NodeConfig is the media node's.
 type NodeConfig struct {
@@ -217,6 +226,11 @@ func coreConfigKeys() []configKey {
 		{
 			tableDatabase, "migrate_free_space_db_multiple", "3",
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
+		},
+		{
+			tableDatabase, "when_unmigratable", `"refuse"`,
+			`what the core does with a database it cannot bring forward: "refuse" to start, or ` +
+				`"start_over", setting it aside in the backups directory and starting empty (staging's, D249 §4)`,
 		},
 	}
 }
@@ -434,10 +448,15 @@ func (server ServerConfig) check() error {
 
 // check refuses database choices the store cannot use.
 func (database DatabaseConfig) check() error {
-	return atLeastOne(map[string]int64{
+	problems := []error{atLeastOne(map[string]int64{
 		"database.read_connections_minimum":       int64(database.ReadConnectionsMinimum),
 		"database.migrate_free_space_db_multiple": int64(database.MigrateFreeSpaceDBMultiple),
-	})
+	})}
+	if database.WhenUnmigratable != whenRefuse && database.WhenUnmigratable != whenStartOver {
+		problems = append(problems, fmt.Errorf("database.when_unmigratable %q: want %q or %q",
+			database.WhenUnmigratable, whenRefuse, whenStartOver))
+	}
+	return errors.Join(problems...)
 }
 
 // check refuses what a node cannot run with.
