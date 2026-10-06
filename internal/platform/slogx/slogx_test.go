@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -79,5 +81,15 @@ func TestNew_RejectsAnUnknownFormat(t *testing.T) {
 	var output bytes.Buffer
 	if _, err := slogx.New(&output, slogx.Format("yaml"), slog.LevelInfo); err == nil {
 		t.Error("New accepted the format \"yaml\"; want an error")
+	}
+}
+
+// A request's User-Agent is logged under userAgent, as it came.
+func TestUserAgent_IsTheRequestsOwnWords(t *testing.T) {
+	t.Parallel()
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	request.Header.Set("User-Agent", "Mozilla/5.0 (iPhone)")
+	if got := slogx.UserAgent(request); got.Key != "userAgent" || got.Value.String() != "Mozilla/5.0 (iPhone)" {
+		t.Errorf("UserAgent = %v; want userAgent=Mozilla/5.0 (iPhone)", got)
 	}
 }

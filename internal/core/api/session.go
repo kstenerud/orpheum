@@ -62,6 +62,9 @@ type SignInInput struct {
 type ClientFacts struct {
 	clientAddress string
 	isOverTLS     bool
+	// userAgent is the browser's own words for itself, for the log: an iPhone's player behaves
+	// unlike a desktop's, and nothing said which a stalling viewer had (staging, 2026-10-06).
+	userAgent string
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -83,6 +86,7 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 		host = ctx.RemoteAddr()
 	}
 	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
+	facts.userAgent = ctx.Header("User-Agent")
 	return nil
 }
 

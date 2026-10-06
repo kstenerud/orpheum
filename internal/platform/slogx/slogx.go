@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 )
 
 // Format is how a logger renders each record.
@@ -41,4 +42,11 @@ func New(output io.Writer, format Format, level slog.Leveler) (*slog.Logger, err
 		return slog.New(slog.NewTextHandler(output, options)), nil
 	}
 	return nil, fmt.Errorf("log format %q: want %q or %q", format, FormatJSON, FormatText)
+}
+
+// UserAgent is the browser's own words for itself, as a log attribute and nothing else: behaviour
+// never branches on it (D2, D103), but a log that names the browser tells an iPhone's player from a
+// desktop's when one stalls (staging, 2026-10-06).
+func UserAgent(request *http.Request) slog.Attr {
+	return slog.String("userAgent", request.UserAgent())
 }

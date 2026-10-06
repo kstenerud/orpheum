@@ -320,7 +320,9 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 		AudioOutput: string(input.Body.AudioOutput),
 	})
 	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
-	who := []any{"sessionId", sessionID, "memberId", memberID, "fileId", holder.OnlyFileID}
+	who := []any{
+		"sessionId", sessionID, "memberId", memberID, "fileId", holder.OnlyFileID, "userAgent", input.userAgent,
+	}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
