@@ -257,6 +257,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D249](working-notes.md#d249--three-ways-to-run-dev-as-it-is-staging-from-the-checkout-beside-it-and-release-from-a-tagged-image-the-tunnel-is-a-container-of-the-deployments-own) Three ways to run: dev as it is, staging from the checkout beside it, and release from a tagged image; the tunnel is a container of the deployment's own
 - [D250](working-notes.md#d250--a-watch-together-group-stops-only-at-its-own-sync-points-a-members-trouble-is-theirs-to-catch-up-on-from-what-is-already-being-made) A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
 - [D251](working-notes.md#d251--the-web-clients-first-skin-is-dark-with-one-coral-accent-the-system-typeface-and-slightly-rounded-corners) The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
+- [D252](working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end) M4's acceptance shapes each client's network with the kernel's netem, in a run of its own at the milestone's end
 
 ## Archived
 
