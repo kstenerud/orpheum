@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Hls from "hls.js";
 
-import { adaptQuality, lookForStepUpEveryMs, type AdaptingHls } from "./chunked.ts";
+import { adaptQuality, beyondTheLink, lookForStepUpEveryMs, type AdaptingHls } from "./chunked.ts";
 import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
 
 /** A stand-in for hls.js: three qualities, the link it measures, and its events. */
@@ -95,5 +95,33 @@ describe("adapting a chunked playback's quality (D247 §6, §9)", () => {
     nowMs += lookForStepUpEveryMs;
     vi.advanceTimersByTime(lookForStepUpEveryMs);
     expect(hls.autoLevelCapping).toBe(1); // held again at the new quality
+  });
+});
+
+describe("whether a stall is beyond the link (D247 §8)", () => {
+  /** hls.js playing level, on a link measured at linkBps (0: not yet measured). */
+  function playingAt(level: number, linkBps: number): FakeHls {
+    const hls = new FakeHls();
+    hls.currentLevel = level;
+    hls.bandwidthEstimate = linkBps;
+    return hls;
+  }
+
+  it("is, at the lowest quality on a link measured too slow for it, with both numbers", () => {
+    expect(beyondTheLink(playingAt(0, 1_000_000))).toEqual({ linkKbps: 1000, lowestKbps: 892 });
+  });
+
+  it("is, at the lowest quality on a link not yet measured", () => {
+    expect(beyondTheLink(playingAt(0, 0))).toEqual({ linkKbps: undefined, lowestKbps: 892 });
+  });
+
+  it("is not, at the lowest quality on a link measured well above it: something else stalled it", () => {
+    // staging, 2026-10-06: a 98 Mbit/s link was told it could not keep up with 892 kbit/s
+    expect(beyondTheLink(playingAt(0, 98_348_000))).toBeUndefined();
+    expect(beyondTheLink(playingAt(0, 1_338_000))).toBeUndefined(); // 1.5 times the lowest
+  });
+
+  it("is not, above the lowest quality, where a lower one answers it", () => {
+    expect(beyondTheLink(playingAt(1, 500_000))).toBeUndefined();
   });
 });

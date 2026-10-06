@@ -487,12 +487,9 @@ export function useChunkedPlayback(
       setPlaying(playback.playing());
     }, 1000);
     const stopWatching = watchStalls(video, () => {
-      const level = playback.playing();
-      if (playback.isAtLowest() && level !== undefined) {
-        setCannotKeepUp({
-          linkKbps: playback.estimateKbps(),
-          lowestKbps: level.averageBitrate / 1000,
-        });
+      const beyond = playback.beyondTheLink();
+      if (beyond !== undefined) {
+        setCannotKeepUp(beyond);
       }
     });
     return () => {
