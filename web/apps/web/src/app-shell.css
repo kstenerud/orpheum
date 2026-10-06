@@ -94,6 +94,29 @@
   color: var(--color-text);
 }
 
+/*
+ * Watch Together while this tab hosts a session: a dot in the accent at the name's top corner,
+ * like a notification's, so it takes no room in a row that fills a phone's width.
+ */
+.app-shell__watching a {
+  position: relative;
+}
+
+.app-shell__on {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  /* Its words are for a screen reader, which reads "Watch Together on now"; the eye sees a dot. */
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+}
+
 /* A menu's name, with a small mark that it opens; the browser's own triangle is hidden. */
 .app-shell__menu {
   position: relative;

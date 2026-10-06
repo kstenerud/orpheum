@@ -46,6 +46,23 @@ export function readMembership(
   }
 }
 
+/** Who is told when this tab keeps or forgets a membership: storage itself tells no one in the tab. */
+const membershipListeners = new Set<() => void>();
+
+/** Calls listener whenever this tab keeps or forgets a membership; returns the unsubscribe. */
+export function subscribeToMemberships(listener: () => void): () => void {
+  membershipListeners.add(listener);
+  return () => {
+    membershipListeners.delete(listener);
+  };
+}
+
+function tellMembershipChanged(): void {
+  for (const listener of membershipListeners) {
+    listener();
+  }
+}
+
 /** Keeps a membership for role in this tab, across a reload. */
 export function keepMembership(
   storage: StringStorage,
@@ -56,11 +73,13 @@ export function keepMembership(
     membershipKeys[role],
     JSON.stringify({ sessionId: membership.sessionId, credential: membership.credential }),
   );
+  tellMembershipChanged();
 }
 
 /** Forgets role's membership: the session ended, or the person left it. */
 export function forgetMembership(storage: StringStorage, role: MembershipRole): void {
   storage.removeItem(membershipKeys[role]);
+  tellMembershipChanged();
 }
 
 const viewerAudioOutputKey = "orpheum.together.audioOutput";

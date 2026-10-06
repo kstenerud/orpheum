@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api } from "@orpheum/sdk";
-import { useMemo, type JSX } from "react";
+import { useMemo, useSyncExternalStore, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { About } from "./about.tsx";
 import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
+import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
@@ -34,6 +35,7 @@ import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
 import { Title } from "./title.tsx";
+import { readMembership, subscribeToMemberships } from "./together-storage.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
 import { useResource } from "./use-resource.ts";
 import { WatchTogether } from "./watch-together.tsx";
@@ -68,11 +70,13 @@ function SignedIn(): JSX.Element {
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
   const poller = useServersPoller();
+  const isHostingTogether = useIsHostingTogether();
   return (
     <BackgroundChangesContext value={poller}>
       <AppShell
         isAdmin={isAdmin}
         canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+        isHostingTogether={isHostingTogether}
         signedInAs={
           me.state === "loaded"
             ? { name: me.value.name, deviceName: me.value.device?.name }
@@ -86,6 +90,12 @@ function SignedIn(): JSX.Element {
       </AppShell>
     </BackgroundChangesContext>
   );
+}
+
+/** Whether this tab hosts a Watch Together session now, re-rendering as one starts or ends. */
+function useIsHostingTogether(): boolean {
+  const isHosting = (): boolean => readMembership(tabStorage(), "host") !== undefined;
+  return useSyncExternalStore(subscribeToMemberships, isHosting, isHosting);
 }
 
 /**
