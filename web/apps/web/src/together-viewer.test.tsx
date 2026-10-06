@@ -44,6 +44,7 @@ const welcome = {
 function viewerServices(
   address: string,
   answers: Answers,
+  token?: string,
 ): {
   services: ReturnType<typeof servedBy>;
   heard: Heard[];
@@ -55,7 +56,7 @@ function viewerServices(
   const place = fakePlace(address);
   return {
     services: {
-      ...servedBy(answers, heard),
+      ...servedBy(answers, heard, token),
       navigation: createNavigation(place),
       openTogetherSocket: server.openSocket,
     },
@@ -280,6 +281,35 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(heard).toEqual([
       { methodAndPath: "POST /together/join", body: { secret: "second-secret", name: "Gran" } },
     ]);
+    mounted.unmount();
+  });
+
+  it("fills in the name of someone signed in here, which they may change before joining", async () => {
+    const { services, heard } = viewerServices(
+      "/together#link-secret",
+      {
+        "GET /me": [200, { id: 4, name: "Partner", isAdmin: false, canHostWatchTogether: false }],
+        "POST /together/join": [200, joined],
+      },
+      "partner-token",
+    );
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    const input = mounted.container.querySelector("input");
+    expect(input?.value).toBe("Partner");
+    await enter(input, "Gran");
+    await submit(mounted.container.querySelector("form"));
+    expect(heard.find((h) => h.methodAndPath === "POST /together/join")?.body).toEqual({
+      secret: "link-secret",
+      name: "Gran",
+    });
+    mounted.unmount();
+  });
+
+  it("asks no one not signed in who they are, and leaves the name empty", async () => {
+    const { services, heard } = viewerServices("/together#link-secret", {});
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    expect(mounted.container.querySelector("input")?.value).toBe("");
+    expect(heard.map((h) => h.methodAndPath)).not.toContain("GET /me");
     mounted.unmount();
   });
 

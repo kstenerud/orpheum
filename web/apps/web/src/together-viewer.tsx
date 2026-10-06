@@ -33,7 +33,7 @@ import {
 } from "./play.tsx";
 import { useStallReports, type LowerQuality } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
-import { useServices } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { SoundChoices } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
@@ -120,14 +120,23 @@ function NoLink(): JSX.Element {
   );
 }
 
-/** Joining by a link: the name the others will see, and Join (watch-together.md: one Join). */
+/**
+ * Joining by a link: the name the others will see, and Join (watch-together.md: one Join). Someone
+ * signed in here finds their own name already filled in, theirs to change (the owner, 2026-10-06).
+ */
 function JoinForm(props: {
   readonly secret: string;
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [name, setName] = useState("");
+  const token = useToken();
+  // What was typed, once anything was: a late answer about who is signed in never replaces it.
+  const [typedName, setTypedName] = useState<string | undefined>(undefined);
+  const [me] = useResource(`join-name:${token ?? ""}`, async () =>
+    token === undefined ? undefined : dataOrThrow(await api.GET("/me")),
+  );
+  const name = typedName ?? (me.state === "loaded" ? me.value?.name : undefined) ?? "";
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, {
       fields: { "body.name": t("together.name") },
@@ -158,7 +167,7 @@ function JoinForm(props: {
           autoComplete="nickname"
           value={name}
           onChange={(event) => {
-            setName(event.target.value);
+            setTypedName(event.target.value);
           }}
         />
       </CredentialsField>
