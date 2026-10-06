@@ -144,6 +144,9 @@ type NodeConfig struct {
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
 	PreparedKeptAfterPlayHours   int64 `toml:"prepared_kept_after_play_hours"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
+	// PreparedWatchedMinutes is how recently a rendition served a file for it to count as being
+	// watched, which eviction never removes.
+	PreparedWatchedMinutes int64 `toml:"prepared_watched_minutes"`
 	// PreparedDiskMinFreeMiB is the least the prepared directory's disk keeps free, whatever its percentage.
 	PreparedDiskMinFreeMiB int64 `toml:"prepared_disk_min_free_mib"`
 	// EncodeSlotCount, RemuxSlotCount and SlowestReadMiBPerSecond are what this machine can do,
@@ -277,6 +280,13 @@ func nodeConfigKeys() []configKey {
 		{
 			tableNode, "prepared_kept_after_play_hours", "72",
 			"hours after its last play a prepared rendition is kept before any past it is evicted (D217 §5)",
+		},
+		{
+			// A playing hls.js fetches a segment every few seconds once its 30 s buffer is full; ten
+			// minutes also covers a short pause, after which a paused film may go.
+			tableNode, "prepared_watched_minutes", "10",
+			"minutes after it last served a file that a prepared rendition counts as being watched; eviction " +
+				"never removes one being watched, and a prepare the disk then has no room for is refused",
 		},
 		{
 			tableNode, "prepared_disk_used_limit_percent", "95",
@@ -471,6 +481,7 @@ func (node NodeConfig) check() error {
 		"node.prepared_disk_min_free_mib":     node.PreparedDiskMinFreeMiB,
 		"node.prepared_budget_gib":            node.PreparedBudgetGiB,
 		"node.prepared_kept_after_play_hours": node.PreparedKeptAfterPlayHours,
+		"node.prepared_watched_minutes":       node.PreparedWatchedMinutes,
 		"node.encode_slot_count":              node.EncodeSlotCount,
 		"node.remux_slot_count":               node.RemuxSlotCount,
 		"node.slowest_read_mib_per_second":    node.SlowestReadMiBPerSecond,

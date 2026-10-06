@@ -25,6 +25,7 @@ ended_work_kept_hours = 168
 read_header_timeout_seconds = 10
 prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
 prepared_kept_after_play_hours = 72
+prepared_watched_minutes = 10
 prepared_disk_used_limit_percent = 95
 prepared_disk_min_free_mib = 100
 encode_slot_count = 1

@@ -157,6 +157,40 @@ func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.
 	}
 }
 
+// A rendition served within the watched window is never evicted, whatever the disk says: the next
+// prepare is refused instead, and the log names what was kept. On staging a disk past its limit
+// evicted the film being watched, and it stopped (the owner, 2026-10-06).
+func TestEvict_NeverRemovesOneBeingWatched(t *testing.T) {
+	t.Parallel()
+	disk := 97
+	budget := Budget{
+		MaxBytes: 1 << 30, KeptAfterLastPlay: 72 * time.Hour, WatchedWithin: 10 * time.Minute,
+		DiskUsedLimitPercent: 95,
+	}
+	shelf := shelfWith(t, budget, &disk, map[string]struct {
+		bytes int
+		ago   time.Duration
+	}{
+		"1/remux/aaaaaaaaaaaaaaaa": {100, time.Hour},       // played earlier: it may go
+		"2/remux/bbbbbbbbbbbbbbbb": {100, 2 * time.Minute}, // being watched
+	})
+	var logged bytes.Buffer
+	shelf.logger = slog.New(slog.NewTextHandler(&logged, nil))
+	if _, err := shelf.Evict(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"2/remux/bbbbbbbbbbbbbbbb"}) {
+		t.Errorf("left %v, want only the one being watched", got)
+	}
+	if !strings.Contains(logged.String(), "kept prepared renditions being watched") ||
+		!strings.Contains(logged.String(), "2/remux/bbbbbbbbbbbbbbbb") {
+		t.Errorf("the log does not name the rendition kept for being watched:\n%s", logged.String())
+	}
+	if err := shelf.MakeRoom(t.Context()); !errors.Is(err, ErrNoRoom) {
+		t.Errorf("MakeRoom with the disk still 97%% full and only a film being watched: %v, want ErrNoRoom", err)
+	}
+}
+
 func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 	t.Parallel()
 	disk := 50
