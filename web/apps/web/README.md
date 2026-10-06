@@ -76,7 +76,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
   connection), `together-voice.tsx` (voice's controls), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
   `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
-  subtitle a file lacks, from OpenSubtitles, D224).
-- Every user-visible string: `src/locales/en.ts`, through react-i18next (D51).
+  subtitle a file lacks, from OpenSubtitles, D224), `this-device.tsx` (the This device page: its
+  name and how it makes sound), `now-playing.tsx` (who is playing what, and stopping it),
+  `roles-section.tsx` (roles and their libraries), `system-reachability.tsx` and `system-work.tsx`
+  (the System page's reachability check and its queue's health), and `busy-group.tsx` (controls
+  held while a request is answered).
+- The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`
+  (D251).
+- Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,
+  `en-devices.ts`), through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.
 - The mount point: `src/main.tsx` and `index.html`.

@@ -134,7 +134,8 @@ type Inbound struct {
 	V    int         `json:"v"`
 	Type MessageType `json:"type"`
 	// Credential, in a hello, is the membership's (D243 §2); SessionToken, in a hello, a signed-in
-	// person's session token, which makes the membership theirs and records their viewing.
+	// person's session token, which makes the membership theirs. Recording their viewing waits
+	// with D246 §4.
 	Credential   string     `json:"credential,omitempty"`
 	SessionToken string     `json:"sessionToken,omitempty"`
 	Role         DeviceRole `json:"role,omitempty"`
