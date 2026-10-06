@@ -99,6 +99,7 @@ const (
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
+	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -440,6 +441,11 @@ func artworkAndPlaybackDefinitions() []Definition {
 				"picture's height, the width following the film's shape (D247 §6)",
 		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
 			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
+		sourced(durationSetting(ChunkNewRunBeyondSeconds, time.Second, "90", 61, 3600,
+			"seconds of film past where a run of chunks is making that a request must be to start a new run "+
+				"there, cancelling that one: a seek's; a Watch Together player catching up jumps at most a "+
+				"minute ahead, and waits for the run already making its quality (D250 §5)"),
+			"D250 §5: more than a catch-up's furthest jump, 60 s"),
 		sourced(integerSetting(ChunkHoldMs, "0", 0, 30_000,
 			"ms a request for a chunk not made yet is held for it before the player is told to ask again; "+
 				"a player counts a hold as the chunk's download, and takes its link for slower (D250 §5)"),

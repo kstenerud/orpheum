@@ -70,6 +70,26 @@ func (tracker *runTracker) isCovered(dir string, n int) bool {
 	return tracker.storeLocked(dir).isCoveredLocked(n)
 }
 
+// cutFar cuts every run of the store that wanted is more than beyondMs of film past: past the chunk
+// it makes next. Such a request was sought to (D250 §5), since a player catching up never jumps that
+// far, and no one follows those runs now: they are forgotten, and returned for the caller to cancel.
+func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs int64) []RunSpan {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	var cuts []RunSpan
+	for first, each := range known.runByFirst {
+		next := each.madeThrough + 1
+		if wanted <= each.madeThrough || next > grid.lastChunk() ||
+			grid.StartsMs[wanted]-grid.StartsMs[next] <= beyondMs {
+			continue
+		}
+		cuts = append(cuts, RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough})
+		delete(known.runByFirst, first)
+	}
+	return cuts
+}
+
 // plan finds the run a player asking for chunk wanted of the store needs, and records it on its
 // way: the first chunk of those that start within lookaheadMs of film from wanted's start that is
 // neither made nor to be made by a run, through the earliest of runSpanMs of film, the chunk before

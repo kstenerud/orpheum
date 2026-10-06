@@ -43,6 +43,16 @@ func (queue *Queue) CancelWhere(
 	})
 }
 
+// CancelMatching cancels kind's queued and running jobs on target whose arguments match says: a
+// run of chunks a seek went far past (D250 §5). It says how many it cancelled.
+func (queue *Queue) CancelMatching(
+	ctx context.Context, kind Kind, target Target, match func(argsJSON string) bool,
+) (int, error) {
+	return queue.queue.CancelWhere(ctx, func(row jobqueue.Row[Target]) bool {
+		return row.Kind == kind && row.Target == target && match(row.ArgsJSON)
+	})
+}
+
 // Forget drops a retired destination: its work was cancelled, and nothing brings it back.
 func (queue *Queue) Forget(destination Destination) { queue.queue.Forget(destination) }
 

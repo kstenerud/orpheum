@@ -36,6 +36,8 @@ type fakeQueue struct {
 	// mutex.
 	progress   map[int64]float64
 	keptWanted int
+	// cancelledFirsts are the first chunks of the runs cancelled, in order; guarded by mutex.
+	cancelledFirsts []int
 }
 
 func newFakeQueue() *fakeQueue { return &fakeQueue{progress: map[int64]float64{}} }
@@ -59,6 +61,28 @@ func (queue *fakeQueue) KeepWanted(context.Context, jobs.Kind, jobs.Target) erro
 	defer queue.mutex.Unlock()
 	queue.keptWanted++
 	return nil
+}
+
+// CancelMatching records the first chunk of each queued run match says to cancel, as the queue
+// would cancel it.
+func (queue *fakeQueue) CancelMatching(
+	_ context.Context, kind jobs.Kind, target jobs.Target, match func(argsJSON string) bool,
+) (int, error) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	cancelled := 0
+	for _, request := range queue.requests {
+		if request.Kind != kind || request.Target != target || !match(request.ArgsJSON) {
+			continue
+		}
+		var args runArgs
+		if err := json.Unmarshal([]byte(request.ArgsJSON), &args); err != nil {
+			return cancelled, err
+		}
+		queue.cancelledFirsts = append(queue.cancelledFirsts, args.FirstChunk)
+		cancelled++
+	}
+	return cancelled, nil
 }
 
 // askedRun is a run asked for: the stream its store is of, and its chunks.

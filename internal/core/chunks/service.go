@@ -30,6 +30,11 @@ type Queue interface {
 	// KeepWanted says a person still waits for a job's work: a player asking for a store's chunks
 	// while a run makes them (D234 §3).
 	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
+	// CancelMatching cancels kind's queued and running jobs on target whose arguments match says: a
+	// run a seek went far past (D250 §5).
+	CancelMatching(
+		ctx context.Context, kind jobs.Kind, target jobs.Target, match func(argsJSON string) bool,
+	) (int, error)
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.

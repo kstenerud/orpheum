@@ -59,19 +59,22 @@ func TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade(t *testing.T)
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	ensured(t, service, picture, 3)
-	// Every chunk of the minute from chunk 3 or chunk 20 is on its way: nothing more is queued.
+	// Every chunk of the minute from chunk 3 or chunk 10, 70 s on and within a catch-up's jump of
+	// where the run is, is on its way: nothing more is queued.
 	ensured(t, service, picture, 3)
-	ensured(t, service, picture, 20)
+	ensured(t, service, picture, 10)
 	if runs := queue.runs(t, service); len(runs) != 1 {
 		t.Fatalf("the runs asked for = %+v; want only the first", runs)
 	}
-	// From chunk 30, the minute reaches past the run's last, 32: a run starts after it.
+	// Once the run has made through chunk 25, the minute from chunk 30 reaches past its last, 32: a
+	// run starts after it.
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	service.runs.madeThrough(dir, 3, 25)
 	ensured(t, service, picture, 30)
 	if runs := queue.runs(t, service); len(runs) != 2 || runs[1].firstChunk != 33 || runs[1].lastChunk != 62 {
 		t.Fatalf("the runs asked for = %+v; want a second from chunk 33, after the first's", runs)
 	}
 	// A chunk the node served is made: a run before it stops at the chunk before it.
-	dir := StoreDir(1, picture, mustGrid(t, service).ID())
 	service.runs.served(dir, 0)
 	service.runs.served(dir, 2)
 	ensured(t, service, picture, 0)
@@ -198,27 +201,23 @@ func TestEnsure_TwoStreamsOfOneFilmWarmedTogetherEachQueueARun(t *testing.T) {
 	}
 }
 
-func TestEnsure_ASecondRunOfAStoreWhileItsRunIsQueuedAddsNone(t *testing.T) {
+// A seek far past a store's run cancels it, while it waits in the queue as when it runs, and queues
+// the run where the player went (D250 §5).
+func TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun(t *testing.T) {
 	t.Parallel()
 	queue, cache := jobsQueue(t)
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	ensured(t, service, picture, 3)
-	// The player seeks ten minutes on while the first run waits: the queue folds the second into it.
+	// The player seeks ten minutes on while the first run waits.
 	ensured(t, service, picture, 63)
 	runs := openRuns(t, cache)
 	if len(runs) != 1 {
-		t.Fatalf("the runs queued = %+v; want the one", runs)
+		t.Fatalf("the runs queued = %+v; want the seek's alone, the first cancelled", runs)
 	}
 	for _, args := range runs {
-		if args != (runArgs{FirstChunk: 3, LastChunk: 32}) {
-			t.Errorf("the queued run is %+v; want the first's chunks, 3 to 32, kept", args)
+		if args != (runArgs{FirstChunk: 63, LastChunk: 92}) {
+			t.Errorf("the queued run is %+v; want the seek's chunks, 63 to 92", args)
 		}
-	}
-	// The second was not kept as on its way: the player's next ask for it plans it again.
-	first, last, isPlanned := service.runs.plan(StoreDir(1, picture, mustGrid(t, service).ID()),
-		mustGrid(t, service), 63)
-	if !isPlanned || first != 63 || last != 92 {
-		t.Errorf("the next ask from chunk 63 plans %d to %d (%t); want 63 to 92 again", first, last, isPlanned)
 	}
 }

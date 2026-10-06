@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -54,6 +55,9 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 	}
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
+	if cancelErr := service.cancelFarRuns(ctx, film, stream, wanted); cancelErr != nil {
+		return cancelErr
+	}
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
 	if !isPlanned {
 		if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
@@ -89,6 +93,41 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 		service.logger.InfoContext(ctx, "queued a run of chunks", "storeDir", dir, "wantedChunk", wanted,
 			"firstChunk", first, "lastChunk", last, "firstChunkStartMs", film.grid.StartsMs[first],
 			"lastChunkEndMs", film.grid.endMs(last))
+	}
+	return nil
+}
+
+// cancelFarRuns cancels the runs of the store chunk wanted is a seek far past (runTracker.cutFar,
+// D250 §5): no one follows them now, and their encodes are room another run needs (§6). The new
+// run is queued after, so the queue, which keeps one job of a store queued, does not fold it into
+// one cancelled.
+func (service *Service) cancelFarRuns(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
+	beyond, err := service.settings.Duration(ctx, settings.ChunkNewRunBeyondSeconds)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", settings.ChunkNewRunBeyondSeconds, err)
+	}
+	fileID, gridID := film.file.ID, film.grid.ID()
+	dir := StoreDir(fileID, stream, gridID)
+	cuts := service.runs.cutFar(dir, film.grid, wanted, beyond.Milliseconds())
+	if len(cuts) == 0 {
+		return nil
+	}
+	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
+	if err != nil {
+		return err
+	}
+	for _, cut := range cuts {
+		cancelled, err := service.queue.CancelMatching(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID},
+			func(argsJSON string) bool {
+				var args runArgs
+				return json.Unmarshal([]byte(argsJSON), &args) == nil && args.FirstChunk == cut.First
+			})
+		if err != nil {
+			return fmt.Errorf("cancel the run of %s from chunk %d: %w", dir, cut.First, err)
+		}
+		service.logger.InfoContext(ctx, "cancelled a run of chunks a seek went far past", "storeDir", dir,
+			"wantedChunk", wanted, "firstChunk", cut.First, "lastChunk", cut.Last, "madeThrough", cut.MadeThrough,
+			"cancelledJobs", cancelled)
 	}
 	return nil
 }
