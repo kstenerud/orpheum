@@ -20,9 +20,12 @@ origin/main.
 A passing check-pr records the commit it checked as `refs/orpheum/checked`, so the next run starts
 where the last one ended, and a batch of work is gated once without anyone marking anything: the
 owner, outside the sandbox, could not run `make mark-applied` easily (2026-10-01). The implicit
-base is the newest of the two marks and origin/main that HEAD descends from. A run moves the
-checked mark only when its base was no newer than that implicit base, so a run named to start
-later cannot mark the commits it skipped as checked.
+base is the newest of the two marks and origin/main that HEAD descends from. Every pass moves the
+checked mark, from whatever base it was given: a mark held back for a run named to start later
+went stale, 189 commits behind, and the runs that named their base instead re-checked forty
+commits each time, twelve minutes where three would do (the owner's choice, 2026-10-06). A run
+named to start later does mark the commits before its base as checked; each batch is gated
+before the owner takes it.
 
 An implicit base more than MAX_IMPLICIT_COMMITS behind HEAD is refused: the mark was probably not
 moved after an apply. 150 is a little more than the busiest day's commits in this repository so
@@ -101,17 +104,11 @@ def resolve(explicit: str | None, head: str = "HEAD",
     return ref, sha, count
 
 
-def mark_checked(head: str, base: str) -> str | None:
-    """Records head as checked after check-pr passed from base, and returns its commit; None, and
-    nothing recorded, when base is newer than the implicit base (the run skipped commits)."""
+def mark_checked(head: str) -> str:
+    """Records head as checked after check-pr passed, from whatever base, and returns its commit."""
     head_sha = commit_of(head)
     if head_sha is None:
         raise BaseError(f"{head} is not a commit this repository can resolve")
-    # Only the two marks say what was checked or taken; origin/main is where a sandbox started, and
-    # a first pass from any base after it is the first checkpoint, not a skip.
-    newest = implicit(head_sha, (CHECKED_REF, APPLIED_REF))
-    if newest is not None and not is_ancestor(base, newest[1]):
-        return None
     done = _git("update-ref", "-m", "orpheum: check-pr passed up to here", CHECKED_REF, head_sha)
     if done.returncode != 0:
         raise BaseError(f"could not set {CHECKED_REF}: {done.stderr.strip()}")
@@ -134,17 +131,13 @@ def main() -> int:
     ap.add_argument("--base", default="", help="the base to use as given (default: the newest of the checked mark, the owner's mark and origin/main)")
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--mark", metavar="REV", help=f"set {APPLIED_REF} to REV and exit")
-    ap.add_argument("--checked", metavar="REV", help=f"after a pass from --base, set {CHECKED_REF} to REV")
+    ap.add_argument("--checked", metavar="REV", help=f"after a pass, set {CHECKED_REF} to REV")
     args = ap.parse_args()
     try:
         if args.checked:
-            sha = mark_checked(args.checked, args.base)
-            if sha is None:
-                print(f"branch base: {args.base[:12]} is newer than what was checked; {CHECKED_REF} stays",
-                      file=sys.stderr)
-            else:
-                print(f"branch base: {CHECKED_REF} is now {sha[:12]}; the next check-pr starts there",
-                      file=sys.stderr)
+            sha = mark_checked(args.checked)
+            print(f"branch base: {CHECKED_REF} is now {sha[:12]}; the next check-pr starts there",
+                  file=sys.stderr)
             return 0
         if args.mark:
             sha = mark(args.mark)

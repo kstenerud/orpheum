@@ -13,6 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import branch_base as bb  # noqa: E402
+import browser_tier_needed as browser  # noqa: E402
+import tree_state  # noqa: E402
 import check_revert_red as rr  # noqa: E402
 import check_test_weakening as tw  # noqa: E402
 import revert_red_cosmetic as cosmetic  # noqa: E402
@@ -43,7 +45,7 @@ class BranchBase(unittest.TestCase):
         repo, shas = self.repo_with_history(5)
         repo.git("update-ref", bb.APPLIED_REF, shas[0])
         with repo.cwd():
-            self.assertEqual(bb.mark_checked(shas[3], shas[0]), shas[3])
+            self.assertEqual(bb.mark_checked(shas[3]), shas[3])
             self.assertEqual(bb.resolve(None), (bb.CHECKED_REF, shas[3], 1))
             bb.mark(shas[4])  # the owner took more than was checked: the newer mark wins
             self.assertEqual(bb.resolve(None), (bb.APPLIED_REF, shas[4], 0))
@@ -52,14 +54,14 @@ class BranchBase(unittest.TestCase):
         repo, shas = self.repo_with_history(4)
         repo.git("update-ref", "refs/remotes/origin/main", shas[0])
         with repo.cwd():
-            self.assertEqual(bb.mark_checked(shas[3], shas[2]), shas[3], "origin/main is not a checkpoint")
+            self.assertEqual(bb.mark_checked(shas[3]), shas[3], "origin/main is not a checkpoint")
 
-    def test_a_run_that_started_after_the_last_checked_commit_marks_nothing(self):
+    def test_a_run_from_a_named_base_marks_where_it_ended_and_the_next_run_starts_there(self):
         repo, shas = self.repo_with_history(5)
         with repo.cwd():
-            bb.mark_checked(shas[1], shas[0])
-            self.assertIsNone(bb.mark_checked(shas[4], shas[3]), "shas[2] and shas[3] were never checked")
-            self.assertEqual(bb.resolve(None)[1], shas[1])
+            bb.mark_checked(shas[1])
+            self.assertEqual(bb.mark_checked(shas[4]), shas[4], "a pass from a named base moves the mark")
+            self.assertEqual(bb.resolve(None), (bb.CHECKED_REF, shas[4], 0))
 
     def test_no_base_at_all_is_refused_rather_than_guessed(self):
         repo, _ = self.repo_with_history(1)
@@ -102,6 +104,44 @@ def revert_red_waits_for_the_tiers(makefile: str) -> bool:
     tiers = body.find("test-integration")
     revert = body.find("check-revert-red")
     return 0 <= parallel < tiers < revert and "$(MAKE)" in body[tiers:revert]
+
+
+class BrowserTier(unittest.TestCase):
+    def test_what_the_tier_builds_or_runs_needs_it_and_docs_scripts_and_tests_do_not(self):
+        for path in ("internal/core/playback/playback.go", "web/apps/web/src/play.tsx", "cmd/orpheum/main.go",
+                     "web/e2e/play-timing.spec.ts", "go.mod", "Makefile", "deploy/dev/seed.toml"):
+            self.assertFalse(browser.is_outside_the_tier(path), path)
+        for path in ("docs/contributors/decisions/working-notes.md", "scripts/branch_base.py", "AGENTS.md",
+                     "internal/core/playback/report_test.go", "web/apps/web/src/play.test.tsx"):
+            self.assertTrue(browser.is_outside_the_tier(path), path)
+
+    def test_a_batch_of_docs_alone_skips_the_tier_and_one_code_file_runs_it(self):
+        repo = Repo({})
+        base = repo.commit("docs: a", {"docs/a.md": "a\n"})
+        repo.commit("docs: b", {"docs/a.md": "b\n", "scripts/x.py": "x\n"})
+        with repo.cwd(), mock_argv(["browser_tier_needed.py", "--base", base]):
+            self.assertEqual(browser.main(), 1)
+        repo.commit("fix: c", {"internal/core/c.go": "package core\n"})
+        with repo.cwd(), mock_argv(["browser_tier_needed.py", "--base", base]):
+            self.assertEqual(browser.main(), 0)
+
+
+class TreeState(unittest.TestCase):
+    def test_an_edit_or_a_new_file_changes_the_fingerprint_and_putting_it_back_does_not(self):
+        repo = Repo({})
+        repo.commit("chore: a", {"a.txt": "a\n"})
+        with repo.cwd():
+            start = tree_state.fingerprint()
+            repo.write({"a.txt": "edited\n"})
+            self.assertNotEqual(tree_state.fingerprint(), start, "an edit to a tracked file")
+            repo.write({"a.txt": "a\n"})
+            self.assertEqual(tree_state.fingerprint(), start, "a probe that puts the file back")
+            repo.write({"new.txt": "n\n"})
+            self.assertNotEqual(tree_state.fingerprint(), start, "a new untracked file")
+            repo.write({"new.txt": "changed\n"})
+            with_new = tree_state.fingerprint()
+            repo.write({"new.txt": "n\n"})
+            self.assertNotEqual(tree_state.fingerprint(), with_new, "an untracked file's content")
 
 
 class CheckPrWiring(unittest.TestCase):
