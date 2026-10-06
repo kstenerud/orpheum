@@ -2,7 +2,7 @@
 
 .people__list {
   display: grid;
-  gap: var(--space-page);
+  gap: var(--space-4);
   padding: 0;
   list-style: none;
 }

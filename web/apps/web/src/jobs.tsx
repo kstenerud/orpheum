@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./jobs.css";
+
 import type { Api, components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import type { TFunction } from "i18next";

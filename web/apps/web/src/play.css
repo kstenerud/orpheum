@@ -4,7 +4,7 @@
   display: grid;
   /* One column no wider than the screen: a long track name in a menu must not widen the page. */
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-page);
+  gap: var(--space-4);
 }
 
 /* JASSUB places its canvas over the video, in the nearest positioned box. */
@@ -15,6 +15,7 @@
 .play__video {
   width: 100%;
   max-height: 80vh;
+  border-radius: var(--radius-card);
   background: var(--color-video-background);
 }
 

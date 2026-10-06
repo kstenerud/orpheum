@@ -9,19 +9,81 @@
  */
 
 :root {
-  --color-text: #1b1b1f;
-  --color-background: #fafafa;
-  --color-problem: #a4161a;
-  --color-muted: #5c5c66;
-  --color-surface: #ffffff;
+  /*
+   * Dark for watching (owner, 2026-10-06): near-black, not black, with surfaces lighter as they
+   * rise; true black only behind video. Art supplies the colour; one amber accent marks the
+   * primary action, the current place and progress (ui-design-practice-2026-10-05.md §5.1).
+   */
+  color-scheme: dark;
+  --color-background: #121214;
+  --color-surface: #1c1c20;
+  --color-surface-raised: #26262c;
+  --color-border: #3a3a42;
+  --color-text: #ececf1;
+  --color-muted: #a3a3ad;
+  --color-accent: #f0b149;
+  --color-accent-hover: #f6c773;
+  --color-on-accent: #1d1505;
+  --color-problem: #ff7a7a;
   --color-video-background: #000000;
-  --font-body: system-ui, sans-serif;
-  --font-size-title: 1.5rem;
-  --space-page: 1rem;
+  --color-qr-background: #ffffff;
+  --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);
+  --shadow-card-hover: 0 6px 18px rgb(0 0 0 / 55%);
+
+  /* The system's own typeface (owner, 2026-10-06): native everywhere, every script it has. */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-size-small: 0.875rem;
+  --font-size-body: 1rem;
+  --font-size-h3: 1.0625rem;
+  --font-size-h2: 1.25rem;
+  --font-size-h1: 1.75rem;
+  --font-size-title: 1.25rem;
+  --font-weight-strong: 600;
+  --font-weight-title: 700;
+  --line-height-body: 1.5;
+  --line-height-heading: 1.2;
+
+  /* One spacing ramp on a 4-pixel base; the page's side margin steps with the window. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-page: var(--space-4);
+
+  /* Slightly rounded (owner, 2026-10-06): one radius per kind of thing. */
+  --radius-card: 6px;
+  --radius-control: 4px;
+  --radius-pill: 999px;
+
+  /* A control is at least a fingertip tall (44 pixels). */
+  --size-control: 2.75rem;
+  --size-poster-min: 6.75rem;
+  --size-reading: 42rem;
+
+  --duration-quick: 120ms;
 
   --focus-ring-outer-color: #ffffff;
   --focus-ring-inner-color: #0b0b0f;
   --focus-ring-width: 3px;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --space-page: var(--space-5);
+    --size-poster-min: 9rem;
+    --font-size-h1: 2rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --space-page: var(--space-6);
+    --size-poster-min: 10.5rem;
+  }
 }
 
 :focus-visible {
