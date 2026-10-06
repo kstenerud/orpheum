@@ -46,7 +46,7 @@ CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 
 .PHONY: check
 check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
-	@$(PYTHON) scripts/quiet_gate.py "make check" check-verbose
+	@$(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
 
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
