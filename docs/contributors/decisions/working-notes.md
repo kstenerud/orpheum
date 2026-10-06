@@ -18072,7 +18072,9 @@ paused often; in the group it played a frame and froze, over and over.
    its last load time: far enough that, at its link's measured speed, it can load refillAheadMs
    (§5) before the group gets there, up to what its player buffers ahead. It waits there, paused
    and loading, without holding anyone up, and plays when the group reaches it, with a full buffer
-   rather than a thin one.
+   rather than a thin one. The host's player does the same when it falls behind: the owner, *"I
+   think that the host should also jump ahead if he's having those kinds of difficulties."* Its
+   pause to wait there is not a command, and the group plays on.
 5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
    `refillAheadMs`), not at its first frame, which was the loop.
 

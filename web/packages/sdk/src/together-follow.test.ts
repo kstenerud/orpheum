@@ -27,24 +27,26 @@ import {
 } from "./together-follow.ts";
 
 /**
- * A viewer in step with a group playing from 100 s that has measured its link loading half a
- * second of film each second, and then falls 54 s behind: its catch-up jump, made at 4 s.
+ * A player in step with a group playing from 100 s that has measured its link loading half a
+ * second of film each second, and then falls 54 s behind: its catch-up jump, made at 4 s. A
+ * viewer's, or the host's when isLeading.
  */
-function fallenBehindOnAHalfSpeedLink(): {
+function fallenBehindOnAHalfSpeedLink(isLeading = false): {
   media: FakeMedia;
   setGroup: (next: GroupView, receivedAtMs: number) => void;
+  commands: GroupCommand[];
 } {
   const media = new FakeMedia();
   media.currentTime = 100;
   media.loaded = [[0, 105]];
-  const { connection, setGroup } = fakeConnection({
+  const { connection, setGroup, commands } = fakeConnection({
     ...paused,
     state: "Playing",
     positionMs: 100_000,
   });
   followGroup(media as unknown as FollowedMedia, connection, {
     fileId: 5,
-    isLeading: false,
+    isLeading,
     monotonicMs,
   });
   for (let atMs = 1000; atMs <= 4000; atMs += 1000) {
@@ -55,7 +57,7 @@ function fallenBehindOnAHalfSpeedLink(): {
   }
   media.currentTime = 50; // a stall the group played on through
   media.fire("waiting");
-  return { media, setGroup };
+  return { media, setGroup, commands };
 }
 
 describe("where the group is (D66: no clock sync)", () => {
@@ -564,6 +566,20 @@ describe("a player following its group", () => {
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.paused).toBe(true); // the group is 10 s away: it waits, loading
     expect(media.currentTime).toBe(124);
+    monotonicNowMs = 23_950;
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.paused).toBe(false); // the group arrived: it plays on from where it waited
+    expect(media.currentTime).toBe(124);
+  });
+
+  it("catching up as the host, waits ahead as a viewer does, and its pause to wait is no command", () => {
+    const { media, commands } = fallenBehindOnAHalfSpeedLink(true);
+    expect(media.currentTime).toBe(124);
+    media.fire("seeked");
+    expect(media.paused).toBe(true);
+    media.fire("pause");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([]); // the group plays on, not paused by the host's wait
     monotonicNowMs = 23_950;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.paused).toBe(false); // the group arrived: it plays on from where it waited
