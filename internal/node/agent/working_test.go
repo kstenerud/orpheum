@@ -183,6 +183,27 @@ func TestWorkList_PlayDrivenWorkPausesBackgroundWorkOnItsDeviceUntilItEnds(t *te
 	close(background.release)
 }
 
+// One person's play-driven work never waits for another's on its device: a prepare someone watches
+// and a lower quality's chunks for someone else both read a device of one reader, and background
+// work there waits for both (the owner's choice, 2026-10-05, D240 §6).
+func TestWorkList_PlayDrivenWorkNeverWaitsForAnothersOnItsDevice(t *testing.T) {
+	t.Parallel()
+	list := newWorkList(nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1}, heldAt())
+	prepare, chunks, background := newBlockingWork(), newBlockingWork(), newBlockingWork()
+	list.hold(t.Context(), prepare.onDevice(1, nodeproto.SlotEncode, "disk:sdc", true))
+	testutil.Receive(t, prepare.started, "the watched prepare's start")
+	list.hold(t.Context(), chunks.onDevice(2, nodeproto.SlotRemux, "disk:sdc", true))
+	testutil.Receive(t, chunks.started, "the lower quality's start, beside the prepare")
+	list.hold(t.Context(), background.onDevice(3, nodeproto.SlotReadThrough, "disk:sdc", false))
+	if state := stateOf(list, 3); state != "waiting" {
+		t.Errorf("background work on a device two plays read is %s, want waiting", state)
+	}
+	close(prepare.release)
+	close(chunks.release)
+	testutil.Receive(t, background.started, "the background work's start once both plays ended")
+	close(background.release)
+}
+
 // A device whose limit lets two read runs play-driven and background work side by side, pausing
 // nothing (D240 §6: "Running both is a device's limit of two").
 func TestWorkList_ADeviceWithRoomForBothPausesNothing(t *testing.T) {
