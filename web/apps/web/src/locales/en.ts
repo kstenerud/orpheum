@@ -79,6 +79,8 @@ export const en = {
     nextCheck: "; it will be checked again at {{at}}",
     preparing: "It is still being prepared. Wait a moment.",
     prepareFailed: "This could not be prepared for this device.",
+    noRoomToMake:
+      "The server cannot make this quality as fast as it plays while it makes others for other viewers. Try again in a while.",
     migrating: "The server is starting up, or updating. It will answer in a moment.",
     setupRequired: "The server has not been set up yet.",
     internal:
@@ -294,6 +296,8 @@ export const en = {
       network: "it could not be fetched from the server",
       decode: "this browser could not decode it",
       unsupported: "this browser does not play its format",
+      tooBusy:
+        "the server cannot make this quality as fast as it plays while it makes others for other viewers; try again in a while",
       unknown: "the browser gave no reason",
     },
     boost: "Dialogue boost",

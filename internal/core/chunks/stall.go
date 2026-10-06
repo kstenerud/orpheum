@@ -62,6 +62,8 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		chosen++ // another's, already on its way, and near enough (D247 §7)
 	}
 	quality := lower[chosen]
+	// A stall asks for its quality again, a new try, though a run of it was evicted (D250 §6).
+	service.runs.unevict(StoreDir(playback.FileID, quality, film.grid.ID()))
 	if err := service.Ensure(ctx, playback.FileID, quality, chunk); err != nil {
 		return Offer{}, err
 	}
@@ -75,6 +77,7 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 			Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex,
 			SoundKbps: offered.soundKbps,
 		}
+		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
 			return Offer{}, err
 		}

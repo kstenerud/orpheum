@@ -69,6 +69,15 @@
 //     TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun and
 //     TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade.
 //
+//   - Every run on a node stays faster than playback (D250 §6): when one of two or more measures
+//     below chunk_run_slowest_speed_percent of it over speedWindow, one is evicted, the oldest no
+//     player asked for within inUseWithin or else the newest, its job cancelled, and its store refuses
+//     its players with ErrNoRoomToMake until a stall asks for it again; the node is then left
+//     speedWindow to settle. Enforced by TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
+//     TestKeepRunsFast_EvictsTheOldestRunNoOneIsPlayingFrom and
+//     TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone; through the API, the refusal
+//     is a 429 by TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode (internal/core/api).
+//
 //   - A run is sent as its film's main picture by identity, its stream's recipe, a sound with the
 //     track's mix and levelling gain as a prepare's and led in from the chunk before, and the grid's
 //     bounds; a run on a grid the film no longer has ends for good, and its node's word ends it as a

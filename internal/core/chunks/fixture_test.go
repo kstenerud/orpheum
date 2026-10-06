@@ -36,8 +36,17 @@ type fakeQueue struct {
 	// mutex.
 	progress   map[int64]float64
 	keptWanted int
-	// cancelledFirsts are the first chunks of the runs cancelled, in order; guarded by mutex.
+	// cancelledFirsts are the first chunks of the runs cancelled, in order, and cancelledJobs the
+	// jobs cancelled by id; guarded by mutex.
 	cancelledFirsts []int
+	cancelledJobs   []int64
+}
+
+func (queue *fakeQueue) Cancel(_ context.Context, id int64) error {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.cancelledJobs = append(queue.cancelledJobs, id)
+	return nil
 }
 
 func newFakeQueue() *fakeQueue { return &fakeQueue{progress: map[int64]float64{}} }
@@ -234,7 +243,7 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	cache := storetest.OpenCache(t)
 	service := NewService(Parts{
 		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: node, Loudness: fakeLoudness{},
-		ReadThrough: reader, Logger: slog.New(slog.DiscardHandler),
+		ReadThrough: reader, Logger: slog.New(slog.DiscardHandler), Clock: clockSource,
 		Exchanges: nodes.NewExchanges(nodes.ExchangeParts{
 			Sender: node, Rooms: node, Clock: clockSource, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			Cache: cache, Settings: seeded, MaxSilence: time.Hour,

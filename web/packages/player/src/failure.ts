@@ -17,6 +17,11 @@ export type PlaybackFailure =
   | "decode"
   /** The browser does not play this format at all. */
   | "unsupported"
+  /**
+   * The server has no room to make this quality as fast as it plays: its run was evicted for the
+   * other films its machine makes (D250 §6), which the core says with its own status, 429.
+   */
+  | "too_busy"
   /** It failed and said nothing more we know. */
   | "unknown";
 
@@ -27,6 +32,7 @@ export const playbackFailures: readonly PlaybackFailure[] = [
   "network",
   "decode",
   "unsupported",
+  "too_busy",
   "unknown",
 ];
 
@@ -43,11 +49,14 @@ export function mediaErrorFailure(error: Pick<MediaError, "code"> | null): Playb
   return (error === null ? undefined : failureByMediaErrorCode.get(error.code)) ?? "unknown";
 }
 
-/** A fatal hls.js error as a failure, by its type. */
-export function hlsErrorFailure(data: Pick<ErrorData, "type">): PlaybackFailure {
+/** HTTP's 429: on a chunk's path, the core's word that it has no room to make it (D250 §6). */
+export const noRoomToMakeStatus = 429;
+
+/** A fatal hls.js error as a failure, by its type, and a load's by the core's answer. */
+export function hlsErrorFailure(data: Pick<ErrorData, "type" | "response">): PlaybackFailure {
   switch (data.type) {
     case Hls.ErrorTypes.NETWORK_ERROR:
-      return "network";
+      return data.response?.code === noRoomToMakeStatus ? "too_busy" : "network";
     case Hls.ErrorTypes.MEDIA_ERROR:
     case Hls.ErrorTypes.MUX_ERROR:
       return "decode";

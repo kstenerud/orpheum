@@ -97,6 +97,7 @@ func (service *Service) Served(ctx context.Context, file StoreFile) error {
 	if !file.isInit {
 		service.runs.served(file.storeDir, file.chunk)
 	}
+	service.runs.asked(file.storeDir, service.clock.Now())
 	storeID, isMaking := service.runs.making(file.storeDir)
 	if !isMaking || storeID == 0 {
 		return nil

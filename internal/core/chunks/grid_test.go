@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -138,7 +140,9 @@ func serviceWithFilms(t *testing.T) *Service {
 	}
 	seeded := settingstest.Seeded(t, database)
 	settingstest.Set(t, seeded, settings.HLSSegmentLengthSeconds, "2")
-	return NewService(Parts{Database: database, Settings: seeded})
+	return NewService(Parts{
+		Database: database, Settings: seeded, Clock: clocktest.NewFake(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)),
+	})
 }
 
 func TestGrid_IsTheMainPicturesKeptTimelineMergedToTheSegmentLength(t *testing.T) {

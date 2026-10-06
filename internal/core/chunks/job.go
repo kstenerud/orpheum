@@ -93,7 +93,8 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	}
 	command.Video = source
 	service.runs.knowStoreID(command.StoreDir, job.ChunkStoreID)
-	service.runs.begin(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID)
+	service.runs.begin(command.StoreDir, run.FirstChunk, run.LastChunk, job.ID, film.file.NodeID,
+		service.clock.Now())
 	return service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &command},
 	})
@@ -213,10 +214,18 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	}
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	madeThrough := min(*progress.ChunksMadeThrough, last)
-	service.runs.begin(command.StoreDir, command.FirstChunk, last, attempt.JobID)
+	now := service.clock.Now()
+	service.runs.begin(command.StoreDir, command.FirstChunk, last, attempt.JobID, attempt.NodeID, now)
 	service.runs.madeThrough(command.StoreDir, command.FirstChunk, madeThrough)
+	if madeThrough >= command.FirstChunk {
+		madeEndMs := command.BoundsMs[madeThrough-command.FirstChunk+1]
+		service.runs.sample(command.StoreDir, command.FirstChunk, now, madeEndMs)
+	}
 	share := float64(madeThrough-command.FirstChunk+1) / float64(last-command.FirstChunk+1)
-	return service.queue.SetProgress(ctx, attempt.JobID, max(share, 0))
+	if err := service.queue.SetProgress(ctx, attempt.JobID, max(share, 0)); err != nil {
+		return err
+	}
+	return service.keepRunsFast(ctx, attempt.NodeID)
 }
 
 // takeEnd takes the node's word on how a run ended, and says how the job ended: done; FFmpeg

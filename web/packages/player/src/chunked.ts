@@ -4,7 +4,7 @@ import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
 
 import type { CannotKeepUp } from "@orpheum/sdk";
 
-import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
+import { hlsErrorFailure, noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
 import {
   hlsMethod,
   hlsSupport,
@@ -42,6 +42,9 @@ function retriesTooEarly(
   response: LoaderResponse | undefined,
   isRetry: boolean,
 ): boolean {
+  if (response?.code === noRoomToMakeStatus) {
+    return false; // the core has no room to make it: asking again finds none (D250 §6)
+  }
   return isRetry || response?.code === tooEarly;
 }
 

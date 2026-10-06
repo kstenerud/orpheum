@@ -37,8 +37,11 @@ const (
 	CodeMediaUnreachable Code = "media_unreachable"
 	CodePreparing        Code = "preparing"
 	CodePrepareFailed    Code = "prepare_failed"
-	CodeMigrating        Code = "migrating"
-	CodeInternal         Code = "internal"
+	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
+	// faster than playback (D250 §6): the player's playback stops, and says why.
+	CodeNoRoomToMake Code = "no_room_to_make"
+	CodeMigrating    Code = "migrating"
+	CodeInternal     Code = "internal"
 )
 
 // codes are every Code, in the order above: the one list the API document's ProblemBody names.
@@ -47,7 +50,7 @@ func codes() []Code {
 	return []Code{
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
-		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeMigrating, CodeInternal,
+		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeNoRoomToMake, CodeMigrating, CodeInternal,
 	}
 }
 

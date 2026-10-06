@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -35,6 +36,9 @@ type Queue interface {
 	CancelMatching(
 		ctx context.Context, kind jobs.Kind, target jobs.Target, match func(argsJSON string) bool,
 	) (int, error)
+	// Cancel cancels a queued or running job: a run evicted to keep its node's others faster than
+	// playback (D250 §6).
+	Cancel(ctx context.Context, id int64) error
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
@@ -69,6 +73,8 @@ type Parts struct {
 	ReadThrough ReadThrough
 	// Logger says each run queued, and why.
 	Logger *slog.Logger
+	// Clock times each run's speed (D250 §6).
+	Clock clock.Clock
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the
@@ -84,6 +90,7 @@ type Service struct {
 	loudness    Loudness
 	readThrough ReadThrough
 	logger      *slog.Logger
+	clock       clock.Clock
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
@@ -94,6 +101,6 @@ func NewService(parts Parts) *Service {
 	return &Service{
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
-		runs: newRunTracker(),
+		clock: parts.Clock, runs: newRunTracker(),
 	}
 }
