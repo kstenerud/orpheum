@@ -99,25 +99,23 @@ func (client *Client) RemoveTXT(ctx context.Context, record TXTRecord) error {
 }
 
 // zoneOf is the id of the zone the token reaches that holds name: the one whose name is name or
-// the longest suffix of it.
+// the longest suffix of it, asked for by name, longest first. A list of every zone is paged, and
+// read one page at a time it missed a zone beyond the first page (M4's audit).
 func (client *Client) zoneOf(ctx context.Context, name string) (string, error) {
-	var zones []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-	if err := client.call(ctx, http.MethodGet, "/zones?per_page=50", nil, &zones); err != nil {
-		return "", err
-	}
-	best, bestLength := "", 0
-	for _, zone := range zones {
-		if (name == zone.Name || strings.HasSuffix(name, "."+zone.Name)) && len(zone.Name) > bestLength {
-			best, bestLength = zone.ID, len(zone.Name)
+	labels := strings.Split(name, ".")
+	for first := range len(labels) - 1 {
+		var zones []struct {
+			ID string `json:"id"`
+		}
+		path := "/zones?name=" + url.QueryEscape(strings.Join(labels[first:], "."))
+		if err := client.call(ctx, http.MethodGet, path, nil, &zones); err != nil {
+			return "", err
+		}
+		if len(zones) > 0 {
+			return zones[0].ID, nil
 		}
 	}
-	if best == "" {
-		return "", fmt.Errorf("%s: %w", name, ErrNoZone)
-	}
-	return best, nil
+	return "", fmt.Errorf("%s: %w", name, ErrNoZone)
 }
 
 // call makes one request with the token and reads its result into result: Cloudflare's envelope,

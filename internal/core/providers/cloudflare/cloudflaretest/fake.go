@@ -6,8 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -80,6 +84,29 @@ func (fake *Fake) RecordCount() int {
 	return len(fake.records)
 }
 
+// zonesPage is how many zones Cloudflare lists in one answer when per_page does not say.
+const zonesPage = 20
+
+// zonesAnswer is the first page of the zones whose name is query's name, every zone when it names
+// none, in the order of their ids: per_page of them, or Cloudflare's default.
+func (fake *Fake) zonesAnswer(query url.Values) []map[string]string {
+	ids := slices.Sorted(maps.Keys(fake.zones))
+	pageSize := zonesPage
+	if asked, err := strconv.Atoi(query.Get("per_page")); err == nil && asked > 0 {
+		pageSize = asked
+	}
+	zones := []map[string]string{}
+	for _, id := range ids {
+		if name := query.Get("name"); name != "" && fake.zones[id] != name {
+			continue
+		}
+		if len(zones) < pageSize {
+			zones = append(zones, map[string]string{"id": id, "name": fake.zones[id]})
+		}
+	}
+	return zones
+}
+
 func (fake *Fake) serve(writer http.ResponseWriter, request *http.Request) {
 	if request.Header.Get("Authorization") != "Bearer "+Token {
 		writer.WriteHeader(http.StatusForbidden)
@@ -90,11 +117,7 @@ func (fake *Fake) serve(writer http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
 	switch {
 	case request.Method == http.MethodGet && path == "/zones":
-		var zones []map[string]string
-		for id, name := range fake.zones {
-			zones = append(zones, map[string]string{"id": id, "name": name})
-		}
-		answer(writer, zones)
+		answer(writer, fake.zonesAnswer(request.URL.Query()))
 	case request.Method == http.MethodPost && strings.HasSuffix(path, "/dns_records"):
 		var record struct {
 			Type    string `json:"type"`
