@@ -44,7 +44,9 @@ func (box *inbox) last(kind MessageType) Outbound {
 }
 
 // testTuning is how the tests' devices are welcomed to follow their group.
-var testTuning = Tuning{LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, SyncWaitMs: 20_000}
+var testTuning = Tuning{
+	LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80, SyncWaitMs: 20_000,
+}
 
 // testSyncWait is testTuning's sync wait.
 const testSyncWait = 20 * time.Second
