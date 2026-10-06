@@ -26,8 +26,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **After a stall or a seek, a following player is ready again only with `refillAheadMs` loaded
   ahead**, the film's end, or all the browser will load; it corrects nothing while it is still
   loading; a catch-up seek aims ahead by how long its last seek took to load, up to
-  `aimAheadAtMostMs`; and while the group waits it reports its state at every check, so the server
-  can end the wait on time (D247 §4, §5). `src/together-follow.test.ts`.
+  `aimAheadAtMostMs`, and once its link's speed is measured, further, by how long the link takes to
+  load `refillAheadMs`, up to `waitAheadAtMostMs`, where a viewer waits paused for the group to
+  arrive (D247 §4, amended 2026-10-06); and while the group waits it reports its state at every
+  check, so the server can end the wait on time (D247 §4, §5). `src/together-follow.test.ts`.
 - **The session connection sends whole numbers, the credential only in its hello, and connects
   again with a growing wait after a drop**, but not after the server ended the session or refused
   the hello. `src/together-connection.test.ts`.
