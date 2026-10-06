@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -60,6 +61,8 @@ type Parts struct {
 	Loudness Loudness
 	// ReadThrough reads a film without a grid through for a player waiting on it (D247 §2).
 	ReadThrough ReadThrough
+	// Logger says each run queued, and why.
+	Logger *slog.Logger
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the
@@ -74,6 +77,7 @@ type Service struct {
 	exchanges   *nodes.Exchanges
 	loudness    Loudness
 	readThrough ReadThrough
+	logger      *slog.Logger
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
@@ -83,7 +87,7 @@ type Service struct {
 func NewService(parts Parts) *Service {
 	return &Service{
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
-		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough,
+		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
 		runs: newRunTracker(),
 	}
 }

@@ -207,6 +207,7 @@ func newHarness(t *testing.T) testHarness {
 	chunksService := chunks.NewService(chunks.Parts{
 		Database: database, Cache: cache, Settings: seeded, Queue: queue, Nodes: nodes, Exchanges: exchanges,
 		Loudness: loudnessService, ReadThrough: readThroughService,
+		Logger: slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,

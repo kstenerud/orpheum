@@ -73,6 +73,24 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	return service.Ensure(ctx, file.fileID, file.stream, file.runFrom)
 }
 
+// CoveringRun is the run of a file's store that will make the chunk the file waits for (Want), as
+// far as it has made it now, and whether there is one: a chunk asked for far past what its run has
+// made waits for the run to get there.
+func (service *Service) CoveringRun(file StoreFile) (RunSpan, bool) {
+	return service.runs.covering(file.storeDir, file.runFrom)
+}
+
+// StoreDir is the directory of the file's store, <file_id>/chunks-<stream>/<grid_id>: its film,
+// stream and grid.
+func (file StoreFile) StoreDir() string { return file.storeDir }
+
+// WantedChunk is the chunk a run must make for the file: the chunk itself, or, for the init, the
+// chunk the playback is at.
+func (file StoreFile) WantedChunk() int { return file.runFrom }
+
+// IsInit is whether the file is its store's init rather than a chunk.
+func (file StoreFile) IsInit() bool { return file.isInit }
+
 // Served records a file of a store its node served: a chunk is known made, so no run is queued for
 // it, and a store a run is making stays wanted while its player reads it (D234 §3).
 func (service *Service) Served(ctx context.Context, file StoreFile) error {

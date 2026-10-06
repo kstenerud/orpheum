@@ -3,10 +3,12 @@
 package chunks
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,6 +100,35 @@ func TestEnsure_ARunTheQueueDidNotTakeIsAskedForAgainAtTheNextAsk(t *testing.T) 
 	ensured(t, service, picture, 3)
 	if runs := queue.runs(t, service); len(runs) != 2 || runs[1] != runs[0] {
 		t.Errorf("the runs asked for = %+v; want the same run asked for again once it was not queued", runs)
+	}
+}
+
+// A run queued is logged with its store, its chunks and their film times, and the chunk asked for
+// that queued it; a run the queue folded into another is not, since nothing was queued.
+func TestEnsure_ARunQueuedIsLoggedWithItsChunksAndTheChunkThatAskedForIt(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	var logs bytes.Buffer
+	service.logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	queue.isTaken = func(jobs.Request) bool { return false }
+	ensured(t, service, picture, 3)
+	if logs.Len() != 0 {
+		t.Errorf("a run folded into another logged:\n%s", logs.String())
+	}
+	queue.isTaken = nil
+	ensured(t, service, picture, 3)
+	// Chunk 3 starts at 30 s; the run ends with chunk 32, which ends at 330 s.
+	line := logs.String()
+	for _, part := range []string{
+		`"level":"INFO"`, `"msg":"queued a run of chunks"`,
+		`"storeDir":"` + StoreDir(1, picture, mustGrid(t, service).ID()) + `"`, `"wantedChunk":3,`,
+		`"firstChunk":3,`, `"lastChunk":32,`, `"firstChunkStartMs":30000,`, `"lastChunkEndMs":330000`,
+	} {
+		if !strings.Contains(line, part) {
+			t.Errorf("the run queued logged %q; want it to hold %s", line, part)
+		}
 	}
 }
 

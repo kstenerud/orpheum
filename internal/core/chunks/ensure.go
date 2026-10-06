@@ -39,7 +39,8 @@ type runArgs struct {
 // queued over chunks a run will make. Each store is the target of its own runs' jobs, so the runs of
 // a film's streams queue side by side, and a run asked for while another of its store waits queued
 // is folded into that one, as the queue folds any repeat request: the next ask plans it again. A
-// store with runs on their way is kept wanted (D234 §3). A film with no grid yet is ErrNoGrid.
+// store with runs on their way is kept wanted (D234 §3). A run queued is logged. A film with no grid
+// yet is ErrNoGrid.
 func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream, wanted int) error {
 	film, isCut, err := service.cut(ctx, fileID)
 	if err != nil {
@@ -81,6 +82,13 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream,
 	}
 	if err != nil {
 		return fmt.Errorf("queue chunks %d to %d of %s: %w", first, last, dir, err)
+	}
+	if isQueued {
+		// Which chunk started a run, and the film it spans, say whether a seek far ahead started one
+		// or waited on another (playback-in-practice.md §3).
+		service.logger.InfoContext(ctx, "queued a run of chunks", "storeDir", dir, "wantedChunk", wanted,
+			"firstChunk", first, "lastChunk", last, "firstChunkStartMs", film.grid.StartsMs[first],
+			"lastChunkEndMs", film.grid.endMs(last))
 	}
 	return nil
 }

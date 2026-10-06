@@ -127,13 +127,16 @@ var errNotMadeYet = errors.New("the node has not made it yet")
 // chunkWaitAtMost, after which the player is told to ask again (425). It is asked for again on each
 // look: a run asked for while another of its store waits queued, after a seek, is folded into that
 // one, which makes other chunks, and only a later ask queues it once that one has started. A file
-// the node served is known made. Neither ever changes once made, so it is cached for a day.
+// the node served is known made. Neither ever changes once made, so it is cached for a day. A file
+// waited for is logged (logChunkWait); one the node had at once is not.
 func (server *Server) relayChunkFile(
 	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile,
 ) (*huma.StreamResponse, error) {
 	source := playback.Source{NodeID: file.NodeID, Target: file.Target, ContentType: file.ContentType}
 	request := relayRequest{http.MethodGet, source, http.Header{}, cacheForADay}
-	giveUpAt := dependencies.Clock.Now().Add(chunkWaitAtMost)
+	askedAt := dependencies.Clock.Now()
+	giveUpAt := askedAt.Add(chunkWaitAtMost)
+	var wait *chunkWait
 	for {
 		answer, err := server.relay(ctx, dependencies, request, func() error { return errNotMadeYet })
 		if !errors.Is(err, errNotMadeYet) {
@@ -142,18 +145,75 @@ func (server *Server) relayChunkFile(
 					return nil, server.logInternalError(ctx, "record a chunk served", servedErr)
 				}
 			}
+			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitOutcomeOf(err))
 			return answer, err
 		}
 		if err = dependencies.Chunks.Want(ctx, file); err != nil {
+			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitFailed)
 			return nil, server.chunksError(ctx, "have a chunk made", err)
 		}
+		if wait == nil {
+			wait = &chunkWait{askedAt: askedAt}
+			wait.run, wait.isCovered = dependencies.Chunks.CoveringRun(file)
+		}
 		if !dependencies.Clock.Now().Before(giveUpAt) {
+			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitAskAgain)
 			return nil, tooEarly()
 		}
 		if err = dependencies.Clock.Sleep(ctx, chunkAskEvery); err != nil {
+			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitPlayerGone)
 			return nil, tooEarly()
 		}
 	}
+}
+
+// chunkWait is a store's file a player waits for, its node not having made it when first asked:
+// when the player asked, and the run that covered it just after, as far as that run had made it.
+type chunkWait struct {
+	askedAt   time.Time
+	run       chunks.RunSpan
+	isCovered bool
+}
+
+// How a wait for a file not made yet ended: relayed once made; the player told to ask again after
+// chunkWaitAtMost (425); the player gone before either; or failed.
+const (
+	chunkWaitServed     = "served"
+	chunkWaitAskAgain   = "askAgain"
+	chunkWaitPlayerGone = "playerGone"
+	chunkWaitFailed     = "failed"
+)
+
+// chunkWaitOutcomeOf is how a wait ended whose node answered with err: served, or failed.
+func chunkWaitOutcomeOf(err error) string {
+	if err == nil {
+		return chunkWaitServed
+	}
+	return chunkWaitFailed
+}
+
+// logChunkWait logs, at debug, a file a player waited for, and nothing for one not waited for (a
+// nil wait): its store, the chunk it needs made, how the wait ended and how long it held the
+// request, and the run that covered the chunk when it was asked for, so a chunk asked for far past
+// what its run had made shows. hls.js counts a hold as transfer time and switches down; a viewer on
+// a slow link found playback unwatchable and the log could not say why (playback-in-practice.md §3,
+// 2026-10-06).
+func (server *Server) logChunkWait(
+	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile, wait *chunkWait, outcome string,
+) {
+	if wait == nil {
+		return
+	}
+	attributes := []any{
+		"storeDir", file.StoreDir(), "wantedChunk", file.WantedChunk(), "isInit", file.IsInit(),
+		"outcome", outcome, "heldMs", dependencies.Clock.Now().Sub(wait.askedAt).Milliseconds(),
+		"isCovered", wait.isCovered,
+	}
+	if wait.isCovered {
+		attributes = append(attributes, "runFirstChunk", wait.run.First, "runLastChunk", wait.run.Last,
+			"runMadeThrough", wait.run.MadeThrough)
+	}
+	server.logger.DebugContext(ctx, "waited for a chunk not made yet", attributes...)
 }
 
 // chunksError maps the chunks' refusals to API errors, and the rest as playbackError does.
