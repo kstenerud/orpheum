@@ -1,59 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import {
-  longTrackName,
-  owner,
-  serverAddressEnvVariable,
-  timingFilm,
-  warmUpFilm,
-} from "./server.ts";
+import { isPlaying, openFilm, serverUrl, signIn } from "./pages.ts";
+import { longTrackName, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
-
-function serverUrl(): string {
-  const url = process.env[serverAddressEnvVariable];
-  if (url === undefined) {
-    throw new Error("the global setup did not start a server");
-  }
-  return url;
-}
-
-async function signIn(page: Page): Promise<void> {
-  await page.goto(serverUrl());
-  await page.getByLabel("Name").fill(owner.name);
-  await page.getByLabel("Password").fill(owner.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeHidden();
-}
-
-/**
- * Opens a film's page from Films, waiting for the scan to have found it: its card in the grid,
- * not its row under Continue Watching, which a film played before also has and which plays it.
- */
-async function openFilm(page: Page, name: string): Promise<void> {
-  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(name) });
-  await expect(async () => {
-    await page.goto(`${serverUrl()}/films`);
-    await expect(card).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 60_000 });
-  await card.click();
-}
-
-/** Whether the page's video has started: its picture has moved past the start and is not paused. */
-async function isPlaying(page: Page): Promise<boolean> {
-  try {
-    return await page
-      .locator("video")
-      .evaluate((video: HTMLVideoElement) => video.currentTime > 0 && !video.paused, undefined, {
-        timeout: 1000,
-      });
-  } catch {
-    return false; // no video on the page yet
-  }
-}
 
 test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with the reason on screen", async ({
   page,
