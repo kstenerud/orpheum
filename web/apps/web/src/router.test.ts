@@ -18,6 +18,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "libraries" },
       { screen: "files", libraryId: 3 },
       { screen: "about" },
+      { screen: "this-device" },
       { screen: "settings" },
       { screen: "together" },
       { screen: "watch-together" },

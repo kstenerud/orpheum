@@ -99,7 +99,7 @@ describe("AppShell", () => {
       /<details class="app-shell__menu app-shell__menu--current"><summary>Manage<\/summary><ul>.*href="\/jobs"/u,
     );
     expect(markup).toMatch(
-      /<details class="app-shell__menu app-shell__menu--own"><summary>karl<\/summary><ul>.*href="\/account".*href="\/about".*Sign out/u,
+      /<details class="app-shell__menu app-shell__menu--own"><summary>karl<\/summary><ul>.*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
     );
   });
 

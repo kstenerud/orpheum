@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { enDevices } from "./en-devices.ts";
 import { enTogether } from "./en-together.ts";
 
 /**
@@ -8,6 +9,7 @@ import { enTogether } from "./en-together.ts";
  */
 export const en = {
   ...enTogether,
+  ...enDevices,
   nav: {
     films: "Films",
     series: "Series",
@@ -19,6 +21,7 @@ export const en = {
     jobs: "Jobs",
     system: "System",
     people: "People",
+    thisDevice: "This device",
     account: "Your account",
     about: "About",
     signOut: "Sign out",
@@ -150,19 +153,6 @@ export const en = {
     wrongPassword: "That is not your current password. Check it and try again.",
     codeFor: "The code for {{device}}",
     useCode: "On that device, open {{origin}}, choose I have a code, and type this code.",
-  },
-  devices: {
-    heading: "Your devices",
-    thisDevice: "This device",
-    signedIn: "Signed in",
-    signedOut: "Signed out",
-    addedAndUsed: "Added {{added}}, last used {{used}}",
-    codeToSignBackIn: "Make a code to sign it back in",
-    rename: "Rename",
-    save: "Save",
-    remove: "Remove",
-    removeLabel: "Remove {{name}}; it is signed out",
-    signOutElsewhere: "Sign out everywhere else",
   },
   people: {
     heading: "People",

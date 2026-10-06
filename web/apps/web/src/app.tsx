@@ -34,6 +34,7 @@ import { Settings } from "./settings.tsx";
 import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
+import { ThisDevice } from "./this-device.tsx";
 import { Title } from "./title.tsx";
 import { readMembership, subscribeToMemberships } from "./together-storage.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
@@ -158,6 +159,9 @@ function viewerScreen(route: Route): JSX.Element | undefined {
 function nonLibraryScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "account") {
     return <Account />;
+  }
+  if (route.screen === "this-device") {
+    return <ThisDevice />;
   }
   if (route.screen === "watch-together") {
     return <WatchTogether />;
