@@ -118,6 +118,28 @@ func TestObtain_ProvesTheNameByDNSServesTheCertificateAndKeepsIt(t *testing.T) {
 	}
 }
 
+// A certificate kept for another name, before the configured domain changed, is not served, and a
+// new one is asked for at once (M4's audit): it was served until a month before it expired.
+func TestNew_ACertificateKeptForAnotherNameIsNotServed(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	if err := bench.service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	renamed := bench.parts
+	renamed.Domain = "films.orpheum-app.com"
+	service, err := New(renamed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if served, err := service.GetCertificate(nil); !errors.Is(err, ErrNoCertificate) {
+		t.Errorf("after the domain changed, GetCertificate = %v, %v; want ErrNoCertificate", served, err)
+	}
+	if asked, err := service.QueueRenewal(t.Context()); err != nil || asked != 1 {
+		t.Errorf("QueueRenewal asked for %d (%v); want one, for the new name", asked, err)
+	}
+}
+
 // A renewal is asked for when there is no certificate, and when the one there expires within a
 // month, and not before.
 func TestQueueRenewal_AsksWhenThereIsNoneOrItExpiresWithinAMonth(t *testing.T) {

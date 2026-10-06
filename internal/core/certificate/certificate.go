@@ -88,7 +88,9 @@ type Service struct {
 	current atomic.Pointer[tls.Certificate]
 }
 
-// New returns the service, with the certificate kept from before when there is one.
+// New returns the service, with the certificate kept from before when there is one and it names
+// the domain: one kept for another name, before https.domain changed, is not served, and a new one
+// is asked for at once (M4's audit).
 func New(parts Parts) (*Service, error) {
 	service := &Service{parts: parts}
 	certificatePEM, certificateErr := parts.Files.ReadPersistentFile(certificateFile)
@@ -104,8 +106,18 @@ func New(parts Parts) (*Service, error) {
 		parts.Logger.Warn("the kept certificate cannot be read; a new one is obtained", "err", err)
 		return service, nil
 	}
+	if !names(pair.Leaf, parts.Domain) {
+		parts.Logger.Warn("the kept certificate is for another name; a new one is obtained",
+			"domain", parts.Domain, "names", pair.Leaf.DNSNames)
+		return service, nil
+	}
 	service.current.Store(&pair)
 	return service, nil
+}
+
+// names is whether leaf is a certificate for domain.
+func names(leaf *x509.Certificate, domain string) bool {
+	return leaf != nil && leaf.VerifyHostname(domain) == nil
 }
 
 // GetCertificate is the certificate the HTTPS listener serves: tls.Config's GetCertificate.
