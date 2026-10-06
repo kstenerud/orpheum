@@ -18190,4 +18190,14 @@ container. It builds D235 §2 and §4, and revises D243 §7's core end of the tu
    the admin, migrations live, and refusing what it cannot migrate. Built when the owner nears the
    go-ahead for real users; until then there are none.
 
-**Status:** Decided 2026-10-06; staging to be built now, release later.
+**Amended** (2026-10-06, the same day), by the project owner, once Watch Together had kept up on
+devnas: *"what if we just made media.orpheum-app.com point to you for now during early development
+and left staging.orpheum-app.com for later?"* Until there is a staging server, the staging stack
+runs in the agent's sandbox, the VPS's one peer, behind `media.orpheum-app.com`, so a change is
+tried on the real name without the owner applying it first; devnas leaves the tunnel. One VPS
+address can front only one machine's TURN, so a second name waits for a second address or VPS. The
+agent does the first-run setup and sets the DNS token, which the owner hands over through the
+sandbox's shared files and the agent deletes once set; the admin's password goes back the same way.
+§3's "beside dev on devnas" holds for running staging on a machine of the owner's later.
+
+**Status:** Decided 2026-10-06; staging built the same day (deploy/staging, ./staging), release later.
