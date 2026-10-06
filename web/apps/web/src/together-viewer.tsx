@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefOb
 import { useTranslation } from "react-i18next";
 
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
+import logo from "./assets/orpheum-logo.svg";
 import { startingAudioTrack } from "./audio-tracks.tsx";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import {
@@ -34,6 +35,7 @@ import {
 } from "./play.tsx";
 import { useStallReports, type LowerQuality } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
+import { productName } from "./product-name.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SoundChoices } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
@@ -220,6 +222,7 @@ function ViewerSession(props: {
   }, [endReason, onOver]);
   return (
     <main className="together-viewer">
+      <img className="together-viewer__logo" src={logo} alt={productName} />
       <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
       {audioOutput === undefined ? (
         <SoundChoices

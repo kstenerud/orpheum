@@ -28,8 +28,8 @@ describe("AppShell", () => {
       ),
     );
     expect(markup.match(/<main/gu)).toHaveLength(1);
-    expect(markup).toContain(
-      '<header class="app-shell__banner"><p class="app-shell__title">Orpheum</p>',
+    expect(markup).toMatch(
+      /<header class="app-shell__banner"><p class="app-shell__title"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).toContain('<a href="/watch-together">Watch Together</a>');

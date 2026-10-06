@@ -5,6 +5,7 @@ import "./app-shell.css";
 import { useEffect, useRef, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import logo from "./assets/orpheum-logo.svg";
 import { Link } from "./link.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
@@ -94,24 +95,21 @@ export function AppShell(props: {
     shown.filter((destination) => destination.group === group);
   const links = (group: Destination["group"]): JSX.Element[] =>
     inGroup(group).map((destination) => (
-      <li
+      <Place
         key={destination.labelKey}
-        aria-current={destination.route.screen === props.currentScreen ? "page" : undefined}
-      >
-        <Link to={destination.route}>
-          {t(`nav.${destination.labelKey}`)}
-          {destination.labelKey === "watchTogether" && props.isHostingTogether === true ? (
-            <span className="app-shell__on"> {t("nav.togetherOn")}</span>
-          ) : null}
-        </Link>
-      </li>
+        destination={destination}
+        isCurrent={destination.route.screen === props.currentScreen}
+        isOn={destination.labelKey === "watchTogether" && props.isHostingTogether === true}
+      />
     ));
   const isIn = (group: Destination["group"]): boolean =>
     inGroup(group).some((destination) => destination.route.screen === props.currentScreen);
   return (
     <div className="app-shell">
       <header className="app-shell__banner">
-        <p className="app-shell__title">{productName}</p>
+        <p className="app-shell__title">
+          <img className="app-shell__logo" src={logo} alt={productName} />
+        </p>
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
           {inGroup("manage").length === 0 ? null : (
@@ -130,6 +128,25 @@ export function AppShell(props: {
       </header>
       <main className="app-shell__main">{props.children}</main>
     </div>
+  );
+}
+
+/** One place in the menu, marked when it is the current screen, and when it is on. */
+function Place(props: {
+  readonly destination: Destination;
+  readonly isCurrent: boolean;
+  /** Whether it is on now: Watch Together, while this tab hosts a session. */
+  readonly isOn: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { destination } = props;
+  return (
+    <li aria-current={props.isCurrent ? "page" : undefined}>
+      <Link to={destination.route}>
+        {t(`nav.${destination.labelKey}`)}
+        {props.isOn ? <span className="app-shell__on"> {t("nav.togetherOn")}</span> : null}
+      </Link>
+    </li>
   );
 }
 

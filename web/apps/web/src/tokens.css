@@ -12,14 +12,16 @@
   /*
    * Dark for watching (owner, 2026-10-06): near-black, not black, with surfaces lighter as they
    * rise; true black only behind video. Art supplies the colour; one coral accent marks the
-   * primary action, the current place and progress (ui-design-practice-2026-10-05.md §5.1).
+   * primary action, the current place and progress (ui-design-practice-2026-10-05.md §5.1). The
+   * background, the text and the accent are the logo's own: its dark ground, its ivory letters and
+   * its coral laurel (D251).
    */
   color-scheme: dark;
-  --color-background: #121214;
+  --color-background: #0e0f14;
   --color-surface: #1c1c20;
   --color-surface-raised: #26262c;
   --color-border: #3a3a42;
-  --color-text: #ececf1;
+  --color-text: #f3eee4;
   --color-muted: #a3a3ad;
   --color-accent: #ffa891;
   --color-accent-hover: #ffc2b2;

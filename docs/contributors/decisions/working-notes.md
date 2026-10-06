@@ -18288,7 +18288,7 @@ starts D245's skin without its restructuring: *"Let's start with tier 1 and see 
 before deciding to go further. Dark theme, pick an accent color that looks nice, use the system
 font, and use slightly rounded corners."*
 
-1. **Dark only, for now** (§5.3 question 1): near-black `#121214`, surfaces lighter as they rise,
+1. **Dark only, for now** (§5.3 question 1): near-black (now the logo's `#0e0f14`, item 6), surfaces lighter as they rise,
    true black only behind video. A light palette is a later set of token values, not a redesign.
 2. **One accent, coral** (`#ffa891`, question 2, chosen by the owner from six shown side by side,
    then a lighter shade of it, from five, so links and the dark text on buttons read easily):
@@ -18302,8 +18302,18 @@ font, and use slightly rounded corners."*
    radii, shadows), the look of plain elements everywhere (`base.css`: buttons, fields, tables,
    fieldsets, a form's submit as the primary button), the poster grid, the title page, the sign-in
    and join card, the Watch Together screens and the jobs list; and on a phone, the menu as one
-   row that scrolls sideways. The navigation split, Home, layout primitives and the one-pass
-   migration (ui-architecture-2026-10-05.md R1–R9) stay M5's.
+   row that scrolls sideways. Then, the same day, the menu split: the places for watching in view,
+   an admin's pages under Manage, the person's under their name. Home, layout primitives and the
+   one-pass migration (ui-architecture-2026-10-05.md R1–R9) stay M5's.
+6. **The owner's logo is the product's mark** (2026-10-06): the wordmark, its laurel standing in
+   for the O, heads the banner, the sign-in and join card and a guest's session page; the laurel is
+   the favicon, the home-screen icon and the web manifest's icon. The page takes the logo's own
+   colours: its dark ground `#0e0f14` as the background, its ivory `#f3eee4` as the text, its coral
+   laurel as the accent. The wordmark is outlined Poiret One, under the SIL Open Font License,
+   whose text travels with it (`web/apps/web/src/assets/orpheum-logo-FONT-LICENSE-OFL.txt`).
+7. **A title with no poster** shows a subdued, open clapperboard (the owner: *"Maybe a subdued
+   clapboard?"*), and a file's path and streams are under a closed File details: *"Details like the
+   full path to the filename should be in a normally collapsed view."*
 
 **Status:** Decided 2026-10-06.
 
