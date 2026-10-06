@@ -5,10 +5,15 @@ import importlib.machinery
 import importlib.util
 import json
 import sys
+import shutil
 import socket
+import subprocess
+import tempfile
 import tomllib
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 REPO = Path(__file__).resolve().parents[2]
 TEMPLATES = REPO / "deploy" / "staging"
@@ -143,6 +148,29 @@ class Rendering(unittest.TestCase):
         for name in ("ORPHEUM_IMAGE", "ORPHEUM_DIR", "ORPHEUM_UID", "ORPHEUM_GID", "ORPHEUM_HTTP_PUBLISH",
                      "ORPHEUM_HTTP_PORT", "ORPHEUM_TUNNEL_MTU"):
             self.assertIn("${" + name, compose, name)
+
+
+class SavedLogs(unittest.TestCase):
+    def run_logs(self, output: str) -> tuple["Path | None", Path]:
+        """save_logs into a fresh directory, with compose's logs answering output."""
+        directory = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, directory)
+        answered = subprocess.CompletedProcess([], 0, stdout=output)
+        with mock.patch.object(staging, "LOGS", directory / "logs"), \
+                mock.patch.object(staging.subprocess, "run", return_value=answered) as run:
+            saved = staging.save_logs({}, datetime(2026, 10, 6, 13, 5, 9, tzinfo=timezone.utc))
+        self.assertIn("logs", run.call_args.args[0])
+        return saved, directory
+
+    def test_a_deploy_keeps_the_run_it_replaces_in_a_file_named_by_when(self):
+        saved, directory = self.run_logs("core-1  | a line\n")
+        self.assertEqual(saved, directory / "logs" / "2026-10-06T13-05-09Z.log")
+        self.assertEqual(saved.read_text(), "core-1  | a line\n")
+
+    def test_nothing_running_keeps_no_file(self):
+        saved, directory = self.run_logs("")
+        self.assertIsNone(saved)
+        self.assertFalse((directory / "logs").exists())
 
 
 if __name__ == "__main__":

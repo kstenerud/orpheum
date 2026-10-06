@@ -64,7 +64,7 @@ On the VPS, `wg show` shows a handshake with the house once staging is up.
 | Command | What it does |
 | --- | --- |
 | `./staging` | build the image from the checkout and start or restart staging |
-| `./staging logs` | follow the three services' logs |
+| `./staging logs` | follow the three services' logs; each `./staging` keeps the run it replaces in `.staging/logs/` |
 | `./staging status` | the services and whether they are healthy |
 | `./staging setup-code` | the code that makes the first admin |
 | `./staging down` | stop staging; its data stays |
