@@ -18317,3 +18317,32 @@ font, and use slightly rounded corners."*
 
 **Status:** Decided 2026-10-06.
 
+## D252 — M4's acceptance shapes each client's network with the kernel's netem, in a run of its own at the milestone's end
+
+**Decided** (2026-10-06), by the project owner, building M4's acceptance (m4.md Phase H; cut-a's
+M4 row; D243 §9). The development container had no `tc` and no right to shape its network, so
+the three netem profiles needed a way to run. Offered the kernel's netem or a proxy of our own
+that delays and drops, and a separate run against one inside every branch gate, the owner:
+*"agreed. Go ahead with that"*, to the recommendation below.
+
+1. **The kernel's netem, not a proxy of our own.** A proxy approximates a network and would prove
+   less than the sync bound claims. The development image gains `iproute2`, and the container the
+   acceptance runs in the right to shape its network (`NET_ADMIN`); each client's traffic is
+   shaped by its own profile (D243 §9: *home* 20 ms, no loss; *mobile* 80 ± 30 ms, 1%;
+   *congested* 150 ± 50 ms, 3%, 5 Mbit/s).
+2. **`make test-acceptance`**, run once at a milestone's end, not in every branch gate: two
+   Playwright clients for 30 minutes under each profile, an hour and a half. The branch gate's
+   browser tier keeps a short run under *home*. The owner's remote-household VM on nuc13
+   (device-lab.md) confirms the profiles as a verification-queue item, as m4.md planned.
+3. **Voice is measured from the browsers' own WebRTC statistics** between two clients with fake
+   microphones: one-way delay as half the round trip plus the jitter buffer's delay, under 300 ms;
+   audible loss as the concealed share of the samples received, under 2%.
+4. **A signed-in guest's history** waits with D246 §4, which leaves recording a signed-in
+   recipient's viewing for later; the acceptance checks the half that is built, that an anonymous
+   guest records nothing, and the milestone audit lists the rest as a deviation.
+5. **An invitation is spent by joining, not by opening it** (the owner, the same day: *"It only
+   invalidates once the user actually selects a name and starts. If they reload the page before
+   doing so, the link must still work"*), which is how it was built; the acceptance reloads the
+   page before joining to keep it so.
+
+**Status:** Decided 2026-10-06.
