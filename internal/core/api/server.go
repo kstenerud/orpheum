@@ -124,6 +124,9 @@ type Server struct {
 	dependencies atomic.Pointer[Dependencies]
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
 	answers idempotentAnswers
+	// togetherSilence is how long a Watch Together device may send nothing, in nanoseconds:
+	// silenceLimit, which a test shortens.
+	togetherSilence atomic.Int64
 }
 
 // NewServer builds the API and registers every operation. UseErrorShape must have been called.
@@ -135,6 +138,7 @@ func NewServer(logger *slog.Logger) *Server {
 		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
 	mux := http.NewServeMux()
 	server := &Server{mux: mux, logger: logger.With("component", "api")}
+	server.togetherSilence.Store(int64(silenceLimit))
 	config.Transformers = append(config.Transformers, server.logErrorAnswer)
 	server.humaAPI = humago.NewWithPrefix(mux, Prefix, config)
 	server.health.status = StatusStarting

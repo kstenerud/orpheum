@@ -227,13 +227,36 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
+	who := []any{"userId", principal.UserID, "fileId", input.Body.FileID}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
+		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
 	}
 	if err != nil {
+		server.logPlaybackRefused(ctx, who, err)
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
+	server.logPlaybackStarted(ctx, who, started)
 	return startedOutput(started), nil
+}
+
+// logPlaybackStarted says a playback started: whose, which file, and how it is delivered and why,
+// so a film that will not play says what was chosen for it (staging, 2026-10-06). The playback's
+// token is a credential to its bytes, so it is never logged.
+func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started playback.Started) {
+	reasons := make([]string, 0, len(started.Decision.NotDirectReasons))
+	for _, each := range started.Decision.NotDirectReasons {
+		reasons = append(reasons, string(each))
+	}
+	server.logger.InfoContext(ctx, "a playback started", append(who,
+		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
+		"notDirectReasons", reasons, "isPreparing", started.IsPreparing,
+		"resumePositionMs", started.ResumePositionMs, "audioOutput", started.AudioOutput)...)
+}
+
+// logPlaybackRefused says a playback was refused, with why.
+func (server *Server) logPlaybackRefused(ctx context.Context, who []any, err error) {
+	server.logger.InfoContext(ctx, "a playback was refused", append(who, "err", err)...)
 }
 
 // startedOutput is a playback started, as the API says it.

@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -25,6 +26,19 @@ const helloWait = 10 * time.Second
 // maxTogetherMessageBytes bounds one message a device sends: the largest is voice signalling's SDP,
 // a few kilobytes.
 const maxTogetherMessageBytes = 64 << 10
+
+// clientPingEvery is how often a device pings while it is attached: the web client's pingEveryMs
+// (web/packages/sdk/src/together-connection.ts), which TestTogether_TheSilenceLimitIsThreeOfTheClientsPings
+// holds equal.
+const clientPingEvery = 15 * time.Second
+
+// silenceLimit is how long a device may send nothing before it is taken for gone: three missed pings.
+// A connection cut without a close, as a phone's on an airport's network, otherwise stays attached
+// until the operating system gives up on it, many minutes later (staging, 2026-10-06).
+const silenceLimit = 3 * clientPingEvery
+
+// errSilent is the cause a read's context ends with when the device stayed silent.
+var errSilent = errors.New("the device stayed silent")
 
 // outboxSize is how many messages a device may fall behind by before it is closed: a group change
 // and a roster each tick at most, so a device this far behind is not reading at all.
@@ -87,7 +101,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		defer close(written)
 		writeOutbox(ctx, connection, outbox, cancel)
 	}()
-	ended := readInto(ctx, connection, dependencies.Together, attachment)
+	ended := readInto(ctx, connection, dependencies.Together, attachment, time.Duration(server.togetherSilence.Load()))
 	dependencies.Together.Detach(attachment) // nothing is sent to it after this
 	server.logger.InfoContext(ctx, "watch together: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
@@ -108,14 +122,23 @@ func readHello(ctx context.Context, connection *websocket.Conn) (together.Inboun
 	return hello, nil
 }
 
-// readInto hands each message the device sends to the hub, until the socket or ctx ends, and says
-// why it ended: the close the device sent, the connection lost, or the server closing it.
+// readInto hands each message the device sends to the hub, until the socket or ctx ends or the
+// device sends nothing for silence, and says why it ended: the close the device sent, the
+// connection lost, its silence, or the server closing it.
 func readInto(
 	ctx context.Context, connection *websocket.Conn, hub *together.Hub, attachment together.Attachment,
+	silence time.Duration,
 ) error {
 	for {
 		var message together.Inbound
-		if err := wsjson.Read(ctx, connection, &message); err != nil {
+		readContext, cancel := context.WithTimeoutCause(ctx, silence, errSilent)
+		err := wsjson.Read(readContext, connection, &message)
+		isSilent := errors.Is(context.Cause(readContext), errSilent)
+		cancel()
+		if isSilent {
+			return fmt.Errorf("sent nothing for %s, three missed pings: %w", silence, errSilent)
+		}
+		if err != nil {
 			return err //nolint:wrapcheck // the socket's own words are the why
 		}
 		hub.Handle(ctx, attachment, message)

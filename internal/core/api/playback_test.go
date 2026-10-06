@@ -214,6 +214,25 @@ func TestPlayback_TheAcceptanceFileIsPreparedForItsContainerAndItsAudio(t *testi
 	}
 }
 
+// Each playback start is logged with whose it is, the file, and how it is delivered and why, never
+// with its token; a refused one with why. On staging a film that would not play left no trace of
+// what was chosen for it (2026-10-06).
+func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	decided := harness.play(t, user, chrome(2))
+	harness.logs.awaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
+		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`)
+	token := decided.URL[strings.LastIndex(strings.TrimSuffix(decided.URL, "/master.m3u8"), "/")+1:]
+	if token == "" || strings.Contains(harness.logs.String(), token) {
+		t.Errorf("the log holds the playback's token %q, or none was found in %q", token, decided.URL)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(999)), http.StatusNotFound, CodeNotFound)
+	harness.logs.awaitLine(t, `"msg":"a playback was refused"`, `"fileId":999`)
+}
+
 func TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

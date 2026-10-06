@@ -2,7 +2,10 @@
 
 package together
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // How long a group waits for its players, and when it does not wait at all: a stalled player holds
 // the group once, then catches up alone (D247 §4). Silo-Server's numbers, to be measured.
@@ -219,9 +222,43 @@ func (current *session) announce(
 		}
 	}
 	current.group.seq++
+	current.logChange(now)
 	current.broadcast(Outbound{
 		V: ProtocolVersion, Type: MessageGroup, Seq: current.group.seq, Group: current.groupView(now),
 	})
+}
+
+// logChange logs the group's state as announce just set it: what plays, where, what changed it and
+// by whom, and while it waits, until when and for which members' players, so a group that will not
+// play says why (the owner's test, 2026-10-06, where it could only be guessed).
+func (current *session) logChange(now time.Time) {
+	attributes := []any{
+		"sessionId", current.id, "state", string(current.group.state), "event", string(current.group.event),
+		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
+		"positionMs", current.positionAt(now).Milliseconds(),
+	}
+	if current.group.state == GroupWaiting {
+		attributes = append(attributes, "waitingForMemberIds", current.membersNotReady(),
+			"waitUntil", current.group.waitUntil.UTC().Format(time.RFC3339),
+			"hostWaitUntil", current.group.hostWaitUntil.UTC().Format(time.RFC3339))
+	}
+	current.logger.Info("watch together: the group changed", attributes...)
+}
+
+// membersNotReady are the members, by id and in order, with a player the group waits for that is
+// not ready: one that has once been ready and is not catching up alone.
+func (current *session) membersNotReady() []int64 {
+	var waited []int64
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached.role.plays() && attached.hasBeenReady && !attached.isCatchingUp && !attached.isReady() {
+				waited = append(waited, each.id)
+				break
+			}
+		}
+	}
+	slices.Sort(waited)
+	return waited
 }
 
 // positionAt is where the group is at now: moving at its rate while it plays.

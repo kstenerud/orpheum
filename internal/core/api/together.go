@@ -319,12 +319,17 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 		FileID: holder.OnlyFileID, PlayableFormats: playableFormatsOf(input.Body.PlayableFormats),
 		AudioOutput: string(input.Body.AudioOutput),
 	})
+	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
+	who := []any{"sessionId", sessionID, "memberId", memberID, "fileId", holder.OnlyFileID}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
+		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))
 	}
 	if err != nil {
+		server.logPlaybackRefused(ctx, who, err)
 		return nil, server.playbackError(ctx, "start a viewer's playback", err)
 	}
+	server.logPlaybackStarted(ctx, who, started)
 	return &ViewerPlaybackOutput{
 		SetCookie: viewerCookie(credential, input.isOverTLS), Body: startedOutput(started).Body,
 	}, nil
