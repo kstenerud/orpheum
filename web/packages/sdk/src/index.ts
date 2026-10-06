@@ -48,6 +48,23 @@ export type {
   TogetherConnection,
   TogetherSnapshot,
 } from "./together-connection.ts";
+export { createTogetherVoice, microphoneFailureOf } from "./together-voice.ts";
+export type {
+  MicrophoneFailure,
+  TogetherVoice,
+  TogetherVoiceOptions,
+  VoiceCall,
+  VoiceCallEvents,
+  VoiceCallSetup,
+  VoiceCallState,
+  VoiceDevices,
+  VoiceMicrophone,
+  VoicePartner,
+  VoiceSnapshot,
+  VoiceStatus,
+} from "./together-voice.ts";
+export { browserVoiceDevices } from "./together-voice-browser.ts";
+export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export {
   driftCorrection,
   expectedPositionMs,

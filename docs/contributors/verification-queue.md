@@ -188,3 +188,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/*.css`, `base.css`) — done 2026-10-06 by the owner: *"I've looked at
   everything on a browser and on a phone. I also scanned the QR code to test watch together.
   Everything works."*
+- [ ] **VQ21** — Two people, each with headphones, against staging's public https address: the
+  host on the laptop at home starts a session and plays a film; the other joins by link on a phone
+  on mobile data (not the house's Wi-Fi). Each presses **Talk** and allows the microphone. Passes
+  when each hears the other clearly while the film plays, the page says "Voice: connected to
+  <name>", Mute silences the one who pressed it, the Partner slider changes only the other's voice
+  and not the film, and "Leave voice" ends it on both sides. Then once more with the laptop in
+  Firefox with `media.peerconnection.ice.relay_only` set to `true` in `about:config`: passes when
+  they still hear each other and `about:webrtc` (or Chrome's `chrome://webrtc-internals` on the
+  other end) shows the selected pair's local candidate as `relay`. Only two real browsers on two
+  real networks show that the microphone, the calls, Web Audio's per-voice gain and the relay
+  work together (D193 §4, D63 tier 1). (`web/packages/sdk/src/together-voice-browser.ts`,
+  `web/apps/web/src/together-voice.tsx`)
