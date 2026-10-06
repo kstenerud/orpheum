@@ -81,10 +81,22 @@
   background: var(--color-surface);
 }
 
-.title__file ul {
-  margin: 0;
+/* The file's path and streams, closed until asked for. */
+.title__details {
   color: var(--color-muted);
   font-size: var(--font-size-small);
+}
+
+.title__details > summary {
+  cursor: pointer;
+}
+
+.title__details[open] > summary {
+  margin-block-end: var(--space-2);
+}
+
+.title__details ul {
+  margin: var(--space-2) 0 0;
 }
 
 .title__play {
@@ -105,6 +117,6 @@
 }
 
 .title__file code {
-  color: var(--color-muted);
+  display: block;
   overflow-wrap: anywhere;
 }

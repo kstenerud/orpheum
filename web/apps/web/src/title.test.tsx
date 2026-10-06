@@ -57,6 +57,18 @@ describe("TitleView", () => {
     expect(markup).toContain("/m/Metropolis (1995).mkv");
   });
 
+  it("keeps a file's path and streams in a closed File details, with Play outside it", () => {
+    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    const details =
+      /<details class="title__details"><summary>File details<\/summary>(.*?)<\/details>/u.exec(
+        markup,
+      )?.[1];
+    expect(details).toContain("/m/Metropolis (1995).mkv");
+    expect(details).toContain("Audio: truehd English 8 channels");
+    expect(details).not.toContain("Play");
+    expect(markup).toMatch(/class="title__play"[^>]*>Play<\/a><details class="title__details">/u);
+  });
+
   it("says why a title cannot be played now, and offers no play (D241 §3)", () => {
     const playable = renderToStaticMarkup(withServices(<TitleView title={heat} />));
     const missing = renderToStaticMarkup(
