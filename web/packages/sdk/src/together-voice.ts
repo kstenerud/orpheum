@@ -14,6 +14,12 @@ import type { OpenTogetherSocket, RosterMember, VoiceSignal } from "./together.t
  */
 export type MicrophoneFailure = "refused" | "none" | "busy" | "unsupported" | "failed";
 
+/**
+ * Why voice turned itself off: its microphone did not open, or a call with another device could
+ * not connect, or dropped and could not connect again. Talk tries again (the owner, 2026-10-06).
+ */
+export type VoiceFailure = MicrophoneFailure | "unreachable";
+
 /** Which failure an error from opening the microphone is, by the DOMException's name. */
 export function microphoneFailureOf(error: unknown): MicrophoneFailure {
   const name: unknown =
@@ -88,15 +94,15 @@ export interface VoicePartner {
 }
 
 /**
- * Whether voice is off, opening the microphone, on, or failed to open the microphone (the
- * snapshot's failure says why).
+ * Whether voice is off, opening the microphone, on, or turned off by a failure (the snapshot's
+ * failure says which).
  */
 export type VoiceStatus = "off" | "starting" | "on" | "failed";
 
 /** What voice knows now. */
 export interface VoiceSnapshot {
   readonly status: VoiceStatus;
-  readonly failure: MicrophoneFailure | undefined;
+  readonly failure: VoiceFailure | undefined;
   readonly isMuted: boolean;
   /** How loud the others' voices play, from 0 to 1: apart from the film's volume. */
   readonly partnerGain: number;
@@ -433,11 +439,18 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
   }
 
+  /** A call's new state; a call that failed turns voice off, saying so (the owner, 2026-10-06). */
   #setState(entry: CallEntry, state: VoiceCallState): void {
-    if (!entry.isClosed) {
-      entry.setState(state);
-      this.#change({ ...this.#snapshot, partners: this.#partners() });
+    if (entry.isClosed) {
+      return;
     }
+    if (state === "failed") {
+      this.stop();
+      this.#change({ ...this.#snapshot, status: "failed", failure: "unreachable" });
+      return;
+    }
+    entry.setState(state);
+    this.#change({ ...this.#snapshot, partners: this.#partners() });
   }
 
   #closeCalls(): void {
@@ -453,7 +466,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
  * the microphone and attaches a second device of the membership with the voice role, then keeps
  * one audio call with every other person's voice device in the roster, the lower device id making
  * the offer, through the relay's ICE servers. A device leaving the roster ends its call; a new
- * welcome, after the voice socket connects again, makes every call again. Muting switches the
+ * welcome, after the voice socket connects again, makes every call again; a call that fails turns
+ * voice off, saying so, and Talk tries again. Muting switches the
  * microphone's tracks off; the partners' gain sets how loud their voices play.
  */
 export function createTogetherVoice<Microphone extends VoiceMicrophone>(

@@ -79,10 +79,8 @@ function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   if (connected.length > 0) {
     return t("together.voice.connectedTo", { names: connected });
   }
-  const connecting = namesIn("connecting");
-  return connecting.length > 0
-    ? t("together.voice.connectingTo", { names: connecting })
-    : t("together.voice.couldNotReach", { names: namesIn("failed") });
+  // A call that fails turns voice off, so every call not connected is still connecting.
+  return t("together.voice.connectingTo", { names: namesIn("connecting") });
 }
 
 /** While voice is on: who it reaches, mute, leave, and the partners' volume. */

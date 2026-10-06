@@ -64,6 +64,8 @@ interface FakeCall extends VoiceCall {
   readonly steps: string[];
   gain: number | undefined;
   isClosed: boolean;
+  /** Whether taking the other's answer fails, as a malformed one does. */
+  isAnswerRefused: boolean;
 }
 
 function fakeCall(setup: VoiceCallSetup<FakeMicrophone>): FakeCall {
@@ -73,6 +75,7 @@ function fakeCall(setup: VoiceCallSetup<FakeMicrophone>): FakeCall {
     steps,
     gain: undefined,
     isClosed: false,
+    isAnswerRefused: false,
     offer: () => {
       steps.push("offer");
       return Promise.resolve("offer-sdp");
@@ -83,7 +86,7 @@ function fakeCall(setup: VoiceCallSetup<FakeMicrophone>): FakeCall {
     },
     accept: (answerSdp) => {
       steps.push(`accept ${answerSdp}`);
-      return Promise.resolve();
+      return call.isAnswerRefused ? Promise.reject(new Error("bad answer")) : Promise.resolve();
     },
     addCandidate: (candidate) => {
       steps.push(`candidate ${candidate}`);
@@ -340,6 +343,32 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     });
     await settle();
     expect(calls[2]!.gain).toBe(0.4);
+  });
+
+  it("turns itself off, saying so, when a call fails, and Talk tries again (the owner, 2026-10-06)", async () => {
+    const { voice, server, microphone, calls } = await talking();
+    calls[0]!.setup.events.onState("failed");
+    expect(voice.snapshot()).toMatchObject({
+      status: "failed",
+      failure: "unreachable",
+      partners: [],
+      isConnected: false,
+    });
+    expect(microphone.isStopped()).toBe(true);
+    expect(server.closedHere).toEqual([0]);
+    expect(calls.every((call) => call.isClosed)).toBe(true);
+    await voice.start();
+    expect(voice.snapshot()).toMatchObject({ status: "on", failure: undefined });
+    expect(server.sockets).toHaveLength(2);
+  });
+
+  it("turns itself off when a step of a call fails", async () => {
+    const { voice, server, calls } = await talking();
+    // Karl's voice device, 30, is higher than this one's 20: this one offered, and takes his answer.
+    calls[0]!.isAnswerRefused = true;
+    server.tell({ type: "rtc", fromDeviceId: 30, sdp: "answer-sdp" });
+    await settle();
+    expect(voice.snapshot()).toMatchObject({ status: "failed", failure: "unreachable" });
   });
 
   it("says why when the microphone is refused, and attaches nothing", async () => {
