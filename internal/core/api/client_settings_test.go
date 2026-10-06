@@ -24,7 +24,9 @@ func TestClientSettings_EveryClientReadsHowOftenAScreenAsksAgain(t *testing.T) {
 	if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
 		t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
 	}
-	if got.ScreenRefreshFirstWaitSeconds != 2 || got.ScreenRefreshLongestWaitSeconds != 45 {
-		t.Errorf("client settings = %+v, want the first wait's starting 2 s and the 45 s the admin set", got)
+	if got.ScreenRefreshFirstWaitSeconds != 2 || got.ScreenRefreshLongestWaitSeconds != 45 ||
+		got.ScreenRefreshFailedWaitSeconds != 5 {
+		t.Errorf("client settings = %+v, want the first wait's starting 2 s, the 45 s the admin set and "+
+			"the failed wait's starting 5 s", got)
 	}
 }
