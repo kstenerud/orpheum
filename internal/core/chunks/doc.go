@@ -59,10 +59,15 @@
 //     TestEnsure_QueuesOneRunFromTheChunkThroughFiveMinutesOfFilmAtPlayPriority,
 //     TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade,
 //     TestEnsure_TwoStreamsOfOneFilmWarmedTogetherEachQueueARun,
-//     TestEnsure_ASecondRunOfAStoreWhileItsRunIsQueuedAddsNone,
 //     TestEnsure_ARunTheQueueDidNotTakeIsAskedForAgainAtTheNextAsk and
 //     TestEnsure_AFilmWithNoGridYetIsSaidSo; through the API by
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).
+//
+//   - A seek starts a run where it lands; catching up never does (D250 §5). A chunk asked for more
+//     than chunk_new_run_beyond_seconds of film past the chunk a run of its store makes next cancels
+//     that run, queued or running, and its run is queued; one nearer waits for the run. Enforced by
+//     TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun and
+//     TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade.
 //
 //   - A run is sent as its film's main picture by identity, its stream's recipe, a sound with the
 //     track's mix and levelling gain as a prepare's and led in from the chunk before, and the grid's

@@ -68,6 +68,10 @@
   (D250 §5): a player counts a held request as the chunk's download, and took its link for slower.
   A hold, asking the node again each quarter second, is the setting `chunk_hold_ms` (0); the
   player asks again every second or two for over a minute and a half.
+- **A seek starts a run where it lands; catching up never does** (D250 §5). A request more than
+  `chunk_new_run_beyond_seconds` (90) of film past the chunk a run of its store makes next was
+  sought to, since a player catching up jumps at most a minute ahead: that run is cancelled, no one
+  following it now, and a run is queued from the request. A request nearer waits for the run.
 - **A run is cancelled** when no player has asked for its store's chunks for a while and it is
   far ahead of the last asked: nobody is coming.
 
