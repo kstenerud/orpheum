@@ -22,3 +22,9 @@
 .play__reason {
   color: var(--color-muted);
 }
+
+/* Under the picture, a button is as wide as its words, never the page's width. */
+.play > button,
+.play > * > button {
+  justify-self: start;
+}

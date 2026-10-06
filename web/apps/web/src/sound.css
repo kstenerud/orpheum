@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
+/* The question is read, not scanned: no wider than a line of text is comfortable. */
+.sound {
+  max-width: var(--size-reading);
+}
+
 /* Each answer: its name, then what it does, on lines of their own. */
 .sound__answer {
   display: grid;
