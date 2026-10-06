@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# ABOUTME: Staging (D249 §3): builds the runtime image from this checkout and runs the deployment
+# ABOUTME: (deploy/compose.yaml) beside the dev loop, with its own data in .staging/.
+"""Run Orpheum's staging deployment on this machine, from this checkout (D249).
+
+    ./staging             build the image from the checkout and start or restart staging
+    ./staging logs        follow the three services' logs
+    ./staging status      show the services and whether they are healthy
+    ./staging setup-code  print the one-time code that makes the first admin
+    ./staging down        stop staging (its data stays)
+    ./staging wipe        stop staging and delete its data: the database, the caches, the instances
+                          (the values file and the tunnel's keys stay)
+
+The first run makes .staging/, copies the values file into it, makes the tunnel's key pair and says
+what to fill in. Staging is the deployment release will be (deploy/compose.yaml), from an image
+built here rather than a published one: a tunnel service holding the core's end of the WireGuard
+tunnel to the VPS, the core in the tunnel's network, and the node with the media read-only.
+
+It needs Docker with the compose plugin and BuildKit, and a kernel with WireGuard. It never touches
+the dev loop's container or .dev/. Stdlib only, as ./dev is.
+"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+import ipaddress
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+DIR = ROOT / ".staging"
+TEMPLATES = ROOT / "deploy" / "staging"
+CONTAINERFILE = ROOT / "deploy" / "Containerfile"
+COMPOSE_FILE = ROOT / "deploy" / "compose.yaml"
+VALUES = DIR / "staging.toml"
+MEDIA_OVERRIDE = DIR / "compose.media.yaml"
+IMAGE = "orpheum-runtime:staging"
+PROJECT = "orpheum-staging"
+# Inside the containers (deploy/compose.yaml).
+CORE_INSTANCE = "/var/lib/orpheum/core"
+NODE_INSTANCE = "/var/lib/orpheum/node"
+RUN_DIR = "/run/orpheum"
+FULL_CONFIG = Path("persistent") / "config.toml"
+INSTANCE_FILE = "orpheum.toml"
+RENDER_NODE = Path("/dev/dri/renderD128")
+FILL_IN = "fill in"
+
+
+@dataclass
+class Values:
+    """The owner's values, from .staging/staging.toml."""
+
+    domain: str = ""
+    contact: str = ""
+    vps_endpoint: str = ""
+    vps_public_ipv4: str = ""
+    vps_public_key: str = ""
+    # None: chosen from the endpoint's family (tunnel_mtu).
+    mtu: int | None = None
+    media_roots: list[str] = field(default_factory=list)
+    http_publish: str = "0.0.0.0"
+    http_port: int = 8440
+
+
+def parse_values(text: str) -> Values:
+    """The values file's values; a missing one is its starting value."""
+    data = tomllib.loads(text)
+    vps, media, http = data.get("vps", {}), data.get("media", {}), data.get("http", {})
+    return Values(
+        domain=str(data.get("domain", "")).strip(),
+        contact=str(data.get("contact", "")).strip(),
+        vps_endpoint=str(vps.get("endpoint", "")).strip(),
+        vps_public_ipv4=str(vps.get("public_ipv4", "")).strip(),
+        vps_public_key=str(vps.get("public_key", "")).strip(),
+        mtu=int(vps["mtu"]) if "mtu" in vps else None,
+        media_roots=[str(root) for root in media.get("roots", [])],
+        http_publish=str(http.get("publish", "0.0.0.0")).strip(),
+        http_port=int(http.get("port", 8440)),
+    )
+
+
+def endpoint_problem(endpoint: str) -> str | None:
+    """Why endpoint is not "[IPv6]:port" or "IPv4:port", or None."""
+    host, sep, port = endpoint.rpartition(":")
+    if not sep or not port.isdigit() or not 0 < int(port) < 65536:
+        return f'vps.endpoint "{endpoint}": want "[IPv6 address]:51820" or "IPv4 address:51820"'
+    try:
+        if host.startswith("["):
+            if not host.endswith("]"):
+                raise ValueError(host)
+            ipaddress.IPv6Address(host[1:-1])
+        else:
+            ipaddress.IPv4Address(host)
+    except ValueError:
+        return f'vps.endpoint "{endpoint}": its address is not an IP address (an IPv6 one goes in brackets)'
+    return None
+
+
+# The tunnel's MTU by the family of the address it is carried over: WireGuard's packets over IPv6
+# cost 80 bytes of a 1500-byte link, and over DS-Lite's IPv4, itself carried in IPv6, 40 more.
+MTU_OVER_IPV6 = 1420
+MTU_OVER_IPV4 = 1380
+
+
+def tunnel_mtu(values: Values) -> int:
+    """The tunnel's MTU: the values file's, or the one for the endpoint's address family."""
+    if values.mtu is not None:
+        return values.mtu
+    return MTU_OVER_IPV6 if values.vps_endpoint.startswith("[") else MTU_OVER_IPV4
+
+
+def is_wireguard_key(key: str) -> bool:
+    """Whether key is a WireGuard key: 32 bytes in base64."""
+    try:
+        return len(base64.b64decode(key, validate=True)) == 32
+    except (binascii.Error, ValueError):
+        return False
+
+
+def value_problems(values: Values) -> list[str]:
+    """What the values file still lacks or holds wrongly, each with the key it is about."""
+    problems = []
+    if not values.domain:
+        problems.append("domain: the public name, whose records point at the VPS")
+    if "@" not in values.contact:
+        problems.append("contact: the e-mail address Let's Encrypt writes to")
+    if not values.vps_endpoint:
+        problems.append("vps.endpoint: the VPS's IPv6 address and WireGuard port, \"[2a01:...::1]:51820\"")
+    elif (problem := endpoint_problem(values.vps_endpoint)) is not None:
+        problems.append(problem)
+    try:
+        ipaddress.IPv4Address(values.vps_public_ipv4)
+    except ValueError:
+        problems.append(f'vps.public_ipv4 "{values.vps_public_ipv4}": the VPS\'s public IPv4 address')
+    if not is_wireguard_key(values.vps_public_key):
+        problems.append("vps.public_key: the VPS's WireGuard public key, /etc/wireguard/public on the VPS")
+    if values.mtu is not None and not 1280 <= values.mtu <= 1500:
+        problems.append(f"vps.mtu {values.mtu}: want 1280 to 1500, or leave it out: {MTU_OVER_IPV6} over IPv6 "
+                        f"and {MTU_OVER_IPV4} over IPv4 are chosen from the endpoint")
+    if not values.media_roots:
+        problems.append("media.roots: the media directories the node serves")
+    problems.extend(f'media.roots "{root}": want an absolute path'
+                    for root in values.media_roots if not os.path.isabs(root))
+    if values.http_port in (8432, 5173) or not 0 < values.http_port < 65536:
+        problems.append(f"http.port {values.http_port}: want a port the dev loop does not use (8432, 5173)")
+    return problems
+
+
+def render(template: str, fills: dict[str, str]) -> str:
+    """template with each {name} replaced by fills[name]; a placeholder left over outside a comment
+    is an error."""
+    text = template
+    for name, value in fills.items():
+        text = text.replace("{" + name + "}", value)
+    settings = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    left = [part.split("}", 1)[0] for part in settings.split("{")[1:] if "}" in part]
+    left = [name for name in left if name.isidentifier()]
+    if left:
+        raise ValueError(f"no value for {left}")
+    return text
+
+
+def core_config(template: str, values: Values) -> str:
+    return render(template, {"domain": values.domain, "contact": values.contact,
+                             "public_ipv4": values.vps_public_ipv4})
+
+
+def node_config(template: str, values: Values) -> str:
+    return render(template, {"media_roots": json.dumps(values.media_roots)})
+
+
+def tunnel_config(template: str, values: Values, private_key: str) -> str:
+    return render(template, {"private_key": private_key, "vps_public_key": values.vps_public_key,
+                             "vps_endpoint": values.vps_endpoint})
+
+
+def media_override(roots: list[str], render_gid: int | None) -> str:
+    """The compose override that gives the node the media, read-only at their own paths, and the GPU
+    when this machine has one: what differs from machine to machine (deploy/compose.yaml)."""
+    node: dict[str, object] = {"volumes": [f"{root}:{root}:ro" for root in roots]}
+    if render_gid is not None:
+        node["devices"] = ["/dev/dri:/dev/dri"]
+        node["group_add"] = [str(render_gid)]
+    # JSON is YAML; written as JSON, no path needs quoting by hand.
+    return json.dumps({"services": {"orpheum-node": node}}, indent=2) + "\n"
+
+
+def compose_environment(values: Values, uid: int, gid: int, base: dict[str, str],
+                        image: str = IMAGE) -> dict[str, str]:
+    """The environment deploy/compose.yaml reads its variables from. image is the image's ID when it
+    was just built: by its tag alone, compose saw no change and kept the old containers running."""
+    return {**base, "ORPHEUM_IMAGE": image, "ORPHEUM_DIR": str(DIR), "ORPHEUM_UID": str(uid),
+            "ORPHEUM_GID": str(gid), "ORPHEUM_HTTP_PUBLISH": values.http_publish,
+            "ORPHEUM_HTTP_PORT": str(values.http_port), "ORPHEUM_TUNNEL_MTU": str(tunnel_mtu(values))}
+
+
+def compose_command(*args: str) -> list[str]:
+    files = ["-f", str(COMPOSE_FILE)]
+    if MEDIA_OVERRIDE.exists():
+        files += ["-f", str(MEDIA_OVERRIDE)]
+    return ["docker", "compose", "--project-name", PROJECT, "--project-directory", str(ROOT), *files, *args]
+
+
+def lan_address() -> str:
+    """This machine's address on the LAN: the source address of its default route."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.0.2.1", 9))  # sends nothing; only picks the route
+            return probe.getsockname()[0]
+    except OSError:
+        return "this-machine"
+
+
+def run(command: list[str], **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(command, check=True, **kwargs)
+
+
+def build_image() -> str:
+    """Build the runtime image from the checkout, and return its ID."""
+    print(f"staging: building {IMAGE} from this checkout", flush=True)
+    run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE, str(ROOT)],
+        env={**os.environ, "DOCKER_BUILDKIT": "1"})
+    return run(["docker", "image", "inspect", "--format", "{{.Id}}", IMAGE],
+               capture_output=True, text=True).stdout.strip()
+
+
+def make_keys() -> str:
+    """The tunnel's private key, made with the image's wg the first time; the public key beside it."""
+    tunnel = DIR / "tunnel"
+    tunnel.mkdir(parents=True, exist_ok=True)
+    private, public = tunnel / "private", tunnel / "public"
+    if not private.exists():
+        made = run(["docker", "run", "--rm", "--entrypoint", "wg", IMAGE, "genkey"],
+                   capture_output=True, text=True).stdout.strip()
+        private.touch(mode=0o600)
+        private.write_text(made + "\n")
+        derived = run(["docker", "run", "--rm", "-i", "--entrypoint", "wg", IMAGE, "pubkey"],
+                      input=made + "\n", capture_output=True, text=True).stdout.strip()
+        public.write_text(derived + "\n")
+    return private.read_text().strip()
+
+
+def make_instances(uid: int, gid: int) -> None:
+    """Make the core's and the node's instances with the image's default-config, the first time."""
+    for kind, inside in (("core", CORE_INSTANCE), ("node", NODE_INSTANCE)):
+        host = DIR / kind
+        (DIR / "run").mkdir(parents=True, exist_ok=True)
+        host.mkdir(parents=True, exist_ok=True)
+        if (host / INSTANCE_FILE).exists():
+            continue
+        flags = ["--node"] if kind == "node" else []
+        run(["docker", "run", "--rm", "--user", f"{uid}:{gid}", "--mount", f"type=bind,src={host},dst={inside}",
+             "--mount", f"type=bind,src={DIR / 'run'},dst={RUN_DIR}", IMAGE, "default-config", *flags,
+             "--run-dir", f"{RUN_DIR}/{kind}", inside], stdout=subprocess.DEVNULL)
+
+
+def write_configs(values: Values, private_key: str) -> None:
+    """Render the full configs, the tunnel's and the media override from the templates and values."""
+    (DIR / "core" / FULL_CONFIG).write_text(core_config((TEMPLATES / "core.toml").read_text(), values))
+    (DIR / "node" / FULL_CONFIG).write_text(node_config((TEMPLATES / "node.toml").read_text(), values))
+    tunnel = DIR / "tunnel" / "wg0.conf"
+    tunnel.touch(mode=0o600)
+    tunnel.write_text(tunnel_config((TEMPLATES / "wg0.conf").read_text(), values, private_key))
+    render_gid = RENDER_NODE.stat().st_gid if RENDER_NODE.exists() else None
+    MEDIA_OVERRIDE.write_text(media_override(values.media_roots, render_gid))
+
+
+def first_run() -> int:
+    DIR.mkdir(exist_ok=True)
+    shutil.copyfile(TEMPLATES / "staging.toml", VALUES)
+    build_image()
+    make_keys()
+    public = (DIR / "tunnel" / "public").read_text().strip()
+    print(f"""
+staging: made {DIR}. Before it can start:
+  1. Fill in {VALUES}: every value marked "{FILL_IN}".
+  2. On the VPS, put this end's public key in /etc/wireguard/wg0.conf's [Peer] PublicKey, and
+     restart the tunnel there (systemctl restart wg-quick@wg0):
+       {public}
+  3. Run ./staging again.""")
+    return 1
+
+
+def up() -> int:
+    if not VALUES.exists():
+        return first_run()
+    values = parse_values(VALUES.read_text())
+    problems = value_problems(values)
+    missing = [root for root in values.media_roots if os.path.isabs(root) and not os.path.isdir(root)]
+    problems += [f'media.roots "{root}": no such directory on this machine' for root in missing]
+    if problems:
+        print(f"staging: {VALUES} needs:\n  " + "\n  ".join(problems), file=sys.stderr)
+        return 1
+    image = build_image()
+    private_key = make_keys()
+    uid, gid = os.getuid(), os.getgid()
+    make_instances(uid, gid)
+    write_configs(values, private_key)
+    env = compose_environment(values, uid, gid, dict(os.environ), image)
+    # Recreated every time: a tunnel container restarted on its own leaves the core outside its
+    # network, and recreating both is what mends it (deploy/compose.yaml).
+    run(compose_command("up", "--detach", "--remove-orphans", "--force-recreate", "--wait"), env=env)
+    lan = "127.0.0.1" if values.http_publish == "127.0.0.1" else lan_address()
+    print(f"""
+staging: up.
+  On the house's network:  http://{lan}:{values.http_port}
+  From outside:            https://{values.domain}  (once its certificate is issued: enter the DNS
+                           token in Settings, Keys and passwords, as dns_provider_token)
+  A new server's first admin:  ./staging setup-code
+  Logs:                        ./staging logs""")
+    return 0
+
+
+def wipe() -> int:
+    answer = input(f"staging: delete the database, caches and instances in {DIR}? Type wipe to confirm: ")
+    if answer.strip() != "wipe":
+        print("staging: nothing deleted")
+        return 1
+    if VALUES.exists():
+        run(compose_command("down", "--remove-orphans"), env=compose_environment(
+            parse_values(VALUES.read_text()), os.getuid(), os.getgid(), dict(os.environ)))
+    for name in ("core", "node", "run"):
+        shutil.rmtree(DIR / name, ignore_errors=True)
+    print(f"staging: wiped; {VALUES} and the tunnel's keys stay. ./staging starts a new one.")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    command = argv[0] if argv else "up"
+    if shutil.which("docker") is None:
+        print("staging: needs Docker with the compose plugin (https://docs.docker.com/engine/install/)",
+              file=sys.stderr)
+        return 1
+    if command == "up":
+        return up()
+    if command == "wipe":
+        return wipe()
+    passthrough = {"logs": ("logs", "--follow", "--tail", "200"), "status": ("ps",), "down": ("down",),
+                   "setup-code": ("exec", "orpheum-core", "orpheum", "setup-code", "--instance", CORE_INSTANCE)}
+    if command not in passthrough:
+        print(__doc__, file=sys.stderr)
+        return 2
+    if not VALUES.exists():
+        print("staging: not made yet; run ./staging first", file=sys.stderr)
+        return 1
+    env = compose_environment(parse_values(VALUES.read_text()), os.getuid(), os.getgid(), dict(os.environ))
+    return subprocess.run(compose_command(*passthrough[command]), env=env, check=False).returncode
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except subprocess.CalledProcessError as failed:
+        print(f"staging: {' '.join(failed.cmd[:3])}... failed with status {failed.returncode}", file=sys.stderr)
+        sys.exit(1)

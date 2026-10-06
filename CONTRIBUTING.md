@@ -33,7 +33,7 @@ git clone <the repository> orpheum && cd orpheum
 ./dev make dev         # the app on http://127.0.0.1:5173
 ```
 
-The image (`deploy/dev.Containerfile`) holds every pinned tool; the caches live in named volumes,
+The image (`deploy/Containerfile`) holds every pinned tool; the caches live in named volumes,
 so nothing but the clone lands on the machine. `./dev` explains its knobs at the top of the file:
 `ORPHEUM_DEV_MEDIA` mounts a media directory read-only, `ORPHEUM_DEV_PUBLISH=0.0.0.0` opens the
 dev ports to the LAN, and `./dev --stop` removes the container. The git pre-commit hook runs the

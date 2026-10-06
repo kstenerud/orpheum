@@ -21,3 +21,4 @@ __pycache__/
 # the built web client, copied in by `make build` (D216 §2); the placeholder keeps the directory
 /internal/core/webclient/dist/*
 !/internal/core/webclient/dist/.keep
+/.staging/

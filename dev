@@ -10,7 +10,7 @@
     ./dev --stop          remove this repository's container (the volumes stay)
     ./dev --image-tag     print the image's tag, which a CI cache keys the built image by
 
-The image is built from deploy/dev.Containerfile and tagged with a hash of every file it is built
+The image is built from deploy/Containerfile's dev stage and tagged with a hash of every file it is built
 from and of your uid and gid, so a changed pin builds a new one and an unchanged tree reuses it.
 
 One container per clone runs in the background, and every `./dev` runs its command in it: a dev
@@ -44,7 +44,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-CONTAINERFILE = "deploy/dev.Containerfile"
+CONTAINERFILE = "deploy/Containerfile"
 # Every file the image is built from, at its repository path. The image tag hashes them; the
 # build context holds only them, so a large .dev/ or node_modules is never sent to the engine.
 BUILD_INPUTS = (
@@ -56,7 +56,7 @@ BUILD_INPUTS = (
     "web/package-lock.json",
 )
 IMAGE = "orpheum-dev"
-# The image's user's home (deploy/dev.Containerfile).
+# The image's user's home (deploy/Containerfile, the dev stage).
 HOME = "/home/dev"
 VOLUMES = {
     "orpheum-dev-go": f"{HOME}/go",  # Go's module cache (GOPATH)
@@ -114,7 +114,7 @@ def dri_groups(dri: Path) -> list[int]:
 
 
 def build_args(engine: str, tag: str, context: Path, uid: int, gid: int) -> list[str]:
-    return [engine, "build", "--file", str(context / CONTAINERFILE), "--tag", tag,
+    return [engine, "build", "--file", str(context / CONTAINERFILE), "--target", "dev", "--tag", tag,
             "--label", f"{LABEL}=1", "--build-arg", f"DEV_UID={uid}", "--build-arg", f"DEV_GID={gid}",
             str(context)]
 
