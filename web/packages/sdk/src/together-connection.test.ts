@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createTogetherConnection,
+  deadAfterUnansweredPings,
   longestReconnectWaitMs,
   pingEveryMs,
   reconnectWaitMs,
@@ -200,7 +201,10 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     ]);
     connection.reportState();
     expect(states()).toHaveLength(2);
-    vi.advanceTimersByTime(stateEveryMs);
+    for (let elapsedMs = 0; elapsedMs < stateEveryMs; elapsedMs += pingEveryMs) {
+      sockets.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 })); // alive
+      vi.advanceTimersByTime(pingEveryMs);
+    }
     expect(states()).toHaveLength(3);
   });
 
@@ -313,6 +317,28 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[2]!.onOpen();
     expect(sockets.sent.at(-1)).toMatchObject({ type: "hello", credential: "c" });
     expect(reconnectWaitMs(30)).toBe(longestReconnectWaitMs);
+  });
+
+  it("takes a socket nothing is heard on for two pings for dead, and connects again", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome)); // its first ping goes out
+    vi.advanceTimersByTime(pingEveryMs); // the second, the first unanswered
+    sockets.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 }));
+    vi.advanceTimersByTime(pingEveryMs * deadAfterUnansweredPings);
+    expect(connection.snapshot().status).toBe("connected"); // heard from since: two unanswered
+    vi.advanceTimersByTime(pingEveryMs);
+    expect(connection.snapshot().status).toBe("reconnecting");
+    expect(sockets.closedHere).toEqual([0]);
+    sockets.opened[0]!.onClose(1006); // the dead socket's late close starts nothing more
+    vi.advanceTimersByTime(reconnectWaitMs(0));
+    expect(sockets.opened).toHaveLength(2);
   });
 
   it("ends, without connecting again, when the server ends it or refuses the hello", () => {
