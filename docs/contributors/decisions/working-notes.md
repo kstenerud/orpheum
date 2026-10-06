@@ -18003,7 +18003,7 @@ answering the three questions that review left (§7–§9). **Revises**
    goes. Later the rights become granular, given per invite link: play and pause, seek, next and
    previous, and the like. The rights of the last link issued are the next one's defaults, and
    the first link's are every right.
-9. **When a viewer stalls, everyone waits** for them in Cut A, as watch-together.md's Sync
+9. *(Superseded by D250 §2: the group never stops for one member.)* **When a viewer stalls, everyone waits** for them in Cut A, as watch-together.md's Sync
    already has it. What is best for more people is open; the owner: *"The problem comes when one
    member stalls and the rest move on, and then the one member missed a crucial point. But then
    again someone could just rewind..."*
@@ -18050,7 +18050,8 @@ paused often; in the group it played a frame and froze, over and over.
 3. **The change is automatic, and the player shows which quality is playing.** Variants aligned on
    the source's keyframes in one playlist, switched by hls.js without a pause
    ([transcoding.md](../design/plans/transcoding.md) §(b)), remain the later refinement.
-4. **A stalled viewer holds the group once, then catches up alone** (Silo-Server's design,
+4. *(Superseded by D250 §2–§5: the group never stops for one member, and a catch-up aims at an 80%
+   full buffer from the run already making its quality.)* **A stalled viewer holds the group once, then catches up alone** (Silo-Server's design,
    slow-links.md §5). A stall pauses the group only if that viewer has not stalled in the last
    5 minutes and the group has not waited for anyone in the last minute. Otherwise the others play
    on and the viewer catches up by itself, its seek aimed ahead by its last load time. A wait
@@ -18216,3 +18217,50 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 §3's "beside dev on devnas" holds for running staging on a machine of the owner's later.
 
 **Status:** Decided 2026-10-06; staging built the same day (deploy/staging, ./staging), release later.
+
+## D250 — A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
+
+**Decided** (2026-10-06), by the project owner, after a viewer on an iPhone at an airport found the
+film unwatchable on a link fast enough for her quality, and after the research of
+[playback-in-practice.md](../design/research/playback-in-practice.md): *"I don't think we should be
+stopping the group at all when someone has problems. Let their client try to catch up by whatever
+means. We only do a full pause+sync up when the movie starts, when the host pauses then plays, and
+when the host jumps playback to a new position using the scrubber."* It supersedes D246 §9 and
+D247 §4 and its amendment, and revises D247 §8 and §10.
+
+1. **Drift is corrected gently, by numbers kept in the database.** Drift up to 500 ms is left
+   alone (it was 60 ms); beyond it, the rate is nudged by at most 10% of the group's (it was 0.5× to
+   2×); beyond the seek threshold (3 s, unchanged), the player seeks. All three are settings, sent
+   to every device of a session, so they are tuned while testing. The owner: *"I'm fine with
+   loosening the drift numbers. 10% max speed drift also sounds fine. Make them db values so we can
+   tweak as we're testing."*
+2. **The group never stops for one member.** A stall, a slow link or a dropped connection is that
+   member's alone: the group plays on, and their player catches up by itself (§4). The host's
+   player is a member's here too. The group waits for its players only at its three sync points:
+   a film put on (or started over), the host's play after a pause, and the host's seek.
+3. **A sync point waits at most 20 s**, a setting: then the group plays, and whoever is not ready
+   catches up alone. The owner: *"30 seconds is too long. Let's start at 20."*
+4. **A member catching up jumps ahead and waits there**, as D247 §4's amendment had it, aiming to
+   have its buffer 80% full by the time the group reaches it: far enough ahead that, at the speed
+   it measured itself loading, it loads 80% of what its player buffers ahead before the group
+   arrives. The fraction is a setting. The owner: *"Ideally adaptable based on how much the client
+   is ready to buffer [...] We just want to target an 80% full buffer by the time the group's
+   playback catches up."*
+5. **Catching up never starts an encode.** A member who jumps ahead waits for the run already
+   making its quality to get there, and fills from there. Only a seek starts a run where it lands:
+   the host's in a session, or a person's own when watching alone. The owner: *"Otherwise if we
+   have multiple people needing to drop down, and start playing catch up, we could quickly end up
+   with a lot of transcodes."* A chunk not made yet is answered at once with "ask again", not held:
+   a held request is counted by hls.js as a slow download (playback-in-practice.md §3).
+6. **A run must stay faster than playback.** *"If 480p runs at 0.8×, it's by definition an
+   impossible situation. Live transcoding only works when it's faster than playback."* The core
+   watches each run's speed. When one more run brings any below 1.1× (a setting), it evicts a run:
+   the oldest no one is playing from, or, when every one is in use, the newest. Whoever is left
+   without their chunks by that is told why their playback stops.
+7. **Older Safari** is supported according to market share, researched before it is built: where
+   native HLS can be made to follow the group, it is used; else the non-native player is made to
+   work. The owner: *"depending on the market share we may simply opt to not support them, pending
+   an ios app."*
+
+**Status:** Decided 2026-10-06.
+
