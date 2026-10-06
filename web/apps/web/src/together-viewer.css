@@ -3,14 +3,24 @@
 .together-viewer {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-page);
-  padding: var(--space-page);
+  gap: var(--space-4);
+  max-width: 60rem;
+  min-height: 100vh;
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-page) var(--space-6);
+  align-content: start;
+}
+
+.together-viewer__heading {
+  margin: 0;
 }
 
 /* Black while nothing plays: the viewer sees only the host's playback (D246 §5). */
 .together-viewer__stage {
+  overflow: hidden;
   aspect-ratio: 16 / 9;
   max-height: 80vh;
+  border-radius: var(--radius-card);
   background: var(--color-video-background);
 }
 
@@ -18,4 +28,14 @@
   width: 100%;
   height: 100%;
   background: var(--color-video-background);
+}
+
+.together-viewer__volume {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.together-viewer__volume input {
+  flex: 1;
 }

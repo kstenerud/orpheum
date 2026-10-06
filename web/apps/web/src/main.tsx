@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import "./tokens.css";
+import "./base.css";
 import "./i18n.ts";
 
 import { canFollowAGroup } from "@orpheum/player";

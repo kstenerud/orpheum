@@ -1,37 +1,96 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
+/* The backdrop runs to the page's edges and fades into it: the words sit on the page, never on art. */
 .title__backdrop {
   display: block;
-  width: 100%;
-  max-height: 40vh;
+  width: calc(100% + 2 * var(--space-page));
+  max-width: none;
+  height: clamp(10rem, 40vh, 28rem);
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-page)) calc(-1 * var(--space-7));
   object-fit: cover;
+  mask-image: linear-gradient(to bottom, black 55%, transparent);
 }
 
 .title__head {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(8rem, 14rem) 1fr;
-  gap: var(--space-page);
+  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
+  gap: var(--space-4);
   align-items: start;
-  padding-block: var(--space-page);
+  padding-block: var(--space-4);
+}
+
+@media (min-width: 600px) {
+  .title__head {
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+}
+
+.title__head h1 {
+  margin-block-start: 0;
 }
 
 .title__still {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  border-radius: var(--radius-card);
 }
 
 .title__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-page);
+  gap: var(--space-1) var(--space-4);
   color: var(--color-muted);
 }
 
 .title__tagline {
+  color: var(--color-muted);
   font-style: italic;
 }
 
+.title__unavailable {
+  display: block;
+  margin-block-end: var(--space-4);
+  color: var(--color-problem);
+}
+
+/* Each file: Play first, as the page's one primary action, then what the file holds. */
+.title__file {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-block-end: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.title__file ul {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.title__play {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-control);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.title__play:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
+}
+
 .title__file code {
+  color: var(--color-muted);
   overflow-wrap: anywhere;
 }

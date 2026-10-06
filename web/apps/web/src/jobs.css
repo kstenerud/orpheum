@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.jobs {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+/* A job is a card of lines: what it is and its state, its progress, then why and when. */
+.jobs__job {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  overflow-wrap: anywhere;
+}
+
+.jobs__job > span {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
+.jobs__job progress {
+  width: 100%;
+}
+
+.jobs__job .jobs__failure {
+  color: var(--color-problem);
+}

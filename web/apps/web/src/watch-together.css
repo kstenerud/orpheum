@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.watch-together {
+  max-width: var(--size-reading);
+}
+
+/* Starting a session is the screen's one action. */
+.watch-together__start {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.watch-together__start:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.watch-together__issued {
+  margin-block: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.watch-together__issued h2 {
+  margin-block-start: 0;
+}
+
+/* Who is in the session and the links not used yet, one row each, its button at the end. */
+.watch-together ul {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.watch-together li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}

@@ -2,9 +2,20 @@
 
 .series__head {
   display: grid;
-  grid-template-columns: minmax(8rem, 14rem) 1fr;
-  gap: var(--space-page);
+  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
+  gap: var(--space-4);
   align-items: start;
+}
+
+@media (min-width: 600px) {
+  .series__head {
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+}
+
+.series__head h1 {
+  margin-block-start: 0;
 }
 
 .series__year,
@@ -14,23 +25,35 @@
 
 .series__episodes {
   display: grid;
-  gap: calc(var(--space-page) / 2);
+  gap: var(--space-2);
   padding: 0;
   list-style: none;
 }
 
+.series__episodes > li {
+  margin: 0;
+}
+
 .series__episode {
   display: grid;
-  grid-template-columns: 8rem 1fr auto;
-  gap: var(--space-page);
+  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  gap: var(--space-3);
   align-items: center;
+  padding: var(--space-2);
+  border-radius: var(--radius-card);
   color: inherit;
   text-decoration: none;
 }
 
+.series__episode:hover {
+  background: var(--color-surface);
+  color: inherit;
+}
+
 .series__still {
-  width: 8rem;
+  width: 7rem;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  background: var(--color-surface);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
 }

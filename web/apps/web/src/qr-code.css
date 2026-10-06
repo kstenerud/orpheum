@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
+/* A light square however dark the page: a phone's camera reads dark on light. */
 .qr-code {
   display: block;
   width: min(16rem, 70vw);
   height: auto;
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--color-qr-background);
 }

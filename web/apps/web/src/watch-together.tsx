@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./watch-together.css";
+
 import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
@@ -94,6 +96,7 @@ function StartSession(props: {
       <p>{t("watchTogether.explain")}</p>
       <button
         type="button"
+        className="watch-together__start"
         disabled={isBusy}
         onClick={() => {
           runRequest(async (idempotencyKey) => {

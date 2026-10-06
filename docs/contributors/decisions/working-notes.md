@@ -18278,3 +18278,29 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
 
 **Status:** Decided 2026-10-06; §7 amended the same day.
 
+## D251 — The web client's first skin is dark, with one amber accent, the system typeface and slightly rounded corners
+
+**Decided** (2026-10-06), by the project owner, ahead of a week of demonstrating Orpheum one to
+one, mostly on a phone, Watch Together above all (a guest scans the host's QR code and joins). It
+answers four of the open questions of
+[ui-design-practice-2026-10-05.md](../design/research/ui-design-practice-2026-10-05.md) §5.3 and
+starts D245's skin without its restructuring: *"Let's start with tier 1 and see what it looks like
+before deciding to go further. Dark theme, pick an accent color that looks nice, use the system
+font, and use slightly rounded corners."*
+
+1. **Dark only, for now** (§5.3 question 1): near-black `#121214`, surfaces lighter as they rise,
+   true black only behind video. A light palette is a later set of token values, not a redesign.
+2. **One accent, amber** (`#f0b149`, question 2, chosen by the agent as the owner asked): the
+   primary action, the current place in the menu, progress and range controls. Text on it is
+   near-black.
+3. **The system typeface** (question 3), on one type scale with two weights.
+4. **Slightly rounded** (question 7): 6 pixels for cards and art, 4 for controls.
+5. **What it covers ("tier 1")**: the tokens (palette, a 4-pixel spacing scale, type scale,
+   radii, shadows), the look of plain elements everywhere (`base.css`: buttons, fields, tables,
+   fieldsets, a form's submit as the primary button), the poster grid, the title page, the sign-in
+   and join card, the Watch Together screens and the jobs list; and on a phone, the menu as one
+   row that scrolls sideways. The navigation split, Home, layout primitives and the one-pass
+   migration (ui-architecture-2026-10-05.md R1–R9) stay M5's.
+
+**Status:** Decided 2026-10-06.
+

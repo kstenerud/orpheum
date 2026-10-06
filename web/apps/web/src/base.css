@@ -1,0 +1,180 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * The look of plain elements everywhere, the app shell's pages and the pages outside it alike: a
+ * component styles only what is its own, and a browser default never shows through
+ * (ui-design-practice-2026-10-05.md §3.3: "a browser-default form inside a styled page").
+ * Every value is a token (tokens.css).
+ */
+
+/* A box's size includes its padding and border, so a padded card never outgrows its column. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-background);
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin-block: var(--space-5) var(--space-3);
+  line-height: var(--line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  margin-block-start: var(--space-2);
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-title);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-strong);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-strong);
+}
+
+p {
+  margin-block: 0 var(--space-3);
+  max-width: var(--size-reading);
+}
+
+a {
+  color: var(--color-accent);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+code,
+kbd {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-small);
+}
+
+ul,
+ol {
+  padding-inline-start: var(--space-5);
+}
+
+/* Controls: dark fields and quiet buttons, a fingertip tall; a form's submit is the primary one. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  min-height: var(--size-control);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+  transition: background-color var(--duration-quick);
+}
+
+button:hover:not(:disabled) {
+  background: var(--color-border);
+}
+
+button[type="submit"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+button[type="submit"]:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+input:not([type="checkbox"], [type="radio"], [type="range"]),
+select,
+textarea {
+  min-height: var(--size-control);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  max-width: 100%;
+}
+
+textarea {
+  padding-block: var(--space-2);
+}
+
+input::placeholder {
+  color: var(--color-muted);
+}
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--color-accent);
+}
+
+fieldset {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+legend {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-strong);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+}
+
+th,
+td {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+  text-align: start;
+  vertical-align: top;
+}
+
+th {
+  color: var(--color-muted);
+  font-weight: var(--font-weight-strong);
+}
+
+hr {
+  border: 0;
+  border-block-start: 1px solid var(--color-border);
+}
+
+[role="alert"] {
+  color: var(--color-problem);
+}

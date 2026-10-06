@@ -3,5 +3,5 @@
 .code-sign-in__code {
   font-size: 1.5em;
   letter-spacing: 0.1em;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
