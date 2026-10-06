@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { followGroup, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
+import { followGroup, startingTuning, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -97,7 +97,11 @@ function HostLeading(
     <div className="together-host">
       <p>{t("together.hostPlaying")}</p>
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls membership={props.membership} sessionToken={token} />
+      <VoiceControls
+        membership={props.membership}
+        sessionToken={token}
+        isMicrophoneProcessed={(snapshot?.tuning ?? startingTuning).shouldProcessMicrophone}
+      />
     </div>
   );
 }

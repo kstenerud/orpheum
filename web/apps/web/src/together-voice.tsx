@@ -138,6 +138,8 @@ export function VoiceControls(props: {
   readonly membership: Membership;
   /** A signed-in person's session token, sent in the voice device's hello too (D243 §2). */
   readonly sessionToken?: string | undefined;
+  /** Whether the browser's processing works on the microphone: the session's tuning says. */
+  readonly isMicrophoneProcessed: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = useVoice(props.membership, props.sessionToken);
@@ -149,7 +151,7 @@ export function VoiceControls(props: {
           type="button"
           disabled={snapshot.status === "starting"}
           onClick={() => {
-            void voice.start();
+            void voice.start(props.isMicrophoneProcessed);
           }}
         >
           {t("together.voice.talk")}

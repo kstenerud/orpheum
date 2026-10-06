@@ -25,17 +25,24 @@ interface FakeDevices {
   readonly devices: BrowserVoiceDevices;
   readonly track: MediaStreamTrack;
   readonly calls: FakeCall[];
+  /** Whether each opening of the microphone asked for the browser's processing. */
+  readonly processedAsked: boolean[];
 }
 
 function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
   const track = { enabled: true, stop: () => undefined } as unknown as MediaStreamTrack;
   const microphone = { getAudioTracks: () => [track] } as unknown as MediaStream;
   const calls: FakeCall[] = [];
+  const processedAsked: boolean[] = [];
   return {
     track,
     calls,
+    processedAsked,
     devices: {
-      openMicrophone: openMicrophone ?? (() => Promise.resolve(microphone)),
+      openMicrophone: (isProcessed) => {
+        processedAsked.push(isProcessed);
+        return openMicrophone?.() ?? Promise.resolve(microphone);
+      },
       startCall: (setup) => {
         const call: FakeCall = {
           setup,
@@ -115,10 +122,13 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const devices = fakeDevices();
     const heard: Heard[] = [];
     const { services, server } = voiceServices(devices, heard);
-    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    const mounted = await mount(
+      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+    );
     expect(mounted.container.textContent).toContain("Use headphones");
     expect(server.openedCount()).toBe(0);
     await click(buttonWithText(mounted.container, "Talk"));
+    expect(devices.processedAsked).toEqual([true]);
     await server.accept();
     expect(server.heard[0]).toEqual({
       v: 2,
@@ -144,7 +154,9 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
   it("mutes the microphone, sets the partner's volume, and leaves voice", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    const mounted = await mount(
+      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+    );
     await click(buttonWithText(mounted.container, "Talk"));
     await server.accept();
     await server.say(welcome);
@@ -167,7 +179,9 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
   it("starts off, and turns off saying so when its call fails, Talk trying again", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    const mounted = await mount(
+      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+    );
     expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
     expect(server.openedCount()).toBe(0);
     await click(buttonWithText(mounted.container, "Talk"));
@@ -189,7 +203,9 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
   it("says the microphone was not allowed when it is refused, and Talk tries again", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    const mounted = await mount(
+      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+    );
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Your microphone was not allowed",
@@ -204,7 +220,9 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
   it("says this page cannot use a microphone where the browser offers none", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotSupportedError")));
     const { services } = voiceServices(devices);
-    const mounted = await mount(withServices(<VoiceControls membership={membership} />, services));
+    const mounted = await mount(
+      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+    );
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "needs the https:// address",

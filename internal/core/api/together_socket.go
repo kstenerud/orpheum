@@ -155,9 +155,18 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		return together.Tuning{}, server.settingsError(ctx, "read "+string(settings.TogetherSyncWaitSeconds), err)
 	}
 	tuning.SyncWaitMs = syncWait.Milliseconds()
-	tuning.ShouldNudgeKeepPitch, err = dependencies.Settings.Bool(ctx, settings.ShouldTogetherNudgeKeepPitch)
-	if err != nil {
-		return together.Tuning{}, server.settingsError(ctx, "read "+string(settings.ShouldTogetherNudgeKeepPitch), err)
+	for _, read := range []struct {
+		key  settings.Key
+		into *bool
+	}{
+		{settings.ShouldTogetherNudgeKeepPitch, &tuning.ShouldNudgeKeepPitch},
+		{settings.ShouldTogetherVoiceProcessMicrophone, &tuning.ShouldProcessMicrophone},
+	} {
+		value, err := dependencies.Settings.Bool(ctx, read.key)
+		if err != nil {
+			return together.Tuning{}, server.settingsError(ctx, "read "+string(read.key), err)
+		}
+		*read.into = value
 	}
 	return tuning, nil
 }

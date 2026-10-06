@@ -100,6 +100,11 @@ export interface SyncTuning {
   readonly settleAfterChangeMs: number;
   /** Whether a nudged player's sound keeps its pitch (D250 §7). */
   readonly shouldNudgeKeepPitch: boolean;
+  /**
+   * Whether the browser's echo cancelling, noise suppression and gain control work on the
+   * microphone for voice: headphones need none (D63), and on Android they may make a call of it.
+   */
+  readonly shouldProcessMicrophone: boolean;
 }
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
@@ -110,6 +115,7 @@ export const startingTuning: SyncTuning = {
   catchUpBufferPercent: 80,
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
+  shouldProcessMicrophone: true,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
@@ -149,6 +155,16 @@ function recordOf(value: unknown): Readonly<Record<string, unknown>> | undefined
 function numberIn(record: Readonly<Record<string, unknown>>, key: string, fallback = 0): number {
   const value = record[key];
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/** A boolean field, or isAbsentTrue where it is none. */
+function booleanIn(
+  record: Readonly<Record<string, unknown>>,
+  key: string,
+  isAbsentTrue: boolean,
+): boolean {
+  const value = record[key];
+  return typeof value === "boolean" ? value : isAbsentTrue;
 }
 
 /** A string field, or undefined. */
@@ -245,10 +261,16 @@ function parseTuning(value: unknown): SyncTuning {
       "settleAfterChangeMs",
       startingTuning.settleAfterChangeMs,
     ),
-    shouldNudgeKeepPitch:
-      typeof record["shouldNudgeKeepPitch"] === "boolean"
-        ? record["shouldNudgeKeepPitch"]
-        : startingTuning.shouldNudgeKeepPitch,
+    shouldNudgeKeepPitch: booleanIn(
+      record,
+      "shouldNudgeKeepPitch",
+      startingTuning.shouldNudgeKeepPitch,
+    ),
+    shouldProcessMicrophone: booleanIn(
+      record,
+      "shouldProcessMicrophone",
+      startingTuning.shouldProcessMicrophone,
+    ),
   };
 }
 

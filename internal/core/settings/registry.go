@@ -100,6 +100,7 @@ const (
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
 	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
+	ShouldTogetherVoiceProcessMicrophone           Key = "should_together_voice_process_microphone"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
@@ -278,6 +279,14 @@ func togetherDefinitions() []Definition {
 			Description: "whether a Watch Together player's sound keeps its pitch while a nudge plays it faster or " +
 				"slower; Safari may skip a moment of sound as it switches to keeping it (D250 §7)",
 			StartSource: "the browser's own default; safari-versions.md §3 (device test T2) is to settle it",
+		},
+		{
+			Key: ShouldTogetherVoiceProcessMicrophone, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Description: "whether the browser's echo cancelling, noise suppression and gain control work on a Watch " +
+				"Together person's microphone; with headphones none is needed (D63), and on Android they may " +
+				"put the phone in a call, turning the film down and taking its volume buttons",
+			StartSource: "the browser's own default; the owner's test, 2026-10-06: the film barely audible on " +
+				"an Android host with voice on",
 		},
 	}
 }
