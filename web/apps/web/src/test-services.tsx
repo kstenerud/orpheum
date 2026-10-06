@@ -82,6 +82,7 @@ export function testServices(
     }),
     // A socket that never opens: a test of Watch Together passes its own stand-in server.
     openTogetherSocket: () => ({ send: () => undefined, close: () => undefined }),
+    canFollowAGroup: () => true,
   };
 }
 

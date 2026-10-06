@@ -3,6 +3,7 @@
 import "./tokens.css";
 import "./i18n.ts";
 
+import { canFollowAGroup } from "@orpheum/player";
 import { browserPlayableFormats, browserTogetherSocket, createApi } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -29,6 +30,7 @@ const services = {
   navigation,
   playableFormats: browserPlayableFormats,
   openTogetherSocket: browserTogetherSocket(window.location.origin),
+  canFollowAGroup,
 };
 
 createRoot(rootElement).render(

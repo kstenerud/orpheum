@@ -37,7 +37,8 @@ Four findings, each detailed below:
 
 1. **The leading suspicion is our own follower's corrections on Safari, not her bandwidth.**
    *(inferred)* 2.4–3 Mbit/s carries a 1.2 Mbit/s quality with room to spare. On iOS 26,
-   `currentTime` is coarse and can be stale right after a rate change, and a rate change or seek
+   `currentTime` stays frozen for 100–250 ms after a play or rate change (corrected by
+   [safari-versions.md](safari-versions.md) §4), and a rate change or seek
    takes 100–500 ms to land (§1). A 60 ms dead-band is far inside that noise. Each correction that
    ends in a seek outside the buffer costs seconds of frozen picture on 10 s chunks. Firefox,
    with an accurate `currentTime`, never enters that loop. This stays inferred until the
@@ -92,13 +93,19 @@ hls.js turns that into `BUFFER_FLUSHED` ([PR #5915](https://github.com/video-dev
   is lost unless a `<source>` with the m3u8 is added
   ([#6482](https://github.com/video-dev/hls.js/issues/6482), open).
 
-**Fixed only in Safari 27.0 (released 2026-09-17), so present on her iOS 26.6**
-([WebKit features for Safari 27.0](https://webkit.org/blog/18325/webkit-features-for-safari-27-0/)):
+**Fixed in Safari 27.0 (released 2026-09-17)**
+([WebKit features for Safari 27.0](https://webkit.org/blog/18325/webkit-features-for-safari-27-0/)).
 
-- `currentTime` "updating only at fixed intervals" (170115677), and updating too rarely on iOS
-  (175774587).
+> **Corrected 2026-10-06** by [safari-versions.md](safari-versions.md): this list first said these
+> were present on her iOS 26.6. The two `currentTime` bugs below were in a renderer that Safari 26
+> left switched off, and one was a regression of the other's fix: Safari 27 betas only. The third
+> is about AirPlay. What iOS 18.4 to 26.x does have is milder: `currentTime` stays frozen for about
+> 100–250 ms after each play or rate change (safari-versions.md §4).
+
+- `currentTime` "updating only at fixed intervals" (170115677): 27 betas only. Updating too rarely
+  on iOS (175774587): AirPlay routes only.
 - `currentTime` "returning a stale value after the playback rate was changed from zero to a
-  non-zero value" (177046564). Every `play()` after a paused wait is such a change.
+  non-zero value" (177046564): 27 betas only.
 - `timeupdate` fired during a seek before it completes (176861767). Safari has also been seen to
   fire `seeked` early ([#7583](https://github.com/video-dev/hls.js/issues/7583), 2025-10-22).
 - MSE `readyState` not updated at once when a gap stalls playback (176330683), and a gap tolerance
@@ -123,7 +130,7 @@ WebKit's MSE player sets its rate to 0 until every audio and video renderer has 
 
 **What that means for our follower.** *(inferred)*
 
-- After each `play()` the next drift sample can read a stale position. That looks like a large
+- After each `play()` or rate change, a drift sample within about 250 ms reads a frozen position. That looks like a large
   drift and triggers a seek, which ends in another paused wait, and the cycle repeats itself.
 - A seek inside the buffer costs a decode from the preceding keyframe. A seek outside it makes
   hls.js load the whole fragment holding the target before showing anything. A 10 s chunk at

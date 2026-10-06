@@ -10,6 +10,8 @@ export const enTogether = {
     joinExplain:
       "You were invited to watch together. Choose the name the others will see you by, then join.",
     noLink: "This address has no invitation in it. Open the link you were given.",
+    cannotFollow:
+      "This browser cannot keep in step with the others. On an iPhone or iPad, update to iOS 17.1 or later, then open the link again.",
     name: "Your name",
     join: "Join",
     badLink:
@@ -50,6 +52,8 @@ export const enTogether = {
     explain:
       "Start a session, then make a link for each person you want to watch with. While it is on, what you play plays for them too.",
     start: "Start a session",
+    cannotHost:
+      "This browser cannot keep in step with a group, so it cannot host one. On an iPhone or iPad, update to iOS 17.1 or later.",
     mayNotHost: "Your role may not host Watch Together. An administrator can change that.",
     over: "That session is over.",
     onExplain:

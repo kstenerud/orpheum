@@ -118,6 +118,16 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     expect(mounted.container.textContent).toContain("Your role may not host Watch Together.");
     mounted.unmount();
   });
+
+  it("tells a browser that cannot keep in step that it cannot host, offering no start (D250 §7)", async () => {
+    const services = { ...servedBy({}, [], "token"), canFollowAGroup: () => false };
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "update to iOS 17.1 or later",
+    );
+    expect(mounted.container.querySelector("button")).toBeNull();
+    mounted.unmount();
+  });
 });
 
 describe("the host's player in a session (D246 §5)", () => {

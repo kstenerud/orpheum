@@ -81,10 +81,14 @@ function StartSession(props: {
   readonly onStarted: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
+  const { api, canFollowAGroup } = useServices();
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, hostingWords(t)),
   );
+  if (!canFollowAGroup()) {
+    // The host's player is a member's too (D250 §2), and must keep in step (D250 §7).
+    return <p role="alert">{t("watchTogether.cannotHost")}</p>;
+  }
   return (
     <>
       <p>{t("watchTogether.explain")}</p>
