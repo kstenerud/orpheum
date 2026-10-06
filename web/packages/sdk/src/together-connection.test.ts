@@ -99,6 +99,57 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
   });
 
+  it("keeps the timeline first heard while the group plays on, and takes a new one when it changes", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    monotonicNowMs = 2000;
+    socket.onMessage(
+      JSON.stringify({
+        v: 2,
+        type: "group",
+        seq: 2,
+        group: { ...playing, event: "everyoneReady" },
+      }),
+    );
+    // Three seconds on, "continuing without" someone, its position late by its own delay on the way.
+    monotonicNowMs = 5000;
+    socket.onMessage(
+      JSON.stringify({
+        v: 2,
+        type: "group",
+        seq: 3,
+        group: { ...playing, positionMs: 12_900, event: "continuedWithout", byMemberId: 9 },
+      }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      group: { positionMs: 10_000, event: "continuedWithout", byMemberId: 9 },
+      groupReceivedAtMs: 2000,
+    });
+    // A pause is a new timeline.
+    monotonicNowMs = 6000;
+    socket.onMessage(
+      JSON.stringify({
+        v: 2,
+        type: "group",
+        seq: 4,
+        group: { ...playing, state: "Paused", positionMs: 14_000 },
+      }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      group: { positionMs: 14_000 },
+      groupReceivedAtMs: 6000,
+    });
+  });
+
   it("pings at once and every so often, keeping the shortest round trip it measured", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
