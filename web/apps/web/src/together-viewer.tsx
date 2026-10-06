@@ -37,7 +37,7 @@ import { useStallReports, type LowerQuality } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useServices, useToken } from "./services.tsx";
-import { SoundChoices } from "./sound.tsx";
+import { SoundChoices, SoundLine } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
@@ -215,6 +215,10 @@ function ViewerSession(props: {
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
   const { onOver } = props;
+  const keep = (output: AudioOutput): void => {
+    keepViewerAudioOutput(browserStorage(), output);
+    setAudioOutput(output);
+  };
   const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
   useEffect(() => {
     if (endReason !== undefined) {
@@ -226,23 +230,18 @@ function ViewerSession(props: {
       <img className="together-viewer__logo" src={logo} alt={productName} />
       <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
       {audioOutput === undefined ? (
-        <SoundChoices
-          current={undefined}
-          isBusy={false}
-          problem={undefined}
-          onChosen={(output) => {
-            keepViewerAudioOutput(browserStorage(), output);
-            setAudioOutput(output);
-          }}
-        />
+        <SoundChoices current={undefined} isBusy={false} problem={undefined} onChosen={keep} />
       ) : (
-        <ViewingArea
-          membership={props.membership}
-          audioOutput={audioOutput}
-          connection={connection}
-          snapshot={snapshot}
-          volume={volume}
-        />
+        <>
+          <ViewingArea
+            membership={props.membership}
+            audioOutput={audioOutput}
+            connection={connection}
+            snapshot={snapshot}
+            volume={volume}
+          />
+          <SoundLine current={audioOutput} onChanged={() => undefined} keep={keep} />
+        </>
       )}
       <TogetherNews snapshot={snapshot} />
       <VoiceControls membership={props.membership} />
@@ -323,7 +322,7 @@ function ViewingArea(props: {
     <section className="together-viewer__stage" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? null : (
         <GroupFilm
-          key={fileId}
+          key={`${String(fileId)}/${props.audioOutput}`}
           fileId={fileId}
           credential={props.membership.credential}
           audioOutput={props.audioOutput}
@@ -348,7 +347,7 @@ function GroupFilm(props: {
   readonly following: Following;
 }): JSX.Element {
   const { api, playableFormats } = useServices();
-  const [decision] = useResource(`together-play/${String(props.fileId)}`, () =>
+  const [decision] = useResource(`together-play/${String(props.fileId)}/${props.audioOutput}`, () =>
     requestTogetherPlayback(api, props.credential, {
       playableFormats: playableFormats(),
       audioOutput: props.audioOutput,
