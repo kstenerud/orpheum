@@ -98,7 +98,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
 		chunkRuns: make(chan nodeproto.Result, 4), crashes: make(chan nodeproto.Result, 4),
-		refusals:  make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
+		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans:   make(chan nodeproto.Result, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
