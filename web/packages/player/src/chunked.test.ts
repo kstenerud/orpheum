@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Hls from "hls.js";
 
-import { adaptQuality, beyondTheLink, lookForStepUpEveryMs, type AdaptingHls } from "./chunked.ts";
+import { waitAheadAtMostMs } from "@orpheum/sdk";
+
+import {
+  adaptQuality,
+  beyondTheLink,
+  chunkLoadPolicy,
+  lookForStepUpEveryMs,
+  type AdaptingHls,
+} from "./chunked.ts";
 import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
 
 /** A stand-in for hls.js: three qualities, the link it measures, and its events. */
@@ -123,5 +131,17 @@ describe("whether a stall is beyond the link (D247 §8)", () => {
 
   it("is not, above the lowest quality, where a lower one answers it", () => {
     expect(beyondTheLink(playingAt(1, 500_000))).toBeUndefined();
+  });
+});
+
+describe("loading a chunk the core is making (D250 §5)", () => {
+  it("asks again after a 425 for longer than a player catching up waits ahead", () => {
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 425 }, false)).toBe(
+      true,
+    );
+    expect((retry?.maxNumRetry ?? 0) * (retry?.retryDelayMs ?? 0)).toBeGreaterThan(
+      waitAheadAtMostMs,
+    );
   });
 });

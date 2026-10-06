@@ -53,6 +53,7 @@ export {
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
+  waitAheadAtMostMs,
 } from "./together-follow.ts";
 export type { ChunkLoaded, FollowedMedia, QualitySwitched } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";

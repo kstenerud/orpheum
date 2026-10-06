@@ -92,6 +92,7 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	harness.nodeBytes.files[store+"00001.m4s"] = "chunk one"
 	harness.nodeBytes.asksBeforeFound = map[string]int{store + "00001.m4s": 3}
 	harness.nodeBytes.mutex.Unlock()
+	harness.setSetting(t, "chunk_hold_ms", "20000") // a hold, where one is set
 	chunk := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, "")
 	if chunk.status != http.StatusOK || chunk.body != "chunk one" ||
 		chunk.header.Get("Content-Type") != "video/iso.segment" ||
@@ -120,6 +121,29 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	if count := strings.Count(harness.logs.String(), waited); count != 2 {
 		t.Errorf("%d waits logged; want 2, none for a chunk the node had at once:\n%s", count, harness.logs.String())
 	}
+}
+
+// By default a chunk not made yet is answered at once: the player is told to ask again, the run
+// that makes it queued, and nothing held, since a player counts a hold as the chunk's download
+// (D250 §5).
+func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	grid, _, err := harness.chunks.Grid(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if early := harness.getBytePath(t, base+"q700k432p/00001.m4s", user, true, ""); early.status !=
+		http.StatusTooEarly || early.header.Get("Retry-After") != "1" {
+		t.Errorf("a chunk not made yet: %d %v, want 425 with Retry-After 1", early.status, early.header)
+	}
+	harness.checkOneRunQueued(t, grid.ID())
+	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`,
+		`"outcome":"askAgain"`, `"heldMs":0,`)
 }
 
 func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {
