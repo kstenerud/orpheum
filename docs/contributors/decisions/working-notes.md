@@ -18065,6 +18065,14 @@ paused often; in the group it played a frame and froze, over and over.
    anyone else's. A seek is the group's as the host makes it, not once it has loaded; each player
    is ready again only once it says so from the new place, its loading there is no stall, and one
    catching up is waited for again.
+   **Amended** (2026-10-06), by the owner, watching a viewer on a 3 Mb/s link through Apple's
+   Private Relay see one still frame every few seconds while she caught up alone: *"What about
+   making her side jump slightly ahead of the group and wait so that her buffer has more time to
+   fill by the time it has to play again?"* A viewer catching up alone jumps further ahead than
+   its last load time: far enough that, at its link's measured speed, it can load refillAheadMs
+   (§5) before the group gets there, up to what its player buffers ahead. It waits there, paused
+   and loading, without holding anyone up, and plays when the group reaches it, with a full buffer
+   rather than a thin one.
 5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
    `refillAheadMs`), not at its first frame, which was the loop.
 
