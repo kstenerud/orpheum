@@ -3,7 +3,7 @@
 import { reportFailure } from "@orpheum/sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Poller } from "./polling.ts";
+import type { AskOutcome, Poller } from "./polling.ts";
 
 import type { Resource } from "./use-resource.ts";
 
@@ -43,41 +43,54 @@ export async function loadAgain<T>(
   return pages;
 }
 
+/** What a list's poll reads against: the pages shown, whether the last read of them failed, and
+ * whether a page more is loading. */
+interface Shown<T> {
+  page: Page<T> | undefined;
+  hasFailed: boolean;
+  isLoadingMore: boolean;
+}
+
 /**
- * Reads every page shown again and hands it to answered, unless a page more is loading or the read
- * fails: then what is shown stays, and answered hears nothing changed.
+ * Reads every page shown again and hands answered what that came to, and the pages read when they
+ * are to be shown: changed, or read after a failure, the first read's among them, which shows
+ * nothing yet. It skips its turn, unchanged, while the first read or a page more is loading.
  */
 function readAgain<T>(
   load: (cursor: string) => Promise<Page<T>>,
-  shown: { readonly page: Page<T> | undefined; readonly isLoadingMore: boolean },
-  answered: (now: Page<T> | undefined) => void,
+  shown: Shown<T>,
+  answered: (outcome: AskOutcome, now?: Page<T>) => void,
 ): void {
   const before = shown.page;
-  if (before === undefined || shown.isLoadingMore) {
-    answered(before);
+  if (shown.isLoadingMore || (before === undefined && !shown.hasFailed)) {
+    answered("unchanged");
     return;
   }
-  loadAgain(load, before.items.length).then(
+  loadAgain(load, before?.items.length ?? 0).then(
     (now) => {
-      answered(shown.isLoadingMore ? shown.page : now);
+      if (shown.isLoadingMore) {
+        answered("unchanged");
+      } else if (shown.hasFailed || JSON.stringify(now) !== JSON.stringify(before)) {
+        answered("changed", now);
+      } else {
+        answered("unchanged");
+      }
     },
     (cause: unknown) => {
       reportFailure(cause);
-      answered(shown.page);
+      answered("failed");
     },
   );
 }
 
 /**
  * While the component shows a list, reads every page shown again as the poller says, and shows what
- * changed (D237). Nothing without a poller.
+ * changed (D237); a list whose read failed is read again from the start. Nothing without a poller.
  */
 /** A list as its poller reads and shows it: how to load a page, what is shown, and how to show more. */
 interface PolledList<T> {
   readonly load: (cursor: string) => Promise<Page<T>>;
-  readonly shown: {
-    readonly current: { readonly page: Page<T> | undefined; readonly isLoadingMore: boolean };
-  };
+  readonly shown: { readonly current: Shown<T> };
   readonly show: (page: Page<T>) => void;
 }
 
@@ -90,13 +103,11 @@ function usePagesPolling<T>(
       return undefined;
     }
     return poller.start((answered) => {
-      readAgain(load, shown.current, (now) => {
-        const isChanged =
-          now !== undefined && JSON.stringify(now) !== JSON.stringify(shown.current.page);
-        if (isChanged) {
+      readAgain(load, shown.current, (outcome, now) => {
+        if (now !== undefined) {
           show(now);
         }
-        answered(isChanged);
+        answered(outcome);
       });
     });
   }, [load, poller, shown, show]);
@@ -115,12 +126,10 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>, poller?:
   const [loadedSoFar, setLoadedSoFar] = useState<Resource<Page<T>>>({ state: "loading" });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   // What is shown and whether a page more is loading, as the poll, which outlives renders, reads them.
-  const shown = useRef<{ page: Page<T> | undefined; isLoadingMore: boolean }>({
-    page: undefined,
-    isLoadingMore: false,
-  });
+  const shown = useRef<Shown<T>>({ page: undefined, hasFailed: false, isLoadingMore: false });
   const show = useCallback((page: Page<T>): void => {
     shown.current.page = page;
+    shown.current.hasFailed = false;
     setLoadedSoFar({ state: "loaded", value: page });
   }, []);
   useEffect(() => {
@@ -133,6 +142,7 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>, poller?:
       },
       (cause: unknown) => {
         if (isCurrent) {
+          shown.current.hasFailed = true;
           setLoadedSoFar({ state: "failed", cause });
         }
       },
@@ -160,6 +170,7 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>, poller?:
       (cause: unknown) => {
         setIsLoadingMore(false);
         shown.current.isLoadingMore = false;
+        shown.current.hasFailed = true;
         setLoadedSoFar({ state: "failed", cause });
       },
     );

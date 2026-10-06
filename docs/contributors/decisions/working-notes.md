@@ -17507,6 +17507,12 @@ benefit from updated info."*
 (polling.test.ts); §2's "each screen that shows background changes asks again" has no test that
 each such screen does.
 
+**Amended** (2026-10-06), when a films list opened while the dev server rebuilt stayed failed and
+the home page took up to 30 s more to notice the server back: §1's "unchanged" is an answer, and a
+failed read is none. A failed read asks again after the first wait, and a list whose first read, or
+whose page more, failed is read again from the start (polling.test.ts, use-pages.test.ts). This is
+the agent's reading of a case §1 left open, put to the owner the same day.
+
 ## D238 — Each fact has one owner; the node keeps no database, holding its work in memory and its renditions' facts beside them
 
 **Decided** (2026-10-02), by the project owner, when `node.db` met the gate that keeps the node
