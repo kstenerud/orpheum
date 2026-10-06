@@ -472,3 +472,69 @@ describe("reading the server's messages", () => {
     expect(parseTogetherMessage('{"type":"rtc","sdp":"x"}')).toBeUndefined();
   });
 });
+
+describe("voice signalling on the session socket (D193 §4)", () => {
+  /** A connection in role, opened and welcomed as device 9 of member 7. */
+  function welcomed(role?: "voice" | "both"): {
+    readonly sockets: FakeSockets;
+    readonly connection: ReturnType<typeof createTogetherConnection>;
+  } {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      role,
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    return { sockets, connection };
+  }
+
+  it("says hello in the role it was given, a voice device claiming no player's rate", () => {
+    const { sockets, connection } = welcomed("voice");
+    expect(sockets.sent[0]).toEqual({ v: 2, type: "hello", credential: "c", role: "voice" });
+    expect(connection.snapshot().deviceId).toBe(9);
+    expect(welcomed("both").sockets.sent[0]).toMatchObject({ role: "both", canSetRate: true });
+  });
+
+  it("sends signalling to the device it names, and hands what others send to its listeners", () => {
+    const { sockets, connection } = welcomed("voice");
+    const heard: unknown[] = [];
+    const unsubscribe = connection.subscribeToVoiceSignals((fromDeviceId, signal) => {
+      heard.push({ fromDeviceId, signal });
+    });
+    const before = connection.snapshot();
+    connection.sendVoiceSignal(12, { sdp: "offer" });
+    connection.sendVoiceSignal(12, { candidate: '{"candidate":"c1"}' });
+    expect(sockets.sent.filter((each) => each["type"] === "rtc")).toEqual([
+      { v: 2, type: "rtc", toDeviceId: 12, sdp: "offer" },
+      { v: 2, type: "rtc", toDeviceId: 12, candidate: '{"candidate":"c1"}' },
+    ]);
+    sockets.opened[0]!.onMessage('{"v":2,"type":"rtc","fromDeviceId":12,"sdp":"answer"}');
+    sockets.opened[0]!.onMessage('{"v":2,"type":"rtc","fromDeviceId":12,"candidate":"c2"}');
+    expect(heard).toEqual([
+      { fromDeviceId: 12, signal: { sdp: "answer" } },
+      { fromDeviceId: 12, signal: { candidate: "c2" } },
+    ]);
+    expect(connection.snapshot()).toBe(before);
+    unsubscribe();
+    sockets.opened[0]!.onMessage('{"v":2,"type":"rtc","fromDeviceId":12,"sdp":"again"}');
+    expect(heard).toHaveLength(2);
+  });
+
+  it("reads an rtc message's sender and signalling, and none that says nothing", () => {
+    expect(parseTogetherMessage('{"v":2,"type":"rtc","fromDeviceId":4,"sdp":"s"}')).toEqual({
+      type: "rtc",
+      fromDeviceId: 4,
+      signal: { sdp: "s" },
+    });
+    expect(parseTogetherMessage('{"type":"rtc","fromDeviceId":4,"candidate":"c"}')).toEqual({
+      type: "rtc",
+      fromDeviceId: 4,
+      signal: { candidate: "c" },
+    });
+    expect(parseTogetherMessage('{"type":"rtc","fromDeviceId":4}')).toBeUndefined();
+  });
+});

@@ -54,6 +54,12 @@ export interface CannotKeepUp {
   readonly lowestKbps: number;
 }
 
+/**
+ * What a device does for its member (D120): plays the film, carries their voice, or both. A
+ * voice device takes no part in the group's sync.
+ */
+export type DeviceRole = "playback" | "voice" | "both";
+
 /** One device of a member in the roster, and its health. */
 export interface RosterDevice {
   readonly id: number;
@@ -103,6 +109,8 @@ export type TogetherServerMessage =
       readonly type: "welcome";
       readonly seq: number;
       readonly memberId: number;
+      /** This device's own id, as the roster lists it. */
+      readonly deviceId: number;
       readonly isHost: boolean;
       readonly group: GroupView;
       readonly roster: readonly RosterMember[];
@@ -112,7 +120,14 @@ export type TogetherServerMessage =
   | { readonly type: "roster"; readonly roster: readonly RosterMember[] }
   | { readonly type: "rejected"; readonly basedOnSeq: number; readonly code: string }
   | { readonly type: "pong"; readonly tMono: number }
-  | { readonly type: "ended"; readonly reason: TogetherEndReason };
+  | { readonly type: "ended"; readonly reason: TogetherEndReason }
+  | { readonly type: "rtc"; readonly fromDeviceId: number; readonly signal: VoiceSignal };
+
+/**
+ * One piece of voice signalling between two devices, which the server relays without reading
+ * (D193 §4): a session description, or one ICE candidate as its JSON text.
+ */
+export type VoiceSignal = { readonly sdp: string } | { readonly candidate: string };
 
 /** A value read from outside, as a record of unknown fields; undefined when it is not an object. */
 function recordOf(value: unknown): Readonly<Record<string, unknown>> | undefined {
@@ -232,6 +247,7 @@ function parseFollowed(
             type: "welcome",
             seq: numberIn(record, "seq"),
             memberId: numberIn(record, "memberId"),
+            deviceId: numberIn(record, "deviceId"),
             isHost: record["isHost"] === true,
             group,
             roster: parseRoster(record["roster"]),
@@ -246,6 +262,25 @@ function parseFollowed(
     default:
       return undefined;
   }
+}
+
+/** The voice signalling an rtc message carries, or undefined when it carries none. */
+function parseVoiceSignal(record: Readonly<Record<string, unknown>>): VoiceSignal | undefined {
+  const sdp = stringIn(record, "sdp");
+  if (sdp !== undefined && sdp !== "") {
+    return { sdp };
+  }
+  const candidate = stringIn(record, "candidate");
+  return candidate !== undefined && candidate !== "" ? { candidate } : undefined;
+}
+
+/** An rtc message: signalling from another device; undefined when it names none or says nothing. */
+function parseRtc(record: Readonly<Record<string, unknown>>): TogetherServerMessage | undefined {
+  const fromDeviceId = numberIn(record, "fromDeviceId");
+  const signal = parseVoiceSignal(record);
+  return fromDeviceId === 0 || signal === undefined
+    ? undefined
+    : { type: "rtc", fromDeviceId, signal };
 }
 
 /** One message the server sent, as text, parsed; undefined for one not understood or not used. */
@@ -273,6 +308,8 @@ export function parseTogetherMessage(text: string): TogetherServerMessage | unde
       const reason = endReasons.find((each) => each === record["reason"]) ?? "gone";
       return { type: "ended", reason };
     }
+    case "rtc":
+      return parseRtc(record);
     default:
       return parseFollowed(record, parseGroup(record["group"]));
   }

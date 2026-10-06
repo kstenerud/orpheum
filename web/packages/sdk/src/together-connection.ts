@@ -5,6 +5,7 @@ import {
   startingTuning,
   togetherProtocolVersion,
   type CannotKeepUp,
+  type DeviceRole,
   type GroupView,
   type OpenTogetherSocket,
   type RosterMember,
@@ -12,6 +13,7 @@ import {
   type TogetherEndReason,
   type TogetherServerMessage,
   type TogetherSocket,
+  type VoiceSignal,
 } from "./together.ts";
 
 /**
@@ -114,6 +116,11 @@ export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "en
 export interface TogetherSnapshot {
   readonly status: ConnectionStatus;
   readonly memberId: number | undefined;
+  /**
+   * This device's own id in the roster, as its welcome said, a new one on each connection;
+   * undefined, or absent, until then.
+   */
+  readonly deviceId?: number | undefined;
   readonly isHost: boolean;
   readonly group: GroupView | undefined;
   /** The monotonic time at which group arrived: a playing group has moved on from it since. */
@@ -154,6 +161,8 @@ export interface TogetherConnectionOptions {
   readonly credential: string;
   /** A signed-in person's session token, which makes the membership theirs (D243 §2). */
   readonly sessionToken?: string | undefined;
+  /** What the device does for its member (D120), said in the hello: "playback" when not given. */
+  readonly role?: DeviceRole | undefined;
   readonly openSocket: OpenTogetherSocket;
   /** A monotonic clock in ms (performance.now): no clock is shared with the server (D66). */
   readonly monotonicMs: () => number;
@@ -162,6 +171,7 @@ export interface TogetherConnectionOptions {
 const startingSnapshot: TogetherSnapshot = {
   status: "connecting",
   memberId: undefined,
+  deviceId: undefined,
   isHost: false,
   group: undefined,
   groupReceivedAtMs: 0,
@@ -194,6 +204,7 @@ function afterMessage(
         ...current,
         status: "connected",
         memberId: message.memberId,
+        deviceId: message.deviceId,
         isHost: message.isHost,
         group: message.group,
         groupReceivedAtMs: nowMs,
@@ -221,6 +232,8 @@ function afterMessage(
     }
     case "ended":
       return { ...current, status: "ended", endReason: message.reason };
+    case "rtc":
+      return current; // voice signalling goes to its listeners, and changes nothing here
   }
 }
 
@@ -229,19 +242,35 @@ function seqOf(message: TogetherServerMessage): number | undefined {
   return message.type === "welcome" || message.type === "group" ? message.seq : undefined;
 }
 
-/** The hello a playback device opens with (cut-a §5.1). */
+/**
+ * The hello a device opens with, in its role (cut-a §5.1): one that plays says it can set its
+ * player's rate; a voice device has no player.
+ */
 function helloText(options: TogetherConnectionOptions): string {
+  const role = options.role ?? "playback";
   return JSON.stringify({
     v: togetherProtocolVersion,
     type: "hello",
     credential: options.credential,
     ...(options.sessionToken === undefined ? {} : { sessionToken: options.sessionToken }),
-    role: "playback",
-    canSetRate: true,
+    role,
+    ...(role === "voice" ? {} : { canSetRate: true }),
   });
 }
 
-/** One device's connection, as connectTogether describes it. */
+/**
+ * A connection that carries voice signalling between this device and another of the session's
+ * (D193 §4), which the server relays to the device named.
+ */
+export interface RelaysVoiceSignals {
+  /** Sends signal to the device toDeviceId; dropped while not connected. */
+  readonly sendVoiceSignal: (toDeviceId: number, signal: VoiceSignal) => void;
+  /** Calls listener with each signal another device sends this one; returns the unsubscribing. */
+  readonly subscribeToVoiceSignals: (
+    listener: (fromDeviceId: number, signal: VoiceSignal) => void,
+  ) => () => void;
+}
+
 /**
  * A connection that can tell the group its player cannot keep up (D247 §8): apart from
  * TogetherConnection, which a group's follower needs, as only the page that plays the chunked
@@ -255,9 +284,10 @@ export interface TellsCannotKeepUp {
   readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
 }
 
-class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
+class SessionConnection implements TogetherConnection, TellsCannotKeepUp, RelaysVoiceSignals {
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
+  readonly #voiceSignalListeners = new Set<(fromDeviceId: number, signal: VoiceSignal) => void>();
   #snapshot = startingSnapshot;
   #seq = 0;
   #attempt = 0;
@@ -331,6 +361,17 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
       ]),
     );
     this.#send({ type: "note", note: whole });
+  };
+
+  readonly sendVoiceSignal = (toDeviceId: number, signal: VoiceSignal): void => {
+    this.#send({ type: "rtc", toDeviceId, ...signal });
+  };
+
+  readonly subscribeToVoiceSignals = (
+    listener: (fromDeviceId: number, signal: VoiceSignal) => void,
+  ): (() => void) => {
+    this.#voiceSignalListeners.add(listener);
+    return () => this.#voiceSignalListeners.delete(listener);
   };
 
   readonly open = (): void => {
@@ -413,6 +454,12 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
     if (message === undefined || this.#snapshot.status === "ended") {
       return;
     }
+    if (message.type === "rtc") {
+      for (const listener of this.#voiceSignalListeners) {
+        listener(message.fromDeviceId, message.signal);
+      }
+      return;
+    }
     this.#seq = seqOf(message) ?? this.#seq;
     this.#change(afterMessage(this.#snapshot, message, this.#now()));
     if (message.type === "welcome") {
@@ -476,14 +523,14 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp {
 }
 
 /**
- * A device's connection to its session as a playback device, which connects when opened: says hello, keeps the group, the roster
- * and the shortest round trip, pings, tells the group where the player is on every change and
- * every minute, and connects again with a growing wait after a drop, until the session ends for it
- * or it is closed. A hello the server refuses before any welcome ends it as "gone". Every number
- * it sends is whole, as the server reads them.
+ * A device's connection to its session in its role, which connects when opened: says hello, keeps
+ * the group, the roster and the shortest round trip, pings, tells the group where the player is on
+ * every change and every minute, relays voice signalling, and connects again with a growing wait
+ * after a drop, until the session ends for it or it is closed. A hello the server refuses before
+ * any welcome ends it as "gone". Every number it sends is whole, as the server reads them.
  */
 export function createTogetherConnection(
   options: TogetherConnectionOptions,
-): TogetherConnection & TellsCannotKeepUp {
+): TogetherConnection & TellsCannotKeepUp & RelaysVoiceSignals {
   return new SessionConnection(options);
 }
