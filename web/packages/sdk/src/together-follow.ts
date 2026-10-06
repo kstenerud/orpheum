@@ -1,29 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { GroupView } from "./together.ts";
+import type { GroupView, SyncTuning } from "./together.ts";
 import type { GroupCommand, PlayerState, TogetherConnection } from "./together-connection.ts";
-
-/**
- * Drift up to this is left alone: below what a viewer notices between two screens, and inside the
- * noise of a monotonic sample taken a round trip late. watch-together.md's Sync: "nudge
- * playbackRate for ~1 s to absorb roughly 60–3000 ms of drift; seek beyond that". To be measured
- * in the device lab before it is relied on.
- */
-export const leaveDriftUpToMs = 60;
-
-/** Drift beyond this is sought across rather than nudged away (watch-together.md, Sync). */
-export const seekDriftBeyondMs = 3000;
 
 /** How long one nudge of the rate lasts (watch-together.md, Sync: "for ~1 s"). */
 export const nudgeForMs = 1000;
-
-/**
- * The slowest and fastest a nudge plays, as a factor of the group's rate: within these a film's
- * sound is still the film's. A drift too large to absorb in one nudge at these is absorbed by the
- * next ones. Our choice, to be measured in the device lab with the thresholds above.
- */
-export const slowestNudgeFactor = 0.5;
-export const fastestNudgeFactor = 2;
 
 /**
  * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
@@ -89,25 +70,23 @@ export type DriftCorrection =
 
 /**
  * The correction for a player at actualMs while the group is at expectedMs playing at groupRate:
- * none within leaveDriftUpToMs, a seek beyond seekDriftBeyondMs, else a rate that closes the gap
- * over nudgeForMs, kept within the nudge factors.
+ * none within tuning's leaveDriftUpToMs, a seek beyond its seekDriftBeyondMs, else a rate that
+ * closes the gap over nudgeForMs, no further from the group's than its nudgeMostPercent: a larger
+ * drift is closed by the nudges that follow (D250 §1).
  */
-export function driftCorrection(drift: {
-  readonly expectedMs: number;
-  readonly actualMs: number;
-  readonly groupRate: number;
-}): DriftCorrection {
+export function driftCorrection(
+  drift: { readonly expectedMs: number; readonly actualMs: number; readonly groupRate: number },
+  tuning: SyncTuning,
+): DriftCorrection {
   const behindMs = drift.expectedMs - drift.actualMs;
-  if (Math.abs(behindMs) <= leaveDriftUpToMs) {
+  if (Math.abs(behindMs) <= tuning.leaveDriftUpToMs) {
     return { kind: "none" };
   }
-  if (Math.abs(behindMs) > seekDriftBeyondMs) {
+  if (Math.abs(behindMs) > tuning.seekDriftBeyondMs) {
     return { kind: "seek", toMs: drift.expectedMs };
   }
-  const factor = Math.min(
-    fastestNudgeFactor,
-    Math.max(slowestNudgeFactor, 1 + behindMs / nudgeForMs),
-  );
+  const most = tuning.nudgeMostPercent / 100;
+  const factor = Math.min(1 + most, Math.max(1 - most, 1 + behindMs / nudgeForMs));
   return { kind: "nudge", rate: drift.groupRate * factor };
 }
 
@@ -152,6 +131,8 @@ interface GroupNow {
   readonly group: GroupView;
   readonly expectedMs: number;
   readonly nowMs: number;
+  /** How to follow it, as the welcome said (D250 §1). */
+  readonly tuning: SyncTuning;
 }
 
 /** The player's position, in ms. */
@@ -160,11 +141,11 @@ function positionMsOf(media: FollowedMedia): number {
 }
 
 /** Whether the player is where the group is, near enough to play along without a seek. */
-function isInStep(media: FollowedMedia, expectedMs: number): boolean {
+function isInStep(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): boolean {
   return (
     media.readyState >= haveFutureData &&
     !media.seeking &&
-    Math.abs(positionMsOf(media) - expectedMs) <= seekDriftBeyondMs
+    Math.abs(positionMsOf(media) - expectedMs) <= tuning.seekDriftBeyondMs
   );
 }
 
@@ -207,11 +188,10 @@ function commandOfEvent(
   // step over a gap in what it loaded, and each such step, taken for its person's seek, made the
   // whole group wait and load again, without end on a slow link (the owner's test, 2026-10-05).
   const isAJump =
-    driftCorrection({
-      expectedMs: where.expectedMs,
-      actualMs: positionMsOf(media),
-      groupRate: where.group.rate,
-    }).kind === "seek";
+    driftCorrection(
+      { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
+      where.tuning,
+    ).kind === "seek";
   // A seek is the group's as its person makes it, not once it has loaded: a host on a slow link
   // would otherwise hold the group up loading a place the group was never told of, and be left
   // behind (the owner's test, 2026-10-05).
@@ -381,7 +361,7 @@ class GroupFollower {
     } else {
       this.#holdAt(where);
     }
-    this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs);
+    this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
   };
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
@@ -543,6 +523,7 @@ class GroupFollower {
       group,
       nowMs,
       expectedMs: expectedPositionMs(group, snapshot.groupReceivedAtMs, nowMs),
+      tuning: snapshot.tuning,
     };
   }
 
@@ -569,11 +550,10 @@ class GroupFollower {
     ) {
       return;
     }
-    const correction = driftCorrection({
-      expectedMs: where.expectedMs,
-      actualMs: positionMsOf(media),
-      groupRate: where.group.rate,
-    });
+    const correction = driftCorrection(
+      { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
+      where.tuning,
+    );
     media.playbackRate = correction.kind === "nudge" ? correction.rate : where.group.rate;
     if (correction.kind === "nudge") {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
@@ -590,7 +570,7 @@ class GroupFollower {
 
   /**
    * Whether a player that jumped ahead still waits there for the group: until the group is within
-   * leaveDriftUpToMs of it, or has passed it, or has sought back from it further than it could have
+   * the tuning's leaveDriftUpToMs of it, or has passed it, or has sought back from it further than it could have
    * jumped. Then it follows as usual, playing on with what it loaded meanwhile.
    */
   #isWaitingAhead(where: GroupNow): boolean {
@@ -599,6 +579,7 @@ class GroupFollower {
       return false;
     }
     const aheadMs = waitAtMs - where.expectedMs;
+    const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
     if (aheadMs > leaveDriftUpToMs && aheadMs <= waitAheadAtMostMs + seekDriftBeyondMs) {
       return true;
     }
@@ -650,15 +631,16 @@ class GroupFollower {
     // While its own seek still loads, the browser's player moves it a little as it loads (hls.js
     // steps over a gap at the start of what it loaded): a seek for that would start the load again,
     // and again, and the player never loads at all (the owner's test, 2026-10-05, on a slow link).
-    const holdAtMs = playableAt(media, where.expectedMs);
+    const holdAtMs = playableAt(media, where.expectedMs, where.tuning);
     const awayMs = Math.abs(positionMsOf(media) - holdAtMs);
     const isLoadingOwnSeek = this.#seekStartedAtMs !== undefined;
     // A player held just before the first frame it loaded, by however little, is moved onto it: a
     // paused player never steps over the gap, and one not on what it loaded is never ready. Both
-    // players held at 0 with 0.04 s to 60 s loaded, a gap under leaveDriftUpToMs, and held the
+    // players held at 0 with 0.04 s to 60 s loaded, a gap under the drift left alone, and held the
     // group up for good (staging, 2026-10-06).
     const isBeforeWhatItLoaded =
       !isLoadingOwnSeek && holdAtMs !== where.expectedMs && !isOnLoaded(media);
+    const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
     if ((isAway || isBeforeWhatItLoaded) && !media.seeking) {
       this.#seek(holdAtMs, "hold");
@@ -695,7 +677,7 @@ function isOnLoaded(media: FollowedMedia): boolean {
   return false;
 }
 
-function playableAt(media: FollowedMedia, expectedMs: number): number {
+function playableAt(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): number {
   const { buffered } = media;
   const expectedS = expectedMs / 1000;
   for (let index = 0; index < buffered.length; index++) {
@@ -703,7 +685,7 @@ function playableAt(media: FollowedMedia, expectedMs: number): number {
     if (startS <= expectedS && expectedS <= buffered.end(index)) {
       return expectedMs;
     }
-    if (startS > expectedS && (startS - expectedS) * 1000 <= seekDriftBeyondMs) {
+    if (startS > expectedS && (startS - expectedS) * 1000 <= tuning.seekDriftBeyondMs) {
       return startS * 1000;
     }
   }

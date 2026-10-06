@@ -187,6 +187,19 @@ type Outbound struct {
 	Candidate    string `json:"candidate,omitempty"`
 	// Ended's reason.
 	Reason string `json:"reason,omitempty"`
+	// Tuning is welcome's: how the device follows the group, from the settings (D250 §1).
+	Tuning *Tuning `json:"tuning,omitempty"`
+}
+
+// Tuning is how a device follows its group, the settings' numbers as each device is welcomed with
+// them, so they are tuned while testing without a new client (D250 §1).
+type Tuning struct {
+	// LeaveDriftUpToMs is how far off the group's position a player is left alone.
+	LeaveDriftUpToMs int64 `json:"leaveDriftUpToMs"`
+	// NudgeMostPercent is the most a nudge plays faster or slower, as a percent of the group's rate.
+	NudgeMostPercent int64 `json:"nudgeMostPercent"`
+	// SeekDriftBeyondMs is how far off a player seeks rather than nudges.
+	SeekDriftBeyondMs int64 `json:"seekDriftBeyondMs"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every

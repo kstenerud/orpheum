@@ -2,11 +2,13 @@
 
 import {
   parseTogetherMessage,
+  startingTuning,
   togetherProtocolVersion,
   type CannotKeepUp,
   type GroupView,
   type OpenTogetherSocket,
   type RosterMember,
+  type SyncTuning,
   type TogetherEndReason,
   type TogetherServerMessage,
   type TogetherSocket,
@@ -123,6 +125,8 @@ export interface TogetherSnapshot {
   readonly minimumRttMs: number | undefined;
   /** The last command the server refused, by its code (cut-a §5.2). */
   readonly lastRejectionCode: string | undefined;
+  /** How to follow the group, as the welcome said (D250 §1). */
+  readonly tuning: SyncTuning;
 }
 
 /** A device's connection to its session (cut-a §5.1). */
@@ -165,6 +169,7 @@ const startingSnapshot: TogetherSnapshot = {
   endReason: undefined,
   minimumRttMs: undefined,
   lastRejectionCode: undefined,
+  tuning: startingTuning,
 };
 
 /** Whether next keeps playing the film current plays, at its rate: the same timeline, told again. */
@@ -194,6 +199,7 @@ function afterMessage(
         groupReceivedAtMs: nowMs,
         roster: message.roster,
         minimumRttMs: undefined,
+        tuning: message.tuning,
       };
     case "group":
       if (isSameTimeline(current.group, message.group)) {

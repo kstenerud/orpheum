@@ -24,7 +24,7 @@ export {
 } from "./problem.ts";
 export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } from "./problem.ts";
 export type { WaitOptions } from "./ready.ts";
-export { browserTogetherSocket, parseTogetherMessage } from "./together.ts";
+export { browserTogetherSocket, parseTogetherMessage, startingTuning } from "./together.ts";
 export type {
   CannotKeepUp,
   GroupEvent,
@@ -32,6 +32,7 @@ export type {
   GroupView,
   OpenTogetherSocket,
   RosterMember,
+  SyncTuning,
   TogetherEndReason,
 } from "./together.ts";
 export { createTogetherConnection } from "./together-connection.ts";

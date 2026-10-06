@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GroupView } from "./together.ts";
+import { startingTuning, type GroupView, type SyncTuning } from "./together.ts";
 import type {
   GroupCommand,
   PlayerNote,
@@ -16,15 +16,12 @@ import {
   scrubPauseWindowMs,
   driftCorrection,
   expectedPositionMs,
-  fastestNudgeFactor,
   followGroup,
   fellBehindEvent,
-  leaveDriftUpToMs,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
   refillAheadMs,
-  seekDriftBeyondMs,
   waitAheadAtMostMs,
   type ChunkLoaded,
   type QualitySwitched,
@@ -84,31 +81,45 @@ describe("where the group is (D66: no clock sync)", () => {
   });
 });
 
-describe("correcting drift (watch-together.md, Sync)", () => {
+describe("correcting drift by the welcome's tuning (D250 §1)", () => {
   it("leaves a drift within the threshold alone", () => {
+    const leftMs = startingTuning.leaveDriftUpToMs;
     expect(
-      driftCorrection({ expectedMs: 1000, actualMs: 1000 - leaveDriftUpToMs, groupRate: 1 }),
+      driftCorrection({ expectedMs: 1000, actualMs: 1000 - leftMs, groupRate: 1 }, startingTuning),
     ).toEqual({ kind: "none" });
+    expect(startingTuning.leaveDriftUpToMs).toBe(500); // the owner's 500 ms, where it was 60
   });
 
-  it("nudges the rate to close a drift just past the threshold within about a second", () => {
-    const behind = driftCorrection({ expectedMs: 1100, actualMs: 1000, groupRate: 1 });
+  it("nudges the rate to close a drift within about a second, as far as the gentlest nudge allows", () => {
+    const fine: SyncTuning = { ...startingTuning, leaveDriftUpToMs: 50 };
+    const behind = driftCorrection({ expectedMs: 1080, actualMs: 1000, groupRate: 1 }, fine);
     expect(behind.kind).toBe("nudge");
-    expect(behind.kind === "nudge" ? behind.rate : 0).toBeCloseTo(1.1);
-    const ahead = driftCorrection({ expectedMs: 1000, actualMs: 1200, groupRate: 1 });
-    expect(ahead.kind === "nudge" ? ahead.rate : 0).toBeCloseTo(0.8);
+    expect(behind.kind === "nudge" ? behind.rate : 0).toBeCloseTo(1.08);
+    const ahead = driftCorrection(
+      { expectedMs: 1000, actualMs: 1600, groupRate: 1 },
+      startingTuning,
+    );
+    expect(ahead.kind === "nudge" ? ahead.rate : 0).toBeCloseTo(0.9);
   });
 
-  it("nudges no faster than the fastest factor of the group's rate", () => {
-    expect(driftCorrection({ expectedMs: 3000, actualMs: 100, groupRate: 1.25 })).toEqual({
+  it("nudges no faster than the tuning's percent of the group's rate", () => {
+    expect(
+      driftCorrection({ expectedMs: 3000, actualMs: 100, groupRate: 1.25 }, startingTuning),
+    ).toEqual({ kind: "nudge", rate: 1.25 * 1.1 });
+    const wider: SyncTuning = { ...startingTuning, nudgeMostPercent: 25 };
+    expect(driftCorrection({ expectedMs: 3000, actualMs: 100, groupRate: 1 }, wider)).toEqual({
       kind: "nudge",
-      rate: 1.25 * fastestNudgeFactor,
+      rate: 1.25,
     });
   });
 
   it("seeks across a drift beyond the seek threshold", () => {
+    const beyondMs = startingTuning.seekDriftBeyondMs + 1;
     expect(
-      driftCorrection({ expectedMs: 9000, actualMs: 9000 - seekDriftBeyondMs - 1, groupRate: 1 }),
+      driftCorrection(
+        { expectedMs: 9000, actualMs: 9000 - beyondMs, groupRate: 1 },
+        startingTuning,
+      ),
     ).toEqual({ kind: "seek", toMs: 9000 });
   });
 });
@@ -188,6 +199,7 @@ function fakeConnection(group: GroupView): {
     endReason: undefined,
     minimumRttMs: undefined,
     lastRejectionCode: undefined,
+    tuning: startingTuning,
   };
   let listener = (): void => undefined;
   let readPlayer: (() => PlayerState) | undefined;

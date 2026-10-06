@@ -13,6 +13,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -85,11 +86,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 			}) // too far behind: it reads nothing
 		}
 	}
-	attachment, err := dependencies.Together.Attach(hello.Credential, hello.Role, hello.CanSetRate, person, send)
-	if err != nil {
-		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
-			"role", string(hello.Role), "err", err)
-		_ = connection.Close(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
+	attachment, isAttached := server.attachDevice(ctx, connection, dependencies, hello, person, send)
+	if !isAttached {
 		return
 	}
 	device := []any{
@@ -108,6 +106,49 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	server.logger.InfoContext(ctx, "watch together: a device disconnected", append(device, "why", ended.Error())...)
 	close(outbox)
 	<-written
+}
+
+// attachDevice attaches the device that said hello, welcomed with how to follow its group as the
+// settings say now; when it cannot, it closes the socket saying why and reports false.
+func (server *Server) attachDevice(
+	ctx context.Context, connection *websocket.Conn, dependencies *Dependencies, hello together.Inbound,
+	person *together.Person, send together.Sender,
+) (together.Attachment, bool) {
+	tuning, err := server.togetherTuning(ctx, dependencies)
+	if err != nil {
+		const why = "the settings could not be read"
+		_ = connection.Close(websocket.StatusInternalError, why) //nolint:errcheck // closing
+		return together.Attachment{}, false
+	}
+	attachment, err := dependencies.Together.Attach(
+		hello.Credential, hello.Role, hello.CanSetRate, person, tuning, send)
+	if err != nil {
+		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
+			"role", string(hello.Role), "err", err)
+		_ = connection.Close(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
+		return together.Attachment{}, false
+	}
+	return attachment, true
+}
+
+// togetherTuning is how a device follows its group, as the settings say now (D250 §1).
+func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependencies) (together.Tuning, error) {
+	var tuning together.Tuning
+	for _, read := range []struct {
+		key  settings.Key
+		into *int64
+	}{
+		{settings.TogetherDriftLeftAloneMs, &tuning.LeaveDriftUpToMs},
+		{settings.TogetherNudgeMostPercent, &tuning.NudgeMostPercent},
+		{settings.TogetherSeekDriftBeyondMs, &tuning.SeekDriftBeyondMs},
+	} {
+		value, err := dependencies.Settings.Int(ctx, read.key)
+		if err != nil {
+			return together.Tuning{}, server.settingsError(ctx, "read "+string(read.key), err)
+		}
+		*read.into = value
+	}
+	return tuning, nil
 }
 
 // readHello reads a device's first message, which must be a hello, within helloWait.
