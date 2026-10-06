@@ -102,7 +102,7 @@ func ReadStallWindowFor(probeTimeout time.Duration) time.Duration {
 // the renditions it holds by their manifests for the hello, and evicts those the core does not keep
 // (D238 §2).
 type PreparedShelf interface {
-	Evict() (prepared.Usage, error)
+	Evict(ctx context.Context) (prepared.Usage, error)
 	LastUsage() (prepared.Usage, bool)
 	Inventory() ([]nodeproto.RenditionManifest, error)
 	Reconcile(listed, kept []string) (evicted []string, err error)

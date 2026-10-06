@@ -5,6 +5,7 @@
 package chunks_test
 
 import (
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -136,7 +137,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	pictures := sourceTimes(t, runner, source, "v:0", false)
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
-		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)))
+		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	maker := chunks.NewMaker(runner, shelf, directory, prepare.EncoderX264)
 	for storeDir, stream := range map[string]nodeproto.ChunkStream{
 		"1/chunks-picture/0123456789abcdef":  {Kind: nodeproto.StreamPicture},

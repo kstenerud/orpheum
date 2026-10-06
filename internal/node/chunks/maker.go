@@ -56,7 +56,7 @@ var ErrBadRun = errors.New("not a run of chunks")
 
 // Keeper keeps the prepared directory, where the stores are: prepared.Shelf.
 type Keeper interface {
-	MakeRoom() error
+	MakeRoom(ctx context.Context) error
 	MarkWriting(dir string) (finishWriting func())
 	// OpenStore makes the store, if it is not there, with its manifest, and a raw directory of its
 	// own for this run's FFmpeg; it returns the raw directory's absolute path.
@@ -125,7 +125,7 @@ func (maker *Maker) Make(
 	if err := check(command); err != nil {
 		return -1, err
 	}
-	if err := maker.keeper.MakeRoom(); err != nil {
+	if err := maker.keeper.MakeRoom(ctx); err != nil {
 		return -1, fmt.Errorf("make chunks of %s: %w", command.StoreDir, err)
 	}
 	finishWriting := maker.keeper.MarkWriting(command.StoreDir)

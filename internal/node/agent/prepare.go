@@ -56,7 +56,7 @@ func (agent *Agent) evict(ctx context.Context) {
 	if agent.workers.PreparedShelf == nil {
 		return
 	}
-	if _, err := agent.workers.PreparedShelf.Evict(); err != nil {
+	if _, err := agent.workers.PreparedShelf.Evict(ctx); err != nil {
 		agent.logger.WarnContext(ctx, "could not keep the prepared directory within its budget", "err", err)
 	}
 }

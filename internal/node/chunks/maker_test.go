@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -53,7 +54,7 @@ func makerOver(t *testing.T, fake *fakeFFmpeg) (*Maker, *prepared.Shelf, string)
 	t.Helper()
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
-		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)))
+		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	return NewMaker(fake, shelf, directory, prepare.EncoderX264), shelf, directory
 }
 

@@ -63,7 +63,7 @@ func (fake fakeFFmpeg) run(access confine.Access, arguments []string) error {
 // roomyKeeper is a prepared directory with room for every prepare.
 type roomyKeeper struct{}
 
-func (roomyKeeper) MakeRoom() error                           { return nil }
+func (roomyKeeper) MakeRoom(context.Context) error            { return nil }
 func (roomyKeeper) MarkWriting(string) (finishWriting func()) { return func() {} }
 
 func (roomyKeeper) Shelve(nodeproto.RenditionManifest) error { return nil }
@@ -76,7 +76,7 @@ type shelvingKeeper struct {
 	whileWriting []bool
 }
 
-func (*shelvingKeeper) MakeRoom() error { return nil }
+func (*shelvingKeeper) MakeRoom(context.Context) error { return nil }
 
 func (keeper *shelvingKeeper) MarkWriting(string) (finishWriting func()) {
 	keeper.isWriting = true
@@ -93,7 +93,7 @@ func (keeper *shelvingKeeper) Shelve(manifest nodeproto.RenditionManifest) error
 // records whether anything was written.
 type fullKeeper struct{}
 
-func (fullKeeper) MakeRoom() error { return errors.New("the disk is past its limit") }
+func (fullKeeper) MakeRoom(context.Context) error { return errors.New("the disk is past its limit") }
 
 func (fullKeeper) MarkWriting(string) (finishWriting func()) {
 	panic("nothing is written where there is no room")
