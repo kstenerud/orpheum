@@ -1,0 +1,18 @@
+# /etc/systemd/system/orpheum-forwards.service on the VPS: loads the port forwards into the tunnel
+# (/etc/wireguard/orpheum.nft) at boot, and takes them away when stopped. It is its own service,
+# not the tunnel's PostUp, because Ubuntu's AppArmor profile for wg-quick refuses it the file.
+# The rules name wg0 by name, so they load whether or not the tunnel is up yet.
+
+[Unit]
+Description=Orpheum's port forwards into the WireGuard tunnel
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/wireguard/orpheum.nft
+ExecStop=/usr/sbin/nft delete table inet orpheum
+
+[Install]
+WantedBy=multi-user.target

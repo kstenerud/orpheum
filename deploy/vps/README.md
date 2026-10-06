@@ -18,6 +18,8 @@ The files here:
 | --- | --- | --- |
 | `vps-wg0.conf` | the VPS's `/etc/wireguard/wg0.conf` | the tunnel's far end |
 | `orpheum.nft` | the VPS's `/etc/wireguard/orpheum.nft` | the port forwards into the tunnel |
+| `orpheum-forwards.service` | the VPS's `/etc/systemd/system/` | loads the port forwards at boot |
+| `99-orpheum-forwarding.conf` | the VPS's `/etc/sysctl.d/` | lets the VPS forward packets |
 | `core-wg0.conf` | the core machine's `/etc/wireguard/wg0.conf` | dials the VPS; answers go back through it |
 | `core-config.toml` | the core's full config | `[https]` and `[turn]` for the deployment |
 
@@ -32,10 +34,32 @@ Hetzner Cloud's smallest plan, in Nuremberg or Falkenstein, with Debian or Ubunt
 4. Copy `vps-wg0.conf` to `/etc/wireguard/wg0.conf` and `orpheum.nft` to
    `/etc/wireguard/orpheum.nft`. In them, fill in the keys, the VPS's public IPv4 address and its
    public interface's name (`ip -br addr` shows it; Hetzner's is `eth0`).
-5. `systemctl enable --now wg-quick@wg0`.
+5. Copy `99-orpheum-forwarding.conf` to `/etc/sysctl.d/` and apply it: `sysctl --system`.
+6. Copy `orpheum-forwards.service` to `/etc/systemd/system/` and start it:
+   `systemctl daemon-reload && systemctl enable --now orpheum-forwards`.
+   `nft list table inet orpheum` then shows the forwards.
+7. `systemctl enable --now wg-quick@wg0`.
 
-If the VPS runs `ufw`, it filters forwarded packets too: allow forwarding between `eth0` and `wg0`
-for those ports, or the forwards will be dropped silently.
+The forwarding and the port forwards are set up apart from the tunnel, not in `wg0.conf`'s
+`PostUp`: Ubuntu confines `wg-quick` with AppArmor, which refuses it, even as root, both the sysctl
+and reading the nftables file (`permission denied`).
+
+**If the VPS runs `ufw`** (`ufw status` says `Status: active`; on Hetzner's images it is installed
+but inactive, and then there is nothing to do): it drops forwarded packets unless told otherwise, so
+the forwards would be dropped silently. Let them through, and the tunnel in:
+
+```sh
+ufw allow 51820/udp
+ufw route allow in on eth0 out on wg0 to 10.77.0.2 port 443,3478 proto tcp
+ufw route allow in on eth0 out on wg0 to 10.77.0.2 port 3478,49160:49199 proto udp
+ufw route allow in on eth0 out on wg0 to fd77::2 port 443 proto tcp
+ufw route allow in on wg0 out on eth0
+ufw route allow in on wg0 out on wg0 to 10.77.0.2 port 49160:49199 proto udp
+```
+
+The last line is the relay's packet sent from one browser's allocation to another's, which goes
+back into the tunnel. The answers to what came in need no rule: `ufw` lets an established
+connection's packets through.
 
 ## 2. The name
 
