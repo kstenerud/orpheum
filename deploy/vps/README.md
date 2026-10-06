@@ -26,8 +26,20 @@ The core's end of the tunnel is not here: it is a service of the deployment itse
 
 Hetzner Cloud's smallest plan, in Nuremberg or Falkenstein, with Debian or Ubuntu. Then:
 
-1. In Hetzner's firewall for it, let in UDP 51820 (WireGuard), TCP 443, TCP and UDP 3478, and
-   UDP 49160–49199. Leave SSH as it is.
+1. In Hetzner's firewall for it, add an inbound rule for each, from any IPv4 and IPv6 address:
+
+   | Protocol | Port | For |
+   | --- | --- | --- |
+   | UDP | 51820 | the WireGuard tunnel |
+   | **TCP** | 443 | HTTPS |
+   | TCP | 3478 | TURN over TCP |
+   | UDP | 3478 | TURN over UDP |
+   | UDP | 49160-49199 | the voice relay |
+
+   Leave SSH as it is, and check that the firewall is attached to the server. A port opened for the
+   wrong protocol fails silently: with 443 opened for UDP, browsers time out, and with 51820 left
+   out, `wg show` on the core's end shows packets sent and none received (the owner's VPS,
+   2026-10-06). `tcpdump -ni eth0 port 443` on the VPS shows whether a request gets that far.
 2. Install WireGuard and nftables: `apt install wireguard nftables`.
 3. Make its key pair: `wg genkey | tee /etc/wireguard/private | wg pubkey > /etc/wireguard/public`.
 4. Copy `vps-wg0.conf` to `/etc/wireguard/wg0.conf` and `orpheum.nft` to
