@@ -43,6 +43,7 @@ type fakeCore struct {
 	subtitles        chan nodeproto.Result
 	readThroughs     chan nodeproto.Result
 	chunkRuns        chan nodeproto.Result
+	crashes          chan nodeproto.Result
 	refusals         chan nodeproto.Result
 	held             chan nodeproto.Result
 	scans            chan nodeproto.Result
@@ -96,7 +97,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		artwork: make(chan nodeproto.Result, 4), prepareReports: make(chan nodeproto.Result, 16),
 		progress: make(chan nodeproto.Progress, 64), refusedPosts: make(chan struct{}, 1),
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
-		chunkRuns: make(chan nodeproto.Result, 4),
+		chunkRuns: make(chan nodeproto.Result, 4), crashes: make(chan nodeproto.Result, 4),
 		refusals:  make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
 		scans:   make(chan nodeproto.Result, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
@@ -228,6 +229,8 @@ const (
 	refusalResult resultKind = "refusal"
 	// A result the node holds, too large to post, is named by the post.
 	heldResult resultKind = "held"
+	// A job whose work panicked carries only why.
+	crashedResult resultKind = "crashed"
 )
 
 // kindOf is the one payload a result carries, or a refusal and none; a result with neither, or
@@ -238,7 +241,7 @@ func kindOf(result nodeproto.Result) (resultKind, bool) {
 		artworkResult: result.Artwork != nil, prepareResult: result.Prepare != nil,
 		subtitleResult: result.Subtitle != nil, readThroughResult: result.ReadThrough != nil,
 		chunksResult:  result.MakeChunks != nil,
-		refusalResult: result.Refusal != "", heldResult: result.Held != nil,
+		refusalResult: result.Refusal != "", heldResult: result.Held != nil, crashedResult: result.Crashed != "",
 		scanResult: result.Listing != nil || result.Examined != nil,
 	} {
 		if isSet {
@@ -280,8 +283,8 @@ func (core *fakeCore) receiveResult(t *testing.T) http.HandlerFunc {
 		into := map[resultKind]chan nodeproto.Result{
 			artworkResult: core.artwork, prepareResult: core.prepareReports,
 			subtitleResult: core.subtitles, readThroughResult: core.readThroughs, refusalResult: core.refusals,
-			chunksResult: core.chunkRuns,
-			heldResult:   core.held, scanResult: core.scans,
+			chunksResult: core.chunkRuns, crashedResult: core.crashes,
+			heldResult: core.held, scanResult: core.scans,
 		}[kind]
 		if !handOn(core, into, result) {
 			return
