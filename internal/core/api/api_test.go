@@ -65,8 +65,10 @@ type testHarness struct {
 	cache        *store.Cache
 	nodes        *fakeNodes
 	// exchanges are the jobs waiting on the node; answerPrepare and the like hand them its results.
-	exchanges    *corenodes.Exchanges
-	httpServer   *httptest.Server
+	exchanges  *corenodes.Exchanges
+	httpServer *httptest.Server
+	// logs is everything the server, the chunks and the hub log, at debug, safe to read while they
+	// write: a test waits for a line something does in the background logs with AwaitLine.
 	logs         *testutil.Log
 	authService  *auth.Service
 	setupCodes   *authtest.SetupCodes
