@@ -60,6 +60,7 @@ type StartPlaybackInput struct {
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
 		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
+	ClientFacts
 }
 
 // StartPlaybackOutput is the decision (cut-a §6).
@@ -227,7 +228,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
-	who := []any{"userId", principal.UserID, "fileId", input.Body.FileID}
+	who := []any{"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))

@@ -14,6 +14,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
 // togetherSocketPath is the session WebSocket's path (cut-a §5.1): one per device.
@@ -95,7 +96,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		"sessionId", attachment.SessionID, "memberId", attachment.MemberID, "deviceId", attachment.DeviceID,
 		"role", string(hello.Role),
 	}
-	server.logger.InfoContext(ctx, "watch together: a device connected", device...)
+	server.logger.InfoContext(ctx, "watch together: a device connected",
+		append(device, slogx.UserAgent(request))...)
 	written := make(chan struct{})
 	go func() {
 		defer close(written)
