@@ -1,0 +1,18 @@
+# What `./staging` leaves out when it sends the repository to the image build (deploy/Containerfile,
+# target runtime): state, tool downloads and build output. .git stays, so the binary records its
+# commit (internal/platform/build).
+.dev
+.staging
+.tools
+bin
+dist
+orpheum
+node_modules
+**/node_modules
+web/**/dist
+web/**/.tsbuild
+web/**/.vite
+web/test-results
+web/playwright-report
+internal/core/webclient/dist/*
+!internal/core/webclient/dist/.keep

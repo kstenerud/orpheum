@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Orpheum's deployment (D235 §4, D249 §2): three services from the one runtime image
+# (deploy/Containerfile, target runtime). Staging runs it through ./staging, which builds the image
+# from the checkout and sets the variables below; release will run it from a published image.
+#
+#   ORPHEUM_IMAGE      the runtime image
+#   ORPHEUM_DIR        the deployment's directory: tunnel/ (wg0.conf), core/ and node/ (the
+#                      instances), run/ (their sockets)
+#   ORPHEUM_UID/GID    who the core and the node run as: the owner of ORPHEUM_DIR
+#   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
+#   ORPHEUM_TUNNEL_MTU the tunnel's MTU
+#
+# The media and the GPU, which differ from machine to machine, are an override file's
+# (./staging writes .staging/compose.media.yaml).
+
+services:
+  # The core's end of the tunnel to the VPS (D243 §7). The core shares its network, so the tunnel is
+  # in the core's network and nowhere else; it needs CAP_NET_ADMIN for that network only. Port
+  # 443 and the relay's are bound inside this network by the core, as a user: the sysctl, which is
+  # this network's own, lets it.
+  orpheum-tunnel:
+    image: ${ORPHEUM_IMAGE:?}
+    user: "0:0"
+    entrypoint: ["/usr/local/bin/orpheum-tunnel"]
+    cap_add: [NET_ADMIN]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    environment:
+      ORPHEUM_TUNNEL_MTU: ${ORPHEUM_TUNNEL_MTU:-1420}
+    volumes:
+      - ${ORPHEUM_DIR:?}/tunnel:/etc/orpheum-tunnel:ro
+    ports:
+      - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_HTTP_PORT:-8440}:8440"
+    networks: [outside]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ip", "link", "show", "wg0", "up"]
+      interval: 10s
+      start_period: 10s
+
+  # The server: the API, the web client, HTTPS through the tunnel, the voice relay.
+  orpheum-core:
+    image: ${ORPHEUM_IMAGE:?}
+    user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
+    command: ["core", "--instance", "/var/lib/orpheum/core"]
+    network_mode: service:orpheum-tunnel
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ${ORPHEUM_DIR:?}/core:/var/lib/orpheum/core
+      - ${ORPHEUM_DIR:?}/run:/run/orpheum
+    depends_on:
+      orpheum-tunnel:
+        condition: service_healthy
+        restart: true
+    restart: unless-stopped
+    healthcheck:
+      # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
+      # wg0 must be in its network: a restart of the tunnel's container alone gives the tunnel a
+      # new network this core is not in, which ./staging mends by recreating both.
+      test: ["CMD", "bash", "-c", "test -e /sys/class/net/wg0 && exec 3<>/dev/tcp/127.0.0.1/8440 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 10s
+      start_period: 60s
+
+  # The media node (D233 §2): every file read and FFmpeg run, confined (D193 §7). It reaches the
+  # core by the sockets in run/ only, so it has no network.
+  orpheum-node:
+    image: ${ORPHEUM_IMAGE:?}
+    user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
+    command: ["node", "--instance", "/var/lib/orpheum/node"]
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ${ORPHEUM_DIR:?}/node:/var/lib/orpheum/node
+      - ${ORPHEUM_DIR:?}/run:/run/orpheum
+    depends_on:
+      orpheum-core:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/orpheum/node/node.sock"]
+      interval: 10s
+      start_period: 30s
+
+networks:
+  # The tunnel dials the VPS over IPv6, which the house has natively (DS-Lite); Docker gives the
+  # network IPv6 from a private range and translates it on the way out, as it does IPv4.
+  outside:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd77:5e::/64

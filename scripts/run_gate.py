@@ -29,7 +29,7 @@ from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "dev"
-# Set to 1 by deploy/dev.Containerfile; scripts/tests/test_dev_image.py holds the two together.
+# Set to 1 by deploy/Containerfile; scripts/tests/test_dev_image.py holds the two together.
 IN_DEV_IMAGE = "ORPHEUM_IN_DEV_IMAGE"
 # The tools the gate needs that only the image or a set-up host has (python3 runs this script).
 # A host with them but without the Makefile's linters is told by `make check` to run `make tools`.

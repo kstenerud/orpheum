@@ -51,7 +51,7 @@ def this_platform() -> str:
 def tools_dir(root: Path) -> Path:
     """Where fetched tools are kept: ORPHEUM_TOOLS_DIR when it is set, else root/.tools.
 
-    The development image sets it to the tools it was built with (deploy/dev.Containerfile,
+    The development image sets it to the tools it was built with (deploy/Containerfile,
     D235), so a gate run inside it finds them there instead of fetching into the repository.
     """
     override = os.environ.get(TOOLS_DIR_ENV)

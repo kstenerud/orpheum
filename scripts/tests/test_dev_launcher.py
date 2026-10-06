@@ -50,11 +50,7 @@ class ImageTag(unittest.TestCase):
         self.assertEqual(len(tags), 3)
 
     def test_the_build_inputs_include_everything_the_containerfile_copies(self):
-        text = (REPO / launcher.CONTAINERFILE).read_text()
-        copied = set()
-        for line in text.splitlines():
-            if line.startswith("COPY ") and "--from=" not in line:
-                copied.update(line.split()[1:-1])
+        copied = dev_target_copies((REPO / launcher.CONTAINERFILE).read_text())
         self.assertTrue(copied)
         self.assertLessEqual(copied, set(launcher.BUILD_INPUTS))
         for rel in launcher.BUILD_INPUTS:
@@ -62,12 +58,49 @@ class ImageTag(unittest.TestCase):
 
     def test_every_build_input_is_one_the_containerfile_copies_so_other_edits_reuse_the_image(self):
         """A Makefile edit rebuilt the image and its ten-minute tool layer (2026-10-01)."""
-        text = (REPO / launcher.CONTAINERFILE).read_text()
-        copied = {launcher.CONTAINERFILE}
-        for line in text.splitlines():
+        copied = {launcher.CONTAINERFILE} | dev_target_copies((REPO / launcher.CONTAINERFILE).read_text())
+        self.assertEqual(set(launcher.BUILD_INPUTS), copied)
+
+    def test_the_dev_target_is_the_one_built(self):
+        """The Containerfile also builds the runtime image (D249); ./dev builds only the dev stage."""
+        args = launcher.build_args("docker", "tag", Path("/ctx"), 1000, 1000)
+        self.assertEqual(args[args.index("--target") + 1], "dev")
+        self.assertNotIn("deploy/staging/tunnel.sh",
+                         dev_target_copies((REPO / launcher.CONTAINERFILE).read_text()))
+
+
+def dev_target_copies(text: str) -> set[str]:
+    """What the Containerfile's dev stage, and the stages it is built from, copy from the build
+    context: the stages the runtime image alone needs copy from the whole repository (D249)."""
+    stages: dict[str, list[str]] = {}
+    current = ""
+    for line in text.splitlines():
+        if line.startswith("FROM "):
+            words = line.split()
+            current = words[-1] if "AS" in words else words[1]
+            stages[current] = [line]
+        elif current:
+            stages[current].append(line)
+
+    def needed(stage: str, seen: set[str]) -> set[str]:
+        if stage in seen or stage not in stages:
+            return seen
+        seen.add(stage)
+        for line in stages[stage]:
+            words = line.split()
+            if line.startswith("FROM "):
+                needed(words[1], seen)
+            for word in words:
+                if word.startswith("--from="):
+                    needed(word.removeprefix("--from="), seen)
+        return seen
+
+    copied: set[str] = set()
+    for stage in needed("dev", set()):
+        for line in stages[stage]:
             if line.startswith("COPY ") and "--from=" not in line:
                 copied.update(line.split()[1:-1])
-        self.assertEqual(set(launcher.BUILD_INPUTS), copied)
+    return copied
 
 
 class Engine(unittest.TestCase):

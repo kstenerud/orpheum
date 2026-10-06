@@ -16,7 +16,7 @@ import fetch_mkvtoolnix  # noqa: E402
 import fetch_tools  # noqa: E402
 import run_gate  # noqa: E402
 
-CONTAINERFILE = REPO / "deploy" / "dev.Containerfile"
+CONTAINERFILE = REPO / "deploy" / "Containerfile"
 
 
 class Pins(unittest.TestCase):

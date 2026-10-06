@@ -1,18 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# ABOUTME: The development image (D235 §2-3): every tool the gates and the dev loop need, pinned by
-# ABOUTME: version and checksum. `./dev` builds it and runs it; nothing here is meant to be run by hand.
+# ABOUTME: Orpheum's image family (D235 §2): the development image, every tool the gates and the dev
+# ABOUTME: loop need, and the runtime image staging and release run (D249), sharing one pinned base.
 #
 # Stages:
-#   fetch  downloads the pinned FFmpeg, MKVToolNix, golangci-lint and sqlc with the repository's
-#          own fetch scripts, which verify each download's SHA-256 (one way to fetch them, AGENTS
-#          rule 11).
-#   base   Debian and the pinned FFmpeg: what the runtime image will share (D235 §2).
-#   dev    base plus Go, Node, the gate tools, Playwright's system libraries and a user whose
-#          uid and gid are the host's, so files written in the bind-mounted repository are the
-#          developer's own.
+#   fetch      downloads the pinned FFmpeg, MKVToolNix, golangci-lint and sqlc with the
+#              repository's own fetch scripts, which verify each download's SHA-256 (one way to
+#              fetch them, AGENTS rule 11).
+#   base       Debian and the pinned FFmpeg: what every image shares (D235 §2).
+#   toolchain  base plus the pinned Go and Node: what building needs.
+#   dev        toolchain plus the gate tools, Playwright's system libraries and a user whose uid
+#              and gid are the host's, so files written in the bind-mounted repository are the
+#              developer's own. `./dev` builds it (--target dev) and runs it.
+#   build      toolchain plus the repository: `make build`, the binary with the web client in it.
+#   runtime    base plus the binary, WireGuard's tools and a non-root user: the image staging and
+#              release run as three services (D249 §2, deploy/compose.yaml). `./staging` builds it.
 #
-# The build context is the repository root, or the subset of it `./dev` copies (the same relative
-# paths), so `docker build -f deploy/dev.Containerfile .` from the root builds the same image.
+# `./dev` builds from the subset of the repository its stages copy (the same relative paths);
+# `./staging` from the repository root, as .dockerignore trims it, with .git, so the binary says
+# which commit it is.
 #
 # Every pin is written once. Go's version is go.mod's `toolchain` line, read at build time, and
 # Node's major follows the Makefile's NODE_MAJOR; scripts/tests/test_dev_image.py fails when a
@@ -51,16 +56,14 @@ ENV ORPHEUM_TOOLS_DIR=/opt/orpheum/tools
 COPY --from=fetch /opt/orpheum/tools/ffmpeg /opt/orpheum/tools/ffmpeg
 
 # ---------------------------------------------------------------------------------------------
-FROM base AS dev
+FROM base AS toolchain
 
-# gcc and libc6-dev: cgo, which the race detector needs. xz-utils: Node's archive. shellcheck:
-# `make check-scripts`. python3: the gate scripts.
+# gcc and libc6-dev: cgo, which the race detector needs. xz-utils: Node's archive. git: the
+# commit a build records. python3: the gate scripts and the Makefile's.
 RUN apt-get update -q \
  && apt-get install -y -q --no-install-recommends \
-      bash curl gcc git libc6-dev make procps python3 shellcheck xz-utils \
+      bash curl gcc git libc6-dev make procps python3 xz-utils \
  && rm -rf /var/lib/apt/lists/*
-
-COPY --from=fetch /opt/orpheum/tools/mkvtoolnix /opt/orpheum/tools/mkvtoolnix
 
 # Go: the version go.mod's `toolchain` line names, read from go.mod here so it is written nowhere
 # else. Each checksum is a sha256sum line naming the archive it is for, with the SHA-256 go.dev/dl
@@ -100,6 +103,16 @@ RUN set -eu; arch="$(dpkg --print-architecture)"; \
     mkdir -p /opt/node; tar -C /opt/node --strip-components=1 -xJf /tmp/node.tar.xz; rm /tmp/node.tar.xz
 ENV PATH=/opt/node/bin:$PATH
 
+# ---------------------------------------------------------------------------------------------
+FROM toolchain AS dev
+
+# shellcheck: `make check-scripts`.
+RUN apt-get update -q \
+ && apt-get install -y -q --no-install-recommends shellcheck \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=fetch /opt/orpheum/tools/mkvtoolnix /opt/orpheum/tools/mkvtoolnix
+
 # Playwright's system libraries, installed by the pinned Playwright itself: the playwright-core
 # tarball web/package-lock.json resolves, checked against the lockfile's sha512 integrity. The
 # browsers are not baked in: `make browsers` fetches them into a volume (Playwright fetches them
@@ -138,3 +151,33 @@ USER dev
 # gate runs directly rather than through `./dev` (scripts/run_gate.py).
 ENV HOME=/home/dev GOPATH=/home/dev/go ORPHEUM_IN_DEV_IMAGE=1
 WORKDIR /home/dev
+
+# ---------------------------------------------------------------------------------------------
+FROM toolchain AS build
+# The repository, as .dockerignore trims it, and `make build`, the one way the binary is built:
+# the web apps, then the binary with the web client in it. npm's and Go's caches persist between
+# builds in BuildKit's cache, so an update builds only what changed.
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/go/pkg/mod \
+    git config --global --add safe.directory /src \
+ && make build
+
+# ---------------------------------------------------------------------------------------------
+FROM base AS runtime
+# wireguard-tools and iproute2: orpheum-tunnel, the core's end of the tunnel to the VPS (D249 §2).
+RUN apt-get update -q \
+ && apt-get install -y -q --no-install-recommends iproute2 wireguard-tools \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/bin/orpheum /usr/local/bin/orpheum
+COPY deploy/staging/tunnel.sh /usr/local/bin/orpheum-tunnel
+# The pinned FFmpeg at a path that names no version or architecture, for the node's ffmpeg_dir.
+RUN ln -s "$(find /opt/orpheum/tools/ffmpeg -mindepth 1 -maxdepth 1 -type d)" /opt/orpheum/ffmpeg \
+ && test -x /opt/orpheum/ffmpeg/ffmpeg
+# The user the core and the node run as when compose names none; staging names the host's own, so
+# the files it writes in its directory are the owner's (deploy/compose.yaml).
+RUN useradd --uid 10001 --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin orpheum
+USER orpheum
+ENTRYPOINT ["/usr/local/bin/orpheum"]

@@ -1,0 +1,33 @@
+# Staging's values (D249 §3): ./staging copied this file to .staging/staging.toml. Fill in every
+# value marked "fill in", then run ./staging again. Nothing here is secret except what the VPS
+# already knows; the tunnel's private key is .staging/tunnel/private, which ./staging made.
+
+# The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2).
+domain = "media.orpheum-app.com"
+# The e-mail address Let's Encrypt writes to about the certificate. Fill in.
+contact = ""
+
+[vps]
+# Where the tunnel dials the VPS: its address and WireGuard port. Either family works:
+#   IPv4: "203.0.113.7:51820", from a machine with IPv4 only, or through DS-Lite's shared IPv4;
+#   IPv6: "[2a0f:4000:1c1c:1234::1]:51820", in brackets, where the machine has IPv6 (DS-Lite's is
+#         native).
+# Fill in.
+endpoint = ""
+# The VPS's public IPv4 address: browsers reach the voice relay there (D243 §8). Fill in.
+public_ipv4 = ""
+# The VPS's WireGuard public key, /etc/wireguard/public on the VPS. Fill in.
+public_key = ""
+# The tunnel's MTU. Left out, it is chosen from the endpoint: 1380 over IPv4, which leaves room for
+# DS-Lite carrying it in IPv6, and 1420 over IPv6. Set it only if large transfers stall.
+# mtu = 1380
+
+[media]
+# The media directories the node serves, read-only, at the same paths inside it. Fill in.
+roots = []
+
+[http]
+# Where the house's network reaches staging over plain HTTP: http://<this machine>:8440. "0.0.0.0"
+# is every interface; "127.0.0.1" only this machine.
+publish = "0.0.0.0"
+port = 8440

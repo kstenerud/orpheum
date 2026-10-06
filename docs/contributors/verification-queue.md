@@ -140,7 +140,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`internal/node/prepare/arguments.go`)
 - [ ] **VQ16** — On devnas (Debian trixie), as your own user: install Docker Engine from Docker's
   Debian repository and add yourself to the `docker` group, clone the repository, and run `./dev
-  make check`. Passes when the first run builds the development image (`deploy/dev.Containerfile`)
+  make check`. Passes when the first run builds the development image (`deploy/Containerfile`)
   without an error and the gate passes inside it. Then run `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make
   dev` and open `http://<devnas's LAN address>:5173` from another machine's browser: passes when the
   dev library appears and a title plays. Also check that nothing but the clone changed on the host:
@@ -148,7 +148,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   outside Docker. The launcher and the image were written in a sandbox without a container engine
   and have never been built or run
   ([D235](decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)
-  §3). (`./dev`, `deploy/dev.Containerfile`)
+  §3). (`./dev`, `deploy/Containerfile`)
 
 - [ ] **VQ17** — On devnas, after `./dev --stop` and `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make dev`
   with `ORPHEUM_DEV_MEDIA` on `/tank`: the core's log line `a node said hello` lists its
