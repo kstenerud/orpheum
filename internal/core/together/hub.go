@@ -148,7 +148,11 @@ type device struct {
 	isCatchingUp bool
 	// cannotKeepUp is what the device last said of a link too slow for its lowest quality (D247 §8).
 	cannotKeepUp *CannotKeepUp
-	send         Sender
+	// playing is whether its player last said it plays, and playerChangedAt when it last said it
+	// began or stopped playing or buffering; zero until its first state.
+	playing         bool
+	playerChangedAt time.Time
+	send            Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering and round trip, the first
@@ -514,6 +518,7 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
 	case MessageState, MessageSuspend, MessageResume:
 		couldKeepUp := from.cannotKeepUp == nil
+		handled.logPlayer(ctx, now, sender, from, message)
 		if from.takeState(message) {
 			handled.stalled(now, sender, from)
 		}
@@ -531,6 +536,26 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
+}
+
+// logPlayer logs, at debug, a state that says a device's player began or stopped playing or
+// buffering: where it is, how far behind the group, and how long its last state lasted. A viewer
+// whose film jumped every few seconds left no trace of what its player did (staging, 2026-10-06).
+func (current *session) logPlayer(ctx context.Context, now time.Time, who *member, from *device, message Inbound) {
+	if message.Type != MessageState ||
+		(!from.playerChangedAt.IsZero() && message.Playing == from.playing && message.Buffering == from.buffering) {
+		return
+	}
+	attributes := []any{
+		"sessionId", current.id, "memberId", who.id, "deviceId", from.id,
+		"playing", message.Playing, "buffering", message.Buffering, "positionMs", message.PositionMs,
+		"behindGroupMs", current.positionAt(now).Milliseconds() - message.PositionMs,
+	}
+	if !from.playerChangedAt.IsZero() {
+		attributes = append(attributes, "lastStateMs", now.Sub(from.playerChangedAt).Milliseconds())
+	}
+	current.logger.DebugContext(ctx, "watch together: a device's player changed", attributes...)
+	from.playing, from.playerChangedAt = message.Playing, now
 }
 
 // relay passes voice signalling to the device it names, in the same session (D193 §4).
