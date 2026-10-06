@@ -23,6 +23,7 @@ export const en = {
     about: "About",
     signOut: "Sign out",
     manage: "Manage",
+    togetherOn: "on now",
     you: "You",
     signedInAs: "{{name}}",
     signedInAsOn: "{{name}} on {{device}}",

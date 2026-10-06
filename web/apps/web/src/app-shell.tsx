@@ -71,6 +71,11 @@ export function AppShell(props: {
   readonly isAdmin: boolean;
   /** Whether the person's role may host Watch Together, which shows them its screen. */
   readonly canHostWatchTogether: boolean;
+  /**
+   * Whether this tab hosts a Watch Together session now: Watch Together is marked as on, in view
+   * on every screen, since while it is on what the host plays plays for everyone.
+   */
+  readonly isHostingTogether?: boolean;
   readonly currentScreen: Route["screen"];
   readonly onSignOut: () => void;
   /** Who is signed in, and on which device, once known: said in the banner. */
@@ -93,7 +98,12 @@ export function AppShell(props: {
         key={destination.labelKey}
         aria-current={destination.route.screen === props.currentScreen ? "page" : undefined}
       >
-        <Link to={destination.route}>{t(`nav.${destination.labelKey}`)}</Link>
+        <Link to={destination.route}>
+          {t(`nav.${destination.labelKey}`)}
+          {destination.labelKey === "watchTogether" && props.isHostingTogether === true ? (
+            <span className="app-shell__on"> {t("nav.togetherOn")}</span>
+          ) : null}
+        </Link>
       </li>
     ));
   const isIn = (group: Destination["group"]): boolean =>

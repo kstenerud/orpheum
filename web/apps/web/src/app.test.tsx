@@ -6,7 +6,10 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { act } from "react";
+
 import { App } from "./app.tsx";
+import { tabStorage } from "./browser-storage.ts";
 import {
   buttonWithText,
   click,
@@ -18,6 +21,7 @@ import {
   type Heard,
 } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
+import { forgetMembership, keepMembership } from "./together-storage.ts";
 
 /** What the sign-in page says after signing out, when the server answers DELETE /session so. */
 async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | undefined> {
@@ -115,5 +119,37 @@ describe("App", () => {
     expect(await noticeAfterSigningOut(refusal(503, "migrating"))).toContain(
       "the server could not be told",
     );
+  });
+
+  it("marks Watch Together as on, on every screen, while this tab hosts a session (the owner's UI backlog)", async () => {
+    window.sessionStorage.clear();
+    const services = servedBy(
+      {
+        "GET /me": [
+          200,
+          { id: 1, name: "owner", role: "admin", isAdmin: true, canHostWatchTogether: true },
+        ],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /offline-reminder": [200, { isShown: false }],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<App />, services));
+    const mark = (): Element | null => mounted.container.querySelector(".app-shell__on");
+    expect(mark()).toBeNull();
+    await act(async () => {
+      keepMembership(tabStorage(), "host", { sessionId: 3, credential: "host-credential" });
+      await Promise.resolve();
+    });
+    expect(mark()?.closest("a")?.getAttribute("href")).toBe("/watch-together");
+    expect(mark()?.closest("a")?.textContent).toBe("Watch Together on now");
+    await act(async () => {
+      forgetMembership(tabStorage(), "host");
+      await Promise.resolve();
+    });
+    expect(mark()).toBeNull();
+    mounted.unmount();
   });
 });
