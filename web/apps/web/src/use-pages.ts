@@ -83,10 +83,6 @@ function readAgain<T>(
   );
 }
 
-/**
- * While the component shows a list, reads every page shown again as the poller says, and shows what
- * changed (D237); a list whose read failed is read again from the start. Nothing without a poller.
- */
 /** A list as its poller reads and shows it: how to load a page, what is shown, and how to show more. */
 interface PolledList<T> {
   readonly load: (cursor: string) => Promise<Page<T>>;
@@ -94,6 +90,10 @@ interface PolledList<T> {
   readonly show: (page: Page<T>) => void;
 }
 
+/**
+ * While the component shows a list, reads every page shown again as the poller says, and shows what
+ * changed (D237); a list whose read failed is read again from the start. Nothing without a poller.
+ */
 function usePagesPolling<T>(
   poller: Poller | undefined,
   { load, shown, show }: PolledList<T>,
