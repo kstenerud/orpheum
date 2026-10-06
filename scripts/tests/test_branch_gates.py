@@ -505,5 +505,31 @@ class RevertRedDocTags(unittest.TestCase):
                 self.assertEqual(cosmetic.is_cosmetic(str(repo.root), base, "HEAD", self.PATH), expected)
 
 
+class RevertRedPythonDocstrings(unittest.TestCase):
+    """A function's or class's docstring is cosmetic; a module's, which is --help, and code are not."""
+
+    PATH = "scripts/tool.py"
+    BEFORE = ('"""Usage: tool PATH."""\n\nimport argparse\n\n\n'
+              'def where(root):\n    """Where it is kept: root/.tools."""\n    return root + "/.tools"\n\n\n'
+              'class Tool:\n    """A tool."""\n\n    name = "t"\n\n\n'
+              'def main():\n    return argparse.ArgumentParser(description=__doc__)\n')
+
+    def is_cosmetic_change(self, old: str, new: str) -> bool:
+        assert old in self.BEFORE, old
+        repo = Repo({self.PATH: self.BEFORE})
+        base = repo.commit("chore: base")
+        repo.commit("fix(tool): say it\n\nSaid.", {self.PATH: self.BEFORE.replace(old, new)})
+        with repo.cwd():
+            return cosmetic.is_cosmetic(str(repo.root), base, "HEAD", self.PATH)
+
+    def test_a_function_or_class_docstring_reworded_is_cosmetic(self):
+        self.assertTrue(self.is_cosmetic_change("root/.tools.", "root/.tools, or the image's."))
+        self.assertTrue(self.is_cosmetic_change('"""A tool."""', '"""A tool, pinned."""'))
+
+    def test_the_module_docstring_and_code_are_not(self):
+        self.assertFalse(self.is_cosmetic_change("Usage: tool PATH.", "Usage: tool [PATH]."))
+        self.assertFalse(self.is_cosmetic_change('"/.tools"', '"/tools"'))
+        self.assertFalse(self.is_cosmetic_change('name = "t"', 'name = "u"'))
+
 if __name__ == "__main__":
     unittest.main()
