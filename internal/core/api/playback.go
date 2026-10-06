@@ -105,6 +105,9 @@ type StartPlaybackOutputBody struct {
 	// FileBitRateKbps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when it is not known.
 	FileBitRateKbps int64 `json:"fileBitRateKbps"`
+	// TitleName is the name of the title the file is, which the player shows above the picture;
+	// absent for a file filed as no title. Never the file's path: a viewer sees it too (D246 §3).
+	TitleName string `json:"titleName,omitempty"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -238,7 +241,20 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.playbackError(ctx, "start a playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	return startedOutput(started), nil
+	return server.namedOutput(ctx, dependencies, input.Body.FileID, started)
+}
+
+// namedOutput is a playback started, as the API says it, with the name of the title it plays.
+func (server *Server) namedOutput(
+	ctx context.Context, dependencies *Dependencies, fileID int64, started playback.Started,
+) (*StartPlaybackOutput, error) {
+	work, err := dependencies.Browser.WorkOfFile(ctx, fileID)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read what a playback plays", err)
+	}
+	output := startedOutput(started)
+	output.Body.TitleName = work.Name
+	return output, nil
 }
 
 // logPlaybackStarted says a playback started: whose, which file, and how it is delivered and why,

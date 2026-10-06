@@ -22,6 +22,7 @@
 
 /* Black while nothing plays: the viewer sees only the host's playback (D246 §5). */
 .together-viewer__stage {
+  position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
   max-height: 80vh;
@@ -43,4 +44,19 @@
 
 .together-viewer__volume input {
   flex: 1;
+}
+
+/* The film's name, over the top of the picture on a soft shade, never taking room from it. */
+.together-viewer__title {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 1;
+  margin: 0;
+  max-width: none;
+  padding: var(--space-3) var(--space-4) var(--space-6);
+  background: linear-gradient(to bottom, rgb(0 0 0 / 70%), transparent);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  pointer-events: none;
 }

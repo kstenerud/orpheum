@@ -332,9 +332,11 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 		return nil, server.playbackError(ctx, "start a viewer's playback", err)
 	}
 	server.logPlaybackStarted(ctx, who, started)
-	return &ViewerPlaybackOutput{
-		SetCookie: viewerCookie(credential, input.isOverTLS), Body: startedOutput(started).Body,
-	}, nil
+	named, err := server.namedOutput(ctx, dependencies, holder.OnlyFileID, started)
+	if err != nil {
+		return nil, err
+	}
+	return &ViewerPlaybackOutput{SetCookie: viewerCookie(credential, input.isOverTLS), Body: named.Body}, nil
 }
 
 func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICEOutput, error) {

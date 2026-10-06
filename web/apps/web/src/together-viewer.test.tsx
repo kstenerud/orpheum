@@ -120,7 +120,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
     const { services, heard, server } = viewerServices("/together", {
-      "POST /together/playback": [200, directDecision()],
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
     // The speaker question was answered in this browser before: it is not asked again.
@@ -152,6 +152,11 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "/api/v1/bytes/media/direct/abc",
     );
     expect(mounted.container.textContent).toContain("Karl paused at 41:12");
+    // The film's name is over the picture, inside the stage.
+    expect(
+      mounted.container.querySelector(".together-viewer__stage .together-viewer__title")
+        ?.textContent,
+    ).toBe("Metropolis");
     mounted.unmount();
   });
 

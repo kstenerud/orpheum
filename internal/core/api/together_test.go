@@ -168,6 +168,7 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	harness.fileFilmAsTitle(t, "Metropolis")
 	opened := harness.openTogether(t, admin)
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
 	host := harness.dialTogether(t, opened.Body.MembershipCredential)
@@ -183,6 +184,9 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 	var playing decision
 	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
 		t.Fatalf("POST /together/playback = %d %s", started.status, started.body)
+	}
+	if playing.TitleName != "Metropolis" {
+		t.Errorf("the viewer's decision names %q; want Metropolis, the film on", playing.TitleName)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID),
 		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs

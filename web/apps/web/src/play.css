@@ -7,6 +7,12 @@
   gap: var(--space-4);
 }
 
+/* The film's name above the picture: smaller than a page's heading, the picture is the page. */
+.play__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-h2);
+}
+
 /* JASSUB places its canvas over the video, in the nearest positioned box. */
 .play__stage {
   position: relative;

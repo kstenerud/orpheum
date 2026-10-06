@@ -39,6 +39,25 @@ describe("playing a file", () => {
     expect(markup).toContain("Its loudness is not measured yet, so it plays as it is.");
   });
 
+  it("names the film above the picture, and nothing where the file is filed as no title", () => {
+    const named = renderToStaticMarkup(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={directDecision({ titleName: "Metropolis" })}
+          onDecideAgain={() => undefined}
+        />,
+      ),
+    );
+    expect(named).toMatch(/^<h1 class="play__title">Metropolis<\/h1><div class="play">/u);
+    const unnamed = renderToStaticMarkup(
+      withServices(
+        <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
+      ),
+    );
+    expect(unnamed).not.toContain("play__title");
+  });
+
   it("plays a prepared copy, names every reason, and offers the boost where there is one", () => {
     const markup = renderToStaticMarkup(
       withServices(

@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -87,6 +88,17 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 	harness.nodeBytes.files[film.Target()] = "the film's bytes"
 }
 
+// fileFilmAsTitle files shelveFilms' first film as title 10, named name.
+func (harness testHarness) fileFilmAsTitle(t *testing.T, name string) {
+	t.Helper()
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
+		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)",
+		"UPDATE file SET version_id = 1 WHERE id = 1",
+		fmt.Sprintf("INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, '%s')", name))
+}
+
 // chrome is a start-playback body for fileID with the playable formats a desktop Chrome sends.
 func chrome(fileID int64) map[string]any {
 	return map[string]any{"fileId": fileID, "playableFormats": map[string]any{
@@ -117,6 +129,7 @@ type decision struct {
 	ResumePositionMs int64         `json:"resumePositionMs"`
 	MediaToken       string        `json:"mediaToken"`
 	Levelling        LevellingBody `json:"levelling"`
+	TitleName        string        `json:"titleName"`
 }
 
 type subtitleTrack struct {
@@ -199,6 +212,22 @@ func TestPlayback_AFileThatFitsPlaysDirectlyThroughTheCore(t *testing.T) {
 		ranged.header.Get("Content-Range") != "bytes 4-7/16" {
 		t.Errorf("a range = %d %q %q, want 206 \"film\"",
 			ranged.status, ranged.body, ranged.header.Get("Content-Range"))
+	}
+}
+
+// The decision names the title the file is, for the player to show above the picture, and never
+// a file's path in its place: a file filed as no title has no name.
+func TestPlayback_NamesTheTitleItPlaysAndNeverAPath(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	if unfiled := harness.play(t, user, chrome(1)); unfiled.TitleName != "" {
+		t.Errorf("a file filed as no title is named %q; want no name, never its path", unfiled.TitleName)
+	}
+	harness.fileFilmAsTitle(t, "Metropolis")
+	if named := harness.play(t, user, chrome(1)); named.TitleName != "Metropolis" {
+		t.Errorf("the title's name = %q, want Metropolis", named.TitleName)
 	}
 }
 
