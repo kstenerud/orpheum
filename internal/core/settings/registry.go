@@ -98,6 +98,8 @@ const (
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
+	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
+	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
@@ -267,6 +269,16 @@ func togetherDefinitions() []Definition {
 				"(D250 §4)"),
 			"D250 §4: the owner, 2026-10-06: \"target an 80% full buffer by the time the group's playback "+
 				"catches up\""),
+		sourced(integerSetting(TogetherSettleAfterChangeMs, "300", 0, 5_000,
+			"ms a Watch Together player's position is not read for drift after it starts playing, finishes a "+
+				"seek or changes its rate: Safari's stands still for up to 250 ms then (D250 §7)"),
+			"safari-versions.md §4: \"ignore drift samples for ~300 ms after ratechange/playing/seeked\""),
+		{
+			Key: ShouldTogetherNudgeKeepPitch, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Description: "whether a Watch Together player's sound keeps its pitch while a nudge plays it faster or " +
+				"slower; Safari may skip a moment of sound as it switches to keeping it (D250 §7)",
+			StartSource: "the browser's own default; safari-versions.md §3 (device test T2) is to settle it",
+		},
 	}
 }
 

@@ -142,6 +142,7 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		{settings.TogetherNudgeMostPercent, &tuning.NudgeMostPercent},
 		{settings.TogetherSeekDriftBeyondMs, &tuning.SeekDriftBeyondMs},
 		{settings.TogetherCatchUpBufferPercent, &tuning.CatchUpBufferPercent},
+		{settings.TogetherSettleAfterChangeMs, &tuning.SettleAfterChangeMs},
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {
@@ -154,6 +155,10 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		return together.Tuning{}, server.settingsError(ctx, "read "+string(settings.TogetherSyncWaitSeconds), err)
 	}
 	tuning.SyncWaitMs = syncWait.Milliseconds()
+	tuning.ShouldNudgeKeepPitch, err = dependencies.Settings.Bool(ctx, settings.ShouldTogetherNudgeKeepPitch)
+	if err != nil {
+		return together.Tuning{}, server.settingsError(ctx, "read "+string(settings.ShouldTogetherNudgeKeepPitch), err)
+	}
 	return tuning, nil
 }
 

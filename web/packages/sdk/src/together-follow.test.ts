@@ -18,6 +18,7 @@ import {
   expectedPositionMs,
   followGroup,
   fellBehindEvent,
+  nudgeForMs,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -130,6 +131,7 @@ class FakeMedia {
   currentTime = 0;
   playbackRate = 1;
   /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own names, which this stands in for */
+  preservesPitch = true;
   paused = true;
   ended = false;
   seeking = false;
@@ -183,7 +185,10 @@ class FakeMedia {
 }
 
 /** A stand-in connection whose group a test sets, keeping the commands and reports it is given. */
-function fakeConnection(group: GroupView): {
+function fakeConnection(
+  group: GroupView,
+  tuning: SyncTuning = startingTuning,
+): {
   connection: TogetherConnection;
   setGroup: (next: GroupView, receivedAtMs: number) => void;
   commands: GroupCommand[];
@@ -200,7 +205,7 @@ function fakeConnection(group: GroupView): {
     endReason: undefined,
     minimumRttMs: undefined,
     lastRejectionCode: undefined,
-    tuning: startingTuning,
+    tuning,
   };
   let listener = (): void => undefined;
   let readPlayer: (() => PlayerState) | undefined;
@@ -331,6 +336,70 @@ describe("a player following its group", () => {
     monotonicNowMs = 1000 + 2 * checkDriftEveryMs;
     vi.advanceTimersByTime(checkDriftEveryMs);
     expect(media.playbackRate).toBeCloseTo(1.1);
+  });
+
+  it("reads no drift for the tuning's settling time after it starts playing or changes its rate, as Safari's position stands still then (D250 §7)", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    const settleMs = startingTuning.settleAfterChangeMs;
+    const nudges = (): PlayerNote[] => notes.filter((note) => note.kind === "nudged");
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing" }, 1000);
+    monotonicNowMs = 2000; // it starts playing a second late: its position has not moved yet
+    media.fire("playing");
+    monotonicNowMs = 2000 + settleMs - 1;
+    media.fire("canplay");
+    expect(nudges()).toEqual([]);
+    monotonicNowMs = 2000 + settleMs;
+    media.fire("canplay");
+    expect(media.playbackRate).toBeCloseTo(1.1);
+    // The nudge ends in step, and the rate goes back to the group's: a stale reading just after is
+    // not taken for drift.
+    const backAtMs = 2000 + settleMs + nudgeForMs;
+    monotonicNowMs = backAtMs;
+    media.currentTime = (60_000 + backAtMs - 1000) / 1000;
+    media.fire("canplay");
+    expect(media.playbackRate).toBe(1);
+    monotonicNowMs = backAtMs + settleMs - 1;
+    media.currentTime -= 1;
+    media.fire("canplay");
+    expect(nudges()).toHaveLength(1);
+    monotonicNowMs = backAtMs + settleMs;
+    media.fire("canplay");
+    expect(nudges()).toHaveLength(2);
+  });
+
+  it("reads no drift for the settling time after a seek it made lands", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing" }, 1000);
+    monotonicNowMs = 3000;
+    media.fire("seeked"); // two seconds behind just as a seek lands
+    expect(notes.filter((note) => note.kind === "nudged")).toEqual([]);
+    monotonicNowMs = 3000 + startingTuning.settleAfterChangeMs;
+    media.fire("canplay");
+    expect(notes.filter((note) => note.kind === "nudged")).toHaveLength(1);
+  });
+
+  it("keeps a nudged player's pitch, or not, as the tuning says (D250 §7)", () => {
+    for (const shouldNudgeKeepPitch of [true, false]) {
+      const media = new FakeMedia();
+      media.preservesPitch = !shouldNudgeKeepPitch;
+      const { connection, setGroup } = fakeConnection(paused, {
+        ...startingTuning,
+        shouldNudgeKeepPitch,
+      });
+      followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+      monotonicNowMs = 1000;
+      setGroup({ ...paused, state: "Playing" }, 1000);
+      monotonicNowMs = 2000;
+      media.fire("canplay");
+      expect(media.playbackRate).toBeCloseTo(1.1);
+      expect(media.preservesPitch).toBe(shouldNudgeKeepPitch);
+    }
   });
 
   it("does not follow a group playing another film", () => {
