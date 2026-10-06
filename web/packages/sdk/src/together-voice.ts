@@ -41,6 +41,20 @@ export function microphoneFailureOf(error: unknown): MicrophoneFailure {
   }
 }
 
+/** An error's name and message as the browser gave them, or its text when it has neither. */
+function browserReasonOf(error: unknown): string {
+  const field = (name: string): string => {
+    const value: unknown =
+      typeof error === "object" && error !== null ? Reflect.get(error, name) : undefined;
+    return typeof value === "string" ? value : "";
+  };
+  const [name, message] = [field("name"), field("message")];
+  if (name === "") {
+    return message === "" ? String(error) : message;
+  }
+  return message === "" ? name : `${name}: ${message}`;
+}
+
 /**
  * The microphone, open: a browser's MediaStream is one. Its tracks are enabled while it sends,
  * and stopped when voice goes off.
@@ -103,6 +117,11 @@ export type VoiceStatus = "off" | "starting" | "on" | "failed";
 export interface VoiceSnapshot {
   readonly status: VoiceStatus;
   readonly failure: VoiceFailure | undefined;
+  /**
+   * The browser's own words for a microphone that did not open, its error's name and message, to
+   * read out to whoever is helping; undefined for any other failure.
+   */
+  readonly browserReason: string | undefined;
   readonly isMuted: boolean;
   /** How loud the others' voices play, from 0 to 1: apart from the film's volume. */
   readonly partnerGain: number;
@@ -140,6 +159,7 @@ export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> {
 const offSnapshot: VoiceSnapshot = {
   status: "off",
   failure: undefined,
+  browserReason: undefined,
   isMuted: false,
   partnerGain: 1,
   isConnected: false,
@@ -260,7 +280,12 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       microphone = await this.#options.devices.openMicrophone();
     } catch (error) {
       if (generation === this.#generation) {
-        this.#change({ ...this.#snapshot, status: "failed", failure: microphoneFailureOf(error) });
+        this.#change({
+          ...this.#snapshot,
+          status: "failed",
+          failure: microphoneFailureOf(error),
+          browserReason: browserReasonOf(error),
+        });
       }
       return;
     }

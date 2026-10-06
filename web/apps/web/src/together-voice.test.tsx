@@ -194,6 +194,8 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Your microphone was not allowed",
     );
+    // The browser's own words, to read out to whoever is helping.
+    expect(mounted.container.textContent).toContain("The browser said: NotAllowedError: no");
     expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
     expect(server.openedCount()).toBe(0);
     mounted.unmount();

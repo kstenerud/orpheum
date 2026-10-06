@@ -159,6 +159,11 @@ export function VoiceControls(props: {
       {snapshot.failure === undefined ? null : (
         <p role="alert">{t(`together.voice.failure.${snapshot.failure}`)}</p>
       )}
+      {snapshot.browserReason === undefined ? null : (
+        <p className="together-voice__reason">
+          {t("together.voice.browserReason", { reason: snapshot.browserReason })}
+        </p>
+      )}
       {isOn ? <VoiceOn voice={voice} snapshot={snapshot} /> : null}
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
