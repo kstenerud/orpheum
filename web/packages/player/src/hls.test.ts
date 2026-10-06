@@ -8,6 +8,7 @@ import Hls from "hls.js";
 import {
   hlsMethod,
   playNative,
+  preparedHlsConfig,
   startWithAudio,
   tellOwnMoves,
   type AudioStart,
@@ -19,6 +20,12 @@ describe("playing a prepared rendition", () => {
     expect(hlsMethod({ hasMse: true, canPlayNatively: true })).toBe("hls.js");
     expect(hlsMethod({ hasMse: false, canPlayNatively: true })).toBe("native");
     expect(hlsMethod({ hasMse: false, canPlayNatively: false })).toBe("none");
+  });
+
+  it("starts a rendition still being prepared at its start, not at its newest segment", () => {
+    // hls.js's own default, -1, starts an open (EVENT) playlist near its live edge.
+    expect(new Hls().config.startPosition).toBe(-1);
+    expect(new Hls(preparedHlsConfig).config.startPosition).toBe(0);
   });
 
   it("hands the playlist to the element itself, and lets go of it", () => {
