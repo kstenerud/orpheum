@@ -56,43 +56,66 @@ func serve(
 			logger.ErrorContext(ctx, "the HTTP server stopped", "err", serveErr)
 		}
 	})
-	defer func() {
+	// The front doors, HTTP and once started HTTPS, close first when ctx ends, on every path: a
+	// request still in flight is finished while the databases, the jobs and the nodes it may use
+	// are all still there, and none arrives after them. Deferred, they would close last, after
+	// the databases, and a request then answered "internal error" (2026-10-06).
+	stopHTTPS := func() error { return nil }
+	stopFrontDoors := onlyOnce(func() error {
 		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.shutdownGrace())
 		defer cancel()
-		err = errors.Join(err, httpServer.Shutdown(shutdownContext))
+		shutdownErr := errors.Join(stopHTTPS(), httpServer.Shutdown(shutdownContext))
 		serving.Wait()
-	}()
+		return shutdownErr
+	})
+	defer func() { err = errors.Join(err, stopFrontDoors()) }()
+	degraded := func(what string, cause error) error {
+		return errors.Join(stayDegraded(ctx, server, what, cause, logger), stopFrontDoors())
+	}
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
 	opened, err := openAndWire(ctx, config, configReport, server, outside, logger)
 	if err != nil {
-		return stayDegraded(ctx, server, "the server could not start", err, logger)
+		return degraded("the server could not start", err)
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
-	stopHTTPS, err := listenAndServeHTTPS(ctx, config, opened, httpServer.Handler, logger)
+	startedHTTPS, err := listenAndServeHTTPS(ctx, config, opened, httpServer.Handler, logger)
 	if err != nil {
-		return stayDegraded(ctx, server, "HTTPS could not start", err, logger)
+		return degraded("HTTPS could not start", err)
 	}
-	defer func() { err = errors.Join(err, stopHTTPS()) }()
+	stopHTTPS = startedHTTPS
 	stopRelay, err := startRelay(ctx, config, opened, logger)
 	if err != nil {
-		return stayDegraded(ctx, server, "the voice relay could not start", err, logger)
+		return degraded("the voice relay could not start", err)
 	}
 	defer func() { err = errors.Join(err, stopRelay()) }()
 	stopBackgroundJobs, err := opened.jobServices.startBackgroundLoops(ctx, logger)
 	if err != nil {
-		return stayDegraded(ctx, server, "the background jobs could not start", err, logger)
+		return degraded("the background jobs could not start", err)
 	}
 	defer stopBackgroundJobs()
 	stopNodes, err := runNodeChannel(ctx, config, opened, logger)
 	if err != nil {
-		return stayDegraded(ctx, server, "the node channel could not start", err, logger)
+		return degraded("the node channel could not start", err)
 	}
 	defer func() { err = errors.Join(err, stopNodes()) }()
 	logger.InfoContext(ctx, "ready")
 	<-ctx.Done()
 	logger.InfoContext(ctx, "stopping")
-	return nil
+	return stopFrontDoors()
+}
+
+// onlyOnce is stop, run by the first call alone; a later call does nothing and returns nil, so a
+// stop called on its path and again deferred reports its error once.
+func onlyOnce(stop func() error) func() error {
+	stopped := false
+	return func() error {
+		if stopped {
+			return nil
+		}
+		stopped = true
+		return stop()
+	}
 }
 
 // stayDegraded keeps the server up, saying at /api/v1/health why it could not start, until ctx ends.
