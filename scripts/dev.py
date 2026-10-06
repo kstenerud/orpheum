@@ -19,7 +19,9 @@
    rendered into `.dev/seed.toml` like the configs.
 5. **Run.** Start `orpheum core` and `orpheum node`, each on its instance, two processes as in
    deployment, where each is a service of its own (D233 §2, D235 §4), and the Vite dev server with
-   hot reload, which proxies the API and media to the core. Output goes to the terminal, prefixed
+   hot reload, which proxies the API and media to the core. Vite starts only once the first
+   build's core accepts connections, so a tab left open waits instead of hitting a proxy with
+   nothing behind it. Output goes to the terminal, prefixed
    `[core]`, `[node]` and `[web]`; the core's and the node's are also appended to `.dev/orpheum.log`.
 6. **Watch.** Poll the Go sources, `go.mod` and `deploy/dev/*.toml` every second. On a change, rebuild
    and restart the core and the node. The web dev server reloads itself. A process that exits is
@@ -89,6 +91,34 @@ def listen_address(config: str) -> str:
         if line.strip().startswith("listen"):
             return line.split("=", 1)[1].split("#", 1)[0].strip().strip('"')
     return "127.0.0.1:8432"
+
+
+def dial_address(address: str) -> tuple[str, int]:
+    """Where to reach a core listening on address: a wildcard host is reached on loopback."""
+    host, port = address.rsplit(":", 1)
+    host = host.strip("[]")
+    host = {"0.0.0.0": "127.0.0.1", "::": "::1", "": "127.0.0.1"}.get(host, host)
+    return host, int(port)
+
+
+def wait_until_listening(address: str, timeout: float = 60.0,
+                         connect=socket.create_connection, sleep=time.sleep) -> bool:
+    """Whether the core accepted a connection on address within timeout seconds.
+
+    Vite starts only then: started first, it proxied every request an open tab made during the Go
+    build to nothing and printed an ECONNREFUSED for each, 15-20 s of them after an apply
+    (the owner, 2026-10-06)."""
+    target = dial_address(address)
+    waited = 0.0
+    while True:
+        try:
+            connect(target, timeout=1).close()
+            return True
+        except OSError:
+            if waited >= timeout:
+                return False
+            sleep(0.25)
+            waited += 0.25
 
 
 def web_host(listen: str | None) -> str:
@@ -285,12 +315,10 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> 
 def loop(with_web: bool, race: bool, listen: str | None) -> int:
     ffmpeg_dir = prepare()
     banner(ffmpeg_dir, with_web, race, listen)
+    # Vite starts once the first build's core listens, so a tab left open never meets a proxy
+    # with nothing behind it.
     web = None
-    if with_web:
-        address = listen_address(render_config(CORE_TEMPLATE.read_text(), ROOT, ffmpeg_dir, listen))
-        env = {**os.environ, "ORPHEUM_DEV_SERVER": f"http://{address}"}
-        web = start(["npm", "--prefix", "web", "--workspace", "@orpheum/web", "run", "dev", "--",
-                     "--host", web_host(listen), "--port", "5173", "--strictPort"], "[web]", env=env)
+    address = listen_address(render_config(CORE_TEMPLATE.read_text(), ROOT, ffmpeg_dir, listen))
     # The core and the node: each run of each, and whether its exit was reported.
     running: dict[str, subprocess.Popen[str]] = {}
     reported: set[str] = set()
@@ -308,6 +336,14 @@ def loop(with_web: bool, race: bool, listen: str | None) -> int:
                     seed_if_empty()
                     for role, command in role_commands(BINARY, DEV).items():
                         running[role] = start(command, f"[{role}]", LOG)
+                    if with_web and web is None:
+                        if not wait_until_listening(address):
+                            print(f"[dev] the core is not listening on {address}; starting the web "
+                                  "dev server anyway", flush=True)
+                        env = {**os.environ, "ORPHEUM_DEV_SERVER": f"http://{address}"}
+                        web = start(["npm", "--prefix", "web", "--workspace", "@orpheum/web", "run",
+                                     "dev", "--", "--host", web_host(listen), "--port", "5173",
+                                     "--strictPort"], "[web]", env=env)
                 rebuild = False
             for role, proc in running.items():
                 if proc.poll() is not None and role not in reported:
