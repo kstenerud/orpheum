@@ -18165,8 +18165,11 @@ container. It builds D235 §2 and §4, and revises D243 §7's core end of the tu
      wireguard-tools in the runtime image (no third-party image), `CAP_NET_ADMIN` and nothing more.
      Nothing is installed or configured on the host: its kernel's WireGuard is all it needs.
    - `orpheum-core`: shares the tunnel's network, so what came in through the tunnel is answered
-     back through it with no routing rules on the host, and its outbound requests leave through the
-     VPS too. HTTPS on :443 and TURN on the tunnel's address, as D243 §6 and §8 say, and plain HTTP
+     back through it with no routing rules on the host. The tunnel is not that network's default
+     route: the core's own requests, and its answers to the house's network, leave the house's own
+     way; only what leaves from the tunnel's addresses goes back through it, as D243 §7 routes it.
+     *(Amended the same day, in building it: the first text sent the core's outbound requests
+     through the VPS too, which would have sent its answers to the house's network into the tunnel.)* HTTPS on :443 and TURN on the tunnel's address, as D243 §6 and §8 say, and plain HTTP
      on a port published to the house's network, for the LAN.
    - `orpheum-node`: the media read-only and `/dev/dri`; the core's socket on a volume both share
      (D235 §4).
