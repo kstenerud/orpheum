@@ -16,10 +16,11 @@
 //     (D234 §6). TestAgent_SaysHelloAndPostsItsStatusEachTick.
 //   - A job's background work reads the device its file is on, and runs only with a reader of it
 //     free, its limit the core's, one when the core named none; a paused run holds its slot but no
-//     reader. Play-driven work never waits for another's there (D240 §6).
+//     reader. Play-driven work never waits for another's there, nor for its slot (D240 §6).
 //     TestWorkList_ADevicesReadersAreBoundedByItsLimit,
 //     TestAgent_ACommandsWorkReadsItsFilesDeviceAndPlayDrivenWorkPausesTheBackground,
-//     TestWorkList_PlayDrivenWorkNeverWaitsForAnothersOnItsDevice.
+//     TestWorkList_PlayDrivenWorkNeverWaitsForAnothersOnItsDevice,
+//     TestWorkList_PlayDrivenWorkNeverWaitsForAnothersSlot.
 //   - Play-driven work that finds its device's readers taken pauses the background work reading
 //     it, which continues once it ends; an examining of the device waits between files meanwhile; a device
 //     with room for both pauses nothing (D240 §6). The status says what is paused.

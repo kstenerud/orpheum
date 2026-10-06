@@ -115,3 +115,27 @@ func TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders(t *testing.T) {
 		t.Errorf("a play-driven prepare reading the full tank was answered %v, want it given to the node", answer)
 	}
 }
+
+// Play-driven work is never held back in the core for its slot either, whatever fills it: one
+// person's watching never waits for another's (the owner's choice, 2026-10-06, D240 §6).
+func TestAssign_PlayDrivenWorkIsNotHeldBackForItsSlot(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.sender.resources = &nodes.Resources{
+		Capacity:     nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1},
+		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
+		ReaderLimits: map[string]int{"zfs:tank": 8},
+	}
+	encode := prepareOf(nodeproto.ProfileH264At8M)
+	bench.assignAt(t, 1, encode)
+	bench.assignAt(t, 2, encode)
+	if _, full := bench.assignAt(t, 3, encode); full != jobs.SlotDestination(1, "encode") {
+		t.Fatalf("a third background encode waits on %q, want the node's encode slot", full)
+	}
+	answer := bench.exchanges.Assign(t.Context(), 1,
+		jobs.Job{ID: 4, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow}, encode)
+	if !jobqueue.IsAssigned(answer) {
+		t.Errorf("a play-driven encode with the slot full was answered %v, want it given to the node", answer)
+	}
+}

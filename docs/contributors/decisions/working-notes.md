@@ -17614,10 +17614,11 @@ most of the smarts in the core."* Then, on the proposal below: *"yes, all of tha
    next chunk. Paused time is neither a stall nor spent deadline (D233 §5). The node says what it
    paused, and the core shows it. Running both is a device's limit of two, for those who want it.
    Past its "wanted until" (D234 §3), play-driven work is background and pauses nothing.
-   **Play-driven work never waits for another's** (the owner's choice, 2026-10-05): two
-   people's play-driven work read a device at once, past its limit, which binds background work
-   alone; a lower quality made for one viewer had waited the whole of another's prepare on the
-   same disk.
+   **Play-driven work never waits for another's** (the owner's choice, 2026-10-05, and for slots
+   2026-10-06): two people's play-driven work read a device at once, past its limit, and run in a
+   slot at once, past its count, the encodes sharing the machine; the limits bind background work
+   alone. A lower quality made for one viewer had waited the whole of another's prepare on the
+   same disk, and in the node's one encode slot.
 7. **What it revises.** D234 §3's window within which the node schedules becomes the core's
    scheduling; the node keeps D238's memory of what it was given and the limits of §6. D207's scan,
    the node walking a root and reading every file into the report stream, becomes the listing and
