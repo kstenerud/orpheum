@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
@@ -32,6 +33,8 @@ type Playback struct {
 	StartingAudioTrackIndex int
 	// PositionMs is where its player last reported it was, in the film (D217 §7).
 	PositionMs int64
+	// StartedAt is when its person pressed play: what failed before then is tried again for them.
+	StartedAt time.Time
 }
 
 // soundBitRateBps is the bit rate a sound's chunks are encoded at, as a prepare's sound is: AAC
@@ -134,8 +137,22 @@ func (film cutFilm) variantOf(stream Stream) variant {
 
 // cutForPlay is the playback's film as it is cut into chunks, for a player waiting on it. A film
 // with no grid yet is read through at play priority (D247 §2), and is ErrNoGrid until it has one.
-func (service *Service) cutForPlay(ctx context.Context, fileID int64) (cutFilm, error) {
+// A read-through that failed before its person pressed play is tried again for them, its failure
+// forgotten: a person's play makes every attempt, and only a failure on that attempt is theirs to
+// see (the owner, 2026-10-06, D248).
+func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutFilm, error) {
+	fileID := playback.FileID
 	film, isCut, err := service.cut(ctx, fileID)
+	if errors.Is(err, ErrCannotBeCut) && film.picture.Codec != "" {
+		isRetried, retryErr := service.readThrough.RetryFailedForPlay(ctx, fileID, film.file.PayloadHash,
+			film.picture.StreamIndex, playback.StartedAt)
+		if retryErr != nil {
+			return film, retryErr
+		}
+		if isRetried {
+			return film, fmt.Errorf("file %d: %w", fileID, ErrNoGrid)
+		}
+	}
 	if err != nil || isCut {
 		return film, err
 	}
@@ -150,7 +167,7 @@ func (service *Service) cutForPlay(ctx context.Context, fileID int64) (cutFilm, 
 // picture it is offered, highest first. A film with no grid yet is ErrNoGrid, and is being read
 // through for one; one that cannot be cut is ErrCannotBeCut.
 func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, error) {
-	film, err := service.cutForPlay(ctx, playback.FileID)
+	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
 		return "", err
 	}
@@ -201,7 +218,7 @@ func (service *Service) offeredStream(
 	if !isStream {
 		return cutFilm{}, Stream{}, fmt.Errorf("%w: %q", ErrNoStream, streamName)
 	}
-	film, err := service.cutForPlay(ctx, playback.FileID)
+	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
 		return film, stream, err
 	}

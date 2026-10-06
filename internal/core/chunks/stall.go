@@ -38,7 +38,7 @@ var ErrNoQualityOffered = errors.New("the film offers no quality below its own")
 // playback's starting sound's from the stall's chunk, so they are on their way before the player
 // moves to them, and returns the offer. A film with no grid yet is ErrNoGrid, and is read through.
 func (service *Service) Stalled(ctx context.Context, playback Playback, positionMs, linkKbps int64) (Offer, error) {
-	film, err := service.cutForPlay(ctx, playback.FileID)
+	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
 		return Offer{}, err
 	}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -54,6 +55,9 @@ type heldWork struct {
 	saysHowFar bool
 	// run does the work to its end and says how it ended to the core, on a context a cancel ends.
 	run func(ctx context.Context)
+	// crashed says to the core that run panicked, with why: the node's own code failed on the
+	// work, which ends, and the node goes on.
+	crashed func(why string)
 
 	arrival int64 // the order it came in, among work of one priority
 	// start runs it on the node's lifetime, which hold was given, and returns what stops it.
@@ -127,6 +131,13 @@ func (list *workList) hold(ctx context.Context, work heldWork) (isHeld, isWaitin
 		runCtx, stop := context.WithCancel(execx.WithMoved(execx.WithPausing(ctx, added.pausing), added.movement.moved))
 		go func() {
 			defer list.finish(added)
+			// A panic in one job's work, the node's own code reading what FFmpeg said or wrote, ends
+			// that job and not the node, which held everyone else's (the owner, 2026-10-05).
+			defer func() {
+				if panicked := recover(); panicked != nil && added.crashed != nil {
+					added.crashed(fmt.Sprintf("%v\n%s", panicked, debug.Stack()))
+				}
+			}()
 			added.run(runCtx)
 		}()
 		return stop

@@ -40,7 +40,10 @@ type Result struct {
 	Held *HeldResult `json:"held,omitempty"`
 	// Refusal says why the node took no part of the command: a command it does not know, from a
 	// core of another build, which the core reads as the node needing an update (D233 §9).
-	Refusal     string              `json:"refusal,omitempty"`
+	Refusal string `json:"refusal,omitempty"`
+	// Crashed says the node's own code failed running the work, a panic, with where: the work ended
+	// and the node went on. Nothing else in the result is set.
+	Crashed     string              `json:"crashed,omitempty"`
 	Prepare     *PrepareReport      `json:"prepare,omitempty"`
 	Subtitle    *SubtitleText       `json:"subtitle,omitempty"`
 	ReadThrough *ReadThroughResult  `json:"readThrough,omitempty"`

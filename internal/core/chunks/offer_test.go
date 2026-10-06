@@ -7,10 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 func TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEverySound(t *testing.T) {
@@ -64,6 +66,33 @@ func TestMasterPlaylist_AFilmWithNoGridIsReadThroughForOne(t *testing.T) {
 	if !errors.Is(err, ErrNoGrid) || !slices.Equal(reader.asked, []int64{2}) {
 		t.Errorf("film 2's master playlist = %v, read through %v; want ErrNoGrid and film 2 read through",
 			err, reader.asked)
+	}
+}
+
+// A film whose read-through failed is tried again for a person's play, the read-through's to judge
+// whether the failure came before the play; while it is read again it has no grid yet, and a
+// failure that stands is ErrCannotBeCut (D248 §4).
+func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing.T) {
+	t.Parallel()
+	service, reader := chunksFixture(t, newFakeQueue(), fakeNode{})
+	failure := "Invalid data found when processing input"
+	err := service.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.UpsertVideoTimeline(t.Context(), sqlcgen.UpsertVideoTimelineParams{
+			PayloadHash: []byte{0x02}, KeyframesMsJSON: "[]", BytesInEachSecondJSON: "[]", Failure: &failure,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader.failedBeforePlay = map[int64]bool{2: true}
+	playback := Playback{FileID: 2, IsSourcePictureDecodable: true, StartedAt: time.UnixMilli(10_000)}
+	if _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrNoGrid) ||
+		!slices.Equal(reader.retried, []int64{2}) {
+		t.Errorf("a play after film 2's read-through failed = %v, retried %v; want it read through again",
+			err, reader.retried)
+	}
+	if _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrCannotBeCut) {
+		t.Errorf("film 2's read-through failing on the play's attempt = %v; want ErrCannotBeCut", err)
 	}
 }
 

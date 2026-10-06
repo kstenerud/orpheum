@@ -73,9 +73,10 @@
 //     TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing.
 //   - Each status is reconciled with what the node was given (D234 §6), judging no attempt whose command
 //     the node had not taken: one held is adopted, heard of (S82); one not held, given to the start
-//     it says hello from, is lost, a broken invariant logged and counted, its job resolved as the
-//     tool's failure (ErrWorkLost); work held that no job was given, or wants, is a broken invariant,
-//     and the node told to drop it (S91, G4); work whose result is on its way is left to it.
+//     it says hello from, is lost, a broken invariant logged and counted, its job resolved as work
+//     lost, an attempt's failure and never the file's (ErrWorkLost, D248); work held that no job
+//     was given, or wants, is a broken invariant, and the node told to drop it (S91, G4); work
+//     whose result is on its way is left to it.
 //     TestReconcile_ReconcilesWhatANodeWasGivenWithWhatItHolds,
 //     TestStatus_IsReconciledWithWhatTheNodeWasGivenButForCommandsOnTheirWay.
 //   - The core holds work only while its node says it moves: work held that the status says has not
@@ -98,7 +99,7 @@
 //     and lost the work it held in memory (D238 §3), whether or not the core started again too: at
 //     each hello every job given to another start of its node learns so at once (ErrNodeRestarted),
 //     no broken invariant, nothing is sent to stop what it no longer has, and each handler answers
-//     it as the tool's failure, free the first time. The start kept with the attempt in cache.db is
+//     it as work lost, an attempt's failure and never the file's (D248). The start kept with the attempt in cache.db is
 //     the one way a restart is known. TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt,
 //     TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasGiven,
 //     TestLoad_AnAttemptKeptThroughARestartKeepsTheStartOfItsNode,

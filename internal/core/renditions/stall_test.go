@@ -107,9 +107,9 @@ func TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t
 	}
 }
 
-// A node that started again lost the prepare it held (D238 §3): the tool's failure, as a stall
-// is, tried again at no cost the first time and the rendition's failure on the second in a row.
-func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreTheRenditionsFailure(t *testing.T) {
+// A node that started again lost the prepare it held: an attempt like any other's failure, tried
+// again, and never the rendition's, however many in a row (D248).
+func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndNeverTheRenditionsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
 	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
@@ -124,23 +124,18 @@ func TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndTwoInARowAreThe
 		service.exchanges.Interrupt(t.Context(), 1, "started again")
 		return testutil.Receive(t, ended, "the prepare job to end")
 	}
-	if err := prepareAfter(false); err == nil || !strings.HasPrefix(err.Error(), "interrupted: ") {
-		t.Errorf("a first restart of the node ended %v; want it tried again as the tool's failure", err)
-	}
-	if row := renditionRow(t, service, rendition); row.State == renditionFailed {
-		t.Errorf("after one restart the rendition is %+v; want it not failed", row)
-	}
-	if err := prepareAfter(true); err == nil || !strings.Contains(err.Error(), jobs.ToolFailedTwice) {
-		t.Errorf("a second tool failure in a row ended %v; want the rendition's failure", err)
-	}
-	if row := renditionRow(t, service, rendition); row.State != renditionFailed || row.Failure == nil ||
-		!strings.HasPrefix(*row.Failure, jobs.ToolFailedTwice) {
-		t.Errorf("after two tool failures the rendition is %+v; want failed, saying so", row)
+	for _, previousAttemptToolFailed := range []bool{false, true} {
+		if err := prepareAfter(previousAttemptToolFailed); !errors.Is(err, nodes.ErrNodeRestarted) {
+			t.Errorf("a restart of the node ended %v; want it tried again, the node's work lost", err)
+		}
+		if row := renditionRow(t, service, rendition); row.State == renditionFailed {
+			t.Errorf("after a restart the rendition is %+v; want it never failed for work its node lost", row)
+		}
 	}
 }
 
-// A prepare its node's status no longer lists was lost otherwise than by a restart (D238 §3): that
-// too is the tool's failure, tried again at no cost the first time.
+// A prepare its node's status no longer lists was lost otherwise than by a restart: that too is an
+// attempt like any other's failure, tried again (D248).
 func TestHandle_APrepareTheNodesStatusNoLongerHoldsIsTriedAgainAsTheToolsFailure(t *testing.T) {
 	t.Parallel()
 	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
@@ -150,9 +145,8 @@ func TestHandle_APrepareTheNodesStatusNoLongerHoldsIsTriedAgainAsTheToolsFailure
 	testutil.Receive(t, node.sent, "the prepare command")
 	service.exchanges.Reconcile(t.Context(), 1, nil, nil)
 	err := testutil.Receive(t, ended, "the prepare job to end")
-	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) ||
-		!strings.HasPrefix(err.Error(), "interrupted: ") {
-		t.Errorf("a prepare the node's status no longer holds ended %v; want it tried again as the tool's failure", err)
+	if !errors.Is(err, nodes.ErrWorkLost) || errors.Is(err, nodes.ErrNodeRestarted) {
+		t.Errorf("a prepare the node's status no longer holds ended %v; want it tried again, the work lost", err)
 	}
 }
 

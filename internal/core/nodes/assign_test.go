@@ -94,6 +94,27 @@ func TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten(t *testing.T) {
 	}
 }
 
+// A node whose own code failed running a job says so: the attempt fails like any other, tried
+// again and never kept as the file's, and its kind's answer is not asked (the owner, 2026-10-05).
+func TestAssign_ANodesCrashOnAJobIsAnAttemptsFailureAndNotItsKinds(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	resolved := make(answers, 1)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	sent := bench.assign(t)
+	deliver(t, bench.exchanges, 1, nodeproto.Result{
+		JobID: 7, AttemptToken: sent.AttemptToken, Crashed: "runtime error: index out of range [3] with length 2",
+	})
+	answer := testutil.Receive(t, resolved, "job 7's answer")
+	if answer == nil || !strings.Contains(answer.Error(), "own code failed") ||
+		!strings.Contains(answer.Error(), "index out of range") {
+		t.Errorf("job 7 was resolved with %v; want an attempt's failure naming the crash", answer)
+	}
+	if _, isParked := jobqueue.ParkingOf(answer); isParked {
+		t.Errorf("job 7 was parked by %v; want it failed and tried again", answer)
+	}
+}
+
 // The attempts given to nodes outlive a core restart: loaded again, the node's word resolves its job
 // as it would have before (S82).
 func TestLoad_AnAttemptKeptThroughARestartIsResolvedByItsNodesWord(t *testing.T) {

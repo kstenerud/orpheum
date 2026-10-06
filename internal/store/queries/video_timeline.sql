@@ -14,3 +14,10 @@ VALUES (sqlc.arg(payload_hash), sqlc.arg(video_stream_index), sqlc.arg(keyframes
 ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
   keyframes_ms_json = excluded.keyframes_ms_json, bytes_in_each_second_json = excluded.bytes_in_each_second_json,
   failure = excluded.failure, made_at = excluded.made_at;
+
+-- name: DeleteVideoTimelineFailedBefore :execrows
+-- A person's play tries again what failed before they pressed play: the failure goes, and the
+-- picture is read through again.
+DELETE FROM video_timeline
+WHERE payload_hash = sqlc.arg(payload_hash) AND video_stream_index = sqlc.arg(video_stream_index)
+  AND failure IS NOT NULL AND made_at < sqlc.arg(before);

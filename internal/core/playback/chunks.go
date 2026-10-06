@@ -28,7 +28,7 @@ func (service *Service) ChunksOf(ctx context.Context, token string, holder Holde
 // chunksPlaybackOf is a playback as the chunks it is offered see it.
 func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	chunked := chunks.Playback{
-		FileID: playback.fileID, PositionMs: playback.positionMs,
+		FileID: playback.fileID, PositionMs: playback.positionMs, StartedAt: playback.startedAt,
 		// A playback whose picture its decision re-encodes is one whose player cannot decode it.
 		IsSourcePictureDecodable: playback.decision.Profile != decide.H264At8M,
 	}
