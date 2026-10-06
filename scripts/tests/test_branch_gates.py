@@ -464,6 +464,52 @@ class RevertRedClaims(unittest.TestCase):
         self.assertIn("no probe for this kind of file (.toml)", rows[0].detail)
 
 
+class RevertRedStylesheetsTogether(unittest.TestCase):
+    """A skin's stylesheets are reverted at once and run once; a pass settles only what it decides."""
+
+    OLD = "web/apps/web/src/a.css"
+    CLAIMED = "web/apps/web/src/b.css"
+    UNCLAIMED = "web/apps/web/src/c.css"
+    ADDED = "web/apps/web/src/new.css"
+    # Passes only while every sheet is as the base has it: the run saw them all reverted at once.
+    ALL_REVERTED = ["sh", "-c", f"test ! -e {ADDED} && grep -q old {OLD} && grep -q old {CLAIMED} "
+                                f"&& grep -q old {UNCLAIMED}"]
+
+    def repo(self) -> tuple[Repo, str]:
+        repo = Repo({path: ".x { color: var(--old); }\n" for path in (self.OLD, self.CLAIMED, self.UNCLAIMED)})
+        base = repo.commit("chore: base")
+        repo.commit("docs: queue", {rr.VQ_FILE: "- [x] **VQ7** — seen in a browser\n"})
+        repo.commit("feat(web): a skin\n\nIt had none.\n\nVerified-By: VQ7",
+                    {self.OLD: ".x { color: var(--new); }\n", self.CLAIMED: ".x { color: var(--new); }\n",
+                     self.ADDED: ".y { color: var(--new); }\n"})
+        repo.commit("fix(web): one more\n\nIt was wrong.", {self.UNCLAIMED: ".x { color: var(--new); }\n"})
+        return repo, base
+
+    def changes(self) -> list[rr.Change]:
+        return [rr.Change(self.OLD, "M"), rr.Change(self.CLAIMED, "M"), rr.Change(self.UNCLAIMED, "M"),
+                rr.Change(self.ADDED, "A")]
+
+    def test_a_pass_with_every_sheet_reverted_settles_the_claimed_and_leaves_the_rest_to_their_own_runs(self):
+        repo, base = self.repo()
+        with repo.cwd():
+            settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60,
+                                              self.ALL_REVERTED)
+        self.assertEqual({path: outcome.verdict for path, outcome in settled.items()},
+                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.ADDED: "CLAIMED"})
+        self.assertIn("Verified-By: VQ7", settled[self.OLD].detail)
+        self.assertNotIn(self.UNCLAIMED, settled, "a sheet with no claim is owed its own run")
+        self.assertEqual(repo.git("status", "--porcelain"), "", "every sheet is put back")
+
+    def test_a_failing_run_settles_nothing_and_one_sheet_alone_is_not_batched(self):
+        repo, base = self.repo()
+        with repo.cwd():
+            self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60,
+                                                     ["false"]), {})
+            self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD",
+                                                     [rr.Change(self.CLAIMED, "M")], 60, ["true"]), {})
+        self.assertEqual(repo.git("status", "--porcelain"), "")
+
+
 class RevertRedDocTags(unittest.TestCase):
     """A struct tag's doc text is the API document's prose: rewording it is cosmetic, nothing else is."""
 

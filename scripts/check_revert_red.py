@@ -35,7 +35,8 @@ about itself: a noisy gate gets disabled.**
   behaviour is a mislabelled commit and that is a different gate's problem. A file
   touched by several commits requires red if *any* of them claims behaviour.
 * Only kinds of file whose tests this can actually scope and run: Go, Python and web
-  TypeScript; web CSS, in the browser tier alone, since only a browser renders it; a
+  TypeScript; web CSS, in the browser tier alone, since only a browser renders it, and first
+  every sheet at once, one run settling the sheets a pass can (stylesheets_together); a
   migration step, as one unit with its checksum line and schema golden, and cache.db's
   schema, against internal/store's integration tier (revert_red_units.py). Every other
   file a feat/fix/perf commit changed is listed as UNCHECKED, by name and why, rather than
@@ -80,6 +81,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import revert_red_reruns as reruns
+from revert_red_report import failure_advice, report
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
 from revert_red_trees import link_installed_packages
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
@@ -531,26 +533,54 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             restore(tree, head, companion)
 
 
-def report(outcomes: list[Outcome]) -> str:
-    lines = []
-    for verdict, heading in (
-        ("GREEN", "Changed with nothing to notice — no test goes red when these are reverted"),
-        ("NO_RUNNER", "Not checked: the tests could not start — fix the environment, not the code"),
-        ("RED_BUILD", "Load-bearing, but only at compile time"),
-        ("RED_TEST", "Covered — a test fails when these are reverted"),
-        ("CLAIMED", "On the author's word (Verified-By: a ticked VQ item; Refactor-Only: no behaviour "
-                    "changed in this file) — review this"),
-        ("COSMETIC", "No behaviour changed, so nothing could cover it"),
-        ("UNREACHABLE", "Only removed code nothing reached, so reverting restores dead code"),
-        ("UNCHECKED", "Not checked by this gate: a feat/fix/perf commit changed these, and no probe "
-                      "reverted them"),
-    ):
-        rows = [o for o in outcomes if o.verdict == verdict]
-        if not rows:
+def is_stylesheet(change: Change) -> bool:
+    return bool(CSS_SOURCE.search(change.path)) and change.status in ("A", "M")
+
+
+def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,
+                         command: list[str] | None = None) -> dict[str, Outcome]:
+    """The stylesheets whose verdict one browser run settles: every one reverted at once, run once.
+
+    Each stylesheet alone costs a whole browser tier, and a skin changes dozens, most of which
+    nothing can notice and a ticked VQ item covers: one run per sheet made a skin's branch take
+    three quarters of an hour (2026-10-06). When the run with every sheet reverted passes, a sheet
+    that is cosmetic or claimed has the verdict its own run would have reached, and is settled
+    here; a sheet with neither is left to its own run, since reverted alone it may still turn
+    something red that reverting the others with it hid. When the run fails, none is settled: which
+    sheet a test noticed is for each one's own run to say. Settling only what a pass decides, this
+    makes no verdict a sheet's own run would not have made.
+    """
+    sheets = [change for change in changes if is_stylesheet(change)]
+    if len(sheets) < 2:
+        return {}
+    try:
+        for change in sheets:
+            if change.status == "A":
+                (Path(tree) / change.path).unlink(missing_ok=True)
+            elif _git("checkout", base, "--", change.path, cwd=tree).returncode != 0:
+                return {}
+        with BROWSER_TIER_LOCK:
+            done = subprocess.run(command or browser_tier_command(), cwd=tree, capture_output=True,
+                                  text=True, timeout=timeout, check=False,
+                                  env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+    except subprocess.TimeoutExpired:
+        return {}
+    finally:
+        for change in sheets:
+            restore(tree, head, change.path)
+    if done.returncode != 0:
+        return {}
+    settled: dict[str, Outcome] = {}
+    for change in sheets:
+        if change.status == "M" and is_cosmetic(tree, base, head, change.path):
+            settled[change.path] = Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour "
+                                           "to cover")
             continue
-        lines.append(f"\n{heading}:")
-        lines.extend(f"  {o.path}  — {o.detail}" for o in rows)
-    return "\n".join(lines)
+        claim = claimed(tree, base, head, change.path)
+        if claim is not None and claim.verdict == "CLAIMED":
+            settled[change.path] = Outcome(change.path, "CLAIMED", claim.detail + " (one browser run with "
+                                           "every stylesheet reverted turned nothing red)")
+    return settled
 
 
 BROWSER_TIER_LOCK = threading.Lock()
@@ -726,8 +756,19 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         finally:
             free.put(tree)
 
+    def stylesheets_in_a_free_tree() -> dict[str, Outcome]:
+        tree = free.get()
+        try:
+            return stylesheets_together(tree, base, head, owed, timeout)
+        finally:
+            free.put(tree)
+
     with ThreadPoolExecutor(max_workers=len(trees)) as pool:
-        outcomes = list(pool.map(probe_in_a_free_tree, owed))
+        together = pool.submit(stylesheets_in_a_free_tree)
+        outcomes = list(pool.map(probe_in_a_free_tree, [c for c in owed if not is_stylesheet(c)]))
+        settled = together.result()
+        alone = [c for c in owed if is_stylesheet(c) and c.path not in settled]
+        outcomes += list(pool.map(probe_in_a_free_tree, alone)) + list(settled.values())
 
     # A targeted run reports on the paths it was given; their skips were printed already.
     if wanted is None:
@@ -743,28 +784,7 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
     failures = [o for o in outcomes if o.is_failure]
     if not failures:
         return 0
-    if any(o.verdict == "NO_RUNNER" for o in failures):
-        print(
-            "\nThe tests could not start in the worktree, so nothing was checked. That is the\n"
-            "environment (are the web packages installed? run `npm ci` in web/), not the code."
-        )
-    if all(o.verdict == "NO_RUNNER" for o in failures):
-        return 1
-    print(
-        "\nEach file above changed, and reverting it broke nothing. One of four things\n"
-        "is true, and only you can say which:\n\n"
-        "  - it needs a test that fails when the change is undone (D190);\n"
-        "  - the commit that touched it is mislabelled, and is not `feat`/`fix`/`perf`;\n"
-        "  - its part of a behaviour commit was only a refactor. Say so with a\n"
-        "    `Refactor-Only: <path> — <why>` trailer on a commit that touches it, and\n"
-        "    keep the next refactor in a commit of its own;\n"
-        "  - it genuinely cannot go red in this suite — a lab-only symptom, a\n"
-        "    device-only symptom. Then add a VQ<n> item to\n"
-        "    docs/contributors/verification-queue.md, do it, tick it, and name it in a\n"
-        "    `Verified-By: VQ<n>` trailer. That is a claim on the record, not a bypass.\n\n"
-        "Red-on-revert is necessary and not sufficient (D190): it proves a\n"
-        "test is wired to the code, never that the code is wired to the program."
-    )
+    print(failure_advice(failures))
     return 1
 
 
