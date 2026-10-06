@@ -109,3 +109,21 @@
    into that one, and asked for again at the player's next look, every quarter second.*
 4. The player's first and second stall, the move to the master playlist, and the quality shown.
 5. Stepping up, the bottom and its words, and Watch Together's word to the group.
+
+## 6. Next: cut points without reading the whole film (agreed 2026-10-06)
+
+The grid came from reading the whole file through (§2), minutes over a network mount, and a film
+whose read-through failed could never be offered a lower quality. The owner agreed to change it,
+in this order, each a revision of D247 §10 written before it is built:
+
+1. **A local rule for the grid.** A chunk starts at the first keyframe at or after each multiple
+   of `hls_segment_length_seconds`, so each boundary depends only on the keyframes near it: any
+   stretch of the film can be cut on its own and agrees with the whole film's grid. The greedy
+   merge from the film's start does not.
+2. **The keyframes from the file's own index**: an MP4's sync-sample table, a Matroska file's
+   cues, read in a fraction of a second; the read-through stays the fallback. A sound's chunks do
+   not wait for its loudness: unlevelled until it is measured.
+3. **Read from the stall for a file with no index** (AVI, MPEG-TS, Matroska without cues): the
+   node reads a few minutes ahead of the player's position, saying each keyframe as it reads, and
+   the playlists grow from there. **Required before a public release** (the owner, 2026-10-06):
+   archivers keep these older formats, and they are the likely customers.
