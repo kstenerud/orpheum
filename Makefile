@@ -195,6 +195,10 @@ PR_STEPS := test-integration test-browser check-test-weakening check-decision-st
 # Revert-red runs after the tiers, never beside them: a timing test failing under the load of a
 # probe would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6).
 PR_LAST_STEP := check-revert-red
+# M4's acceptance under home, a few minutes (D252 §2, D261 §2): after the tiers and before
+# revert-red, alone, as it shapes the container's loopback, which every tier's tests cross.
+# check-pr-failed does not re-run it: `make test-acceptance-home BASE=...` does.
+PR_SERIAL_STEP := test-acceptance-home
 
 .PHONY: check-pr
 check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
@@ -208,6 +212,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
 	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
 	    $(PR_STEPS:%=pr-step-%); \
+	  $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%); \
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base"
@@ -294,6 +299,16 @@ browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (outs
 .PHONY: test-acceptance
 test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under each netem profile (D252); at a milestone's end
 	@$(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts
+
+# The branch gate's short acceptance run (D252 §2, D261 §2): home alone, ACCEPTANCE_HOME_MINUTES
+# long; in check-pr, only when what the browser tier builds changed.
+ACCEPTANCE_HOME_MINUTES ?= 2
+
+.PHONY: test-acceptance-home
+test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when what it builds changed
+	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
+	  ORPHEUM_ACCEPTANCE_MINUTES=$(ACCEPTANCE_HOME_MINUTES) ORPHEUM_ACCEPTANCE_PROFILES=home \
+	    $(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts; fi
 
 E2E_CONFIG ?= web/e2e/playwright.config.ts
 
