@@ -196,8 +196,15 @@ export function adaptQuality(
   hls.on(Hls.Events.LEVEL_SWITCHED, () => {
     changedAtMs = options.monotonicMs();
   });
+  // The link as last measured: while voice is live each download is paced, and measures the pace
+  // rather than the link, so a paced estimate only ever raises it. Taken as it came, the cap fell a
+  // quality at each look, the pace with it, down to the lowest (the bitrate controller's research,
+  // 2026-10-07).
+  let linkBps = 0;
   const look = setInterval(() => {
     const nowMs = options.monotonicMs();
+    const isVoiceLive = options.isVoiceLive?.() === true;
+    linkBps = isVoiceLive ? Math.max(linkBps, hls.bandwidthEstimate) : hls.bandwidthEstimate;
     const stepped = nextCap({
       levels: hls.levels,
       cap: hls.autoLevelCapping,
@@ -206,10 +213,7 @@ export function adaptQuality(
       bufferedAheadMs: bufferedAheadMs(media),
       sinceChangeMs: nowMs - changedAtMs,
     });
-    const cap =
-      options.isVoiceLive?.() === true
-        ? Math.min(stepped, voiceCap(hls.levels, hls.bandwidthEstimate))
-        : stepped;
+    const cap = isVoiceLive ? Math.min(stepped, voiceCap(hls.levels, linkBps)) : stepped;
     if (cap !== hls.autoLevelCapping) {
       // eslint-disable-next-line no-param-reassign -- see above
       hls.autoLevelCapping = cap;
