@@ -2696,6 +2696,7 @@ export interface components {
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
             stalls?: components["schemas"]["StallBody"][] | null;
+            startup?: components["schemas"]["StartupBody"];
         };
         ReportOutputBody: {
             /** @description The lower quality the first stall started, ready or not (D253 §1) */
@@ -2932,6 +2933,14 @@ export interface components {
             titleName?: string;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
+        };
+        StartupBody: {
+            /** Format: int64 */
+            decisionMs: number;
+            /** Format: int64 */
+            firstDataMs: number;
+            /** Format: int64 */
+            playingMs: number;
         };
         StopBody: {
             message: string;

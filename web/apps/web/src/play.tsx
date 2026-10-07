@@ -37,7 +37,7 @@ import { useTranslation } from "react-i18next";
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import type { LowerQuality } from "./moving-down.ts";
-import { usePlayState } from "./play-state.ts";
+import { noteDecisionTimes, usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
@@ -59,11 +59,14 @@ export async function requestPlayback(
   fileId: number,
   playableFormats: PlayableFormats,
 ): Promise<PlaybackDecision> {
-  return dataOrThrow(
+  const askedMs = performance.now();
+  const decision = dataOrThrow(
     await api.POST("/playback", {
       body: { fileId, playableFormats },
     }),
   );
+  noteDecisionTimes(decision.mediaToken, askedMs, performance.now());
+  return decision;
 }
 
 /**

@@ -31,6 +31,9 @@ export type PlayReport = Readonly<
 /** A stall of the player, where it was (D247 §2): about its link, not what was watched. */
 export type PlayStall = Readonly<Schemas["StallBody"]>;
 
+/** How long a playback took to start, from asking how the file plays: told once. */
+export type PlayStartup = Readonly<Schemas["StartupBody"]>;
+
 /** How often a playing player reports where it is (play-state.md: about every ten seconds). */
 export const reportEveryMs = 10_000;
 
@@ -61,6 +64,7 @@ export class PlayReporter {
   private events: PlayEvent[] = [];
   private spans: PlaySpan[] = [];
   private stalls: PlayStall[] = [];
+  private startup: PlayStartup | undefined;
   private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
@@ -129,6 +133,14 @@ export class PlayReporter {
     }
   }
 
+  /**
+   * How long the playback took to start, sent with the next report: the one its first started
+   * event sends at once, when it is recorded just before.
+   */
+  recordStartup(startup: PlayStartup): void {
+    this.startup = startup;
+  }
+
   /** Reports where the playback is, with any changes not yet sent. */
   flush(positionMs: number): void {
     if (this.isSending || this.isRefused) {
@@ -145,10 +157,12 @@ export class PlayReporter {
       spans: this.spans,
       ...(this.stalls.length === 0 ? {} : { stalls: this.stalls }),
       ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
+      ...(this.startup === undefined ? {} : { startup: this.startup }),
     };
     this.events = [];
     this.spans = [];
     this.stalls = [];
+    this.startup = undefined;
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -164,6 +178,7 @@ export class PlayReporter {
         this.events = [...report.events, ...this.events];
         this.spans = [...report.spans, ...this.spans];
         this.stalls = [...(report.stalls ?? []), ...this.stalls];
+        this.startup ??= report.startup ?? undefined;
       },
     );
   }

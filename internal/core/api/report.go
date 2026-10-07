@@ -30,7 +30,18 @@ type ReportInput struct {
 		// does not keep; LinkKbps is its link's speed as it measured it, 0 when it has not.
 		Stalls   []StallBody `json:"stalls,omitempty" required:"false"`
 		LinkKbps int64       `json:"linkKbps,omitempty" minimum:"0" required:"false"`
+		// Startup is how long the playback took to start, sent once, with the report after its
+		// first frame: what makes a slow start show in the log.
+		Startup *StartupBody `json:"startup,omitempty" required:"false"`
 	}
+}
+
+// StartupBody is how long a playback took to start, each from when the player asked how the file
+// plays, in milliseconds: to the answer, to the first frame's data, and to playing.
+type StartupBody struct {
+	DecisionMs  int64 `json:"decisionMs"  minimum:"0"`
+	FirstDataMs int64 `json:"firstDataMs" minimum:"0"`
+	PlayingMs   int64 `json:"playingMs"   minimum:"0"`
 }
 
 // StallBody is one stall: a wait for data, while the player played, where it was.
@@ -125,6 +136,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
 	server.logReport(ctx, reporter, report, answer)
+	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -165,6 +177,19 @@ func (server *Server) logReport(
 			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
 			"isBelowTheLowest", offer.IsBelowTheLowest, "isReady", answer.IsLowerQualityReady)...)
 	}
+}
+
+// logStartup says how long a playback took to start, as its player measured it, with its link's
+// speed: from asking how the file plays to the answer, to the first frame's data, and to playing.
+// A start of a minute or more was told of only by the owner (2026-10-07); the playback's own
+// "started" line says how it plays.
+func (server *Server) logStartup(ctx context.Context, reporter reporter, startup *StartupBody, linkKbps int64) {
+	if startup == nil {
+		return
+	}
+	server.logger.InfoContext(ctx, "a playback started playing", "userId", reporter.holder.UserID,
+		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID, "decisionMs", startup.DecisionMs,
+		"firstDataMs", startup.FirstDataMs, "playingMs", startup.PlayingMs, "linkKbps", linkKbps)
 }
 
 // reporter is who reports on a playback, and from which device: 0 for none.
