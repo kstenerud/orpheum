@@ -11,6 +11,7 @@ import Hls from "hls.js";
 
 import {
   hlsMethod,
+  measuredKbps,
   playNative,
   preparedHlsConfig,
   startWithAudio,
@@ -134,5 +135,22 @@ describe("playing a prepared rendition", () => {
     const untouched: AudioStart = { on: () => expect.fail("nothing to wait for"), audioTrack: -1 };
     startWithAudio(untouched, 0);
     expect(untouched.audioTrack).toBe(-1);
+  });
+});
+
+describe("the link's speed a player reports (D257 §1)", () => {
+  it("is nothing until hls.js has loaded a chunk, whose starting estimate is not a measurement", () => {
+    const listeners = new Map<string, () => void>();
+    const hls = {
+      bandwidthEstimate: 500_000,
+      on: (event: string, listener: () => void) => {
+        listeners.set(event, listener);
+      },
+    };
+    const estimateKbps = measuredKbps(hls);
+    expect(estimateKbps()).toBeUndefined();
+    listeners.get(Hls.Events.FRAG_LOADED)?.();
+    hls.bandwidthEstimate = 1_000_000;
+    expect(estimateKbps()).toBe(1000);
   });
 });

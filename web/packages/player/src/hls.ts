@@ -128,6 +128,34 @@ export interface LoadingHls {
   on: Hls["on"];
 }
 
+/** Tells onFailed why, when hls.js says the playback cannot go on. */
+export function failOnFatal(
+  hls: Pick<Hls, "on">,
+  onFailed: (failure: PlaybackFailure) => void,
+): void {
+  hls.on(Hls.Events.ERROR, (_event, data) => {
+    if (data.fatal) {
+      onFailed(hlsErrorFailure(data));
+    }
+  });
+}
+
+/**
+ * The link's speed hls.js measured, in kb/s, once it has loaded a chunk; undefined before. Until
+ * then its estimate is its own starting value, which a phone's player reported as its link, 500
+ * then 5000 kb/s, and the core remembered for its next playback (staging, 2026-10-07).
+ */
+export function measuredKbps(
+  hls: Pick<LoadingHls, "bandwidthEstimate" | "on">,
+): () => number | undefined {
+  let hasMeasured = false;
+  hls.on(Hls.Events.FRAG_LOADED, () => {
+    hasMeasured = true;
+  });
+  return () =>
+    hasMeasured && hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined;
+}
+
 /**
  * Tells video what hls.js loads, for a Watch Together player's log: each chunk, by
  * playerLoadedChunkEvent, with how long it took and how fast, and each quality it begins playing,
@@ -197,14 +225,11 @@ export function playHls(
     };
   }
   const hls = new Hls(preparedHlsConfig);
-  hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.fatal) {
-      onFailed(hlsErrorFailure(data));
-    }
-  });
+  failOnFatal(hls, onFailed);
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
+  const estimateKbps = measuredKbps(hls);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
@@ -222,6 +247,6 @@ export function playHls(
     destroy: () => {
       hls.destroy();
     },
-    estimateKbps: () => (hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined),
+    estimateKbps,
   };
 }
