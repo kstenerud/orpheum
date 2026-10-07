@@ -80,6 +80,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/agent` | R8 | — |
 | `internal/node/artwork` | R3 | — |
 | `internal/node/byteserver` | R4 | — |
+| `internal/node/container` | R2 (container structure: Matroska elements, MP4 boxes) | — (hash anchors identity on them; read-throughs read a film's keyframes from their indexes, D259 §2) |
 | `internal/node/confine` | CONTAIN | ⚑ also the read-only `MediaRoot` handle that scan, namedfile and byteserver use (scan.go:47, namedfile.go:64) |
 | `internal/node/execx` | CONTAIN | — |
 | `internal/node/hardware` | OPS | — |

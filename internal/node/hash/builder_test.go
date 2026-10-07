@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math/rand/v2"
+
+	"github.com/kstenerud/orpheum/internal/node/container"
 )
 
 // Element IDs the builder writes that the hash never reads.
@@ -90,7 +92,9 @@ func (m matroska) build() []byte { //nolint:varnamelen // m is the file being de
 	info := ebml(idInfo, ebml(idTitle, []byte(m.title)))
 	tracks := ebml(idTracks, bytes.Repeat([]byte{0x42}, 64))
 	seekHead := func(cuesAt uint64) []byte {
-		return ebml(idSeekHead, ebml(idSeek, ebmlUint(idSeekID, idCues), ebmlUint(idSeekPosition, cuesAt)))
+		seek := ebml(container.IDSeek,
+			ebmlUint(container.IDSeekID, container.IDCues), ebmlUint(container.IDSeekPosition, cuesAt))
+		return ebml(container.IDSeekHead, seek)
 	}
 	var header []byte
 	header = append(header, seekHead(0)...)
@@ -107,17 +111,18 @@ func (m matroska) build() []byte { //nolint:varnamelen // m is the file being de
 	var clusterPositions []uint64
 	for index, block := range m.blocks {
 		clusterPositions = append(clusterPositions, uint64(len(header)+len(clusters)))
-		cluster := ebml(idCluster, ebmlUint(idTimecode, uint64(index)), ebml(idSimpleBlock, block))
+		cluster := ebml(container.IDCluster, ebmlUint(idTimecode, uint64(index)), ebml(idSimpleBlock, block))
 		clusters = append(clusters, cluster...)
 	}
 	var cues []byte
 	if m.cues {
 		var points [][]byte
 		for index, position := range clusterPositions[:len(clusterPositions)-m.uncuedAtEnd] {
-			points = append(points, ebml(idCuePoint, ebmlUint(idCueTime, uint64(index)),
-				ebml(idCueTrackPositions, ebmlUint(idCueTrack, 1), ebmlUint(idCueClusterPosition, position))))
+			positions := ebml(container.IDCueTrackPositions,
+				ebmlUint(idCueTrack, 1), ebmlUint(container.IDCueClusterPosition, position))
+			points = append(points, ebml(container.IDCuePoint, ebmlUint(idCueTime, uint64(index)), positions))
 		}
-		cues = ebml(idCues, points...)
+		cues = ebml(container.IDCues, points...)
 		cuesAt := uint64(len(header) + len(clusters))
 		header = append(seekHead(cuesAt), header[len(seekHead(0)):]...)
 	}
@@ -126,5 +131,5 @@ func (m matroska) build() []byte { //nolint:varnamelen // m is the file being de
 	if m.titleMovedToEnd {
 		body = append(body, info)
 	}
-	return append(ebml(idEBML, []byte("webm-ish header")), ebml(idSegment, body...)...)
+	return append(ebml(container.IDEBML, []byte("webm-ish header")), ebml(container.IDSegment, body...)...)
 }

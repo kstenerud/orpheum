@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/kstenerud/orpheum/internal/node/container"
 )
 
 // openSubtitlesChunkBytes is how much of each end of a file OpenSubtitles' moviehash reads.
@@ -22,7 +24,7 @@ func OpenSubtitlesHash(file io.ReaderAt, sizeBytes int64) (string, error) {
 	sum := uint64(sizeBytes)
 	buffer := make([]byte, openSubtitlesChunkBytes)
 	for _, offset := range []int64{0, sizeBytes - openSubtitlesChunkBytes} {
-		if err := readAt(file, sizeBytes, offset, buffer); err != nil {
+		if err := container.ReadAt(file, sizeBytes, offset, buffer); err != nil {
 			return "", fmt.Errorf("the OpenSubtitles hash: %w", err)
 		}
 		for word := 0; word < openSubtitlesChunkBytes; word += 8 {

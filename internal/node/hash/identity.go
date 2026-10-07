@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/kstenerud/orpheum/internal/node/container"
 )
 
 // Scheme names what the identity hash reads and how. A change to either is a new scheme, and
@@ -41,9 +43,6 @@ type payloadSpan struct {
 	start, end int64
 	anchor     Anchor
 }
-
-// errNotThisContainer means a parser does not recognise the file; the next one is tried.
-var errNotThisContainer = errors.New("not this container")
 
 // PayloadIdentity returns the identity of a file of sizeBytes bytes, read through file. It reads a few
 // small headers, two windows of at most a megabyte, and nothing else.
@@ -82,30 +81,9 @@ func locate(file io.ReaderAt, sizeBytes int64) (payloadSpan, error) {
 		if err == nil {
 			return found, nil
 		}
-		if readErr, isReadError := errors.AsType[*readError](err); isReadError {
+		if readErr, isReadError := errors.AsType[*container.ReadError](err); isReadError {
 			return payloadSpan{}, readErr
 		}
 	}
 	return payloadSpan{start: 0, end: sizeBytes, anchor: AnchorWholeFile}, nil
-}
-
-// readError is a failure to read the file, as opposed to a file the parser does not follow;
-// the first is returned, the second falls through to the next anchor.
-type readError struct{ err error }
-
-func (failure *readError) Error() string { return "read the file: " + failure.err.Error() }
-
-func (failure *readError) Unwrap() error { return failure.err }
-
-// readAt reads exactly len(buffer) bytes at offset. Reading past the end of the file is a
-// structural problem (errNotThisContainer), not a read error.
-func readAt(file io.ReaderAt, sizeBytes, offset int64, buffer []byte) error {
-	if offset < 0 || offset+int64(len(buffer)) > sizeBytes {
-		return fmt.Errorf("%w: %d bytes at %d run past the end of a %d-byte file",
-			errNotThisContainer, len(buffer), offset, sizeBytes)
-	}
-	if _, err := file.ReadAt(buffer, offset); err != nil {
-		return &readError{err: err}
-	}
-	return nil
 }
