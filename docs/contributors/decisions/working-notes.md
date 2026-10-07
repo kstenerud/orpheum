@@ -17783,6 +17783,8 @@ page. M4's scheduled backups make them too, when M4 builds them.
 
 ## D243 — M4's nine questions answered: a guest's cookie covers one film, invites are registration links under roles that choose libraries, the name's certificate comes by DNS-01 through Cloudflare, and a VPS carries every route in
 
+> **Revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): §9's netem profiles are now home, mobile, congested and lossy as experts would build them, with bounds per client pair.
+
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §9's voice bounds are best effort on the congested profile.
 
 **Decided** (2026-10-04), by the project owner, answering D223 §11's nine questions as the audit
@@ -18329,6 +18331,8 @@ font, and use slightly rounded corners."*
 
 ## D252 — M4's acceptance shapes each client's network with the kernel's netem, in a run of its own at the milestone's end
 
+> **Revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): each profile is netem plus a tbf bottleneck on a 1500-byte loopback, in-order jitter, and competing traffic under congested.
+
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §2's short home run is in every branch check, CI's container allowed NET_ADMIN.
 
 **Decided** (2026-10-06), by the project owner, building M4's acceptance (m4.md Phase H; cut-a's
@@ -18609,6 +18613,8 @@ failed"*.
 
 ## D262 — Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it
 
+> **Corrected by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): correlated jitter does not stop netem reordering; in-order jitter does (§1).
+
 **Decided** (2026-10-07), by the project owner, on the research into how Signal and WhatsApp keep
 voice working on links where ours failed ([voice-bad-links.md](../design/research/voice-bad-links.md);
 D261 §7): *"Do all of them if it will help"*. Voice on a congested link stays best effort
@@ -18633,5 +18639,38 @@ D261 §7): *"Do all of them if it will help"*. Voice on a congested link stays b
 Not done, and why (the research's §7 and §8): the browser's jitter-buffer target only adds delay,
 and no standard API caps it; Opus DRED, low-bitrate FEC codecs and neural concealment ship in no
 browser.
+
+**Status:** Decided 2026-10-07.
+
+---
+
+## D263 — The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
+
+**Decided** (2026-10-07), by the project owner: *"My definition before was based on a guess, so I'd
+rather go with what the experts advise. Do some research to make sure your information is current
+and correct before proceeding"*; then *"I'm okay with browser-specific policies. Browsers will never
+reach parity"*. On [network-profiles.md](../design/research/network-profiles.md). **Revises** D243
+§9's profiles and D252 §1's shaping; **corrects** D262 §1, whose correlated jitter still reordered
+packets.
+
+1. **Four profiles, each a netem stage for delay, in-order jitter and loss, and a tbf bottleneck
+   with its own tail-drop queue** (network-profiles.md §0, after RFC 8867 and 8869 and measurement
+   studies):
+   - *home*: 20 ms one way, a 100 Mbit/s bottleneck, no loss;
+   - *mobile*: 40 ± 10 ms, 0.2% loss, 20 Mbit/s with a 300 ms queue;
+   - *congested*: 40 ± 5 ms, 0.5% loss, 5 Mbit/s with a 200 ms queue, shared with a long-lived
+     bulk download for the whole run, the household's other traffic;
+   - *lossy*: 40 ± 10 ms, 3% loss each way, 20 Mbit/s with a 100 ms queue, a bad radio link.
+2. **The bounds are per client pair** (D243 §9's numbers: 200 ms apart 95% of the time; voice
+   one-way under 300 ms and under 2% audible loss). Film sync is held on home, mobile and
+   congested. Voice is held on home, mobile and congested for every pair, and on *lossy* for a
+   pair whose browsers both send RED (Chrome, Safari); a pair with Firefox is best effort there. The
+   film on *lossy* is best effort until a run with BBR (§3) shows it holds.
+3. **The server sends media with BBR**: its listeners ask the kernel for BBR, which their
+   connections inherit, and keep the default with one log line where the kernel has none; the host
+   loads `tcp_bbr`. Only the sender's congestion control counts, and BBR does not read random loss
+   as congestion: at 3% loss it carried 17.7 of 20 Mbit/s where CUBIC carried 1.0.
+4. **Not yet**: each browser on its own network namespace and link, as D252 §1 first intended; on
+   the loopback both browsers share one bottleneck.
 
 **Status:** Decided 2026-10-07.
