@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe("a stalled player moving to its lower quality (D253)", () => {
-  it("still cannot keep up after stalling again, unmeasured, or with the film over 70% of the link", () => {
+  it("still cannot keep up after stalling again, unmeasured, or with the film over 70% of its link", () => {
     const keeping = { hasStalledSinceOffered: false, linkKbps: 20_000, filmPictureKbps: 9_900 };
     expect(stillCannotKeepUp(keeping)).toBe(false);
     expect(stillCannotKeepUp({ ...keeping, hasStalledSinceOffered: true })).toBe(true);
