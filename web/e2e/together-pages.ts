@@ -58,9 +58,18 @@ export async function hostPlays(host: Page, film: string): Promise<void> {
 /** What one browser's voice call measures, from its own WebRTC statistics. */
 export interface VoiceMeasure {
   readonly roundTripMs: number;
+  /** How long the jitter buffer held the audio, on average, and what it aimed at, on average. */
   readonly jitterBufferMs: number;
+  readonly jitterBufferTargetMs: number;
+  /** The share of samples concealed apart from silence: what a listener hears go missing. */
   readonly concealedShare: number;
   readonly samplesReceived: number;
+  /** Packets never received, packets that arrived too late to play, and those FEC recovered. */
+  readonly packetsLost: number;
+  readonly packetsLate: number;
+  readonly fecPacketsReceived: number;
+  /** How the call reached the other side: "direct", or the relay's "udp", "tcp" or "tls". */
+  readonly path: string;
 }
 
 /** Keeps every RTCPeerConnection the page makes, so its statistics can be read. */
@@ -78,8 +87,13 @@ export async function keepPeers(page: Page): Promise<void> {
   });
 }
 
-/** The page's voice call, measured: its round trip, its jitter buffer and its concealed share. */
+/** The page's voice call, measured from its own WebRTC statistics (voiceMeasureOf). */
 export async function measureVoice(page: Page): Promise<VoiceMeasure> {
+  return voiceMeasureOf(await voiceReports(page));
+}
+
+/** The reports of the page's connected voice call's statistics, as they are now. */
+export async function voiceReports(page: Page): Promise<Record<string, unknown>[]> {
   return await page.evaluate(async () => {
     const kept: unknown = Reflect.get(window, "keptPeers");
     const peer = (Array.isArray(kept) ? kept : []).find(
@@ -89,26 +103,87 @@ export async function measureVoice(page: Page): Promise<VoiceMeasure> {
     if (peer === undefined) {
       throw new Error("no voice call connected");
     }
-    let roundTripMs = Number.NaN;
-    let jitterBufferMs = Number.NaN;
-    let concealedShare = Number.NaN;
-    let samplesReceived = 0;
+    const all: Record<string, unknown>[] = [];
     (await peer.getStats()).forEach((report: Record<string, unknown>) => {
-      const number = (key: string): number => {
-        const value = report[key];
-        return typeof value === "number" ? value : Number.NaN;
-      };
-      if (report["type"] === "remote-inbound-rtp" && report["kind"] === "audio") {
-        roundTripMs = number("roundTripTime") * 1000;
-      }
-      if (report["type"] === "inbound-rtp" && report["kind"] === "audio") {
-        jitterBufferMs = (number("jitterBufferDelay") / number("jitterBufferEmittedCount")) * 1000;
-        samplesReceived = number("totalSamplesReceived");
-        concealedShare = number("concealedSamples") / samplesReceived;
-      }
+      all.push({ ...report });
     });
-    return { roundTripMs, jitterBufferMs, concealedShare, samplesReceived };
+    return all;
   });
+}
+
+/**
+ * A call's measure between two readings of its reports: what its statistics, which count from the
+ * call's start, added from before to after, so a window with no film beside it is measured alone.
+ */
+export function voiceMeasureBetween(
+  before: readonly Record<string, unknown>[],
+  after: readonly Record<string, unknown>[],
+): VoiceMeasure {
+  const counted = (reports: readonly Record<string, unknown>[]): Record<string, unknown>[] =>
+    reports.map((report) => ({ ...report }));
+  const inboundOf = (reports: readonly Record<string, unknown>[]): Record<string, unknown> =>
+    reports.find((report) => report["type"] === "inbound-rtp" && report["kind"] === "audio") ?? {};
+  const was = inboundOf(before);
+  const window = counted(after).map((report) => {
+    if (report["type"] !== "inbound-rtp" || report["kind"] !== "audio") {
+      return report;
+    }
+    const since: Record<string, unknown> = { ...report };
+    for (const key of [
+      "jitterBufferDelay",
+      "jitterBufferTargetDelay",
+      "jitterBufferEmittedCount",
+      "totalSamplesReceived",
+      "concealedSamples",
+      "silentConcealedSamples",
+      "packetsLost",
+      "packetsDiscarded",
+      "fecPacketsReceived",
+    ]) {
+      const now = report[key];
+      const then = was[key];
+      if (typeof now === "number" && typeof then === "number") {
+        since[key] = now - then;
+      }
+    }
+    return since;
+  });
+  return voiceMeasureOf(window);
+}
+
+/** A call's measure from its statistics' reports: its audio's, its chosen path's. */
+export function voiceMeasureOf(reports: readonly Record<string, unknown>[]): VoiceMeasure {
+  const number = (report: Record<string, unknown> | undefined, key: string): number => {
+    const value = report?.[key];
+    return typeof value === "number" ? value : Number.NaN;
+  };
+  const audio = (type: string): Record<string, unknown> | undefined =>
+    reports.find((report) => report["type"] === type && report["kind"] === "audio");
+  const inbound = audio("inbound-rtp");
+  const emitted = number(inbound, "jitterBufferEmittedCount");
+  const samplesReceived = number(inbound, "totalSamplesReceived");
+  const silent = number(inbound, "silentConcealedSamples");
+  const audible = number(inbound, "concealedSamples") - (Number.isNaN(silent) ? 0 : silent);
+  const pair = reports.find(
+    (report) =>
+      report["type"] === "candidate-pair" &&
+      report["nominated"] === true &&
+      report["state"] === "succeeded",
+  );
+  const local = reports.find((report) => report["id"] === pair?.["localCandidateId"]);
+  const protocol = local?.["relayProtocol"];
+  const relayed = typeof protocol === "string" ? protocol : "relay";
+  return {
+    roundTripMs: number(audio("remote-inbound-rtp"), "roundTripTime") * 1000,
+    jitterBufferMs: (number(inbound, "jitterBufferDelay") / emitted) * 1000,
+    jitterBufferTargetMs: (number(inbound, "jitterBufferTargetDelay") / emitted) * 1000,
+    concealedShare: audible / samplesReceived,
+    samplesReceived: Number.isNaN(samplesReceived) ? 0 : samplesReceived,
+    packetsLost: number(inbound, "packetsLost"),
+    packetsLate: number(inbound, "packetsDiscarded"),
+    fecPacketsReceived: number(inbound, "fecPacketsReceived"),
+    path: local?.["candidateType"] === "relay" ? relayed : "direct",
+  };
 }
 
 /** A page whose browser hands it a fake microphone without asking. */
@@ -125,23 +200,38 @@ export async function pageWithMicrophone(
 }
 
 /**
- * Each named page's voice, measured and held to D243 §9's bounds: heard at all, one-way (half
- * the round trip plus the jitter buffer) under 300 ms, and under 2% of its samples concealed.
+ * Each named page's voice, measured and held to D243 §9's bounds (expectVoiceMeasureWithinBounds).
  */
 export async function expectVoiceWithinBounds(
   pages: readonly (readonly [string, Page])[],
+  isBestEffort = false,
 ): Promise<void> {
   for (const [who, page] of pages) {
-    const measured = await measureVoice(page);
-    process.stdout.write(`${who}'s voice: ${JSON.stringify(measured)}\n`);
-    test.info().annotations.push({ type: `${who}'s voice`, description: JSON.stringify(measured) });
-    expect(measured.samplesReceived, `${who} heard nothing`).toBeGreaterThan(0);
-    const oneWayMs = measured.roundTripMs / 2 + measured.jitterBufferMs;
-    expect(oneWayMs, `${who}'s one-way delay`).toBeLessThan(voiceOneWayAtMostMs);
-    expect(measured.concealedShare, `${who}'s concealed share`).toBeLessThan(
-      voiceConcealedAtMostShare,
-    );
+    expectVoiceMeasureWithinBounds(who, await measureVoice(page), isBestEffort);
   }
+}
+
+/**
+ * A voice's measure, printed and held to D243 §9's bounds: heard at all, one-way (half the round
+ * trip plus the jitter buffer) under 300 ms, and under 2% of its samples concealed apart from
+ * silence. Best effort, as voice is on a congested link (D261 §7), only heard at all is held.
+ */
+export function expectVoiceMeasureWithinBounds(
+  who: string,
+  measured: VoiceMeasure,
+  isBestEffort: boolean,
+): void {
+  process.stdout.write(`${who}'s voice: ${JSON.stringify(measured)}\n`);
+  test.info().annotations.push({ type: `${who}'s voice`, description: JSON.stringify(measured) });
+  expect(measured.samplesReceived, `${who} heard nothing`).toBeGreaterThan(0);
+  if (isBestEffort) {
+    return;
+  }
+  const oneWayMs = measured.roundTripMs / 2 + measured.jitterBufferMs;
+  expect(oneWayMs, `${who}'s one-way delay`).toBeLessThan(voiceOneWayAtMostMs);
+  expect(measured.concealedShare, `${who}'s concealed share`).toBeLessThan(
+    voiceConcealedAtMostShare,
+  );
 }
 
 /**

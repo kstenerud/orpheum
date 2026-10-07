@@ -201,6 +201,20 @@ def ensure_container(engine: str, name: str, args: list[str]) -> None:
         quiet([engine, "rm", "--force", name])
     started = [*args[:2], "--name", name, "--label", f"{CONFIG_LABEL}={config}", *args[2:]]
     subprocess.run(started, check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(loopback_args(args[0], name), check=True, stdout=subprocess.DEVNULL)
+
+
+# A real link's packet size on the container's loopback, which the browser tier and the
+# acceptance cross: at its own 64 KB, a TCP packet of the film held a voice packet behind it for a
+# tenth of a second on the acceptance's 5 Mbit/s link, which no real link does (D262 §1). Set as
+# root once the container starts: iproute2's ip drops a file capability when the developer runs it.
+LOOPBACK_MTU = 1500
+
+
+def loopback_args(engine: str, name: str) -> list[str]:
+    """Sets the container's loopback to LOOPBACK_MTU, and the size the kernel batches packets to."""
+    return [engine, "exec", "--user", "0", name, "ip", "link", "set", "dev", "lo",
+            "mtu", str(LOOPBACK_MTU), "gso_max_size", str(LOOPBACK_MTU)]
 
 
 def main(argv: list[str]) -> int:
