@@ -108,6 +108,9 @@ type StartPlaybackOutputBody struct {
 	// TitleName is the name of the title the file is, which the player shows above the picture;
 	// absent for a file filed as no title. Never the file's path: a viewer sees it too (D246 §3).
 	TitleName string `json:"titleName,omitempty"`
+	// LowerQuality is the lower quality the playback starts on, its device's link on its network
+	// remembered too slow for the film's picture (D257 §2); absent to start as Delivery says.
+	LowerQuality *LowerQualityBody `json:"lowerQuality,omitempty"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -228,7 +231,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	request := playback.Request{
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
-		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery),
+		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
 	who := []any{"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent}
@@ -268,7 +271,17 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 	server.logger.InfoContext(ctx, "a playback started", append(who,
 		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
 		"notDirectReasons", reasons, "isPreparing", started.IsPreparing,
-		"resumePositionMs", started.ResumePositionMs, "audioOutput", started.AudioOutput)...)
+		"resumePositionMs", started.ResumePositionMs, "audioOutput", started.AudioOutput,
+		"startsLowerKbps", startsLowerKbps(started))...)
+}
+
+// startsLowerKbps is the rate of the lower quality a playback starts on, 0 when it starts as its
+// decision says (D257 §2).
+func startsLowerKbps(started playback.Started) int {
+	if started.LowerQuality == nil {
+		return 0
+	}
+	return started.LowerQuality.Quality.Kbps
 }
 
 // logPlaybackRefused says a playback was refused, with why.
@@ -286,6 +299,9 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 		output.Body.NotDirectReasons = append(output.Body.NotDirectReasons, string(reason))
 	}
 	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
+	if started.LowerQuality != nil {
+		output.Body.LowerQuality = lowerQualityBody(started.Token, *started.LowerQuality, started.IsLowerQualityReady)
+	}
 	if started.Decision.Delivery == decide.HLS {
 		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
 	}

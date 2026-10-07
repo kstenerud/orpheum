@@ -8,6 +8,13 @@
 //
 // # Invariants
 //
+//   - A link speed a player measured is kept by player, a device or a deviceless session, and by
+//     network, an IPv6 /64 or an IPv4 address, for a day; a playback whose player's speed on its
+//     network is too slow for the film's picture starts on the lower quality it carries, chosen
+//     before play (D257). TestNetworkOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
+//     TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork,
+//     TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork (internal/core/api).
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.

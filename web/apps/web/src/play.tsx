@@ -100,8 +100,19 @@ export function PlayView(props: {
   );
   const ways = { ...props, onLowerQuality, onVideo: setVideo, onCannotKeepUp: setCannotKeepUp };
   let playing: JSX.Element;
+  const startsLower = props.decision.lowerQuality ?? undefined;
   if (moved?.mediaToken === mediaToken) {
     playing = <ChunkedVideo {...ways} offer={moved.offer} positionMs={moved.positionMs} />;
+  } else if (startsLower !== undefined) {
+    // Its link on this network was remembered too slow for the film: it starts lower (D257 §2).
+    playing = (
+      <ChunkedVideo
+        {...ways}
+        offer={startsLower}
+        positionMs={props.decision.resumePositionMs}
+        isFromTheStart
+      />
+    );
   } else if (props.decision.delivery === "direct") {
     playing = <DirectVideo {...ways} />;
   } else {
@@ -514,16 +525,20 @@ export function LowerQualityNotes(props: {
   readonly offer: LowerQuality;
   readonly playing: PlayedLevel | undefined;
   readonly cannotKeepUp: CannotKeepUp | undefined;
+  /** Whether the playback started lower, its link remembered slow, rather than moved after a stall (D257). */
+  readonly isFromTheStart?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { offer, playing, cannotKeepUp } = props;
+  const startingKey =
+    props.isFromTheStart === true ? "play.lowerQualityFromTheStart" : "play.lowerQualityStarting";
   const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
   return (
     <>
       <p className="play__reason">
         {playing === undefined
-          ? t("play.lowerQualityStarting", {
+          ? t(startingKey, {
               height: offer.height,
               rate: rateText(offer.qualityKbps),
             })
@@ -550,7 +565,11 @@ export function LowerQualityNotes(props: {
  * a prepared copy's does.
  */
 function ChunkedVideo(
-  props: PlayProps & { readonly offer: LowerQuality; readonly positionMs: number },
+  props: PlayProps & {
+    readonly offer: LowerQuality;
+    readonly positionMs: number;
+    readonly isFromTheStart?: boolean;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   const { offer } = props;
@@ -594,7 +613,12 @@ function ChunkedVideo(
         onAudioChosen={props.onDecideAgain}
         readLinkKbps={() => playbackRef.current?.estimateKbps()}
       />
-      <LowerQualityNotes offer={offer} playing={playing} cannotKeepUp={cannotKeepUp} />
+      <LowerQualityNotes
+        offer={offer}
+        playing={playing}
+        cannotKeepUp={cannotKeepUp}
+        isFromTheStart={props.isFromTheStart === true}
+      />
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}

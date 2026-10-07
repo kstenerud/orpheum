@@ -2920,6 +2920,7 @@ export interface components {
             fileBitRateKbps: number;
             isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
+            lowerQuality?: components["schemas"]["LowerQualityBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
             preferences: components["schemas"]["PlaybackPreferencesBody"];

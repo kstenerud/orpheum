@@ -4362,6 +4362,9 @@
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
           },
+          "lowerQuality": {
+            "$ref": "#/components/schemas/LowerQualityBody"
+          },
           "mediaToken": {
             "type": "string"
           },

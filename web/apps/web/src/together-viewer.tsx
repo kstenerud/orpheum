@@ -374,8 +374,12 @@ function GroupFilm(props: {
           setMoved((already) => already ?? { mediaToken: value.mediaToken, offer });
         };
         let film: JSX.Element;
+        const startsLower = value.lowerQuality ?? undefined;
         if (moved?.mediaToken === value.mediaToken) {
           film = <ChunkedFilm {...films} offer={moved.offer} />;
+        } else if (startsLower !== undefined) {
+          // The viewer's link here was remembered too slow for the film: it starts lower (D257 §2).
+          film = <ChunkedFilm {...films} offer={startsLower} isFromTheStart />;
         } else if (value.delivery === "direct") {
           film = <DirectFilm {...films} onLowerQuality={onLowerQuality} />;
         } else {
@@ -515,7 +519,10 @@ function PreparedFilm(
  * quality of it cut into chunks, from the one offered for the link, following the group.
  */
 function ChunkedFilm(
-  props: Pick<FilmProps, "fileId" | "following"> & { readonly offer: LowerQuality },
+  props: Pick<FilmProps, "fileId" | "following"> & {
+    readonly offer: LowerQuality;
+    readonly isFromTheStart?: boolean;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -539,7 +546,12 @@ function ChunkedFilm(
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
       <video className="together-viewer__video" ref={videoRef} playsInline />
-      <LowerQualityNotes offer={props.offer} playing={playing} cannotKeepUp={cannotKeepUp} />
+      <LowerQualityNotes
+        offer={props.offer}
+        playing={playing}
+        cannotKeepUp={cannotKeepUp}
+        isFromTheStart={props.isFromTheStart === true}
+      />
       {failure === undefined ? null : <p role="alert">{failure}</p>}
     </>
   );

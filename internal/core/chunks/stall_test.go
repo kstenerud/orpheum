@@ -86,3 +86,26 @@ func TestStalled_AFilmWithNoLowerQualitySaysSo(t *testing.T) {
 		t.Errorf("a stall on a film with no lower quality: %v; want ErrNoQualityOffered", err)
 	}
 }
+
+// A playback whose link, remembered, is too slow for the film's own picture starts on the quality a
+// stall there would, its runs on their way; one whose link carries the picture starts nothing
+// (D257 §2). Film 1's picture averages 4 Mb/s, more than 70% of 2 Mb/s and less than 70% of 20.
+func TestStartLower_StartsAPlaybackOnALowerQualityOnlyWhenItsLinkIsTooSlowForThePicture(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	playback := Playback{FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true}
+	offer, isLower, err := service.StartLower(t.Context(), playback, 95_000, 20_000)
+	if err != nil || isLower || len(queue.runs(t, service)) != 0 {
+		t.Errorf("on a link of 20 Mb/s: %+v, %t, %v, runs %v; want the original, nothing started", offer, isLower, err,
+			queue.runs(t, service))
+	}
+	offer, isLower, err = service.StartLower(t.Context(), playback, 95_000, 2000)
+	if err != nil || !isLower || offer.Quality != (qualities.Quality{Kbps: 1200, Height: 480}) {
+		t.Errorf("on a link of 2 Mb/s: %+v, %t, %v; want 1200k at 480p", offer, isLower, err)
+	}
+	want := []askedRun{{"q1200k480p", 9, 38}, {"sound0-96k", 9, 38}}
+	if runs := queue.runs(t, service); !slices.Equal(runs, want) {
+		t.Errorf("the runs asked for = %+v; want the quality's and the sound's, from chunk 9", runs)
+	}
+}
