@@ -197,6 +197,24 @@ describe("the film giving way to voice (D262 §2)", () => {
     }
   });
 
+  it("keeps the link measured before voice, as a paced download measures only its pace", () => {
+    let isLive = false;
+    const hls = new FakeHls();
+    adaptQuality(hls, mediaAhead(30), {
+      startAtBps: 5_000_000,
+      monotonicMs,
+      isVoiceLive: () => isLive,
+    });
+    hls.fire(Hls.Events.MANIFEST_PARSED);
+    hls.currentLevel = 1;
+    hls.bandwidthEstimate = 3_000_000;
+    vi.advanceTimersByTime(lookForStepUpEveryMs);
+    isLive = true;
+    hls.bandwidthEstimate = 1_000_000; // the pace, not the link
+    vi.advanceTimersByTime(lookForStepUpEveryMs * 5);
+    expect(hls.autoLevelCapping).toBe(1); // half of 3 Mb/s, as before voice
+  });
+
   it("asks the server to pace each download at the pace given, and nothing without one", () => {
     const headers: [string, string][] = [];
     const xhr = {
