@@ -4322,6 +4322,8 @@ unmeasured, and asymmetric routes will make it wrong sometimes — hence the man
 
 ## D66 — No clock synchronisation: monotonic local time and bounded round-trips
 
+> **Refined by [D264](#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is)** (2026-10-07): the pong carries where the group is, and the follower places the group by the pong with the shortest round trip, not by the group message whose wait it cannot know.
+
 **Decided** (2026-09-19). Clients never synchronise clocks with the server or with each other.
 Each keeps a **monotonic** local time, reports its position against it, and the server bounds
 the uncertainty with a round-trip measurement. This replaces
@@ -18673,5 +18675,39 @@ packets.
    as congestion: at 3% loss it carried 17.7 of 20 Mbit/s where CUBIC carried 1.0.
 4. **Not yet**: each browser on its own network namespace and link, as D252 §1 first intended; on
    the loopback both browsers share one bottleneck.
+
+**Status:** Decided 2026-10-07.
+
+## D264 — A follower places its group by the pong with the shortest round trip, which carries where the group is
+
+**Decided** (2026-10-07), by the project owner, on the congested profile's failed run (D263):
+asked whether to find and fix the guest's steady offset or accept it, *"yes"* to finding and
+fixing it. **Refines** [D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips),
+whose minimum-round-trip sample now places the group as well as bounding it.
+
+The first run of D263's profiles held the film on *home*, *mobile* and *lossy*, and failed on
+*congested*: 93% of samples within 200 ms, against 95%, with the guest a steady ~180 ms behind
+(median 182 ms, p95 201 ms) rather than wandering. A follower took the group's position from the
+group message that announced it, aged by half the shortest round trip any ping had measured. A
+message that waited in a full queue, 200 ms on *congested*, behind the household's download, was
+older than that by however long it waited, and the follower stayed behind by the difference for
+as long as the timeline lasted: each later message of the same timeline is ignored, so that one
+message's delay does not nudge every player (2026-10-06). No follower can know how long one
+message waited. A ping can: its round trip is measured.
+
+1. **The pong carries the group as the server has it when it answers.** A pong that answers the
+   current timeline places the group anew when its round trip is shorter than that of the pong
+   that placed it last: where the pong says, aged by half its own round trip. The group message's
+   own placing, whose wait is unknown, gives way to the first such pong. The error left is half
+   the difference between the two ways' waits on the shortest round trip seen, where it was the
+   whole of one message's wait.
+2. **A device pings as soon as a new timeline arrives**, besides every 15 s, so the first placing
+   by a measured round trip comes within one round trip of a play or a seek.
+3. **A follower notes each new placing**: the pong's round trip, and how far it moved where the
+   group is expected (`placed`, logged at info), so a steady offset on a person's link is read
+   from the log, not guessed.
+
+Still no clock is shared (D66): the pong's position is the server's, extrapolated by the
+follower's own monotonic clock from the moment it arrived.
 
 **Status:** Decided 2026-10-07.

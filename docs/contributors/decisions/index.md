@@ -72,7 +72,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D62](working-notes.md#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods) Watch Together is a first-class feature, and the per-client surface is six methods — *revisited by D66*
 - [D63](working-notes.md#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration) Voice chat is WebRTC, and headphones are the supported configuration — *revisited by D65*
 - [D65](working-notes.md#d65--playback-offset-is-per-participant-and-it-is-an-echo-control) Playback offset is per-participant, and it is an echo control
-- [D66](working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips) No clock synchronisation: monotonic local time and bounded round-trips
+- [D66](working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips) No clock synchronisation: monotonic local time and bounded round-trips — *revisited by D264*
 - [D67](working-notes.md#d67--tvos-never-gates-a-feature) tvOS never gates a feature
 - [D68](working-notes.md#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay) TURN is not an independent requirement; the media server is already the relay — *revisited by D149, D150, D193*
 - [D69](working-notes.md#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party) Group size is a priority order, not a capability: two, then four or five, then a party
@@ -269,6 +269,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D261](working-notes.md#d261--the-m4-audits-questions-answered) The M4 audit's questions, answered
 - [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it — *revisited by D263*
 - [D263](working-notes.md#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr) The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
+- [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is
 
 ## Archived
 
