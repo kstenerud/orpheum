@@ -16,11 +16,25 @@ export function acceptanceMinutes(): number {
   return minutes;
 }
 
-/** The network profiles of D243 §9, as netem's arguments, each applied to every packet. */
+/**
+ * The network profiles of D243 §9, as netem's arguments, each applied to every packet. Jitter is
+ * correlated, one packet's delay leaning on the one before's, as on a real link, where independent
+ * jitter reordered voice's packets and raised the receiver's buffer further (D262 §1). The
+ * congested link's queue holds about a quarter of a second at its rate, 100 packets of 1500 bytes,
+ * where netem's own 1000 held over two seconds. Voice on it is best effort (D261 §7).
+ */
 export const networkProfiles = [
-  { name: "home", netem: ["delay", "20ms"] },
-  { name: "mobile", netem: ["delay", "80ms", "30ms", "loss", "1%"] },
-  { name: "congested", netem: ["delay", "150ms", "50ms", "loss", "3%", "rate", "5mbit"] },
+  { name: "home", netem: ["delay", "20ms"], isVoiceBestEffort: false },
+  {
+    name: "mobile",
+    netem: ["delay", "80ms", "30ms", "25%", "loss", "1%"],
+    isVoiceBestEffort: false,
+  },
+  {
+    name: "congested",
+    netem: ["delay", "150ms", "50ms", "25%", "loss", "3%", "rate", "5mbit", "limit", "100"],
+    isVoiceBestEffort: true,
+  },
 ] as const;
 
 /**

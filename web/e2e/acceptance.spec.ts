@@ -8,20 +8,28 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { expect, firefox, test, type Page } from "@playwright/test";
 
-import { acceptanceFilm, acceptanceMinutes, chosenProfiles } from "./acceptance-server.ts";
+import {
+  acceptanceFilm,
+  acceptanceMinutes,
+  chosenProfiles,
+  type networkProfiles,
+} from "./acceptance-server.ts";
 import { firefoxUserPrefs } from "./browsers.ts";
 import { signIn } from "./pages.ts";
 import {
   endSession,
+  expectVoiceMeasureWithinBounds,
   expectVoiceWithinBounds,
   hostPlays,
   join,
   pageWithMicrophone,
   startSessionWithLink,
   talkBothWays,
+  voiceMeasureBetween,
+  voiceReports,
 } from "./together-pages.ts";
 
 /** D243 §9: two clients within 200 ms of each other 95% of the time. */
@@ -31,6 +39,27 @@ const inStepAtLeastShare = 0.95;
 const voiceConnectsWithinMs = 120_000;
 /** How often the two players' positions are compared. */
 const sampleEveryMs = 1000;
+
+/** The loopback's packet size a real link has, which ./dev sets as it starts the container (D262 §1). */
+const realLinkMtu = 1500;
+
+/**
+ * Fails unless the loopback carries a real link's packets: at its own 64 KB, one TCP packet of the
+ * film held a voice packet behind it for a tenth of a second under the congested profile.
+ */
+function expectRealLinkPackets(): void {
+  const mtu = Number(readFileSync("/sys/class/net/lo/mtu", "utf8").trim());
+  if (mtu !== realLinkMtu) {
+    throw new Error(
+      `the loopback's MTU is ${String(mtu)}, not ${String(realLinkMtu)}: run the acceptance through ./dev`,
+    );
+  }
+}
+
+/** How long each profile's voice-only run talks: a few minutes say what the call carries. */
+const voiceAloneMinutes = Math.min(3, acceptanceMinutes());
+/** How long a paused film's players are let fill their buffers before voice is measured alone. */
+const downloadsSettleMs = 60_000;
 
 /** iproute2's tc, which the development image lets the developer run on the loopback (D252 §1). */
 function tc(...tcArguments: readonly string[]): void {
@@ -86,6 +115,7 @@ for (const profile of chosenProfiles()) {
   test(`two browsers stay in step and talk under the ${profile.name} profile`, async ({
     browser,
   }) => {
+    expectRealLinkPackets();
     tc("qdisc", "replace", "dev", "lo", "root", "netem", ...profile.netem);
     const guestBrowser = await firefox.launch({ firefoxUserPrefs });
     try {
@@ -100,7 +130,7 @@ for (const profile of chosenProfiles()) {
       try {
         await hostPlays(host, acceptanceFilm(profile.name));
         await talkBothWays(host, guest, voiceConnectsWithinMs);
-        await runAndMeasure(profile.name, host, guest);
+        await runAndMeasure(profile, host, guest);
       } catch (error) {
         await keepPages([
           ["the host", host],
@@ -116,13 +146,64 @@ for (const profile of chosenProfiles()) {
       tc("qdisc", "del", "dev", "lo", "root");
     }
   });
+
+  // The fair comparison with another app's call: voice with no film beside it (D262 §1). Voice is
+  // on the player's page, so the host plays and pauses, the downloads are let settle, and the call
+  // is measured over a window of its own.
+  test(`two browsers talk with no film under the ${profile.name} profile`, async ({ browser }) => {
+    expectRealLinkPackets();
+    tc("qdisc", "replace", "dev", "lo", "root", "netem", ...profile.netem);
+    const guestBrowser = await firefox.launch({ firefoxUserPrefs });
+    try {
+      const hosting = await pageWithMicrophone(browser);
+      const joining = await pageWithMicrophone(guestBrowser);
+      const host = hosting.page;
+      const guest = joining.page;
+      await signIn(host);
+      const link = await startSessionWithLink(host);
+      await guest.goto(link);
+      await join(guest, link);
+      await hostPlays(host, acceptanceFilm(profile.name));
+      await talkBothWays(host, guest, voiceConnectsWithinMs);
+      await host
+        .locator("video")
+        .first()
+        .evaluate((video: HTMLVideoElement) => {
+          video.pause();
+        });
+      await host.waitForTimeout(downloadsSettleMs);
+      const before = await Promise.all([voiceReports(host), voiceReports(guest)]);
+      await host.waitForTimeout(voiceAloneMinutes * 60_000);
+      const after = await Promise.all([voiceReports(host), voiceReports(guest)]);
+      expectVoiceMeasureWithinBounds(
+        `${profile.name}, voice alone: the host`,
+        voiceMeasureBetween(before[0], after[0]),
+        profile.isVoiceBestEffort,
+      );
+      expectVoiceMeasureWithinBounds(
+        `${profile.name}, voice alone: the guest`,
+        voiceMeasureBetween(before[1], after[1]),
+        profile.isVoiceBestEffort,
+      );
+      await endSession(host);
+      await hosting.context.close();
+      await joining.context.close();
+    } finally {
+      await guestBrowser.close();
+      tc("qdisc", "del", "dev", "lo", "root");
+    }
+  });
 }
 
 /**
  * Plays for the run's minutes, comparing the two players every second from the first moment the
  * guest is in step, and holds the share in step and the voice to D243 §9.
  */
-async function runAndMeasure(profile: string, host: Page, guest: Page): Promise<void> {
+async function runAndMeasure(
+  { name: profile, isVoiceBestEffort }: (typeof networkProfiles)[number],
+  host: Page,
+  guest: Page,
+): Promise<void> {
   // Counted from the first moment the guest is in step: joining and loading hold no one up
   // (D246 §6), and are not what the bound is about.
   await expect
@@ -157,8 +238,11 @@ async function runAndMeasure(profile: string, host: Page, guest: Page): Promise<
   expect(inStepShare, `in step within ${String(inStepWithinMs)} ms`).toBeGreaterThanOrEqual(
     inStepAtLeastShare,
   );
-  await expectVoiceWithinBounds([
-    ["the host", host],
-    ["the guest", guest],
-  ]);
+  await expectVoiceWithinBounds(
+    [
+      ["the host", host],
+      ["the guest", guest],
+    ],
+    isVoiceBestEffort,
+  );
 }
