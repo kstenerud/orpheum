@@ -568,6 +568,36 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	}
 }
 
+// A voice call's statistics, as its receiver measured them, are logged at info, so a call that broke
+// up says whether its sound came late, was lost, or went through the relay over TCP (D262 §1, §4);
+// one without its statistics, or with an unknown path, is refused.
+func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteVoiceStats, Voice: &VoiceStats{
+			PartnerDeviceID: 4, RoundTripMs: 340, JitterBufferMs: 905, JitterBufferTargetMs: 880,
+			ConcealedShare: 0.043, PacketsLost: 312, PacketsLate: 97, FECPackets: 40, Path: "udp",
+		},
+	}})
+	want := `level=INFO msg="watch together: a voice call measured"`
+	fields := `partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 concealedShare=0.043 ` +
+		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp`
+	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, fields) {
+		t.Errorf("the log does not say the call's statistics:\n%s", logged)
+	}
+	unknowns := []*PlayerNote{
+		{Kind: NoteVoiceStats}, {Kind: NoteVoiceStats, Voice: &VoiceStats{Path: "carrier pigeon"}},
+	}
+	for _, unknown := range unknowns {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
+		if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
+		}
+	}
+}
+
 // A group's change is named by a code a client words, never by words; a seek says where it jumped
 // from as well as to (D188).
 func TestHub_AnEventIsACodeAndASeekSaysWhereItJumpedFrom(t *testing.T) {

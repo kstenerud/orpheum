@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { TogetherSocketListeners } from "./together.ts";
 import { firstReconnectWaitMs } from "./together-connection.ts";
+import { voiceStatsEveryMs, type VoiceCallStats } from "./together-voice-stats.ts";
+import { isVoiceLive } from "./voice-live.ts";
 import {
   createTogetherVoice,
   iceServersFreshForMs,
@@ -64,6 +66,18 @@ function fakeServer(): FakeServer {
   };
 }
 
+/** What every fake call measures. */
+const measuredCall: VoiceCallStats = {
+  roundTripMs: 40,
+  jitterBufferMs: 35,
+  jitterBufferTargetMs: 30,
+  concealedShare: 0.001,
+  packetsLost: 2,
+  packetsLate: 0,
+  fecPackets: 1,
+  path: "direct",
+};
+
 /** A call as a test sees it: what it was made with and what was done to it. */
 interface FakeCall extends VoiceCall {
   readonly setup: VoiceCallSetup<FakeMicrophone>;
@@ -98,6 +112,7 @@ function fakeCall(setup: VoiceCallSetup<FakeMicrophone>): FakeCall {
       steps.push(`candidate ${candidate}`);
       return Promise.resolve();
     },
+    measure: () => Promise.resolve(measuredCall),
     setGain: (gain) => {
       call.gain = gain;
     },
@@ -331,6 +346,29 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
       name: "Karl",
       state: "connected",
     });
+  });
+
+  it("is live while a call carries voice, so the film gives way to it, and not once stopped (D262 §2)", async () => {
+    const { voice, calls } = await talking();
+    expect(isVoiceLive()).toBe(false); // on, but no call connected yet
+    calls[0]!.setup.events.onState("connected");
+    expect(isVoiceLive()).toBe(true);
+    voice.stop();
+    expect(isVoiceLive()).toBe(false);
+  });
+
+  it("tells the core's log how each connected call goes, every ten seconds (D262 §1)", async () => {
+    vi.useFakeTimers();
+    const { server, calls } = await talking();
+    calls[0]!.setup.events.onState("connected"); // with Karl's device 30; Ann's, 15, connecting
+    vi.advanceTimersByTime(voiceStatsEveryMs);
+    await settle();
+    const notes = server.sent.filter((each) => each["type"] === "note");
+    expect(notes).toEqual([
+      expect.objectContaining({
+        note: { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } },
+      }),
+    ]);
   });
 
   it("mutes by switching the microphone's track off, and stops it and detaches when stopped", async () => {

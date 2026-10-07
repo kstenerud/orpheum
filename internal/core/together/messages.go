@@ -80,6 +80,8 @@ const (
 	NoteChunkLoaded     NoteKind = "chunkLoaded"
 	NoteQualitySwitched NoteKind = "qualitySwitched"
 	NoteReconnected     NoteKind = "reconnected"
+	// NoteVoiceStats is a voice call's receiver's own statistics, every ten seconds (D262 §1).
+	NoteVoiceStats NoteKind = "voiceStats"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -106,6 +108,24 @@ type PlayerNote struct {
 	EstimateKbps int64 `json:"estimateKbps,omitempty"`
 	// OfflineMs is how long a reconnecting device was without its socket.
 	OfflineMs int64 `json:"offlineMs,omitempty"`
+	// Voice is a voiceStats note's call, as its receiver measured it (D262 §1).
+	Voice *VoiceStats `json:"voice,omitempty"`
+}
+
+// VoiceStats is one voice call as its receiver measured it since it began: which partner, how
+// far the sound came and how long the jitter buffer held it and aimed to, the share of its samples
+// concealed apart from silence, packets lost, arriving too late and recovered by FEC, and the path,
+// "direct" or the relay's "udp", "tcp" or "tls" (D262 §1, §4).
+type VoiceStats struct {
+	PartnerDeviceID      int64   `json:"partnerDeviceId"`
+	RoundTripMs          int64   `json:"roundTripMs"`
+	JitterBufferMs       int64   `json:"jitterBufferMs"`
+	JitterBufferTargetMs int64   `json:"jitterBufferTargetMs"`
+	ConcealedShare       float64 `json:"concealedShare"`
+	PacketsLost          int64   `json:"packetsLost"`
+	PacketsLate          int64   `json:"packetsLate"`
+	FECPackets           int64   `json:"fecPackets"`
+	Path                 string  `json:"path"`
 }
 
 // positionMsAttribute names a position, in ms, in a log line.
@@ -114,7 +134,7 @@ const positionMsAttribute = "positionMs"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "closed", "silent", "video", "audio":
+	case "", "catchUp", "hold", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
 		return true
 	}
 	return false
@@ -125,6 +145,8 @@ func (note PlayerNote) isKnown() bool {
 	switch note.Kind {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
+	case NoteVoiceStats:
+		return note.Voice != nil && isNoteWord(note.Voice.Path)
 	}
 	return false
 }

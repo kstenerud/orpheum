@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Hls from "hls.js";
+import Hls, { type LoaderContext } from "hls.js";
 
 import { waitAheadAtMostMs } from "@orpheum/sdk";
 
@@ -11,6 +11,8 @@ import {
   beyondTheLink,
   chunkLoadPolicy,
   chunkedHlsConfig,
+  paceHeader,
+  voiceCap,
   lookForStepUpEveryMs,
   settledAtBps,
   type AdaptingHls,
@@ -168,5 +170,46 @@ describe("how far a chunked playback loads ahead (D260 §3)", () => {
       maxBufferLength: 10,
       maxMaxBufferLength: 10,
     });
+  });
+});
+
+describe("the film giving way to voice (D262 §2)", () => {
+  it("caps the film at the highest quality within half the link while voice is live", () => {
+    const { levels } = new FakeHls();
+    expect(voiceCap(levels, 3_000_000)).toBe(1); // 1.5 Mb/s carries the 1.39 Mb/s quality
+    expect(voiceCap(levels, 1_000_000)).toBe(0); // none within 0.5 Mb/s: the lowest
+    expect(voiceCap(levels, 0)).toBe(2); // the link not estimated: no cap
+  });
+
+  it("holds the playing film to the voice's cap at its next look, and not without voice", () => {
+    for (const isLive of [true, false]) {
+      const hls = new FakeHls();
+      adaptQuality(hls, mediaAhead(30), {
+        startAtBps: 5_000_000,
+        monotonicMs,
+        isVoiceLive: () => isLive,
+      });
+      hls.fire(Hls.Events.MANIFEST_PARSED);
+      hls.currentLevel = 2;
+      hls.bandwidthEstimate = 3_000_000;
+      vi.advanceTimersByTime(lookForStepUpEveryMs);
+      expect(hls.autoLevelCapping).toBe(isLive ? 1 : 2);
+    }
+  });
+
+  it("asks the server to pace each download at the pace given, and nothing without one", () => {
+    const headers: [string, string][] = [];
+    const xhr = {
+      setRequestHeader: (name: string, value: string) => {
+        headers.push([name, value]);
+      },
+    } as unknown as XMLHttpRequest;
+    const loaderContext = {} as unknown as LoaderContext;
+    let pace: number | undefined = 1863;
+    const config = chunkedHlsConfig({ startPositionS: 0, paceKbps: () => pace });
+    void config.xhrSetup?.(xhr, "/c/q1200k480p/00001.m4s", loaderContext);
+    pace = undefined;
+    void config.xhrSetup?.(xhr, "/c/q1200k480p/00002.m4s", loaderContext);
+    expect(headers).toEqual([[paceHeader, "1863"]]);
   });
 });

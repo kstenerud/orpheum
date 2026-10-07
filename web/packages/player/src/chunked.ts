@@ -2,7 +2,7 @@
 
 import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.js";
 
-import type { CannotKeepUp } from "@orpheum/sdk";
+import { isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
 import { stepDownWhileFilling } from "./fill.ts";
@@ -32,6 +32,9 @@ export const chunkFirstByteWaitMs = 30_000;
  * making its quality to reach where it jumped to, at most a minute of film ahead (D250 §4, §5).
  */
 export const chunkAskAgainCount = 90;
+
+/** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
+export const paceHeader = "Orpheum-Pace-Kbps";
 
 /** HTTP's 425 Too Early: the core's word that a chunk is being made, and to ask again. */
 const tooEarly = 425;
@@ -132,6 +135,39 @@ function bufferedAheadMs(media: AdaptedMedia): number {
   return 0;
 }
 
+/** The share of the link the film may take while voice is live (D262 §2). */
+const voiceLinkShare = 0.5;
+
+/**
+ * The highest quality, by its place among levels, the film may play while voice is live: within
+ * half the link's estimate, or the lowest when none is; any, while the link is not estimated.
+ */
+export function voiceCap(levels: readonly PlayedLevel[], estimateBps: number): number {
+  if (!(estimateBps > 0)) {
+    return levels.length - 1;
+  }
+  return Math.max(
+    levels.findLastIndex((level) => level.averageBitrate <= voiceLinkShare * estimateBps),
+    0,
+  );
+}
+
+/**
+ * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
+ * live: enough that a busy chunk still arrives well before it plays (D262 §2).
+ */
+export const paceAboveQuality = 1.25;
+
+/**
+ * The pace a download asks while this tab's voice is live, in kbit/s: a little above the quality
+ * hls.js loads, so the film never fills the link's queue in bursts ahead of the voice (D262 §2);
+ * undefined while voice is not live, or before a quality is loaded.
+ */
+function voicePaceKbps(hls: Pick<Hls, "levels" | "loadLevel">): number | undefined {
+  const bitrate = hls.levels[hls.loadLevel]?.bitrate ?? 0;
+  return isVoiceLive() && bitrate > 0 ? Math.ceil((bitrate * paceAboveQuality) / 1000) : undefined;
+}
+
 /**
  * Starts a chunked playback at the highest quality within startAtBps, the one the server chose from
  * the measured link (D247 §6), and steps it back up one quality at a time as nextCap allows (D247
@@ -140,7 +176,12 @@ function bufferedAheadMs(media: AdaptedMedia): number {
 export function adaptQuality(
   hls: AdaptingHls,
   media: AdaptedMedia,
-  options: { readonly startAtBps: number; readonly monotonicMs: () => number },
+  options: {
+    readonly startAtBps: number;
+    readonly monotonicMs: () => number;
+    /** Whether this tab's voice is live, when the film is capped at half the link (voiceCap). */
+    readonly isVoiceLive?: () => boolean;
+  },
 ): () => void {
   let changedAtMs = options.monotonicMs();
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -157,7 +198,7 @@ export function adaptQuality(
   });
   const look = setInterval(() => {
     const nowMs = options.monotonicMs();
-    const cap = nextCap({
+    const stepped = nextCap({
       levels: hls.levels,
       cap: hls.autoLevelCapping,
       playing: hls.currentLevel,
@@ -165,6 +206,10 @@ export function adaptQuality(
       bufferedAheadMs: bufferedAheadMs(media),
       sinceChangeMs: nowMs - changedAtMs,
     });
+    const cap =
+      options.isVoiceLive?.() === true
+        ? Math.min(stepped, voiceCap(hls.levels, hls.bandwidthEstimate))
+        : stepped;
     if (cap !== hls.autoLevelCapping) {
       // eslint-disable-next-line no-param-reassign -- see above
       hls.autoLevelCapping = cap;
@@ -205,8 +250,16 @@ export interface ChunkedPlayback extends HlsPlayback {
 export function chunkedHlsConfig(options: {
   readonly startPositionS: number;
   readonly loadsAheadAtMostS?: number;
+  /** The pace each download asks of the server, in kbit/s, or undefined for none (D262 §2). */
+  readonly paceKbps?: () => number | undefined;
 }): Partial<HlsConfig> {
   return {
+    xhrSetup: (xhr) => {
+      const kbps = options.paceKbps?.();
+      if (kbps !== undefined) {
+        xhr.setRequestHeader(paceHeader, String(kbps));
+      }
+    },
     testBandwidth: false,
     capLevelToPlayerSize: false,
     startPosition: options.startPositionS,
@@ -255,7 +308,7 @@ export function playChunked(
     options.onFailed("hls_unsupported");
     return { setAudioRendition: () => undefined, destroy: () => undefined, ...unknowing };
   }
-  const hls = new Hls(chunkedHlsConfig(options));
+  const hls: Hls = new Hls(chunkedHlsConfig({ ...options, paceKbps: () => voicePaceKbps(hls) }));
   failOnFatal(hls, options.onFailed);
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
@@ -263,6 +316,7 @@ export function playChunked(
   const stopAdapting = adaptQuality(hls, video, {
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,
+    isVoiceLive,
   });
   const stopFilling = stepDownWhileFilling(hls, options.monotonicMs);
   const estimateKbps = measuredKbps(hls);

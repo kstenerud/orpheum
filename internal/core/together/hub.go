@@ -573,6 +573,10 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 		return
 	}
+	if note.Kind == NoteVoiceStats {
+		current.logVoice(ctx, who, from, *note.Voice)
+		return
+	}
 	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))
 	for _, field := range []struct {
 		name  string
@@ -601,6 +605,17 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		attributes = append(attributes, "track", note.Track)
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player noted", attributes...)
+}
+
+// logVoice says how a voice call is going, as its receiver measured it: a call that broke up on a
+// bad link said nothing of whether its sound came late, was lost, or went through a relay over TCP
+// (the acceptance's congested run, 2026-10-06; D262 §1).
+func (current *session) logVoice(ctx context.Context, who *member, from *device, voice VoiceStats) {
+	current.logger.InfoContext(ctx, "watch together: a voice call measured", append(current.deviceAttributes(who, from),
+		"partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
+		"jitterBufferMs", voice.JitterBufferMs, "jitterBufferTargetMs", voice.JitterBufferTargetMs,
+		"concealedShare", voice.ConcealedShare, "packetsLost", voice.PacketsLost, "packetsLate", voice.PacketsLate,
+		"fecPackets", voice.FECPackets, "path", voice.Path)...)
 }
 
 // relay passes voice signalling to the device it names, in the same session (D193 §4).

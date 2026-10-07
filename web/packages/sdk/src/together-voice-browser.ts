@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
+import { voiceCallStatsOf, type VoiceCallStats } from "./together-voice-stats.ts";
 import type {
   MicrophoneProcessing,
   VoiceCall,
@@ -109,6 +111,53 @@ function playVoice(stream: MediaStream, context: AudioContext | undefined): Play
   };
 }
 
+/**
+ * Lists RED first among the codecs each of peer's audio transceivers takes (voiceCodecOrder), where
+ * the browser lets a page choose them.
+ */
+function preferRed(peer: RTCPeerConnection): void {
+  const codecs = RTCRtpReceiver.getCapabilities("audio")?.codecs;
+  if (codecs === undefined) {
+    return;
+  }
+  for (const transceiver of peer.getTransceivers()) {
+    if ("setCodecPreferences" in transceiver) {
+      transceiver.setCodecPreferences(voiceCodecOrder(codecs));
+    }
+  }
+}
+
+/**
+ * Marks voice's packets high priority, and, where the browser can (Chrome, Safari), as expedited
+ * for the network (DSCP EF), which a home router or Wi-Fi that honours it sends ahead of the film
+ * (D262 §3). A browser that refuses the change sends voice as before.
+ */
+function markHighPriority(senders: readonly RTCRtpSender[]): void {
+  for (const sender of senders) {
+    const parameters = sender.getParameters();
+    for (const encoding of parameters.encodings) {
+      Object.assign(encoding, { priority: "high", networkPriority: "high" });
+    }
+    void sender.setParameters(parameters).catch(() => undefined);
+  }
+}
+
+/** Takes a description peer made as its own, with voice's Opus settings, and returns what it took. */
+async function takeOwn(peer: RTCPeerConnection, made: RTCSessionDescriptionInit): Promise<string> {
+  const sdp = withOpusSettings(made.sdp ?? "");
+  await peer.setLocalDescription({ type: made.type, sdp });
+  return sdp;
+}
+
+/** The call as its receiver measured it so far (voiceCallStatsOf). */
+async function measureCall(peer: RTCPeerConnection): Promise<VoiceCallStats> {
+  const reports: Record<string, unknown>[] = [];
+  (await peer.getStats()).forEach((report: Record<string, unknown>) => {
+    reports.push({ ...report });
+  });
+  return voiceCallStatsOf(reports);
+}
+
 /** One call over the browser's RTCPeerConnection, sending the microphone, playing what comes. */
 function startBrowserCall(
   setup: VoiceCallSetup<MediaStream>,
@@ -118,9 +167,10 @@ function startBrowserCall(
     iceServers: [...setup.iceServers],
     iceTransportPolicy: "all", // standard ICE picks the path: direct, or through the relay (D193 §4)
   });
-  for (const track of setup.microphone.getAudioTracks()) {
-    peer.addTrack(track, setup.microphone);
-  }
+  const senders = setup.microphone
+    .getAudioTracks()
+    .map((track) => peer.addTrack(track, setup.microphone));
+  preferRed(peer);
   let gain = 1;
   let played: PlayedVoice | undefined;
   peer.addEventListener("icecandidate", (event) => {
@@ -129,6 +179,9 @@ function startBrowserCall(
     }
   });
   peer.addEventListener("connectionstatechange", () => {
+    if (peer.connectionState === "connected") {
+      markHighPriority(senders);
+    }
     setup.events.onState(callStateOf(peer.connectionState));
   });
   peer.addEventListener("track", (event) => {
@@ -137,16 +190,10 @@ function startBrowserCall(
     played.setGain(gain);
   });
   return {
-    offer: async () => {
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      return offer.sdp ?? "";
-    },
+    offer: async () => await takeOwn(peer, await peer.createOffer()),
     answer: async (offerSdp) => {
       await peer.setRemoteDescription({ type: "offer", sdp: offerSdp });
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-      return answer.sdp ?? "";
+      return await takeOwn(peer, await peer.createAnswer());
     },
     accept: async (answerSdp) => {
       await peer.setRemoteDescription({ type: "answer", sdp: answerSdp });
@@ -158,6 +205,7 @@ function startBrowserCall(
       gain = next;
       played?.setGain(next);
     },
+    measure: async () => await measureCall(peer),
     close: () => {
       played?.stop();
       peer.close();

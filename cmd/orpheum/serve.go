@@ -33,6 +33,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
+	"github.com/kstenerud/orpheum/internal/platform/pacing"
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
@@ -49,7 +50,9 @@ func serve(
 	server := api.NewServer(logger)
 	clientFiles, _ := webclient.Files()
 	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
-	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
+	httpServer := &http.Server{
+		Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
+	}
 	var serving sync.WaitGroup
 	serving.Go(func() {
 		if serveErr := httpServer.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
