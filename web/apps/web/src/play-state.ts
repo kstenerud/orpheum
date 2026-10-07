@@ -105,6 +105,62 @@ function reportSeqCounter(mediaToken: string): () => number {
   };
 }
 
+/** When a playback's player asked how its file plays, and was answered, on the page's clock. */
+interface DecisionTimes {
+  readonly askedMs: number;
+  readonly decidedMs: number;
+}
+
+/** Each playback's decision times, by media token, until its reporting takes them. */
+const decisionTimesByToken = new Map<string, DecisionTimes>();
+
+/**
+ * Keeps when a playback's player asked how its file plays and was answered, askedMs and decidedMs
+ * from performance.now(), so its reports can say how long it took to start playing.
+ */
+export function noteDecisionTimes(mediaToken: string, askedMs: number, decidedMs: number): void {
+  decisionTimesByToken.set(mediaToken, { askedMs, decidedMs });
+}
+
+/**
+ * Tells the reporter, at the video's first playing, how long the playback mediaToken names took to
+ * start: from asking how the file plays to the answer, to the first frame's data, and to playing.
+ * Its decision times are forgotten once told, so a player made again for it, as a move to a lower
+ * quality makes one, tells nothing more; one whose times are not known tells nothing. It returns the
+ * listeners to add to the video.
+ */
+function startupListeners(
+  video: HTMLVideoElement,
+  reporter: PlayReporter,
+  mediaToken: string,
+): Record<string, () => void> {
+  const times = decisionTimesByToken.get(mediaToken);
+  if (times === undefined) {
+    return {};
+  }
+  let firstDataMs: number | undefined;
+  let isTold = false;
+  const sinceAsked = (ms: number): number => Math.max(0, Math.round(ms - times.askedMs));
+  return {
+    loadeddata: () => {
+      firstDataMs ??= performance.now();
+    },
+    playing: () => {
+      if (isTold || !hasMedia(video)) {
+        return;
+      }
+      isTold = true;
+      decisionTimesByToken.delete(mediaToken);
+      const playingMs = performance.now();
+      reporter.recordStartup({
+        decisionMs: sinceAsked(times.decidedMs),
+        firstDataMs: sinceAsked(firstDataMs ?? playingMs),
+        playingMs: sinceAsked(playingMs),
+      });
+    },
+  };
+}
+
 /** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
 interface VideoEventReporting {
   readonly lastPositionMs: () => number;
@@ -112,15 +168,17 @@ interface VideoEventReporting {
 }
 
 /**
- * Tells the reporter what the video does, and starts it at resumePositionMs. Events from a video
- * with no media are ignored, and where it was when it last held some is kept: an emptied video is
- * at 0:00, which the person did not watch.
+ * Tells the reporter what the video does, and how long it took to start (startupListeners), and
+ * starts it at the playback's resumePositionMs. Events from a video with no media are ignored, and
+ * where it was when it last held some is kept: an emptied video is at 0:00, which the person did not
+ * watch.
  */
 function reportVideoEvents(
   video: HTMLVideoElement,
   reporter: PlayReporter,
-  resumePositionMs: number,
+  playback: { readonly mediaToken: string; readonly resumePositionMs: number },
 ): VideoEventReporting {
+  const { resumePositionMs } = playback;
   let isResuming = resumePositionMs > 0;
   let lastHeldPositionMs = resumePositionMs;
   const whileItHoldsMedia = (listener: () => void) => (): void => {
@@ -157,7 +215,12 @@ function reportVideoEvents(
       reporter.recordCompleted(positionMs(video));
     }),
   };
-  for (const [event, listener] of Object.entries(listeners)) {
+  // The start-up is recorded first, so the report the first started event sends carries it.
+  const added = [
+    ...Object.entries(startupListeners(video, reporter, playback.mediaToken)),
+    ...Object.entries(listeners),
+  ];
+  for (const [event, listener] of added) {
     video.addEventListener(event, listener);
   }
   if (isResuming && video.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -166,7 +229,7 @@ function reportVideoEvents(
   return {
     lastPositionMs: () => lastHeldPositionMs,
     stop: () => {
-      for (const [event, listener] of Object.entries(listeners)) {
+      for (const [event, listener] of added) {
         video.removeEventListener(event, listener);
       }
     },
@@ -220,7 +283,7 @@ function startReporting(
     }
   }, reportSeqCounter(mediaToken));
   reporter.measureLinkWith(playback.readLinkKbps);
-  const videoEvents = reportVideoEvents(video, reporter, playback.resumePositionMs);
+  const videoEvents = reportVideoEvents(video, reporter, playback);
   const stopWatchingStalls = watchStalls(video, (stall) => {
     movingDown.stalled();
     reporter.recordStall(stall.positionMs);

@@ -3589,6 +3589,9 @@
               "array",
               "null"
             ]
+          },
+          "startup": {
+            "$ref": "#/components/schemas/StartupBody"
           }
         },
         "required": [
@@ -4427,6 +4430,32 @@
           "mediaToken",
           "levelling",
           "fileBitRateKbps"
+        ],
+        "type": "object"
+      },
+      "StartupBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decisionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "firstDataMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "playingMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decisionMs",
+          "firstDataMs",
+          "playingMs"
         ],
         "type": "object"
       },

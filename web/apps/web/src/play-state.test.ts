@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
-import { sendReport } from "./play-state.ts";
+import { noteDecisionTimes, sendReport } from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
 import {
   mount,
@@ -142,5 +142,34 @@ describe("play state", () => {
       "Your connection could not keep up, so this moves to a lower quality: 480p, 1.2 Mb/s.",
     );
     expect(mounted.container.textContent).not.toContain("Playing the original file");
+  });
+
+  it("tells, at the first playing, how long the playback took to start from asking how to play", async () => {
+    const heard: Heard[] = [];
+    const askedMs = performance.now() - 3000;
+    noteDecisionTimes("timed", askedMs, askedMs + 200);
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "timed" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(playView, servedBy({ "POST /playback/timed/report": [204, undefined] }, heard)),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      video.dispatchEvent(new Event("loadeddata"));
+      video.dispatchEvent(new Event("playing"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const sent = heard.find((request) => request.methodAndPath === "POST /playback/timed/report");
+    expect(sent?.body).toMatchObject({ startup: { decisionMs: 200 } });
+    const { startup } = sent?.body as { startup: { firstDataMs: number; playingMs: number } };
+    expect(startup.firstDataMs).toBeGreaterThanOrEqual(3000);
+    expect(startup.playingMs).toBeGreaterThanOrEqual(startup.firstDataMs);
   });
 });
