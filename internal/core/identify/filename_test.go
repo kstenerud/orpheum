@@ -61,6 +61,28 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		{"Show/Season 1/Show - S01E02 - The Pilot.mkv", ParsedPath{
 			Kind: "episode", Name: "Show", Season: 1, Episode: 2,
 		}},
+		// A season pack's folder names a season, not a series: the folder above it names the series,
+		// or, with none, what the pack's name says before its season marker.
+		{"Copper Kettle/Copper.Kettle.S02.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Copper.Kettle.S02E01.720p.mkv", ParsedPath{
+			Kind: "episode", Name: "Copper Kettle", Season: 2, Episode: 1,
+		}},
+		{"Copper Kettle/copper-kettle-s04/Copper.Kettle.S04E01.1080p.HEVC.x265-WICKER[PORCH.ex].mkv", ParsedPath{
+			Kind: "episode", Name: "Copper Kettle", Season: 4, Episode: 1,
+		}},
+		{"Wexford Lasses/Wexford Lasses Season 1 Complete 720p HDTV x264 [i_c]/Wexford Lasses S01E01.mp4", ParsedPath{
+			Kind: "episode", Name: "Wexford Lasses", Season: 1, Episode: 1,
+		}},
+		{"Slow.Ferrets.S01.COMPLETE.720p.ATVP.WEBRip.x264-HARBOR[SHELF]/Slow.Ferrets.S01E01.720p.mkv", ParsedPath{
+			Kind: "episode", Name: "Slow Ferrets", Season: 1, Episode: 1,
+		}},
+		{"Quillwick.1982.S01-S04.1080p.BluRay.EAC3.2.0.x265-FERN/S01/Quillwick.S01E01.mkv", ParsedPath{
+			Kind: "episode", Name: "Quillwick", Year: 1982, Season: 1, Episode: 1,
+		}},
+		// "Seasons 1 to 5" in a show's own folder is no season marker: the folder names the series.
+		{
+			"Star Wren Lower Rooms 2020 Seasons 1 to 5 720p Complete WEB [i_c]/Season 1/Lower Rooms - S01E01.mkv",
+			ParsedPath{Kind: "episode", Name: "Star Wren Lower Rooms", Year: 2020, Season: 1, Episode: 1},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
@@ -84,7 +106,7 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 func TestParsePath_NoExpressionUsesAnASCIIOnlyClass(t *testing.T) {
 	t.Parallel()
 	patterns := []*regexp.Regexp{
-		providerIDPattern, episodePattern, seasonXEpisodePattern, seasonFolderPattern, yearPattern,
+		providerIDPattern, episodePattern, seasonXEpisodePattern, seasonFolderPattern, seasonPackPattern, yearPattern,
 	}
 	for _, pattern := range patterns {
 		for _, banned := range []string{`\w`, `\W`, `\d`, `\D`, `\s`, `\S`, `\b`, `[[:alpha:]]`, `[[:alnum:]]`} {
