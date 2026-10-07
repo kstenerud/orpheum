@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { decisionTimesOf } from "./play-state.ts";
 import { servedBy, type Answer, type Heard } from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
-import { Watching, warmUpKeptMs } from "./watching.ts";
+import { Watching, warmUpKeptMs, type Preload, type StartPreload } from "./watching.ts";
 
 const playableFormats = testServices().playableFormats();
 
@@ -28,6 +28,7 @@ function decided(mediaToken: string, isCut = true): Answer {
       url: "/u",
       notDirectReasons: [],
       mediaToken,
+      resumePositionMs: 40_000,
       ...(isCut ? { onLadder } : {}),
     },
   ];
@@ -40,8 +41,37 @@ async function settled(heard: readonly Heard[]): Promise<string[]> {
   return heard.map((request) => request.methodAndPath);
 }
 
+/** The preloads a stand-in started: each one's playlist and position, whether it was stopped. */
+interface Preloads {
+  readonly started: { url: string; positionMs: number; isStopped: boolean }[];
+  /** What every preload says it settled on. */
+  settledAtBps: number | undefined;
+  readonly start: StartPreload;
+}
+
+function standInPreloads(): Preloads {
+  const preloads: Preloads = {
+    started: [],
+    settledAtBps: undefined,
+    start: (offer, positionMs): Preload => {
+      const preload = { url: offer.url, positionMs, isStopped: false };
+      preloads.started.push(preload);
+      return {
+        settledAtBps: () => preloads.settledAtBps,
+        stop: () => {
+          preload.isStopped = true;
+        },
+      };
+    },
+  };
+  return preloads;
+}
+
 /** A Watching over a stand-in server answering decisions a, b, c in turn, and a clock it moves. */
-function watchingServed(heard: Heard[]): { watching: Watching; clock: { ms: number } } {
+function watchingServed(
+  heard: Heard[],
+  preloads: Preloads = standInPreloads(),
+): { watching: Watching; clock: { ms: number } } {
   const { api } = servedBy(
     {
       "POST /playback": [decided("a"), decided("b"), decided("c")],
@@ -51,7 +81,7 @@ function watchingServed(heard: Heard[]): { watching: Watching; clock: { ms: numb
     heard,
   );
   const clock = { ms: 0 };
-  return { watching: new Watching(api, () => clock.ms), clock };
+  return { watching: new Watching(api, () => clock.ms, preloads.start), clock };
 }
 
 describe("the film being watched (D258)", () => {
@@ -105,10 +135,39 @@ describe("the film being watched (D258)", () => {
       },
       heard,
     );
-    const watching = new Watching(api, () => 0);
+    const watching = new Watching(api, () => 0, standInPreloads().start);
     watching.warmUp(7, playableFormats);
     const decision = await watching.decide(7, playableFormats);
     expect(decision.mediaToken).toBe("b");
     expect(decision.onLadder).toBeDefined();
+  });
+
+  it("preloads a film on its ladder from where it resumes, and Play starts where the preload settled (D260 §3)", async () => {
+    const preloads = standInPreloads();
+    const { watching } = watchingServed([], preloads);
+    watching.warmUp(7, playableFormats);
+    await settled([]);
+    expect(preloads.started).toEqual([
+      { url: "/api/v1/bytes/media/chunks/a/master.m3u8", positionMs: 40_000, isStopped: false },
+    ]);
+    // It stepped down to the 1.2 Mb/s quality while the page was open.
+    preloads.settledAtBps = 1_896_000;
+    const decision = await watching.decide(7, playableFormats);
+    expect(decision.onLadder?.startAtBps).toBe(1_896_000);
+    expect(preloads.started[0]?.isStopped).toBe(true);
+  });
+
+  it("stops the preload when another film is chosen, and starts none for a film not on its ladder", async () => {
+    const preloads = standInPreloads();
+    const { api } = servedBy({
+      "POST /playback": [decided("a"), decided("b", false)],
+      "DELETE /playback/a": [204, undefined],
+    });
+    const watching = new Watching(api, () => 0, preloads.start);
+    watching.warmUp(7, playableFormats);
+    await settled([]);
+    watching.warmUp(9, playableFormats);
+    await settled([]);
+    expect(preloads.started.map((preload) => preload.isStopped)).toEqual([true]);
   });
 });

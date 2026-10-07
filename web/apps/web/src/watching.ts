@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { playChunked } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
+import type { LadderOffer } from "./moving-down.ts";
 import { noteDecisionTimes } from "./play-state.ts";
 import { dataOrThrow } from "./problem.ts";
+import { monotonicMs } from "./use-together.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
 export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
@@ -31,6 +34,42 @@ export async function requestPlayback(
  */
 export const warmUpKeptMs = 30 * 60_000;
 
+/** A hidden player filling a film's first buffer on its page (D260 §3). */
+export interface Preload {
+  /** The BANDWIDTH of the quality its stepping settled on so far; undefined before it loads one. */
+  readonly settledAtBps: () => number | undefined;
+  readonly stop: () => void;
+}
+
+/** Starts a Preload of the film's ladder from where its playback resumes. */
+export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
+
+/**
+ * A Preload in a muted video the page never shows: hls.js loads the first buffer from the offered
+ * quality and steps down by itself if the link cannot fill it, and the chunks it loads are kept by
+ * the browser for the Play page's player. One that fails is the Play page's to try again.
+ */
+export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
+  const video = document.createElement("video");
+  video.muted = true;
+  video.hidden = true;
+  video.playsInline = true;
+  document.body.append(video);
+  const playback = playChunked(video, offer.url, {
+    onFailed: () => undefined,
+    startAtBps: offer.startAtBps,
+    startPositionS: positionMs / 1000,
+    monotonicMs,
+  });
+  return {
+    settledAtBps: () => playback.settledAtBps(),
+    stop: () => {
+      playback.destroy();
+      video.remove();
+    },
+  };
+};
+
 /**
  * The film a person is watching in this tab, and the playbacks asked for it, which the server keeps
  * working on until the person shows they want another film (D258 §2): opening another film's page,
@@ -39,19 +78,21 @@ export const warmUpKeptMs = 30 * 60_000;
  * data").
  *
  * A film's page warms it up (D258 §1): it asks how the film plays at once, so the server starts its
- * prepared copy or its chunks, and the Play page takes that decision instead of asking again.
+ * prepared copy or its chunks, and the Play page takes that decision instead of asking again. A film
+ * on its ladder is preloaded too, and the Play page's player starts at the quality the preload
+ * settled on, its chunks already in the browser (D260 §3).
  */
 export class Watching {
   private fileId: number | undefined;
   // The playbacks asked for the film, by their media tokens, which a move to another lets go of.
   private readonly tokens = new Set<string>();
   // The film page's decision, until the Play page takes it, and when it was asked for.
-  private warm:
-    { readonly decision: Promise<PlaybackDecision>; readonly askedMs: number } | undefined;
+  private warm: Warm | undefined;
 
   constructor(
     private readonly api: Api,
     private readonly nowMs: () => number = () => performance.now(),
+    private readonly startPreload: StartPreload = preloadInHiddenVideo,
   ) {}
 
   /** A film's page was opened: the film is warmed up, and any other one let go of. */
@@ -61,9 +102,18 @@ export class Watching {
     }
     this.watch(fileId);
     const decision = this.ask(fileId, playableFormats);
-    // A warm-up that fails is the Play page's to ask again; nothing waits on it here.
-    decision.catch(() => undefined);
-    this.warm = { decision, askedMs: this.nowMs() };
+    const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
+    this.warm = warm;
+    decision.then(
+      (decided) => {
+        // Not once the Play page took it, or another film was chosen.
+        if (this.warm === warm && decided.onLadder !== undefined) {
+          warm.preload = this.startPreload(decided.onLadder, decided.resumePositionMs);
+        }
+      },
+      // A warm-up that fails is the Play page's to ask again; nothing waits on it here.
+      () => undefined,
+    );
   }
 
   /**
@@ -75,18 +125,23 @@ export class Watching {
     this.watch(fileId);
     const warm = this.warm;
     this.warm = undefined;
-    if (warm !== undefined && this.nowMs() - warm.askedMs < warmUpKeptMs) {
-      // Its start is timed from Play, not from opening the page: what the person waits for.
-      const pressedMs = performance.now();
-      return warm.decision.then((decision) => {
-        if (decision.onLadder === undefined) {
-          return this.ask(fileId, playableFormats);
-        }
-        noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
-        return decision;
-      });
+    if (warm === undefined || this.nowMs() - warm.askedMs >= warmUpKeptMs) {
+      warm?.preload?.stop();
+      return this.ask(fileId, playableFormats);
     }
-    return this.ask(fileId, playableFormats);
+    // Its start is timed from Play, not from opening the page: what the person waits for.
+    const pressedMs = performance.now();
+    return warm.decision.then((decision) => {
+      const settledAtBps = warm.preload?.settledAtBps();
+      warm.preload?.stop();
+      if (decision.onLadder === undefined) {
+        return this.ask(fileId, playableFormats);
+      }
+      noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
+      return settledAtBps === undefined
+        ? decision
+        : { ...decision, onLadder: { ...decision.onLadder, startAtBps: settledAtBps } };
+    });
   }
 
   private async ask(fileId: number, playableFormats: PlayableFormats): Promise<PlaybackDecision> {
@@ -109,6 +164,7 @@ export class Watching {
       this.leave(token);
     }
     this.tokens.clear();
+    this.warm?.preload?.stop();
     this.warm = undefined;
     this.fileId = fileId;
   }
@@ -117,6 +173,13 @@ export class Watching {
     // A leave that fails costs only background priority, later, when the token idles out.
     this.api.DELETE("/playback/{token}", { params: { path: { token } } }).catch(() => undefined);
   }
+}
+
+/** A film page's decision, until the Play page takes it, when it was asked for, and its preload. */
+interface Warm {
+  readonly decision: Promise<PlaybackDecision>;
+  readonly askedMs: number;
+  preload: Preload | undefined;
 }
 
 const watchingByApi = new WeakMap<Api, Watching>();
