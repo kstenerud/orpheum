@@ -45,7 +45,7 @@ describe("correcting drift by the welcome's tuning (D250 §1)", () => {
     expect(
       driftCorrection({ expectedMs: 1000, actualMs: 1000 - leftMs, groupRate: 1 }, startingTuning),
     ).toEqual({ kind: "none" });
-    expect(startingTuning.leaveDriftUpToMs).toBe(500); // the owner's 500 ms, where it was 60
+    expect(startingTuning.leaveDriftUpToMs).toBe(150); // the owner's 150 ms, so the 200 ms bound holds
   });
 
   it("nudges the rate to close a drift within about a second, as far as the gentlest nudge allows", () => {

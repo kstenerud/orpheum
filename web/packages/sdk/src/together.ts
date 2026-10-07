@@ -111,7 +111,7 @@ export interface SyncTuning {
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
 export const startingTuning: SyncTuning = {
-  leaveDriftUpToMs: 500,
+  leaveDriftUpToMs: 150,
   nudgeMostPercent: 10,
   seekDriftBeyondMs: 3000,
   catchUpBufferPercent: 80,
