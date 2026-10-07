@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -166,7 +165,7 @@ func commandCore(ctx context.Context, call invocation) int {
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}
-	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", config.Server.Listen)
+	listener, err := listenForMedia(ctx, config.Server.Listen, logger)
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}

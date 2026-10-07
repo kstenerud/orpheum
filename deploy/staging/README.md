@@ -31,6 +31,10 @@ and `node.toml` (the full configs), `wg0.conf` (the tunnel's key and the VPS), a
   `docker` group, so `./staging` runs without `sudo`.
 - **WireGuard in the kernel**, which Debian's kernel has. `sudo modprobe wireguard` loads it and
   says nothing when it is there.
+- **BBR in the kernel**, which sends the films so they keep their rate on a lossy link (D263 §3).
+  `sudo modprobe tcp_bbr` loads it now; `echo tcp_bbr | sudo tee /etc/modules-load.d/bbr.conf`
+  loads it at every boot. Without it the core says so once in its log and sends with the kernel's
+  default.
 - **The VPS set up** as `deploy/vps/README.md` §1 and §2 say, with its IPv6 address.
 - **Port 8440** free on the machine (or another, see `[http]` in the values file). Staging never
   uses the dev loop's 8432 or 5173, so both run at once.

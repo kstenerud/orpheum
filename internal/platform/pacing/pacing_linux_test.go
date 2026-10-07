@@ -5,6 +5,9 @@ package pacing
 import (
 	"context"
 	"net"
+	"os"
+	"slices"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/unix"
@@ -80,5 +83,53 @@ func TestPace_LeavesARequestWithNoKeptConnectionAlone(t *testing.T) {
 		if err := Pace(ctx, 1000); err != nil {
 			t.Errorf("pacing with no socket: %v, want nothing done", err)
 		}
+	}
+}
+
+func TestListenConfig_AcceptsConnectionsThatSendWithBBRWhereTheKernelHasIt(t *testing.T) {
+	t.Parallel()
+	available, err := os.ReadFile("/proc/sys/net/ipv4/tcp_available_congestion_control")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasBBR := slices.Contains(strings.Fields(string(available)), "bbr")
+	var refused []error
+	listener, err := ListenConfig(func(err error) { refused = append(refused, err) }).
+		Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() }) //nolint:errcheck // test teardown
+	client, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() }) //nolint:errcheck // test teardown
+	accepted, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = accepted.Close() }) //nolint:errcheck // test teardown
+	tcp, isTCP := accepted.(*net.TCPConn)
+	if !isTCP {
+		t.Fatalf("%T is not TCP", accepted)
+	}
+	raw, err := tcp.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var congestion string
+	var getErr error
+	if err := raw.Control(func(fd uintptr) {
+		congestion, getErr = unix.GetsockoptString(int(fd), unix.IPPROTO_TCP, unix.TCP_CONGESTION)
+	}); err != nil || getErr != nil {
+		t.Fatal(err, getErr)
+	}
+	if hasBBR && (congestion != "bbr" || len(refused) != 0) {
+		t.Errorf("with BBR in the kernel, the accepted connection sends with %q (refused %v); want bbr",
+			congestion, refused)
+	}
+	if !hasBBR && (congestion == "bbr" || len(refused) != 1) {
+		t.Errorf("without BBR in the kernel: %q, refused %v; want the default, refused once", congestion, refused)
 	}
 }
