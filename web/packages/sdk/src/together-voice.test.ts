@@ -9,11 +9,15 @@ import {
   iceServersFreshForMs,
   partnerGainMost,
   microphoneFailureOf,
+  type MicrophoneProcessing,
   type TogetherVoice,
   type VoiceCall,
   type VoiceCallSetup,
   type VoiceMicrophone,
 } from "./together-voice.ts";
+
+/** The tuning's starting processing: gain control and noise suppression, no echo cancelling. */
+const levelled: MicrophoneProcessing = { shouldCancelEcho: false, shouldLevel: true };
 
 /** The server's end of each socket voice opens, and every message sent on them, parsed. */
 interface FakeServer {
@@ -128,7 +132,7 @@ interface Rig {
   readonly calls: FakeCall[];
   readonly iceAsked: number[];
   /** Whether each opening of the microphone asked for the browser's processing. */
-  readonly processedAsked: boolean[];
+  readonly processedAsked: MicrophoneProcessing[];
 }
 
 const relay: RTCIceServer = { urls: ["turn:orpheum.test:443"], username: "u", credential: "p" };
@@ -142,7 +146,7 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
   const microphone = fakeMicrophone();
   const calls: FakeCall[] = [];
   const iceAsked: number[] = [];
-  const processedAsked: boolean[] = [];
+  const processedAsked: MicrophoneProcessing[] = [];
   const voice = createTogetherVoice({
     credential: "membership",
     openSocket: server.open,
@@ -152,8 +156,8 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
       return Promise.resolve([relay]);
     },
     devices: {
-      openMicrophone: (isProcessed) => {
-        processedAsked.push(isProcessed);
+      openMicrophone: (processing) => {
+        processedAsked.push(processing);
         return openMicrophone?.() ?? Promise.resolve(microphone);
       },
       startCall: (setup) => {
@@ -213,7 +217,7 @@ function welcome(deviceId: number, members: readonly unknown[] = roster): Record
 /** Voice turned on and welcomed as device 20, with the roster above. */
 async function talking(): Promise<Rig> {
   const started = rig();
-  await started.voice.start(true);
+  await started.voice.start(levelled);
   started.server.sockets[0]!.onOpen();
   started.server.tell(welcome(20));
   await settle();
@@ -233,8 +237,8 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
   it("attaches a second device for voice with the membership's credential once the microphone opens", async () => {
     const { voice, server, processedAsked } = rig();
     expect(server.sockets).toHaveLength(0);
-    await voice.start(false);
-    expect(processedAsked).toEqual([false]); // as the welcome's tuning says
+    await voice.start(levelled);
+    expect(processedAsked).toEqual([levelled]); // as the welcome's tuning says
     server.sockets[0]!.onOpen();
     expect(server.sent[0]).toEqual({
       v: 2,
@@ -375,7 +379,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(microphone.isStopped()).toBe(true);
     expect(server.closedHere).toEqual([0]);
     expect(calls.every((call) => call.isClosed)).toBe(true);
-    await voice.start(true);
+    await voice.start(levelled);
     expect(voice.snapshot()).toMatchObject({ status: "on", failure: undefined });
     expect(server.sockets).toHaveLength(2);
   });
@@ -404,7 +408,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
 
   it("says why when the microphone is refused, and attaches nothing", async () => {
     const refused = rig(() => Promise.reject(new DOMException("no", "NotAllowedError")));
-    await refused.voice.start(true);
+    await refused.voice.start(levelled);
     expect(refused.voice.snapshot()).toMatchObject({
       status: "failed",
       failure: "refused",
@@ -432,7 +436,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
           opened = resolve;
         }),
     );
-    const starting = late.voice.start(true);
+    const starting = late.voice.start(levelled);
     expect(late.voice.snapshot().status).toBe("starting");
     late.voice.stop();
     opened(late.microphone);

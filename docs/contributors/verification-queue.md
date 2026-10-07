@@ -209,12 +209,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   Safari's still position just after a change, and its switch of pitch keeping, are answered
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
 - [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against
-  staging and presses **Talk**. Passes when the film stays at its usual loudness and the phone's
-  volume buttons still change it while voice is on. If the film drops to barely audible (the
-  owner's test, 2026-10-06, Firefox), set **should_together_voice_process_microphone** to off on
-  the Settings page, press Leave voice and Talk again, and say whether the film's loudness and the
-  buttons come back, and whether the other person still hears you clearly. Only a real Android
-  phone shows whether the browser's microphone processing puts it in a call
+  staging and presses **Talk**, with the settings as they start (**should_together_voice_cancel_echo**
+  off, **should_together_voice_level_microphone** on). Passes when the film stays at its usual
+  loudness, the phone's volume buttons still change it while voice is on, and the other person
+  hears the host clearly over their film with their Partner slider at 100%. If the film drops to
+  barely audible (the owner's test, 2026-10-06, with both on), set
+  **should_together_voice_level_microphone** to off on the Settings page, press Leave voice and
+  Talk again, and say whether the film's loudness and the buttons come back. Only a real Android
+  phone shows that Chrome levels a microphone without echo cancelling in software, not as a call
+  (voip research, 2026-10-07, from Chromium's source)
   (`web/packages/sdk/src/together-voice-browser.ts`)
 - [ ] **VQ24** — `make test-acceptance` on D190's remote-household VM on nuc13 (device-lab.md), each
   of the two browsers behind its own netem profile rather than one shared loopback: passes when

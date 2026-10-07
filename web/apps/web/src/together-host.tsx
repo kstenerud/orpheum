@@ -100,7 +100,7 @@ function HostLeading(
       <VoiceControls
         membership={props.membership}
         sessionToken={token}
-        isMicrophoneProcessed={(snapshot?.tuning ?? startingTuning).shouldProcessMicrophone}
+        tuning={snapshot?.tuning ?? startingTuning}
       />
     </div>
   );

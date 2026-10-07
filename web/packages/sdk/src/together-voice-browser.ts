@@ -1,31 +1,38 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { VoiceCall, VoiceCallSetup, VoiceCallState, VoiceDevices } from "./together-voice.ts";
+import type {
+  MicrophoneProcessing,
+  VoiceCall,
+  VoiceCallSetup,
+  VoiceCallState,
+  VoiceDevices,
+} from "./together-voice.ts";
 
 /**
- * The microphone as voice asks for it: with the browser's own echo cancelling, noise suppression
- * and gain control, or with none. Echo of the film is kept out by headphones (D63, tier 1), never
- * by aligning, so none is needed; on Android they may put the phone in a call, which turns the
- * film down and takes its volume buttons (the owner's test, 2026-10-06).
+ * The microphone as voice asks for it. Echo of the film is kept out by headphones (D63, tier 1),
+ * so echo cancelling is rarely needed, and on Android it puts the phone in a call, which turns the
+ * film down and takes its volume buttons (the owner's test, 2026-10-06). Gain control and noise
+ * suppression apart from it are Chrome's own on Android, no call; without gain control a voice
+ * came through too quiet beside the film.
  */
-function microphoneConstraints(isProcessed: boolean): MediaStreamConstraints {
+export function microphoneConstraints(processing: MicrophoneProcessing): MediaStreamConstraints {
   return {
     audio: {
-      echoCancellation: isProcessed,
-      noiseSuppression: isProcessed,
-      autoGainControl: isProcessed,
+      echoCancellation: processing.shouldCancelEcho,
+      noiseSuppression: processing.shouldLevel,
+      autoGainControl: processing.shouldLevel,
     },
     video: false,
   };
 }
 
 /** The browser's microphone; a page that cannot reach one (no https) fails as NotSupportedError. */
-async function openBrowserMicrophone(isProcessed: boolean): Promise<MediaStream> {
+async function openBrowserMicrophone(processing: MicrophoneProcessing): Promise<MediaStream> {
   // Absent, not merely refused, outside a secure context: the http address on a home network.
   if (!("mediaDevices" in navigator)) {
     throw new DOMException("this page cannot reach a microphone", "NotSupportedError");
   }
-  return await navigator.mediaDevices.getUserMedia(microphoneConstraints(isProcessed));
+  return await navigator.mediaDevices.getUserMedia(microphoneConstraints(processing));
 }
 
 /** A call's state, from its RTCPeerConnection's; a dropped path is one being set up again. */
@@ -172,12 +179,12 @@ export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
 export function browserVoiceDevices(): BrowserVoiceDevices {
   let context: AudioContext | undefined;
   return {
-    openMicrophone: async (isProcessed) => {
+    openMicrophone: async (processing) => {
       if (context === undefined && "AudioContext" in window) {
         context = new AudioContext();
         void context.resume().catch(() => undefined);
       }
-      const microphone = await openBrowserMicrophone(isProcessed);
+      const microphone = await openBrowserMicrophone(processing);
       // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
       // for: Firefox keeps a resume pending until it lets the page play sound, and voice hung at
       // "Asking for your microphone" (the browser tier, 2026-10-06).

@@ -92,13 +92,21 @@ export interface VoiceCallSetup<Microphone extends VoiceMicrophone> {
   readonly events: VoiceCallEvents;
 }
 
+/** What the browser does to the microphone for voice, as the welcome's tuning says. */
+export interface MicrophoneProcessing {
+  /** Echo cancelling: on Android it makes a call of voice, turning the film down. */
+  readonly shouldCancelEcho: boolean;
+  /** Gain control and noise suppression, which without echo cancelling are no call on Android. */
+  readonly shouldLevel: boolean;
+}
+
 /** What voice reaches the microphone and the calls through: the browser's, or a test's. */
 export interface VoiceDevices<Microphone extends VoiceMicrophone> {
   /**
-   * Opens the microphone, with the browser's echo cancelling, noise suppression and gain control
-   * when isProcessed, or fails with the browser's error (microphoneFailureOf reads it).
+   * Opens the microphone, processed as processing says, or fails with the browser's error
+   * (microphoneFailureOf reads it).
    */
-  readonly openMicrophone: (isProcessed: boolean) => Promise<Microphone>;
+  readonly openMicrophone: (processing: MicrophoneProcessing) => Promise<Microphone>;
   readonly startCall: (setup: VoiceCallSetup<Microphone>) => VoiceCall;
 }
 
@@ -143,10 +151,10 @@ export interface TogetherVoice {
   /** Calls listener whenever the snapshot changes; returns the unsubscribing. */
   readonly subscribe: (listener: () => void) => () => void;
   /**
-   * Opens the microphone, processed as isProcessed says (the welcome's shouldProcessMicrophone),
-   * and attaches this device for voice: from a person's gesture.
+   * Opens the microphone, processed as processing says (the welcome's tuning), and attaches this
+   * device for voice: from a person's gesture.
    */
-  readonly start: (isProcessed: boolean) => Promise<void>;
+  readonly start: (processing: MicrophoneProcessing) => Promise<void>;
   /** Ends every call, detaches, and closes the microphone. */
   readonly stop: () => void;
   readonly setMuted: (isMuted: boolean) => void;
@@ -167,7 +175,7 @@ export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> {
 
 /**
  * The most the others' voices are made louder than they came: a microphone with no gain control
- * (shouldProcessMicrophone off) came through too quiet beside the film even at 1 (the owner's
+ * (no processing at all) came through too quiet beside the film even at 1 (the owner's
  * test, 2026-10-06).
  */
 export const partnerGainMost = 4;
@@ -293,7 +301,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     return () => this.#listeners.delete(listener);
   };
 
-  readonly start = async (isProcessed: boolean): Promise<void> => {
+  readonly start = async (processing: MicrophoneProcessing): Promise<void> => {
     if (this.#snapshot.status === "starting" || this.#snapshot.status === "on") {
       return;
     }
@@ -302,7 +310,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     this.#change({ ...offSnapshot, status: "starting", partnerGain: this.#snapshot.partnerGain });
     let microphone: Microphone;
     try {
-      microphone = await this.#options.devices.openMicrophone(isProcessed);
+      microphone = await this.#options.devices.openMicrophone(processing);
     } catch (error) {
       if (generation === this.#generation) {
         this.#change({

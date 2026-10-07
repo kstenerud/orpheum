@@ -101,10 +101,12 @@ export interface SyncTuning {
   /** Whether a nudged player's sound keeps its pitch (D250 §7). */
   readonly shouldNudgeKeepPitch: boolean;
   /**
-   * Whether the browser's echo cancelling, noise suppression and gain control work on the
-   * microphone for voice: headphones need none (D63), and on Android they may make a call of it.
+   * Whether the browser cancels echo on the microphone for voice: headphones need none (D63), and
+   * on Android it makes a call of it.
    */
-  readonly shouldProcessMicrophone: boolean;
+  readonly shouldCancelMicrophoneEcho: boolean;
+  /** Whether the browser's gain control and noise suppression work on the microphone for voice. */
+  readonly shouldLevelMicrophone: boolean;
 }
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
@@ -115,7 +117,8 @@ export const startingTuning: SyncTuning = {
   catchUpBufferPercent: 80,
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
-  shouldProcessMicrophone: false,
+  shouldCancelMicrophoneEcho: false,
+  shouldLevelMicrophone: true,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
@@ -266,10 +269,15 @@ function parseTuning(value: unknown): SyncTuning {
       "shouldNudgeKeepPitch",
       startingTuning.shouldNudgeKeepPitch,
     ),
-    shouldProcessMicrophone: booleanIn(
+    shouldCancelMicrophoneEcho: booleanIn(
       record,
-      "shouldProcessMicrophone",
-      startingTuning.shouldProcessMicrophone,
+      "shouldCancelMicrophoneEcho",
+      startingTuning.shouldCancelMicrophoneEcho,
+    ),
+    shouldLevelMicrophone: booleanIn(
+      record,
+      "shouldLevelMicrophone",
+      startingTuning.shouldLevelMicrophone,
     ),
   };
 }

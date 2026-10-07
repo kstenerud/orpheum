@@ -245,10 +245,7 @@ function ViewerSession(props: {
         </>
       )}
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls
-        membership={props.membership}
-        isMicrophoneProcessed={(snapshot?.tuning ?? startingTuning).shouldProcessMicrophone}
-      />
+      <VoiceControls membership={props.membership} tuning={snapshot?.tuning ?? startingTuning} />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
