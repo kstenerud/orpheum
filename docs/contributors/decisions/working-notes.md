@@ -18500,7 +18500,7 @@ lower version. **Revises** D247 §2, *"The original plays first"*, for a link kn
 situation and pre buffer the best matched steam (generating it if necessary)?"*, and *"the preload
 would make a good speed test, wouldn't it? If the client struggles to preload, it already knows it
 needs a lower bit rate stream."* Netflix's predictive caching and Apple's advice to start network
-work once a title is likely are the precedent (coldstart research, 2026-10-07).
+work once a title is likely are the precedent ([cold-start.md](../design/research/cold-start.md), 2026-10-07).
 
 1. **Opening a film's page, or pressing play, starts a warm-up**: the server prepares the first
    minute of the version D257 would start on, or its first chunks, and the page loads its first
@@ -18610,8 +18610,8 @@ failed"*.
 ## D262 — Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it
 
 **Decided** (2026-10-07), by the project owner, on the research into how Signal and WhatsApp keep
-voice working on links where ours failed (voice-bad-links-research-2026-10-07.md, in the shared
-files; D261 §7): *"Do all of them if it will help"*. Voice on a congested link stays best effort
+voice working on links where ours failed ([voice-bad-links.md](../design/research/voice-bad-links.md);
+D261 §7): *"Do all of them if it will help"*. Voice on a congested link stays best effort
 (D261 §7); these are what make it likely to work there.
 
 1. **Measure before tuning.** Each voice call reports its receiver's own statistics every ten
