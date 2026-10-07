@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
@@ -37,29 +38,46 @@ func (*cutAfterChunks) IsReadyAt(context.Context, chunks.Playback, chunks.Offer,
 
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
+// waitSettings are settings whose play_ladder_wait_ms is waitMs.
+type waitSettings struct{ waitMs int64 }
+
+func (wait waitSettings) Int(_ context.Context, key settings.Key) (int64, error) {
+	if key != settings.PlayLadderWaitMs {
+		return 0, fmt.Errorf("no setting %s here", key)
+	}
+	return wait.waitMs, nil
+}
+
+func (waitSettings) Duration(context.Context, settings.Key) (time.Duration, error) { return 0, nil }
+
 // A playback of a film not cut yet waits for its keyframes, read from its file's index, and starts
-// on its ladder once they are kept within ladderWaitFor; past it, it plays as its decision says
+// on its ladder once they are kept within play_ladder_wait_ms; past it, it plays as its decision says
 // (D260 §1).
 func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
 	t.Parallel()
 	for _, wait := range []struct {
+		waitMs     int64
 		noGridFor  int
 		isOnLadder bool
 	}{
-		{noGridFor: 3, isOnLadder: true},
-		{noGridFor: int(ladderWaitFor/ladderLookEvery) + 1, isOnLadder: false},
+		{waitMs: 2000, noGridFor: 3, isOnLadder: true},
+		{waitMs: 2000, noGridFor: int(2000*time.Millisecond/ladderLookEvery) + 1, isOnLadder: false},
+		// Set to nothing, it does not wait at all.
+		{waitMs: 0, noGridFor: 1, isOnLadder: false},
 	} {
 		clock := clocktest.NewFake(time.Date(2026, 10, 7, 20, 0, 0, 0, time.UTC))
 		cut := &cutAfterChunks{noGridFor: wait.noGridFor}
-		service := &Service{clock: clock, chunks: cut, speeds: newLinkSpeeds()}
+		service := &Service{
+			clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{waitMs: wait.waitMs},
+		}
 		started := clock.Now()
 		offer, err := service.startOnLadder(t.Context(), Holder{}, Request{}, tokenPlayback{fileID: 1}, 0)
 		if err != nil || (offer != nil) != wait.isOnLadder {
-			t.Errorf("with no grid for %d looks: %+v, %v; want on its ladder %t", wait.noGridFor, offer, err,
-				wait.isOnLadder)
+			t.Errorf("waiting %d ms, with no grid for %d looks: %+v, %v; want on its ladder %t", wait.waitMs,
+				wait.noGridFor, offer, err, wait.isOnLadder)
 		}
-		if waited := clock.Now().Sub(started); waited > ladderWaitFor {
-			t.Errorf("with no grid for %d looks, it waited %v; want at most %v", wait.noGridFor, waited, ladderWaitFor)
+		if waited := clock.Now().Sub(started); waited > time.Duration(wait.waitMs)*time.Millisecond {
+			t.Errorf("waiting %d ms, it waited %v", wait.waitMs, waited)
 		}
 	}
 }
