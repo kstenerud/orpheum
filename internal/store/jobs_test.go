@@ -349,3 +349,25 @@ func TestJobStorage_KeepsAJobWantedAndDemotesItOncePast(t *testing.T) {
 			filmJob, showJob)
 	}
 }
+
+// A job released, no person waiting for it any more, is demoted at once, though the time it was kept
+// wanted had not passed; another target's is left (D258 §2).
+func TestJobStorage_AReleasedJobIsDemotedAtOnce(t *testing.T) {
+	t.Parallel()
+	storage := newJobStorageFixture(t)
+	film, show := JobTarget{RenditionID: 7}, JobTarget{RenditionID: 8}
+	storage.insert("prepare", film, 1000, jobStart)
+	storage.insert("prepare", show, 1000, jobStart)
+	for _, kept := range []JobTarget{film, show} {
+		if err := storage.jobs.KeepWanted(t.Context(), "prepare", kept, jobStart.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := storage.jobs.ReleaseWanted(t.Context(), "prepare", film, jobStart.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	demoted, err := storage.jobs.DemoteUnwanted(t.Context(), jobStart.Add(time.Minute), 0)
+	if err != nil || len(demoted) != 1 || storage.byID()[demoted[0].ID].Target != film {
+		t.Errorf("demoted %+v (%v); want the film's job alone", demoted, err)
+	}
+}

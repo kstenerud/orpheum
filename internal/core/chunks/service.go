@@ -31,6 +31,8 @@ type Queue interface {
 	// KeepWanted says a person still waits for a job's work: a player asking for a store's chunks
 	// while a run makes them (D234 §3).
 	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
+	// ReleaseWanted says no person waits for a job's work any more: a player that left (D258 §2).
+	ReleaseWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 	// CancelMatching cancels kind's queued and running jobs on target whose arguments match says: a
 	// run a seek went far past (D250 §5).
 	CancelMatching(
@@ -50,6 +52,8 @@ type Loudness interface {
 // is cut from: readthrough.Service.
 type ReadThrough interface {
 	ReadForPlay(ctx context.Context, fileID int64) (bool, error)
+	// ReleaseForPlay says no player waits for the file's read-through any more (D258 §2).
+	ReleaseForPlay(ctx context.Context, fileID int64) error
 	RetryFailedForPlay(
 		ctx context.Context, fileID int64, payloadHash []byte, videoStreamIndex int, before time.Time,
 	) (bool, error)

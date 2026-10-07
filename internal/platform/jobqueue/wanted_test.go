@@ -44,3 +44,28 @@ func TestDemoteUnwanted_GivesTheJobsNoOneWaitsForAnyMoreTheirNewPriority(t *test
 		t.Errorf("a second look demoted %+v (%v) again, want nothing", again, err)
 	}
 }
+
+// A job no person waits for any more, released as its page is left, falls at the next demotion,
+// though its time had not passed; one never said wanted is not made wanted by a release (D258 §2).
+func TestReleaseWanted_ANoLongerWantedJobFallsAtTheNextDemotion(t *testing.T) {
+	t.Parallel()
+	fixed := newFixture(t, nil, nil)
+	fixed.enqueue(t, jobqueue.Request[target]{Kind: "prepare", Target: "film", Priority: 1000})
+	fixed.enqueue(t, jobqueue.Request[target]{Kind: "prepare", Target: "sweep", Priority: 1000})
+	wantedUntil := fixed.clock.Now().Add(10 * time.Minute)
+	if err := fixed.queue.KeepWanted(t.Context(), "prepare", "film", wantedUntil); err != nil {
+		t.Fatal(err)
+	}
+	for _, left := range []target{"film", "sweep"} {
+		if err := fixed.queue.ReleaseWanted(t.Context(), "prepare", left); err != nil {
+			t.Fatal(err)
+		}
+	}
+	demoted, err := fixed.queue.DemoteUnwanted(t.Context(), 0)
+	if err != nil || len(demoted) != 1 || demoted[0].Target != "film" {
+		t.Fatalf("demoted %+v (%v); want the film alone, released", demoted, err)
+	}
+	if sweep := fixed.row(t, "sweep"); sweep.Priority != 1000 || sweep.WantedUntil != nil {
+		t.Errorf("the sweep is %d (%v); want it as it was", sweep.Priority, sweep.WantedUntil)
+	}
+}

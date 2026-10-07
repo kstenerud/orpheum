@@ -9,6 +9,10 @@ VALUES (sqlc.arg(source_file), sqlc.arg(stream), sqlc.arg(grid_id))
 ON CONFLICT (source_file, stream, grid_id) DO UPDATE SET stream = excluded.stream
 RETURNING id;
 
+-- name: ListChunkStoresOfFile :many
+-- A film's stores, every stream on every grid, whose runs a player that left no longer wants.
+SELECT id FROM chunk_store WHERE source_file = sqlc.arg(source_file) ORDER BY id;
+
 -- name: GetChunkStore :one
 SELECT id, source_file, stream, grid_id
 FROM chunk_store

@@ -130,12 +130,32 @@ func (jobStorage *JobStorage) Cancel(ctx context.Context, id int64, at time.Time
 func (jobStorage *JobStorage) KeepWanted(
 	ctx context.Context, kind jobqueue.Kind, target JobTarget, until time.Time,
 ) error {
+	return jobStorage.setWanted(ctx, kind, target, until, false)
+}
+
+// ReleaseWanted ends now the time a person waits for kind's open jobs on target.
+func (jobStorage *JobStorage) ReleaseWanted(
+	ctx context.Context, kind jobqueue.Kind, target JobTarget, now time.Time,
+) error {
+	return jobStorage.setWanted(ctx, kind, target, now.Add(-time.Millisecond), true)
+}
+
+// setWanted sets, to until, when a person stops waiting for kind's open jobs on target: no earlier
+// than before, or, if isRelease, whatever was before, for a job anyone waited for.
+func (jobStorage *JobStorage) setWanted(
+	ctx context.Context, kind jobqueue.Kind, target JobTarget, until time.Time, isRelease bool,
+) error {
+	var release int64
+	if isRelease {
+		release = 1
+	}
 	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		columns := target.columns()
-		return queries.KeepJobWanted(ctx, cachegen.KeepJobWantedParams{
-			Until: until.UnixMilli(), Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition,
-			StreamID: columns.stream, FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
+		return queries.SetJobWanted(ctx, cachegen.SetJobWantedParams{
+			IsRelease: release, Until: until.UnixMilli(), Kind: string(kind),
+			ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ScanID: columns.scan,
+			ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 		})
 	})
 }

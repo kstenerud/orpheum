@@ -40,6 +40,15 @@ type fakeQueue struct {
 	// jobs cancelled by id; guarded by mutex.
 	cancelledFirsts []int
 	cancelledJobs   []int64
+	// released are the jobs said to be no longer wanted, in order; guarded by mutex.
+	released []jobs.Target
+}
+
+func (queue *fakeQueue) ReleaseWanted(_ context.Context, _ jobs.Kind, target jobs.Target) error {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	queue.released = append(queue.released, target)
+	return nil
 }
 
 func (queue *fakeQueue) Cancel(_ context.Context, id int64) error {
@@ -164,6 +173,8 @@ type fakeReadThrough struct {
 	// failedBeforePlay are the files whose read-through failed before a play, which it tries again.
 	failedBeforePlay map[int64]bool
 	retried          []int64
+	// released are the files whose read-through a player let go of.
+	released []int64
 }
 
 func (reader *fakeReadThrough) RetryFailedForPlay(
@@ -177,6 +188,13 @@ func (reader *fakeReadThrough) RetryFailedForPlay(
 	delete(reader.failedBeforePlay, fileID)
 	reader.retried = append(reader.retried, fileID)
 	return true, nil
+}
+
+func (reader *fakeReadThrough) ReleaseForPlay(_ context.Context, fileID int64) error {
+	reader.mutex.Lock()
+	defer reader.mutex.Unlock()
+	reader.released = append(reader.released, fileID)
+	return nil
 }
 
 func (reader *fakeReadThrough) ReadForPlay(_ context.Context, fileID int64) (bool, error) {

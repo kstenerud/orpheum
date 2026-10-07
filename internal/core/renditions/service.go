@@ -34,6 +34,8 @@ type Queue interface {
 	// KeepWanted says a person still waits for a job's work: a player asking for a rendition being
 	// prepared (D234 §3).
 	KeepWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
+	// ReleaseWanted says no person waits for a job's work any more: a player that left (D258 §2).
+	ReleaseWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.

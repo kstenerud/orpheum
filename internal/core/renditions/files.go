@@ -28,6 +28,21 @@ type File struct {
 	Readiness   jobs.Readiness
 }
 
+// ReleaseWanted says no player waits for the rendition of a file in profile any more, as one that
+// left its page (D258 §2): its prepare falls to background at the next demotion, unless a player
+// asks for it again. A file with no rendition in profile has nothing to release.
+func (service *Service) ReleaseWanted(ctx context.Context, fileID int64, profile nodeproto.PrepareProfile) error {
+	rendition, err := store.OrNotFound(service.cache.Read().GetRenditionOfFileAndProfile(ctx,
+		cachegen.GetRenditionOfFileAndProfileParams{SourceFile: fileID, Profile: string(profile)}))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read the rendition: %w", err)
+	}
+	return service.queue.ReleaseWanted(ctx, jobs.KindPrepare, jobs.Target{RenditionID: rendition.ID})
+}
+
 // FileOf is where the named file of the rendition of a file in profile is (cut-a §5). A rendition
 // being made that is asked for keeps its prepare wanted: a player asking for it is a person still
 // waiting for it (D234 §3).

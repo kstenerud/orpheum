@@ -125,6 +125,20 @@ func (memory *Memory[T]) KeepWanted(_ context.Context, kind jobqueue.Kind, targe
 	return nil
 }
 
+// ReleaseWanted is jobqueue.Storage's.
+func (memory *Memory[T]) ReleaseWanted(_ context.Context, kind jobqueue.Kind, target T, now time.Time) error {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	released := now.Add(-time.Millisecond)
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.Kind == kind && row.Target == target && isOpen(row.State) && row.WantedUntil != nil {
+			row.WantedUntil = &released
+		}
+	}
+	return nil
+}
+
 // DemoteUnwanted is jobqueue.Storage's.
 func (memory *Memory[T]) DemoteUnwanted(_ context.Context, now time.Time, priority int64) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()

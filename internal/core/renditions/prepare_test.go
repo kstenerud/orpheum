@@ -19,11 +19,18 @@ import (
 // progressQueue keeps each job's progress as the job view would.
 type progressQueue struct {
 	progress map[int64]float64
+	// released are the jobs said to be no longer wanted.
+	released []jobs.Target
 }
 
 func (queue *progressQueue) Enqueue(context.Context, jobs.Request) (bool, error) { return true, nil }
 
 func (*progressQueue) KeepWanted(context.Context, jobs.Kind, jobs.Target) error { return nil }
+
+func (queue *progressQueue) ReleaseWanted(_ context.Context, _ jobs.Kind, target jobs.Target) error {
+	queue.released = append(queue.released, target)
+	return nil
+}
 
 func (queue *progressQueue) SetProgress(_ context.Context, id int64, fraction float64) error {
 	queue.progress[id] = fraction
@@ -145,6 +152,39 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	service.reported(t, command, nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := testutil.Receive(t, ended, "the prepare job to end"); err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
+	}
+}
+
+// A player that leaves lets go of the prepare of its file's rendition in its profile (D258 §2); a
+// profile the file has no rendition in has nothing to let go of.
+func TestReleaseWanted_LetsGoOfThePrepareOfTheFilesRenditionInTheProfile(t *testing.T) {
+	t.Parallel()
+	cache := storetest.OpenCache(t)
+	queue := &progressQueue{progress: map[int64]float64{}}
+	service := &Service{cache: cache, queue: queue}
+	var rendition int64
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		var insertErr error
+		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
+			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
+			RunID: "0123456789abcdef", CreatedAt: 1,
+		})
+		return insertErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ReleaseWanted(t.Context(), 3, nodeproto.ProfileRemux); err != nil {
+		t.Fatal(err)
+	}
+	if len(queue.released) != 0 {
+		t.Errorf("leaving a profile with no rendition let go of %v", queue.released)
+	}
+	if err := service.ReleaseWanted(t.Context(), 3, nodeproto.ProfileH264At8M); err != nil {
+		t.Fatal(err)
+	}
+	if len(queue.released) != 1 || queue.released[0] != (jobs.Target{RenditionID: rendition}) {
+		t.Errorf("the prepares let go of = %v; want rendition %d's", queue.released, rendition)
 	}
 }
 
