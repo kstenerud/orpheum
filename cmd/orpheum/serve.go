@@ -324,8 +324,15 @@ func openScans(opened openedServices, ingester *library.Ingester, logger *slog.L
 	})
 	opened.nodes.SetScans(scans)
 	opened.exchanges.SetDiskStalls(scans)
-	opened.exchanges.SetQuickPasses(scans)
+	holdSlowReadsForQuickPasses(opened.exchanges, scans)
 	return scans
+}
+
+// holdSlowReadsForQuickPasses has a background read of whole films wait while a scan is on its quick
+// pass of the film's disk, so a library is listed and playable before any film is read through
+// (D255 §3).
+func holdSlowReadsForQuickPasses(exchanges *nodes.Exchanges, scans nodes.QuickPasses) {
+	exchanges.SetQuickPasses(scans)
 }
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, and
