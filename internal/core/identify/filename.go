@@ -44,6 +44,11 @@ var (
 	seasonXEpisodePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|$)`)
 	seasonFolderPattern   = regexp.MustCompile(
 		`(?i)^(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})$|^s([0-9]{1,3})$`)
+	// A season pack's folder carries a season marker as a word inside its release name, which
+	// seasonPackPattern finds, as in "Show.S02.COMPLETE.720p", "show-s04", "Show Season 1 Complete"
+	// and "Show.1982.S01-S04". An episode marker, "S02E01", is not one.
+	seasonPackPattern = regexp.MustCompile(`(?i)(?:^|[\p{Z} ._-])(?:s[0-9]{1,3}|` +
+		`(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*[0-9]{1,3})(?:[\p{Z} ._-]|$)`)
 	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]-]|$)`)
 )
 
@@ -128,15 +133,26 @@ func findEpisode(stem string) (episodeMarker, bool) {
 }
 
 // seriesFromFolders names a series from the folders above an episode: "Show/Season 01/x.mkv" and
-// "Show/Specials/x.mkv" are Show.
+// "Show/Specials/x.mkv" are Show. A season pack's folder, "Show/Show.S02.COMPLETE.720p/x.mkv", names
+// a season too, not a series of its own, so the folder above it names the series; with none above,
+// what the pack's name says before its season marker does (the owner's NAS, 2026-10-07: each of Ted
+// Lasso's seasons was a series of its own).
 func seriesFromFolders(folder string) (name string, year int) {
+	packPrefix := ""
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
-		if part == "" || isSeasonFolder(strings.TrimSpace(part)) {
+		part = strings.TrimSpace(part)
+		if part == "" || isSeasonFolder(part) {
+			continue
+		}
+		if marker := seasonPackPattern.FindStringIndex(part); marker != nil {
+			if packPrefix == "" {
+				packPrefix = part[:marker[0]]
+			}
 			continue
 		}
 		return cleanTitle(part)
 	}
-	return "", 0
+	return cleanTitle(packPrefix)
 }
 
 // cleanTitle turns a release-style stem into a title and its year: separators become spaces,
