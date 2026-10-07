@@ -28,7 +28,8 @@ interface HostPlayer {
 /**
  * The host's player in their Watch Together session, while this tab hosts one (D246 §5): the film
  * the host starts plays for everyone; the host's own play, pause and seeks are the group's; the
- * host's video waits while a viewer buffers; leaving the player stops it for everyone. With no
+ * host's video waits for the viewers only at the group's sync points (D250 §2); leaving the player
+ * stops it for everyone. With no
  * session it shows nothing and does nothing.
  */
 export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {

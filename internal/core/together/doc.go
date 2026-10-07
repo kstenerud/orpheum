@@ -61,10 +61,11 @@
 //   - D66: no clock synchronisation.
 //   - D117, D119, D122, D125: the session, its link and its guests, as D246 revised them.
 //   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control.
-//   - D247 §4: waiting for a stalled player once, then letting it catch up alone.
+//   - D250 §2–§5: the group stops only at its own sync points; a member's trouble is theirs to
+//     catch up on.
 //   - D191: the session behaves as if nobody has an account.
-//   - D243 §1–§3 and §9: a guest's cookie, a signed-in member's viewing, secrets after #, and the
-//     numbers it is held to.
+//   - D243 §1, §3 and §9: a guest's cookie, secrets after #, and the numbers it is held to, as
+//     D261 §1, §7 revised them; a signed-in member's viewing is deferred (D261 §3).
 //   - docs/contributors/design/plans/watch-together.md, and cut-a §5.1: the messages.
 //
 // # Where to change
