@@ -18,6 +18,12 @@ import path from "node:path";
 export const owner = { name: "owner", password: "owner-browser-test" } as const;
 export const warmUpFilm = "Warm Up Film";
 
+/**
+ * A film no browser plays from its ladder, which is prepared instead (D260 §1): an MPEG-2 picture no
+ * browser decodes, smaller than the lowest quality its chunks offer.
+ */
+export const preparedFilm = "Prepared Film";
+
 /** Where the last run's server log is kept, beside the dev loop's state and ignored by git. */
 const serverLogPath = new URL("../../.dev/browser-server.log", import.meta.url);
 
@@ -116,6 +122,12 @@ export const longTrackName =
   "Timing.Film.2026.Directors.Cut.1080p.BluRay.x264.DTS-HD.MA.5.1-ReleaseGroupName";
 
 /** A short film every browser plays as it is: answering the sound question costs no prepare. */
+const preparedFilmArguments = [
+  ...["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24:duration=10"],
+  ...["-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=10"],
+  ...["-c:v", "mpeg2video", "-q:v", "5", "-c:a", "aac", "-ac", "2"],
+];
+
 const warmUpArguments = [
   ...["-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=10"],
   ...["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=10"],
@@ -271,16 +283,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   return await startServer([]);
 }
 
-/**
- * Makes the library, with extraFilms beside the films every spec uses, starts the server — the
- * core, then the node beside it, two services as in deployment (D235 §4) — and returns what
- * stops both and removes everything.
- */
-export async function startServer(extraFilms: readonly Film[]): Promise<() => Promise<void>> {
-  const binary = requiredEnv("ORPHEUM_TEST_BINARY");
-  const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
-  const ffmpeg = path.join(ffmpegDirectory, "ffmpeg");
-  const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-"));
+/** Makes the library under root, the films every spec uses and extraFilms beside them, and returns it. */
+function makeFilms(ffmpeg: string, root: string, extraFilms: readonly Film[]): string {
   const library = path.join(root, "films");
   const assPath = path.join(root, "timing.ass");
   writeFileSync(assPath, timingAssText);
@@ -289,6 +293,12 @@ export async function startServer(extraFilms: readonly Film[]): Promise<() => Pr
     year: 2020,
     extension: "mp4",
     ffmpegInputArguments: warmUpArguments,
+  });
+  makeFilm(ffmpeg, library, {
+    title: preparedFilm,
+    year: 2021,
+    extension: "mkv",
+    ffmpegInputArguments: preparedFilmArguments,
   });
   for (const film of extraFilms) {
     makeFilm(ffmpeg, library, film);
@@ -301,6 +311,20 @@ export async function startServer(extraFilms: readonly Film[]): Promise<() => Pr
       ffmpegInputArguments: timingFilmArguments(assPath, index * 90),
     });
   });
+  return library;
+}
+
+/**
+ * Makes the library, with extraFilms beside the films every spec uses, starts the server — the
+ * core, then the node beside it, two services as in deployment (D235 §4) — and returns what
+ * stops both and removes everything.
+ */
+export async function startServer(extraFilms: readonly Film[]): Promise<() => Promise<void>> {
+  const binary = requiredEnv("ORPHEUM_TEST_BINARY");
+  const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
+  const ffmpeg = path.join(ffmpegDirectory, "ffmpeg");
+  const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-"));
+  const library = makeFilms(ffmpeg, root, extraFilms);
 
   const port = await freePort();
   const instances = makeInstances({ binary, root, library, ffmpegDirectory, port });

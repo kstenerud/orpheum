@@ -228,10 +228,20 @@ func (service *Service) startingPoint(
 	return levels, nil
 }
 
+// ladderWaitFor is how long a playback of a film not cut yet waits for its keyframes, read from its
+// file's index at play priority, before it plays as its decision says: four times the slowest index
+// read measured, an MP4's on the owner's NAS, half a second (D259 §2), so a film opened for the first
+// time starts on its ladder and makes no prepared copy. A file with no index waits it out at each
+// start until its read-through cuts it. The wait looks again every ladderLookEvery.
+const (
+	ladderWaitFor   = 2 * time.Second
+	ladderLookEvery = 100 * time.Millisecond
+)
+
 // startOnLadder starts a playback on its film's ladder from positionMs (D260): at the top, or, with
 // its player's link on the request's network remembered, where that link calls for (D257 §1). A
-// film with no grid yet is nil, playing as its decision says while its timeline is read; one that
-// cannot be cut, or offers no picture, is nil too.
+// film with no grid yet is waited for, up to ladderWaitFor, while its timeline is read, then nil,
+// playing as its decision says; one that cannot be cut, or offers no picture, is nil at once.
 func (service *Service) startOnLadder(
 	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs int64,
 ) (*chunks.Offer, error) {
@@ -241,15 +251,22 @@ func (service *Service) startOnLadder(
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
 	kbps, _ := service.speeds.fresh(key, service.clock.Now())
 	playback.positionMs = positionMs
-	offer, err := service.chunks.StartOnLadder(ctx, chunksPlaybackOf(playback), positionMs, kbps)
-	if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
-		errors.Is(err, chunks.ErrNoQualityOffered) {
-		return nil, nil //nolint:nilnil // no ladder is no error
+	waitUntil := service.clock.Now().Add(ladderWaitFor)
+	for {
+		offer, err := service.chunks.StartOnLadder(ctx, chunksPlaybackOf(playback), positionMs, kbps)
+		isWaiting := errors.Is(err, chunks.ErrNoGrid) && service.clock.Now().Before(waitUntil)
+		if isWaiting && service.clock.Sleep(ctx, ladderLookEvery) == nil {
+			continue
+		}
+		if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
+			errors.Is(err, chunks.ErrNoQualityOffered) {
+			return nil, nil //nolint:nilnil // no ladder is no error
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &offer, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	return &offer, nil
 }
 
 // reachedFile is a file the holder may play: one in a library they do not reach is library.ErrNoFile,

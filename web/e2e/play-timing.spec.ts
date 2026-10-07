@@ -3,12 +3,15 @@
 import { expect, test } from "@playwright/test";
 
 import { isPlaying, openFilm, serverUrl, signIn } from "./pages.ts";
-import { longTrackName, timingFilm, warmUpFilm } from "./server.ts";
+import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
 
-test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with the reason on screen", async ({
+/** Says the quality a film on its ladder plays at, and that it follows the connection (D260). */
+const onTheLadder = "The quality follows your connection.";
+
+test("an MKV with H.264, TrueHD and ASS loads its first chunks on its page and plays from its ladder within 8 s of pressing play", async ({
   page,
   browserName,
 }) => {
@@ -20,37 +23,43 @@ test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with 
   await page.getByRole("link", { name: "Play" }).click();
   await page.getByRole("button", { name: /Built-in speakers/ }).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
-  await expect(page.locator(".play__reason")).toHaveText("Playing the original file, as it is.");
+  await expect(page.locator(".play__reason")).toContainText(onTheLadder);
 
+  // Its page fills the player's first buffer before Play is pressed (D260 §3).
+  const preloaded = page.waitForRequest(/\/bytes\/media\/chunks\/.+\.m4s/u);
   await openFilm(page, timingFilm(browserName));
+  await preloaded;
   const pressedAt = Date.now();
   await page.getByRole("link", { name: "Play" }).click();
   await expect.poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] }).toBe(true);
   const tookMs = Date.now() - pressedAt;
   test.info().annotations.push({ type: "played after", description: `${String(tookMs)} ms` });
   expect(tookMs).toBeLessThanOrEqual(playsWithinMs);
-  // TrueHD is the reason: no browser decodes it, so what plays is the copy prepared with AAC.
-  const reason = page.locator(".play__reason");
-  await expect(reason).toContainText("Playing a copy prepared for this browser");
-  await expect(reason).toContainText("the browser cannot decode its sound");
+  // Its own picture, copied, is the ladder's top, its TrueHD made into sound a browser plays.
+  await expect(page.locator(".play__reason")).toContainText(onTheLadder);
 });
 
-test("the System page shows the machine's hardware encoding and what the timed film's prepare used", async ({
+test("the System page shows the machine's hardware encoding and what a prepared film's prepare used", async ({
   page,
-  browserName,
 }) => {
   await signIn(page);
+  // Opening its page starts its prepare (D258 §1), once its page has asked how it plays.
+  const asked = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().endsWith("/playback"),
+  );
+  await openFilm(page, preparedFilm);
+  await asked;
   await page.goto(`${serverUrl()}/system`);
   await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
   await expect(
     page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
   ).toBeVisible();
-  // The timed film's video was copied: only its TrueHD was made into something a browser plays.
-  // Its prepare is listed once it has finished, which may be after the page first loads.
-  const row = page.getByRole("row", { name: new RegExp(timingFilm(browserName)) });
+  // The prepared film's MPEG-2 picture was encoded, by whichever encoder the machine has. Its prepare
+  // is listed once it has finished, which may be after the page first loads.
+  const row = page.getByRole("row", { name: new RegExp(preparedFilm) });
   await expect(async () => {
     await page.reload();
-    await expect(row).toContainText("copied, not encoded", { timeout: 1000 });
+    await expect(row).toContainText(/x264|Quick Sync|NVENC/u, { timeout: 1000 });
   }).toPass({ timeout: 90_000 });
   await expect(row).toContainText("× real time");
 });

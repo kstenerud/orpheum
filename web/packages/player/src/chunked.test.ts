@@ -11,6 +11,7 @@ import {
   beyondTheLink,
   chunkLoadPolicy,
   lookForStepUpEveryMs,
+  settledAtBps,
   type AdaptingHls,
 } from "./chunked.ts";
 import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
@@ -147,5 +148,13 @@ describe("loading a chunk the core is making (D250 §5)", () => {
     expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 429 }, true)).toBe(
       false,
     );
+  });
+});
+
+describe("where a playback's stepping has settled (D260 §3)", () => {
+  it("is the quality it last loaded a chunk of, and nothing before it loads one", () => {
+    const { levels } = new FakeHls();
+    expect(settledAtBps({ levels, loadLevel: -1 })).toBeUndefined();
+    expect(settledAtBps({ levels, loadLevel: 1 })).toBe(1_992_000);
   });
 });

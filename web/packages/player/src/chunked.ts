@@ -173,10 +173,23 @@ export function adaptQuality(
   };
 }
 
+/**
+ * The BANDWIDTH of the quality a playback last loaded a chunk of, where its stepping has settled so
+ * far: a player made after it starts there (D260 §3). Undefined before it loads one.
+ */
+export function settledAtBps(hls: {
+  readonly levels: readonly PlayedLevel[];
+  readonly loadLevel: number;
+}): number | undefined {
+  return hls.levels[hls.loadLevel]?.bitrate;
+}
+
 /** A chunked playback: an HLS playback that says which quality plays and how fast its link is. */
 export interface ChunkedPlayback extends HlsPlayback {
   /** The quality playing, or undefined before one plays or where the browser chooses itself. */
   readonly playing: () => PlayedLevel | undefined;
+  /** settledAtBps, or undefined where the browser chooses itself. */
+  readonly settledAtBps: () => number | undefined;
   /** Whether a stall now is beyond the link, with both numbers (beyondTheLink, D247 §8). */
   readonly beyondTheLink: () => CannotKeepUp | undefined;
 }
@@ -200,6 +213,7 @@ export function playChunked(
   const method = hlsMethod(hlsSupport(video));
   const unknowing = {
     playing: () => undefined,
+    settledAtBps: () => undefined,
     estimateKbps: () => undefined,
     beyondTheLink: () => undefined,
   };
@@ -241,6 +255,7 @@ export function playChunked(
       hls.destroy();
     },
     playing: () => hls.levels[hls.currentLevel],
+    settledAtBps: () => settledAtBps(hls),
     estimateKbps: () => (hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined),
     beyondTheLink: () => beyondTheLink(hls),
   };
