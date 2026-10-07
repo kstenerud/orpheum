@@ -265,11 +265,12 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D257](working-notes.md#d257--a-player-starts-on-the-version-its-link-can-carry-chosen-before-play-from-the-speed-remembered-for-that-device-on-that-network) A player starts on the version its link can carry, chosen before play from the speed remembered for that device on that network — *revisited by D260*
 - [D258](working-notes.md#d258--opening-a-films-page-warms-it-up-and-the-warm-ups-download-is-the-speed-test) Opening a film's page warms it up, and the warm-up's download is the speed test — *revisited by D260*
 - [D259](working-notes.md#d259--a-films-cut-points-come-from-where-each-one-falls-from-the-files-own-index-or-from-reading-ahead-of-the-player-never-only-from-a-whole-read) A film's cut points come from where each one falls, from the file's own index, or from reading ahead of the player, never only from a whole read
-- [D260](working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays) A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays
+- [D260](working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays) A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays — *revisited by D265*
 - [D261](working-notes.md#d261--the-m4-audits-questions-answered) The M4 audit's questions, answered
-- [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it — *revisited by D263*
+- [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it — *revisited by D263, D265*
 - [D263](working-notes.md#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr) The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
 - [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is
+- [D265](working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs) The chunked player chooses its quality with a bitrate controller of its own, inside hls.js
 
 ## Archived
 

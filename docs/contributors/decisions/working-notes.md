@@ -18554,6 +18554,8 @@ which came only from reading the whole file through.
 
 ## D260 — A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays
 
+> **Refined by [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)** (2026-10-07): its player chooses with a bitrate controller of its own, which steps down while filling and playing alike (§3).
+
 **Decided** (2026-10-07), by the project owner: *"If the client has an idea of what its network
 situation is when opening the summary page, it asks the server for a bit rate no higher than X.
 Server sends it video data and it measures how well it's handling it. If it can't, it reassesses its
@@ -18614,6 +18616,8 @@ failed"*.
 ---
 
 ## D262 — Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it
+
+> **Refined by [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)** (2026-10-07): the film's half of the link is the link as measured, never the pace its paced downloads arrive at (§2).
 
 > **Corrected by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): correlated jitter does not stop netem reordering; in-order jitter does (§1).
 
@@ -18709,5 +18713,52 @@ message waited. A ping can: its round trip is measured.
 
 Still no clock is shared (D66): the pong's position is the server's, extrapolated by the
 follower's own monotonic clock from the moment it arrived.
+
+**Status:** Decided 2026-10-07.
+
+## D265 — The chunked player chooses its quality with a bitrate controller of its own, inside hls.js
+
+**Decided** (2026-10-07), by the project owner: asked for a bitrate controller of our own in place
+of the patches on hls.js's, then, on [abr-controller.md](../design/research/abr-controller.md)'s
+four new rules, *"Approve all three"* and the fourth, the cache-hit filter, approved. **Refines**
+[D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)
+§3 and
+[D262](#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it)
+§2; keeps
+[D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
+§6 and §9 as written.
+
+The player chose with hls.js's own controller and patched around it four times: a step-down while
+filling, since hls.js gives up on a slow chunk only while the video plays; the start and step-up
+held through `autoLevelCapping`; a voice cap reading an estimate the pacing had made the pace's;
+and a speed known only once a chunk loaded. Each patch fought the controller underneath it, and
+the voice cap ratcheted the film to its lowest quality.
+
+1. **A subclass of hls.js's `AbrController` makes every choice**, keeping hls.js's estimator,
+   which its other controllers read. It replaces the fill step-down, the start and step-up
+   through `autoLevelCapping`, and the voice cap's own look.
+2. **The start** is the highest quality within the offer's `startAtBps` (D247 §6, D260 §3).
+3. **A chunk in flight is looked at twice a second, playing or not.** Once it has loaded for half
+   the time it plays, it is given up when it arrives slower than its quality plays, what is left
+   of it would take longer than the buffer ahead lasts, and a lower quality's whole chunk would
+   arrive sooner; for the highest quality within 0.7 of the speed it arrived at, **the lowest
+   included**, which hls.js never gives up for.
+4. **As it plays**, the next chunk is of the highest quality, no higher than the step-up allows,
+   within a share of the measured link: **0.7 with 10 s or less loaded ahead, rising evenly to
+   0.95 at 25 s or more**. A step down lowers what the step-up allows.
+5. **The step-up** is D247 §9's: one quality at a time, after 120 s with 20 s ahead and a link 1.5
+   times the next quality's rate.
+6. **While voice is live** the film takes at most half the link (D262 §2), the link as measured,
+   never the pace.
+7. **What counts as a measurement:** a chunk that loaded in under 10 ms came from the browser's
+   cache, as the film page's chunks do when Play reads them again, and is not counted; a paced
+   chunk counts only when it arrived at no more than 0.9 of its pace, where the link, not the
+   pace, held it back.
+8. **hls.js's own forcing**, a switch down after a load error, is obeyed until a chunk of that
+   quality loads.
+
+hls.js's checks of what the browser decodes and its penalty for a quality that failed are not
+kept: the core offers only what the player decodes (D260 §1), and a quality that fails forces a
+switch down (§8).
 
 **Status:** Decided 2026-10-07.
