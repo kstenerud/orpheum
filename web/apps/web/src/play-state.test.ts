@@ -114,6 +114,7 @@ describe("play state", () => {
       height: 480,
       isBelowTheLowest: false,
       soundCarriedGainDb: 0,
+      isReady: true,
     };
     const playView = createElement(PlayView, {
       fileId: 2,

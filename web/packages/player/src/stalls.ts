@@ -11,8 +11,8 @@ export const stallAfterMs = 1000;
 /**
  * How long a load, the first or a seek's, may leave a player unable to play before it counts as a
  * stall, and again each time as long: a player that cannot get going never stalls while it plays,
- * and so was never offered a lower quality (the owner's choice, 2026-10-05, D247 §2). Two, the
- * second stall's move, come within the 60 s a Watch Together group waits for its host.
+ * and so was never offered a lower quality (the owner's choice, 2026-10-05, D247 §2). Two come
+ * within the 60 s a Watch Together group waits for its host.
  */
 export const slowLoadAfterMs = 15_000;
 

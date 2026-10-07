@@ -14,8 +14,9 @@ import (
 )
 
 // TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto plays a film end to end on a
-// slow link: the sweep reads it through for its keyframes, a first stall in a play report starts
-// the quality its link carries, and the second is answered with it (D247 §2, §10). The film is
+// slow link: the sweep reads it through for its keyframes, and a first stall in a play report starts
+// the quality its link carries and is answered with it, as is every report after it (D253 §1,
+// D247 §10). The film is
 // thirty seconds of 2.4 Mb/s with a keyframe every ten.
 func TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto(t *testing.T) {
 	t.Parallel()
@@ -64,20 +65,25 @@ func TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto(t *testin
 				"stalls": []any{map[string]any{"positionMs": 12_000}},
 			})
 	}
-	if first := report(1); first.status != http.StatusOK || strings.Contains(first.body, "lowerQuality") {
-		t.Errorf("the first stall's report = %d %s; want nothing offered yet", first.status, first.body)
-	}
-	second := report(2)
 	var answer struct {
 		LowerQuality *struct {
 			URL         string `json:"url"`
 			QualityKbps int    `json:"qualityKbps"`
+			IsReady     bool   `json:"isReady"`
 		} `json:"lowerQuality"`
 	}
-	if err := json.Unmarshal([]byte(second.body), &answer); err != nil || answer.LowerQuality == nil ||
+	first := report(1)
+	if err := json.Unmarshal([]byte(first.body), &answer); err != nil || answer.LowerQuality == nil ||
 		answer.LowerQuality.QualityKbps != 1200 ||
 		!strings.HasSuffix(answer.LowerQuality.URL, "/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8") {
-		t.Errorf("the second stall's report = %d %s; want 1200k offered, its master playlist by the playback",
-			second.status, second.body)
+		t.Errorf("the first stall's report = %d %s; want 1200k offered, its master playlist by the playback",
+			first.status, first.body)
+	}
+	// A report after it is answered with the same offer, so the player learns when it is ready
+	// (D253 §1).
+	answer.LowerQuality = nil
+	if again := report(2); json.Unmarshal([]byte(again.body), &answer) != nil || answer.LowerQuality == nil ||
+		answer.LowerQuality.QualityKbps != 1200 {
+		t.Errorf("the report after the stall = %d %s; want the 1200k offer again", again.status, again.body)
 	}
 }

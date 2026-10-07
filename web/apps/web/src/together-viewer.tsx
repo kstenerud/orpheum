@@ -34,7 +34,8 @@ import {
   usePreparedPlayback,
   type PlaybackDecision,
 } from "./play.tsx";
-import { useStallReports, type LowerQuality } from "./play-state.ts";
+import type { LowerQuality } from "./moving-down.ts";
+import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -355,7 +356,7 @@ function GroupFilm(props: {
     }),
   );
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
-  // The lower quality the viewer's player moved to after stalling again (D247 §2), per playback.
+  // The lower quality the viewer's player moved to once it was ready (D253), per playback.
   const [moved, setMoved] = useState<
     { readonly mediaToken: string; readonly offer: LowerQuality } | undefined
   >(undefined);
@@ -403,8 +404,8 @@ interface FilmProps {
 }
 
 /**
- * Reports a viewer's stalls and link (D247 §2), and hands on a lower quality the server offers
- * after the player stalled again.
+ * Reports a viewer's stalls and link (D247 §2), and hands on the lower quality a stall started, once
+ * it is ready and the player still cannot keep up (D253).
  */
 function useMovingDown(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -415,6 +416,7 @@ function useMovingDown(
   const lowerQuality = useStallReports(api, videoRef, {
     mediaToken: props.decision.mediaToken,
     headers: props.headers,
+    filmKbps: props.decision.fileBitRateKbps,
     readLinkKbps,
   });
   const { onLowerQuality } = props;

@@ -89,9 +89,13 @@
   within 70% of the measured speed (D247 §6), or one that another viewer's stall already started
   if it is that one or the one below (D247 §7), and starts its runs and its sound's at the
   position. It answers the master playlist and the quality to start at.
-- **Second stall**: the player moves to the master playlist, once, at its position, starting at
-  that quality (hls.js `startLevel`). From then hls.js steps between qualities on its own
-  measurement of each chunk's download.
+- **Once it is ready** (D253, revising D247 §2's second stall): every report's answer after the
+  first stall offers the quality and says whether it is made from where the player is for 10 s;
+  the player asks again every few seconds until it is. Ready, the player moves if it still cannot
+  keep up (it stalled again, its link is not measured, or the film needs more than 70% of it),
+  once, at its position, starting at that quality (hls.js `startLevel`); otherwise its next stall
+  moves it. From then hls.js steps between qualities on its own measurement of each chunk's
+  download.
 - **Stepping up** (D247 §9): hls.js is configured to step up only with about 1.5× the next
   quality's rate (`abrBandWidthUpFactor`), measured over minutes rather than seconds (its slower
   moving average), and one quality at a time.

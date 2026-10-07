@@ -2290,6 +2290,7 @@ export interface components {
             /** Format: int64 */
             height: number;
             isBelowTheLowest: boolean;
+            isReady: boolean;
             /** Format: int64 */
             qualityKbps: number;
             /** Format: double */
@@ -2695,7 +2696,7 @@ export interface components {
             stalls?: components["schemas"]["StallBody"][] | null;
         };
         ReportOutputBody: {
-            /** @description A lower quality to move to: the player stalled again (D247 §2) */
+            /** @description The lower quality the first stall started, ready or not (D253 §1) */
             lowerQuality?: components["schemas"]["LowerQualityBody"];
             /** @description The admin stopped this playback: stop, and show the message */
             stop?: components["schemas"]["StopBody"];

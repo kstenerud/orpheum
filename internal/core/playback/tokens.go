@@ -73,11 +73,8 @@ type tokenPlayback struct {
 	// startingAudio is the audio track the playback started with, nil for a file with no sound: its
 	// chunks' master playlist starts with that track's standard mix (D247 §10).
 	startingAudio *AudioTrack
-	// stalls is how many times its player stalled; offer is the lower quality its first stall
-	// started, and isOfferTold whether its player was told of it (D247 §2).
-	stalls      int
-	offer       *chunks.Offer
-	isOfferTold bool
+	// offer is the lower quality its first stall started (D253 §1).
+	offer *chunks.Offer
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
@@ -239,27 +236,6 @@ func (all *tokens) end(token string) {
 	delete(all.playbackByToken, token)
 }
 
-// countStalls adds count stalls to a token's playback, and returns how many it has had.
-func (all *tokens) countStalls(token string, count int) int {
-	all.mutex.Lock()
-	defer all.mutex.Unlock()
-	known, found := all.playbackByToken[token]
-	if !found {
-		return 0
-	}
-	known.stalls += count
-	return known.stalls
-}
-
-// forgetStalls forgets a token's stalls, which nothing could be offered for yet.
-func (all *tokens) forgetStalls(token string) {
-	all.mutex.Lock()
-	defer all.mutex.Unlock()
-	if known, found := all.playbackByToken[token]; found {
-		known.stalls = 0
-	}
-}
-
 // offerOf is the lower quality a token's first stall started, and whether there is one.
 func (all *tokens) offerOf(token string) (chunks.Offer, bool) {
 	all.mutex.Lock()
@@ -277,18 +253,6 @@ func (all *tokens) keepOffer(token string, offer chunks.Offer) {
 	if known, found := all.playbackByToken[token]; found {
 		known.offer = &offer
 	}
-}
-
-// tellOffer marks a token's offer told, and says whether it was not told before.
-func (all *tokens) tellOffer(token string) bool {
-	all.mutex.Lock()
-	defer all.mutex.Unlock()
-	known, found := all.playbackByToken[token]
-	if !found || known.offer == nil || known.isOfferTold {
-		return false
-	}
-	known.isOfferTold = true
-	return true
 }
 
 // keepPosition keeps where a report said a token's playback is.

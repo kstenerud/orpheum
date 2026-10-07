@@ -73,10 +73,7 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		IsBelowTheLowest: isBelowTheLowest,
 	}
 	if playback.HasStartingAudio {
-		sound := Stream{
-			Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex,
-			SoundKbps: offered.soundKbps,
-		}
+		sound := startingSound(playback, offered.soundKbps)
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
 			return Offer{}, err
@@ -88,6 +85,12 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		offer.SoundCarriedGainDB = track.CarriedGainDB
 	}
 	return offer, nil
+}
+
+// startingSound is the stream of the sound a playback started with, in chunks of soundKbps: what
+// its chunks' master playlist starts with (D247 §10).
+func startingSound(playback Playback, soundKbps int) Stream {
+	return Stream{Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex, SoundKbps: soundKbps}
 }
 
 // chooseQuality is the place among lower, highest first, of the highest quality within

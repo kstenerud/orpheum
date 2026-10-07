@@ -226,6 +226,7 @@ describe("the host's player in a session (D246 §5)", () => {
       height: 432,
       isBelowTheLowest: false,
       soundCarriedGainDb: 0,
+      isReady: true,
     };
     const services = {
       ...servedBy({ "POST /playback/t/report": [200, { lowerQuality: offer }] }, [], "token"),

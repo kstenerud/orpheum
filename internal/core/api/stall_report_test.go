@@ -33,10 +33,11 @@ func lowerQualityOf(t *testing.T, answer response) *LowerQualityBody {
 	return output.Body.LowerQuality
 }
 
-// A player's first stall starts the quality its link carries, and its sound, where it was; its
-// second is answered with that quality, once (D247 §2, §6). Film 1 averages 2.4 Mb/s, so a link of
-// 2 Mb/s, 1.4 for the picture, gets 1200k.
-func TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted(t *testing.T) {
+// A player's first stall starts the quality its link carries, and its sound, where it was, and is
+// answered with it, not ready yet; every report after it is answered with it too, so the player
+// learns when it is ready (D253 §1, D247 §6). Film 1 averages 2.4 Mb/s, so a link of 2 Mb/s, 1.4
+// for the picture, gets 1200k.
+func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryReportAfter(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -44,35 +45,37 @@ func TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted(t *test
 	harness.shelveAudioStreams(t)
 	harness.keepFilmOnesTimeline(t)
 	playing := harness.play(t, user, chrome(1))
-	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(1, 12_000))); offered != nil {
-		t.Errorf("a first stall was answered with %+v; want nothing yet, the quality only started", offered)
+	if offered := lowerQualityOf(t, harness.report(t, user, playing, reportBody(1, 9_000, 0))); offered != nil {
+		t.Errorf("a report before any stall was answered with %+v; want nothing", offered)
+	}
+	want := LowerQualityBody{
+		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
+		QualityKbps: 1200, Height: 480, IsReady: false,
+	}
+	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(2, 12_000))); offered == nil ||
+		*offered != want {
+		t.Errorf("the first stall was answered with %+v; want %+v, not ready yet", offered, want)
 	}
 	if runs := harness.openJobs(t, jobs.KindMakeChunks); len(runs) != 2 {
 		t.Errorf("after the first stall, the runs open = %d; want the quality's and the sound's", len(runs))
 	}
-	offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(2, 15_000)))
-	want := LowerQualityBody{
-		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
-		QualityKbps: 1200, Height: 480,
+	if again := lowerQualityOf(t, harness.report(t, user, playing, reportBody(3, 14_000, 0))); again == nil ||
+		*again != want {
+		t.Errorf("a report after the stall was answered with %+v; want the same offer, %+v", again, want)
 	}
-	if offered == nil || *offered != want {
-		t.Errorf("the second stall was answered with %+v; want %+v", offered, want)
-	}
-	if again := lowerQualityOf(t, harness.report(t, user, playing, stallReport(3, 18_000))); again != nil {
-		t.Errorf("a third stall was answered with %+v; want nothing: the player was told", again)
-	}
-	// Each stall, and the offer, is logged with where and the quality (staging, 2026-10-06).
+	// Each stall, and the offer, is logged with where, the quality and whether it is ready
+	// (staging, 2026-10-06).
 	logged := harness.logs.String()
 	if !strings.Contains(logged, `"msg":"a player reported stalls"`) ||
-		!strings.Contains(logged, `"stallPositionsMs":[15000]`) ||
+		!strings.Contains(logged, `"stallPositionsMs":[12000]`) ||
 		!strings.Contains(logged, `"msg":"a stalling player was offered a lower quality"`) ||
-		!strings.Contains(logged, `"qualityKbps":1200`) {
-		t.Errorf("the stalls and the offer were not logged as they happened:\n%s", logged)
+		!strings.Contains(logged, `"qualityKbps":1200`) || !strings.Contains(logged, `"isReady":false`) {
+		t.Errorf("the stall and the offer were not logged as they happened:\n%s", logged)
 	}
 }
 
 // A Watch Together viewer reports by their membership: nothing is kept of what they watched, and
-// their stalls are answered as anyone's (D243 §2, D247 §2).
+// their stalls are answered as anyone's (D243 §2, D253 §1).
 func TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -94,10 +97,9 @@ func TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered(t *testing.T
 	credential := membership.Body.MembershipCredential
 	first := stallReport(1, 12_000)
 	first["events"] = []any{map[string]any{"kind": "started", "positionMs": 0, "happenedMonoMs": 999_000}}
-	lowerQualityOf(t, harness.report(t, credential, playing, first))
-	if offered := lowerQualityOf(t, harness.report(t, credential, playing, stallReport(2, 15_000))); offered ==
-		nil || offered.QualityKbps != 1200 {
-		t.Errorf("the viewer's second stall was answered with %+v; want 1200k", offered)
+	if offered := lowerQualityOf(t, harness.report(t, credential, playing, first)); offered == nil ||
+		offered.QualityKbps != 1200 {
+		t.Errorf("the viewer's first stall was answered with %+v; want 1200k", offered)
 	}
 	// Nobody's watching is kept: not the host's, whose library it is, nor anyone's.
 	for _, userID := range []int64{0, 1} {

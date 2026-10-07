@@ -36,7 +36,8 @@ import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
-import { usePlayState, type LowerQuality } from "./play-state.ts";
+import type { LowerQuality } from "./moving-down.ts";
+import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
@@ -145,6 +146,7 @@ function useReportedPlayState(
   const { refusal, stopMessage, lowerQuality } = usePlayState(api, videoRef, {
     mediaToken: props.decision.mediaToken,
     resumePositionMs: props.decision.resumePositionMs,
+    filmKbps: props.decision.fileBitRateKbps,
     readLinkKbps: props.readLinkKbps,
   });
   useEffect(() => {

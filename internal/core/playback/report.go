@@ -54,14 +54,19 @@ type Stall struct {
 type Answer struct {
 	// StopMessage is the admin's message when they stopped the playback, which then ends (D243 §9).
 	StopMessage *string
-	// LowerQuality is a quality to move to, once the player has stalled again after the stall that
-	// started it (D247 §2); nil until then, and told once.
+	// LowerQuality is the lower quality the playback's first stall started, in every answer from
+	// then on (D253 §1); nil before it stalled, or for a film that offers none.
 	LowerQuality *chunks.Offer
+	// IsLowerQualityReady is whether LowerQuality is made from where the player is, ready to move
+	// to: the player then decides whether it still needs it (D253 §2).
+	IsLowerQualityReady bool
 }
 
-// Chunks offers a stalled playback a lower quality, and starts making it: chunks.Service.
+// Chunks offers a stalled playback a lower quality, starts making it, and says when it is ready:
+// chunks.Service.
 type Chunks interface {
 	Stalled(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
+	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
 }
 
 // Event is one change of play state, at a position in the file.
@@ -102,8 +107,8 @@ func serverTimeMs(nowMs, sentMonoMs, monoMs int64) (int64, error) {
 // the stored one, so two devices reporting out of order never rewind it (D217 §7). A report sent
 // again changes nothing. A playback the admin stopped is told so in the answer, its message
 // returned, and ends: its token is forgotten once its report is kept (D243 §9). A Watch Together
-// viewer's report keeps nothing in the log (D243 §2). Its stalls start a lower quality, and from the
-// second the answer offers it (D247 §2).
+// viewer's report keeps nothing in the log (D243 §2). Its first stall starts a lower quality, and
+// every answer from then on offers it, saying whether it is ready (D253 §1).
 func (service *Service) Report(
 	ctx context.Context, token string, holder Holder, deviceID int64, report Report,
 ) (Answer, error) {
@@ -132,50 +137,49 @@ func (service *Service) Report(
 		service.tokens.end(token)
 		return answer, nil
 	}
-	if isNew && len(report.Stalls) > 0 {
-		offer, isOffered, err := service.takeStalls(ctx, token, playback, report)
-		if err != nil {
-			return Answer{}, err
-		}
-		if isOffered {
-			answer.LowerQuality = &offer
-		}
+	if !isNew {
+		return answer, nil
+	}
+	offer, isOffered, err := service.offerFor(ctx, token, playback, report)
+	if err != nil || !isOffered {
+		return answer, err
+	}
+	answer.LowerQuality = &offer
+	answer.IsLowerQualityReady, err = service.chunks.IsReadyAt(
+		ctx, chunksPlaybackOf(playback), offer, report.PositionMs)
+	if err != nil {
+		return Answer{}, fmt.Errorf("see whether a lower quality is ready: %w", err)
 	}
 	return answer, nil
 }
 
-// takeStalls counts a report's stalls on the playback (D247 §2): the first starts a lower quality
-// where the player was, on the link it measured; from the second, the quality is offered, once, and
-// isOffered says so. A film that cannot offer one, with no grid yet or nothing lower, is offered
-// none; its first stall is asked about again at the next.
-func (service *Service) takeStalls(
+// offerFor is the lower quality a playback is offered, and whether there is one (D253 §1): the one
+// its first stall started, or, at a report with its first stall, one started now where the player
+// stalled, on the link it measured. A film that cannot offer one, with no grid yet or nothing lower,
+// is offered none, and is asked again at its next stall.
+func (service *Service) offerFor(
 	ctx context.Context, token string, playback tokenPlayback, report Report,
 ) (offer chunks.Offer, isOffered bool, err error) {
-	stalls := service.tokens.countStalls(token, len(report.Stalls))
 	if service.chunks == nil {
 		return chunks.Offer{}, false, nil
 	}
-	offer, isStarted := service.tokens.offerOf(token)
-	if !isStarted {
-		offer, err = service.chunks.Stalled(ctx, chunksPlaybackOf(playback), report.Stalls[0].PositionMs,
-			report.LinkKbps)
-		if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
-			errors.Is(err, chunks.ErrNoQualityOffered) {
-			service.tokens.forgetStalls(token)
-			return chunks.Offer{}, false, nil
-		}
-		if err != nil {
-			return chunks.Offer{}, false, err
-		}
-		service.tokens.keepOffer(token, offer)
+	if started, isStarted := service.tokens.offerOf(token); isStarted {
+		return started, true, nil
 	}
-	isOffered = stalls >= stallsBeforeOffering && service.tokens.tellOffer(token)
-	return offer, isOffered, nil
+	if len(report.Stalls) == 0 {
+		return chunks.Offer{}, false, nil
+	}
+	offer, err = service.chunks.Stalled(ctx, chunksPlaybackOf(playback), report.Stalls[0].PositionMs, report.LinkKbps)
+	if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
+		errors.Is(err, chunks.ErrNoQualityOffered) {
+		return chunks.Offer{}, false, nil
+	}
+	if err != nil {
+		return chunks.Offer{}, false, err
+	}
+	service.tokens.keepOffer(token, offer)
+	return offer, true, nil
 }
-
-// stallsBeforeOffering is how many stalls a playback has before it is offered a lower quality: the
-// first starts it, the second moves the player to it (D247 §2, the owner's design).
-const stallsBeforeOffering = 2
 
 // nowPlayingHeardWithin is how lately a playback must have been heard from, by a report or a byte
 // request, to be playing now: three of the player's ten-second reports (D243 §9), so one lost

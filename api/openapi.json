@@ -2319,6 +2319,9 @@
           "isBelowTheLowest": {
             "type": "boolean"
           },
+          "isReady": {
+            "type": "boolean"
+          },
           "qualityKbps": {
             "format": "int64",
             "type": "integer"
@@ -2342,7 +2345,8 @@
           "qualityKbps",
           "height",
           "isBelowTheLowest",
-          "soundCarriedGainDb"
+          "soundCarriedGainDb",
+          "isReady"
         ],
         "type": "object"
       },
@@ -3597,7 +3601,7 @@
         "properties": {
           "lowerQuality": {
             "$ref": "#/components/schemas/LowerQualityBody",
-            "description": "A lower quality to move to: the player stalled again (D247 §2)"
+            "description": "The lower quality the first stall started, ready or not (D253 §1)"
           },
           "stop": {
             "$ref": "#/components/schemas/StopBody",
