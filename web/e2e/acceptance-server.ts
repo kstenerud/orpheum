@@ -16,32 +16,104 @@ export function acceptanceMinutes(): number {
   return minutes;
 }
 
+/** One network profile (D263 §1): what it shapes, and what is held under it (§2). */
+export interface NetworkProfile {
+  readonly name: string;
+  /** netem's arguments: delay, jitter kept in order, loss, and a limit at which it never drops. */
+  readonly netem: readonly string[];
+  /** tbf's arguments: the bottleneck's rate and its tail-drop queue. */
+  readonly bottleneck: readonly string[];
+  /** Whether a long-lived bulk download shares the link for the whole run, a household's other use. */
+  readonly hasCompetingDownload: boolean;
+  /** Whether the film's sync is best effort here, measured and printed but not held. */
+  readonly isFilmBestEffort: boolean;
+  /** Whether voice is best effort here for a pair with Firefox, which sends no RED. */
+  readonly isVoiceBestEffortWithFirefox: boolean;
+}
+
 /**
- * The network profiles of D243 §9, as netem's arguments, each applied to every packet. Jitter is
- * correlated, one packet's delay leaning on the one before's, as on a real link, where independent
- * jitter reordered voice's packets and raised the receiver's buffer further (D262 §1). The
- * congested link's queue holds about a quarter of a second at its rate, 100 packets of 1500 bytes,
- * where netem's own 1000 held over two seconds. Voice on it is best effort (D261 §7).
+ * The network profiles, as network-profiles.md §0 builds them from RFC 8867 and 8869 and
+ * measurement studies (D263 §1): a netem stage for delay, jitter and loss, its rate of 1 Gbit/s
+ * keeping jittered packets in order and its limit high enough never to drop, and a tbf bottleneck
+ * with its own tail-drop queue. On the loopback every packet, either way, passes once: the delay is
+ * one way.
  */
-export const networkProfiles = [
-  { name: "home", netem: ["delay", "20ms"], isVoiceBestEffort: false },
+export const networkProfiles: readonly NetworkProfile[] = [
+  {
+    name: "home",
+    netem: ["delay", "20ms", "limit", "100000"],
+    bottleneck: ["rate", "100mbit", "burst", "64kb", "latency", "30ms"],
+    hasCompetingDownload: false,
+    isFilmBestEffort: false,
+    isVoiceBestEffortWithFirefox: false,
+  },
   {
     name: "mobile",
-    netem: ["delay", "80ms", "30ms", "25%", "loss", "1%"],
-    isVoiceBestEffort: false,
+    netem: [
+      "delay",
+      "40ms",
+      "10ms",
+      "distribution",
+      "normal",
+      "rate",
+      "1gbit",
+      "loss",
+      "0.2%",
+      "limit",
+      "100000",
+    ],
+    bottleneck: ["rate", "20mbit", "burst", "32kb", "latency", "300ms"],
+    hasCompetingDownload: false,
+    isFilmBestEffort: false,
+    isVoiceBestEffortWithFirefox: false,
   },
   {
     name: "congested",
-    netem: ["delay", "150ms", "50ms", "25%", "loss", "3%", "rate", "5mbit", "limit", "100"],
-    isVoiceBestEffort: true,
+    netem: [
+      "delay",
+      "40ms",
+      "5ms",
+      "distribution",
+      "normal",
+      "rate",
+      "1gbit",
+      "loss",
+      "0.5%",
+      "limit",
+      "100000",
+    ],
+    bottleneck: ["rate", "5mbit", "burst", "16kb", "latency", "200ms"],
+    hasCompetingDownload: true,
+    isFilmBestEffort: false,
+    isVoiceBestEffortWithFirefox: false,
   },
-] as const;
+  {
+    name: "lossy",
+    netem: [
+      "delay",
+      "40ms",
+      "10ms",
+      "distribution",
+      "normal",
+      "rate",
+      "1gbit",
+      "loss",
+      "3%",
+      "limit",
+      "100000",
+    ],
+    bottleneck: ["rate", "20mbit", "burst", "32kb", "latency", "100ms"],
+    hasCompetingDownload: false,
+    isFilmBestEffort: true,
+    isVoiceBestEffortWithFirefox: true,
+  },
+];
 
 /**
  * The profiles a run plays under: ORPHEUM_ACCEPTANCE_PROFILES, comma-separated names, every one when
  * unset. The branch gate runs *home* alone, for a few minutes (D252 §2, D261 §2).
  */
-export function chosenProfiles(): readonly (typeof networkProfiles)[number][] {
+export function chosenProfiles(): readonly NetworkProfile[] {
   const asked = process.env["ORPHEUM_ACCEPTANCE_PROFILES"];
   if (asked === undefined || asked === "") {
     return networkProfiles;

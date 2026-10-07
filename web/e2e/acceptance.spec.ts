@@ -9,13 +9,14 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { expect, firefox, test, type Page } from "@playwright/test";
+import { createServer, get as httpGet } from "node:http";
+import { expect, firefox, test, type Browser, type Page } from "@playwright/test";
 
 import {
   acceptanceFilm,
   acceptanceMinutes,
   chosenProfiles,
-  type networkProfiles,
+  type NetworkProfile,
 } from "./acceptance-server.ts";
 import { firefoxUserPrefs } from "./browsers.ts";
 import { signIn } from "./pages.ts";
@@ -111,12 +112,110 @@ async function keepPages(pages: readonly (readonly [string, Page])[]): Promise<v
   }
 }
 
+/**
+ * A long-lived bulk download through the loopback for as long as it runs, the household's other
+ * traffic under the congested profile (D263 §1, RFC 8867 §5.6): a server sending without end and a
+ * client reading and dropping it, both with the kernel's own congestion control. Returns the stop.
+ */
+async function competingDownload(): Promise<() => Promise<void>> {
+  const chunk = Buffer.alloc(64 * 1024);
+  const server = createServer((_request, response) => {
+    const send = (): void => {
+      while (response.write(chunk)) {
+        // until the socket's buffer is full; drain sends on
+      }
+    };
+    response.on("drain", send);
+    send();
+  });
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const port = typeof address === "object" && address !== null ? address.port : 0;
+  const request = httpGet({ host: "127.0.0.1", port, path: "/" }, (response) => {
+    response.resume();
+  });
+  request.on("error", () => undefined); // ended by the stop
+  return async () => {
+    request.destroy();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+  };
+}
+
+/**
+ * Shapes the loopback as profile says, a netem stage and its tbf bottleneck, with its competing
+ * download where it has one; returns the unshaping.
+ */
+async function shape(profile: NetworkProfile): Promise<() => Promise<void>> {
+  expectRealLinkPackets();
+  tc("qdisc", "replace", "dev", "lo", "root", "handle", "1:", "netem", ...profile.netem);
+  tc("qdisc", "add", "dev", "lo", "parent", "1:1", "handle", "2:", "tbf", ...profile.bottleneck);
+  const stopCompeting = profile.hasCompetingDownload ? await competingDownload() : undefined;
+  return async () => {
+    await stopCompeting?.();
+    tc("qdisc", "del", "dev", "lo", "root");
+  };
+}
+
+/**
+ * Voice with no film beside it, the fair comparison with another app's call (D262 §1), between a
+ * host in Chrome and a guest in guestBrowser, held to its bounds unless best effort. Voice is on
+ * the player's page, so the host plays and pauses, the downloads are let settle, and the call is
+ * measured over a window of its own.
+ */
+async function talkAlone(
+  profile: NetworkProfile,
+  browsers: { readonly host: Browser; readonly guest: Browser },
+  isBestEffort: boolean,
+): Promise<void> {
+  const { host: hostBrowser, guest: guestBrowser } = browsers;
+  const hosting = await pageWithMicrophone(hostBrowser);
+  const joining = await pageWithMicrophone(guestBrowser);
+  const host = hosting.page;
+  const guest = joining.page;
+  await signIn(host);
+  const link = await startSessionWithLink(host);
+  await guest.goto(link);
+  await join(guest, link);
+  await hostPlays(host, acceptanceFilm(profile.name));
+  await talkBothWays(host, guest, voiceConnectsWithinMs);
+  await host
+    .locator("video")
+    .first()
+    .evaluate((video: HTMLVideoElement) => {
+      video.pause();
+    });
+  await host.waitForTimeout(downloadsSettleMs);
+  const before = await Promise.all([voiceReports(host), voiceReports(guest)]);
+  await host.waitForTimeout(voiceAloneMinutes * 60_000);
+  const after = await Promise.all([voiceReports(host), voiceReports(guest)]);
+  const pair = `${profile.name}, voice alone, guest in ${guestBrowser.browserType().name()}`;
+  expectVoiceMeasureWithinBounds(
+    `${pair}: the host`,
+    voiceMeasureBetween(before[0], after[0]),
+    isBestEffort,
+  );
+  expectVoiceMeasureWithinBounds(
+    `${pair}: the guest`,
+    voiceMeasureBetween(before[1], after[1]),
+    isBestEffort,
+  );
+  await endSession(host);
+  await hosting.context.close();
+  await joining.context.close();
+}
+
 for (const profile of chosenProfiles()) {
   test(`two browsers stay in step and talk under the ${profile.name} profile`, async ({
     browser,
   }) => {
-    expectRealLinkPackets();
-    tc("qdisc", "replace", "dev", "lo", "root", "netem", ...profile.netem);
+    const unshape = await shape(profile);
     const guestBrowser = await firefox.launch({ firefoxUserPrefs });
     try {
       const hosting = await pageWithMicrophone(browser);
@@ -143,56 +242,39 @@ for (const profile of chosenProfiles()) {
       await joining.context.close();
     } finally {
       await guestBrowser.close();
-      tc("qdisc", "del", "dev", "lo", "root");
+      await unshape();
     }
   });
 
-  // The fair comparison with another app's call: voice with no film beside it (D262 §1). Voice is
-  // on the player's page, so the host plays and pauses, the downloads are let settle, and the call
-  // is measured over a window of its own.
   test(`two browsers talk with no film under the ${profile.name} profile`, async ({ browser }) => {
-    expectRealLinkPackets();
-    tc("qdisc", "replace", "dev", "lo", "root", "netem", ...profile.netem);
+    const unshape = await shape(profile);
     const guestBrowser = await firefox.launch({ firefoxUserPrefs });
     try {
-      const hosting = await pageWithMicrophone(browser);
-      const joining = await pageWithMicrophone(guestBrowser);
-      const host = hosting.page;
-      const guest = joining.page;
-      await signIn(host);
-      const link = await startSessionWithLink(host);
-      await guest.goto(link);
-      await join(guest, link);
-      await hostPlays(host, acceptanceFilm(profile.name));
-      await talkBothWays(host, guest, voiceConnectsWithinMs);
-      await host
-        .locator("video")
-        .first()
-        .evaluate((video: HTMLVideoElement) => {
-          video.pause();
-        });
-      await host.waitForTimeout(downloadsSettleMs);
-      const before = await Promise.all([voiceReports(host), voiceReports(guest)]);
-      await host.waitForTimeout(voiceAloneMinutes * 60_000);
-      const after = await Promise.all([voiceReports(host), voiceReports(guest)]);
-      expectVoiceMeasureWithinBounds(
-        `${profile.name}, voice alone: the host`,
-        voiceMeasureBetween(before[0], after[0]),
-        profile.isVoiceBestEffort,
+      await talkAlone(
+        profile,
+        { host: browser, guest: guestBrowser },
+        profile.isVoiceBestEffortWithFirefox,
       );
-      expectVoiceMeasureWithinBounds(
-        `${profile.name}, voice alone: the guest`,
-        voiceMeasureBetween(before[1], after[1]),
-        profile.isVoiceBestEffort,
-      );
-      await endSession(host);
-      await hosting.context.close();
-      await joining.context.close();
     } finally {
       await guestBrowser.close();
-      tc("qdisc", "del", "dev", "lo", "root");
+      await unshape();
     }
   });
+
+  // Where voice is best effort with Firefox, which sends no RED, two browsers that both send it are
+  // held to the bounds (D263 §2).
+  if (profile.isVoiceBestEffortWithFirefox) {
+    test(`two Chrome browsers talk with no film under the ${profile.name} profile`, async ({
+      browser,
+    }) => {
+      const unshape = await shape(profile);
+      try {
+        await talkAlone(profile, { host: browser, guest: browser }, false);
+      } finally {
+        await unshape();
+      }
+    });
+  }
 }
 
 /**
@@ -200,7 +282,7 @@ for (const profile of chosenProfiles()) {
  * guest is in step, and holds the share in step and the voice to D243 §9.
  */
 async function runAndMeasure(
-  { name: profile, isVoiceBestEffort }: (typeof networkProfiles)[number],
+  { name: profile, isFilmBestEffort, isVoiceBestEffortWithFirefox }: NetworkProfile,
   host: Page,
   guest: Page,
 ): Promise<void> {
@@ -235,14 +317,17 @@ async function runAndMeasure(
   // Printed as well as kept: an hour and a half's run is read from its output.
   process.stdout.write(`${profile}: in step ${measured}\n`);
   test.info().annotations.push({ type: `${profile}: in step`, description: measured });
-  expect(inStepShare, `in step within ${String(inStepWithinMs)} ms`).toBeGreaterThanOrEqual(
-    inStepAtLeastShare,
-  );
+  // On a lossy link the film is best effort until a run with BBR shows it holds (D263 §2).
+  if (!isFilmBestEffort) {
+    expect(inStepShare, `in step within ${String(inStepWithinMs)} ms`).toBeGreaterThanOrEqual(
+      inStepAtLeastShare,
+    );
+  }
   await expectVoiceWithinBounds(
     [
       ["the host", host],
       ["the guest", guest],
     ],
-    isVoiceBestEffort,
+    isVoiceBestEffortWithFirefox,
   );
 }
