@@ -17783,6 +17783,8 @@ page. M4's scheduled backups make them too, when M4 builds them.
 
 ## D243 — M4's nine questions answered: a guest's cookie covers one film, invites are registration links under roles that choose libraries, the name's certificate comes by DNS-01 through Cloudflare, and a VPS carries every route in
 
+> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §9's voice bounds are best effort on the congested profile.
+
 **Decided** (2026-10-04), by the project owner, answering D223 §11's nine questions as the audit
 before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md) §8):
 *"Agreed on most of your recommendations"*, with notes on A4, A5, A7, A10 and B4, then
@@ -17934,6 +17936,8 @@ leaves Cut A, and a polished UI takes its place.
 **Status:** Decided 2026-10-05; the research is the next step, then the principles, then the build.
 
 ## D246 — What a person may do is their role's, an invite names who it is for, and a Watch Together viewer is an ephemeral account that sees only the host's playback
+
+> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §4's signed-in guest history is deferred as a nice-to-have, no longer in M4's acceptance.
 
 **Decided** (2026-10-05), by the project owner, reviewing M4's Phases A, B and E as built, and
 answering the three questions that review left (§7–§9). **Revises**
@@ -18228,6 +18232,8 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 
 ## D250 — A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
 
+> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): the drift left alone is 150 ms by default, not 500 (§1).
+
 **Decided** (2026-10-06), by the project owner, after a viewer on an iPhone at an airport found the
 film unwatchable on a link fast enough for her quality, and after the research of
 [playback-in-practice.md](../design/research/playback-in-practice.md): *"I don't think we should be
@@ -18322,6 +18328,8 @@ font, and use slightly rounded corners."*
 **Status:** Decided 2026-10-06.
 
 ## D252 — M4's acceptance shapes each client's network with the kernel's netem, in a run of its own at the milestone's end
+
+> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §2's short home run is in every branch check, CI's container allowed NET_ADMIN.
 
 **Decided** (2026-10-06), by the project owner, building M4's acceptance (m4.md Phase H; cut-a's
 M4 row; D243 §9). The development container had no `tc` and no right to shape its network, so
@@ -18566,5 +18574,33 @@ link.
    loads the film's first seconds from where it resumes, stepping down as it measures; Play shows
    that player, already filled, and the stepping goes on if it had not settled. A browser that loads
    nothing before a tap (Safari on iPhone) starts its chunks on the server only.
+
+**Status:** Decided 2026-10-07.
+
+---
+
+## D261 — The M4 audit's questions, answered
+
+**Decided** (2026-10-07), by the project owner, answering §8 of the M4 audit
+(design/research/audit-2026-10-06.md): *"1: yes, 2: yes, 3: defer as a nice to have in future, 4:
+yes, 5: yes, 6: rewrite it, 7: best effort, but we really need to look into how apps like signal and
+WhatsApp handle voice, because they had no problems with the same bad connection where orpheum
+failed"*.
+
+1. **The drift a Watch Together player leaves alone is 150 ms by default**, so D243 §9's bound of
+   200 ms apart 95% of the time holds. **Revises** D250 §1's 500 ms; it stays the setting
+   `together_drift_left_alone_ms`.
+2. **A short netem run, the home profile, is part of every branch check** (D252 §2): CI's container
+   is allowed to shape its own network (`NET_ADMIN`).
+3. **A signed-in guest's watch history is deferred**, a nice-to-have for later (D246 §4). M4's
+   acceptance no longer asks for it.
+4. **A Watch Together link's note is the host's: `hostNote`**, not `adminNote`, which stays the
+   admin's note on an account.
+5. **The ACME directory is a config key**, `https.acme_directory`, Let's Encrypt's production one by
+   default, so staging can use Let's Encrypt's staging CA.
+6. **watch-together.md is rewritten** to say the design as D246 and D250 made it.
+7. **Voice on a congested link is best effort**: D243 §9's voice bounds hold for the home and mobile
+   profiles, not the congested one. How Signal and WhatsApp keep voice working on links where
+   ours failed is researched next (the owner: they "had no problems with the same bad connection").
 
 **Status:** Decided 2026-10-07.
