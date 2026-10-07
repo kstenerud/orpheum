@@ -212,9 +212,12 @@ type Tuning struct {
 	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`
 	// ShouldNudgeKeepPitch is whether a nudged player's sound keeps its pitch (D250 §7).
 	ShouldNudgeKeepPitch bool `json:"shouldNudgeKeepPitch"`
-	// ShouldProcessMicrophone is whether the browser's echo cancelling, noise suppression and gain
-	// control work on a person's microphone for voice (D63: headphones need none).
-	ShouldProcessMicrophone bool `json:"shouldProcessMicrophone"`
+	// ShouldCancelMicrophoneEcho is whether the browser cancels echo on a person's microphone for
+	// voice (D63: headphones need none); on Android it makes a call of it.
+	ShouldCancelMicrophoneEcho bool `json:"shouldCancelMicrophoneEcho"`
+	// ShouldLevelMicrophone is whether the browser's gain control and noise suppression work on a
+	// person's microphone for voice.
+	ShouldLevelMicrophone bool `json:"shouldLevelMicrophone"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every

@@ -6,6 +6,7 @@ import {
   createTogetherVoice,
   partnerGainMost,
   type Api,
+  type SyncTuning,
   type TogetherVoice,
   type VoiceSnapshot,
 } from "@orpheum/sdk";
@@ -139,8 +140,8 @@ export function VoiceControls(props: {
   readonly membership: Membership;
   /** A signed-in person's session token, sent in the voice device's hello too (D243 §2). */
   readonly sessionToken?: string | undefined;
-  /** Whether the browser's processing works on the microphone: the session's tuning says. */
-  readonly isMicrophoneProcessed: boolean;
+  /** The session's tuning, which says what the browser does to the microphone. */
+  readonly tuning: SyncTuning;
 }): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = useVoice(props.membership, props.sessionToken);
@@ -152,7 +153,10 @@ export function VoiceControls(props: {
           type="button"
           disabled={snapshot.status === "starting"}
           onClick={() => {
-            void voice.start(props.isMicrophoneProcessed);
+            void voice.start({
+              shouldCancelEcho: props.tuning.shouldCancelMicrophoneEcho,
+              shouldLevel: props.tuning.shouldLevelMicrophone,
+            });
           }}
         >
           {t("together.voice.talk")}

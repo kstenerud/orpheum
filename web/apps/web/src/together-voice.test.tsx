@@ -3,7 +3,14 @@
 
 import "./i18n.ts";
 
-import type { BrowserVoiceDevices, VoiceCall, VoiceCallSetup } from "@orpheum/sdk";
+import {
+  startingTuning,
+  type BrowserVoiceDevices,
+  type MicrophoneProcessing,
+  type SyncTuning,
+  type VoiceCall,
+  type VoiceCallSetup,
+} from "@orpheum/sdk";
 import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -26,21 +33,21 @@ interface FakeDevices {
   readonly track: MediaStreamTrack;
   readonly calls: FakeCall[];
   /** Whether each opening of the microphone asked for the browser's processing. */
-  readonly processedAsked: boolean[];
+  readonly processedAsked: MicrophoneProcessing[];
 }
 
 function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
   const track = { enabled: true, stop: () => undefined } as unknown as MediaStreamTrack;
   const microphone = { getAudioTracks: () => [track] } as unknown as MediaStream;
   const calls: FakeCall[] = [];
-  const processedAsked: boolean[] = [];
+  const processedAsked: MicrophoneProcessing[] = [];
   return {
     track,
     calls,
     processedAsked,
     devices: {
-      openMicrophone: (isProcessed) => {
-        processedAsked.push(isProcessed);
+      openMicrophone: (processing) => {
+        processedAsked.push(processing);
         return openMicrophone?.() ?? Promise.resolve(microphone);
       },
       startCall: (setup) => {
@@ -65,6 +72,13 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
 }
 
 const membership = { sessionId: 1, credential: "viewer-credential" };
+
+/** A tuning whose microphone processing is the opposite of the starting one's in both parts. */
+const echoCancelledTuning: SyncTuning = {
+  ...startingTuning,
+  shouldCancelMicrophoneEcho: true,
+  shouldLevelMicrophone: false,
+};
 
 const relay = { urls: ["turn:orpheum.test:443"], username: "u", credential: "p", expiresAt: 1 };
 
@@ -123,12 +137,15 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const heard: Heard[] = [];
     const { services, server } = voiceServices(devices, heard);
     const mounted = await mount(
-      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
     );
     expect(mounted.container.textContent).toContain("Use headphones");
     expect(server.openedCount()).toBe(0);
     await click(buttonWithText(mounted.container, "Talk"));
-    expect(devices.processedAsked).toEqual([true]);
+    expect(devices.processedAsked).toEqual([{ shouldCancelEcho: true, shouldLevel: false }]);
     await server.accept();
     expect(server.heard[0]).toEqual({
       v: 2,
@@ -155,7 +172,10 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
-      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
     );
     await click(buttonWithText(mounted.container, "Talk"));
     await server.accept();
@@ -180,7 +200,10 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
-      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
     );
     expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
     expect(server.openedCount()).toBe(0);
@@ -204,7 +227,10 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
-      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
     );
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
@@ -221,7 +247,10 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotSupportedError")));
     const { services } = voiceServices(devices);
     const mounted = await mount(
-      withServices(<VoiceControls membership={membership} isMicrophoneProcessed />, services),
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
     );
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(

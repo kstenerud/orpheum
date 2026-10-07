@@ -100,7 +100,8 @@ const (
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
 	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
-	ShouldTogetherVoiceProcessMicrophone           Key = "should_together_voice_process_microphone"
+	ShouldTogetherVoiceCancelEcho                  Key = "should_together_voice_cancel_echo"
+	ShouldTogetherVoiceLevelMicrophone             Key = "should_together_voice_level_microphone"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
@@ -281,13 +282,21 @@ func togetherDefinitions() []Definition {
 			StartSource: "the browser's own default; safari-versions.md §3 (device test T2) is to settle it",
 		},
 		{
-			Key: ShouldTogetherVoiceProcessMicrophone, Kind: KindBool, StartJSON: json.RawMessage("false"),
-			Description: "whether the browser's echo cancelling, noise suppression and gain control work on a Watch " +
-				"Together person's microphone; with headphones none is needed (D63), and on Android they may " +
-				"put the phone in a call, turning the film down and taking its volume buttons",
+			Key: ShouldTogetherVoiceCancelEcho, Kind: KindBool, StartJSON: json.RawMessage("false"),
+			Description: "whether the browser cancels echo on a Watch Together person's microphone; with headphones " +
+				"none is needed (D63), and on Android it puts the phone in a call, turning the film down and " +
+				"taking its volume buttons",
 			StartSource: "the owner's test, 2026-10-06, an Android host with headphones: with it on the film was " +
 				"barely audible and its volume buttons dead; \"With the flag off I was able to control the volume " +
 				"while talk was enabled\"",
+		},
+		{
+			Key: ShouldTogetherVoiceLevelMicrophone, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Description: "whether the browser's gain control and noise suppression work on a Watch Together " +
+				"person's microphone; without echo cancelling, Chrome on Android runs them itself, not as a call",
+			StartSource: "the owner's test, 2026-10-06: a partner with neither was too quiet beside the film at " +
+				"four times; Chromium's AAudio input: \"the lack of automatic gain control results in quiet, " +
+				"sometimes silent, streams\" (voip research, 2026-10-07)",
 		},
 	}
 }

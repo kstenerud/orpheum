@@ -51,6 +51,7 @@ export type {
 export { createTogetherVoice, microphoneFailureOf, partnerGainMost } from "./together-voice.ts";
 export type {
   MicrophoneFailure,
+  MicrophoneProcessing,
   VoiceFailure,
   TogetherVoice,
   TogetherVoiceOptions,
