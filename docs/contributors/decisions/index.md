@@ -267,6 +267,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D259](working-notes.md#d259--a-films-cut-points-come-from-where-each-one-falls-from-the-files-own-index-or-from-reading-ahead-of-the-player-never-only-from-a-whole-read) A film's cut points come from where each one falls, from the file's own index, or from reading ahead of the player, never only from a whole read
 - [D260](working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays) A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays
 - [D261](working-notes.md#d261--the-m4-audits-questions-answered) The M4 audit's questions, answered
+- [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it
 
 ## Archived
 

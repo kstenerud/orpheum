@@ -18604,3 +18604,34 @@ failed"*.
    ours failed is researched next (the owner: they "had no problems with the same bad connection").
 
 **Status:** Decided 2026-10-07.
+
+---
+
+## D262 — Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it
+
+**Decided** (2026-10-07), by the project owner, on the research into how Signal and WhatsApp keep
+voice working on links where ours failed (voice-bad-links-research-2026-10-07.md, in the shared
+files; D261 §7): *"Do all of them if it will help"*. Voice on a congested link stays best effort
+(D261 §7); these are what make it likely to work there.
+
+1. **Measure before tuning.** Each voice call reports its receiver's own statistics every ten
+   seconds, logged by the core: the jitter buffer's target delay, samples concealed apart from
+   silence, packets lost and packets that arrived too late, packets recovered by FEC, the round
+   trip, and whether the relay carries it over UDP or TCP. The acceptance's emulation is made
+   realistic: a 1500-byte MTU on the loopback, a queue of about a quarter of a second under the
+   congested profile's rate, and jitter that is correlated rather than independent per packet. A
+   voice-only run under each profile is the fair comparison with another app's call.
+2. **The film gives way to voice.** While a person's voice is live, their player caps the film's
+   quality at half the link it measures, and asks the server to pace each chunk's download to a
+   little above the rate the quality plays at, so the film's download never fills the link's
+   queue in bursts; the server also marks those downloads as lower than best effort (DSCP LE).
+3. **Voice is sent to survive loss.** Opus with its in-band FEC, DTX and an explicit average
+   bitrate; RED, each packet carrying the one before, where the browser offers it (Chrome, Safari);
+   the voice marked high priority (DSCP EF) where the browser can.
+4. **The relay prefers UDP**, TCP only as a fallback, and the log says which carried a call.
+
+Not done, and why (the research's §7 and §8): the browser's jitter-buffer target only adds delay,
+and no standard API caps it; Opus DRED, low-bitrate FEC codecs and neural concealment ship in no
+browser.
+
+**Status:** Decided 2026-10-07.
