@@ -18455,3 +18455,45 @@ original (with sanity checks). The whole point is a lower bit rate stream that i
 
 **Status:** Decided 2026-10-07.
 
+---
+
+## D257 — A player starts on the version its link can carry, chosen before play from the speed remembered for that device on that network
+
+**Decided** (2026-10-07), by the project owner, after starts of a minute or more: a player on a
+slow link started on the original, and only after 15 s of loading (D247 §2's slow load) moved to a
+lower version. **Revises** D247 §2, *"The original plays first"*, for a link known to be too slow.
+
+1. **The speed a device measures on real video is remembered, per device and per network**: the
+   network is the address the server sees it come from, its IPv6 prefix or its public IPv4
+   address. A phone that moves from Wi-Fi to LTE comes from another address, so the speed measured
+   on one is never taken for the other (the owner: *"When network conditions have changed, the old
+   measurements are now stale"*). A speed fades with age, counting for less after a day, and each
+   measurement replaces it.
+2. **The start is chosen before play.** Where the remembered speed is too slow for the original, by
+   D247 §6's share of 70%, the player starts on the lower version that fits, made as at a stall, and
+   that version is listed first in its playlist, since Safari starts with the first. Where nothing
+   is remembered, the original starts first, as before, and the warm-up (D258) measures.
+3. **This detects no place.** Nothing behaves differently at home or away (D247 §11); a network only
+   keeps one measurement from standing for another.
+
+**Status:** Decided 2026-10-07.
+
+---
+
+## D258 — Opening a film's page warms it up, and the warm-up's download is the speed test
+
+**Decided** (2026-10-07), by the project owner: *"I wonder if we can preemptively check connectivity
+situation and pre buffer the best matched steam (generating it if necessary)?"*, and *"the preload
+would make a good speed test, wouldn't it? If the client struggles to preload, it already knows it
+needs a lower bit rate stream."* Netflix's predictive caching and Apple's advice to start network
+work once a title is likely are the precedent (coldstart research, 2026-10-07).
+
+1. **Opening a film's page, or pressing play, starts a warm-up**: the server prepares the first
+   minute of the version D257 would start on, or its first chunks, and the page loads its first
+   segments. At most two run at once; one is cancelled when its page is left. A warm-up is fast work
+   in D255's tiers.
+2. **The warm-up's download is the speed test.** How fast its segments arrive is a measurement as
+   D257 §1 keeps; one that struggles moves the start lower before play is pressed.
+
+**Status:** Decided 2026-10-07.
+
