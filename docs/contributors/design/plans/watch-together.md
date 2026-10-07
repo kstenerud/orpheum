@@ -208,6 +208,28 @@ From [D188](../../decisions/working-notes.md#d188--the-interface-is-designed-aga
   player shows none yet ([m4.md](m4.md) Phase E).
 - **Undo for a seek** and **text chat** (D188).
 
+## Prepared for, not built
+
+The owner, 2026-10-07: native apps and other ways of delivering the film are coming, *"we could
+have voice going to a mobile app or to a mobile web browser, and the video itself going to a TV in
+the same house as the guest"*; *"we prepare for this eventuality, but we don't need to build it
+yet"*. What is designed from now on keeps these open:
+
+- **A person's devices are separate, by role** ([D120](../../decisions/working-notes.md#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)):
+  voice on a phone's browser or app, the film on a television, as the protocol's playback, voice
+  and both roles already allow. Nothing new may assume that voice and the film share a tab, a
+  browser or a device. The missing piece is a second device joining as the same person (Open,
+  below).
+- **The film gives way to voice per person, not per tab.** D262 §2's pacing is asked by the
+  player, from its own tab's voice; with voice on a phone and the film on the television in the
+  same house, they share the household's link but not a tab. The core knows both are one person's,
+  so it will pace that person's playback devices while any of their voice devices is live.
+- **Bounds and behaviour are per client.** Browsers never reach parity (the owner, the same day:
+  *"I'm okay with browser-specific policies"*), and a native app can do what no browser can: cap its
+  jitter buffer, as Signal's 500 ms, use Opus's deep redundancy (DRED), or carry media its own way.
+  Each capability is detected, never read from the User-Agent, and each acceptance bound says the
+  client pair it holds for.
+
 ## Open
 
 Undecided, or where the code and a decision disagree. Each needs the owner.
