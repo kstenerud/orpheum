@@ -253,8 +253,10 @@ Undecided, or where the code and a decision disagree. Each needs the owner.
 - **Suspensions and the group rate** are in the protocol and unused by the web client: whether
   the host's scrubbing, now a debounce, should be `userIsChangingCurrentTime`, and whether a group
   rate is wanted.
-- **The others' volume is one level for all of them**, which is per-source gain at two. Whether
-  each person gets their own level above two.
+- **The others' volume is one level for all of them**, which is per-source gain at two. The
+  owner, 2026-10-07: on the play page everyone, not only the host, gets a volume for each other
+  person and one for the film; the device's own buttons stay the master volume. Not yet decided
+  or built: it waits for the UI work, which records it as a decision.
 - **Above two.** D250 §2 answers what happens when one member struggles; whether anything else
   changes at four or five (D69) is not designed.
 
