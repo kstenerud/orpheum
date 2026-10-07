@@ -209,15 +209,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   Safari's still position just after a change, and its switch of pitch keeping, are answered
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
 - [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against
-  staging and presses **Talk**, with the settings as they start (**should_together_voice_cancel_echo**
-  off, **should_together_voice_level_microphone** on). Passes when the film stays at its usual
-  loudness, the phone's volume buttons still change it while voice is on, and the other person
-  hears the host clearly over their film with their Partner slider at 100%. If the film drops to
-  barely audible (the owner's test, 2026-10-06, with both on), set
-  **should_together_voice_level_microphone** to off on the Settings page, press Leave voice and
-  Talk again, and say whether the film's loudness and the buttons come back. Only a real Android
-  phone shows that Chrome levels a microphone without echo cancelling in software, not as a call
-  (voip research, 2026-10-07, from Chromium's source)
+  staging in **Chrome** and presses **Talk**, with **should_together_voice_cancel_echo** off and
+  **should_together_voice_level_microphone** set on (it starts off). Passes when the film stays at
+  its usual loudness, the phone's volume buttons still change it while voice is on, and the other
+  person hears the host clearly over their film with their Partner slider at 100%. Firefox on
+  Android failed this (the owner's test, 2026-10-07: the volume buttons stopped working), which is
+  why it starts off. Only a real Android phone shows that Chrome levels a microphone without echo
+  cancelling in software, not as a call (voip research, 2026-10-07, from Chromium's source)
   (`web/packages/sdk/src/together-voice-browser.ts`)
 - [ ] **VQ24** — `make test-acceptance` on D190's remote-household VM on nuc13 (device-lab.md), each
   of the two browsers behind its own netem profile rather than one shared loopback: passes when

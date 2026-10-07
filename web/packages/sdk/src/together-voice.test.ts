@@ -16,7 +16,7 @@ import {
   type VoiceMicrophone,
 } from "./together-voice.ts";
 
-/** The tuning's starting processing: gain control and noise suppression, no echo cancelling. */
+/** Processing with gain control and noise suppression, no echo cancelling. */
 const levelled: MicrophoneProcessing = { shouldCancelEcho: false, shouldLevel: true };
 
 /** The server's end of each socket voice opens, and every message sent on them, parsed. */

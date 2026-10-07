@@ -96,7 +96,10 @@ export interface VoiceCallSetup<Microphone extends VoiceMicrophone> {
 export interface MicrophoneProcessing {
   /** Echo cancelling: on Android it makes a call of voice, turning the film down. */
   readonly shouldCancelEcho: boolean;
-  /** Gain control and noise suppression, which without echo cancelling are no call on Android. */
+  /**
+   * Gain control and noise suppression: Chrome on Android runs them without a call when echo
+   * cancelling is off, but Firefox on Android still makes a call of them.
+   */
   readonly shouldLevel: boolean;
 }
 
