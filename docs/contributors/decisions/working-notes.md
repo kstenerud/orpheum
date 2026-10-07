@@ -18497,3 +18497,27 @@ work once a title is likely are the precedent (coldstart research, 2026-10-07).
 
 **Status:** Decided 2026-10-07.
 
+---
+
+## D259 — A film's cut points come from where each one falls, from the file's own index, or from reading ahead of the player, never only from a whole read
+
+**Decided** (2026-10-06, confirmed 2026-10-07), by the project owner: chunks.md §6, agreed when the
+read-through of every film over a network mount took minutes and a film whose read-through failed
+could never be offered a lower quality; confirmed when films added from the NAS stalled with
+nothing offered while their read-throughs waited: *"Even if the index isn't available, can't the
+encoding start already when you know where enough key frames are?"* **Revises** D247 §10's grid,
+which came only from reading the whole file through.
+
+1. **A local rule for the grid.** A chunk starts at the first keyframe at or after each multiple of
+   `hls_segment_length_seconds`, so each boundary depends only on the keyframes near it: a stretch
+   of the film cut alone agrees with the whole film's grid. A last chunk shorter than the length is
+   merged into the one before it, as before.
+2. **The keyframes from the file's own index**: an MP4's sync-sample table, a Matroska file's cues,
+   read in a fraction of a second; the read-through stays the fallback. A sound's chunks do not wait
+   for its loudness: unlevelled until it is measured.
+3. **Read ahead of the player for a file with no index** (AVI, MPEG-TS, Matroska without cues): the
+   node reads a few minutes ahead of the player's position, saying each keyframe as it reads, and
+   the playlists grow from there. Required before a public release (the owner, 2026-10-06).
+
+**Status:** Decided 2026-10-07.
+

@@ -17,13 +17,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-func TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength(t *testing.T) {
+func TestGridOf_StartsAChunkAtTheFirstKeyframeAtOrAfterEachMultipleOfTheLength(t *testing.T) {
 	t.Parallel()
 	for _, check := range []struct {
-		what                   string
-		keyframesMs            []int64
-		durationMs, minChunkMs int64
-		want                   []int64
+		what                  string
+		keyframesMs           []int64
+		durationMs, segmentMs int64
+		want                  []int64
 	}{
 		{
 			"dense keyframes, every half second, are merged into chunks of two seconds",
@@ -38,7 +38,7 @@ func TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength(t *testing.T
 			[]int64{0, 10_010, 20_020, 30_030},
 		},
 		{
-			"uneven keyframes, some a second apart, start a chunk only two seconds past the last start",
+			"uneven keyframes, some a second apart, start a chunk at the first past each two seconds",
 			[]int64{0, 1000, 10_000, 11_000, 12_500, 20_000},
 			30_000, 2000,
 			[]int64{0, 10_000, 12_500, 20_000},
@@ -55,6 +55,12 @@ func TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength(t *testing.T
 			6000, 2000,
 			[]int64{0, 2000, 4000},
 		},
+		{
+			"a keyframe just short of a multiple starts no chunk: the one after the multiple does",
+			[]int64{0, 2500, 4400, 4600},
+			9000, 2000,
+			[]int64{0, 2500, 4400},
+		},
 		{"a single keyframe is one chunk to the end", []int64{0}, 90_000, 2000, []int64{0}},
 		{"a film shorter than the length is one chunk", []int64{0, 500}, 1500, 2000, []int64{0}},
 		{
@@ -70,7 +76,7 @@ func TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength(t *testing.T
 			[]int64{0, 4000},
 		},
 	} {
-		got, err := GridOf(check.keyframesMs, check.durationMs, check.minChunkMs)
+		got, err := GridOf(check.keyframesMs, check.durationMs, check.segmentMs)
 		if err != nil || !slices.Equal(got, check.want) {
 			t.Errorf("%s: %v, %v; want %v", check.what, got, err, check.want)
 		}
@@ -80,8 +86,8 @@ func TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength(t *testing.T
 func TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut(t *testing.T) {
 	t.Parallel()
 	for what, check := range map[string]struct {
-		keyframesMs            []int64
-		durationMs, minChunkMs int64
+		keyframesMs           []int64
+		durationMs, segmentMs int64
 	}{
 		"no keyframes":                    {nil, 6000, 2000},
 		"an empty list of keyframes":      {[]int64{}, 6000, 2000},
@@ -89,9 +95,27 @@ func TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut(t *testing.T) {
 		"a film of no length":             {[]int64{0}, 0, 2000},
 		"a chunk of no length":            {[]int64{0, 1000}, 6000, 0},
 	} {
-		if starts, err := GridOf(check.keyframesMs, check.durationMs, check.minChunkMs); !errors.Is(err,
+		if starts, err := GridOf(check.keyframesMs, check.durationMs, check.segmentMs); !errors.Is(err,
 			ErrCannotBeCut) {
 			t.Errorf("%s: %v, %v; want ErrCannotBeCut", what, starts, err)
+		}
+	}
+}
+
+// A stretch of a film cut alone, from any keyframe that starts a chunk, has the same starts as the
+// whole film's grid from there: what lets a film be cut as its keyframes are found (D259 §1).
+func TestGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid(t *testing.T) {
+	t.Parallel()
+	keyframesMs := []int64{0, 900, 2100, 2500, 3999, 4001, 5300, 7900, 8100, 9700, 12_000, 12_400, 13_100, 16_050}
+	whole, err := GridOf(keyframesMs, 20_000, 2000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, start := range whole {
+		from := slices.Index(keyframesMs, start)
+		stretch, err := GridOf(keyframesMs[from:], 20_000, 2000)
+		if err != nil || !slices.Equal(stretch, whole[index:]) {
+			t.Errorf("cut alone from %d ms: %v, %v; want the whole grid's %v", start, stretch, err, whole[index:])
 		}
 	}
 }

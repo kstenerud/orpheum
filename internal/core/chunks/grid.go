@@ -33,30 +33,33 @@ type Grid struct {
 	FilmDurationMs int64
 }
 
-// GridOf merges a picture's keyframes, keyframesMs, ascending, into the starts of chunks each at
-// least minChunkMs long, to the film's end at durationMs (D247 §10, chunks.md §1). The first chunk
-// starts at the first keyframe; each keyframe that is minChunkMs or more after the last start
-// starts the next, greedily; and a last chunk shorter than minChunkMs is merged into the one before
-// it, so only a film shorter than minChunkMs from its first keyframe has a chunk shorter than that.
-// A keyframe at or after the film's end starts nothing. It fails with ErrCannotBeCut for a picture
-// with no keyframe before the film's end, and for a minChunkMs that is not positive.
-func GridOf(keyframesMs []int64, durationMs, minChunkMs int64) ([]int64, error) {
-	if minChunkMs <= 0 {
-		return nil, fmt.Errorf("%w: a chunk of at least %d ms", ErrCannotBeCut, minChunkMs)
+// GridOf is the starts of the chunks a picture with keyframes keyframesMs, ascending, is cut into,
+// to the film's end at durationMs (D259 §1, chunks.md §1): the first keyframe starts the first
+// chunk, and the first keyframe at or after each later multiple of segmentMs starts the next, so
+// each start depends only on the keyframes near it and a stretch of the film cut alone agrees with
+// the whole film's grid. A keyframe at or after the film's end starts nothing, and a last chunk
+// shorter than segmentMs is merged into the one before it. It fails with ErrCannotBeCut for a
+// picture with no keyframe before the film's end, and for a segmentMs that is not positive.
+func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
+	if segmentMs <= 0 {
+		return nil, fmt.Errorf("%w: chunks of %d ms", ErrCannotBeCut, segmentMs)
 	}
 	if len(keyframesMs) == 0 || keyframesMs[0] >= durationMs {
 		return nil, fmt.Errorf("%w: no keyframe before the film's end at %d ms", ErrCannotBeCut, durationMs)
 	}
+	nextMultipleAfter := func(ms int64) int64 { return (ms/segmentMs + 1) * segmentMs }
 	starts := []int64{keyframesMs[0]}
+	next := nextMultipleAfter(keyframesMs[0])
 	for _, keyframe := range keyframesMs[1:] {
 		if keyframe >= durationMs {
 			break
 		}
-		if keyframe-starts[len(starts)-1] >= minChunkMs {
+		if keyframe >= next {
 			starts = append(starts, keyframe)
+			next = nextMultipleAfter(keyframe)
 		}
 	}
-	if len(starts) > 1 && durationMs-starts[len(starts)-1] < minChunkMs {
+	if len(starts) > 1 && durationMs-starts[len(starts)-1] < segmentMs {
 		starts = starts[:len(starts)-1]
 	}
 	return starts, nil
