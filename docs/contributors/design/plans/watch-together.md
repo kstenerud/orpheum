@@ -1,628 +1,258 @@
-> **ABOUTME:** Synchronised remote playback with shared controls and voice chat — the feature
-> five commercial services built and then deleted, and the design constraint that follows from
-> why theirs died.
+> **ABOUTME:** Watch Together as designed and built: the host's session, who may join and do
+> what, how the players keep in step, voice, and what each person sees. The feature five
+> commercial services built and then withdrew, so it stays small in every client.
 
 # Watch Together
 
-- **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D69](../../decisions/working-notes.md)); **membership, abilities and the cast path settled 2026-09-20/21 by the project owner** ([D117](../../decisions/working-notes.md)–[D124](../../decisions/working-notes.md)). **Two, remote, is in Cut A** ([D175](../../decisions/working-notes.md), [D178](../../decisions/working-notes.md)); **2026-09-23: the session behaves as if nobody has an account, and a signed-in participant's viewing is recorded as their own** ([D191](../../decisions/working-notes.md)); **voice is browser WebRTC through a TURN server embedded in our binary, with no upgrade ladder and no content-referenced echo cancellation, and our own relay role is deferred** ([D193](../../decisions/working-notes.md) §4).
-- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK, and the cast receiver — [D124](../../decisions/working-notes.md)), [remote-access.md](remote-access.md) (for the off-LAN case, and the one public HTTPS name that serves the web client, the cast receiver and the TURN port — [D193](../../decisions/working-notes.md) §5). **Not** [sharing-model.md](sharing-model.md): [D117](../../decisions/working-notes.md) made the session link the grant, so this is the one access path that is deliberately not predicate-governed.
+- **Status:** two people, remote, in browsers, built in M4 ([m4.md](m4.md) Phases E, F and H).
+  The design is [D246](../../decisions/working-notes.md#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback)
+  (who may do what) and
+  [D250](../../decisions/working-notes.md#d250--a-watch-together-group-stops-only-at-its-own-sync-points-a-members-trouble-is-theirs-to-catch-up-on-from-what-is-already-being-made)
+  (when the group stops), on the earlier decisions they revise.
+- **Depends on:** [stream-service.md](stream-service.md) and [chunks.md](chunks.md) (what each
+  player plays), [web-client.md](web-client.md) (the SDK), [remote-access.md](remote-access.md)
+  (the public name and the relay's ports). The wire messages are
+  [cut-a.md §5.1](cut-a.md#51-the-watch-together-messages).
+- **History:** rewritten on 2026-10-07, per
+  [D261](../../decisions/working-notes.md#d261--the-m4-audits-questions-answered) §6, to say the
+  design as D246 and D250 made it. The earlier version, with abilities, link rotation, a member
+  cap and the group pausing for a stall, is in git history. The research behind the feature is
+  [research/watch-together.md](../research/watch-together.md).
 
-## Scope, in priority order
+## What it is
 
-The host creates a session and puts something on. Guests join by link. **Volume is local.**
-**Voice chat** with per-source gain, so one loud participant does not drown the film. Text chat
-deferred; emoji reactions are probably the right shape for a television.
+A host plays a film from their own library, and the people they invited watch it with them, in
+step, from elsewhere, and can talk. The motivating case is two people in different places
+([D69](../../decisions/working-notes.md#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party):
+two first, then four or five, then a party on one network; a party across the internet is not
+planned). Cut A is two households on web browsers; the remote television comes right after it
+([D245](../../decisions/working-notes.md#d245--cut-a-ends-with-a-polished-skinned-web-ui-built-on-research-and-the-remote-tv-comes-right-after-it)).
 
-**The session is the object, and what plays is mutable state on it**
-([D122](../../decisions/working-notes.md)). The host may change the video to anything in his
-library at any time, mid-video included, and **a video ending does not end the session** — the
-group returns to `Idle` and waits, which is what that state was always for.
+**The session is the host's** (D246 §5,
+[D122](../../decisions/working-notes.md#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)).
+The host starts and ends it. While it is on, the host browses as usual and the viewers see none of
+it; whatever the host plays plays on every viewer's screen, and when the host stops it, or leaves
+the player, every screen goes black. A film ending, another film, the next episode: all are a
+change of what plays, never a new session.
 
-**What a guest gets is the current playback. Not a library, not a browse view, not an item
-they can address by id.** That is the bound on a leaked link, and it is stronger than scoping
-the session to one work because it does not depend on enumerating the scope.
-
-The motivating case is two people in different places, one of them travelling — a *remote*
-feature first and a LAN feature incidentally.
-
-**Group size is a priority order, not a capability** ([D69](../../decisions/working-notes.md)):
-
-| Priority | Size | Notes |
-| --- | --- | --- |
-| 1 | **Two** | Where the design is *best*, not merely simplest — see below |
-| 2 | **Four or five** | The honest ceiling for a household uplink |
-| 3 | **LAN party** | Mostly a UI problem: roster, joining, control defaults |
-| — | **Remote party** | **Not on this list.** Gated on adaptive bitrate in [transcoding.md](transcoding.md) |
-
-**Two, remote, is scheduled first** ([D175](../../decisions/working-notes.md)): a film chosen in advance gets a prepared
-~8 Mbps Version from the batch transcoder, so it does not wait for live ABR. That is the node's
-prepare job with the `h264-8m` profile, started automatically when a session is created for a
-title, for each participant whose link or device needs the smaller copy
-([D193](../../decisions/working-notes.md) §2). Voice ships with it.
-The supported configuration is headphones on at least one side, which makes every setup of the
-other side a tier-1 or tier-2 case.
-
-Two is the best case rather than the degenerate one:
-[D65](../../decisions/working-notes.md)'s echo alignment is *fully* solvable at two — one person
-on headphones, one on speakers, offset `d = L`, echo gone — and only approximable above it,
-because with three or more the pairwise-optimal offsets are over-determined. "Does one stall
-pause everyone?" has an obvious answer at two and none at five. And the server relay is free at
-two, merely cheap at five.
-
-### Unequal links: the group shares a position, not a stream
-
-[D123](../../decisions/working-notes.md). One guest on hotel wifi and another on fibre is the
-normal case, and it is already answered by decisions taken for other reasons:
-[D2](../../decisions/working-notes.md) puts rendition choice on the client and
-[D86](../../decisions/working-notes.md) makes the client re-pick on its own buffer. So **each
-participant streams at whatever rendition their own link supports**, at the same timestamp,
-unaware of anyone else's choice. Nothing in the six methods mentions bitrate.
-
-**No lowest-common-denominator.** Degrading everyone to the worst link punishes four people
-for one person's hotel, and it is the option that feels fair and is not.
-
-**And N guests do not mean N transcodes.** The output menu is a closed enumeration of about
-eleven named profiles ([D21](../../decisions/working-notes.md)) and the transcoder shares one
-encoder process between viewers of the same rendition
-([transcoding.md](transcoding.md)) — cost is bounded by the menu, not by the roster. Five
-guests collapse onto two or three renditions, usually one.
-
-**What *is* shared is stalls**, and that is what the group stall policy below is for.
-"Continue without them" lets a struggling guest fall behind and resynchronise rather than
-holding four people at a spinner; it is kinder than ejection and it is the first resort, not
-the last.
-
-**Per-guest health is in the roster**, because the stall policy is unusable without it — and
-it is nearly free, since [D73](../../decisions/working-notes.md) already routes every client's
-observations to the core and [D91](../../decisions/working-notes.md) already collects them.
-Buffer health and stall count per participant does three jobs: it tells the host *why*
-playback keeps pausing ([principles §3](../../principles/README.md) applied to a group), it
-makes the stall policy a comprehensible choice rather than a mystery toggle, and it lets the
-struggling guest see their own meter and bow out before anyone has to ask. Ejection stays
-host-only ([D119](../../decisions/working-notes.md)); what the meter adds is that the decision
-is informed.
-
-**Until the transcoder exists** ([transcoding.md](transcoding.md) §(b), which
-[D86](../../decisions/working-notes.md) already put on remote access's critical path) a guest
-whose link cannot carry the original is out of luck — and the honest thing is to say so on the
-join screen rather than let them find out at minute four.
-
-### Where the ceiling actually is
-
-Not the voice. Opus with RTP/SRTP/UDP/IP overhead is ~64 kbps per stream, and because
-per-source gain means the server **forwards rather than mixes**, it is `N(N−1)` outbound:
-
-| N | 2 | 5 | 10 | 20 |
-| --- | --- | --- | --- | --- |
-| Voice out | 0.13 Mbps | 1.3 Mbps | 5.8 Mbps | 24 Mbps |
-
-**The film is the constraint long before that.** A 1080p web-dl direct-plays at 5–10 Mbps and a
-remux at 20–30, against a household upload of 10–40 Mbps on fibre and much less elsewhere. One
-remote viewer on a remux can saturate an uplink. So "party mode" splits in two: a **LAN party**
-costs no uplink at all and is nearly free, while a **remote party** is bounded by physics and
-belongs to the transcoding plan, not this one.
-
-### Openings to leave, none of which is work today
-
-1. **Membership is a list with per-member state**, not a pair — and per
-   [D119](../../decisions/working-notes.md) each member's state is a **first-class object with
-   its own identity**, issued at join. That is what makes ejection and seamless link rotation
-   possible; without it a participant is only identifiable by a link several people hold.
-2. ~~**Control is a per-participant capability**, defaulting to everyone~~ — **taken**
-   ([D121](../../decisions/working-notes.md)): it is now a creator-set policy, chosen at
-   session creation, over a **closed table of abilities** rather than one flag — see the
-   abilities table below.
-3. **The client handles a *set* of remote audio streams** with per-source gain, even when the
-   set has one member. Free, since per-source gain was already required — and it is what makes
-   the voice companion below cost nothing extra.
-4. **Transport is a server-chosen policy** — mesh, relay, or eventually an SFU — not a client
-   assumption.
-5. **The stall policy is a group setting** with a size-dependent default — and per
-   [D123](../../decisions/working-notes.md) it is the real control for unequal links, with the
-   per-guest health meter as the surface that makes it choosable.
-
-Not building: an SFU, active-speaker detection, moderation tooling, roles beyond (2), text chat.
-
-If a participant's networks are routinely hostile — hotels, conference wifi, CGNAT — the answer
-is not more traversal cleverness but the **`relay` role** on a cheap VPS that the core dials out
-to ([D71](../../decisions/working-notes.md)). It fixes reachability, voice and the uplink in one
-deployment, and it is useful at two participants, not just at party scale. **Not in Cut A**
-([D193](../../decisions/working-notes.md) §4): there the order is a port-forward, then IPv6,
-then a standard tunnel to a VPS ([remote-access.md](remote-access.md)), and the binary's own
-`relay` mode arrives when strangers need it.
-
-If remote party viewing ever happens, the shape is **fan-out** — the household uploads one
-stream to a distribution node and N participants pull from it, making the home uplink cost
-independent of N ([D70](../../decisions/working-notes.md)). It is speculative and much later,
-and the minimum viable version is an HTTP caching proxy, because synchronised viewing is the
-ideal caching workload: everyone wants the same segment at the same moment. The **one thing
-that must not be closed by accident** is segment-URL cacheability — see
-[stream-service.md](stream-service.md).
+**It stays small in every client.** Plex and others withdrew the feature because it lived in every
+client and did not survive a rewrite
+([D150](../../decisions/working-notes.md#d150--read-the-withdrawals-not-just-the-requests-five-features-the-field-built-and-took-away)).
+So everything but driving the player is in the shared SDK and the server: the per-client surface
+is a player's position, buffering, play, pause, seek and rate
+([D62](../../decisions/working-notes.md#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)).
 
 ## Who may join, and who may do what
 
-[D117](../../decisions/working-notes.md). **The session link is the grant.** Holding a valid
-one admits you — no account, no share predicate evaluated per person, which is the point: the
-motivating case is a partner travelling who does not have an account.
-
-**A link admits; a membership persists** ([D119](../../decisions/working-notes.md)). That
-distinction is what makes the rest cheap: a join link is a credential for *admission only*,
-and once someone is in, their membership is an object of its own with its own identity.
-
-**"Persists" means for the session and not one second longer**
-([D125](../../decisions/working-notes.md)). A guest is **not a principal**: no user row, no
-password, no recovery, no predicate, and — **unless they are signed in** (below,
-[D191](../../decisions/working-notes.md)) — **no play state, history or statistics**; during a
-session it is *the host's* position that advances, because it is the host's library and the
-host's choice of what plays ([D122](../../decisions/working-notes.md)). This is worth stating
-because the opposite is the natural implementation — a membership looks enough like a user to
-get a row — and **a guest who acquires a durable identity is a griefer who survived
-rotation**.
-
-**Signing in adds recording and nothing else** ([D191](../../decisions/working-notes.md#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own)). The session behaves as though
-nobody has an account. A participant who *is* signed in — on any of their devices — also has
-their viewing recorded against their own account, exactly as solo viewing would record it; the
-host's is recorded as always. So when the owner and their partner watch together, **each of their
-histories advances**, and a link-holder who is not signed in still accrues nothing. Her
-television joins as a device of her membership by the link or a short code; it needs no
-sign-in of its own.
-
-So recovering from a leak never disturbs anyone:
-
-1. **The owner rotates the join link.** The old one **stops admitting new clients and keeps
-   serving every client already admitted** — no interruption, no re-join, no re-formed
-   session. Position, roster and voice are untouched.
-2. **The owner ejects the intruder**, which is possible at all only because memberships have
-   identity. **Ejection is owner-only and never delegable** — a participant with transport
-   control still cannot remove anyone, or a griefer with control rights could eject the host.
-3. **Ejection and rotation are paired by a prompt, not by coupling**, because booting someone
-   who still holds a working link is a revolving door — but rotating when you did not need to
-   has its own victim. Removing someone raises:
-
-   > *If you're booting this person due to abuse, would you also like to rotate the join link
-   > so they can't come back?*
-
-   It asks about the **reason**, not the mechanism: the owner is mid-incident and should not
-   need to know what a join link is. It is **not a default**, because the cost of a needless
-   rotation falls on someone invisible — a legitimate invitee holding the old link who has not
-   joined yet; everyone already in is undisturbed either way. And it **never gets a "don't ask
-   again"**: a housemate going to bed and a stranger who found the link are the same button
-   with opposite answers, so remembering the last choice would be a bug. A batch ejection asks
-   once.
-4. **The owner sees the roster live**, or cannot know to do any of this.
-
-**And the cap is the control that works before the owner notices.** At session creation the
-owner sets a **maximum number of simultaneous participants, with a small safe default** —
-**participants, meaning people, not connected clients** ([D120](../../decisions/working-notes.md)
-corrects this decision's original wording; two people with voice companions are four clients
-and must not trip a cap of two). Small, because [D69](../../decisions/working-notes.md) says
-the design is best at two and the motivating case is two people; visible at creation rather
-than buried, and raisable in one action at any time. It bounds the flood from a leaked link to
-one griefer rather than thirty, and it is simultaneously a **cost** control — though the thing
-the uplink and the relay actually pay for is *streams*, which is why the cap is the bound and
-the per-guest health meter is the feedback.
-
-**A refused join is a signal.** "At capacity" never fires in a correctly-sized session, so
-several in a row is the earliest available evidence that a link has leaked — arriving before
-a stranger shows up in the roster. Surface it to the owner live, with the rotate action next
-to it ([principles §10](../../principles/README.md)).
-
-**And what the link reaches is the session, not a library**
-([D122](../../decisions/working-notes.md)). That is what keeps the blast radius small enough
-for revocation to be a sensible control, and it is a **stronger** bound than scoping the
-session to one work — which is what this plan used to say, and which stopped being true when
-the host gained the right to change what plays mid-session. A link holder gets the current
-playback: no browse view, no item addressable by id, nothing enumerable. The bound does not
-depend on knowing the scope in advance.
-
-### Abilities: a closed table, each one `group` or `host only`
-
-[D121](../../decisions/working-notes.md). The host picks at session creation. That is all
-there is to it.
-
-| Ability | Grant | Default |
-| --- | --- | --- |
-| Transport — play, pause, seek | `group` \| `host only` | `group` |
-| Choose what plays | **`host only`, not a setting** | — |
-| Eject, rotate the link, change the cap | **`host only`, never configurable** | — |
-| *Change playback within a play set* | `group` \| `host only` | *later* |
-
-Two rows are deliberately not settings. **What plays** is the host's library and the host's
-alone. **Ejection** is never delegable, or a participant granted transport could eject the
-host.
-
-**Keeping this a table rather than two booleans is the whole of "leave the door open".** Finer
-grain almost certainly is not needed; a closed enumeration costs nothing now and makes a later
-ability a row rather than a redesign.
-
-**Play sets — and they arrive earlier than this plan assumed.** The host selects a set of
-videos — a season, a trilogy — and grants the group the ability to move within it.
-Binge-watching without handing over the library.
-
-This was deferred here and is **needed now by solo casting**
-([D135](../../decisions/working-notes.md)), where a cast queue is simply
-[play-state.md](play-state.md)'s **Next Up** extended past one item over
-[D96](../../decisions/working-notes.md)'s ordering-in-use. So the concept ships for casting and
-this plan inherits it. That is the **second** time a Watch Together "later" turned out to be a
-casting "now" — the first was [D124](../../decisions/working-notes.md)'s receiver — which is
-worth noticing as a pattern rather than a coincidence: casting is the same surface with the
-hard parts removed, so it reaches things first.
-
-## The constraint that decides whether this survives
-
-Five implementations have been withdrawn: Disney+ GroupWatch (2023-09-18), Amazon Prime Video
-Watch Party (2024-04-02, unannounced), Sling (early 2024), and **Plex Watch Together
-(2025-02-25, all platforms but web)**. Netflix never shipped one. Plex's note gives the cause:
-the feature *"won't be available for most platforms as they get the new experience."*
-
-**It died because it lived in every client.**
-
-So the design requirement, and it should be treated as a hard one:
-
-> **The client-specific surface is six methods.**
->
-> ```
-> currentPosition() → time      seek(time)      play()
-> isBuffering() → bool          setRate(r)      pause()
-> ```
->
-> `setRate` is optional. Everything else — clock offset, drift policy, group state,
-> suspensions, command ordering, reconnection — is in the shared SDK.
-
-If that holds, a client rewrite cannot casually drop the feature, because there is nearly
-nothing in the client to drop. If a seventh method starts to look necessary, that is the signal
-to stop and rethink.
-
-Demand is not the risk: **Teleparty has 10,000,000 users** and exists only because the platforms
-will not do this.
+- **Each person is invited by a link of their own** (D246 §3). The host writes a note saying who
+  the link is for, which only the host sees (`hostNote`, D261 §4). The secret travels after `#`
+  and leaves the address bar once read
+  ([D243](../../decisions/working-notes.md#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in)
+  §3). A link admits one person once, and is spent by joining, not by opening it, so a reload before
+  joining still works
+  ([D252](../../decisions/working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end)
+  §5). The host may withdraw a link: it admits no one from then on, and a person who already
+  joined by it stays.
+- **A viewer is an ephemeral account** (D246 §3): a hidden, built-in role that cannot be edited,
+  restricted to the playback screen. No browsing, no library, no control of playback. The viewer
+  picks the name the others see; someone signed in finds their own name filled in. The membership
+  lasts as long as the session, or until they leave or are removed.
+- **A viewer plays only what is on, while they are in.** Their player plays by their membership's
+  credential, and the cookie it gets reaches only the film the session plays now: it moves when the
+  film changes, and removal or the session's end revokes it at the next request (D243 §1). The
+  host can put on only a film their own role reaches (D243 §4).
+- **Only the host controls playback** in Cut A (D246 §8): play, pause, seek, what plays, stop.
+  Only the host removes a member, and never themselves, or ends the session. A removed member's
+  credential admits nothing.
+- **There is no cap and no link rotation.** One single-use link per person, each withdrawable, does
+  the jobs a cap and rotation did for a shared link
+  ([D119](../../decisions/working-notes.md#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak),
+  as D246 revised it).
+- **Signing in records nothing yet.** A device that says hello with a signed-in person's session
+  token makes the membership theirs (D243 §2), but recording their viewing as their own is
+  deferred (D246 §4, D261 §3). An anonymous viewer accrues nothing.
+- **A session lives in the server's memory.** A host has one; reopening the host's page gives it
+  back. A restart ends every session.
 
 ## Sync
 
-Taken from Jellyfin's SyncPlay, which works ([research §1](../research/watch-together.md)):
+**The group** has a state, `Idle`, `Waiting`, `Paused` or `Playing`, a position, a rate and what
+plays. The server holds it, applies the host's commands in arrival order, and tells every device
+each change with a sequence number. A seek made against a group another seek has since changed is
+refused as stale. Everything rides the session WebSocket, one per device; never a WebRTC data
+channel.
 
-- **No clock synchronisation** ([D66](../../decisions/working-notes.md)). Each client keeps a
-  **monotonic** local time and reports "my position was `P` when my clock read `M`"; the server
-  bounds the uncertainty with a round trip and keeps the **minimum-RTT sample**. No shared time
-  base, no dependence on device wall clocks — which would be worse, since an NTP daemon
-  stepping a phone's clock mid-film produces a spurious jump of arbitrary size.
-- **Reconciliation is two mechanisms.** Periodic, in **minutes** — 50 ppm of clock drift is
-  30 ms over ten minutes, so second-by-second polling is ~40× more than drift requires — and
-  **event-driven** on buffering, seek completion and resume, which is when position actually
-  jumps by 100 ms to 2 s. The event-driven half does the real work and is free, because those
-  events are already in the six-method contract.
-- **A user-chosen playback rate and the drift nudge are the same knob**, so they compose rather
-  than compete ([D90](../../decisions/working-notes.md)): the effective rate is the **group
-  rate** times the nudge. A user's 1.25× is therefore group state, not a local setting — a
-  participant playing faster than everyone else is not drifting, and a reconciler that treats
-  it as drift spends the film fighting them. Two corollaries: `setRate` is listed as optional
-  above, so **a group's rate stays 1.0 unless every participant can honour it**; and a client
-  that cannot set a rate can still join a 1.0× group, which is all of them.
-- **Two corrections**: nudge `playbackRate` for ~1 s to absorb roughly 60–3000 ms of drift; seek
-  beyond that. Rate nudging is **inconsistent across platforms** — Jellyfin's own source records
-  it failing on Safari and struggling on Android Chrome — so it is optional and seek-only is the
-  always-available fallback. **Measure it in the [device lab](device-lab.md) before relying on
-  it.**
-- **Group state**: `Idle`, `Waiting`, `Paused`, `Playing`, where `Waiting` is
-  paused-until-everyone-is-ready.
-- **Suspensions with reasons**, Apple's model: a participant detaches temporarily and says why.
-  `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, **`userPausedLocally`**
-  ([D136](../../decisions/working-notes.md) — a television paused by its own remote over
-  HDMI-CEC, which the receiver is the only thing that knows about and must report, or the group
-  state says `Playing` over a paused picture), and above all
-  **`userIsChangingCurrentTime`** — while you drag the scrub bar you are suspended, so your
-  intermediate positions do not drag everyone else across the timeline. Shared seek is unusable
-  without it.
-- **Position is per-participant: `P + offset_i`** ([D65](../../decisions/working-notes.md)),
-  default zero. A trivial generalisation on day one and an awkward retrofit later, since it
-  touches the group record, the drift target and every in-sync comparison.
-- **The server serialises.** Concurrent conflicting commands are normal, not exceptional. Each
-  command carries the group-state version it was issued against, the server assigns a monotonic
-  sequence, and clients reconcile to the server rather than to each other.
-- **Sync never rides a WebRTC data channel** — unsupported on tvOS, and it would make
-  synchronisation depend on peer connectivity. **It rides the session WebSocket**, the client's
-  connection to the server, which also carries voice signalling
-  ([D193](../../decisions/working-notes.md) §4).
+**The group stops only at its own sync points** (D250 §2): a film put on or started over, the
+host's play after a pause, and the host's seek. There it is `Waiting` until every player that has
+once been ready is ready again, those catching up included. A player still loading its first
+picture, or whose person is still choosing their speakers, holds no one up (D246 §6). A player is
+ready after a seek or a stall only with 10 s loaded ahead (`refillAheadMs`,
+[D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
+§5). A sync point waits at most `together_sync_wait_seconds` (20 s), then plays without whoever is
+not ready, but never to no one (D250 §3). The host's pause is immediate.
+
+**The group never stops for one member** (D250 §2). A stall, a slow link or a dropped connection
+is that member's alone, the host's player included: the group plays on, everyone is told who it
+continues without, and that player catches up by itself. **Catching up** is a jump ahead of the
+group to wait there, paused and loading: far enough that, at the speed it measured itself
+loading, it has `together_catch_up_buffer_percent` (80%) of what it loads ahead filled when the
+group arrives, and at most a minute ahead (D250 §4). Catching up never starts an encode; the
+player fills from the run already making its quality (D250 §5).
+
+**Drift is corrected gently** (D250 §1). A following player works out where the group is now from
+the last group message, the time since, and the message's transit, half the shortest round trip
+its pings measured
+([D66](../../decisions/working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips):
+no shared clock, each device's own monotonic time). Then, checking each second:
+
+| Drift | Correction | Setting, default |
+| --- | --- | --- |
+| up to 150 ms | none | `together_drift_left_alone_ms`, 150 (D261 §1) |
+| up to 3 s | play up to 10% faster or slower than the group for about a second, repeated | `together_nudge_most_percent`, 10 |
+| beyond 3 s | seek to the group | `together_seek_drift_beyond_ms`, 3000 |
+
+A player's position is not read for drift for `together_settle_after_change_ms` (300 ms) after it
+starts playing, seeks or changes rate, since Safari's stands still for a moment then. A nudge keeps
+the sound's pitch (`should_together_nudge_keep_pitch`). Every value is a setting sent to each device
+in its welcome, so it is tuned while testing without a new client. No sync tuning is shown to the
+people watching.
+
+**The host's own player leads**: its play, pause and seek become the group's commands. A drag of
+the timeline is one seek, to where it ended, and a move the player makes itself (hls.js stepping
+over a gap) is not sent.
+
+**Also in the protocol, not used by the web client yet:** a group rate, accepted only when every
+playing device can set one
+([D90](../../decisions/working-notes.md#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor));
+and suspensions with a reason (`stallRecovery`, `audioSessionInterrupted`, `userActionRequired`,
+`userPausedLocally`, `userIsChangingCurrentTime`), during which a device is not ready.
+
+## Unequal links: the group shares a position, not a stream
+
+Each player plays the quality its own link carries, at the group's position, and nothing in the
+sync mentions bitrate
+([D123](../../decisions/working-notes.md#d123--bandwidth-is-per-participant-the-group-shares-a-position-not-a-stream)).
+How a player chooses is the solo player's, the same in a group:
+
+- **A film that can be cut plays from its ladder** of qualities from the start, at the top unless
+  its device's link on that network is remembered slower, and hls.js steps down and back up as it
+  plays ([D260](../../decisions/working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays),
+  [D257](../../decisions/working-notes.md#d257--a-player-starts-on-the-version-its-link-can-carry-chosen-before-play-from-the-speed-remembered-for-that-device-on-that-network)).
+- **A film not cut yet** plays its original or a prepared copy; the first stall starts a lower
+  version, offered in the stall's answer, and the player moves to it once it is ready if it still
+  cannot keep up
+  ([D253](../../decisions/working-notes.md#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up)).
+  A version another viewer's stall started is shared when it fits (D247 §7).
+- **A run of the encoder must stay faster than playback.** When one more run would bring any below
+  1.1×, a run is evicted, and whoever loses their chunks is told why (D250 §6).
+- **At the bottom, the person is told it will not work**, with their link's speed and what the
+  lowest quality needs, and the others see it in the roster (D247 §8).
+- **Nothing detects home or away** (D247 §11).
+- **The browser must run hls.js**: iOS and iPadOS 17.1 or later on Apple devices. A browser that
+  cannot is told so before it joins or hosts (D250 §7).
 
 ## Voice
 
-~~WebRTC, peer-to-peer where NAT allows, TURN relay otherwise.~~ **Browser WebRTC through a TURN
-server embedded in our binary** (`pion/turn`), on the server's one public HTTPS name, with
-signalling on the session WebSocket ([D68](../../decisions/working-notes.md), refined by
-[D193](../../decisions/working-notes.md) §4). **Standard ICE picks the path**: direct where it
-connects, relayed through our server otherwise, and the relayed path is ordinary rather than
-degraded, because the server sits at one endpoint (below). There is no upgrade ladder.
+**Browser WebRTC through a TURN relay embedded in the server**, with signalling on the session
+WebSocket ([D68](../../decisions/working-notes.md#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay),
+[D193](../../decisions/working-notes.md#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)
+§4). Standard ICE picks the path once: direct where it connects, relayed otherwise, with no
+upgrade ladder. The relay (D243 §7–§8) listens on 3478, UDP and TCP, relays through ports
+49160–49199 at the VPS's public address, and relays only to the public internet, never into the
+house. Each member gets credentials of their own (`GET /together/{id}/ice`) that end with the
+membership or after a day; a server that relays nothing hands out none, and calls go direct only.
 
-The film plays out loud while the microphone is open, and the platform's AEC can only cancel
-audio it has a reference for — which excludes anything played by libmpv, ExoPlayer or AVPlayer,
-and excludes Web Audio output in a browser. So without help, your microphone sends the film
-back to the other person, delayed and doubled against their own copy.
+**Talk** opens the microphone and attaches a second device of the membership in the `voice` role,
+which keeps one call with every other person's voice device. Then **Mute**, **Leave voice**, and
+the others' volume, from silent to four times as loud as they came, apart from the film's volume.
+A microphone that will not open, or a call that cannot connect or drops, turns voice off with the
+reason, the browser's own words beside a refused microphone; Talk tries again.
 
-**Three tiers** ([D63](../../decisions/working-notes.md), [D65](../../decisions/working-notes.md)):
+**Echo.** The film plays out loud while the microphone is open, and a browser cannot cancel audio
+it has no reference for. **Headphones on at least one side are the supported setup**
+([D63](../../decisions/working-notes.md#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration)),
+and the voice controls say so. Content-referenced echo cancellation was deleted (D193 §4). The
+browser's echo cancellation, gain control and noise suppression on the microphone are settings,
+off by default (`should_together_voice_cancel_echo`, `should_together_voice_level_microphone`):
+on Android they made a call of it, turning the film down and taking the volume buttons.
 
-| Tier | Mechanism | Cost | Ships |
-| --- | --- | --- | --- |
-| 1 | **Headphones** — no acoustic path | none | always |
-| 2 | **Offset alignment** — the leaking participant runs *ahead* by the one-way voice latency, so their leaked audio arrives aligned with the listener's copy | a field in the group state | with tier 1 |
-| 3 | ~~**Content-referenced AEC** — feed the decoded film audio to `speexdsp` or `webrtc-audio-processing` as the echo reference~~ | real work | ~~later~~ **deleted** ([D193](../../decisions/working-notes.md) §4) |
+**On a congested link voice is best effort** (D261 §7): D243 §9's voice bounds hold for the home
+and mobile profiles, not the congested one.
 
-Tier 2 is the field-discovered one and is worth understanding: at zero offset — what every
-other implementation targets — **both** participants suffer the full one-way latency of
-misalignment, which at 150–300 ms is a distinct slapback. Below ~30 ms the precedence effect
-fuses the copies into mild coloration. When only one side leaks it is *fully* solvable; when
-both do it is a transfer, ~~so tier 3 is the real answer there~~ **so headphones on at least
-one side remain the supported configuration ([D63](../../decisions/working-notes.md)); tier 3
-was deleted by [D193](../../decisions/working-notes.md) §4.**
+## What each person sees
 
-~~Tier 3 is available to us and not to the OS: **we are the player**, so we know the film's
-audio sample for sample, which is a better echo reference than the operating system's view of
-the mixed output.~~
+From [D188](../../decisions/working-notes.md#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)
+§1, as built:
 
-**Ducking conflicts with the platform AEC**, so it is conditional:
+- **The host's Watch Together screen**: start a session, or have back the one they host; make a
+  link with its note, shown as text and as a QR code; each link, waiting or used, and each member,
+  with the host's notes; withdraw a link, remove a member, end the session.
+- **The viewer's page**, from the link: a name and one **Join**, which is also the gesture the
+  browser's autoplay needs. Then the speaker question, unless this browser already knows the
+  answer, which no one waits for (D246 §6). Then only the playback, black while nothing plays, with
+  their own film volume, voice, and **Leave**.
+- **For everyone**: each change as a named event in the reader's own words, *"Karl paused at
+  41:12"*, a seek saying where it jumped from; a drop shown as *reconnecting*, not as an ending;
+  who is here, by the names they chose, never the host's notes; and anyone whose link cannot carry
+  even the lowest quality, with both numbers.
 
-| Output | Film audio path | Ducking | Platform AEC |
-| --- | --- | --- | --- |
-| Headphones | through our mixer | automatic | irrelevant |
-| Speakers | native playback path | manual levels only | keeps its reference |
+## Later, by decision
 
-Per-source gain is independent of both — one gain node per remote stream — and is the explicitly
-requested control.
-
-### Voice companion: a participant is a person, and devices attach to them
-
-**On a television the phone is the voice endpoint.** An Apple TV has no app-accessible
-microphone, and a microphone across the room from the speakers is the worst possible AEC
-geometry regardless. Phone-and-earbuds for voice, TV for video.
-
-[D120](../../decisions/working-notes.md) makes that a model rather than an observation. **A
-participant is a person; a person attaches one or more devices, each with a role:**
-
-| Role | Does | Implements |
-| --- | --- | --- |
-| `playback` | plays the video, reports position, accepts transport | the six methods |
-| `voice` | microphone and per-source mix, nothing else | none of them |
-| `control` | a remote: roster and transport, no playback | none of them |
-
-**"Voice companion" is that, and nothing more** — a phone attached with the `voice` role while
-the television holds `playback`. It needs no player, no rendition negotiation and no sync
-participation. A voice-only client implements **none** of the six methods, which is a
-confirmation that the surface is the right size rather than a strain on it.
-
-**And the `playback` device need not be our television client**
-([D124](../../decisions/working-notes.md)):
-
-| | `playback` | `voice` | `control` |
-| --- | --- | --- | --- |
-| Our TV client + phone | Android TV app | phone | phone |
-| **Cast** | **cast receiver (a web app)** | phone | phone |
-| Phone alone | phone | phone | phone |
-
-**For a guest this is the best path, and it is the strongest argument in the feature.** We
-choose what our own users install; we do not choose what their friends own, and the motivating
-case is somebody else's household. A cast receiver is *"cheap because it is a web app"*
-([tech-clients.md](../research/tech-clients.md)) and it is mostly the Phase 2 web player in a
-different shell — so a guest with any Cast-capable television joins without us shipping a
-client for their platform.
-
-**The receiver holds the membership, not the phone.** Cast's sender hands the receiver a URL
-and commands; **the receiver fetches the media itself**. So the receiver speaks the six methods
-directly and the phone holds `voice` and `control` — which means a pocketed, sleeping phone
-drops *voice*, not playback. That is the correct failure, and it is why this arrangement beats
-the phone holding the stream.
-
-**The receiver probes and picks; the sender must not pick for it.** A cast receiver has a
-narrower decoder set than the phone driving it, so a phone negotiating on its behalf is a
-device-capability database with one row, arriving by the back door —
-[D2](../../decisions/working-notes.md) exactly. The receiver is our web app; it probes itself,
-and Cast's advertised capabilities are a hint rather than an answer
-([D92](../../decisions/working-notes.md)). On Cast that probe is a documented API,
-**`CastReceiverContext.canDisplayType()`** ([D137](../../decisions/working-notes.md)) — this is
-the platform where D2 is easiest, not hardest.
-
-**What it costs:** a sync hop — `currentPosition()` now carries Cast's status latency inside
-it, against a 60–3000 ms budget ([D66](../../decisions/working-notes.md)) — which is
-**unmeasured and decides whether this is a first-class path or a documented fallback**. Also
-three protocols rather than one (Google Cast, AirPlay, ours; **Fire TV has no Cast**), a Cast
-developer account and $5 for a custom receiver, and a session credential that now lives on a
-third-party device — acceptable because the link was already the grant and rotation is already
-the answer ([D117](../../decisions/working-notes.md),
-[D119](../../decisions/working-notes.md)).
-
-**The phone is not a fan-out point.** It has no bytes to fan out — the receiver pulls — and
-making it one would mean a caching proxy holding the session credential on the least reliable
-device in the chain. Several viewers in one guest household each join as participants up to
-the cap, and fan-out happens at the relay, where
-[D70](../../decisions/working-notes.md) and [D71](../../decisions/working-notes.md) already
-put it.
-
-**A second device attaches with [D93](../../decisions/working-notes.md)'s code flow**: the
-first shows a short code, the second enters it and joins the *same membership* rather than
-creating a new one. Same mechanism as signing in on a television, pointed at a session — which
-is why "one link, several devices per person" needs no account at either end. **In Cut A this
-session code is the only code flow**: signing a television in to the server (D93's pairing,
-F30) is not in Cut A, because her television joins the session as a device of her membership
-([D191](../../decisions/working-notes.md)).
-
-**And the cap counts people, not clients.** Two people with voice companions are four clients;
-a cap phrased in clients would refuse the second person's phone
-([D120](../../decisions/working-notes.md) corrects
-[D119](../../decisions/working-notes.md)'s wording).
-
-**Film audio on the phone with video on the television is out of scope**, and the number says
-why. Splitting audio and video across two devices is **lip sync**: ITU-R BT.1359 puts
-detectability at audio leading by **45 ms** or lagging by **125 ms**, and EBU R37's production
-window is **+40 / −60 ms**. Our sync budget ([D66](../../decisions/working-notes.md)) nudges
-out **60–3000 ms** and reconciles periodically **in minutes** — our finest correction is
-already at the detectability threshold. These are not the same problem and reusing one
-mechanism for the other yields something subtly wrong all the time. The want underneath is
-private listening, and the answer is Bluetooth headphones paired to the television.
-
-**tvOS does not gate any of this** ([D67](../../decisions/working-notes.md)). It has WebRTC
-audio/video but no data channels, needs a locally built framework, and carries an open tvOS 16
-issue. Where it cannot keep up it does without, and Swiftfin or Infuse via the
-[Jellyfin adapter](jellyfin-api-shim.md) is the fallback for Apple TV users.
-
-## What each person sees and does
-
-[D188](../../decisions/working-notes.md), from [ui-competitors.md](../research/ui-competitors.md) §4.
-
-- **The invite link lands in the session**, in a lobby with one **Join** button. That tap is
-  also the user gesture the browser's autoplay policy needs, so a remote play is never
-  refused later. Links that open a store page or a website are the most specific complaint
-  in Teleparty's and Kosmi's reviews.
-- **Every change is a named event**: *"Karl paused at 41:12"*, *"Karl jumped from 12:03 to
-  41:12"*, *"Karl is buffering…"*, *"Karl left — paused"* (Syncplay's wording). Jellyfin ships
-  a *"{0} is buffering"* string that nothing uses, so its partner sees an unexplained spinner.
-- **A seek can be undone**, by either person, for a few seconds after it (Syncplay).
-- **Subtitles, audio track and film volume are per person.** Only position and play/pause
-  are group state.
-- **Two volume controls: the film and the partner.** One shared level makes the voice
-  *"overtake the video sound"* (Hearo reviews). This is the per-source gain above, placed as
-  two sliders on the player.
-- **A drop is a state, not an ending.** The group shows *"Karl reconnecting…"*, holds the same
-  identity across a Wi-Fi to cellular switch, and resumes both players at the same point. The
-  **Rejoin** button stays on the lobby page.
-- **The session outlives the film.** The next episode, or a different film, is a change of
-  what plays ([D122](../../decisions/working-notes.md)), never a new invite; Plex made people
-  re-invite for every episode.
-- **No sync tuning is exposed.** Jellyfin's millisecond settings are the tell of an algorithm
-  that was not finished.
-
-### Her television: the TV plays, her phone talks
-
-Apple's model, chosen by the owner ([D188](../../decisions/working-notes.md) §3), on the
-[D120](../../decisions/working-notes.md) roles: the television holds `playback`, her phone
-holds `voice` and `control`. The playback device is reached by the first of these that works on
-her real setup:
-1. the television's own browser, ~~paired by code~~ **joined to the session as a device of her
-   membership, by the link or a short code shown by her phone** — no sign-in of its own
-   ([D191](../../decisions/working-notes.md))
-2. our cast receiver — unpublished, registered to her device and served from the owner's own
-   HTTPS name ([D192](../../decisions/working-notes.md)) — launched from Chrome on her MacBook (the Cast web sender does not run in
-   iPhone Safari)
-3. a prototype Android TV app, sideloaded
-4. otherwise the laptop plays
-
-**Earbuds on her phone** are the recommendation. They remove the echo path from the television
-to her microphone, and they avoid iOS Safari's earpiece routing during a call (WebKit #230902).
-
-## What this forces: less than it first appeared
-
-Nothing new, as it turns out ([D68](../../decisions/working-notes.md)).
-
-Synchronisation needs no infrastructure: if the remote participant can reach the server, the
-server is the rendezvous. And **voice needs no *separate* TURN service either** — the TURN
-server is embedded in our binary ([D193](../../decisions/working-notes.md) §4) — because the
-same thing is true of it — by the time voice matters, both parties are already connected to the media server
-by construction, since otherwise there is no film to watch together. So **the server relays the
-voice**, at ~24–64 kbps of Opus against a film already crossing the same uplink, and with almost
-no latency penalty because the relay sits **at one endpoint** rather than in a datacentre
-between them.
-
-~~**Relay first, upgrade later.** Start on the server relay and migrate to a direct path if hole
-punching succeeds, Tailscale's trick.~~ **Deleted by [D193](../../decisions/working-notes.md)
-§4:** browsers do not upgrade a relayed connection without an ICE restart, so the ladder was
-never free. Standard ICE picks the path once, and **the relayed path must be good rather than a
-degraded mode**, since the server-relayed path is an ordinary outcome, not a failure.
-
-Only two situations make a relay genuinely unavoidable
-([remote-access.md](../research/remote-access.md) §3): **both** ends behind hard/symmetric NAT —
-a single hard NAT is beaten by port prediction in about two seconds, two of them need ~170,000
-probes per side — or UDP blocked outright, where TCP/443 with TLS is the only path.
-
-The consequence for a paid relay ([D72](../../decisions/working-notes.md), pricing open in
-[D187](../../decisions/working-notes.md)): its justification is **remote access itself**, not
-voice. Voice rides along.
+- **Rights per invite link**: play and pause, seek, next and previous, each given per link, the
+  last link's rights the next one's defaults (D246 §8).
+- **A signed-in recipient's viewing recorded as their own**, details filled in; avatars; inviting
+  registered members in the app, without a link (D246 §4, D261 §3).
+- **The remote television** (D245): our cast receiver, the television's own browser, or a
+  prototype Android TV app, with her phone carrying voice (D188 §3).
+- **Subtitles, the audio track and levelling for viewers**, chosen per person (D188); the viewer's
+  player shows none yet ([m4.md](m4.md) Phase E).
+- **Undo for a seek** and **text chat** (D188).
 
 ## Open
 
-- **Does one participant stalling pause everyone?** Obviously yes for two, obviously no for
-  eight. Jellyfin makes it a flag; we probably want a default that varies by group size — which
-  is opening (5) above, so the question can stay open without blocking anything.
-- ~~**Is the subtitle track group state or local?**~~ **Closed by
-  [D188](../../decisions/working-notes.md): local.** Subtitles, audio track and the film's volume are
-  per person, as in SharePlay and Discord. A seek is shared position; subtitles are
-  presentation, and presentation was never shared.
-- **Text chat**, and whether emoji reactions are the TV-shaped answer.
-- **Whether `setRate` works anywhere we care about.** A device-lab question.
-- **Real playback-position drift per platform.** The 10–20 minute reconciliation interval is
-  derived from a 50 ppm clock assumption; playback-rate error will probably dominate it and may
-  be far worse on cheap hardware. Device lab.
+Undecided, or where the code and a decision disagree. Each needs the owner.
 
-## Two things the audit attached to this surface
-
-- **Casting is this, with a group of one** ([D88](../../decisions/working-notes.md)). The
-  six-method per-client surface — join, leave, report position, accept play/pause/seek, report
-  readiness, report buffering — is exactly what one device driving another device's playback
-  needs: group size one, a remote controller, on the LAN, voice off. Saying so prevents the
-  usual outcome, a second parallel remote-control protocol that then diverges. It also makes a
-  Chromecast receiver an ordinary [D2](../../decisions/working-notes.md) client rather than a
-  special case, and AirPlay free wherever the Apple client uses AVPlayer. The claim to verify
-  is that six methods are still enough for a case they were not designed against — if a seventh
-  is needed, better to know before the surface is frozen.
-
-  **Solo casting is specified in [D135](../../decisions/working-notes.md)**, and the difference
-  from this plan is the principal rather than the protocol: a session link admits *a person
-  with no account*, while a cast URL delegates to *a device on behalf of someone already logged
-  in*. So it needs no invitation, no roster and no revocation UI — its credential is the cast
-  session itself, ending on stop, supersession, idle or an absolute cap.
-
-  **And the verification this decision asked for has come back yes**
-  ([D136](../../decisions/working-notes.md)). The case six methods were not designed against —
-  a television pausing itself over HDMI-CEC, with no sender involved — needs **no seventh
-  method**: it is a suspension with a reason, which the list above already provides for. What
-  it does need is that the receiver *reports* it, because the receiver is the only thing that
-  saw it ([principles §9](../../principles/README.md)).
-- **Playback rate is either shared state or explicitly local** — there is no third option
-  ([D90](../../decisions/working-notes.md)). A participant at 1.25× is not drifting, and
-  [D66](../../decisions/working-notes.md)'s reconciler must not spend the film fighting them.
-
-## The largest player withdrew this feature, and what that costs us
-
-[D150](../../decisions/working-notes.md), 2026-09-21. **On 25 February 2025 Plex ended support
-for Watch Together** on its rebuilt apps, keeping it in the web app only, because the apps
-were *"rebuilt from the ground up to boost our development speed."*
-
-That has to be read precisely, because it is a **maintenance-cost** verdict and not a demand
-verdict, and three facts cut the other way:
-
-- Demand is the **second-highest thing in the entire 932-issue sweep corpus** — 10 issues,
-  **127 reactions**, led by *Add support for Jellyfin SyncPlay* at **+65**.
-- The press coverage of Plex's removal pointed readers at **Jellyfin's SyncPlay** as the
-  replacement. The demand relocated; it did not evaporate.
-- Plex's own reason is that the feature **did not survive a client rewrite**.
-
-**So the finding is a cost warning aimed exactly where this plan is weakest.** This document
-specifies **six methods per client** ([D62](../../decisions/working-notes.md)), and
-[D28](../../decisions/working-notes.md) explicitly contemplates the React Native exit — which
-is the same kind of rewrite that killed it at Plex. Two consequences:
-
-- **The six-method surface is a hard budget, not a description of the current design.** If a
-  client's Watch Together support cannot be carried through a rewrite inside those six
-  methods, the design is wrong — and that is testable now, by writing them down and checking
-  a second client against the list rather than against the first client.
-- **[D67](../../decisions/working-notes.md)'s "tvOS never gates a feature" gains a sibling: a
-  rewrite never drops one.** Anything called first-class has to be cheap enough per client to
-  survive being rebuilt, or it is first-class only until the next rewrite.
+- **Voice on a second device.** D245 §1 says Cut A's voice is still tested as the companion: her
+  phone's browser carries voice while her computer's browser plays
+  ([D120](../../decisions/working-notes.md#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)).
+  The code attaches the voice device from the same browser tab. A link admits one person once and
+  the credential stays in the tab, so a second physical device has no way to join the same
+  membership; opened on her phone, a second link makes a second member.
+- **Voice on bad links.** How Signal and WhatsApp keep voice working where ours failed is the next
+  research (D261 §7). A first note, not decided design, is
+  `voice-bad-links-research-2026-10-07.md` (the shared files directory): it finds the delay comes
+  mostly from the jitter buffer covering delay variation, made by the film's download sharing the
+  bottleneck queue with voice and worsened by how the netem profile is applied to the loopback.
+- **Offset alignment** ([D65](../../decisions/working-notes.md#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)):
+  the speaker-side player running ahead by the voice latency, so a leak arrives in step. Not built;
+  the group has no per-member offset. Whether it is still wanted.
+- **The per-client surface.** The SDK's follower drives a slice of the browser's media element,
+  not a six-method interface, and there is no second client to check D62's budget against.
+- **Suspensions and the group rate** are in the protocol and unused by the web client: whether
+  the host's scrubbing, now a debounce, should be `userIsChangingCurrentTime`, and whether a group
+  rate is wanted.
+- **The others' volume is one level for all of them**, which is per-source gain at two. Whether
+  each person gets their own level above two.
+- **Above two.** D250 §2 answers what happens when one member struggles; whether anything else
+  changes at four or five (D69) is not designed.
 
 ## Done when
 
-**Phase 1 — two participants** (Cut A). Two people on different networks watch a film end to end;
-either can pause, resume and seek **if the host granted `group` transport**, and only the host
-can otherwise; scrubbing does not drag the other person around; a stall on one side is visible
-on the other as a named reason rather than a freeze; voice is intelligible with per-speaker
-levels and no echo with one side on speakers; **one of them runs voice on a phone while a
-television plays the video, and the roster shows one person rather than two**; **the host
-changes the film mid-session and nobody's player is torn down**; a film ending leaves the
-session alive; and a third client platform gains the whole feature by implementing six
-methods.
+**Cut A, two people** (cut-a's M4 row, D243 §9, D252, D261):
 
-**Phase 2 — four or five.** The same, with a roster, and **without the audio path or the
-group-state record changing shape**. If either has to change, opening (1) or (3) was not left
-properly.
+- Two browsers on different networks stay within 200 ms of each other 95% of the time for 30
+  minutes under each netem profile: *home* (20 ms), *mobile* (80 ± 30 ms, 1% loss) and
+  *congested* (150 ± 50 ms, 3% loss, 5 Mbit/s). The *home* run is in every branch check (D261 §2);
+  the full run is `make test-acceptance`, at a milestone's end.
+- Voice arrives one-way under 300 ms with under 2% audible loss under *home* and *mobile*;
+  *congested* is best effort (D261 §7).
+- A link works once and only once, after a reload too; no credential appears in any address of a
+  HAR capture; a viewer plays only the film on; an anonymous viewer's history does not advance.
+- A stall or a drop on one side never stops the other; the group waits only at its sync points,
+  and at most the sync wait.
+- The host changes the film mid-session and the session carries on; a film ending leaves it
+  alive.
+- Voice runs on her phone while her computer plays (open above).
 
-**And the recovery path is tested, because it is the path nobody exercises until they need
-it** ([D117](../../decisions/working-notes.md), [D119](../../decisions/working-notes.md)): an
-ejected participant is gone within one reconciliation interval; **rotating the join link is
-invisible to everyone already in the session** and the old link admits nobody; and a client
-mid-join when the link rotates either completes or is refused, never landing half-joined.
-Nothing is re-formed — that was D117's conflation, and D119 removed the need for it.
+**After Cut A**: her television plays while her phone talks (D245), and a second client gains
+the feature by driving its player, not by reimplementing the sync.
