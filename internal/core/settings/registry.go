@@ -291,12 +291,13 @@ func togetherDefinitions() []Definition {
 				"while talk was enabled\"",
 		},
 		{
-			Key: ShouldTogetherVoiceLevelMicrophone, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Key: ShouldTogetherVoiceLevelMicrophone, Kind: KindBool, StartJSON: json.RawMessage("false"),
 			Description: "whether the browser's gain control and noise suppression work on a Watch Together " +
-				"person's microphone; without echo cancelling, Chrome on Android runs them itself, not as a call",
-			StartSource: "the owner's test, 2026-10-06: a partner with neither was too quiet beside the film at " +
-				"four times; Chromium's AAudio input: \"the lack of automatic gain control results in quiet, " +
-				"sometimes silent, streams\" (voip research, 2026-10-07)",
+				"person's microphone: a partner with neither is quiet beside the film, but Firefox on Android " +
+				"makes a call of them, turning the film down and taking its volume buttons",
+			StartSource: "the owner's test, 2026-10-07, Firefox 157 on Android 16 with it on: \"I couldn't " +
+				"control the volume anymore with talk on\"; the owner: \"Default off for the microphone " +
+				"leveling\"",
 		},
 	}
 }

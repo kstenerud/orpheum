@@ -118,7 +118,7 @@ export const startingTuning: SyncTuning = {
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
   shouldCancelMicrophoneEcho: false,
-  shouldLevelMicrophone: true,
+  shouldLevelMicrophone: false,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */

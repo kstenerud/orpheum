@@ -12,8 +12,8 @@ import type {
  * The microphone as voice asks for it. Echo of the film is kept out by headphones (D63, tier 1),
  * so echo cancelling is rarely needed, and on Android it puts the phone in a call, which turns the
  * film down and takes its volume buttons (the owner's test, 2026-10-06). Gain control and noise
- * suppression apart from it are Chrome's own on Android, no call; without gain control a voice
- * came through too quiet beside the film.
+ * suppression apart from it are Chrome's own on Android, no call, but Firefox on Android still
+ * makes a call of them (the owner's test, 2026-10-07); without gain control a voice is quiet.
  */
 export function microphoneConstraints(processing: MicrophoneProcessing): MediaStreamConstraints {
   return {
