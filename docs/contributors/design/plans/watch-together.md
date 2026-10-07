@@ -218,9 +218,9 @@ Undecided, or where the code and a decision disagree. Each needs the owner.
   The code attaches the voice device from the same browser tab. A link admits one person once and
   the credential stays in the tab, so a second physical device has no way to join the same
   membership; opened on her phone, a second link makes a second member.
-- **Voice on bad links.** How Signal and WhatsApp keep voice working where ours failed is the next
-  research (D261 §7). A first note, not decided design, is
-  `voice-bad-links-research-2026-10-07.md` (the shared files directory): it finds the delay comes
+- **Voice on bad links.** How Signal and WhatsApp keep voice working where ours failed was
+  researched (D261 §7) in [voice-bad-links.md](../research/voice-bad-links.md), and D262 acted on
+  it: it finds the delay comes
   mostly from the jitter buffer covering delay variation, made by the film's download sharing the
   bottleneck queue with voice and worsened by how the netem profile is applied to the loopback.
 - **Offset alignment** ([D65](../../decisions/working-notes.md#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)):
