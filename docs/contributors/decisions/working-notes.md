@@ -18014,6 +18014,8 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
+> **Revised by [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)** (2026-10-07): **a film that can be cut plays from its ladder from the start**, at its top unless its link is remembered slow; §2's original-first and stall-made version remain for a film not cut yet.
+
 > **Superseded in part by [D253](#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up)** (2026-10-07): **the version is played from when it is ready, not from a second stall.** The first stall still makes it, and its answer now offers it; a player moves once it is ready if it still cannot keep up (§2, §10 below).
 
 **Decided** (2026-10-05), by the project owner, after the first Watch Together test and the
@@ -18459,6 +18461,8 @@ original (with sanity checks). The whole point is a lower bit rate stream that i
 
 ## D257 — A player starts on the version its link can carry, chosen before play from the speed remembered for that device on that network
 
+> **Revised by [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)** (2026-10-07): the remembered link now chooses where on the ladder every cut film starts; a link not remembered starts at the top.
+
 **Decided** (2026-10-07), by the project owner, after starts of a minute or more: a player on a
 slow link started on the original, and only after 15 s of loading (D247 §2's slow load) moved to a
 lower version. **Revises** D247 §2, *"The original plays first"*, for a link known to be too slow.
@@ -18481,6 +18485,8 @@ lower version. **Revises** D247 §2, *"The original plays first"*, for a link kn
 ---
 
 ## D258 — Opening a film's page warms it up, and the warm-up's download is the speed test
+
+> **Revised by [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)** (2026-10-07): the warm-up is the player itself, built on the film's page on the film's ladder, and its first buffer's fill is the measurement (§1, §3).
 
 **Decided** (2026-10-07), by the project owner: *"I wonder if we can preemptively check connectivity
 situation and pre buffer the best matched steam (generating it if necessary)?"*, and *"the preload
@@ -18529,3 +18535,36 @@ which came only from reading the whole file through.
 
 **Status:** Decided 2026-10-07.
 
+
+---
+
+## D260 — A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays
+
+**Decided** (2026-10-07), by the project owner: *"If the client has an idea of what its network
+situation is when opening the summary page, it asks the server for a bit rate no higher than X.
+Server sends it video data and it measures how well it's handling it. If it can't, it reassesses its
+capability and asks for an even lower bit rate. This continues until it can handle the initial
+buffer fill. When the user presses play, this process continues if it wasn't settled yet, and while
+playing back, the client continues to monitor its network conditions, asking for different bitrates
+when necessary"*; and, of the three questions that followed, *"Go with your recommendations"*.
+**Revises** D247 §2 (the original plays first, a lower version only after a stall), D257 §2 (only a
+link remembered slow starts lower) and D258 §1 and §3 (the warm-up prepared a version and measured
+a separate download). D247 §1 stands: no separate speed test, the film's own data measures the
+link.
+
+1. **Every film that can be cut plays from its ladder** (D247 §10): the film cut into chunks, its
+   own picture copied as the top quality where the player decodes it, the qualities of
+   `chunk_qualities` below it, one master playlist. The player moves between them by itself, down
+   when its link cannot fill its buffer and back up with care, from the first segment to the last.
+   No prepared copy is made for it. A film not cut yet, its keyframes not known, plays as before (the
+   original or a prepared copy, D253 at a stall) while its keyframes are read, and from its ladder
+   the next time it is asked for; one that cannot be cut always plays as before.
+2. **It starts at the top**, the film's own picture, unless its device's link on its network is
+   remembered (D257 §1): then at the highest quality within the link's share (D247 §6). Stepping
+   down from too high happens on the film's page, where nobody is watching yet.
+3. **The film's page fills the first buffer.** Opening it builds the player on a hidden video and
+   loads the film's first seconds from where it resumes, stepping down as it measures; Play shows
+   that player, already filled, and the stepping goes on if it had not settled. A browser that loads
+   nothing before a tap (Safari on iPhone) starts its chunks on the server only.
+
+**Status:** Decided 2026-10-07.
