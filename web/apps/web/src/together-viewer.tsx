@@ -32,8 +32,8 @@ import {
   useBufferMeter,
   useChunkedPlayback,
   usePreparedPlayback,
-  type PlaybackDecision,
 } from "./play.tsx";
+import type { PlaybackDecision } from "./watching.ts";
 import type { LowerQuality } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";

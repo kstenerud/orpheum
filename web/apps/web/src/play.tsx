@@ -15,13 +15,7 @@ import {
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import {
-  whenReady,
-  type Api,
-  type CannotKeepUp,
-  type components,
-  type PlayableFormats,
-} from "@orpheum/sdk";
+import { whenReady, type Api, type CannotKeepUp, type components } from "@orpheum/sdk";
 import {
   useCallback,
   useEffect,
@@ -37,7 +31,7 @@ import { useTranslation } from "react-i18next";
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import type { LowerQuality } from "./moving-down.ts";
-import { noteDecisionTimes, usePlayState } from "./play-state.ts";
+import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
@@ -49,25 +43,7 @@ import { HostPlaysTogether } from "./together-host.tsx";
 import { rateText } from "./rate-text.ts";
 import { useResource } from "./use-resource.ts";
 import { monotonicMs } from "./use-together.ts";
-
-/** The server's decision on how a file plays here (cut-a §6). */
-export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
-
-/** Asks the server how a file plays in this browser; nothing of where it is (D247 §11). */
-export async function requestPlayback(
-  api: Api,
-  fileId: number,
-  playableFormats: PlayableFormats,
-): Promise<PlaybackDecision> {
-  const askedMs = performance.now();
-  const decision = dataOrThrow(
-    await api.POST("/playback", {
-      body: { fileId, playableFormats },
-    }),
-  );
-  noteDecisionTimes(decision.mediaToken, askedMs, performance.now());
-  return decision;
-}
+import { watchingOf, type PlaybackDecision } from "./watching.ts";
 
 /**
  * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
@@ -638,7 +614,7 @@ export function playbackFailureText(t: TFunction, failure: PlaybackFailure): str
 export function Play(props: { readonly fileId: number }): JSX.Element {
   const { api, playableFormats, session } = useServices();
   const [decision, decideAgain] = useResource(`play/${String(props.fileId)}`, () =>
-    requestPlayback(api, props.fileId, playableFormats()),
+    watchingOf(api).decide(props.fileId, playableFormats()),
   );
   return (
     <Loaded

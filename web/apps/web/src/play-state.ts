@@ -122,6 +122,11 @@ export function noteDecisionTimes(mediaToken: string, askedMs: number, decidedMs
   decisionTimesByToken.set(mediaToken, { askedMs, decidedMs });
 }
 
+/** When the playback mediaToken names was asked for and decided, until its start is told. */
+export function decisionTimesOf(mediaToken: string): DecisionTimes | undefined {
+  return decisionTimesByToken.get(mediaToken);
+}
+
 /**
  * Tells the reporter, at the video's first playing, how long the playback mediaToken names took to
  * start: from asking how the file plays to the answer, to the first frame's data, and to playing.
