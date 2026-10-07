@@ -235,6 +235,22 @@ export function expectVoiceMeasureWithinBounds(
 }
 
 /**
+ * Presses Talk until voice is on, as a person whose press missed would press again: the lines
+ * above the voice controls appear as the film starts and can move Talk from under a press made at
+ * that moment; a guest's voice stayed off with nothing said, its press never reaching the page, in
+ * two acceptance runs on 2026-10-07.
+ */
+async function turnVoiceOn(page: Page): Promise<void> {
+  await expect(async () => {
+    const talk = page.getByRole("button", { name: "Talk" });
+    if (await talk.isVisible()) {
+      await talk.click();
+    }
+    await expect(page.getByRole("button", { name: "Leave voice" })).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
+}
+
+/**
  * Both turn voice on, and each hears the other connected within connectsWithinMs: a call's set-up
  * retries through a lossy network, and took over 30 s under the congested profile.
  */
@@ -243,8 +259,8 @@ export async function talkBothWays(
   guest: Page,
   connectsWithinMs = 30_000,
 ): Promise<void> {
-  await host.getByRole("button", { name: "Talk" }).click();
-  await guest.getByRole("button", { name: "Talk" }).click();
+  await turnVoiceOn(host);
+  await turnVoiceOn(guest);
   await expect(host.getByText("Voice: connected to Anna")).toBeVisible({
     timeout: connectsWithinMs,
   });
