@@ -362,7 +362,7 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	want := together.Tuning{
-		LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80,
+		LeaveDriftUpToMs: 150, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80,
 		SyncWaitMs: 20_000, SettleAfterChangeMs: 300, ShouldNudgeKeepPitch: true,
 		ShouldCancelMicrophoneEcho: false, ShouldLevelMicrophone: false,
 	}

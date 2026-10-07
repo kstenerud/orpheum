@@ -251,9 +251,10 @@ func buildRegistry() []Definition {
 // so they are tuned while testing (D250 §1).
 func togetherDefinitions() []Definition {
 	return []Definition{
-		sourced(integerSetting(TogetherDriftLeftAloneMs, "500", 0, 10_000,
+		sourced(integerSetting(TogetherDriftLeftAloneMs, "150", 0, 10_000,
 			"ms a Watch Together player may be off the group's position before it is corrected (D250 §1)"),
-			"D250 §1: the owner, 2026-10-06: \"I'm fine with leaving up to 500ms instead of the 60ms\""),
+			"D250 §1, revised by the owner, 2026-10-07: 150, so D243 §9's 200 ms bound holds; 500 left a "+
+				"guest 430 ms off for good (audit-2026-10-06.md, Q1)"),
 		sourced(integerSetting(TogetherNudgeMostPercent, "10", 1, 100,
 			"percent of the group's rate a Watch Together player's nudge plays faster or slower by at most, "+
 				"to close a drift too small to seek across (D250 §1)"),
