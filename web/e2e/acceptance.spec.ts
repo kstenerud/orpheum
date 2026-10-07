@@ -282,7 +282,7 @@ for (const profile of chosenProfiles()) {
  * guest is in step, and holds the share in step and the voice to D243 §9.
  */
 async function runAndMeasure(
-  { name: profile, isFilmBestEffort, isVoiceBestEffortWithFirefox }: NetworkProfile,
+  { name: profile, isVoiceBestEffortWithFirefox }: NetworkProfile,
   host: Page,
   guest: Page,
 ): Promise<void> {
@@ -317,12 +317,9 @@ async function runAndMeasure(
   // Printed as well as kept: an hour and a half's run is read from its output.
   process.stdout.write(`${profile}: in step ${measured}\n`);
   test.info().annotations.push({ type: `${profile}: in step`, description: measured });
-  // On a lossy link the film is best effort until a run with BBR shows it holds (D263 §2).
-  if (!isFilmBestEffort) {
-    expect(inStepShare, `in step within ${String(inStepWithinMs)} ms`).toBeGreaterThanOrEqual(
-      inStepAtLeastShare,
-    );
-  }
+  expect(inStepShare, `in step within ${String(inStepWithinMs)} ms`).toBeGreaterThanOrEqual(
+    inStepAtLeastShare,
+  );
   await expectVoiceWithinBounds(
     [
       ["the host", host],

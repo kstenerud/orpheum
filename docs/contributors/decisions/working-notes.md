@@ -18665,7 +18665,8 @@ packets.
    one-way under 300 ms and under 2% audible loss). Film sync is held on home, mobile and
    congested. Voice is held on home, mobile and congested for every pair, and on *lossy* for a
    pair whose browsers both send RED (Chrome, Safari); a pair with Firefox is best effort there. The
-   film on *lossy* is best effort until a run with BBR (§3) shows it holds.
+   film was best effort on *lossy* until a run with BBR (§3) showed it holds; the first run did
+   (100% in step, 2026-10-07), so it is held on every profile.
 3. **The server sends media with BBR**: its listeners ask the kernel for BBR, which their
    connections inherit, and keep the default with one log line where the kernel has none; the host
    loads `tcp_bbr`. Only the sender's congestion control counts, and BBR does not read random loss
