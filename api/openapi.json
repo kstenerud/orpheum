@@ -2312,6 +2312,10 @@
       "LowerQualityBody": {
         "additionalProperties": false,
         "properties": {
+          "filmPictureKbps": {
+            "format": "int64",
+            "type": "integer"
+          },
           "height": {
             "format": "int64",
             "type": "integer"
@@ -2346,7 +2350,8 @@
           "height",
           "isBelowTheLowest",
           "soundCarriedGainDb",
-          "isReady"
+          "isReady",
+          "filmPictureKbps"
         ],
         "type": "object"
       },

@@ -146,7 +146,6 @@ function useReportedPlayState(
   const { refusal, stopMessage, lowerQuality } = usePlayState(api, videoRef, {
     mediaToken: props.decision.mediaToken,
     resumePositionMs: props.decision.resumePositionMs,
-    filmKbps: props.decision.fileBitRateKbps,
     readLinkKbps: props.readLinkKbps,
   });
   useEffect(() => {

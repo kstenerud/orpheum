@@ -18373,8 +18373,8 @@ going to have trouble and switches over."*
    before it plays again (D247 §5, 10 s). A player told of a version not yet ready asks again
    every few seconds.
 2. **A ready version is moved to if the player still cannot keep up**: it stalled again since the
-   offer, its link is not measured, or the film's own rate is more than the share of the measured
-   link a quality may take (D247 §6, 70%). Otherwise it stays on the original, and its next stall
-   moves it.
+   offer, its link is not measured, or the film's own picture's average rate, which the offer
+   carries as the server measured it, is more than the share of the measured link a quality may
+   take (D247 §6, 70%). Otherwise it stays on the original, and its next stall moves it.
 
 **Status:** Decided 2026-10-07.

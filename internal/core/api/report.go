@@ -87,6 +87,9 @@ type LowerQualityBody struct {
 	// IsReady is whether the quality is made from where the player is, ready to move to; until it
 	// is, the player asks again (D253 §1).
 	IsReady bool `json:"isReady"`
+	// FilmPictureKbps is the film's own picture's average rate, which the player weighs its link
+	// against once the quality is ready (D253 §2); 0 when not known.
+	FilmPictureKbps int64 `json:"filmPictureKbps"`
 }
 
 // StopBody is the admin's stop of a playback, and what they said.
@@ -131,6 +134,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 			URL: Prefix + "/bytes/media/chunks/" + input.Token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 			QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
 			SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: answer.IsLowerQualityReady,
+			FilmPictureKbps: offer.FilmPictureKbps,
 		}
 	}
 	return output, nil
