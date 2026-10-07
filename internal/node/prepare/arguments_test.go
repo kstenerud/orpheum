@@ -92,8 +92,20 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 	encoded := prepare.Arguments(
 		"/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, VideoCodec: "hevc"}, prepare.EncoderX264)
 	if after(encoded, "-c:v") != "libx264" || after(encoded, "-pix_fmt") != "yuv420p" ||
-		after(encoded, "-b:v") != "8M" || after(encoded, "-force_key_frames") != "expr:gte(t,n_forced*2)" {
+		after(encoded, "-b:v") != "8000k" || after(encoded, "-force_key_frames") != "expr:gte(t,n_forced*2)" {
 		t.Errorf("h264-8m is %v, want 8-bit H.264 at 8M with a keyframe every 2 s", encoded)
+	}
+}
+
+// An encode is made at the rate its command names for its picture, its peak at most a quarter more
+// (D256).
+func TestArguments_AnEncodeIsMadeAtTheRateItsCommandNames(t *testing.T) {
+	t.Parallel()
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, VideoCodec: "mpeg4", VideoKbps: 1000}
+	encoded := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
+	if after(encoded, "-b:v") != "1000k" || after(encoded, "-maxrate") != "1250k" ||
+		after(encoded, "-bufsize") != "2000k" {
+		t.Errorf("an encode told 1000 kb/s is %v; want 1000k, its peak 1250k and its buffer 2000k", encoded)
 	}
 }
 

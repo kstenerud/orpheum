@@ -18435,3 +18435,23 @@ to end. **Revises**
    started again behind it, throwing its reading away each time.
 
 **Status:** Decided 2026-10-07.
+
+---
+
+## D256 — An encode is made no heavier than its picture needs or its original is
+
+**Decided** (2026-10-07), by the project owner, after *Born Brisk*, a 640×272 DVD rip of 1.6 Mb/s,
+was prepared at the h264-8m profile's fixed 8 Mb/s into a 5.3 GB copy that stalled every two
+seconds on a 3 Mb/s link: *"Ideally we shouldn't be increasing the bit rate higher than the
+original (with sanity checks). The whole point is a lower bit rate stream that it can choose."*
+**Revises** cut-a §6's h264-8m, *"`h264-sdr` at ~8 Mbps"*, which became its most.
+
+1. **An encode's average rate is the top of Apple's HLS authoring ladder for its picture's height**
+   (1 Mb/s to 288 lines, 1.1 to 360, 1.6 to 480, 2 to 576, 4.5 to 720, 8 above), **and never above
+   the original's own rate**: its picture's, or the whole file's where the container gives none.
+   Its peak is at most a quarter more.
+2. **The sanity check:** an original rate under a quarter of its height's rate is taken for a wrong
+   figure, as a file cut short reports, and ignored; an unknown height gets 8 Mb/s.
+
+**Status:** Decided 2026-10-07.
+

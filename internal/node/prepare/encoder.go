@@ -31,10 +31,18 @@ func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNV
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
-// encodeArguments are the encoder's video arguments: 8-bit H.264 at about 8 Mb/s, the high profile,
-// and a keyframe every segment length, however it is made (cut-a §6): an HLS segment can be cut
-// only at a keyframe, so keyframes further apart, or out of step, make segments of another length.
-func (encoder Encoder) encodeArguments(segmentLengthSeconds int) []string {
+// encodeKbpsMost is an encode's rate when its command names none: the h264-8m profile's 8 Mb/s.
+const encodeKbpsMost = 8000
+
+// encodeArguments are the encoder's video arguments: 8-bit H.264 at kbps on average, 8 Mb/s when it
+// is zero (D256), its peak at most 1.25 times that, the high profile, and a keyframe every segment
+// length, however it is made (cut-a §6): an HLS segment can be cut only at a keyframe, so keyframes
+// further apart, or out of step, make segments of another length.
+func (encoder Encoder) encodeArguments(segmentLengthSeconds, kbps int) []string {
+	if kbps <= 0 {
+		kbps = encodeKbpsMost
+	}
+	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
 	switch encoder {
 	case EncoderQuickSync:
@@ -45,7 +53,7 @@ func (encoder Encoder) encodeArguments(segmentLengthSeconds int) []string {
 	}
 	return append([]string{
 		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-pix_fmt", pixelFormat,
-		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
+		"-b:v", rate(kbps), "-maxrate", rate(kbps * 5 / 4), "-bufsize", rate(2 * kbps),
 		"-force_key_frames", "expr:gte(t,n_forced*" + strconv.Itoa(segmentLengthSeconds) + ")",
 	}, extra...)
 }
@@ -127,7 +135,7 @@ func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error 
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.encodeArguments(nodeproto.StartingSegmentLengthSeconds)...)
+	}, encoder.encodeArguments(nodeproto.StartingSegmentLengthSeconds, 0)...)
 	arguments = append(arguments, "-f", "null", "-")
 	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {

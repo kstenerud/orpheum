@@ -393,6 +393,9 @@ func prepareCommand(
 	}
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
+		if profile == nodeproto.ProfileH264At8M {
+			command.VideoKbps = decide.EncodeKbps(probe)
+		}
 	}
 	command.AudioTracks = PreparedAudio(probe)
 	return command
