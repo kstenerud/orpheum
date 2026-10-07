@@ -226,6 +226,12 @@ func (queue *Queue) KeepWanted(ctx context.Context, kind Kind, target Target) er
 	return queue.queue.KeepWanted(ctx, kind, target, queue.clock.Now().Add(wanted))
 }
 
+// ReleaseWanted says no person waits for kind's open job on target any more, as one who left the
+// page that asked for it: it falls to background priority at the next demotion (D258 §2).
+func (queue *Queue) ReleaseWanted(ctx context.Context, kind Kind, target Target) error {
+	return queue.queue.ReleaseWanted(ctx, kind, target)
+}
+
 // Demoted is a job no person waits for any more, fallen to background priority.
 type Demoted struct {
 	ID int64

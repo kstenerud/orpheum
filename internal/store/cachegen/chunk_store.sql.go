@@ -51,3 +51,31 @@ func (q *Queries) GetChunkStore(ctx context.Context, id int64) (ChunkStore, erro
 	)
 	return i, err
 }
+
+const listChunkStoresOfFile = `-- name: ListChunkStoresOfFile :many
+SELECT id FROM chunk_store WHERE source_file = ?1 ORDER BY id
+`
+
+// A film's stores, every stream on every grid, whose runs a player that left no longer wants.
+func (q *Queries) ListChunkStoresOfFile(ctx context.Context, sourceFile int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listChunkStoresOfFile, sourceFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

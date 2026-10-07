@@ -170,6 +170,16 @@ func (queue *Queue[T]) KeepWanted(ctx context.Context, kind Kind, target T, unti
 	return nil
 }
 
+// ReleaseWanted says no person waits for kind's open jobs on target any more: their wanted time
+// ends now, and the next DemoteUnwanted gives them background priority (D258 §2). A person still
+// waiting asks again, and keeps them wanted.
+func (queue *Queue[T]) ReleaseWanted(ctx context.Context, kind Kind, target T) error {
+	if err := queue.storage.ReleaseWanted(ctx, kind, target, queue.clock.Now()); err != nil {
+		return fmt.Errorf("release a %s job no one waits for: %w", kind, err)
+	}
+	return nil
+}
+
 // PruneFinished forgets the jobs that ended longer ago than keptFor, and says how many (D233 §8).
 func (queue *Queue[T]) PruneFinished(ctx context.Context, keptFor time.Duration) (int64, error) {
 	pruned, err := queue.storage.PruneFinished(ctx, queue.clock.Now().Add(-keptFor))

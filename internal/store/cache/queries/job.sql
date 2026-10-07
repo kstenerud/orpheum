@@ -124,10 +124,16 @@ FROM job
 ORDER BY id DESC
 LIMIT sqlc.arg(max_rows);
 
--- name: KeepJobWanted :exec
--- A person still waits for an open job of a kind on a target: until is when they stop, unless a
--- later play said later (D240 section 6).
-UPDATE job SET wanted_until = MAX(COALESCE(wanted_until, 0), CAST(sqlc.arg(until) AS INTEGER))
+-- name: SetJobWanted :exec
+-- When a person stops waiting for an open job of a kind on a target. Kept wanted (is_release 0),
+-- until, unless a later play said later (D240 section 6). Released (is_release 1), as by one who left
+-- the page that asked for it, until, a moment past, if anyone waited, so the next demotion gives it
+-- background priority (D258 section 2); a player still watching asks again, and keeps it wanted.
+UPDATE job SET wanted_until = CASE
+    WHEN CAST(sqlc.arg(is_release) AS INTEGER) = 1 THEN
+      CASE WHEN wanted_until IS NULL THEN NULL ELSE CAST(sqlc.arg(until) AS INTEGER) END
+    ELSE MAX(COALESCE(wanted_until, 0), CAST(sqlc.arg(until) AS INTEGER))
+  END
 WHERE kind = sqlc.arg(kind) AND state IN ('queued', 'running', 'assigned')
   AND item_id IS sqlc.arg(item_id) AND rendition_id IS sqlc.arg(rendition_id) AND stream_id IS sqlc.arg(stream_id)
   AND fetched_subtitle_id IS sqlc.arg(fetched_subtitle_id) AND file_id IS sqlc.arg(file_id)

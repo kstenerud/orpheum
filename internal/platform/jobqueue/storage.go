@@ -26,6 +26,9 @@ type Queueing[T comparable] interface {
 	// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until; a
 	// later time already kept stands.
 	KeepWanted(ctx context.Context, kind Kind, target T, until time.Time) error
+	// ReleaseWanted ends now the time a person waits for kind's open jobs on target, so the next
+	// DemoteUnwanted gives them background priority.
+	ReleaseWanted(ctx context.Context, kind Kind, target T, now time.Time) error
 	// DemoteUnwanted gives every open job whose wanted time is before now the given priority, forgets
 	// its time, and returns it.
 	DemoteUnwanted(ctx context.Context, now time.Time, priority int64) ([]Row[T], error)

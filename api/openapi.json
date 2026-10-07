@@ -8656,6 +8656,51 @@
         ]
       }
     },
+    "/playback/{token}": {
+      "delete": {
+        "operationId": "leavePlayback",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say the player left the film's page or the player: its work is no longer wanted (D258 §2)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
     "/playback/{token}/report": {
       "post": {
         "operationId": "reportPlayback",

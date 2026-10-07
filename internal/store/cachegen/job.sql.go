@@ -264,46 +264,6 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 	return id, err
 }
 
-const keepJobWanted = `-- name: KeepJobWanted :exec
-UPDATE job SET wanted_until = MAX(COALESCE(wanted_until, 0), CAST(?1 AS INTEGER))
-WHERE kind = ?2 AND state IN ('queued', 'running', 'assigned')
-  AND item_id IS ?3 AND rendition_id IS ?4 AND stream_id IS ?5
-  AND fetched_subtitle_id IS ?6 AND file_id IS ?7
-  AND scan_id IS ?8 AND scan_batch_id IS ?9
-  AND chunk_store_id IS ?10
-`
-
-type KeepJobWantedParams struct {
-	Until             int64
-	Kind              string
-	ItemID            *int64
-	RenditionID       *int64
-	StreamID          *int64
-	FetchedSubtitleID *int64
-	FileID            *int64
-	ScanID            *int64
-	ScanBatchID       *int64
-	ChunkStoreID      *int64
-}
-
-// A person still waits for an open job of a kind on a target: until is when they stop, unless a
-// later play said later (D240 section 6).
-func (q *Queries) KeepJobWanted(ctx context.Context, arg KeepJobWantedParams) error {
-	_, err := q.db.ExecContext(ctx, keepJobWanted,
-		arg.Until,
-		arg.Kind,
-		arg.ItemID,
-		arg.RenditionID,
-		arg.StreamID,
-		arg.FetchedSubtitleID,
-		arg.FileID,
-		arg.ScanID,
-		arg.ScanBatchID,
-		arg.ChunkStoreID,
-	)
-	return err
-}
-
 const listEveryOpenJob = `-- name: ListEveryOpenJob :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
@@ -592,6 +552,54 @@ type SetJobProgressParams struct {
 // How far a running job is, 0 to 1, for the job view.
 func (q *Queries) SetJobProgress(ctx context.Context, arg SetJobProgressParams) error {
 	_, err := q.db.ExecContext(ctx, setJobProgress, arg.ProgressFraction, arg.ID)
+	return err
+}
+
+const setJobWanted = `-- name: SetJobWanted :exec
+UPDATE job SET wanted_until = CASE
+    WHEN CAST(?1 AS INTEGER) = 1 THEN
+      CASE WHEN wanted_until IS NULL THEN NULL ELSE CAST(?2 AS INTEGER) END
+    ELSE MAX(COALESCE(wanted_until, 0), CAST(?2 AS INTEGER))
+  END
+WHERE kind = ?3 AND state IN ('queued', 'running', 'assigned')
+  AND item_id IS ?4 AND rendition_id IS ?5 AND stream_id IS ?6
+  AND fetched_subtitle_id IS ?7 AND file_id IS ?8
+  AND scan_id IS ?9 AND scan_batch_id IS ?10
+  AND chunk_store_id IS ?11
+`
+
+type SetJobWantedParams struct {
+	IsRelease         int64
+	Until             int64
+	Kind              string
+	ItemID            *int64
+	RenditionID       *int64
+	StreamID          *int64
+	FetchedSubtitleID *int64
+	FileID            *int64
+	ScanID            *int64
+	ScanBatchID       *int64
+	ChunkStoreID      *int64
+}
+
+// When a person stops waiting for an open job of a kind on a target. Kept wanted (is_release 0),
+// until, unless a later play said later (D240 section 6). Released (is_release 1), as by one who left
+// the page that asked for it, until, a moment past, if anyone waited, so the next demotion gives it
+// background priority (D258 section 2); a player still watching asks again, and keeps it wanted.
+func (q *Queries) SetJobWanted(ctx context.Context, arg SetJobWantedParams) error {
+	_, err := q.db.ExecContext(ctx, setJobWanted,
+		arg.IsRelease,
+		arg.Until,
+		arg.Kind,
+		arg.ItemID,
+		arg.RenditionID,
+		arg.StreamID,
+		arg.FetchedSubtitleID,
+		arg.FileID,
+		arg.ScanID,
+		arg.ScanBatchID,
+		arg.ChunkStoreID,
+	)
 	return err
 }
 

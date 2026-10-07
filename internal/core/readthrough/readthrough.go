@@ -33,6 +33,7 @@ type Nodes interface {
 // Queue is the job queue: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
+	ReleaseWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
 }
 
 // Parts are what the read-through service is built from.
@@ -139,6 +140,15 @@ func (service *Service) ReadForPlay(ctx context.Context, fileID int64) (bool, er
 		return false, fmt.Errorf("queue a read-through of file %d: %w", fileID, err)
 	}
 	return added, nil
+}
+
+// ReleaseForPlay says no player waits for the file's read-through any more, as one that left its
+// page (D258 §2): it falls to background at the next demotion, unless a player asks again.
+func (service *Service) ReleaseForPlay(ctx context.Context, fileID int64) error {
+	if err := service.queue.ReleaseWanted(ctx, jobs.KindReadThrough, jobs.Target{FileID: fileID}); err != nil {
+		return fmt.Errorf("release file %d's read-through: %w", fileID, err)
+	}
+	return nil
 }
 
 // RetryFailedForPlay tries again, for a person who pressed play at before, a read-through of the
