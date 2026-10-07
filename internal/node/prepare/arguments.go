@@ -110,7 +110,7 @@ func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
 		}
 		return []string{codecFlag, videoCopied}
 	}
-	return encoder.encodeArguments(segmentLengthSeconds(command.SegmentLengthSeconds))
+	return encoder.encodeArguments(segmentLengthSeconds(command.SegmentLengthSeconds), command.VideoKbps)
 }
 
 // segmentLengthSeconds is the segment length asked for, or the setting's starting value when it is

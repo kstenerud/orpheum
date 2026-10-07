@@ -159,6 +159,23 @@ func TestPrepareCommand_CarriesTheSourcesLengthForTheNodesDeadline(t *testing.T)
 	}
 }
 
+// An encode is told its picture's rate, by the source's height; a remux, which copies the picture,
+// none (D256).
+func TestPrepareCommand_AnEncodeCarriesTheRateForItsSourcesHeight(t *testing.T) {
+	t.Parallel()
+	probe := nodeproto.Probe{Streams: []nodeproto.ProbeStream{
+		{Kind: "video", StreamIndex: 0, Codec: "mpeg4", Video: nodeproto.ProbeVideo{Width: 640, Height: 272}},
+	}}
+	encode := prepareCommand(nodeproto.BytesFile{}, 3, nodeproto.ProfileH264At8M, "0123456789abcdef", probe)
+	if encode.VideoKbps != 1000 {
+		t.Errorf("an encode of a 640×272 picture is told %d kb/s, want 1000", encode.VideoKbps)
+	}
+	remux := prepareCommand(nodeproto.BytesFile{}, 3, nodeproto.ProfileRemux, "0123456789abcdef", probe)
+	if remux.VideoKbps != 0 {
+		t.Errorf("a remux is told %d kb/s, want none: it copies the picture", remux.VideoKbps)
+	}
+}
+
 func renditionRow(t *testing.T, service *Service, rendition int64) cachegen.PreparedRendition {
 	t.Helper()
 	row, err := service.cache.Read().GetRenditionByID(t.Context(), rendition)

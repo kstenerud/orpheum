@@ -46,6 +46,9 @@ type Prepare struct {
 	// SourceDurationMs is the source's length as the probe gave it, from which the node sets the
 	// prepare's deadline; zero when unknown.
 	SourceDurationMs int64 `json:"sourceDurationMs,omitempty"`
+	// VideoKbps is an encode's average rate for its picture (D256): set for h264-8m, by the source
+	// picture's height; zero, for a node or a command from before it, is the profile's 8 Mb/s.
+	VideoKbps int `json:"videoKbps,omitempty"`
 	// SegmentLengthSeconds is each HLS segment's target length (D217 §3).
 	SegmentLengthSeconds int `json:"segmentLengthSeconds"`
 	// AudioTracks lists the source's audio tracks, in order: every one is carried, so switching

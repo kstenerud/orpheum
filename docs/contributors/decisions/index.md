@@ -261,6 +261,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D253](working-notes.md#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up) A stalled player is told of its lower version at its first stall, and moves to it once it is ready if it still cannot keep up
 - [D254](working-notes.md#d254--in-the-browsers-own-fullscreen-the-chosen-subtitle-track-is-shown-as-the-browsers-captions) In the browser's own fullscreen, the chosen subtitle track is shown as the browser's captions
 - [D255](working-notes.md#d255--work-has-three-priorities-a-persons-a-fast-operations-and-a-slow-ones-and-a-higher-one-bumps-the-lowest-when-nothing-is-free) Work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps the lowest when nothing is free
+- [D256](working-notes.md#d256--an-encode-is-made-no-heavier-than-its-picture-needs-or-its-original-is) An encode is made no heavier than its picture needs or its original is
 
 ## Archived
 
