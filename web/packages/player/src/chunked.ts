@@ -4,10 +4,13 @@ import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
 
 import type { CannotKeepUp } from "@orpheum/sdk";
 
-import { hlsErrorFailure, noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
+import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
+import { stepDownWhileFilling } from "./fill.ts";
 import {
+  failOnFatal,
   hlsMethod,
   hlsSupport,
+  measuredKbps,
   playNative,
   startWithAudio,
   tellLoading,
@@ -232,11 +235,7 @@ export function playChunked(
     startPosition: options.startPositionS,
     fragLoadPolicy: chunkLoadPolicy,
   });
-  hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.fatal) {
-      options.onFailed(hlsErrorFailure(data));
-    }
-  });
+  failOnFatal(hls, options.onFailed);
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
@@ -244,6 +243,8 @@ export function playChunked(
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,
   });
+  const stopFilling = stepDownWhileFilling(hls, options.monotonicMs);
+  const estimateKbps = measuredKbps(hls);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {
@@ -252,11 +253,12 @@ export function playChunked(
     },
     destroy: () => {
       stopAdapting();
+      stopFilling();
       hls.destroy();
     },
     playing: () => hls.levels[hls.currentLevel],
     settledAtBps: () => settledAtBps(hls),
-    estimateKbps: () => (hls.bandwidthEstimate > 0 ? hls.bandwidthEstimate / 1000 : undefined),
+    estimateKbps,
     beyondTheLink: () => beyondTheLink(hls),
   };
 }
