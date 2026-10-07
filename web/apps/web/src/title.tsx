@@ -19,6 +19,7 @@ import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
+import { Remembered, useRemembered } from "./remembered.ts";
 
 /** A title's detail, as the server sends it. */
 export type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
@@ -247,14 +248,18 @@ export function firstPlayableFile(title: TitleDetail): number | undefined {
   return title.versions?.[0]?.files?.[0]?.id;
 }
 
+/** The titles' pages this tab has shown. */
+const rememberedTitles = new Remembered<TitleDetail>();
+
 /** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api, playableFormats } = useServices();
-  const [title, reload] = useResource(
+  const [loaded, reload] = useResource(
     `title/${String(props.id)}`,
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
     useBackgroundChangesPoller(),
   );
+  const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);
   const warmFileId = title.state === "loaded" ? firstPlayableFile(title.value) : undefined;
   useEffect(() => {
     if (warmFileId !== undefined) {

@@ -41,6 +41,13 @@ export interface Preload {
   readonly stop: () => void;
 }
 
+/**
+ * How far ahead a film page's hidden player loads: its first buffer, one chunk of the ladder's
+ * ten-second grid, not the half minute hls.js loads by itself. Three or more chunks of a film's
+ * own picture, 12 MB of Bram's, held a phone's link after its person had moved on (2026-10-07).
+ */
+export const preloadAheadS = 10;
+
 /** Starts a Preload of the film's ladder from where its playback resumes. */
 export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
 
@@ -60,6 +67,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
     startAtBps: offer.startAtBps,
     startPositionS: positionMs / 1000,
     monotonicMs,
+    loadsAheadAtMostS: preloadAheadS,
   });
   return {
     settledAtBps: () => playback.settledAtBps(),
