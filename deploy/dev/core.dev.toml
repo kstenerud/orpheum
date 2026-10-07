@@ -22,6 +22,7 @@ shutdown_grace_seconds = 10
 domain = ""
 contact = ""
 listen = ":443"
+acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 # No voice relay in the dev loop: browsers on the house network reach each other (D243 §8 is the
 # deployment's).

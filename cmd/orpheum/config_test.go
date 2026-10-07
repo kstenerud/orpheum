@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/certificate"
 )
 
 func writeConfig(t *testing.T, text string) string {
@@ -138,6 +140,12 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 				"relay_port_min = 49160", "relay_port_min = 49200", 1),
 			"turn.relay_port_min",
 		},
+		"an ACME directory not over HTTPS": {
+			kindCore, strings.NewReplacer(`domain = ""`, `domain = "media.example.org"`,
+				`contact = ""`, `contact = "owner@example.org"`,
+				`acme_directory = "https://`, `acme_directory = "http://`).Replace(core),
+			"https.acme_directory",
+		},
 		"not TOML at all":  {kindCore, "server = [", "config"},
 		"a wrong key type": {kindCore, "[server]\nlisten = 8432\n", "listen"},
 	}
@@ -160,6 +168,7 @@ shutdown_grace_seconds = 10
 domain = ""
 contact = ""
 listen = ":443"
+acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 [turn]
 public_address = ""
@@ -214,5 +223,23 @@ func TestIsLoopback(t *testing.T) {
 		if got := isLoopback(listen); got != want {
 			t.Errorf("isLoopback(%q) = %v, want %v", listen, got, want)
 		}
+	}
+}
+
+// The certificate comes from Let's Encrypt's production directory unless the file names another, as
+// staging may name Let's Encrypt's staging one (D261 §5).
+func TestLoadConfig_TheACMEDirectoryIsTheFilesLetsEncryptsByDefault(t *testing.T) {
+	t.Parallel()
+	core := validConfigTexts[kindCore]
+	const stagingCA = "https://acme-staging-v02.api.letsencrypt.org/directory"
+	named := strings.Replace(core, certificate.LetsEncrypt, stagingCA, 1)
+	config, _, err := loadConfig(writeConfig(t, named), kindCore)
+	if err != nil || config.HTTPS.ACMEDirectory != stagingCA {
+		t.Errorf("with the staging CA named: %q, %v; want it", config.HTTPS.ACMEDirectory, err)
+	}
+	unnamed := strings.Replace(core, `acme_directory = "`+certificate.LetsEncrypt+`"`+"\n", "", 1)
+	if config, _, err = loadConfig(writeConfig(t, unnamed), kindCore); err != nil ||
+		config.HTTPS.ACMEDirectory != certificate.LetsEncrypt {
+		t.Errorf("with none named: %q, %v; want Let's Encrypt's", config.HTTPS.ACMEDirectory, err)
 	}
 }

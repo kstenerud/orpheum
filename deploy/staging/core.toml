@@ -19,6 +19,9 @@ shutdown_grace_seconds = 10
 domain = "{domain}"
 contact = "{contact}"
 listen = ":443"
+# Production, as the phones that test staging trust only its certificates; Let's Encrypt's staging
+# directory spends no quota, for a server no real browser opens (D261 §5).
+acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 [turn]
 public_address = "{public_ipv4}"

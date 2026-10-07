@@ -134,10 +134,8 @@ type wiring struct {
 	tmdbImagesBaseURL string
 	// openSubtitlesBaseURL is where OpenSubtitles answers (opensubtitles.BaseURL, or a test's fake).
 	openSubtitlesBaseURL string
-	// acmeDirectoryURL is the CA the certificate comes from (certificate.LetsEncrypt, or a test's
-	// fake), cloudflareBaseURL the DNS provider's API (cloudflare.BaseURL, or a fake), and
+	// cloudflareBaseURL is the DNS provider's API (cloudflare.BaseURL, or a fake), and
 	// dnsPropagationWait how long a challenge's record is given (D243 §6).
-	acmeDirectoryURL   string
 	cloudflareBaseURL  string
 	dnsPropagationWait time.Duration
 	// machineZone is the machine's own time zone, the server's until the admin chooses one

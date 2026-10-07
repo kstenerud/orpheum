@@ -33,7 +33,7 @@ func openCertificates(
 		return opened, nil
 	}
 	service, err := certificate.New(certificate.Parts{
-		Domain: config.HTTPS.Domain, Contact: config.HTTPS.Contact, DirectoryURL: outside.acmeDirectoryURL,
+		Domain: config.HTTPS.Domain, Contact: config.HTTPS.Contact, DirectoryURL: config.HTTPS.ACMEDirectory,
 		HTTP:  opened.jobServices.outboundClient,
 		DNS:   cloudflare.New(opened.jobServices.outboundClient, outside.cloudflareBaseURL, opened.secrets),
 		Files: opened.directories, Queue: opened.jobServices.queue, Clock: clock.System{},

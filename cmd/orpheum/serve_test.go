@@ -120,6 +120,7 @@ shutdown_grace_seconds = 10
 domain = ""
 contact = ""
 listen = ":443"
+acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 [turn]
 public_address = ""
