@@ -73,7 +73,8 @@ type tokenPlayback struct {
 	// startingAudio is the audio track the playback started with, nil for a file with no sound: its
 	// chunks' master playlist starts with that track's standard mix (D247 §10).
 	startingAudio *AudioTrack
-	// offer is the lower quality its first stall started (D253 §1).
+	// offer is the lower quality its first stall started, offered in every report's answer from then
+	// on (D253 §1); nil before it stalled.
 	offer *chunks.Offer
 }
 
