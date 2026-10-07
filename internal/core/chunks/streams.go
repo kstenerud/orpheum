@@ -27,6 +27,10 @@ type Stream struct {
 	// SoundKbps is a StreamSound's AAC bit rate: chunk_sound_kbps, part of its name so a change makes
 	// a store of its own.
 	SoundKbps int
+	// IsUnlevelled is whether a StreamSound was offered before its film's loudness was measured, as a
+	// film cut from its file's index is (D259 §2): it plays as it is, from a store of its own, so a
+	// levelled chunk never follows an unlevelled one in a store, and a later playback gets the levelled.
+	IsUnlevelled bool
 }
 
 // pictureStreamName is the name of the stream that is the source's picture, copied.
@@ -34,7 +38,8 @@ const pictureStreamName = "picture"
 
 // Name is the stream's name in its playlist's path and its store's directory: "picture";
 // "q<kbps>k<height>p" for a quality, such as q1200k480p; "sound<track>-<kbps>k" for a track's
-// standard mix and "sound<track>-boost-<kbps>k" for its boosted one, such as sound0-boost-96k.
+// standard mix and "sound<track>-boost-<kbps>k" for its boosted one, such as sound0-boost-96k, each
+// ending "-raw" when unlevelled.
 func (stream Stream) Name() string {
 	switch stream.Kind {
 	case nodeproto.StreamQuality:
@@ -44,7 +49,11 @@ func (stream Stream) Name() string {
 		if stream.IsBoosted {
 			name += "-boost"
 		}
-		return name + "-" + strconv.Itoa(stream.SoundKbps) + "k"
+		name += "-" + strconv.Itoa(stream.SoundKbps) + "k"
+		if stream.IsUnlevelled {
+			name += "-raw"
+		}
+		return name
 	case nodeproto.StreamPicture:
 	}
 	return pictureStreamName
@@ -52,7 +61,7 @@ func (stream Stream) Name() string {
 
 // streamNamePattern is the shape of every stream's name: the picture, a quality, or a sound.
 var streamNamePattern = regexp.MustCompile(`^(?:picture|q([1-9]\d{0,5})k([1-9]\d{0,4})p|` +
-	`sound(0|[1-9]\d{0,2})(-boost)?-([1-9]\d{1,2})k)$`)
+	`sound(0|[1-9]\d{0,2})(-boost)?-([1-9]\d{1,2})k(-raw)?)$`)
 
 // StreamNamed is the stream a name names, or false for a name not of a stream's shape. Whether the
 // film has that stream, a quality in the setting or a track it has, is not its to say.
@@ -76,6 +85,7 @@ func StreamNamed(name string) (Stream, bool) {
 		}
 		return Stream{
 			Kind: nodeproto.StreamSound, AudioTrackIndex: track, IsBoosted: match[4] != "", SoundKbps: kbps,
+			IsUnlevelled: match[6] != "",
 		}, true
 	}
 	return Stream{Kind: nodeproto.StreamPicture}, true

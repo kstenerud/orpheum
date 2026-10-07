@@ -6,11 +6,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/container/containertest"
+	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -133,5 +137,40 @@ func TestAgent_AReadThroughAnswersEachPartItWasAskedFor(t *testing.T) {
 	if timelineOnly.Loudness != nil || timelineOnly.VideoTimeline == nil ||
 		!slices.Equal(timelineOnly.VideoTimeline.KeyframesMs, []int64{4000}) {
 		t.Errorf("a read-through asked for stream 4's timeline alone answered %+v; want only it", timelineOnly)
+	}
+}
+
+// A read-through asked for a picture's timeline alone, as a player waiting on a lower quality's grid
+// asks, is answered from the file's own index, its keyframes without its bytes in each second, and
+// the film is not read through; a file with no index is read through (D259 §2).
+func TestAgent_ATimelineAloneIsReadFromTheFilesIndex(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	contents := containertest.MatroskaWithCues(0, 2002, 4004)
+	if err := os.WriteFile(filepath.Join(root.Path(), "indexed.mkv"), contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	indexed := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("indexed.mkv"), PayloadHash: nodetest.PayloadHashHex(t, string(contents)),
+	}
+	core.sendReadThrough(1, nodeproto.ReadThrough{Video: indexed, VideoTimeline: &nodeproto.VideoTimelineAsk{}})
+	fromIndex := receiveReadThrough(t, core)
+	if fromIndex.VideoTimeline == nil || !slices.Equal(fromIndex.VideoTimeline.KeyframesMs, []int64{0, 2002, 4004}) ||
+		fromIndex.VideoTimeline.BytesInEachSecond != nil {
+		t.Errorf("a timeline alone of an indexed film answered %+v; want its cues' keyframes, and no bytes", fromIndex)
+	}
+	if err := os.WriteFile(filepath.Join(root.Path(), "plain.avi"), []byte("an AVI"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	plain := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("plain.avi"), PayloadHash: nodetest.PayloadHashHex(t, "an AVI"),
+	}
+	core.sendReadThrough(2, nodeproto.ReadThrough{
+		Video: plain, VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 2},
+	})
+	readThrough := receiveReadThrough(t, core)
+	if readThrough.VideoTimeline == nil || !slices.Equal(readThrough.VideoTimeline.KeyframesMs, []int64{2000}) {
+		t.Errorf("a timeline alone of a film with no index answered %+v; want it read through", readThrough)
 	}
 }

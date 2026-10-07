@@ -12,6 +12,11 @@
 //
 // # Invariants
 //
+//   - A film whose loudness is not measured offers its sounds unlevelled, each a store of its own
+//     ("-raw"), so a levelled chunk never follows an unlevelled one; a playback goes on with the
+//     sounds its playlist named once the loudness is measured (D259 §2).
+//     TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt (internal/core/api).
+//
 //   - A grid starts at the picture's first keyframe, and each next start is the first keyframe at or
 //     after the next multiple of the segment length, so a stretch cut alone agrees with the whole
 //     film's (D259 §1); a last chunk shorter than that is merged into the one before, and a picture

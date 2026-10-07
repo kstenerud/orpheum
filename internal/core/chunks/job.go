@@ -140,12 +140,14 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 func (service *Service) levelledTrack(
 	ctx context.Context, film cutFilm, stream Stream,
 ) (nodeproto.PrepareAudio, error) {
-	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
-	if err != nil {
-		return nodeproto.PrepareAudio{}, err
-	}
 	levelled := nodeproto.Prepare{AudioTracks: renditions.PreparedAudio(film.probe)}
-	decide.LevelPrepare(&levelled, levels, film.probe)
+	if !stream.IsUnlevelled {
+		levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+		if err != nil {
+			return nodeproto.PrepareAudio{}, err
+		}
+		decide.LevelPrepare(&levelled, levels, film.probe)
+	}
 	if hasSound(renditions.AudioRenditionsOf(levelled.AudioTracks), stream) {
 		for _, track := range levelled.AudioTracks {
 			if track.AudioTrackIndex == stream.AudioTrackIndex {
@@ -271,6 +273,6 @@ func (service *Service) takeEnd(
 // of.
 func hasSound(sounds []renditions.AudioRendition, stream Stream) bool {
 	return slices.ContainsFunc(sounds, func(sound renditions.AudioRendition) bool {
-		return soundStream(sound, stream.SoundKbps) == stream
+		return soundStream(sound, stream.SoundKbps, stream.IsUnlevelled) == stream
 	})
 }

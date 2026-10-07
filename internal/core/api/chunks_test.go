@@ -64,7 +64,8 @@ func TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackI
 		t.Errorf("the read-throughs queued = %+v; want film 1's at play priority", read)
 	}
 	harness.keepFilmOnesTimeline(t)
-	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""))
+	// Film 1's loudness is not measured yet: its sound is offered unlevelled (D259 §2).
+	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
 	stream := harness.getBytePath(t, base+"q1200k480p/stream.m3u8", user, true, "")
 	if stream.status != http.StatusOK || !strings.Contains(stream.body, "#EXTINF:10.000,\n00002.m4s\n#EXT-X-ENDLIST") {
 		t.Errorf("a quality's playlist: %d\n%s", stream.status, stream.body)
@@ -76,6 +77,33 @@ func TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackI
 		if refused := harness.getBytePath(t, base+unoffered, user, true, ""); refused.status != http.StatusNotFound {
 			t.Errorf("%s: %d %s, want 404", unoffered, refused.status, refused.body)
 		}
+	}
+}
+
+// A film cut before its loudness was measured, as one cut from its file's index is, offers its sound
+// unlevelled, a store of its own; once measured, a new playlist offers it levelled, and a playback
+// that started on the unlevelled sound goes on with it (D259 §2).
+func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
+	lufs := -20.0
+	if err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
+			PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 1, MeasuredMix: "stereo", IntegratedLUFS: &lufs,
+			MeasuredAt: 1,
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k")
+	if raw := harness.getBytePath(t, base+"sound0-96k-raw/stream.m3u8", user, true, ""); raw.status != http.StatusOK {
+		t.Errorf("the unlevelled sound's playlist, once the loudness is measured: %d %s; want it still", raw.status,
+			raw.body)
 	}
 }
 
@@ -185,10 +213,10 @@ func TestChunks_AnotherPersonsTokenIsRefused(t *testing.T) {
 
 // checkFilmOnesMaster fails the test unless master is film 1's master playlist: its own picture, then
 // the qualities below its 2.4 Mb/s, with its one stereo track.
-func checkFilmOnesMaster(t *testing.T, master byteAnswer) {
+func checkFilmOnesMaster(t *testing.T, master byteAnswer, sound string) {
 	t.Helper()
 	if master.status != http.StatusOK || master.header.Get("Content-Type") != "application/vnd.apple.mpegurl" ||
-		!strings.Contains(master.body, `NAME="sound0-96k",LANGUAGE="und",DEFAULT=YES`) ||
+		!strings.Contains(master.body, `NAME="`+sound+`",LANGUAGE="und",DEFAULT=YES`) ||
 		strings.Contains(master.body, "sound0-boost") || strings.Contains(master.body, "q3000k720p") ||
 		!strings.Contains(master.body, "\npicture/stream.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=3096000,"+
 			`AVERAGE-BANDWIDTH=2096000,AUDIO="audio"`+"\nq2000k540p/stream.m3u8\n") ||
