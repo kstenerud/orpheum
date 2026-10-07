@@ -100,10 +100,13 @@ group arrives, and at most a minute ahead (D250 §4). Catching up never starts a
 player fills from the run already making its quality (D250 §5).
 
 **Drift is corrected gently** (D250 §1). A following player works out where the group is now from
-the last group message, the time since, and the message's transit, half the shortest round trip
-its pings measured
+where it was last placed, the time since, and the transit of what placed it
 ([D66](../../decisions/working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips):
-no shared clock, each device's own monotonic time). Then, checking each second:
+no shared clock, each device's own monotonic time). Each pong says where the group is as the
+server answers, and the pong with the shortest round trip yet places it, half that round trip
+old; until one does, the group message that announced it, half the shortest round trip measured
+([D264](../../decisions/working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is)).
+A new timeline is pinged for at once. Then, checking each second:
 
 | Drift | Correction | Setting, default |
 | --- | --- | --- |

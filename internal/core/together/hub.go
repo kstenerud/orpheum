@@ -511,7 +511,12 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 	defer handled.endWait(now) // a ready player reports each second while the group waits for others
 	switch message.Type {
 	case MessagePing:
-		from.send(Outbound{V: ProtocolVersion, Type: MessagePong, TMono: message.TMono})
+		// The pong says where the group is as it answers, so a follower can place the group by the
+		// pong whose round trip it measured shortest, not by a message whose wait it cannot know (D264).
+		from.send(Outbound{
+			V: ProtocolVersion, Type: MessagePong, TMono: message.TMono, Seq: handled.group.seq,
+			Group: handled.groupView(now),
+		})
 	case MessageState, MessageSuspend, MessageResume:
 		handled.takeState(ctx, now, sender, from, message)
 	case MessageCommand:
@@ -580,6 +585,10 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 	case NoteVoiceCall:
 		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
 			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
+		return
+	case NotePlaced:
+		current.logger.InfoContext(ctx, "watch together: a player placed its group by a shorter round trip",
+			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs, "movedMs", note.MovedMs)...)
 		return
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}

@@ -137,7 +137,12 @@ export type TogetherServerMessage =
   | { readonly type: "group"; readonly seq: number; readonly group: GroupView }
   | { readonly type: "roster"; readonly roster: readonly RosterMember[] }
   | { readonly type: "rejected"; readonly basedOnSeq: number; readonly code: string }
-  | { readonly type: "pong"; readonly tMono: number }
+  | {
+      readonly type: "pong";
+      readonly tMono: number;
+      /** Where the group is as the server answers (D264); undefined from a server that says not. */
+      readonly group: GroupView | undefined;
+    }
   | { readonly type: "ended"; readonly reason: TogetherEndReason }
   | { readonly type: "rtc"; readonly fromDeviceId: number; readonly signal: VoiceSignal };
 
@@ -351,7 +356,7 @@ export function parseTogetherMessage(text: string): TogetherServerMessage | unde
         code: stringIn(record, "code") ?? "",
       };
     case "pong":
-      return { type: "pong", tMono: numberIn(record, "tMono") };
+      return { type: "pong", tMono: numberIn(record, "tMono"), group: parseGroup(record["group"]) };
     case "ended": {
       const reason = endReasons.find((each) => each === record["reason"]) ?? "gone";
       return { type: "ended", reason };

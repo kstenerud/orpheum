@@ -34,7 +34,7 @@ import { nudgeForMs } from "./together-drift.ts";
  */
 function fallenBehindOnAHalfSpeedLink(isLeading = false): {
   media: FakeMedia;
-  setGroup: (next: GroupView, receivedAtMs: number) => void;
+  setGroup: (next: GroupView, receivedAtMs: number, placedByRttMs?: number) => void;
   commands: GroupCommand[];
 } {
   const media = new FakeMedia();
@@ -126,7 +126,7 @@ function fakeConnection(
   minimumRttMs?: number,
 ): {
   connection: TogetherConnection;
-  setGroup: (next: GroupView, receivedAtMs: number) => void;
+  setGroup: (next: GroupView, receivedAtMs: number, placedByRttMs?: number) => void;
   commands: GroupCommand[];
   reports: PlayerState[];
   notes: PlayerNote[];
@@ -137,6 +137,7 @@ function fakeConnection(
     isHost: false,
     group,
     groupReceivedAtMs: 0,
+    groupPlacedByRttMs: undefined,
     roster: [],
     endReason: undefined,
     minimumRttMs,
@@ -152,8 +153,13 @@ function fakeConnection(
     commands,
     reports,
     notes,
-    setGroup: (next, receivedAtMs) => {
-      snapshot = { ...snapshot, group: next, groupReceivedAtMs: receivedAtMs };
+    setGroup: (next, receivedAtMs, placedByRttMs) => {
+      snapshot = {
+        ...snapshot,
+        group: next,
+        groupReceivedAtMs: receivedAtMs,
+        groupPlacedByRttMs: placedByRttMs,
+      };
       listener();
     },
     connection: {
@@ -346,6 +352,20 @@ describe("a player following its group", () => {
     media.currentTime = 61; // where the group is, a second after it was sent
     monotonicNowMs = 1000;
     setGroup({ ...paused, state: "Playing" }, 1000);
+    expect(notes.filter((note) => note.kind === "nudged" || note.kind === "sought")).toEqual([
+      { kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" },
+    ]);
+    expect(media.playbackRate).toBe(1);
+  });
+
+  it("takes a group placed by a pong as half that pong's round trip old, not the shortest's (D264)", () => {
+    const media = new FakeMedia();
+    // The shortest round trip was 200 ms, but the pong that placed the group took 2 s.
+    const { connection, setGroup, notes } = fakeConnection(paused, startingTuning, 200);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    media.currentTime = 61; // where the group is, a second after the pong said 60 s
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing" }, 1000, 2000);
     expect(notes.filter((note) => note.kind === "nudged" || note.kind === "sought")).toEqual([
       { kind: "sought", positionMs: 0, toMs: 60_000, why: "hold" },
     ]);

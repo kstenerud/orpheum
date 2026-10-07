@@ -126,3 +126,19 @@ func TestHub_LogsAVoiceCallsStepsAndRefusesAnUnknownOne(t *testing.T) {
 		}
 	}
 }
+
+// A follower placing its group by a shorter round trip is logged at info with how far it moved
+// where the group is expected, so a steady offset on a person's link is read from the log (D264).
+func TestHub_LogsAPlayerPlacingItsGroupByAShorterRoundTrip(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NotePlaced, RoundTripMs: 84, MovedMs: 173,
+	}})
+	want := `level=INFO msg="watch together: a player placed its group by a shorter round trip"`
+	if logged := stage.logs.String(); !strings.Contains(logged, want) ||
+		!strings.Contains(logged, "roundTripMs=84 movedMs=173") {
+		t.Errorf("the log does not say the placing:\n%s", logged)
+	}
+}

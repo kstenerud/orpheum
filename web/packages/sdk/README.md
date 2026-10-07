@@ -17,8 +17,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`;
   `not-into-another-package-by-path` and `no-barrel-files` stop other routes in.
 - **Watch Together keeps no shared clock** (D66): a playing group's expected position is its
-  position plus the local monotonic time since its message was sent, the time since it arrived
-  and half the shortest round trip, times its rate; drift within `leaveDriftUpToMs` is left, up to
+  position plus the local monotonic time since what placed it was sent, the time since it arrived
+  and half a round trip, times its rate: that of the pong with the shortest round trip yet, which
+  says where the group is, or until one has, the group message's, half the shortest round trip
+  (D264); drift within `leaveDriftUpToMs` is left, up to
   `seekDriftBeyondMs` nudged for about a second by at most `nudgeMostPercent` of the rate, beyond
   it sought across (D250 §1); each of these the welcome's tuning, from the settings. For `settleAfterChangeMs` after it starts
   playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands
@@ -68,7 +70,8 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`), and writing a failure's
   cause to the console (`reportFailure`, the one place the client logs): `src/problem.ts`.
 - Watch Together: the wire messages and the browser's socket, `src/together.ts`; the
-  connection (hello, ping and the minimum round trip, state reports, commands, reconnecting),
+  connection (hello, ping and the minimum round trip, where the group is placed, state reports,
+  commands, reconnecting),
   `src/together-connection.ts`; following the group with a video element,
   `src/together-follow.ts`, by where the group is and what a drift calls for,
   `src/together-drift.ts`; voice's calls, `src/together-voice.ts`, over the
