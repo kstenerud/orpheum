@@ -324,6 +324,7 @@ func openScans(opened openedServices, ingester *library.Ingester, logger *slog.L
 	})
 	opened.nodes.SetScans(scans)
 	opened.exchanges.SetDiskStalls(scans)
+	opened.exchanges.SetQuickPasses(scans)
 	return scans
 }
 

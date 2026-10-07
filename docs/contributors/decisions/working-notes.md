@@ -18402,3 +18402,35 @@ fullscreen, show the `<video>` element by itself, and the layer is left behind.
 
 **Status:** Decided 2026-10-07.
 
+---
+
+## D255 — Work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps the lowest when nothing is free
+
+**Decided** (2026-10-07), by the project owner, watching a new library of films on the NAS take
+minutes to list a dozen: *"It should be doing a quick scan first and then fill in with the more
+detailed scan after."* Each film the scan found was identified at once and queued its read-through,
+which reads the whole file; the read-through and the scan's examining were both background work on
+the one reader the NAS's disk was allowed, so each batch of the scan waited behind a film read end
+to end. **Revises**
+[D240](#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play)
+§5, which scheduled background work by priority alone, with no running job ever displaced.
+
+1. **Three priorities**, highest first: **work a person asked for** (to play, a scan they pressed);
+   **an operation expected to be fast** (a scan's listing and examining, identification, artwork);
+   **an operation expected to be slow** (a read-through, a subtitle extracted from inside a video,
+   anything that reads a whole film). The owner: *"heavy operations are lowest priority"*, and *"We
+   now have 3 priorities: triggered by user request, expected fast operation, and expected slow
+   operation."*
+2. **A higher priority bumps the lowest when nothing is free.** Work that finds no slot or reader
+   free evicts a running job of the lowest priority below its own: that job's work is thrown away
+   and it goes back to the head of its priority's queue, to start again when there is room. The
+   owner: *"it should be the general pattern of the queue: higher priority job bumps lowest priority
+   job, throws out its work, and reschedules it."* D240 §6's pause of background work for play
+   stays as it is until this replaces it.
+3. **Built first, for the demos** (2026-10-07): only the scan's quick pass ahead of whole-film reads.
+   While a scan lists a root and reads the files it found new or changed, background work that
+   reads whole films on the root's disk waits, on the disk's quick pass rather than its readers,
+   which the scan's own work needs, asking again every half minute. Work a person waits for never
+   waits for it. The three priorities and eviction (§1, §2) come after the conference.
+
+**Status:** Decided 2026-10-07.

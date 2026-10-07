@@ -102,8 +102,9 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 // work's slot as the node runs at once, and as many reading its device as may read it, each with
 // node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Play-driven work is
 // never held back for its slot or its device's readers: the node pauses the background work reading
-// it, and one person's watching never waits for another's (D240 §6). It is nil while there is room,
-// and for a node whose resources are not known.
+// it, and one person's watching never waits for another's (D240 §6). Background work that reads whole
+// files waits too while a scan is on its quick pass of its disk (D255). It is nil while there is
+// room, and for a node whose resources are not known.
 func (all *Exchanges) parkIfWindowFull(
 	ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool,
 ) error {
@@ -122,12 +123,14 @@ func (all *Exchanges) parkIfWindowFull(
 			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
 	}
 	switch {
-	case slot != "" && !isPlayDriven && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
+	case isPlayDriven:
+		return nil
+	case slot != "" && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
 		return full(jobs.SlotDestination(nodeID, string(slot)))
-	case device != "" && !isPlayDriven && onDevice >= resources.readerLimit(device)+int(extra):
+	case device != "" && onDevice >= resources.readerLimit(device)+int(extra):
 		return full(jobs.ReaderDestination(nodeID, device))
 	}
-	return nil
+	return all.parkBehindQuickPass(ctx, nodeID, resources, work, device)
 }
 
 // heldOn counts the attempts a node holds in slot, and reading device; none for "".

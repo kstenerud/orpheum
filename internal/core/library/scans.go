@@ -197,6 +197,23 @@ type ScanProgress struct {
 	IsAnotherScanQueued bool
 }
 
+// RootsOnQuickPass are a node's roots whose scan in progress has not yet listed them, or not yet
+// read every file its listing found new or changed: its quick pass, which a background read of whole
+// files on the same disk waits for (D255).
+func (scans *Scans) RootsOnQuickPass(ctx context.Context, nodeID int64) ([]string, error) {
+	progress, err := scans.InProgress(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var roots []string
+	for root, scan := range progress {
+		if root.NodeID == nodeID && (!scan.IsListed || scan.ExaminedCount < scan.ToExamineCount) {
+			roots = append(roots, root.RootPath)
+		}
+	}
+	return roots, nil
+}
+
 // InProgress is every scan in progress, by its root.
 func (scans *Scans) InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error) {
 	rows, err := scans.cache.Read().ListScans(ctx)
