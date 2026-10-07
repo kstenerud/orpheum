@@ -71,7 +71,9 @@ export interface PlayerState {
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at estimateKbps;
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
  *   (nothing was heard on it);
- * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1).
+ * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
+ * - voiceCall: a voice call with partnerDeviceId took a step, why: VoiceCallStep, so a call that
+ *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did).
  */
 export type PlayerNote =
   | {
@@ -102,7 +104,15 @@ export type PlayerNote =
   | {
       readonly kind: "voiceStats";
       readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
-    };
+    }
+  | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep };
+
+/**
+ * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its
+ * own, connected or failed; or a signal came from a device it has no call with, and was dropped.
+ */
+export type VoiceCallStep =
+  "offered" | "answered" | "accepted" | "connected" | "failed" | "signalDropped";
 
 /** A command only the host sends (D246 §8): play, pause, seek, put a film on, or stop. */
 export type GroupCommand =
