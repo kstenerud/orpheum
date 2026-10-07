@@ -379,3 +379,34 @@ func TestReadThrough_ReadForPlayRunsAtPlayPriority(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A read-through a player waits on asks for the picture's timeline alone, which its node reads from
+// the file's index; the sweep's asks for the loudness too. Once the timeline is kept from the index,
+// the sweep still reads the file through, for its loudness and its bytes in each second (D259 §2).
+func TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	job := jobs.Job{ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2}, Priority: jobs.PriorityPlayNow}
+	finished := harness.handle(t, harness.readThrough.HandleReadThrough, job)
+	command := harness.nextCommand(t).ReadThrough
+	if command == nil || command.VideoTimeline == nil || len(command.LoudnessTracks) != 0 {
+		t.Fatalf("a player's read-through asked %+v; want the picture's timeline alone", command)
+	}
+	harness.answerReadThrough(t, 95, nodeproto.ReadThroughResult{
+		VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: []int64{0, 2000}},
+	})
+	if err := testutil.Receive(t, finished, "the read-through job to end"); err != nil {
+		t.Fatal(err)
+	}
+	if ids := harness.filesToReadThrough(t); !slices.Contains(ids, 2) {
+		t.Errorf("after the index's timeline, the sweep finds %v; want file 2, still to read through", ids)
+	}
+	swept, err := harness.readThroughWith(t, 96, 2, nodeproto.ReadThroughResult{})
+	if err != nil || swept == nil || swept.VideoTimeline == nil || len(swept.LoudnessTracks) == 0 {
+		t.Errorf("the sweep's read-through asked %+v (%v); want the loudness and the timeline", swept, err)
+	}
+}

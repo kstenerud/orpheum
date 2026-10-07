@@ -11,6 +11,12 @@
 //
 // # Invariants
 //
+//   - A read-through a player waits on asks for the picture's timeline alone, which the node reads
+//     from the file's index; a timeline kept so, its keyframes without its bytes in each second, is
+//     read through still by the sweep, which adds the bytes and keeps the keyframes (D259 §2).
+//     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest (internal/core/api),
+//     TestVideoTimeline_KeepsItsKeyframesAndALaterReadAddsItsBytes (internal/store).
+//
 //   - Each live video is read through once per payload hash for its loudness, when it has sound,
 //     and for its picture's timeline, when it has a picture, a cover never; one read asks for both
 //     when both are lacking, and for neither when neither is. Its job runs behind anything a person

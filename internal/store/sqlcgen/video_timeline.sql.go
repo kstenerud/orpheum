@@ -65,8 +65,12 @@ INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
 VALUES (?1, ?2, ?3,
   ?4, ?5, ?6)
 ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
-  keyframes_ms_json = excluded.keyframes_ms_json, bytes_in_each_second_json = excluded.bytes_in_each_second_json,
-  failure = excluded.failure, made_at = excluded.made_at
+  keyframes_ms_json = CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.keyframes_ms_json
+    ELSE video_timeline.keyframes_ms_json END,
+  bytes_in_each_second_json = CASE WHEN excluded.bytes_in_each_second_json = '[]'
+    THEN video_timeline.bytes_in_each_second_json ELSE excluded.bytes_in_each_second_json END,
+  failure = CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.failure ELSE video_timeline.failure END,
+  made_at = excluded.made_at
 `
 
 type UpsertVideoTimelineParams struct {
@@ -78,6 +82,9 @@ type UpsertVideoTimelineParams struct {
 	MadeAt                int64
 }
 
+// A timeline's keyframes, once known, are kept, so the grid a playback is cut on does not move: a
+// later read through adds its bytes in each second, and a failure of one changes nothing of it (D259
+// section 2).
 func (q *Queries) UpsertVideoTimeline(ctx context.Context, arg UpsertVideoTimelineParams) error {
 	_, err := q.db.ExecContext(ctx, upsertVideoTimeline,
 		arg.PayloadHash,

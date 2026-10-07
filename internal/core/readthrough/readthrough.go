@@ -191,6 +191,12 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 	if err != nil {
 		return err
 	}
+	if job.Priority >= jobs.PriorityPlayNow && command.VideoTimeline != nil {
+		// A player waits on where the picture can be cut: asked for that alone, the node reads it
+		// from the file's index in a fraction of a second, where reading the loudness too takes as long
+		// as reading the film (D259 §2). The sweep reads the loudness after.
+		command.LoudnessTracks = nil
+	}
 	if len(command.LoudnessTracks) == 0 && command.VideoTimeline == nil {
 		return nil
 	}
@@ -217,7 +223,8 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 }
 
 // whatIsLacking is the read-through a file's bytes need, without its video: the loudness of every
-// audio track when none is kept, and the timeline of its main picture when that has none.
+// audio track when none is kept, and the timeline of its main picture when that has none, or has only
+// what its file's index said.
 func (service *Service) whatIsLacking(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe,
 ) (nodeproto.ReadThrough, error) {
@@ -237,16 +244,22 @@ func (service *Service) whatIsLacking(
 	if !hasPicture {
 		return command, nil
 	}
-	_, err = store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
+	timeline, err := store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
 		PayloadHash: file.PayloadHash, VideoStreamIndex: int64(picture.StreamIndex),
 	}))
 	switch {
-	case errors.Is(err, store.ErrNotFound):
+	case errors.Is(err, store.ErrNotFound), err == nil && isFromIndexAlone(timeline):
 		command.VideoTimeline = &nodeproto.VideoTimelineAsk{VideoStreamIndex: picture.StreamIndex}
 	case err != nil:
 		return command, fmt.Errorf("read the timeline of file %d: %w", file.ID, err)
 	}
 	return command, nil
+}
+
+// isFromIndexAlone is whether a timeline was read from its file's index: its keyframes without its
+// bytes in each second, which a read through adds (D259 §2).
+func isFromIndexAlone(timeline sqlcgen.VideoTimeline) bool {
+	return timeline.Failure == nil && timeline.BytesInEachSecondJSON == "[]"
 }
 
 // Assignee is how a read-through given to a node is resolved; its recorder keeps what it learned,
@@ -399,7 +412,13 @@ func timelineRow(
 		if err != nil {
 			return nil, fmt.Errorf("encode the keyframes: %w", err)
 		}
-		seconds, err := json.Marshal(answer.VideoTimeline.BytesInEachSecond)
+		// A timeline read from its file's index has no bytes in each second: kept as none, "[]", which a
+		// read through fills in (D259 §2).
+		bytesInEachSecond := answer.VideoTimeline.BytesInEachSecond
+		if bytesInEachSecond == nil {
+			bytesInEachSecond = []int64{}
+		}
+		seconds, err := json.Marshal(bytesInEachSecond)
 		if err != nil {
 			return nil, fmt.Errorf("encode the bytes in each second: %w", err)
 		}

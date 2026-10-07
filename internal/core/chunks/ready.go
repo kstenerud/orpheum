@@ -27,7 +27,7 @@ func (service *Service) IsReadyAt(ctx context.Context, playback Playback, offer 
 	}
 	streams := []Stream{{Kind: nodeproto.StreamQuality, Quality: offer.Quality}}
 	if playback.HasStartingAudio {
-		streams = append(streams, startingSound(playback, offered.soundKbps))
+		streams = append(streams, startingSound(playback, offered.soundKbps, offered.isUnlevelled))
 	}
 	from, through := film.grid.chunkAt(positionMs), film.grid.chunkAt(positionMs+readyAheadMs)
 	for _, stream := range streams {

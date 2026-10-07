@@ -140,10 +140,15 @@ in this order, each a revision of D247 §10 written before it is built:
 1. **A local rule for the grid.** A chunk starts at the first keyframe at or after each multiple
    of `hls_segment_length_seconds`, so each boundary depends only on the keyframes near it: any
    stretch of the film can be cut on its own and agrees with the whole film's grid. The greedy
-   merge from the film's start does not.
+   merge from the film's start does not. *Built 2026-10-07: `GridOf`.*
 2. **The keyframes from the file's own index**: an MP4's sync-sample table, a Matroska file's
    cues, read in a fraction of a second; the read-through stays the fallback. A sound's chunks do
    not wait for its loudness: unlevelled until it is measured.
+   *Built 2026-10-07: `internal/node/container.KeyframesMs`; a read-through a player waits on asks
+   for the timeline alone and the node answers it from the index; a kept timeline's keyframes are
+   kept, and a later read adds its bytes in each second; an unlevelled sound is a store of its own,
+   `sound<track>-<kbps>k-raw`. Measured on the NAS: an MKV's cues in 33 ms, an MP4's sync samples
+   in 0.5 s; a Matroska file's cues may list fewer keyframes than its picture has.*
 3. **Read from the stall for a file with no index** (AVI, MPEG-TS, Matroska without cues): the
    node reads a few minutes ahead of the player's position, saying each keyframe as it reads, and
    the playlists grow from there. **Required before a public release** (the owner, 2026-10-06):

@@ -48,9 +48,13 @@ type offer struct {
 	sounds   []renditions.AudioRendition
 	// soundKbps is chunk_sound_kbps: every sound's bit rate, which every picture plays with.
 	soundKbps int
+	// isUnlevelled is whether the film's loudness is not measured yet: its sounds are offered
+	// unlevelled (Stream.IsUnlevelled).
+	isUnlevelled bool
 }
 
-// has is whether the offer has the stream.
+// has is whether the offer has the stream. A sound is had levelled or not, whichever the film's
+// loudness now says, so a playback goes on with the sounds its playlist named.
 func (offered offer) has(stream Stream) bool {
 	if stream.Kind == nodeproto.StreamSound {
 		return stream.SoundKbps == offered.soundKbps && hasSound(offered.sounds, stream)
@@ -58,17 +62,18 @@ func (offered offer) has(stream Stream) bool {
 	return slices.Contains(offered.pictures, stream)
 }
 
-// soundStream is the stream of one of a film's sounds, at kbps.
-func soundStream(sound renditions.AudioRendition, kbps int) Stream {
+// soundStream is the stream of one of a film's sounds, at kbps, unlevelled or not.
+func soundStream(sound renditions.AudioRendition, kbps int, isUnlevelled bool) Stream {
 	return Stream{
 		Kind: nodeproto.StreamSound, AudioTrackIndex: sound.AudioTrackIndex, IsBoosted: sound.IsBoosted,
-		SoundKbps: kbps,
+		SoundKbps: kbps, IsUnlevelled: isUnlevelled,
 	}
 }
 
 // offerOf is what the film offers the playback (chunks.md §3): its picture copied, unless the
 // player cannot decode it; then each quality of chunk_qualities below the film's own picture, in
-// bit rate and in height, where each is known; and every sound a prepare would make.
+// bit rate and in height, where each is known; and every sound a prepare would make, unlevelled
+// while the film's loudness is not measured (D259 §2).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
 	text, err := service.settings.String(ctx, settings.ChunkQualities)
 	if err != nil {
@@ -82,8 +87,13 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	if err != nil {
 		return offer{}, fmt.Errorf("read chunk_sound_kbps: %w", err)
 	}
+	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+	if err != nil {
+		return offer{}, err
+	}
 	offered := offer{
 		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
+		isUnlevelled: len(levels) == 0,
 	}
 	if playback.IsSourcePictureDecodable {
 		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamPicture})
@@ -186,7 +196,7 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	}
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
-		name := soundStream(sound, offered.soundKbps).Name()
+		name := soundStream(sound, offered.soundKbps, offered.isUnlevelled).Name()
 		language := sound.Language
 		if !langtag.IsWellFormed(language) {
 			language = langtag.Undetermined

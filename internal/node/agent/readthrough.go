@@ -7,8 +7,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/container"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // ThroughReader reads a video through once and learns what the core asked of it: the loudness of
@@ -43,6 +45,9 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 	if agent.workers.ThroughReader == nil {
 		return refuse(errors.New("this node does not read videos through"))
 	}
+	if keyframes, isIndexed := agent.indexedKeyframes(command); isIndexed {
+		return nodeproto.ReadThroughResult{VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: keyframes}}
+	}
 	videoPath, err := agent.verifiedSourcePath(command.Video)
 	if err != nil {
 		return refuse(err)
@@ -56,4 +61,26 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 		return nodeproto.ReadThroughResult{Failure: err.Error()}
 	}
 	return nodeproto.ReadThroughResult{Loudness: findings.Loudness, VideoTimeline: findings.VideoTimeline}
+}
+
+// indexedKeyframes are the picture's keyframes from the file's own index, for a read-through that
+// asks for the picture's timeline alone, as a player waiting on a lower quality's grid does (D259
+// §2): read in a fraction of a second, without reading the film, and without its bytes in each
+// second, which only a read through finds. A file with no index, or one asked for its loudness too,
+// is read through.
+func (agent *Agent) indexedKeyframes(command nodeproto.ReadThrough) ([]int64, bool) {
+	if command.VideoTimeline == nil || len(command.LoudnessTracks) > 0 {
+		return nil, false
+	}
+	file, err := agent.openNamed(command.Video)
+	if err != nil {
+		return nil, false
+	}
+	defer readonly.Close(file)
+	info, err := file.Stat()
+	if err != nil {
+		return nil, false
+	}
+	keyframes, err := container.KeyframesMs(file, info.Size(), command.VideoTimeline.VideoStreamIndex)
+	return keyframes, err == nil
 }

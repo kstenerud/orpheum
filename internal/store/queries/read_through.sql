@@ -13,7 +13,9 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 -- Whether a file is under a root or disk that is unavailable is the library's one rule
 -- (library.Unavailability), which the sweep asks of each. A picture is a video stream that is not
 -- a cover: disposition bit 1024 is FFmpeg's AV_DISPOSITION_ATTACHED_PIC. A timeline is looked for
--- by payload hash alone; the read-through picks the main picture.
+-- by payload hash alone; the read-through picks the main picture. A timeline read from the file's
+-- index has its keyframes but not its bytes in each second, which only a read through finds (D259
+-- section 2), so it is read through still.
 SELECT f.id, f.node_id, f.reported_path_raw
 FROM file f
 WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
@@ -23,5 +25,6 @@ WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_a
       AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)
     OR ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'video' AND (s.disposition_flags & 1024) = 0
         LIMIT 1) IS NOT NULL
-      AND (SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NULL))
+      AND (SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash
+        AND (v.bytes_in_each_second_json <> '[]' OR v.failure IS NOT NULL) LIMIT 1) IS NULL))
 ORDER BY f.id;

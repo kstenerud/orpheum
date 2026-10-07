@@ -77,7 +77,7 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
 	}
 	if playback.HasStartingAudio {
-		sound := startingSound(playback, offered.soundKbps)
+		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
 			return Offer{}, err
@@ -91,10 +91,13 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 	return offer, nil
 }
 
-// startingSound is the stream of the sound a playback started with, in chunks of soundKbps: what
-// its chunks' master playlist starts with (D247 §10).
-func startingSound(playback Playback, soundKbps int) Stream {
-	return Stream{Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex, SoundKbps: soundKbps}
+// startingSound is the stream of the sound a playback started with, in chunks of soundKbps,
+// unlevelled or not: what its chunks' master playlist starts with (D247 §10).
+func startingSound(playback Playback, soundKbps int, isUnlevelled bool) Stream {
+	return Stream{
+		Kind: nodeproto.StreamSound, AudioTrackIndex: playback.StartingAudioTrackIndex, SoundKbps: soundKbps,
+		IsUnlevelled: isUnlevelled,
+	}
 }
 
 // chooseQuality is the place among lower, highest first, of the highest quality within
