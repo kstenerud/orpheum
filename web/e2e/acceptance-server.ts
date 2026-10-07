@@ -25,8 +25,6 @@ export interface NetworkProfile {
   readonly bottleneck: readonly string[];
   /** Whether a long-lived bulk download shares the link for the whole run, a household's other use. */
   readonly hasCompetingDownload: boolean;
-  /** Whether the film's sync is best effort here, measured and printed but not held. */
-  readonly isFilmBestEffort: boolean;
   /** Whether voice is best effort here for a pair with Firefox, which sends no RED. */
   readonly isVoiceBestEffortWithFirefox: boolean;
 }
@@ -44,7 +42,6 @@ export const networkProfiles: readonly NetworkProfile[] = [
     netem: ["delay", "20ms", "limit", "100000"],
     bottleneck: ["rate", "100mbit", "burst", "64kb", "latency", "30ms"],
     hasCompetingDownload: false,
-    isFilmBestEffort: false,
     isVoiceBestEffortWithFirefox: false,
   },
   {
@@ -64,7 +61,6 @@ export const networkProfiles: readonly NetworkProfile[] = [
     ],
     bottleneck: ["rate", "20mbit", "burst", "32kb", "latency", "300ms"],
     hasCompetingDownload: false,
-    isFilmBestEffort: false,
     isVoiceBestEffortWithFirefox: false,
   },
   {
@@ -84,7 +80,6 @@ export const networkProfiles: readonly NetworkProfile[] = [
     ],
     bottleneck: ["rate", "5mbit", "burst", "16kb", "latency", "200ms"],
     hasCompetingDownload: true,
-    isFilmBestEffort: false,
     isVoiceBestEffortWithFirefox: false,
   },
   {
@@ -104,7 +99,6 @@ export const networkProfiles: readonly NetworkProfile[] = [
     ],
     bottleneck: ["rate", "20mbit", "burst", "32kb", "latency", "100ms"],
     hasCompetingDownload: false,
-    isFilmBestEffort: true,
     isVoiceBestEffortWithFirefox: true,
   },
 ];
