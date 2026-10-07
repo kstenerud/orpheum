@@ -10,12 +10,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -54,6 +56,9 @@ type HTTPSConfig struct {
 	Domain  string `toml:"domain"`
 	Contact string `toml:"contact"`
 	Listen  string `toml:"listen"`
+	// ACMEDirectory is the CA the certificate comes from: Let's Encrypt's production directory, or
+	// its staging one, which spends no production quota (D261 §5).
+	ACMEDirectory string `toml:"acme_directory"`
 }
 
 // isOn is whether the server has a public name to serve HTTPS on.
@@ -71,6 +76,10 @@ func (https HTTPSConfig) check() error {
 	if !strings.Contains(https.Contact, "@") {
 		problems = append(problems,
 			fmt.Errorf("https.contact %q: want the e-mail address the CA writes to", https.Contact))
+	}
+	if !strings.HasPrefix(https.ACMEDirectory, "https://") {
+		problems = append(problems,
+			fmt.Errorf("https.acme_directory %q: want the https:// address of an ACME directory", https.ACMEDirectory))
 	}
 	return errors.Join(problems...)
 }
@@ -215,6 +224,11 @@ func coreConfigKeys() []configKey {
 		},
 		{tableHTTPS, "contact", `""`, "the e-mail address the certificate's CA writes to about it"},
 		{tableHTTPS, keyListen, `":443"`, "the address and port HTTPS is served on"},
+		{
+			tableHTTPS, "acme_directory", strconv.Quote(certificate.LetsEncrypt),
+			"the ACME directory the certificate comes from; Let's Encrypt's staging one, " +
+				"https://acme-staging-v02.api.letsencrypt.org/directory, spends no production quota (D261 §5)",
+		},
 		{
 			tableTURN, "public_address", `""`,
 			"the IP address browsers reach the voice relay at, the VPS's; empty serves none (D243 §7, §8)",

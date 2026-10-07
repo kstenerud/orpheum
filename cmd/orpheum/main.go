@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
-	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
@@ -205,7 +204,7 @@ func usage() string {
 func releaseWiring() wiring {
 	return wiring{
 		tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL, openSubtitlesBaseURL: opensubtitles.BaseURL,
-		acmeDirectoryURL: certificate.LetsEncrypt, cloudflareBaseURL: cloudflare.BaseURL,
+		cloudflareBaseURL:  cloudflare.BaseURL,
 		dnsPropagationWait: dnsPropagationWait,
 	}
 }
