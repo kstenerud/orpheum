@@ -364,6 +364,11 @@ func (runner *Runner[T]) finish(ctx context.Context, job Job[T], claimed claimed
 			Destination: cmp.Or(parking.Destination, destination),
 		}, answer)
 	}
+	//nolint:errcheck // AsType's second value is a bool
+	if _, isBumped := errors.AsType[*bumped](answer); isBumped {
+		head := Outcome{At: headOfTheQueue(), AttemptCount: given, Destination: destination}
+		return runner.wait(ctx, job, head, answer)
+	}
 	if snooze, isSnooze := errors.AsType[*snoozed](answer); isSnooze {
 		return runner.wait(ctx, job, Outcome{
 			At: snooze.until, AttemptCount: given, IsSnoozed: true, Destination: destination,

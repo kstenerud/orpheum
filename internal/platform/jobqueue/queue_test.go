@@ -319,6 +319,43 @@ func TestRunDue_ASnoozeCostsNoAttemptAndTheRunnerGoesOn(t *testing.T) {
 	}
 }
 
+// A bumped job costs no attempt and goes back to the head of its priority's queue: claimed again
+// before a job of its priority that has waited, where a job due now would have come after it; a
+// higher priority still goes first (D255 §2).
+func TestRunDue_ABumpedJobCostsNoAttemptAndGoesBackToTheHeadOfItsPriority(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	now := jobs.clock.Now()
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "urgent", Priority: 20})
+	jobs.enqueue(t, jobqueue.Request[target]{
+		Kind: kindFetch, Target: "bumped", Priority: 10, RunnableAt: now.Add(-2 * time.Hour),
+	})
+	jobs.enqueue(t, jobqueue.Request[target]{
+		Kind: kindFetch, Target: "waiting", Priority: 10, RunnableAt: now.Add(-time.Hour),
+	})
+	var ran []target
+	var attemptsWhenRunAgain []int64
+	runner := jobs.queue.NewRunner(kindFetch, func(_ context.Context, job jobqueue.Job[target]) error {
+		ran = append(ran, job.Target)
+		if job.Target != "bumped" {
+			return nil
+		}
+		if slices.Contains(ran[:len(ran)-1], "bumped") {
+			attemptsWhenRunAgain = append(attemptsWhenRunAgain, job.AttemptNumber)
+			return nil
+		}
+		return jobqueue.Bump(errors.New("a scan took its reader"))
+	})
+	jobs.runDue(t, runner)
+	if want := []target{"urgent", "bumped", "bumped", "waiting"}; !slices.Equal(ran, want) {
+		t.Errorf("ran %q, want %q: the higher priority, then the bumped job at once ahead of its priority's", ran,
+			want)
+	}
+	if !slices.Equal(attemptsWhenRunAgain, []int64{1}) {
+		t.Errorf("run again as attempt %v, want 1: a bump costs no attempt", attemptsWhenRunAgain)
+	}
+}
+
 func TestRunDue_APanicIsTheToolsFailureFreeOnceAndTheJobsFailureTheSecondTimeInARow(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)

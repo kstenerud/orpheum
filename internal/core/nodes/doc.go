@@ -118,6 +118,11 @@
 //     TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
 //     TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders,
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
+//   - Work is in one of three tiers (D255 §1): a person's, by its job's priority; slow, reading whole
+//     films or encoding them; and fast, the rest, as a scan's examining. Where a slot or device is
+//     full, work of a higher tier bumps the lowest held there, the newest of it: its node is told to
+//     stop, and its job goes back to the head of its queue at no cost (D255 §2). Work of the same
+//     tier or lower waits. TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree.
 //   - Background work that reads whole films, a read-through or a subtitle extracted from inside one,
 //     waits while a scan is on its quick pass of the film's disk, on that disk's quick pass rather
 //     than its readers, asking again every half minute (D255).

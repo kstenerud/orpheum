@@ -26,6 +26,9 @@ type Attempt struct {
 	// Work is the work as sent, without the bytes it carried.
 	Work   nodeproto.Work
 	SentAt time.Time
+	// Priority is its job's, as given and as told since (Reprioritize); 0, the lowest, for one taken
+	// back after a restart, which cache.db keeps none of.
+	Priority int64
 }
 
 // Resolver takes an assigned job's outcome as a handler's answer: jobs.Runner.
@@ -77,7 +80,7 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	if notReady := all.sender.ParkUnlessConnected(ctx, nodeID); notReady != nil {
 		return notReady
 	}
-	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, job.Priority >= jobs.PriorityPlayNow); full != nil {
+	if full := all.parkIfWindowFull(ctx, nodeID, command.Work, job.Priority); full != nil {
 		return full
 	}
 	token, err := all.newToken()
@@ -90,7 +93,7 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 	now := all.clock.Now()
 	attempt := Attempt{
 		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, NodeStartID: all.sender.StartOf(nodeID),
-		Work: command.WithoutBytes(), SentAt: now,
+		Work: command.WithoutBytes(), SentAt: now, Priority: job.Priority,
 	}
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
@@ -100,14 +103,18 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 
 // parkIfWindowFull parks work a node has no room for in the core's window (D240 §5): as many jobs of the
 // work's slot as the node runs at once, and as many reading its device as may read it, each with
-// node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Play-driven work is
-// never held back for its slot or its device's readers: the node pauses the background work reading
-// it, and one person's watching never waits for another's (D240 §6). Background work that reads whole
-// files waits too while a scan is on its quick pass of its disk (D255). It is nil while there is
-// room, and for a node whose resources are not known.
+// node_jobs_beyond_free_slots more, so the next starts without waiting for the core. Where the slot or
+// device is full, work of a higher priority than some held there bumps the lowest of them instead
+// (D255 §2). Play-driven work is never held back for its slot or its device's readers: the node pauses
+// the background work reading it, and one person's watching never waits for another's (D240 §6).
+// Background work that reads whole files waits too while a scan is on its quick pass of its disk
+// (D255 §3). It is nil while there is room, and for a node whose resources are not known.
 func (all *Exchanges) parkIfWindowFull(
-	ctx context.Context, nodeID int64, work nodeproto.Work, isPlayDriven bool,
+	ctx context.Context, nodeID int64, work nodeproto.Work, priority int64,
 ) error {
+	if priority >= jobs.PriorityPlayNow {
+		return nil
+	}
 	resources, isConnected, err := all.rooms.Resources(ctx, nodeID)
 	if err != nil || !isConnected {
 		return err
@@ -117,18 +124,23 @@ func (all *Exchanges) parkIfWindowFull(
 		return fmt.Errorf("read node_jobs_beyond_free_slots: %w", err)
 	}
 	slot, device := work.Slot(), resources.deviceOf(work)
-	inSlot, onDevice := all.heldOn(nodeID, resources, slot, device)
 	full := func(destination jobs.Destination) error {
 		return jobs.Park(jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true},
 			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
 	}
-	switch {
-	case isPlayDriven:
-		return nil
-	case slot != "" && inSlot >= resources.Capacity.SlotCount(slot)+int(extra):
-		return full(jobs.SlotDestination(nodeID, string(slot)))
-	case device != "" && onDevice >= resources.readerLimit(device)+int(extra):
-		return full(jobs.ReaderDestination(nodeID, device))
+	incoming := tierOf(work, priority)
+	if inSlot, _ := all.heldOn(nodeID, resources, slot, ""); slot != "" &&
+		inSlot >= resources.Capacity.SlotCount(slot)+int(extra) {
+		if !all.bumpFor(ctx, nodeID, incoming, func(held Attempt) bool { return held.Work.Slot() == slot }) {
+			return full(jobs.SlotDestination(nodeID, string(slot)))
+		}
+	}
+	if _, onDevice := all.heldOn(nodeID, resources, "", device); device != "" &&
+		onDevice >= resources.readerLimit(device)+int(extra) {
+		readsDevice := func(held Attempt) bool { return resources.deviceOf(held.Work) == device }
+		if !all.bumpFor(ctx, nodeID, incoming, readsDevice) {
+			return full(jobs.ReaderDestination(nodeID, device))
+		}
 	}
 	return all.parkBehindQuickPass(ctx, nodeID, resources, work, device)
 }
@@ -197,6 +209,7 @@ func (all *Exchanges) Reprioritize(jobID, priority int64) {
 	var held []Attempt
 	for _, attempt := range all.attempts {
 		if attempt.JobID == jobID {
+			attempt.Priority = priority
 			held = append(held, attempt.Attempt)
 		}
 	}

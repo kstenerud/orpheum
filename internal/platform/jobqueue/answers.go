@@ -84,6 +84,20 @@ type snoozed struct {
 func (snooze *snoozed) Error() string { return snooze.err.Error() }
 func (snooze *snoozed) Unwrap() error { return snooze.err }
 
+// Bump answers that work of a higher priority took the job's place: what it did is thrown away, and
+// it goes back to the head of its priority's queue, claimed before every job of its priority that
+// has waited, at no cost of an attempt (D255 §2).
+func Bump(err error) error { return &bumped{err: err} }
+
+type bumped struct{ err error }
+
+func (bump *bumped) Error() string { return bump.err.Error() }
+func (bump *bumped) Unwrap() error { return bump.err }
+
+// headOfTheQueue is when a bumped job is due: before any other job's time, so of its priority's it
+// is claimed first, as a claim takes the earliest time after the highest priority.
+func headOfTheQueue() time.Time { return time.UnixMilli(0) }
+
 // ToolFailed answers that the tool the job used failed in a way that says nothing of its target
 // (a stall; a panic is answered so by the runner itself). It costs no attempt, and the job is
 // tried again after the first retry delay, jittered, told that its last attempt's tool failed
