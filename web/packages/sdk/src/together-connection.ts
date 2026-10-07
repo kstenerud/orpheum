@@ -502,7 +502,9 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
    */
   #tellPlacing(message: TogetherServerMessage, before: TogetherSnapshot, nowMs: number): void {
     const after = this.#snapshot;
-    if (after.group?.state !== "Playing") {
+    // A voice device plays nothing, so places nothing: its placings filled the log beside its
+    // player's (the acceptance's log, 2026-10-07).
+    if (after.group?.state !== "Playing" || this.#options.role === "voice") {
       return;
     }
     if (message.type !== "pong") {

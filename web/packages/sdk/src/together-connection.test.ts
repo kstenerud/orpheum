@@ -213,6 +213,26 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(connection.snapshot().groupPlacedByRttMs).toBeUndefined();
   });
 
+  it("places nothing, and notes nothing of it, on a voice device, which plays nothing", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      role: "voice",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    monotonicNowMs = 2000;
+    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
+    monotonicNowMs = 2180;
+    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 2100, group: playing }));
+    expect(sockets.sent.filter((each) => each["type"] === "note")).toEqual([]);
+  });
+
   it("follows the group by the welcome's tuning, or by the starting one where it names none (D250 §1)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
