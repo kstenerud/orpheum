@@ -39,3 +39,17 @@ func setSocket(raw syscall.RawConn, bytesPerSecond uint32, isLowerEffort bool) e
 	}
 	return nil
 }
+
+// setBBR asks the kernel to send on the socket with BBR; ENOENT when the kernel has not loaded it.
+func setBBR(raw syscall.RawConn) error {
+	var set error
+	if err := raw.Control(func(fd uintptr) {
+		set = unix.SetsockoptString(int(fd), unix.IPPROTO_TCP, unix.TCP_CONGESTION, "bbr")
+	}); err != nil {
+		return fmt.Errorf("send with BBR: %w", err)
+	}
+	if set != nil {
+		return fmt.Errorf("send with BBR: %w", set)
+	}
+	return nil
+}

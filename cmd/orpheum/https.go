@@ -71,6 +71,20 @@ func renewWhenTokenSet(secretStore *secrets.Store, certificates *certificate.Ser
 	})
 }
 
+// listenForMedia listens on address for the core's clients, its connections sending with BBR, as
+// the films they carry should on a lossy link (D263 §3); a kernel without it is said so once, and its
+// default kept. The host loads tcp_bbr (deploy/staging/README.md).
+func listenForMedia(ctx context.Context, address string, logger *slog.Logger) (net.Listener, error) {
+	listener, err := pacing.ListenConfig(func(refused error) {
+		logger.WarnContext(ctx, "films are sent with the kernel's default congestion control, not BBR; "+
+			"load the tcp_bbr module on the host", "address", address, "err", refused)
+	}).Listen(ctx, "tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", address, err)
+	}
+	return listener, nil
+}
+
 // listenAndServeHTTPS serves handler over HTTPS on https.listen, as serveHTTPS says; nothing for a
 // server with no public name. It returns what stops it.
 func listenAndServeHTTPS(
@@ -79,7 +93,7 @@ func listenAndServeHTTPS(
 	if opened.jobServices.certificates == nil {
 		return func() error { return nil }, nil
 	}
-	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", config.HTTPS.Listen)
+	listener, err := listenForMedia(ctx, config.HTTPS.Listen, logger)
 	if err != nil {
 		return nil, fmt.Errorf("listen for HTTPS on %s: %w", config.HTTPS.Listen, err)
 	}
