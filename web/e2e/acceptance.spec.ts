@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { expect, firefox, test, type Page } from "@playwright/test";
 
-import { acceptanceFilm, acceptanceMinutes, networkProfiles } from "./acceptance-server.ts";
+import { acceptanceFilm, acceptanceMinutes, chosenProfiles } from "./acceptance-server.ts";
 import { firefoxUserPrefs } from "./browsers.ts";
 import { signIn } from "./pages.ts";
 import {
@@ -82,7 +82,7 @@ async function keepPages(pages: readonly (readonly [string, Page])[]): Promise<v
   }
 }
 
-for (const profile of networkProfiles) {
+for (const profile of chosenProfiles()) {
   test(`two browsers stay in step and talk under the ${profile.name} profile`, async ({
     browser,
   }) => {
