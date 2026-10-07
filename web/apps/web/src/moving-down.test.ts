@@ -2,14 +2,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  askReadyEveryMs,
-  MovingDown,
-  stillCannotKeepUp,
-  type LowerQuality,
-} from "./moving-down.ts";
+import { askReadyEveryMs, MovingDown, stillCannotKeepUp, type LadderOffer } from "./moving-down.ts";
 
-const offer: LowerQuality = {
+const offer: LadderOffer = {
   url: "/api/v1/bytes/media/chunks/t/master.m3u8",
   startAtBps: 1_896_000,
   qualityKbps: 1200,
@@ -19,16 +14,16 @@ const offer: LowerQuality = {
   isReady: false,
   filmPictureKbps: 9_900,
 };
-const ready: LowerQuality = { ...offer, isReady: true };
+const ready: LadderOffer = { ...offer, isReady: true };
 
 /** A MovingDown on a link read as linkKbps, and what it asked and moved to; the film is 9.9 Mb/s. */
 function rig(linkKbps: number | undefined): {
   readonly movingDown: MovingDown;
   readonly asked: number[];
-  readonly moved: LowerQuality[];
+  readonly moved: LadderOffer[];
 } {
   const asked: number[] = [];
-  const moved: LowerQuality[] = [];
+  const moved: LadderOffer[] = [];
   const movingDown = new MovingDown({
     readLinkKbps: () => linkKbps,
     askAgain: () => asked.push(asked.length),

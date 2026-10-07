@@ -173,8 +173,8 @@ describe("play state", () => {
     expect(startup.playingMs).toBeGreaterThanOrEqual(startup.firstDataMs);
   });
 
-  it("starts on the lower quality its decision names, its link remembered slow, and says so (D257)", async () => {
-    const lowerQuality = {
+  it("starts on the ladder its decision names, and says the quality follows the connection (D260)", async () => {
+    const onLadder = {
       url: "/api/v1/bytes/media/chunks/remembered/master.m3u8",
       startAtBps: 1_896_000,
       qualityKbps: 1200,
@@ -186,12 +186,12 @@ describe("play state", () => {
     };
     const playView = createElement(PlayView, {
       fileId: 2,
-      decision: directDecision({ mediaToken: "remembered", lowerQuality }),
+      decision: directDecision({ mediaToken: "remembered", onLadder }),
       onDecideAgain: () => undefined,
     });
     mounted = await mount(withServices(playView, servedBy({})));
     expect(mounted.container.textContent).toContain(
-      "Starting at a lower quality, as this device's connection here was slow last time: 480p, 1.2 Mb/s.",
+      "Starting at 480p, 1.2 Mb/s. The quality follows your connection.",
     );
     expect(mounted.container.textContent).not.toContain("Playing the original file");
   });

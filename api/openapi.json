@@ -2169,6 +2169,52 @@
         ],
         "type": "object"
       },
+      "LadderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "filmPictureKbps": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isBelowTheLowest": {
+            "type": "boolean"
+          },
+          "isReady": {
+            "type": "boolean"
+          },
+          "qualityKbps": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "soundCarriedGainDb": {
+            "format": "double",
+            "type": "number"
+          },
+          "startAtBps": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "description": "The chunked master playlist",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "startAtBps",
+          "qualityKbps",
+          "height",
+          "isBelowTheLowest",
+          "soundCarriedGainDb",
+          "isReady",
+          "filmPictureKbps"
+        ],
+        "type": "object"
+      },
       "LevellingBody": {
         "additionalProperties": false,
         "properties": {
@@ -2306,52 +2352,6 @@
         },
         "required": [
           "isInvitation"
-        ],
-        "type": "object"
-      },
-      "LowerQualityBody": {
-        "additionalProperties": false,
-        "properties": {
-          "filmPictureKbps": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "height": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "isBelowTheLowest": {
-            "type": "boolean"
-          },
-          "isReady": {
-            "type": "boolean"
-          },
-          "qualityKbps": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "soundCarriedGainDb": {
-            "format": "double",
-            "type": "number"
-          },
-          "startAtBps": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "url": {
-            "description": "The chunked master playlist",
-            "type": "string"
-          }
-        },
-        "required": [
-          "url",
-          "startAtBps",
-          "qualityKbps",
-          "height",
-          "isBelowTheLowest",
-          "soundCarriedGainDb",
-          "isReady",
-          "filmPictureKbps"
         ],
         "type": "object"
       },
@@ -3608,7 +3608,7 @@
         "additionalProperties": false,
         "properties": {
           "lowerQuality": {
-            "$ref": "#/components/schemas/LowerQualityBody",
+            "$ref": "#/components/schemas/LadderBody",
             "description": "The lower quality the first stall started, ready or not (D253 §1)"
           },
           "stop": {
@@ -4362,9 +4362,6 @@
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
           },
-          "lowerQuality": {
-            "$ref": "#/components/schemas/LowerQualityBody"
-          },
           "mediaToken": {
             "type": "string"
           },
@@ -4385,6 +4382,9 @@
               "array",
               "null"
             ]
+          },
+          "onLadder": {
+            "$ref": "#/components/schemas/LadderBody"
           },
           "preferences": {
             "$ref": "#/components/schemas/PlaybackPreferencesBody"

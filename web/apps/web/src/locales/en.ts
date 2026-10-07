@@ -278,8 +278,8 @@ export const en = {
     preparedFailed: "The prepared copy could not play: {{reason}}.",
     lowerQualityStarting:
       "Your connection could not keep up, so this moves to a lower quality: {{height}}p, {{rate}}.",
-    lowerQualityFromTheStart:
-      "Starting at a lower quality, as this device's connection here was slow last time: {{height}}p, {{rate}}.",
+    ladderStarting: "Starting at {{height}}p, {{rate}}. The quality follows your connection.",
+    ladderPlaying: "Playing at {{height}}p, {{rate}}. The quality follows your connection.",
     lowerQuality:
       "Playing a lower quality for your connection: {{height}}p, {{rate}}. It goes back up when the connection allows.",
     cannotKeepUpUnmeasured:

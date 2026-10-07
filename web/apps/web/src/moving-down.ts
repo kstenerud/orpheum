@@ -2,8 +2,11 @@
 
 import type { components } from "@orpheum/sdk";
 
-/** A lower quality a stalled player may move to, as a report's answer offers it (D253). */
-export type LowerQuality = components["schemas"]["LowerQualityBody"];
+/**
+ * A place on a film's ladder: its chunks' master playlist and the quality to start at, where a
+ * playback starts (D260) or a stalled player may move to (D253).
+ */
+export type LadderOffer = components["schemas"]["LadderBody"];
 
 /** How often a player told of a lower quality not ready yet asks again whether it is (D253 §1). */
 export const askReadyEveryMs = 3_000;
@@ -41,7 +44,7 @@ export interface MovingDownOptions {
   readonly readLinkKbps: () => number | undefined;
   /** Sends a report now, whose answer says whether the offer is ready. */
   readonly askAgain: () => void;
-  readonly onMove: (offer: LowerQuality) => void;
+  readonly onMove: (offer: LadderOffer) => void;
 }
 
 /**
@@ -68,7 +71,7 @@ export class MovingDown {
   }
 
   /** A report was answered, with the lower quality offered or without one. */
-  answered(offer: LowerQuality | undefined): void {
+  answered(offer: LadderOffer | undefined): void {
     if (offer === undefined || this.#hasMoved) {
       return;
     }

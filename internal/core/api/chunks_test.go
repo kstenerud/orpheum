@@ -112,8 +112,9 @@ func TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs(t *testing.T
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.keepFilmOnesTimeline(t)
+	// Played before the film is cut, so not on its ladder: no run is started for its start (D260 §1).
 	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
 	grid, _, err := harness.chunks.Grid(t.Context(), 1)
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +163,9 @@ func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.keepFilmOnesTimeline(t)
+	// Played before the film is cut, so not on its ladder: no run is started for its start (D260 §1).
 	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
 	grid, _, err := harness.chunks.Grid(t.Context(), 1)
 	if err != nil {
 		t.Fatal(err)

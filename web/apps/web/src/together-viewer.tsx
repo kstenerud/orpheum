@@ -26,7 +26,7 @@ import {
 } from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
 import {
-  LowerQualityNotes,
+  LadderNotes,
   audioRenditionIndex,
   playbackFailureText,
   useBufferMeter,
@@ -34,7 +34,7 @@ import {
   usePreparedPlayback,
 } from "./play.tsx";
 import type { PlaybackDecision } from "./watching.ts";
-import type { LowerQuality } from "./moving-down.ts";
+import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
@@ -358,7 +358,7 @@ function GroupFilm(props: {
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
   // The lower quality the viewer's player moved to once it was ready (D253), per playback.
   const [moved, setMoved] = useState<
-    { readonly mediaToken: string; readonly offer: LowerQuality } | undefined
+    { readonly mediaToken: string; readonly offer: LadderOffer } | undefined
   >(undefined);
   return (
     <Loaded
@@ -370,16 +370,16 @@ function GroupFilm(props: {
           following: props.following,
           headers,
         };
-        const onLowerQuality = (offer: LowerQuality): void => {
+        const onLowerQuality = (offer: LadderOffer): void => {
           setMoved((already) => already ?? { mediaToken: value.mediaToken, offer });
         };
         let film: JSX.Element;
-        const startsLower = value.lowerQuality ?? undefined;
+        const onLadder = value.onLadder ?? undefined;
         if (moved?.mediaToken === value.mediaToken) {
           film = <ChunkedFilm {...films} offer={moved.offer} />;
-        } else if (startsLower !== undefined) {
-          // The viewer's link here was remembered too slow for the film: it starts lower (D257 §2).
-          film = <ChunkedFilm {...films} offer={startsLower} isFromTheStart />;
+        } else if (onLadder !== undefined) {
+          // A film cut into chunks plays from its ladder from the start (D260).
+          film = <ChunkedFilm {...films} offer={onLadder} isOnLadder />;
         } else if (value.delivery === "direct") {
           film = <DirectFilm {...films} onLowerQuality={onLowerQuality} />;
         } else {
@@ -413,7 +413,7 @@ interface FilmProps {
  */
 function useMovingDown(
   videoRef: RefObject<HTMLVideoElement | null>,
-  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
   readLinkKbps: () => number | undefined,
 ): void {
   const { api } = useServices();
@@ -453,7 +453,7 @@ function useFollowing(
 
 /** The original file, following the group; it plays when the group does, never on its own. */
 function DirectFilm(
-  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
 ): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -483,7 +483,7 @@ function DirectFilm(
 
 /** A prepared copy, following the group once its first part is made. */
 function PreparedFilm(
-  props: FilmProps & { readonly onLowerQuality: (offer: LowerQuality) => void },
+  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
 ): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
@@ -515,13 +515,13 @@ function PreparedFilm(
 }
 
 /**
- * The film at a lower quality, which the viewer's stalling player moved to (D247 §2, §10): every
- * quality of it cut into chunks, from the one offered for the link, following the group.
+ * The film on its ladder, every quality of it cut into chunks, following the group: from the start
+ * (D260), or moved to by the viewer's stalling player (D247 §2, §10), from the quality offered.
  */
 function ChunkedFilm(
   props: Pick<FilmProps, "fileId" | "following"> & {
-    readonly offer: LowerQuality;
-    readonly isFromTheStart?: boolean;
+    readonly offer: LadderOffer;
+    readonly isOnLadder?: boolean;
   },
 ): JSX.Element {
   const { t } = useTranslation();
@@ -546,11 +546,11 @@ function ChunkedFilm(
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
       <video className="together-viewer__video" ref={videoRef} playsInline />
-      <LowerQualityNotes
+      <LadderNotes
         offer={props.offer}
         playing={playing}
         cannotKeepUp={cannotKeepUp}
-        isFromTheStart={props.isFromTheStart === true}
+        isOnLadder={props.isOnLadder === true}
       />
       {failure === undefined ? null : <p role="alert">{failure}</p>}
     </>

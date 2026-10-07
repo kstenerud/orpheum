@@ -64,11 +64,11 @@ type Answer struct {
 	IsLowerQualityReady bool
 }
 
-// Chunks offers a stalled playback a lower quality, starts making it, and says when it is ready:
-// chunks.Service.
+// Chunks starts a playback on its film's ladder (D260), offers a stalled playback not on one a lower
+// quality, starts making it, and says when it is ready: chunks.Service.
 type Chunks interface {
 	Stalled(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
-	StartLower(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, bool, error)
+	StartOnLadder(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
 	ReleaseWanted(ctx context.Context, fileID int64) error
 }
@@ -169,7 +169,8 @@ func (service *Service) Report(
 func (service *Service) offerFor(
 	ctx context.Context, token string, playback tokenPlayback, report Report,
 ) (offer chunks.Offer, isOffered bool, err error) {
-	if service.chunks == nil {
+	// A playback on its ladder moves along it by itself (D260 §1): a stall offers it nothing.
+	if service.chunks == nil || playback.isOnLadder {
 		return chunks.Offer{}, false, nil
 	}
 	if started, isStarted := service.tokens.offerOf(token); isStarted {

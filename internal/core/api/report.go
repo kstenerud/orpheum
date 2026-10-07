@@ -80,13 +80,14 @@ type ReportOutput struct {
 	Body struct {
 		Stop *StopBody `doc:"The admin stopped this playback: stop, and show the message" json:"stop,omitempty"`
 		//nolint:lll // one struct tag
-		LowerQuality *LowerQualityBody `doc:"The lower quality the first stall started, ready or not (D253 §1)" json:"lowerQuality,omitempty"`
+		LowerQuality *LadderBody `doc:"The lower quality the first stall started, ready or not (D253 §1)" json:"lowerQuality,omitempty"`
 	}
 }
 
-// LowerQualityBody is a lower quality a stalled player moves to: its film cut into chunks, at every
-// quality, starting at the one chosen for its link (D247 §2, §6, §10).
-type LowerQualityBody struct {
+// LadderBody is a film's ladder, the film cut into chunks at every quality, and where on it a player
+// starts: a playback's start (D260), or the lower quality a stalled player moves to (D247 §2, §6,
+// §10).
+type LadderBody struct {
 	URL string `doc:"The chunked master playlist" json:"url"`
 	// StartAtBps is the chosen quality's BANDWIDTH in the master playlist, which names it there.
 	StartAtBps  int64 `json:"startAtBps"`
@@ -98,7 +99,7 @@ type LowerQualityBody struct {
 	// which the player does not add again (D226 §4).
 	SoundCarriedGainDB float64 `json:"soundCarriedGainDb"`
 	// IsReady is whether the quality is made from where the player is, ready to move to; until it
-	// is, the player asks again (D253 §1).
+	// is, the player asks again (D253 §1). Always false at a start, whose player waits for its chunks.
 	IsReady bool `json:"isReady"`
 	// FilmPictureKbps is the film's own picture's average rate, which the player weighs its link
 	// against once the quality is ready (D253 §2); 0 when not known.
@@ -107,8 +108,8 @@ type LowerQualityBody struct {
 
 // lowerQualityBody is a lower quality offered to the playback a media token names, by its chunks'
 // master playlist, and whether it is ready.
-func lowerQualityBody(token string, offer chunks.Offer, isReady bool) *LowerQualityBody {
-	return &LowerQualityBody{
+func ladderBody(token string, offer chunks.Offer, isReady bool) *LadderBody {
+	return &LadderBody{
 		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 		QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
 		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
@@ -155,7 +156,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
 	}
 	if offer := answer.LowerQuality; offer != nil {
-		output.Body.LowerQuality = lowerQualityBody(input.Token, *offer, answer.IsLowerQualityReady)
+		output.Body.LowerQuality = ladderBody(input.Token, *offer, answer.IsLowerQualityReady)
 	}
 	return output, nil
 }

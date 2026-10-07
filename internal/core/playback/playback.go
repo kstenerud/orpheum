@@ -137,11 +137,10 @@ type Started struct {
 	// FileBitRateBps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when the probe has none.
 	FileBitRateBps int64
-	// LowerQuality is the lower quality the playback starts on, its link remembered too slow for the
-	// film's picture (D257 §2); nil to start as Decision says. IsLowerQualityReady is whether it is
-	// made from where the playback starts.
-	LowerQuality        *chunks.Offer
-	IsLowerQualityReady bool
+	// OnLadder is where on its film's ladder the playback starts, its player moving along it by
+	// itself from there (D260); nil for a film not cut yet, or one that cannot be, which plays as
+	// Decision says.
+	OnLadder *chunks.Offer
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -183,74 +182,74 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	started.ResumePositionMs, err = service.resumePositionMs(ctx, userID, file.ID, probe.Format.DurationMs)
+	levels, err := service.startingPoint(ctx, userID, file, probe, &started)
 	if err != nil {
 		return Started{}, err
 	}
-	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
-	if err != nil {
-		return Started{}, err
-	}
-	started.Levelling = decide.DirectLevelling(levels, probe)
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
 		deviceID: request.DeviceID, decision: decision,
 	}
-	if decision.Delivery == decide.HLS {
+	playback.used, playback.startingAudio = used, started.StartingAudio
+	started.OnLadder, err = service.startOnLadder(ctx, holder, request, playback, started.ResumePositionMs)
+	if err != nil {
+		return Started{}, err
+	}
+	playback.isOnLadder = started.OnLadder != nil
+	// A film on its ladder needs no prepared copy (D260 §1).
+	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
 		if prepareErr := service.wantPrepared(ctx, file, probe, levels, playback.profile, &started); prepareErr != nil {
 			return Started{}, prepareErr
 		}
 	}
-	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
 	if err != nil {
 		return Started{}, err
 	}
-	if lowerErr := service.startLowerIfRemembered(ctx, holder, request, playback, &started); lowerErr != nil {
-		return Started{}, lowerErr
-	}
 	return started, nil
 }
 
-// startLowerIfRemembered starts a playback lower when its player's link on the request's network
-// is remembered (D257 §1, startLower).
-func (service *Service) startLowerIfRemembered(
-	ctx context.Context, holder Holder, request Request, playback tokenPlayback, started *Started,
-) error {
-	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
-	kbps, isKnown := service.speeds.fresh(key, service.clock.Now())
-	if !isKnown {
-		return nil
+// startingPoint is where a playback of file starts, in started, its resume position and the
+// levelling of the sound played as it is, and returns the file's loudness levels.
+func (service *Service) startingPoint(
+	ctx context.Context, userID int64, file sqlcgen.GetPlayableFileRow, probe nodeproto.Probe, started *Started,
+) (decide.Levels, error) {
+	var err error
+	started.ResumePositionMs, err = service.resumePositionMs(ctx, userID, file.ID, probe.Format.DurationMs)
+	if err != nil {
+		return nil, err
 	}
-	return service.startLower(ctx, playback, kbps, started)
+	levels, err := service.loudness.Levels(ctx, file.PayloadHash)
+	if err != nil {
+		return nil, err
+	}
+	started.Levelling = decide.DirectLevelling(levels, probe)
+	return levels, nil
 }
 
-// startLower starts a playback on the lower quality its remembered link speed, kbps, calls for,
-// when the link is too slow for the film's picture (D257 §2), and says so in started: the offer is
-// the token's, as a stall's is, so its reports' answers go on offering it. A film with no grid yet
-// starts as its decision says, and its timeline is read meanwhile; one with nothing lower, too.
-func (service *Service) startLower(ctx context.Context, playback tokenPlayback, kbps int64, started *Started) error {
+// startOnLadder starts a playback on its film's ladder from positionMs (D260): at the top, or, with
+// its player's link on the request's network remembered, where that link calls for (D257 §1). A
+// film with no grid yet is nil, playing as its decision says while its timeline is read; one that
+// cannot be cut, or offers no picture, is nil too.
+func (service *Service) startOnLadder(
+	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs int64,
+) (*chunks.Offer, error) {
 	if service.chunks == nil {
-		return nil
+		return nil, nil //nolint:nilnil // no ladder is no error
 	}
-	playback.positionMs = started.ResumePositionMs
-	chunked := chunksPlaybackOf(playback)
-	offer, isLower, err := service.chunks.StartLower(ctx, chunked, started.ResumePositionMs, kbps)
+	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
+	kbps, _ := service.speeds.fresh(key, service.clock.Now())
+	playback.positionMs = positionMs
+	offer, err := service.chunks.StartOnLadder(ctx, chunksPlaybackOf(playback), positionMs, kbps)
 	if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
-		errors.Is(err, chunks.ErrNoQualityOffered) || !isLower {
-		return nil
+		errors.Is(err, chunks.ErrNoQualityOffered) {
+		return nil, nil //nolint:nilnil // no ladder is no error
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	service.tokens.keepOffer(started.Token, offer)
-	started.LowerQuality = &offer
-	started.IsLowerQualityReady, err = service.chunks.IsReadyAt(ctx, chunked, offer, started.ResumePositionMs)
-	if err != nil {
-		return fmt.Errorf("see whether a lower quality is ready: %w", err)
-	}
-	return nil
+	return &offer, nil
 }
 
 // reachedFile is a file the holder may play: one in a library they do not reach is library.ErrNoFile,
