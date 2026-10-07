@@ -49,7 +49,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
         ],
         "GET /together/3": [
           [200, { sessionId: 3, links: [], members: [karl] }],
-          [200, { sessionId: 3, links: [{ id: 4, adminNote: "Grandma" }], members: [karl] }],
+          [200, { sessionId: 3, links: [{ id: 4, hostNote: "Grandma" }], members: [karl] }],
         ],
         "POST /together/3/links": [201, { linkId: 4, secret: "s3cret" }],
       },
@@ -68,7 +68,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       "POST /together/3/links",
       "GET /together/3",
     ]);
-    expect(heard[2]?.body).toEqual({ adminNote: "Grandma" });
+    expect(heard[2]?.body).toEqual({ hostNote: "Grandma" });
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#s3cret",
     );
@@ -83,7 +83,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
   it("lists who joined with the host's note, and removes them", async () => {
     hostSession();
     const heard: Heard[] = [];
-    const gran = { id: 2, name: "Gran", adminNote: "Grandma", isHost: false };
+    const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
     const services = servedBy(
       {
         "GET /together/3": [
@@ -91,7 +91,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
             200,
             {
               sessionId: 3,
-              links: [{ id: 4, adminNote: "Grandma", usedByMemberId: 2 }],
+              links: [{ id: 4, hostNote: "Grandma", usedByMemberId: 2 }],
               members: [karl, gran],
             },
           ],

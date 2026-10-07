@@ -344,7 +344,7 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	}
 	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)
 	if err != nil || len(details.Links) != 1 || details.Links[0].UsedBy != guest.MemberID ||
-		!slices.ContainsFunc(details.Members, func(each MemberDetail) bool { return each.AdminNote == "Grandma" }) {
+		!slices.ContainsFunc(details.Members, func(each MemberDetail) bool { return each.HostNote == "Grandma" }) {
 		t.Errorf("the host's view = %+v (%v); want the link used by Gran, noted Grandma", details, err)
 	}
 	unused, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin")

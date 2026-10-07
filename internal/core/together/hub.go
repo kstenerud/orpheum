@@ -95,7 +95,7 @@ type session struct {
 type link struct {
 	id         int64
 	secretHash [sha256.Size]byte
-	adminNote  string
+	hostNote   string
 	// usedBy is the member who joined by it, or 0 while it waits.
 	usedBy int64
 }
@@ -122,8 +122,8 @@ type member struct {
 	id     int64
 	name   string
 	isHost bool
-	// adminNote is the host's note of who the member is, from their link; only the host sees it.
-	adminNote      string
+	// hostNote is the host's note of who the member is, from their link; only the host sees it.
+	hostNote       string
 	person         *Person
 	credentialHash [sha256.Size]byte
 	devices        map[int64]*device
@@ -232,8 +232,8 @@ type LinkMade struct {
 
 // AddLink makes a link for one person to join by, once, with the host's note of who it is for,
 // which only the host sees (D246 §3).
-func (hub *Hub) AddLink(sessionID, hostUserID int64, adminNote string) (LinkMade, error) {
-	if adminNote == "" {
+func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string) (LinkMade, error) {
+	if hostNote == "" {
 		return LinkMade{}, ErrNoNote
 	}
 	secret, err := randbytes.Base64URLSecret(hub.random, secretBytes)
@@ -247,7 +247,7 @@ func (hub *Hub) AddLink(sessionID, hostUserID int64, adminNote string) (LinkMade
 		return LinkMade{}, err
 	}
 	hub.lastID++
-	hosted.links[hub.lastID] = &link{id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), adminNote: adminNote}
+	hosted.links[hub.lastID] = &link{id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), hostNote: hostNote}
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
 }
 
@@ -268,18 +268,18 @@ func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
 
 // LinkView is a link as its host sees it.
 type LinkView struct {
-	ID        int64
-	AdminNote string
+	ID       int64
+	HostNote string
 	// UsedBy is the member who joined by it, or 0 while it waits.
 	UsedBy int64
 }
 
 // MemberDetail is a member as their host sees them: with the note of the link they joined by.
 type MemberDetail struct {
-	ID        int64
-	Name      string
-	AdminNote string
-	IsHost    bool
+	ID       int64
+	Name     string
+	HostNote string
+	IsHost   bool
 }
 
 // Details is a session as its host sees it: its links and members, with the host's notes, and
@@ -301,11 +301,11 @@ func (hub *Hub) DetailsOf(sessionID, hostUserID int64) (Details, error) {
 	}
 	details := Details{SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now())}
 	for _, each := range hosted.links {
-		details.Links = append(details.Links, LinkView{ID: each.id, AdminNote: each.adminNote, UsedBy: each.usedBy})
+		details.Links = append(details.Links, LinkView{ID: each.id, HostNote: each.hostNote, UsedBy: each.usedBy})
 	}
 	for _, each := range hosted.members {
 		details.Members = append(details.Members, MemberDetail{
-			ID: each.id, Name: each.name, AdminNote: each.adminNote, IsHost: each.isHost,
+			ID: each.id, Name: each.name, HostNote: each.hostNote, IsHost: each.isHost,
 		})
 	}
 	return details, nil
@@ -335,7 +335,7 @@ func (hub *Hub) Join(secret, name string) (Joined, error) {
 	hub.lastID++
 	used.usedBy = hub.lastID
 	joined.members[hub.lastID] = &member{
-		id: hub.lastID, name: name, adminNote: used.adminNote,
+		id: hub.lastID, name: name, hostNote: used.hostNote,
 		credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
 	}
 	joined.sendRoster()

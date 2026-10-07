@@ -73,7 +73,7 @@ export function WatchTogether(): JSX.Element {
 /** How a refusal on this screen is told: a role that may not host says so. */
 function hostingWords(t: (key: string) => string): Parameters<typeof fieldProblemText>[2] {
   return {
-    fields: { "body.adminNote": t("watchTogether.note") },
+    fields: { "body.hostNote": t("watchTogether.note") },
     overrides: { forbidden: t("watchTogether.mayNotHost") },
   };
 }
@@ -169,16 +169,16 @@ function SessionView(props: {
       <p>{t("watchTogether.onExplain")}</p>
       <BusyGroup isBusy={isBusy}>
         <MakeLink
-          onMake={(adminNote) => {
+          onMake={(hostNote) => {
             runRequest(async (idempotencyKey) => {
               const made = dataOrThrow(
                 await api.POST("/together/{id}/links", {
                   params: { path: { id } },
-                  body: { adminNote },
+                  body: { hostNote },
                   ...idempotent(idempotencyKey),
                 }),
               );
-              setIssued({ note: adminNote, secret: made.secret });
+              setIssued({ note: hostNote, secret: made.secret });
               props.onChanged();
             });
           }}
@@ -205,13 +205,13 @@ function SessionView(props: {
 }
 
 /** Making one person's link: the host's note of who it is for, which only the host sees. */
-function MakeLink(props: { readonly onMake: (adminNote: string) => void }): JSX.Element {
+function MakeLink(props: { readonly onMake: (hostNote: string) => void }): JSX.Element {
   const { t } = useTranslation();
-  const [adminNote, setAdminNote] = useState("");
+  const [hostNote, setHostNote] = useState("");
   return (
     <FormRow
       onSubmit={() => {
-        props.onMake(adminNote);
+        props.onMake(hostNote);
       }}
     >
       <h2>{t("watchTogether.makeLinkHeading")}</h2>
@@ -221,9 +221,9 @@ function MakeLink(props: { readonly onMake: (adminNote: string) => void }): JSX.
           required
           maxLength={200}
           placeholder={t("watchTogether.noteExample")}
-          value={adminNote}
+          value={hostNote}
           onChange={(event) => {
-            setAdminNote(event.target.value);
+            setHostNote(event.target.value);
           }}
         />
       </label>
@@ -270,7 +270,7 @@ function SessionPeople(props: {
       <ul>
         {members.map((member) => (
           <li key={`member-${String(member.id)}`}>
-            {t("watchTogether.member", { name: member.name, note: member.adminNote ?? "" })}{" "}
+            {t("watchTogether.member", { name: member.name, note: member.hostNote ?? "" })}{" "}
             <button
               type="button"
               onClick={() => {
@@ -288,7 +288,7 @@ function SessionPeople(props: {
         ))}
         {links.map((link) => (
           <li key={`link-${String(link.id)}`}>
-            {t("watchTogether.waitingLink", { note: link.adminNote })}{" "}
+            {t("watchTogether.waitingLink", { note: link.hostNote })}{" "}
             <button
               type="button"
               onClick={() => {
