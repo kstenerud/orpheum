@@ -177,6 +177,15 @@ func startServing(
 	if err != nil {
 		t.Fatal(err)
 	}
+	return startServingOn(t, listener, config, captured, awaited, node)
+}
+
+// startServingOn is startServing on the test's own listener.
+func startServingOn(
+	t *testing.T, listener net.Listener, config Config, captured capturedLog, awaited string,
+	node func(ctx context.Context) error,
+) runningServer {
+	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
