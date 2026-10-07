@@ -92,7 +92,8 @@
 - **Once it is ready** (D253, revising D247 §2's second stall): every report's answer after the
   first stall offers the quality and says whether it is made from where the player is for 10 s;
   the player asks again every few seconds until it is. Ready, the player moves if it still cannot
-  keep up (it stalled again, its link is not measured, or the film needs more than 70% of it),
+  keep up (it stalled again, its link is not measured, or the film's picture, whose average rate
+  the offer carries, needs more than 70% of it),
   once, at its position, starting at that quality (hls.js `startLevel`); otherwise its next stall
   moves it. From then hls.js steps between qualities on its own measurement of each chunk's
   download.

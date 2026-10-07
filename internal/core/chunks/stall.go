@@ -26,6 +26,9 @@ type Offer struct {
 	// SoundCarriedGainDB is the levelling gain the starting sound's chunks carry, as a prepared
 	// copy's do (D226 §4), so the player, which levels after its volume, does not level it again.
 	SoundCarriedGainDB float64
+	// FilmPictureKbps is the film's own picture's average rate, as the quality was chosen by: what a
+	// player weighs its link against once the quality is ready (D253 §2); 0 when not known.
+	FilmPictureKbps int64
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -71,6 +74,7 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 		Quality:          quality.Quality,
 		StartAtBps:       film.variantOf(quality, offered.soundKbps).bandwidthBps,
 		IsBelowTheLowest: isBelowTheLowest,
+		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
 	}
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps)

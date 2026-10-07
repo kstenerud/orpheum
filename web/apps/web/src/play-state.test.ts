@@ -115,6 +115,7 @@ describe("play state", () => {
       isBelowTheLowest: false,
       soundCarriedGainDb: 0,
       isReady: true,
+      filmPictureKbps: 2_400,
     };
     const playView = createElement(PlayView, {
       fileId: 2,

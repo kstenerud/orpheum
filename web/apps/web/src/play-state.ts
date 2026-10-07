@@ -194,7 +194,6 @@ function startReporting(
   const { api, mediaToken } = playback;
   let isStopped = false;
   const movingDown = new MovingDown({
-    filmKbps: playback.filmKbps,
     readLinkKbps: playback.readLinkKbps,
     askAgain: () => {
       reporter.flush(positionMs(video));
@@ -248,15 +247,10 @@ function startReporting(
   };
 }
 
-/**
- * The playback whose play state is kept: its token, where it starts, the film's own rate, and how
- * its link is read.
- */
+/** The playback whose play state is kept: its token, where it starts, and how its link is read. */
 interface PlayStateOf {
   readonly mediaToken: string;
   readonly resumePositionMs: number;
-  /** The film's rate as it plays, against which a stalled player weighs its link (D253 §2). */
-  readonly filmKbps: number;
   /** The link's speed as the playback measures it, undefined until it can say (D247 §1). */
   readonly readLinkKbps: () => number | undefined;
 }
@@ -279,7 +273,7 @@ export function usePlayState(
   readonly stopMessage: string | undefined;
   readonly lowerQuality: LowerQuality | undefined;
 } {
-  const { mediaToken, resumePositionMs, filmKbps } = playback;
+  const { mediaToken, resumePositionMs } = playback;
   const [refusal, setRefusal] = useState<unknown>(undefined);
   const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
   const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
@@ -293,10 +287,10 @@ export function usePlayState(
     }
     return startReporting(
       video,
-      { api, mediaToken, resumePositionMs, filmKbps, readLinkKbps: () => linkReader.current() },
+      { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current() },
       { onStopped: setStopMessage, onLowerQuality: setLowerQuality, onRefused: setRefusal },
     );
-  }, [api, videoRef, mediaToken, resumePositionMs, filmKbps]);
+  }, [api, videoRef, mediaToken, resumePositionMs]);
   return { refusal, stopMessage, lowerQuality };
 }
 
@@ -310,12 +304,9 @@ export function usePlayState(
 export function useStallReports(
   api: Api,
   videoRef: RefObject<HTMLVideoElement | null>,
-  playback: ReportTo & {
-    readonly filmKbps: number;
-    readonly readLinkKbps: () => number | undefined;
-  },
+  playback: ReportTo & { readonly readLinkKbps: () => number | undefined },
 ): LowerQuality | undefined {
-  const { mediaToken, headers, filmKbps } = playback;
+  const { mediaToken, headers } = playback;
   const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
   const linkReader = useRef(playback.readLinkKbps);
   linkReader.current = playback.readLinkKbps;
@@ -326,7 +317,6 @@ export function useStallReports(
     }
     const to: ReportTo = headers === undefined ? { mediaToken } : { mediaToken, headers };
     const movingDown = new MovingDown({
-      filmKbps,
       readLinkKbps: () => linkReader.current(),
       askAgain: () => {
         reporter.flush(positionMs(video));
@@ -346,6 +336,6 @@ export function useStallReports(
       movingDown.stop();
       stopWatching();
     };
-  }, [api, videoRef, mediaToken, headers, filmKbps]);
+  }, [api, videoRef, mediaToken, headers]);
   return lowerQuality;
 }

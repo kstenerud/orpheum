@@ -416,7 +416,6 @@ function useMovingDown(
   const lowerQuality = useStallReports(api, videoRef, {
     mediaToken: props.decision.mediaToken,
     headers: props.headers,
-    filmKbps: props.decision.fileBitRateKbps,
     readLinkKbps,
   });
   const { onLowerQuality } = props;

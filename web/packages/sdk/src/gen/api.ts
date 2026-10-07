@@ -2288,6 +2288,8 @@ export interface components {
         };
         LowerQualityBody: {
             /** Format: int64 */
+            filmPictureKbps: number;
+            /** Format: int64 */
             height: number;
             isBelowTheLowest: boolean;
             isReady: boolean;

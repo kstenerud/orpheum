@@ -17,10 +17,11 @@ const offer: LowerQuality = {
   isBelowTheLowest: false,
   soundCarriedGainDb: 0,
   isReady: false,
+  filmPictureKbps: 9_900,
 };
 const ready: LowerQuality = { ...offer, isReady: true };
 
-/** A MovingDown for a 9.9 Mb/s film on a link read as linkKbps, and what it asked and moved to. */
+/** A MovingDown on a link read as linkKbps, and what it asked and moved to; the film is 9.9 Mb/s. */
 function rig(linkKbps: number | undefined): {
   readonly movingDown: MovingDown;
   readonly asked: number[];
@@ -29,7 +30,6 @@ function rig(linkKbps: number | undefined): {
   const asked: number[] = [];
   const moved: LowerQuality[] = [];
   const movingDown = new MovingDown({
-    filmKbps: 9_900,
     readLinkKbps: () => linkKbps,
     askAgain: () => asked.push(asked.length),
     onMove: (to) => moved.push(to),
@@ -46,13 +46,14 @@ afterEach(() => {
 });
 
 describe("a stalled player moving to its lower quality (D253)", () => {
-  it("still cannot keep up after stalling again, unmeasured, or with the film over 70% of its link", () => {
-    const keeping = { hasStalledSinceOffered: false, linkKbps: 20_000, filmKbps: 9_900 };
+  it("still cannot keep up after stalling again, unmeasured, or with the film over 70% of the link", () => {
+    const keeping = { hasStalledSinceOffered: false, linkKbps: 20_000, filmPictureKbps: 9_900 };
     expect(stillCannotKeepUp(keeping)).toBe(false);
     expect(stillCannotKeepUp({ ...keeping, hasStalledSinceOffered: true })).toBe(true);
     expect(stillCannotKeepUp({ ...keeping, linkKbps: undefined })).toBe(true);
     expect(stillCannotKeepUp({ ...keeping, linkKbps: 2_200 })).toBe(true);
     expect(stillCannotKeepUp({ ...keeping, linkKbps: 14_000 })).toBe(true); // 9.9 > 9.8
+    expect(stillCannotKeepUp({ ...keeping, filmPictureKbps: 0 })).toBe(true);
   });
 
   it("asks again every few seconds until it is ready, then moves on a link too slow for the film", () => {

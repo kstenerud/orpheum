@@ -20,25 +20,24 @@ export interface KeepingUp {
   readonly hasStalledSinceOffered: boolean;
   /** The link's speed as the player measured it, undefined when it cannot say. */
   readonly linkKbps: number | undefined;
-  /** The film's own rate, as it plays now. */
-  readonly filmKbps: number;
+  /** The film's own picture's average rate, as the offer says it; 0 when not known. */
+  readonly filmPictureKbps: number;
 }
 
 /**
  * Whether a player still cannot keep up with the film as it plays, and moves to its lower quality
- * (D253 §2): it stalled again, its link is not measured, or the film takes more of the link than a
- * quality may.
+ * (D253 §2): it stalled again, its link or the film's rate is not known, or the film's picture
+ * takes more of the link than a quality may.
  */
 export function stillCannotKeepUp(seen: KeepingUp): boolean {
-  if (seen.hasStalledSinceOffered || seen.linkKbps === undefined) {
+  if (seen.hasStalledSinceOffered || seen.linkKbps === undefined || seen.filmPictureKbps <= 0) {
     return true;
   }
-  return seen.filmKbps > linkShareForQuality * seen.linkKbps;
+  return seen.filmPictureKbps > linkShareForQuality * seen.linkKbps;
 }
 
-/** What MovingDown needs: the film's rate, the link's, how to ask again, and where a move goes. */
+/** What MovingDown needs: the link's rate, how to ask again, and where a move goes. */
 export interface MovingDownOptions {
-  readonly filmKbps: number;
   readonly readLinkKbps: () => number | undefined;
   /** Sends a report now, whose answer says whether the offer is ready. */
   readonly askAgain: () => void;
@@ -82,7 +81,7 @@ export class MovingDown {
     const seen = {
       hasStalledSinceOffered: this.#hasStalledSinceOffered,
       linkKbps: this.#options.readLinkKbps(),
-      filmKbps: this.#options.filmKbps,
+      filmPictureKbps: offer.filmPictureKbps,
     };
     if (stillCannotKeepUp(seen)) {
       this.#hasMoved = true;

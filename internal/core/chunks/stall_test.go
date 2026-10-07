@@ -33,9 +33,9 @@ func TestStalled_OffersTheHighestQualityTheLinkCarriesAndStartsItWhereThePlayerI
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	offer := stalledAt(t, service, 2000) // 1400 kb/s for the picture: 1200k, not 2000k
 	if offer.Quality != (qualities.Quality{Kbps: 1200, Height: 480}) || offer.StartAtBps != 1_896_000 ||
-		offer.IsBelowTheLowest || offer.SoundCarriedGainDB != -3.5 {
+		offer.IsBelowTheLowest || offer.SoundCarriedGainDB != -3.5 || offer.FilmPictureKbps != 4004 {
 		t.Errorf("the offer = %+v; want 1200k at 480p, its BANDWIDTH 1.5 × 1.2 Mb/s and the sound's, "+
-			"and the sound's levelling, -3.5 dB, carried in it", offer)
+			"the sound's levelling, -3.5 dB, carried in it, and the fixture film's own picture, 4 Mb/s", offer)
 	}
 	// The stall at 95 s is in chunk 9, from 90 s.
 	want := []askedRun{{"q1200k480p", 9, 38}, {"sound0-96k", 9, 38}}
