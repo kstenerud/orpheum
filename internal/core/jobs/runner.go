@@ -84,6 +84,10 @@ func (runner *Runner) ResolveBy(ctx context.Context, id int64, decide func(job J
 // ended: the job is assigned until then, or until until, past which it is its own failure (D234 §7).
 func Assign(until time.Time) error { return jobqueue.Assign(until) }
 
+// Bump answers that work of a higher priority took the job's place: it goes back to the head of its
+// priority's queue at no cost of an attempt (jobqueue.Bump, D255 §2).
+func Bump(err error) error { return jobqueue.Bump(err) }
+
 // AssignThen is Assign, then is done once the job is recorded assigned: the work handed to its node,
 // so the node's word, however soon it comes, finds the job assigned.
 func AssignThen(until time.Time, then func(ctx context.Context)) error {

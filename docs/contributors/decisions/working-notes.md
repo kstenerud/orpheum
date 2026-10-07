@@ -18427,10 +18427,11 @@ to end. **Revises**
    owner: *"it should be the general pattern of the queue: higher priority job bumps lowest priority
    job, throws out its work, and reschedules it."* D240 §6's pause of background work for play
    stays as it is until this replaces it.
-3. **Built first, for the demos** (2026-10-07): only the scan's quick pass ahead of whole-film reads.
+3. **A scan's quick pass comes first on its disk**, built first, for the demos (2026-10-07).
    While a scan lists a root and reads the files it found new or changed, background work that
    reads whole films on the root's disk waits, on the disk's quick pass rather than its readers,
    which the scan's own work needs, asking again every half minute. Work a person waits for never
-   waits for it. The three priorities and eviction (§1, §2) come after the conference.
+   waits for it. It stays beside §2: without it, each batch of a scan would bump a read-through that
+   started again behind it, throwing its reading away each time.
 
 **Status:** Decided 2026-10-07.

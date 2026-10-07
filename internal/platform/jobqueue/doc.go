@@ -57,6 +57,9 @@
 //     TestRunDue_AFullStorageStopsEveryClaimUntilAProbeFindsRoomAndNothingIsLeftRunning.
 //   - Parked state is held in memory: after a restart the first job for a destination probes it
 //     again (D231 §6). Enforced by review: nothing here writes it.
+//   - A bumped job costs no attempt and goes back to the head of its priority's queue: a claim takes
+//     it before every job of its priority that has waited (D255 §2).
+//     TestRunDue_ABumpedJobCostsNoAttemptAndGoesBackToTheHeadOfItsPriority.
 //   - A tool's failure costs no attempt and the next attempt is told of it.
 //     TestRunDue_AStallCostsNoAttemptAndTheNextAttemptKnowsTheLastOneStalled (internal/core/jobs).
 //     A tool's failure that parks its job keeps that: the attempt after the destination returns is
