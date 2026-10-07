@@ -3,7 +3,7 @@
 import type { Api, PlayableFormats } from "@orpheum/sdk";
 
 import type { AudioOutput } from "./accounts.ts";
-import type { PlaybackDecision } from "./play.tsx";
+import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
 import { membershipHeaders } from "./together-storage.ts";
 

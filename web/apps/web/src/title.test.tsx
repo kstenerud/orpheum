@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import "./i18n.ts";
@@ -6,7 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
-import { Loaded, TitleView, type TitleDetail } from "./title.tsx";
+import { mount, servedBy, type Heard } from "./test-dom.tsx";
+import { Loaded, Title, TitleView, type TitleDetail } from "./title.tsx";
 import { withServices } from "./test-services.tsx";
 
 const heat: TitleDetail = {
@@ -147,5 +149,36 @@ describe("TitleView", () => {
         ),
       ),
     ).toContain("That is no longer here");
+  });
+});
+
+describe("Title", () => {
+  it("warms up its first file as it opens, and nothing of a title that cannot play now (D258 §1)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/10": [200, heat],
+        "GET /items/11": [
+          200,
+          { ...heat, id: 11, unavailable: { reason: "node_away" as const, nodeName: "devnas" } },
+        ],
+        "POST /playback": [
+          200,
+          { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+        ],
+      },
+      heard,
+    );
+    const playable = await mount(withServices(<Title id={10} />, services));
+    playable.unmount();
+    expect(heard.map((request) => request.methodAndPath)).toEqual([
+      "GET /items/10",
+      "POST /playback",
+    ]);
+    expect(heard[1]?.body).toMatchObject({ fileId: 1 });
+    heard.length = 0;
+    const unplayable = await mount(withServices(<Title id={11} />, services));
+    unplayable.unmount();
+    expect(heard.map((request) => request.methodAndPath)).toEqual(["GET /items/11"]);
   });
 });

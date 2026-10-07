@@ -6,7 +6,7 @@ import { idempotent } from "./idempotent.ts";
 import "./title.css";
 
 import { artUrl, type components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
@@ -18,6 +18,7 @@ import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
+import { watchingOf } from "./watching.ts";
 
 /** A title's detail, as the server sends it. */
 export type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
@@ -238,14 +239,28 @@ export function Loaded<T>(props: {
   return props.render(resource.value);
 }
 
-/** A title's page, loaded by its id. */
+/** The file a title's Play goes to first, which its page warms up; undefined if none plays now. */
+export function firstPlayableFile(title: TitleDetail): number | undefined {
+  if (title.unavailable !== undefined) {
+    return undefined;
+  }
+  return title.versions?.[0]?.files?.[0]?.id;
+}
+
+/** A title's page, loaded by its id. Opening it warms up its first file (D258 §1). */
 export function Title(props: { readonly id: number }): JSX.Element {
-  const { api } = useServices();
+  const { api, playableFormats } = useServices();
   const [title, reload] = useResource(
     `title/${String(props.id)}`,
     async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
     useBackgroundChangesPoller(),
   );
+  const warmFileId = title.state === "loaded" ? firstPlayableFile(title.value) : undefined;
+  useEffect(() => {
+    if (warmFileId !== undefined) {
+      watchingOf(api).warmUp(warmFileId, playableFormats());
+    }
+  }, [api, playableFormats, warmFileId]);
   // A refusal shows the title as the server has it, as success does.
   const retiring = useRequest(() => "");
   const retireFile = (fileId: number): void => {

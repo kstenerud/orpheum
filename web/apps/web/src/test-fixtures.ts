@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Device } from "./accounts.ts";
-import type { PlaybackDecision } from "./play.tsx";
+import type { PlaybackDecision } from "./watching.ts";
 
 /** A sound not measured yet: played as it is (D226). */
 export const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };

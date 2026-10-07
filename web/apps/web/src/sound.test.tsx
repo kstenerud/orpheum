@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { PlaybackDecision } from "./play.tsx";
+import type { PlaybackDecision } from "./watching.ts";
 import { Play } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import { choose, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";

@@ -18490,12 +18490,16 @@ work once a title is likely are the precedent (coldstart research, 2026-10-07).
 
 1. **Opening a film's page, or pressing play, starts a warm-up**: the server prepares the first
    minute of the version D257 would start on, or its first chunks, and the page loads its first
-   segments. At most two run at once; one is cancelled when its page is left. A warm-up is fast work
-   in D255's tiers.
-2. **The client says when it leaves a film's page or the player**, so the server knows a warm-up,
+   segments. A tab warms up one film, the one it is on; the Play page plays on the decision its
+   page made. A warm-up is fast work in D255's tiers.
+2. **The client says when the person moves on to another film**, so the server knows a warm-up,
    or the making of what it played, is no longer wanted (the owner, the same day: *"we should record
    when a client moves out of a video details or play screen, so that we know that the pre fill jobs
-   are no longer needed"*).
+   are no longer needed"*, then, of going from the player back to the film's page: *"Until the user
+   signals intent to watch a different video, we should keep data"*). Opening another film's page,
+   or playing another film, lets go of the last one's playbacks (`DELETE /playback/{token}`); going
+   back to the film's page, or anywhere else, keeps them. A playback let go of keeps its token until
+   it idles out; its jobs fall to background at the next demotion.
 3. **The warm-up's download is the speed test.** How fast its segments arrive is a measurement as
    D257 §1 keeps; one that struggles moves the start lower before play is pressed.
 
