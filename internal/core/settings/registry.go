@@ -105,6 +105,7 @@ const (
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
+	PlayLadderWaitMs                               Key = "play_ladder_wait_ms"
 )
 
 // Kind is a setting value's JSON type.
@@ -435,7 +436,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 // artworkAndPlaybackDefinitions are the rest of jobMetadataAndPlaybackDefinitions: artwork,
 // refreshing metadata, playback and resuming.
 func artworkAndPlaybackDefinitions() []Definition {
-	return []Definition{
+	return append([]Definition{
 		sourced(integerSetting(ArtworkMaxSourcePixels, "40000000", 1_000_000, 400_000_000,
 			"the most pixels a source image may have; a larger one is refused before it is decoded (D212 §1)"),
 			"best guess (M3): far above any poster or backdrop "+
@@ -465,6 +466,21 @@ func artworkAndPlaybackDefinitions() []Definition {
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
+		sourced(integerSetting(ResumeMinPercent, "5", 0, 50,
+			"percent of a file's length before which a position is not resumed and the file plays from the "+
+				"start; a file of unknown length always resumes (play-state.md)"),
+			"play-state.md: best guess, from what other players do"),
+		sourced(integerSetting(FinishedAfterPercent, "90", 50, 100,
+			"percent of a file's length after which it counts as finished: it leaves Continue Watching and plays "+
+				"from the start (play-state.md)"),
+			"play-state.md: best guess, from what other players do; credits run the last tenth"),
+	}, chunkDefinitions()...)
+}
+
+// chunkDefinitions are the rest of artworkAndPlaybackDefinitions: a film cut into chunks, its
+// qualities, runs and sound, and how long a playback waits for its keyframes to play from them.
+func chunkDefinitions() []Definition {
+	return []Definition{
 		sourced(Definition{
 			Key: ChunkQualities, Kind: KindString,
 			StartJSON: json.RawMessage(`"3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p"`),
@@ -488,19 +504,16 @@ func artworkAndPlaybackDefinitions() []Definition {
 			"ms a request for a chunk not made yet is held for it before the player is told to ask again; "+
 				"a player counts a hold as the chunk's download, and takes its link for slower (D250 §5)"),
 			"D250 §5: answered at once, where it was held 20 s (playback-in-practice.md §3)"),
+		sourced(integerSetting(PlayLadderWaitMs, "2000", 0, 30_000,
+			"ms a playback of a film not cut into chunks yet waits for its keyframes, read from its file's "+
+				"index, before it plays from a prepared copy or the original instead of its ladder (D260 §1)"),
+			"the owner, 2026-10-07: start at 2 s, configurable; four times the slowest index read measured, "+
+				"an MP4's on the owner's NAS, half a second (D259 §2)"),
 		sourced(integerSetting(ChunkSoundKbps, "96", 32, 320,
 			"kbit/s of the stereo AAC sound a film cut into chunks for a slow link plays with; a change makes "+
 				"each film's sound again, as its own store, when next played (D247 §6)"),
 			"the owner, 2026-10-06, after an airplane's 0.6 Mb/s link: 192k was a quarter of it; Apple's "+
 				"cellular streams use less (playback-in-practice.md §3)"),
-		sourced(integerSetting(ResumeMinPercent, "5", 0, 50,
-			"percent of a file's length before which a position is not resumed and the file plays from the "+
-				"start; a file of unknown length always resumes (play-state.md)"),
-			"play-state.md: best guess, from what other players do"),
-		sourced(integerSetting(FinishedAfterPercent, "90", 50, 100,
-			"percent of a file's length after which it counts as finished: it leaves Continue Watching and plays "+
-				"from the start (play-state.md)"),
-			"play-state.md: best guess, from what other players do; credits run the last tenth"),
 	}
 }
 
