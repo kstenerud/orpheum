@@ -3109,7 +3109,7 @@ export interface components {
         };
         TogetherLinkBody: {
             /** @description Who it is for; only the host sees it */
-            adminNote: string;
+            hostNote: string;
             /** Format: int64 */
             id: number;
             /** Format: int64 */
@@ -3117,7 +3117,7 @@ export interface components {
         };
         TogetherLinkInputBody: {
             /** @description Who it is for: "Grandma"; only the host sees it */
-            adminNote: string;
+            hostNote: string;
         };
         TogetherLinkOutputBody: {
             /** Format: int64 */
@@ -3126,7 +3126,7 @@ export interface components {
         };
         TogetherMemberBody: {
             /** @description The note of the link they joined by; only the host sees it */
-            adminNote?: string;
+            hostNote?: string;
             /** Format: int64 */
             id: number;
             isHost: boolean;

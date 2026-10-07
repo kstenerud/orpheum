@@ -4952,7 +4952,7 @@
       "TogetherLinkBody": {
         "additionalProperties": false,
         "properties": {
-          "adminNote": {
+          "hostNote": {
             "description": "Who it is for; only the host sees it",
             "type": "string"
           },
@@ -4967,14 +4967,14 @@
         },
         "required": [
           "id",
-          "adminNote"
+          "hostNote"
         ],
         "type": "object"
       },
       "TogetherLinkInputBody": {
         "additionalProperties": false,
         "properties": {
-          "adminNote": {
+          "hostNote": {
             "description": "Who it is for: \"Grandma\"; only the host sees it",
             "maxLength": 200,
             "minLength": 1,
@@ -4982,7 +4982,7 @@
           }
         },
         "required": [
-          "adminNote"
+          "hostNote"
         ],
         "type": "object"
       },
@@ -5006,7 +5006,7 @@
       "TogetherMemberBody": {
         "additionalProperties": false,
         "properties": {
-          "adminNote": {
+          "hostNote": {
             "description": "The note of the link they joined by; only the host sees it",
             "type": "string"
           },

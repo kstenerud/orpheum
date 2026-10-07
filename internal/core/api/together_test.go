@@ -106,7 +106,7 @@ func (harness testHarness) joinByLink(
 ) JoinTogetherOutput {
 	t.Helper()
 	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", sessionID), host,
-		map[string]string{"adminNote": note})
+		map[string]string{"hostNote": note})
 	var link TogetherLinkOutput
 	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil || made.status != http.StatusCreated {
 		t.Fatalf("POST /together/%d/links = %d %s", sessionID, made.status, made.body)
@@ -200,7 +200,7 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 		t.Errorf("the viewer's group = %+v; want paused by the host", paused.Group)
 	}
 	details := harness.do(t, http.MethodGet, fmt.Sprintf("/together/%d", opened.Body.SessionID), admin, nil)
-	if !strings.Contains(details.body, `"name":"Anna","adminNote":"my partner"`) {
+	if !strings.Contains(details.body, `"name":"Anna","hostNote":"my partner"`) {
 		t.Errorf("GET /together/%d = %s; want Anna, noted as the host's partner", opened.Body.SessionID, details.body)
 	}
 }
@@ -273,11 +273,11 @@ func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/together", watcher, nil), http.StatusForbidden, CodeForbidden)
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
-	wantError(t, harness.do(t, http.MethodPost, path+"/links", watcher, map[string]string{"adminNote": "x"}),
+	wantError(t, harness.do(t, http.MethodPost, path+"/links", watcher, map[string]string{"hostNote": "x"}),
 		http.StatusForbidden, CodeForbidden)
-	wantError(t, harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"adminNote": ""}),
+	wantError(t, harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": ""}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
-	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"adminNote": "a cousin"})
+	link := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
 	var made2 TogetherLinkOutput
 	if err := json.Unmarshal([]byte(link.body), &made2.Body); err != nil {
 		t.Fatal(err)
@@ -310,7 +310,7 @@ func TestTogether_LogsWhoOpenedJoinedLeftAndEnded(t *testing.T) {
 	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
 	var link TogetherLinkOutput
 	if err := json.Unmarshal([]byte(harness.do(t, http.MethodPost, path+"/links", admin,
-		map[string]string{"adminNote": "a cousin"}).body), &link.Body); err != nil {
+		map[string]string{"hostNote": "a cousin"}).body), &link.Body); err != nil {
 		t.Fatal(err)
 	}
 	var membership JoinTogetherOutput

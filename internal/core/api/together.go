@@ -37,18 +37,18 @@ type TogetherInput struct {
 
 // TogetherLinkBody is one person's link, as the host sees it.
 type TogetherLinkBody struct {
-	ID        int64  `json:"id"`
-	AdminNote string `doc:"Who it is for; only the host sees it" json:"adminNote"`
+	ID       int64  `json:"id"`
+	HostNote string `doc:"Who it is for; only the host sees it" json:"hostNote"`
 	// UsedByMemberID is the member who joined by it; absent while it waits.
 	UsedByMemberID int64 `json:"usedByMemberId,omitempty"`
 }
 
 // TogetherMemberBody is one member, as the host sees them.
 type TogetherMemberBody struct {
-	ID        int64  `json:"id"`
-	Name      string `doc:"The name they chose, which everyone sees" json:"name"`
-	AdminNote string `doc:"The note of the link they joined by; only the host sees it" json:"adminNote,omitempty"`
-	IsHost    bool   `json:"isHost"`
+	ID       int64  `json:"id"`
+	Name     string `doc:"The name they chose, which everyone sees" json:"name"`
+	HostNote string `doc:"The note of the link they joined by; only the host sees it" json:"hostNote,omitempty"`
+	IsHost   bool   `json:"isHost"`
 }
 
 // TogetherDetailsOutput is a session as its host sees it: its links and members, with the host's
@@ -67,7 +67,7 @@ type TogetherLinkInput struct {
 	AuthorizationHeader
 	SessionID int64 `minimum:"1" path:"id"`
 	Body      struct {
-		AdminNote string `doc:"Who it is for: \"Grandma\"; only the host sees it" json:"adminNote" maxLength:"200" minLength:"1"` //nolint:lll // one struct tag
+		HostNote string `doc:"Who it is for: \"Grandma\"; only the host sees it" json:"hostNote" maxLength:"200" minLength:"1"` //nolint:lll // one struct tag
 	}
 }
 
@@ -240,13 +240,13 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	output.Body.Links = make([]TogetherLinkBody, 0, len(details.Links))
 	for _, each := range details.Links {
 		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
-			ID: each.ID, AdminNote: each.AdminNote, UsedByMemberID: each.UsedBy,
+			ID: each.ID, HostNote: each.HostNote, UsedByMemberID: each.UsedBy,
 		})
 	}
 	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
 	for _, each := range details.Members {
 		output.Body.Members = append(output.Body.Members, TogetherMemberBody{
-			ID: each.ID, Name: each.Name, AdminNote: each.AdminNote, IsHost: each.IsHost,
+			ID: each.ID, Name: each.Name, HostNote: each.HostNote, IsHost: each.IsHost,
 		})
 	}
 	return output, nil
@@ -257,12 +257,12 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 	if err != nil {
 		return nil, err
 	}
-	made, err := dependencies.Together.AddLink(input.SessionID, principal.UserID, textindex.Line(input.Body.AdminNote))
+	made, err := dependencies.Together.AddLink(input.SessionID, principal.UserID, textindex.Line(input.Body.HostNote))
 	if err != nil {
 		return nil, server.togetherError(ctx, "make a link", err)
 	}
 	server.logger.InfoContext(ctx, "watch together: the host made a link",
-		"sessionId", input.SessionID, "linkId", made.LinkID, "adminNote", input.Body.AdminNote)
+		"sessionId", input.SessionID, "linkId", made.LinkID, "hostNote", input.Body.HostNote)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
 	return output, nil
@@ -414,7 +414,7 @@ func (server *Server) togetherError(ctx context.Context, action string, err erro
 	case errors.Is(err, together.ErrNotHost):
 		return newError(http.StatusForbidden, CodeForbidden, err.Error())
 	case errors.Is(err, together.ErrNoNote):
-		return invalidRequestAt(http.StatusUnprocessableEntity, "body.adminNote", err.Error())
+		return invalidRequestAt(http.StatusUnprocessableEntity, "body.hostNote", err.Error())
 	}
 	return server.logInternalError(ctx, action, err)
 }
