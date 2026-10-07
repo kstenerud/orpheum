@@ -151,6 +151,68 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
   });
 
+  it("places a playing group by the pong with the shortest round trip, noting each placing (D264)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    // Its group message waited 200 ms in a full queue on the way: it says 10 s at 10.2 s.
+    monotonicNowMs = 2000;
+    const pingsBefore = sockets.sent.filter((each) => each["type"] === "ping").length;
+    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
+    // A new timeline is pinged for at once.
+    expect(sockets.sent.filter((each) => each["type"] === "ping")).toHaveLength(pingsBefore + 1);
+    // A pong sent at 2100, back at 2180 with the group at 10.14 s: 40 ms each way.
+    monotonicNowMs = 2180;
+    socket.onMessage(
+      JSON.stringify({
+        v: 2,
+        type: "pong",
+        tMono: 2100,
+        group: { ...playing, positionMs: 10_240 },
+      }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      group: { positionMs: 10_240 },
+      groupReceivedAtMs: 2180,
+      groupPlacedByRttMs: 80,
+    });
+    expect(sockets.sent.filter((each) => each["type"] === "note").at(-1)).toMatchObject({
+      // From 10.18 s, where the group message put it with no round trip yet measured, to 10.28 s.
+      note: { kind: "placed", roundTripMs: 80, movedMs: 100 },
+    });
+    // A longer round trip places nothing; a pong of another timeline neither.
+    monotonicNowMs = 3500;
+    socket.onMessage(
+      JSON.stringify({
+        v: 2,
+        type: "pong",
+        tMono: 3000,
+        group: { ...playing, positionMs: 11_000 },
+      }),
+    );
+    socket.onMessage(
+      JSON.stringify({ v: 2, type: "pong", tMono: 3490, group: { ...playing, fileId: 8 } }),
+    );
+    expect(connection.snapshot()).toMatchObject({
+      group: { positionMs: 10_240, fileId: 3 },
+      groupPlacedByRttMs: 80,
+    });
+    // A new timeline is placed by its group message again, until a pong places it.
+    monotonicNowMs = 4000;
+    socket.onMessage(
+      JSON.stringify({ v: 2, type: "group", seq: 3, group: { ...playing, fileId: 8 } }),
+    );
+    expect(connection.snapshot().groupPlacedByRttMs).toBeUndefined();
+  });
+
   it("follows the group by the welcome's tuning, or by the starting one where it names none (D250 §1)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({

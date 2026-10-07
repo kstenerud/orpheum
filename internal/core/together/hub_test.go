@@ -118,6 +118,24 @@ func (stage sessionStage) tick(t *testing.T, attachment Attachment) {
 	stage.hub.Handle(t.Context(), attachment, Inbound{Type: MessagePing})
 }
 
+// A pong says where the group is as the server answers, so a follower places the group by the pong
+// whose round trip it measured shortest (D264).
+func TestHub_APongSaysWhereTheGroupIsAsItAnswers(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.ready(t, host, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	stage.clock.Advance(12 * time.Second)
+	stage.hub.Handle(t.Context(), host, Inbound{Type: MessagePing, TMono: 4321})
+	pong := box.last(MessagePong)
+	if pong.TMono != 4321 || pong.Group == nil || pong.Group.State != GroupPlaying ||
+		pong.Group.PositionMs != 12_000 || pong.Seq != box.last(MessageGroup).Seq {
+		t.Errorf("the pong is %+v (group %+v); want tMono 4321 and the group playing at 12 s, at its seq",
+			pong, pong.Group)
+	}
+}
+
 // A session starts with nothing playing; what the host puts on waits until every player that has
 // been ready is, then plays; one that buffers then stops no one: the group plays on, naming it, and
 // it catches up alone (watch-together.md, Sync; D246 §5; D250 §2).

@@ -84,6 +84,9 @@ const (
 	NoteVoiceStats NoteKind = "voiceStats"
 	// NoteVoiceCall is a step a voice call took, so a call that never connects says how far it got.
 	NoteVoiceCall NoteKind = "voiceCall"
+	// NotePlaced is a follower placing its group anew by a pong with a shorter round trip than any
+	// before, and how far that moved where it expects the group (D264).
+	NotePlaced NoteKind = "placed"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -114,6 +117,10 @@ type PlayerNote struct {
 	Voice *VoiceStats `json:"voice,omitempty"`
 	// PartnerDeviceID is the other device of a voiceCall note's call; its Why, the step.
 	PartnerDeviceID int64 `json:"partnerDeviceId,omitempty"`
+	// RoundTripMs is a placed note's pong's round trip; MovedMs, how far it moved where the group is
+	// expected, ahead when positive: the wait on the way of what placed it before (D264).
+	RoundTripMs int64 `json:"roundTripMs,omitempty"`
+	MovedMs     int64 `json:"movedMs,omitempty"`
 }
 
 // VoiceStats is one voice call as its receiver measured it since it began: which partner, how
@@ -153,6 +160,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.Voice != nil && isNoteWord(note.Voice.Path)
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
+	case NotePlaced:
+		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
 	}
 	return false
 }
@@ -209,7 +218,8 @@ type Outbound struct {
 	Type MessageType `json:"type"`
 	Seq  int64       `json:"seq,omitempty"`
 	// Welcome's: the session, the device's own member, whether it is the host's, who alone
-	// controls playback (D246 §8), and the roster; and every group message's group.
+	// controls playback (D246 §8), and the roster; every group message's group; and each pong's,
+	// where the group is as the server answers (D264).
 	SessionID int64        `json:"sessionId,omitempty"`
 	MemberID  int64        `json:"memberId,omitempty"`
 	DeviceID  int64        `json:"deviceId,omitempty"`

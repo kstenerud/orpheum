@@ -14,6 +14,7 @@ const snapshot: TogetherSnapshot = {
   isHost: true,
   group: undefined,
   groupReceivedAtMs: 0,
+  groupPlacedByRttMs: undefined,
   roster: [
     {
       id: 1,

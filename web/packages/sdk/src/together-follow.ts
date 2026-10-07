@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { GroupView, SyncTuning } from "./together.ts";
-import type { GroupCommand, PlayerState, TogetherConnection } from "./together-connection.ts";
-import { driftCorrection, expectedPositionMs, nudgeForMs } from "./together-drift.ts";
+import {
+  expectedGroupPositionMs,
+  type GroupCommand,
+  type PlayerState,
+  type TogetherConnection,
+} from "./together-connection.ts";
+import { driftCorrection, nudgeForMs } from "./together-drift.ts";
 
 /**
  * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
@@ -495,12 +500,7 @@ class GroupFollower {
     return {
       group,
       nowMs,
-      // A message's way from the server is taken as half the shortest round trip measured (D66).
-      expectedMs: expectedPositionMs(group, {
-        receivedAtMs: snapshot.groupReceivedAtMs,
-        nowMs,
-        transitMs: (snapshot.minimumRttMs ?? 0) / 2,
-      }),
+      expectedMs: expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs,
       tuning: snapshot.tuning,
     };
   }

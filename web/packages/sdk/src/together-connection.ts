@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { expectedPositionMs } from "./together-drift.ts";
 import type { VoiceCallStats } from "./together-voice-stats.ts";
 import {
   parseTogetherMessage,
@@ -73,7 +74,10 @@ export interface PlayerState {
  *   (nothing was heard on it);
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
  * - voiceCall: a voice call with partnerDeviceId took a step, why: VoiceCallStep, so a call that
- *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did).
+ *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
+ * - placed: a pong with a roundTripMs shorter than any before placed the group anew, moving where
+ *   it is expected by movedMs (ahead when positive), the wait on the way of what placed it before
+ *   (D264).
  */
 export type PlayerNote =
   | {
@@ -105,7 +109,8 @@ export type PlayerNote =
       readonly kind: "voiceStats";
       readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
     }
-  | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep };
+  | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
+  | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number };
 
 /**
  * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its
@@ -141,6 +146,12 @@ export interface TogetherSnapshot {
   readonly group: GroupView | undefined;
   /** The monotonic time at which group arrived: a playing group has moved on from it since. */
   readonly groupReceivedAtMs: number;
+  /**
+   * The round trip of the pong that last placed group, in ms: it arrived half of it after the
+   * server said it (D264). Undefined while the group message that announced it places it, whose
+   * wait on the way no one knows.
+   */
+  readonly groupPlacedByRttMs: number | undefined;
   readonly roster: readonly RosterMember[];
   /** Why it ended, when the server ended it; undefined while it goes on or when closed here. */
   readonly endReason: TogetherEndReason | undefined;
@@ -191,6 +202,7 @@ const startingSnapshot: TogetherSnapshot = {
   isHost: false,
   group: undefined,
   groupReceivedAtMs: 0,
+  groupPlacedByRttMs: undefined,
   roster: [],
   endReason: undefined,
   minimumRttMs: undefined,
@@ -206,6 +218,65 @@ function isSameTimeline(current: GroupView | undefined, next: GroupView): curren
     current.fileId === next.fileId &&
     current.rate === next.rate
   );
+}
+
+/**
+ * Where the group a snapshot follows is at the monotonic time nowMs: told at groupReceivedAtMs by a
+ * message on its way half the round trip of the pong that placed it, or, placed by its group
+ * message, half the shortest round trip measured (D66, D264); undefined while it follows none.
+ */
+export function expectedGroupPositionMs(
+  snapshot: TogetherSnapshot,
+  nowMs: number,
+): number | undefined {
+  const { group } = snapshot;
+  return group === undefined
+    ? undefined
+    : expectedPositionMs(group, {
+        receivedAtMs: snapshot.groupReceivedAtMs,
+        nowMs,
+        transitMs: (snapshot.groupPlacedByRttMs ?? snapshot.minimumRttMs ?? 0) / 2,
+      });
+}
+
+/** The snapshot after a group message: a new timeline, or the one it follows told again. */
+function afterGroup(current: TogetherSnapshot, group: GroupView, nowMs: number): TogetherSnapshot {
+  if (isSameTimeline(current.group, group)) {
+    // News of a group that plays on as it was, "continuing without" someone, moves no one: the
+    // timeline stays the one first heard, so each message's own delay on the way does not nudge
+    // every player. Re-based on each, a host on a tethered link was nudged every few seconds
+    // while a viewer kept catching up, and Firefox's sound drifted ahead of its picture
+    // (staging, 2026-10-06).
+    return { ...current, group: { ...group, positionMs: current.group.positionMs } };
+  }
+  return {
+    ...current,
+    group,
+    groupReceivedAtMs: nowMs,
+    groupPlacedByRttMs: undefined,
+  };
+}
+
+/** The snapshot after a pong: its round trip measured, and the group placed anew by it (D264). */
+function afterPong(
+  current: TogetherSnapshot,
+  message: Extract<TogetherServerMessage, { readonly type: "pong" }>,
+  nowMs: number,
+): TogetherSnapshot {
+  const rttMs = Math.max(0, nowMs - message.tMono);
+  const measured = { ...current, minimumRttMs: Math.min(rttMs, current.minimumRttMs ?? rttMs) };
+  // A pong of the timeline followed places it anew when its round trip is the shortest yet:
+  // its wait is bounded by what was measured, a group message's by nothing (D264).
+  return message.group !== undefined &&
+    isSameTimeline(current.group, message.group) &&
+    rttMs < (current.groupPlacedByRttMs ?? Number.POSITIVE_INFINITY)
+    ? {
+        ...measured,
+        group: { ...current.group, positionMs: message.group.positionMs },
+        groupReceivedAtMs: nowMs,
+        groupPlacedByRttMs: rttMs,
+      }
+    : measured;
 }
 
 /** The snapshot after one message from the server, and whether it was the welcome. */
@@ -224,28 +295,19 @@ function afterMessage(
         isHost: message.isHost,
         group: message.group,
         groupReceivedAtMs: nowMs,
+        groupPlacedByRttMs: undefined,
         roster: message.roster,
         minimumRttMs: undefined,
         tuning: message.tuning,
       };
     case "group":
-      if (isSameTimeline(current.group, message.group)) {
-        // News of a group that plays on as it was, "continuing without" someone, moves no one: the
-        // timeline stays the one first heard, so each message's own delay on the way does not nudge
-        // every player. Re-based on each, a host on a tethered link was nudged every few seconds
-        // while a viewer kept catching up, and Firefox's sound drifted ahead of its picture
-        // (staging, 2026-10-06).
-        return { ...current, group: { ...message.group, positionMs: current.group.positionMs } };
-      }
-      return { ...current, group: message.group, groupReceivedAtMs: nowMs };
+      return afterGroup(current, message.group, nowMs);
     case "roster":
       return { ...current, roster: message.roster };
     case "rejected":
       return { ...current, lastRejectionCode: message.code };
-    case "pong": {
-      const rttMs = Math.max(0, nowMs - message.tMono);
-      return { ...current, minimumRttMs: Math.min(rttMs, current.minimumRttMs ?? rttMs) };
-    }
+    case "pong":
+      return afterPong(current, message, nowMs);
     case "ended":
       return { ...current, status: "ended", endReason: message.reason };
     case "rtc":
@@ -434,6 +496,32 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
     this.#send({ type: "ping", tMono: Math.max(1, this.#now()) });
   };
 
+  /**
+   * After a message: a new timeline is pinged for at once, so a measured round trip places it
+   * within one; a pong that placed the timeline anew is noted, with how far it moved it (D264).
+   */
+  #tellPlacing(message: TogetherServerMessage, before: TogetherSnapshot, nowMs: number): void {
+    const after = this.#snapshot;
+    if (after.group?.state !== "Playing") {
+      return;
+    }
+    if (message.type !== "pong") {
+      if (after.groupReceivedAtMs !== before.groupReceivedAtMs) {
+        this.#ping();
+      }
+      return;
+    }
+    if (after.groupPlacedByRttMs !== before.groupPlacedByRttMs) {
+      const wasMs = expectedGroupPositionMs(before, nowMs) ?? 0;
+      const isMs = expectedGroupPositionMs(after, nowMs) ?? 0;
+      this.note({
+        kind: "placed",
+        roundTripMs: Math.round(after.groupPlacedByRttMs ?? 0),
+        movedMs: Math.round(isMs - wasMs),
+      });
+    }
+  }
+
   /** Gives up on a socket nothing is heard on, as if it closed: it connects again after a wait. */
   #dropDeadSocket(): void {
     this.#generation += 1; // its close, whenever it comes, is not heard
@@ -477,7 +565,10 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
       return;
     }
     this.#seq = seqOf(message) ?? this.#seq;
-    this.#change(afterMessage(this.#snapshot, message, this.#now()));
+    const before = this.#snapshot;
+    const nowMs = this.#now();
+    this.#change(afterMessage(before, message, nowMs));
+    this.#tellPlacing(message, before, nowMs);
     if (message.type === "welcome") {
       this.#welcomed();
     } else if (message.type === "ended") {
