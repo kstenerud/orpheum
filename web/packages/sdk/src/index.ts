@@ -67,6 +67,7 @@ export type {
 } from "./together-voice.ts";
 export { browserVoiceDevices } from "./together-voice-browser.ts";
 export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
+export { isVoiceLive } from "./voice-live.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
 export {
   fellBehindEvent,

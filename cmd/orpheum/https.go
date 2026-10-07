@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/pacing"
 )
 
 // dnsPropagationWait is how long a challenge's TXT record is given to reach the name's servers
@@ -92,7 +93,7 @@ func serveHTTPS(
 	handler http.Handler, logger *slog.Logger,
 ) func() error {
 	server := &http.Server{
-		Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout(),
+		Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
 		TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: certificates.GetCertificate},
 	}
 	done := make(chan struct{})

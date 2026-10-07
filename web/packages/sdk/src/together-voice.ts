@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { setVoiceLive } from "./voice-live.ts";
+import { voiceStatsEveryMs, type VoiceCallStats } from "./together-voice-stats.ts";
 import {
   createTogetherConnection,
   type RelaysVoiceSignals,
@@ -82,6 +84,8 @@ export interface VoiceCall {
   readonly addCandidate: (candidate: string) => Promise<void>;
   /** How loud the other device's voice plays, from 0 (silent) through 1 (as it came) to louder. */
   readonly setGain: (gain: number) => void;
+  /** The call as its receiver measured it so far (D262 §1). */
+  readonly measure: () => Promise<VoiceCallStats>;
   readonly close: () => void;
 }
 
@@ -292,6 +296,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   /** When the ICE servers were last asked for, on the monotonic clock. */
   #iceServersAskedAtMs = 0;
   #lastIceServers: readonly RTCIceServer[] = [];
+  #measuring: ReturnType<typeof setInterval> | undefined;
 
   constructor(options: TogetherVoiceOptions<Microphone>) {
     this.#options = options;
@@ -341,6 +346,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       unsubscribe();
     }
     this.#unsubscribes = [];
+    clearInterval(this.#measuring);
+    this.#measuring = undefined;
     this.#connection?.close();
     this.#connection = undefined;
     this.#ownDeviceId = undefined;
@@ -368,6 +375,9 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
 
   #change(next: VoiceSnapshot): void {
     this.#snapshot = next;
+    setVoiceLive(
+      next.status === "on" && next.partners.some((partner) => partner.state === "connected"),
+    );
     for (const listener of this.#listeners) {
       listener();
     }
@@ -396,6 +406,28 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       }),
     ];
     connection.open();
+    this.#measuring = setInterval(() => {
+      this.#reportCalls(connection);
+    }, voiceStatsEveryMs);
+  }
+
+  /** Tells the core's log how each connected call is going (D262 §1). */
+  #reportCalls(connection: TogetherConnection): void {
+    for (const entry of this.#calls.values()) {
+      const { call } = entry;
+      if (call === undefined || entry.partner().state !== "connected") {
+        continue;
+      }
+      call.measure().then(
+        (stats) => {
+          connection.note({
+            kind: "voiceStats",
+            voice: { partnerDeviceId: entry.deviceId, ...stats },
+          });
+        },
+        () => undefined, // a call that cannot say is said nothing of; its next measure may
+      );
+    }
   }
 
   /** Keeps a call with every other person's voice device the session's roster lists. */

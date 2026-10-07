@@ -61,6 +61,7 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
           setGain: (gain) => {
             call.gain = gain;
           },
+          measure: () => Promise.reject(new Error("not measured here")),
           close: () => undefined,
         };
         calls.push(call);

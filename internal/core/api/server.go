@@ -176,7 +176,7 @@ func NewServer(logger *slog.Logger) *Server {
 
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once.
 func (server *Server) Handler() http.Handler {
-	return server.idempotent(server.mux)
+	return server.idempotent(server.pacedMedia(server.mux))
 }
 
 // Mux is the router, for the composition root to mount debug endpoints beside the API.

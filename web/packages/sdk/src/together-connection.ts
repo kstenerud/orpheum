@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { VoiceCallStats } from "./together-voice-stats.ts";
 import {
   parseTogetherMessage,
   startingTuning,
@@ -69,7 +70,8 @@ export interface PlayerState {
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at estimateKbps;
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
- *   (nothing was heard on it).
+ *   (nothing was heard on it);
+ * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1).
  */
 export type PlayerNote =
   | {
@@ -96,7 +98,11 @@ export type PlayerNote =
       readonly qualityKbps: number;
       readonly estimateKbps: number;
     }
-  | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" };
+  | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
+  | {
+      readonly kind: "voiceStats";
+      readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
+    };
 
 /** A command only the host sends (D246 §8): play, pause, seek, put a film on, or stop. */
 export type GroupCommand =
