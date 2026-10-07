@@ -413,3 +413,46 @@ func TestScans_AScanInProgressShowsHowFarItIs(t *testing.T) {
 			isScanning)
 	}
 }
+
+// rootsOnQuickPass are the bench's node's roots on their quick pass.
+func (bench *scanBench) rootsOnQuickPass() []string {
+	bench.t.Helper()
+	roots, err := bench.scans.RootsOnQuickPass(bench.t.Context(), bench.nodeID)
+	if err != nil {
+		bench.t.Fatal(err)
+	}
+	return roots
+}
+
+// A root is on its scan's quick pass while the scan lists it and reads the files it found new or
+// changed, and off it once they are read, so a background read of whole films on its disk waits for
+// that and no longer (D255). Another node's roots are not its node's.
+func TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	ctx := t.Context()
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
+		t.Fatal(err)
+	}
+	if roots := bench.rootsOnQuickPass(); !slices.Equal(roots, []string{root}) {
+		t.Errorf("before its listing, the roots on their quick pass = %v; want %s", roots, root)
+	}
+	if roots, err := bench.scans.RootsOnQuickPass(ctx, bench.nodeID+1); err != nil || len(roots) != 0 {
+		t.Errorf("another node's roots on their quick pass = %v (%v); want none", roots, err)
+	}
+	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1))
+	if roots := bench.rootsOnQuickPass(); !slices.Equal(roots, []string{root}) {
+		t.Errorf("listed, its file not read, the roots on their quick pass = %v; want %s", roots, root)
+	}
+	job, _ := bench.examine()
+	err := bench.scans.ExamineAssignee(nil).Answer(ctx, job, nodes.Attempt{NodeID: bench.nodeID},
+		nodeproto.Result{Examined: &nodeproto.Examined{Records: []nodeproto.ScanRecord{
+			observedRecord("Wing/Wing.mkv", "alien"),
+		}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if roots := bench.rootsOnQuickPass(); len(roots) != 0 {
+		t.Errorf("once its file was read, the roots on their quick pass = %v; want none", roots)
+	}
+}

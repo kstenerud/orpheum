@@ -36,11 +36,12 @@ const (
 
 // The prefixes of the destinations named by a node.
 const (
-	nodePrefix     = "node:"
-	rootPrefix     = "root:"
-	preparedPrefix = "prepared:"
-	slotPrefix     = "slot:"
-	readerPrefix   = "reader:"
+	nodePrefix      = "node:"
+	rootPrefix      = "root:"
+	preparedPrefix  = "prepared:"
+	slotPrefix      = "slot:"
+	readerPrefix    = "reader:"
+	quickPassPrefix = "quickpass:"
 )
 
 // NodeDestination is a node: down while it is not connected or silent; its hello brings it back.
@@ -72,6 +73,12 @@ func ReaderDestination(nodeID int64, device string) Destination {
 	return Destination(readerPrefix + strconv.FormatInt(nodeID, 10) + ":" + device)
 }
 
+// QuickPassDestination is a device of a node's that a scan is still on its quick pass of (D255): a
+// background read of whole files waits on it until the scan has read every new file there.
+func QuickPassDestination(nodeID int64, device string) Destination {
+	return Destination(quickPassPrefix + strconv.FormatInt(nodeID, 10) + ":" + device)
+}
+
 // DestinationParts are what a destination's name says: which outside host or node it is.
 type DestinationParts struct {
 	// NodeID is the node a node's, a root's or a prepared directory's destination is on; 0 for
@@ -79,12 +86,13 @@ type DestinationParts struct {
 	NodeID int64
 	// Path is a root's or a mount's path on its node.
 	Path string
-	// IsNode, IsRoot, IsPreparedDirectory and IsSlot say which of a node's destinations it is; a
-	// device's readers are a slot too, to a person.
+	// IsNode, IsRoot, IsPreparedDirectory, IsSlot and IsQuickPass say which of a node's destinations
+	// it is; a device's readers are a slot too, to a person.
 	IsNode              bool
 	IsRoot              bool
 	IsPreparedDirectory bool
 	IsSlot              bool
+	IsQuickPass         bool
 }
 
 // PartsOf reads a destination's name.
@@ -102,6 +110,10 @@ func PartsOf(destination Destination) DestinationParts {
 		idText, _, _ := strings.Cut(rest, ":")
 		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
 		return DestinationParts{NodeID: id, IsSlot: true}
+	case strings.HasPrefix(name, quickPassPrefix):
+		idText, _, _ := strings.Cut(strings.TrimPrefix(name, quickPassPrefix), ":")
+		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
+		return DestinationParts{NodeID: id, IsQuickPass: true}
 	case strings.HasPrefix(name, rootPrefix):
 		idText, path, _ := strings.Cut(strings.TrimPrefix(name, rootPrefix), ":")
 		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
@@ -135,6 +147,8 @@ func DescribeDestination(destination Destination, nodeName func(nodeID int64) st
 		return "the prepared directory on node " + nodeName(parts.NodeID)
 	case parts.IsSlot:
 		return "a free slot on node " + nodeName(parts.NodeID)
+	case parts.IsQuickPass:
+		return "a scan's first look at a disk on node " + nodeName(parts.NodeID)
 	}
 	return string(destination)
 }

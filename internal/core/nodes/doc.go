@@ -118,6 +118,11 @@
 //     TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull,
 //     TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders,
 //     TestHello_BringsBackTheWorkParkedOnTheNodeAndOnAnyNode.
+//   - Background work that reads whole films, a read-through or a subtitle extracted from inside one,
+//     waits while a scan is on its quick pass of the film's disk, on that disk's quick pass rather
+//     than its readers, asking again every half minute (D255).
+//     TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk and, for when a root is on it,
+//     TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead (internal/core/library).
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for

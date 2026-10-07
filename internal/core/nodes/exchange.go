@@ -96,6 +96,7 @@ type Exchanges struct {
 	// brokenInvariants counts, by node, the differences reconciled between what it was given and held.
 	brokenInvariants map[int64]int // guarded by mutex
 	disks            DiskStalls    // guarded by mutex
+	quickPasses      QuickPasses   // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
