@@ -222,3 +222,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   `ORPHEUM_ACCEPTANCE_MINUTES=30` holds the two within 200 ms 95% of the time and voice within its
   bounds under each profile, as in the development container (D252 §2; M4's audit).
   (`web/e2e/acceptance.spec.ts`)
+- [ ] **VQ25** — Against staging, on an Android phone (Chrome or Firefox) and on an iPhone in
+  Safari: play a film with English subtitles chosen, past the first line, then go fullscreen with
+  the video's own button (the iPhone's player is fullscreen already). Passes when the subtitles
+  still show in fullscreen, plainly styled, keep the offset set below the video, and go back to the
+  drawn ones when fullscreen ends. Only a real phone shows that its fullscreen player draws a
+  page's text track (D254). (`web/packages/player/src/fullscreen-captions.ts`)

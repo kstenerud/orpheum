@@ -2,7 +2,7 @@
 
 import "./subtitles.css";
 
-import { drawSubtitles, type SubtitleLayer } from "@orpheum/player";
+import { drawSubtitles, type CaptionSource, type SubtitleLayer } from "@orpheum/player";
 import { textWhenReady, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -141,7 +141,9 @@ export function Subtitles(props: {
   const offsetRef = useRef(props.preferences.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const track = props.tracks.find((candidate) => trackKey(candidate) === chosenTrackKey);
-  const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
+  const labelOf = useTrackLabel();
+  const drawn = track === undefined ? undefined : drawnTrackOf(track, labelOf(track));
+  const layerRef = useSubtitleLayer(drawn, props.videoRef, {
     offsetRef,
     onFailed: setFailure,
   });
@@ -178,12 +180,16 @@ export function Subtitles(props: {
   );
 }
 
-/** The menu of tracks, with "Off" first. */
-function TrackMenu(props: {
-  readonly tracks: readonly SubtitleTrack[];
-  readonly chosen: TrackKey | undefined;
-  readonly onChoose: (key: TrackKey | undefined) => void;
-}): JSX.Element {
+/** What draws a track: its ASS, and its WebVTT named as the menu names it, for fullscreen (D254). */
+function drawnTrackOf(track: SubtitleTrack, label: string): DrawnTrack {
+  return { assUrl: track.assUrl, vttUrl: track.vttUrl, language: track.language, label };
+}
+
+/** A track as useSubtitleLayer draws it. */
+type DrawnTrack = CaptionSource & { readonly assUrl: string };
+
+/** A track's name in the menu, in the viewer's language. */
+function useTrackLabel(): (track: SubtitleTrack) => string {
   const { t, i18n } = useTranslation();
   const words = {
     unknownLanguage: t("play.subtitles.unknownLanguage"),
@@ -191,6 +197,17 @@ function TrackMenu(props: {
     hearingImpaired: t("play.subtitles.hearingImpaired"),
     fetched: t("play.subtitles.fetched"),
   };
+  return (track) => trackLabel(track, i18n.language, words);
+}
+
+/** The menu of tracks, with "Off" first. */
+function TrackMenu(props: {
+  readonly tracks: readonly SubtitleTrack[];
+  readonly chosen: TrackKey | undefined;
+  readonly onChoose: (key: TrackKey | undefined) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const labelOf = useTrackLabel();
   return (
     <label>
       {t("play.subtitles.label")}{" "}
@@ -206,7 +223,7 @@ function TrackMenu(props: {
         <option value="">{t("play.subtitles.off")}</option>
         {props.tracks.map((track) => (
           <option key={trackKey(track)} value={trackKey(track)}>
-            {trackLabel(track, i18n.language, words)}
+            {labelOf(track)}
           </option>
         ))}
       </select>
@@ -248,12 +265,13 @@ function OffsetControl(props: {
 }
 
 /**
- * Draws the track at assUrl over the video once its text is extracted, and removes it when
- * another is chosen or the page closes. It starts with the offset current when it is drawn;
- * later changes go through the returned layer.
+ * Draws the track at its assUrl over the video once its text is extracted, with the same track as
+ * captions for the browser's own fullscreen (D254), and removes both when another is chosen or the
+ * page closes. It starts with the offset current when it is drawn; later changes go through the
+ * returned layer.
  */
 function useSubtitleLayer(
-  assUrl: string | undefined,
+  drawn: DrawnTrack | undefined,
   videoRef: RefObject<HTMLVideoElement | null>,
   options: { offsetRef: RefObject<number>; onFailed: (why: string) => void },
 ): RefObject<SubtitleLayer | undefined> {
@@ -261,16 +279,19 @@ function useSubtitleLayer(
   const { fetchMedia } = useServices();
   const layerRef = useRef<SubtitleLayer | undefined>(undefined);
   const { offsetRef, onFailed } = options;
+  // Named by its parts, so a render that names the same track again keeps its layer.
+  const { assUrl, vttUrl, language, label } = drawn ?? {};
   useEffect(() => {
     const video = videoRef.current;
-    if (assUrl === undefined || video === null) {
+    if (assUrl === undefined || vttUrl === undefined || video === null) {
       return undefined;
     }
+    const captions = { vttUrl, language: language ?? "", label: label ?? "" };
     const aborter = new AbortController();
     textWhenReady(assUrl, { fetch: fetchMedia, signal: aborter.signal }).then(
       (ass) => {
         if (!aborter.signal.aborted) {
-          layerRef.current = drawSubtitles(video, ass, offsetRef.current);
+          layerRef.current = drawSubtitles(video, { assText: ass, captions }, offsetRef.current);
         }
       },
       (cause: unknown) => {
@@ -284,6 +305,6 @@ function useSubtitleLayer(
       layerRef.current?.destroy();
       layerRef.current = undefined;
     };
-  }, [assUrl, videoRef, offsetRef, onFailed, t, fetchMedia]);
+  }, [assUrl, vttUrl, language, label, videoRef, offsetRef, onFailed, t, fetchMedia]);
   return layerRef;
 }
