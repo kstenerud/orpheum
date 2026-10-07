@@ -24,11 +24,16 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A stall is a wait for data, while playing, of at least `stallAfterMs`, after the player has
   played since its last seek**: a seek's loading, a first load and a brief wait are not
   (D247 §2). `stalls.test.ts`.
-- **A chunked playback starts at the quality the server chose and steps up only one quality at a
-  time**, after `holdBeforeStepUpMs` at its quality, with `stepUpBufferMs` loaded ahead and a link
-  `stepUpHeadroom` times the next quality's rate; hls.js steps down by itself, and never probes the
-  lowest quality first, whose chunks are made only for a player that needs them (D247 §9, §10).
-  `step-up.test.ts`, `chunked.test.ts`.
+- **A chunked playback's every choice of quality is a bitrate controller of our own inside
+  hls.js** (`src/abr.ts`, its rules in `src/abr-choice.ts`; D265), keeping hls.js's estimator:
+  it starts at the quality the server chose, never probing the lowest first, whose chunks are made
+  only for a player that needs them (D247 §10); gives up a slow chunk on its way, playing or not,
+  for the lowest quality too; takes a share of the measured link that rises with what is loaded
+  ahead; steps up only one quality at a time, after `holdBeforeStepUpMs` at its quality, with
+  `stepUpBufferMs` loaded ahead and a link `stepUpHeadroom` times the next quality's rate (D247
+  §9); holds the film to half the link while voice is live; and counts neither a chunk from the
+  browser's cache nor one its pace held back as a measure of the link.
+  `abr-choice.test.ts`, `abr.test.ts`, `step-up.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).
@@ -47,7 +52,7 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks at a quality
-  and stepping up: `src/chunked.ts`, `src/step-up.ts`. HLS playback:
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
+  choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
   over the video: `src/subtitles.ts`.

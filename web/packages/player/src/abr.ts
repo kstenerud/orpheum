@@ -1,0 +1,442 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import {
+  AbrController,
+  Events,
+  PlaylistLevelType,
+  type Fragment,
+  type FragBufferedData,
+  type FragLoadedData,
+  type FragLoadingData,
+  type ErrorData,
+  type HlsProgressivePerformanceTiming,
+  type LevelLoadedData,
+  type LoaderStats,
+} from "hls.js";
+import type Hls from "hls.js";
+
+import {
+  giveUpFor,
+  measuresTheLink,
+  startingLevel,
+  steadyLevel,
+  voiceCeiling,
+  type ChoiceLevel,
+} from "./abr-choice.ts";
+import { nextCap } from "./step-up.ts";
+
+/** How often the controller looks at a chunk on its way (D265 §3). */
+export const lookAtChunkEveryMs = 500;
+
+/** How often it looks at whether it may step up a quality (D247 §9). */
+export const lookForStepUpEveryMs = 10_000;
+
+/**
+ * How far above its quality's rate, its BANDWIDTH, a chunk's download is paced while voice is
+ * live: enough that a busy chunk still arrives well before it plays (D262 §2).
+ */
+export const paceAboveQuality = 1.25;
+
+/** A chunk as choosing follows it: hls.js's Fragment, or a test's. */
+export interface FollowedChunk {
+  readonly level: number;
+  readonly duration: number;
+  readonly stats: Pick<LoaderStats, "loaded" | "total" | "aborted"> & {
+    readonly loading: Pick<HlsProgressivePerformanceTiming, "start" | "first" | "end">;
+  };
+}
+
+/** What choosing reads of hls.js. */
+export interface ChoosingHls {
+  readonly levels: readonly ChoiceLevel[];
+  readonly currentLevel: number;
+  readonly loadLevel: number;
+  readonly minAutoLevel: number;
+  readonly maxAutoLevel: number;
+  readonly mainForwardBufferInfo: { readonly len: number } | null;
+}
+
+/** What a playback tells its choosing. */
+export interface ChoosingOptions {
+  /** The highest BANDWIDTH it starts within (D247 §6, D260 §3). */
+  readonly startAtBps: number;
+  readonly monotonicMs: () => number;
+  /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
+  readonly isVoiceLive: () => boolean;
+}
+
+/** What choosing is given of the link: hls.js's estimate of it, and how to give a chunk up. */
+export interface ChoosingLink<Chunk extends FollowedChunk> {
+  readonly estimateBps: () => number;
+  readonly giveUp: (chunk: Chunk) => void;
+}
+
+/**
+ * Every choice of a chunked playback's quality (D265), by abr-choice.ts's rules: where it starts,
+ * when a chunk on its way is given up, what the next chunk is of, the step-up, what voice leaves the
+ * film, and which chunks measure the link. hls.js asks it through OrpheumAbr.
+ */
+export class Choosing<Chunk extends FollowedChunk> {
+  readonly #hls: ChoosingHls;
+  readonly #options: ChoosingOptions;
+  readonly #link: ChoosingLink<Chunk>;
+  /** The highest quality it may choose: the start, lowered by each step down, raised by the step-up. */
+  #ceiling: number | undefined;
+  #changedAtMs: number;
+  #onItsWay: { readonly chunk: Chunk; readonly sinceMs: number } | undefined;
+  /** The pace each paced chunk was asked to arrive at, bits a second. */
+  readonly #paces = new WeakMap<Chunk, number>();
+  /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
+  #forced: number | undefined;
+  #lastChosen = -1;
+  #hasMeasured = false;
+  readonly #timers: ReturnType<typeof setInterval>[];
+
+  constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
+    this.#hls = hls;
+    this.#options = options;
+    this.#link = link;
+    this.#changedAtMs = options.monotonicMs();
+    this.#timers = [
+      setInterval(() => {
+        this.#lookAtChunk();
+      }, lookAtChunkEveryMs),
+      setInterval(() => {
+        this.#lookForStepUp();
+      }, lookForStepUpEveryMs),
+    ];
+  }
+
+  /** The quality the first chunk is of. */
+  firstLevel(): number {
+    this.#lastChosen = this.#clamped(this.#ceilingNow());
+    return this.#lastChosen;
+  }
+
+  /** The quality the next chunk is of: a forced one, else the steady choice, under voice's ceiling. */
+  nextLevel(): number {
+    if (this.#forced !== undefined) {
+      this.#lastChosen = this.#forced;
+      return this.#forced;
+    }
+    const ceiling = this.#ceilingNow();
+    const linkBps = this.#linkBps();
+    const steady = steadyLevel({
+      levels: this.#hls.levels,
+      ceiling,
+      linkBps,
+      bufferAheadS: this.#bufferAheadS(),
+    });
+    this.#lower(steady);
+    const level = this.#options.isVoiceLive()
+      ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
+      : steady;
+    this.#lastChosen = this.#clamped(level);
+    return this.#lastChosen;
+  }
+
+  /** The quality hls.js forced, or -1. */
+  forcedLevel(): number {
+    return this.#forced ?? -1;
+  }
+
+  /**
+   * hls.js setting the next quality: its echo of what was just chosen, which changes nothing, or a
+   * force, a switch down after a load error, obeyed until a chunk of it loads (D265 §8).
+   */
+  setLevel(level: number): void {
+    const clamped = this.#clamped(level);
+    if (level < 0 || clamped === this.#lastChosen) {
+      return;
+    }
+    this.#forced = clamped;
+    this.#lower(clamped);
+  }
+
+  /** A chunk of picture began loading, at the pace asked while voice is live. */
+  loading(chunk: Chunk): void {
+    this.#onItsWay = { chunk, sinceMs: this.#options.monotonicMs() };
+    const paceKbps = this.paceKbps();
+    if (paceKbps !== undefined) {
+      this.#paces.set(chunk, paceKbps * 1000);
+    }
+  }
+
+  /** A chunk of picture loaded. */
+  loaded(chunk: Chunk): void {
+    if (this.#onItsWay?.chunk === chunk) {
+      this.#onItsWay = undefined;
+    }
+    if (this.#forced === chunk.level) {
+      this.#forced = undefined;
+    }
+  }
+
+  /** Whether a loaded chunk of picture measures the link, to be counted in the estimate (D265 §7). */
+  measures(chunk: Chunk): boolean {
+    const { loading, loaded } = chunk.stats;
+    const isCounted = measuresTheLink({
+      loadMs: loading.end - loading.start,
+      arrivingMs: loading.end - loading.first,
+      bytes: loaded,
+      paceBps: this.#paces.get(chunk),
+    });
+    this.#hasMeasured ||= isCounted;
+    return isCounted;
+  }
+
+  /** The quality playing changed: the step-up holds from now. */
+  switched(): void {
+    this.#changedAtMs = this.#options.monotonicMs();
+  }
+
+  /**
+   * The pace a download asks while this tab's voice is live, in kbit/s: paceAboveQuality times the
+   * quality it loads, so the film never fills the link's queue in bursts ahead of the voice (D262
+   * §2); undefined while voice is not live, or before a quality is loaded.
+   */
+  paceKbps(): number | undefined {
+    const bitrate = this.#hls.levels[this.#hls.loadLevel]?.bitrate ?? 0;
+    return this.#options.isVoiceLive() && bitrate > 0
+      ? Math.ceil((bitrate * paceAboveQuality) / 1000)
+      : undefined;
+  }
+
+  /** The link as measured, in kbit/s; undefined before a chunk measured it. */
+  linkKbps(): number | undefined {
+    const linkBps = this.#linkBps();
+    return linkBps === undefined ? undefined : linkBps / 1000;
+  }
+
+  stop(): void {
+    for (const timer of this.#timers) {
+      clearInterval(timer);
+    }
+  }
+
+  #lookAtChunk(): void {
+    const onItsWay = this.#onItsWay;
+    if (onItsWay === undefined || onItsWay.chunk.stats.aborted) {
+      return;
+    }
+    const { chunk, sinceMs } = onItsWay;
+    const { loading, loaded, total } = chunk.stats;
+    const chosen = giveUpFor({
+      levels: this.#hls.levels,
+      loadingLevel: chunk.level,
+      lowestLevel: this.#hls.minAutoLevel,
+      durationS: chunk.duration,
+      loadingMs: this.#options.monotonicMs() - sinceMs,
+      firstByteMs: loading.first > 0 ? loading.first - loading.start : undefined,
+      loadedBytes: loaded,
+      totalBytes: total,
+      linkBps: this.#linkBps(),
+      bufferAheadS: this.#bufferAheadS(),
+    });
+    if (chosen === undefined) {
+      return;
+    }
+    this.#onItsWay = undefined;
+    this.#lower(chosen);
+    this.#lastChosen = chosen;
+    this.#link.giveUp(chunk);
+  }
+
+  #lookForStepUp(): void {
+    const ceiling = this.#ceiling;
+    if (ceiling === undefined) {
+      return;
+    }
+    const raised = nextCap({
+      levels: this.#hls.levels,
+      cap: ceiling,
+      playing: this.#hls.currentLevel,
+      estimateBps: this.#linkBps() ?? 0,
+      bufferedAheadMs: this.#bufferAheadS() * 1000,
+      sinceChangeMs: this.#options.monotonicMs() - this.#changedAtMs,
+    });
+    if (raised !== ceiling) {
+      this.#ceiling = raised;
+      this.#changedAtMs = this.#options.monotonicMs();
+    }
+  }
+
+  /** The ceiling, the start until the levels are known and it is set from them. */
+  #ceilingNow(): number {
+    if (this.#ceiling === undefined && this.#hls.levels.length > 0) {
+      this.#ceiling = startingLevel(this.#hls.levels, this.#options.startAtBps);
+    }
+    return this.#ceiling ?? 0;
+  }
+
+  /** Lowers the ceiling to level, a step down; one at or above it changes nothing. */
+  #lower(level: number): void {
+    if (level < this.#ceilingNow()) {
+      this.#ceiling = level;
+      this.#changedAtMs = this.#options.monotonicMs();
+    }
+  }
+
+  #clamped(level: number): number {
+    const { minAutoLevel, maxAutoLevel, levels } = this.#hls;
+    return levels.length === 0 ? level : Math.min(Math.max(level, minAutoLevel), maxAutoLevel);
+  }
+
+  #linkBps(): number | undefined {
+    return this.#hasMeasured ? this.#link.estimateBps() : undefined;
+  }
+
+  #bufferAheadS(): number {
+    return this.#hls.mainForwardBufferInfo?.len ?? 0;
+  }
+}
+
+/** Whether a chunk is one of picture, which alone measures the link and is chosen among. */
+function isPicture(frag: Fragment): boolean {
+  return frag.type === PlaylistLevelType.MAIN && frag.sn !== "initSegment";
+}
+
+/**
+ * Each controller's listeners on hls.js, kept outside it: hls.js registers them from its own
+ * constructor, before the controller's fields exist.
+ */
+const listenersOf = new WeakMap<
+  OrpheumAbrController,
+  ReturnType<OrpheumAbrController["listeners"]>
+>();
+
+/**
+ * hls.js's own bitrate controller, keeping its estimator, which its other controllers read, with
+ * every choice handed to a Choosing (D265). A chunk given up is aborted as hls.js's own controller
+ * does, and hls.js loads again from where it was.
+ */
+class OrpheumAbrController extends AbrController {
+  readonly choosing: Choosing<Fragment>;
+
+  constructor(hls: Hls, options: ChoosingOptions) {
+    super(hls);
+    this.choosing = new Choosing<Fragment>(hls, options, {
+      estimateBps: () => this.bwEstimator.getEstimate(),
+      giveUp: (frag) => {
+        frag.abortRequests();
+        hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
+      },
+    });
+  }
+
+  /** What it listens to: a picture chunk's loading, loading and buffering, and the quality switching. */
+  listeners(): {
+    readonly loading: (event: Events.FRAG_LOADING, data: FragLoadingData) => void;
+    readonly loaded: (event: Events.FRAG_LOADED, data: FragLoadedData) => void;
+    readonly buffered: (event: Events.FRAG_BUFFERED, data: FragBufferedData) => void;
+    readonly levelLoaded: (event: Events.LEVEL_LOADED, data: LevelLoadedData) => void;
+    readonly switched: () => void;
+    readonly error: (event: Events.ERROR, data: ErrorData) => void;
+  } {
+    return {
+      loading: (event, data) => {
+        this.onFragLoading(event, data);
+      },
+      loaded: (event, data) => {
+        this.onFragLoaded(event, data);
+      },
+      buffered: (event, data) => {
+        this.onFragBuffered(event, data);
+      },
+      // hls.js's own: the estimate's half-lives, and a timed-out chunk's sample.
+      levelLoaded: (event, data) => {
+        this.onLevelLoaded(event, data);
+      },
+      switched: () => {
+        this.choosing.switched();
+      },
+      error: (event, data) => {
+        this.onError(event, data);
+      },
+    };
+  }
+
+  protected override registerListeners(): void {
+    const { hls } = this;
+    const listeners = this.listeners();
+    listenersOf.set(this, listeners);
+    hls.on(Events.FRAG_LOADING, listeners.loading);
+    hls.on(Events.FRAG_LOADED, listeners.loaded);
+    hls.on(Events.FRAG_BUFFERED, listeners.buffered);
+    hls.on(Events.LEVEL_LOADED, listeners.levelLoaded);
+    hls.on(Events.LEVEL_SWITCHED, listeners.switched);
+    hls.on(Events.ERROR, listeners.error);
+  }
+
+  protected override unregisterListeners(): void {
+    const { hls } = this;
+    const listeners = listenersOf.get(this);
+    if (listeners === undefined) {
+      return;
+    }
+    hls.off(Events.FRAG_LOADING, listeners.loading);
+    hls.off(Events.FRAG_LOADED, listeners.loaded);
+    hls.off(Events.FRAG_BUFFERED, listeners.buffered);
+    hls.off(Events.LEVEL_LOADED, listeners.levelLoaded);
+    hls.off(Events.LEVEL_SWITCHED, listeners.switched);
+    hls.off(Events.ERROR, listeners.error);
+  }
+
+  protected override onFragLoading(_event: Events.FRAG_LOADING, data: FragLoadingData): void {
+    if (isPicture(data.frag)) {
+      this.choosing.loading(data.frag);
+    }
+  }
+
+  protected override onFragLoaded(event: Events.FRAG_LOADED, data: FragLoadedData): void {
+    super.onFragLoaded(event, data); // its time to first byte
+    if (isPicture(data.frag)) {
+      this.choosing.loaded(data.frag);
+    }
+  }
+
+  protected override onFragBuffered(event: Events.FRAG_BUFFERED, data: FragBufferedData): void {
+    if (isPicture(data.frag) && this.choosing.measures(data.frag)) {
+      super.onFragBuffered(event, data); // its sample of the link
+    }
+  }
+
+  override get firstAutoLevel(): number {
+    return this.choosing.firstLevel();
+  }
+
+  override get forcedAutoLevel(): number {
+    return this.choosing.forcedLevel();
+  }
+
+  override get nextAutoLevel(): number {
+    return this.choosing.nextLevel();
+  }
+
+  override set nextAutoLevel(level: number) {
+    this.choosing.setLevel(level);
+  }
+
+  override destroy(): void {
+    this.choosing.stop();
+    super.destroy();
+  }
+}
+
+/** A playback's bitrate controller, made for hls.js's config, and its choosing once hls.js made it. */
+export interface OrpheumAbr {
+  readonly controller: typeof AbrController;
+  readonly choosing: () => Choosing<Fragment> | undefined;
+}
+
+/** The bitrate controller of one chunked playback, choosing by options (D265). */
+export function orpheumAbr(options: ChoosingOptions): OrpheumAbr {
+  let made: Choosing<Fragment> | undefined;
+  class PlaybackAbrController extends OrpheumAbrController {
+    constructor(hls: Hls) {
+      super(hls, options);
+      made = this.choosing;
+    }
+  }
+  return { controller: PlaybackAbrController, choosing: () => made };
+}
