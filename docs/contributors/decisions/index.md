@@ -259,6 +259,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D251](working-notes.md#d251--the-web-clients-first-skin-is-dark-with-one-coral-accent-the-system-typeface-and-slightly-rounded-corners) The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
 - [D252](working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end) M4's acceptance shapes each client's network with the kernel's netem, in a run of its own at the milestone's end
 - [D253](working-notes.md#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up) A stalled player is told of its lower version at its first stall, and moves to it once it is ready if it still cannot keep up
+- [D254](working-notes.md#d254--in-the-browsers-own-fullscreen-the-chosen-subtitle-track-is-shown-as-the-browsers-captions) In the browser's own fullscreen, the chosen subtitle track is shown as the browser's captions
 
 ## Archived
 

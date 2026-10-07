@@ -35,7 +35,7 @@ background, never as a to-do list.
 | Library | scan, identify (TMDB, NFO read), ambiguous-match chooser, manual fixes, the four levels, versions, extras, **what the scanner saw** | [scanner.md](scanner.md), [identification.md](identification.md), [library-model.md](library-model.md) |
 | Finding and resuming | browse, search, detail pages, artwork, play state, Continue Watching (with hide and undo), Next Up | [play-state.md](play-state.md), [artwork.md](artwork.md), [web-client.md](web-client.md) |
 | Playback | direct play, and **prepare** (§6) for everything else | [stream-service.md](stream-service.md) |
-| Subtitles | embedded and sidecar text tracks via JASSUB; sync offset; **fetch on request** from the play screen, from OpenSubtitles, labelled unverified; off until a person chooses a track (D223) | [subtitle-acquisition.md](subtitle-acquisition.md) |
+| Subtitles | embedded and sidecar text tracks via JASSUB, and as the browser's own captions in its own fullscreen ([D254](../../decisions/working-notes.md#d254--in-the-browsers-own-fullscreen-the-chosen-subtitle-track-is-shown-as-the-browsers-captions)); sync offset; **fetch on request** from the play screen, from OpenSubtitles, labelled unverified; off until a person chooses a track (D223) | [subtitle-acquisition.md](subtitle-acquisition.md) |
 | Quiet dialogue, quiet films | dialogue boost on or off, as a prepared audio rendition; the device declares its speakers; **loudness levelled**: each sound measured once by the node and brought towards one level by the player, on until a person turns it off (D226) | [audio-presentation.md](audio-presentation.md) |
 | People | local accounts, sessions, invites from outside | [auth.md](auth.md) |
 | Together | Watch Together for two with voice, the remote person's voice on her phone's browser while her computer's browser plays; reachability; one public HTTPS name. The cast receiver and the TV come right after Cut A (D245) | [watch-together.md](watch-together.md), [remote-access.md](remote-access.md) |
@@ -430,8 +430,8 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
 ```
 
 - **Text subtitles** are extracted by `extract_subtitle` jobs queued alongside, one per track.
-  The output is ASS for JASSUB and WebVTT for the cast receiver, served as sidecar files rather
-  than as HLS renditions in Cut A.
+  The output is ASS for JASSUB and WebVTT for the cast receiver and the browser's own fullscreen
+  (D254), served as sidecar files rather than as HLS renditions in Cut A.
 - **The boost matrix** is one fixed matrix whose centre gain is set in M3 by listening test on a
   television, and recorded as an `assumptions/` test.
 - **Where the output lives:** `<file_id>/<profile>/<run_id>/` under the node's own prepared directory,

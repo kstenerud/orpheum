@@ -18378,3 +18378,27 @@ going to have trouble and switches over."*
    take (D247 §6, 70%). Otherwise it stays on the original, and its next stall moves it.
 
 **Status:** Decided 2026-10-07.
+
+---
+
+## D254 — In the browser's own fullscreen, the chosen subtitle track is shown as the browser's captions
+
+**Decided** (2026-10-07), by the project owner, after subtitles on Love, Guaranteed vanished as
+his phone went fullscreen: *"they stop showing when I switch to full screen mode"*. **Revises**
+cut-a §1's "text tracks via JASSUB" for fullscreen alone. JASSUB draws on a layer over the
+video; the fullscreen of a video's own controls, and the iPhone's player, which is always
+fullscreen, show the `<video>` element by itself, and the layer is left behind.
+
+1. **The chosen track is also given to the browser as captions**, its WebVTT form, which the
+   server already serves beside the ASS (D217 §6), as the video's text track. It is hidden on the
+   page, where the drawn layer shows the track as its author styled it, and shown only while the
+   video is in the browser's own fullscreen: `fullscreenchange` with the video as the fullscreen
+   element, and the iPhone's `webkitbeginfullscreen` and `webkitendfullscreen`.
+2. **In fullscreen the styling is plain**: the browser's own captions, without the track's fonts,
+   positions or effects. The offset moves the captions as it moves the drawn layer.
+3. **A fullscreen of our own**, the player area with its drawn layer, which would keep the styling
+   in fullscreen on Android and a computer but not on an iPhone, is left for later. The owner chose
+   this, the option that works on every device.
+
+**Status:** Decided 2026-10-07.
+

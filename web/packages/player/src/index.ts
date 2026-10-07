@@ -27,6 +27,7 @@ export { holdBeforeStepUpMs, nextCap, stepUpBufferMs, stepUpHeadroom } from "./s
 export type { StepUpState } from "./step-up.ts";
 export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";
 export type { SubtitleLayer } from "./subtitles.ts";
+export type { CaptionSource } from "./fullscreen-captions.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */
 export const playerPackageName = "@orpheum/player";
