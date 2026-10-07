@@ -103,7 +103,7 @@ function secondsFor(bytes: number, bps: number): number {
 }
 
 /** Whether a chunk on its way may be given up: above the lowest quality, and loading for half the time it plays. */
-function isLookedAt(chunk: ChunkOnItsWay): boolean {
+function canBeGivenUp(chunk: ChunkOnItsWay): boolean {
   return chunk.loadingLevel > chunk.lowestLevel && chunk.loadingMs >= (chunk.durationS * 1000) / 2;
 }
 
@@ -119,7 +119,7 @@ function isLookedAt(chunk: ChunkOnItsWay): boolean {
 export function giveUpFor(chunk: ChunkOnItsWay): number | undefined {
   const { levels, loadingLevel, durationS } = chunk;
   const loading = levels[loadingLevel];
-  if (loading === undefined || !isLookedAt(chunk)) {
+  if (loading === undefined || !canBeGivenUp(chunk)) {
     return undefined;
   }
   const bps = arrivingBps(chunk);
