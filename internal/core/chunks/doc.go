@@ -12,10 +12,12 @@
 //
 // # Invariants
 //
-//   - A grid starts at the picture's first keyframe, and each next start is the first keyframe at
-//     least the segment length past the last; a last chunk shorter than that is merged into the one
-//     before, and a picture with no keyframe before its end cannot be cut (ErrCannotBeCut).
-//     Enforced by TestGridOf_MergesKeyframesGreedilyIntoChunksOfAtLeastTheLength and
+//   - A grid starts at the picture's first keyframe, and each next start is the first keyframe at or
+//     after the next multiple of the segment length, so a stretch cut alone agrees with the whole
+//     film's (D259 §1); a last chunk shorter than that is merged into the one before, and a picture
+//     with no keyframe before its end cannot be cut (ErrCannotBeCut).
+//     Enforced by TestGridOf_StartsAChunkAtTheFirstKeyframeAtOrAfterEachMultipleOfTheLength,
+//     TestGridOf_AStretchCutAloneAgreesWithTheWholeFilmsGrid and
 //     TestGridOf_APictureWithNoKeyframeBeforeItsEndCannotBeCut.
 //
 //   - A film's grid is its main picture's timeline, a cover's never, by its bytes' payload hash;

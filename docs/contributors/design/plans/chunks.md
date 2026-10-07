@@ -13,8 +13,9 @@
 
 ## 1. The words
 
-- **The grid** is a film's chunk boundaries, in its own time: the source picture's keyframes,
-  merged greedily so each chunk is at least `hls_segment_length_seconds` long. Chunk *n* runs from
+- **The grid** is a film's chunk boundaries, in its own time: the source picture's first keyframe,
+  then the first keyframe at or after each multiple of `hls_segment_length_seconds` (D259 §1), so
+  a stretch cut alone agrees with the whole film's grid. Chunk *n* runs from
   `grid[n]` to `grid[n+1]`; the last ends at the film's end.
 - **A stream** is one thing cut on the grid: the **copied picture** (the original's, unchanged),
   a **quality** (the picture encoded to H.264 at one of the `chunk_qualities`), or a **sound** (one
