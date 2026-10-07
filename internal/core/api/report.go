@@ -67,7 +67,7 @@ type ReportOutput struct {
 	Body struct {
 		Stop *StopBody `doc:"The admin stopped this playback: stop, and show the message" json:"stop,omitempty"`
 		//nolint:lll // one struct tag
-		LowerQuality *LowerQualityBody `doc:"A lower quality to move to: the player stalled again (D247 §2)" json:"lowerQuality,omitempty"`
+		LowerQuality *LowerQualityBody `doc:"The lower quality the first stall started, ready or not (D253 §1)" json:"lowerQuality,omitempty"`
 	}
 }
 
@@ -84,6 +84,9 @@ type LowerQualityBody struct {
 	// SoundCarriedGainDB is the levelling gain the sound's chunks carry, as a prepared copy's do,
 	// which the player does not add again (D226 §4).
 	SoundCarriedGainDB float64 `json:"soundCarriedGainDb"`
+	// IsReady is whether the quality is made from where the player is, ready to move to; until it
+	// is, the player asks again (D253 §1).
+	IsReady bool `json:"isReady"`
 }
 
 // StopBody is the admin's stop of a playback, and what they said.
@@ -127,14 +130,14 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		output.Body.LowerQuality = &LowerQualityBody{
 			URL: Prefix + "/bytes/media/chunks/" + input.Token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 			QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
-			SoundCarriedGainDB: offer.SoundCarriedGainDB,
+			SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: answer.IsLowerQualityReady,
 		}
 	}
 	return output, nil
 }
 
 // logReport says what a report brought that a person would ask about: stalls, with where and the
-// link's speed, and a lower quality offered for them (D247 §2). A viewer in Singapore saw a still
+// link's speed, and the lower quality offered for them, ready or not (D253 §1). A viewer in Singapore saw a still
 // frame every few seconds, and nothing said what her player reported or was offered (staging,
 // 2026-10-06). Who is the holder's user, 0 for a viewer, and the file they may play; never the
 // session's key.
@@ -145,17 +148,18 @@ func (server *Server) logReport(
 		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
 		"positionMs", report.PositionMs, "linkKbps", report.LinkKbps,
 	}
-	if len(report.Stalls) > 0 {
-		positions := make([]int64, 0, len(report.Stalls))
-		for _, stall := range report.Stalls {
-			positions = append(positions, stall.PositionMs)
-		}
-		server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions)...)
+	if len(report.Stalls) == 0 {
+		return
 	}
+	positions := make([]int64, 0, len(report.Stalls))
+	for _, stall := range report.Stalls {
+		positions = append(positions, stall.PositionMs)
+	}
+	server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions)...)
 	if offer := answer.LowerQuality; offer != nil {
 		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
 			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
-			"isBelowTheLowest", offer.IsBelowTheLowest)...)
+			"isBelowTheLowest", offer.IsBelowTheLowest, "isReady", answer.IsLowerQualityReady)...)
 	}
 }
 

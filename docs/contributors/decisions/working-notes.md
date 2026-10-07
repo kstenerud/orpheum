@@ -18014,6 +18014,8 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
+> **Superseded in part by [D253](#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up)** (2026-10-07): **the version is played from when it is ready, not from a second stall.** The first stall still makes it, and its answer now offers it; a player moves once it is ready if it still cannot keep up (§2, §10 below).
+
 **Decided** (2026-10-05), by the project owner, after the first Watch Together test and the
 research it prompted ([slow-links.md](../design/research/slow-links.md)). **Revises**
 [D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback)
@@ -18351,3 +18353,28 @@ share it (§1 said each client its own). The short *home* run inside the branch 
 `NET_ADMIN` in CI's container, and the nuc13 confirmation is VQ24 (M4's audit, Q2).
 
 **Status:** Decided 2026-10-06.
+
+---
+
+## D253 — A stalled player is told of its lower version at its first stall, and moves to it once it is ready if it still cannot keep up
+
+**Decided** (2026-10-07), by the project owner, after a Watch Together guest on a 2.2 Mbit/s link
+joined a 9.9 Mbit/s film and saw one still picture: her first stall started a 1.2 Mbit/s version,
+as [D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
+§2 says, but her catch-up then left her paused ahead of the group, waiting, where she could not
+stall again, so the second stall that would have moved her never came. **Revises** D247 §2 and
+§10: a version is still made at the first stall, but it is played from when it is ready, not from
+a second stall. The owner: *"the moment the first stall happens, start producing a suitable low
+bandwidth steam and tell the client. When the stream is ready the client decides if it's still
+going to have trouble and switches over."*
+
+1. **The first stall's answer offers the version**, and every report's answer after it, saying
+   whether it is ready: made from where the player is for as far ahead as a stalled player loads
+   before it plays again (D247 §5, 10 s). A player told of a version not yet ready asks again
+   every few seconds.
+2. **A ready version is moved to if the player still cannot keep up**: it stalled again since the
+   offer, its link is not measured, or the film's own rate is more than the share of the measured
+   link a quality may take (D247 §6, 70%). Otherwise it stays on the original, and its next stall
+   moves it.
+
+**Status:** Decided 2026-10-07.

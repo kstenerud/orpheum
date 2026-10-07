@@ -85,6 +85,19 @@ func (tracker *runTracker) isCovered(dir string, n int) bool {
 	return tracker.storeLocked(dir).isCoveredLocked(n)
 }
 
+// isMadeFromThrough is whether every chunk of the store from first through last is known made.
+func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	known := tracker.storeLocked(dir)
+	for n := first; n <= last; n++ {
+		if !known.isMade[n] {
+			return false
+		}
+	}
+	return true
+}
+
 // cutFar cuts every run of the store that wanted is more than beyondMs of film past: past the chunk
 // it makes next. Such a request was sought to (D250 §5), since a player catching up never jumps that
 // far, and no one follows those runs now: they are forgotten, and returned for the caller to cancel.

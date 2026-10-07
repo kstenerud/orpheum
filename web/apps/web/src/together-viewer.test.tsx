@@ -206,6 +206,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       height: 432,
       isBelowTheLowest: false,
       soundCarriedGainDb: 0,
+      isReady: true,
     };
     const { services, heard, server } = viewerServices("/together", {
       "POST /together/playback": [200, directDecision()],

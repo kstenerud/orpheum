@@ -26,9 +26,12 @@
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
 //
 //   - A playback's first stall starts the lower quality its link carries where its player was, and
-//     the answer to the report of a later stall offers it, once; a Watch Together viewer reports by
-//     their membership and nothing of their watching is kept (D247 §2, D243 §2). Enforced by
-//     TestReport_ASecondStallIsAnsweredWithTheLowerQualityTheFirstStarted and
+//     the answer to that report and to every report after it offers it, saying whether it is ready;
+//     a Watch Together viewer reports by their membership and nothing of their watching is kept
+//     (D253 §1, D243 §2). Enforced by
+//     TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryReportAfter,
+//     TestIsReadyAt_AnOfferIsReadyOnceItsPictureAndSoundAreMadeTenSecondsOnFromThePlayer
+//     (internal/core/chunks) and
 //     TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered (internal/core/api).
 //
 //   - A playback starts with the subtitle and audio tracks internal/core/preferences works out
