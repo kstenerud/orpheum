@@ -41,23 +41,69 @@ var ErrNoQualityOffered = errors.New("the film offers no quality below its own")
 // playback's starting sound's from the stall's chunk, so they are on their way before the player
 // moves to them, and returns the offer. A film with no grid yet is ErrNoGrid, and is read through.
 func (service *Service) Stalled(ctx context.Context, playback Playback, positionMs, linkKbps int64) (Offer, error) {
-	film, err := service.cutForPlay(ctx, playback)
+	lowering, err := service.lowerQualities(ctx, playback)
 	if err != nil {
 		return Offer{}, err
+	}
+	return service.startLower(ctx, playback, lowering, positionMs, linkKbps)
+}
+
+// StartLower is the lower quality a playback starts on when its link, remembered at linkKbps, is
+// too slow for the film's own picture, by linkShareForQuality (D257 §2): chosen and started from
+// positionMs as at a stall, and false, with nothing started, when the link carries the picture or
+// the picture's rate is not known. A film with no grid yet is ErrNoGrid, and is read through.
+func (service *Service) StartLower(
+	ctx context.Context, playback Playback, positionMs, linkKbps int64,
+) (Offer, bool, error) {
+	lowering, err := service.lowerQualities(ctx, playback)
+	if err != nil {
+		return Offer{}, false, err
+	}
+	pictureKbps := lowering.film.pictureAverageBps() / 1000
+	if pictureKbps <= 0 || float64(pictureKbps) <= linkShareForQuality*float64(linkKbps) {
+		return Offer{}, false, nil
+	}
+	offer, err := service.startLower(ctx, playback, lowering, positionMs, linkKbps)
+	return offer, err == nil, err
+}
+
+// lowering is a film a playback plays, cut, what it offers the playback, and its qualities below
+// its own picture, highest first, as the master playlist lists them.
+type lowering struct {
+	film    cutFilm
+	offered offer
+	lower   []Stream
+}
+
+// lowerQualities is how a playback's film can be lowered; a film with no quality below its own
+// picture is ErrNoQualityOffered.
+func (service *Service) lowerQualities(ctx context.Context, playback Playback) (lowering, error) {
+	film, err := service.cutForPlay(ctx, playback)
+	if err != nil {
+		return lowering{}, err
 	}
 	offered, err := service.offerOf(ctx, film, playback)
 	if err != nil {
-		return Offer{}, err
+		return lowering{}, err
 	}
-	var lower []Stream // highest first, as the master playlist lists them
+	var lower []Stream
 	for _, picture := range offered.pictures {
 		if picture.Kind == nodeproto.StreamQuality {
 			lower = append(lower, picture)
 		}
 	}
 	if len(lower) == 0 {
-		return Offer{}, ErrNoQualityOffered
+		return lowering{}, ErrNoQualityOffered
 	}
+	return lowering{film: film, offered: offered, lower: lower}, nil
+}
+
+// startLower chooses, of the lower qualities, the one for a link of linkKbps, starts its run and the
+// starting sound's from the chunk at positionMs, and returns the offer (Stalled).
+func (service *Service) startLower(
+	ctx context.Context, playback Playback, lowering lowering, positionMs, linkKbps int64,
+) (Offer, error) {
+	film, offered, lower := lowering.film, lowering.offered, lowering.lower
 	chunk := film.grid.chunkAt(positionMs)
 	chosen, isBelowTheLowest := chooseQuality(lower, linkKbps)
 	below := chosen + 1

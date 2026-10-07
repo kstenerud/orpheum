@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
@@ -34,6 +35,7 @@ type ReportInput struct {
 		// first frame: what makes a slow start show in the log.
 		Startup *StartupBody `json:"startup,omitempty" required:"false"`
 	}
+	ClientFacts
 }
 
 // StartupBody is how long a playback took to start, each from when the player asked how the file
@@ -103,6 +105,16 @@ type LowerQualityBody struct {
 	FilmPictureKbps int64 `json:"filmPictureKbps"`
 }
 
+// lowerQualityBody is a lower quality offered to the playback a media token names, by its chunks'
+// master playlist, and whether it is ready.
+func lowerQualityBody(token string, offer chunks.Offer, isReady bool) *LowerQualityBody {
+	return &LowerQualityBody{
+		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
+		QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
+		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
+	}
+}
+
 // StopBody is the admin's stop of a playback, and what they said.
 type StopBody struct {
 	Message string `json:"message"`
@@ -116,6 +128,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	report := playback.Report{
 		ReportSeq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
 		PositionReadMonoMs: input.Body.PositionReadMonoMs, LinkKbps: input.Body.LinkKbps,
+		ClientAddress: input.clientAddress,
 	}
 	for _, stall := range input.Body.Stalls {
 		report.Stalls = append(report.Stalls, playback.Stall{PositionMs: stall.PositionMs})
@@ -142,12 +155,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
 	}
 	if offer := answer.LowerQuality; offer != nil {
-		output.Body.LowerQuality = &LowerQualityBody{
-			URL: Prefix + "/bytes/media/chunks/" + input.Token + "/master.m3u8", StartAtBps: offer.StartAtBps,
-			QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
-			SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: answer.IsLowerQualityReady,
-			FilmPictureKbps: offer.FilmPictureKbps,
-		}
+		output.Body.LowerQuality = lowerQualityBody(input.Token, *offer, answer.IsLowerQualityReady)
 	}
 	return output, nil
 }

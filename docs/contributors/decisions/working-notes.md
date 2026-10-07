@@ -18492,7 +18492,11 @@ work once a title is likely are the precedent (coldstart research, 2026-10-07).
    minute of the version D257 would start on, or its first chunks, and the page loads its first
    segments. At most two run at once; one is cancelled when its page is left. A warm-up is fast work
    in D255's tiers.
-2. **The warm-up's download is the speed test.** How fast its segments arrive is a measurement as
+2. **The client says when it leaves a film's page or the player**, so the server knows a warm-up,
+   or the making of what it played, is no longer wanted (the owner, the same day: *"we should record
+   when a client moves out of a video details or play screen, so that we know that the pre fill jobs
+   are no longer needed"*).
+3. **The warm-up's download is the speed test.** How fast its segments arrive is a measurement as
    D257 §1 keeps; one that struggles moves the start lower before play is pressed.
 
 **Status:** Decided 2026-10-07.

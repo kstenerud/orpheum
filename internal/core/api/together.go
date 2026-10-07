@@ -317,7 +317,7 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 	}
 	started, err := dependencies.Playback.Start(ctx, holder, playback.Request{
 		FileID: holder.OnlyFileID, PlayableFormats: playableFormatsOf(input.Body.PlayableFormats),
-		AudioOutput: string(input.Body.AudioOutput),
+		AudioOutput: string(input.Body.AudioOutput), ClientAddress: input.clientAddress,
 	})
 	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
 	who := []any{

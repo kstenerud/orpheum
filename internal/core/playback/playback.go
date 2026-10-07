@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
@@ -78,6 +79,8 @@ type Service struct {
 	preferences *preferences.Service
 	loudness    Loudness
 	chunks      Chunks
+	// speeds are the link speeds players measured, by player and network (D257 §1).
+	speeds *linkSpeeds
 }
 
 // NewService returns the playback service.
@@ -87,7 +90,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks,
+		chunks: parts.Chunks, speeds: newLinkSpeeds(),
 	}
 }
 
@@ -102,6 +105,9 @@ type Request struct {
 	// AudioOutput is how a device with no device row makes sound, a Watch Together viewer's, asked
 	// as they join (D246 §6); a person's device's own answer is read instead.
 	AudioOutput string
+	// ClientAddress is the address the request came from, whose network the link speed remembered
+	// for the player is kept by (D257 §1).
+	ClientAddress string
 }
 
 // Started is a playback: its media token and the decision.
@@ -131,6 +137,11 @@ type Started struct {
 	// FileBitRateBps is the file's own average bit rate, by which a player playing it as it is
 	// measures its link from how fast its buffer grows (D247 §1); 0 when the probe has none.
 	FileBitRateBps int64
+	// LowerQuality is the lower quality the playback starts on, its link remembered too slow for the
+	// film's picture (D257 §2); nil to start as Decision says. IsLowerQualityReady is whether it is
+	// made from where the playback starts.
+	LowerQuality        *chunks.Offer
+	IsLowerQualityReady bool
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -196,7 +207,50 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
+	if lowerErr := service.startLowerIfRemembered(ctx, holder, request, playback, &started); lowerErr != nil {
+		return Started{}, lowerErr
+	}
 	return started, nil
+}
+
+// startLowerIfRemembered starts a playback lower when its player's link on the request's network
+// is remembered (D257 §1, startLower).
+func (service *Service) startLowerIfRemembered(
+	ctx context.Context, holder Holder, request Request, playback tokenPlayback, started *Started,
+) error {
+	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
+	kbps, isKnown := service.speeds.fresh(key, service.clock.Now())
+	if !isKnown {
+		return nil
+	}
+	return service.startLower(ctx, playback, kbps, started)
+}
+
+// startLower starts a playback on the lower quality its remembered link speed, kbps, calls for,
+// when the link is too slow for the film's picture (D257 §2), and says so in started: the offer is
+// the token's, as a stall's is, so its reports' answers go on offering it. A film with no grid yet
+// starts as its decision says, and its timeline is read meanwhile; one with nothing lower, too.
+func (service *Service) startLower(ctx context.Context, playback tokenPlayback, kbps int64, started *Started) error {
+	if service.chunks == nil {
+		return nil
+	}
+	playback.positionMs = started.ResumePositionMs
+	chunked := chunksPlaybackOf(playback)
+	offer, isLower, err := service.chunks.StartLower(ctx, chunked, started.ResumePositionMs, kbps)
+	if errors.Is(err, chunks.ErrNoGrid) || errors.Is(err, chunks.ErrCannotBeCut) ||
+		errors.Is(err, chunks.ErrNoQualityOffered) || !isLower {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	service.tokens.keepOffer(started.Token, offer)
+	started.LowerQuality = &offer
+	started.IsLowerQualityReady, err = service.chunks.IsReadyAt(ctx, chunked, offer, started.ResumePositionMs)
+	if err != nil {
+		return fmt.Errorf("see whether a lower quality is ready: %w", err)
+	}
+	return nil
 }
 
 // reachedFile is a file the holder may play: one in a library they do not reach is library.ErrNoFile,

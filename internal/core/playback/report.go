@@ -43,6 +43,8 @@ type Report struct {
 	Stalls []Stall
 	// LinkKbps is the link's speed as the player measured it, zero when it has not (D247 §1).
 	LinkKbps int64
+	// ClientAddress is the address the report came from, whose network the speed is kept by (D257).
+	ClientAddress string
 }
 
 // Stall is one stall of a player: a wait for data, while it played, where it was.
@@ -66,6 +68,7 @@ type Answer struct {
 // chunks.Service.
 type Chunks interface {
 	Stalled(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
+	StartLower(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, bool, error)
 	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
 }
 
@@ -140,6 +143,11 @@ func (service *Service) Report(
 	if !isNew {
 		return answer, nil
 	}
+	// The speed it measured on real video is the one its next playback on this network starts by
+	// (D257 §1).
+	service.speeds.remember(speedKey{
+		player: playerOf(playback.deviceID, playback.sessionKey), network: networkOf(report.ClientAddress),
+	}, report.LinkKbps, now)
 	offer, isOffered, err := service.offerFor(ctx, token, playback, report)
 	if err != nil || !isOffered {
 		return answer, err

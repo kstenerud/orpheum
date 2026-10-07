@@ -172,4 +172,27 @@ describe("play state", () => {
     expect(startup.firstDataMs).toBeGreaterThanOrEqual(3000);
     expect(startup.playingMs).toBeGreaterThanOrEqual(startup.firstDataMs);
   });
+
+  it("starts on the lower quality its decision names, its link remembered slow, and says so (D257)", async () => {
+    const lowerQuality = {
+      url: "/api/v1/bytes/media/chunks/remembered/master.m3u8",
+      startAtBps: 1_896_000,
+      qualityKbps: 1200,
+      height: 480,
+      isBelowTheLowest: false,
+      soundCarriedGainDb: 0,
+      isReady: false,
+      filmPictureKbps: 4000,
+    };
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "remembered", lowerQuality }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(withServices(playView, servedBy({})));
+    expect(mounted.container.textContent).toContain(
+      "Starting at a lower quality, as this device's connection here was slow last time: 480p, 1.2 Mb/s.",
+    );
+    expect(mounted.container.textContent).not.toContain("Playing the original file");
+  });
 });
