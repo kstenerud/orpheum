@@ -23,6 +23,24 @@ export const networkProfiles = [
   { name: "congested", netem: ["delay", "150ms", "50ms", "loss", "3%", "rate", "5mbit"] },
 ] as const;
 
+/**
+ * The profiles a run plays under: ORPHEUM_ACCEPTANCE_PROFILES, comma-separated names, every one when
+ * unset. The branch gate runs *home* alone, for a few minutes (D252 §2, D261 §2).
+ */
+export function chosenProfiles(): readonly (typeof networkProfiles)[number][] {
+  const asked = process.env["ORPHEUM_ACCEPTANCE_PROFILES"];
+  if (asked === undefined || asked === "") {
+    return networkProfiles;
+  }
+  return asked.split(",").map((name) => {
+    const profile = networkProfiles.find((each) => each.name === name.trim());
+    if (profile === undefined) {
+      throw new Error(`ORPHEUM_ACCEPTANCE_PROFILES names ${name}, not one of the network profiles`);
+    }
+    return profile;
+  });
+}
+
 /** The film a profile's run plays. */
 export function acceptanceFilm(profile: string): string {
   return `Acceptance Film ${profile}`;
@@ -46,6 +64,6 @@ function longFilm(title: string, seconds: number): Film {
 export default async function acceptanceSetup(): Promise<() => Promise<void>> {
   const seconds = (acceptanceMinutes() + 5) * 60;
   return await startServer(
-    networkProfiles.map((profile) => longFilm(acceptanceFilm(profile.name), seconds)),
+    chosenProfiles().map((profile) => longFilm(acceptanceFilm(profile.name), seconds)),
   );
 }
