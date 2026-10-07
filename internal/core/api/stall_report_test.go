@@ -21,7 +21,7 @@ func stallReport(seq, positionMs int64) map[string]any {
 }
 
 // lowerQualityOf is the lower quality a report's answer offers, or nil.
-func lowerQualityOf(t *testing.T, answer response) *LowerQualityBody {
+func lowerQualityOf(t *testing.T, answer response) *LadderBody {
 	t.Helper()
 	if answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
@@ -36,19 +36,20 @@ func lowerQualityOf(t *testing.T, answer response) *LowerQualityBody {
 // A player's first stall starts the quality its link carries, and its sound, where it was, and is
 // answered with it, not ready yet; every report after it is answered with it too, so the player
 // learns when it is ready (D253 §1, D247 §6). Film 1 averages 2.4 Mb/s, so a link of 2 Mb/s, 1.4
-// for the picture, gets 1200k.
+// for the picture, gets 1200k. Its playback started before the film was cut, so not on its ladder
+// (D260 §1).
 func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryReportAfter(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
-	harness.keepFilmOnesTimeline(t)
 	playing := harness.play(t, user, chrome(1))
+	harness.keepFilmOnesTimeline(t)
 	if offered := lowerQualityOf(t, harness.report(t, user, playing, reportBody(1, 9_000, 0))); offered != nil {
 		t.Errorf("a report before any stall was answered with %+v; want nothing", offered)
 	}
-	want := LowerQualityBody{
+	want := LadderBody{
 		URL: Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/master.m3u8", StartAtBps: 1_896_000,
 		QualityKbps: 1200, Height: 480, IsReady: false, FilmPictureKbps: 2400,
 	}
@@ -75,13 +76,13 @@ func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryRep
 }
 
 // A Watch Together viewer reports by their membership: nothing is kept of what they watched, and
-// their stalls are answered as anyone's (D243 §2, D253 §1).
+// their stalls are answered as anyone's (D243 §2, D253 §1), on a playback started before the film
+// was cut.
 func TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.keepFilmOnesTimeline(t)
 	opened := harness.openTogether(t, admin)
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
 	host := harness.dialTogether(t, opened.Body.MembershipCredential)
@@ -94,6 +95,7 @@ func TestReport_AViewersReportKeepsNothingAndTheirStallsAreAnswered(t *testing.T
 	if err := json.Unmarshal([]byte(started.body), &playing); err != nil || started.status != http.StatusOK {
 		t.Fatalf("POST /together/playback = %d %s", started.status, started.body)
 	}
+	harness.keepFilmOnesTimeline(t)
 	credential := membership.Body.MembershipCredential
 	first := stallReport(1, 12_000)
 	first["events"] = []any{map[string]any{"kind": "started", "positionMs": 0, "happenedMonoMs": 999_000}}
@@ -133,5 +135,27 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)
 		}
+	}
+}
+
+// A playback on its film's ladder moves along it by itself: its stalls start nothing and are offered
+// nothing (D260 §1).
+func TestReport_AStallOnTheLadderIsOfferedNothing(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.keepFilmOnesTimeline(t)
+	playing := harness.play(t, user, chrome(1))
+	if playing.OnLadder == nil {
+		t.Fatalf("film 1, cut, started %+v; want it on its ladder", playing)
+	}
+	started := len(harness.openJobs(t, jobs.KindMakeChunks))
+	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(1, 12_000))); offered != nil {
+		t.Errorf("a stall on the ladder was answered with %+v; want nothing", offered)
+	}
+	if runs := len(harness.openJobs(t, jobs.KindMakeChunks)); runs != started {
+		t.Errorf("a stall on the ladder opened %d runs; want none", runs-started)
 	}
 }

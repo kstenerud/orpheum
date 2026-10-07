@@ -13,12 +13,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto plays a film end to end on a
-// slow link: the sweep reads it through for its keyframes, and a first stall in a play report starts
-// the quality its link carries and is answered with it, as is every report after it (D253 §1,
-// D247 §10). The film is
-// thirty seconds of 2.4 Mb/s with a keyframe every ten.
-func TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto(t *testing.T) {
+// TestPlayback_ACutFilmStartsOnItsLadderAndItsStallsStartNothing plays a film end to end: the sweep
+// reads it through for its keyframes, its playback starts on its ladder, at the top with no link
+// remembered, its chunks' master playlist by the playback, and a stall in a play report on a slow
+// link starts nothing, its player moving along the ladder by itself (D260). The film is thirty
+// seconds of 2.4 Mb/s with a keyframe every ten.
+func TestPlayback_ACutFilmStartsOnItsLadderAndItsStallsStartNothing(t *testing.T) {
 	t.Parallel()
 	const probe = `{"format":{"format_name":"matroska","duration":"30.000"},"streams":[` +
 		`{"index":0,"codec_type":"video","codec_name":"h264","profile":"High","pix_fmt":"yuv420p",` +
@@ -53,37 +53,24 @@ func TestPlayback_AStalledPlayerIsOfferedALowerQualityItsFilmIsCutInto(t *testin
 	})
 	var playing struct {
 		MediaToken string `json:"mediaToken"`
-	}
-	if err := json.Unmarshal([]byte(decided.body), &playing); err != nil || playing.MediaToken == "" {
-		t.Fatalf("POST /playback = %d %s", decided.status, decided.body)
-	}
-	report := func(seq int64) apiReply {
-		return requestAPI(t, http.MethodPost, server.baseURL+"/playback/"+playing.MediaToken+"/report", token,
-			map[string]any{
-				"reportSeq": seq, "sentMonoMs": 1_000_000, "positionMs": 12_000, "positionReadMonoMs": 1_000_000,
-				"events": []any{}, "spans": []any{}, "linkKbps": 2000,
-				"stalls": []any{map[string]any{"positionMs": 12_000}},
-			})
-	}
-	var answer struct {
-		LowerQuality *struct {
+		OnLadder   *struct {
 			URL         string `json:"url"`
 			QualityKbps int    `json:"qualityKbps"`
-			IsReady     bool   `json:"isReady"`
-		} `json:"lowerQuality"`
+		} `json:"onLadder"`
 	}
-	first := report(1)
-	if err := json.Unmarshal([]byte(first.body), &answer); err != nil || answer.LowerQuality == nil ||
-		answer.LowerQuality.QualityKbps != 1200 ||
-		!strings.HasSuffix(answer.LowerQuality.URL, "/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8") {
-		t.Errorf("the first stall's report = %d %s; want 1200k offered, its master playlist by the playback",
-			first.status, first.body)
+	if err := json.Unmarshal([]byte(decided.body), &playing); err != nil || playing.MediaToken == "" ||
+		playing.OnLadder == nil || playing.OnLadder.QualityKbps != 2400 ||
+		!strings.HasSuffix(playing.OnLadder.URL, "/bytes/media/chunks/"+playing.MediaToken+"/master.m3u8") {
+		t.Fatalf("POST /playback = %d %s; want it on its ladder at the film's own 2400k, by the playback",
+			decided.status, decided.body)
 	}
-	// A report after it is answered with the same offer, so the player learns when it is ready
-	// (D253 §1).
-	answer.LowerQuality = nil
-	if again := report(2); json.Unmarshal([]byte(again.body), &answer) != nil || answer.LowerQuality == nil ||
-		answer.LowerQuality.QualityKbps != 1200 {
-		t.Errorf("the report after the stall = %d %s; want the 1200k offer again", again.status, again.body)
+	stalled := requestAPI(t, http.MethodPost, server.baseURL+"/playback/"+playing.MediaToken+"/report", token,
+		map[string]any{
+			"reportSeq": 1, "sentMonoMs": 1_000_000, "positionMs": 12_000, "positionReadMonoMs": 1_000_000,
+			"events": []any{}, "spans": []any{}, "linkKbps": 2000,
+			"stalls": []any{map[string]any{"positionMs": 12_000}},
+		})
+	if stalled.status != http.StatusOK || strings.Contains(stalled.body, "lowerQuality") {
+		t.Errorf("a stall on the ladder's report = %d %s; want nothing offered", stalled.status, stalled.body)
 	}
 }

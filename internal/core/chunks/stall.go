@@ -48,25 +48,6 @@ func (service *Service) Stalled(ctx context.Context, playback Playback, position
 	return service.startLower(ctx, playback, lowering, positionMs, linkKbps)
 }
 
-// StartLower is the lower quality a playback starts on when its link, remembered at linkKbps, is
-// too slow for the film's own picture, by linkShareForQuality (D257 §2): chosen and started from
-// positionMs as at a stall, and false, with nothing started, when the link carries the picture or
-// the picture's rate is not known. A film with no grid yet is ErrNoGrid, and is read through.
-func (service *Service) StartLower(
-	ctx context.Context, playback Playback, positionMs, linkKbps int64,
-) (Offer, bool, error) {
-	lowering, err := service.lowerQualities(ctx, playback)
-	if err != nil {
-		return Offer{}, false, err
-	}
-	pictureKbps := lowering.film.pictureAverageBps() / 1000
-	if pictureKbps <= 0 || float64(pictureKbps) <= linkShareForQuality*float64(linkKbps) {
-		return Offer{}, false, nil
-	}
-	offer, err := service.startLower(ctx, playback, lowering, positionMs, linkKbps)
-	return offer, err == nil, err
-}
-
 // lowering is a film a playback plays, cut, what it offers the playback, and its qualities below
 // its own picture, highest first, as the master playlist lists them.
 type lowering struct {
@@ -103,23 +84,40 @@ func (service *Service) lowerQualities(ctx context.Context, playback Playback) (
 func (service *Service) startLower(
 	ctx context.Context, playback Playback, lowering lowering, positionMs, linkKbps int64,
 ) (Offer, error) {
-	film, offered, lower := lowering.film, lowering.offered, lowering.lower
+	film, lower := lowering.film, lowering.lower
 	chunk := film.grid.chunkAt(positionMs)
 	chosen, isBelowTheLowest := chooseQuality(lower, linkKbps)
 	below := chosen + 1
 	if below < len(lower) && service.runs.isCovered(StoreDir(playback.FileID, lower[below], film.grid.ID()), chunk) {
 		chosen++ // another's, already on its way, and near enough (D247 §7)
 	}
-	quality := lower[chosen]
+	return service.startAt(ctx, playback, lowering.film, lowering.offered,
+		chosenPicture{stream: lower[chosen], isBelowTheLowest: isBelowTheLowest, chunk: chunk})
+}
+
+// chosenPicture is the picture of a film a playback starts at, whether even the lowest is beyond its
+// link, and the chunk it starts from.
+type chosenPicture struct {
+	stream           Stream
+	isBelowTheLowest bool
+	chunk            int
+}
+
+// startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
+// its chunk, and returns the offer of the picture.
+func (service *Service) startAt(
+	ctx context.Context, playback Playback, film cutFilm, offered offer, chosen chosenPicture,
+) (Offer, error) {
+	picture, chunk := chosen.stream, chosen.chunk
 	// A stall asks for its quality again, a new try, though a run of it was evicted (D250 §6).
-	service.runs.unevict(StoreDir(playback.FileID, quality, film.grid.ID()))
-	if err := service.Ensure(ctx, playback.FileID, quality, chunk); err != nil {
+	service.runs.unevict(StoreDir(playback.FileID, picture, film.grid.ID()))
+	if err := service.Ensure(ctx, playback.FileID, picture, chunk); err != nil {
 		return Offer{}, err
 	}
 	offer := Offer{
-		Quality:          quality.Quality,
-		StartAtBps:       film.variantOf(quality, offered.soundKbps).bandwidthBps,
-		IsBelowTheLowest: isBelowTheLowest,
+		Quality:          film.qualityOf(picture),
+		StartAtBps:       film.variantOf(picture, offered.soundKbps).bandwidthBps,
+		IsBelowTheLowest: chosen.isBelowTheLowest,
 		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
 	}
 	if playback.HasStartingAudio {
@@ -135,6 +133,14 @@ func (service *Service) startLower(
 		offer.SoundCarriedGainDB = track.CarriedGainDB
 	}
 	return offer, nil
+}
+
+// qualityOf is a picture's rate and height: a quality's own, or the film's picture's, copied.
+func (film cutFilm) qualityOf(picture Stream) qualities.Quality {
+	if picture.Kind == nodeproto.StreamQuality {
+		return picture.Quality
+	}
+	return qualities.Quality{Kbps: int(max(0, film.pictureAverageBps()/1000)), Height: film.picture.Video.Height}
 }
 
 // startingSound is the stream of the sound a playback started with, in chunks of soundKbps,

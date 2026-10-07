@@ -2262,6 +2262,22 @@ export interface components {
             /** Format: int64 */
             sessionId: number;
         };
+        LadderBody: {
+            /** Format: int64 */
+            filmPictureKbps: number;
+            /** Format: int64 */
+            height: number;
+            isBelowTheLowest: boolean;
+            isReady: boolean;
+            /** Format: int64 */
+            qualityKbps: number;
+            /** Format: double */
+            soundCarriedGainDb: number;
+            /** Format: int64 */
+            startAtBps: number;
+            /** @description The chunked master playlist */
+            url: string;
+        };
         LevellingBody: {
             /**
              * Format: double
@@ -2302,22 +2318,6 @@ export interface components {
             isInvitation: boolean;
             /** @description A registration link's person; absent for an invitation */
             name?: string;
-        };
-        LowerQualityBody: {
-            /** Format: int64 */
-            filmPictureKbps: number;
-            /** Format: int64 */
-            height: number;
-            isBelowTheLowest: boolean;
-            isReady: boolean;
-            /** Format: int64 */
-            qualityKbps: number;
-            /** Format: double */
-            soundCarriedGainDb: number;
-            /** Format: int64 */
-            startAtBps: number;
-            /** @description The chunked master playlist */
-            url: string;
         };
         MadeBackupOutputBody: {
             includesKey: boolean;
@@ -2717,7 +2717,7 @@ export interface components {
         };
         ReportOutputBody: {
             /** @description The lower quality the first stall started, ready or not (D253 §1) */
-            lowerQuality?: components["schemas"]["LowerQualityBody"];
+            lowerQuality?: components["schemas"]["LadderBody"];
             /** @description The admin stopped this playback: stop, and show the message */
             stop?: components["schemas"]["StopBody"];
         };
@@ -2937,9 +2937,9 @@ export interface components {
             fileBitRateKbps: number;
             isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
-            lowerQuality?: components["schemas"]["LowerQualityBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "audio_track" | "user_choice")[] | null;
+            onLadder?: components["schemas"]["LadderBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";

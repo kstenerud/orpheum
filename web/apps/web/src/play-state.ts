@@ -11,7 +11,7 @@ import {
 import type { Api, components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-import { MovingDown, type LowerQuality } from "./moving-down.ts";
+import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 
 /** The codes of refusals that pass: a report refused with one of these goes again with the next. */
@@ -33,7 +33,7 @@ export interface ReportTo {
 /** What a report is answered with: the admin's stop, a lower quality to move to, or neither. */
 export interface ReportAnswer {
   readonly stop?: { readonly message: string };
-  readonly lowerQuality?: LowerQuality;
+  readonly lowerQuality?: LadderOffer;
 }
 
 /**
@@ -244,7 +244,7 @@ function reportVideoEvents(
 /** What reporting tells the page: the server's answers, and its refusal for good. */
 interface ReportListener {
   readonly onStopped: (message: string) => void;
-  readonly onLowerQuality: (offer: LowerQuality) => void;
+  readonly onLowerQuality: (offer: LadderOffer) => void;
   readonly onRefused: (cause: unknown) => void;
 }
 
@@ -339,12 +339,12 @@ export function usePlayState(
 ): {
   readonly refusal: unknown;
   readonly stopMessage: string | undefined;
-  readonly lowerQuality: LowerQuality | undefined;
+  readonly lowerQuality: LadderOffer | undefined;
 } {
   const { mediaToken, resumePositionMs } = playback;
   const [refusal, setRefusal] = useState<unknown>(undefined);
   const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
-  const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
+  const [lowerQuality, setLowerQuality] = useState<LadderOffer | undefined>(undefined);
   // The link is read at each report, by what the latest render handed in.
   const linkReader = useRef(playback.readLinkKbps);
   linkReader.current = playback.readLinkKbps;
@@ -373,9 +373,9 @@ export function useStallReports(
   api: Api,
   videoRef: RefObject<HTMLVideoElement | null>,
   playback: ReportTo & { readonly readLinkKbps: () => number | undefined },
-): LowerQuality | undefined {
+): LadderOffer | undefined {
   const { mediaToken, headers } = playback;
-  const [lowerQuality, setLowerQuality] = useState<LowerQuality | undefined>(undefined);
+  const [lowerQuality, setLowerQuality] = useState<LadderOffer | undefined>(undefined);
   const linkReader = useRef(playback.readLinkKbps);
   linkReader.current = playback.readLinkKbps;
   useEffect(() => {

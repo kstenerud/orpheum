@@ -9,11 +9,14 @@
 // # Invariants
 //
 //   - A link speed a player measured is kept by player, a device or a deviceless session, and by
-//     network, an IPv6 /64 or an IPv4 address, for a day; a playback whose player's speed on its
-//     network is too slow for the film's picture starts on the lower quality it carries, chosen
-//     before play (D257). TestNetworkOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
+//     network, an IPv6 /64 or an IPv4 address, for a day (D257). A film cut into chunks starts on
+//     its ladder, at the top, or where its player's speed on its network calls for, and no prepared
+//     copy is made for it; its stalls start nothing (D260). A film not cut yet plays as its decision
+//     says. TestNetworkOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
 //     TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork,
-//     TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork (internal/core/api).
+//     TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork,
+//     TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy and
+//     TestReport_AStallOnTheLadderIsOfferedNothing (internal/core/api).
 //
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
@@ -32,7 +35,7 @@
 //     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
 //
-//   - A playback's first stall starts the lower quality its link carries where its player was, and
+//   - A playback not on its ladder: its first stall starts the lower quality its link carries where its player was, and
 //     the answer to that report and to every report after it offers it, saying whether it is ready;
 //     a Watch Together viewer reports by their membership and nothing of their watching is kept
 //     (D253 §1, D243 §2). Enforced by

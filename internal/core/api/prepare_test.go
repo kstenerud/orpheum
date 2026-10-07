@@ -317,11 +317,19 @@ func TestPrepare_APlayerAskingForTheRenditionKeepsItsPrepareWanted(t *testing.T)
 			t.Fatalf("the playlist while preparing: %d, want 425", early.status)
 		}
 	}
-	if demoted, err := harness.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 0 {
-		t.Errorf("while the player asks, demoted %+v (%v), want none", demoted, err)
+	// Film 2's start also read its keyframes for its ladder (D260 §1), which no player asks for here.
+	prepares := harness.openJobs(t, jobs.KindPrepare)
+	if len(prepares) != 1 {
+		t.Fatalf("the prepares open = %+v; want film 2's", prepares)
+	}
+	isPrepare := func(job jobs.Demoted) bool { return job.ID == prepares[0].ID }
+	demoted, err := harness.queue.DemoteUnwanted(t.Context())
+	if err != nil || slices.ContainsFunc(demoted, isPrepare) {
+		t.Errorf("while the player asks, demoted %+v (%v), want not the prepare", demoted, err)
 	}
 	harness.clock.Advance(11 * time.Minute)
-	if demoted, err := harness.queue.DemoteUnwanted(t.Context()); err != nil || len(demoted) != 1 {
+	demoted, err = harness.queue.DemoteUnwanted(t.Context())
+	if err != nil || !slices.ContainsFunc(demoted, isPrepare) {
 		t.Errorf("ten minutes after the player stopped, demoted %+v (%v), want the prepare", demoted, err)
 	}
 }

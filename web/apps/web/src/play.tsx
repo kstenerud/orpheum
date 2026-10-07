@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
-import type { LowerQuality } from "./moving-down.ts";
+import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
@@ -58,7 +58,7 @@ export function PlayView(props: {
 }): JSX.Element {
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
   const [moved, setMoved] = useState<
-    | { readonly mediaToken: string; readonly offer: LowerQuality; readonly positionMs: number }
+    | { readonly mediaToken: string; readonly offer: LadderOffer; readonly positionMs: number }
     | undefined
   >(undefined);
   // The video playing now, which the host's Watch Together session follows: kept here, above the
@@ -69,24 +69,24 @@ export function PlayView(props: {
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
-    (offer: LowerQuality, positionMs: number) => {
+    (offer: LadderOffer, positionMs: number) => {
       setMoved((already) => already ?? { mediaToken, offer, positionMs });
     },
     [mediaToken],
   );
   const ways = { ...props, onLowerQuality, onVideo: setVideo, onCannotKeepUp: setCannotKeepUp };
   let playing: JSX.Element;
-  const startsLower = props.decision.lowerQuality ?? undefined;
+  const onLadder = props.decision.onLadder ?? undefined;
   if (moved?.mediaToken === mediaToken) {
     playing = <ChunkedVideo {...ways} offer={moved.offer} positionMs={moved.positionMs} />;
-  } else if (startsLower !== undefined) {
-    // Its link on this network was remembered too slow for the film: it starts lower (D257 §2).
+  } else if (onLadder !== undefined) {
+    // A film cut into chunks plays from its ladder from the start (D260).
     playing = (
       <ChunkedVideo
         {...ways}
-        offer={startsLower}
+        offer={onLadder}
         positionMs={props.decision.resumePositionMs}
-        isFromTheStart
+        isOnLadder
       />
     );
   } else if (props.decision.delivery === "direct") {
@@ -114,7 +114,7 @@ export function PlayView(props: {
  * fetched subtitle, and where a lower quality a stalled player is offered goes (D247 §2).
  */
 type PlayProps = Parameters<typeof PlayView>[0] & {
-  readonly onLowerQuality: (offer: LowerQuality, positionMs: number) => void;
+  readonly onLowerQuality: (offer: LadderOffer, positionMs: number) => void;
   /** Told the video element each way of playing shows, and null as it goes. */
   readonly onVideo: (video: HTMLVideoElement | null) => void;
   /** Told when even the lowest quality cannot keep up, and undefined when it can (D247 §8). */
@@ -454,7 +454,7 @@ function DirectVideo(props: PlayProps): JSX.Element {
  */
 export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
-  starting: { readonly offer: LowerQuality; readonly positionMs: number },
+  starting: { readonly offer: LadderOffer; readonly positionMs: number },
   onFailed: (failure: PlaybackFailure) => void,
 ): {
   readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
@@ -497,17 +497,18 @@ export function useChunkedPlayback(
 }
 
 /** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
-export function LowerQualityNotes(props: {
-  readonly offer: LowerQuality;
+export function LadderNotes(props: {
+  readonly offer: LadderOffer;
   readonly playing: PlayedLevel | undefined;
   readonly cannotKeepUp: CannotKeepUp | undefined;
-  /** Whether the playback started lower, its link remembered slow, rather than moved after a stall (D257). */
-  readonly isFromTheStart?: boolean;
+  /** Whether the playback started on its film's ladder (D260), rather than moved to it after a stall (D253). */
+  readonly isOnLadder?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { offer, playing, cannotKeepUp } = props;
-  const startingKey =
-    props.isFromTheStart === true ? "play.lowerQualityFromTheStart" : "play.lowerQualityStarting";
+  const isOnLadder = props.isOnLadder === true;
+  const startingKey = isOnLadder ? "play.ladderStarting" : "play.lowerQualityStarting";
+  const playingKey = isOnLadder ? "play.ladderPlaying" : "play.lowerQuality";
   const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
   return (
@@ -518,7 +519,7 @@ export function LowerQualityNotes(props: {
               height: offer.height,
               rate: rateText(offer.qualityKbps),
             })
-          : t("play.lowerQuality", {
+          : t(playingKey, {
               height: playing.height,
               rate: rateText(playing.averageBitrate / 1000),
             })}
@@ -535,16 +536,16 @@ export function LowerQualityNotes(props: {
 }
 
 /**
- * A chunked playback at a lower quality, which a stalled player moved to (D247 §2, §10): every
- * quality of the film cut into chunks, starting at the one offered for the link, stepping down by
- * itself and back up with care, from where the player stalled. Its sound carries its levelling, as
- * a prepared copy's does.
+ * A chunked playback, on its film's ladder: every quality of the film cut into chunks, starting at
+ * the one offered, stepping down by itself and back up with care, from where the playback resumes
+ * (D260) or where a stalled player moved to it (D247 §2, §10). Its sound carries its levelling, as a
+ * prepared copy's does.
  */
 function ChunkedVideo(
   props: PlayProps & {
-    readonly offer: LowerQuality;
+    readonly offer: LadderOffer;
     readonly positionMs: number;
-    readonly isFromTheStart?: boolean;
+    readonly isOnLadder?: boolean;
   },
 ): JSX.Element {
   const { t } = useTranslation();
@@ -589,11 +590,11 @@ function ChunkedVideo(
         onAudioChosen={props.onDecideAgain}
         readLinkKbps={() => playbackRef.current?.estimateKbps()}
       />
-      <LowerQualityNotes
+      <LadderNotes
         offer={offer}
         playing={playing}
         cannotKeepUp={cannotKeepUp}
-        isFromTheStart={props.isFromTheStart === true}
+        isOnLadder={props.isOnLadder === true}
       />
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>

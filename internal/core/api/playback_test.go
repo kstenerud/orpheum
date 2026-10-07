@@ -126,11 +126,11 @@ type decision struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`
-	ResumePositionMs int64             `json:"resumePositionMs"`
-	MediaToken       string            `json:"mediaToken"`
-	Levelling        LevellingBody     `json:"levelling"`
-	TitleName        string            `json:"titleName"`
-	LowerQuality     *LowerQualityBody `json:"lowerQuality"`
+	ResumePositionMs int64         `json:"resumePositionMs"`
+	MediaToken       string        `json:"mediaToken"`
+	Levelling        LevellingBody `json:"levelling"`
+	TitleName        string        `json:"titleName"`
+	OnLadder         *LadderBody   `json:"onLadder"`
 }
 
 type subtitleTrack struct {

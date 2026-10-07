@@ -12,6 +12,13 @@
 //
 // # Invariants
 //
+//   - A playback starts on its film's ladder at the top, the film's own picture where its player
+//     decodes it, or, with its link remembered, at the highest picture within linkShareForQuality of
+//     it, the lowest when none is (D260 §2). Enforced by
+//     TestStartOnLadder_StartsAtTheFilmsOwnPictureWithNoLinkRemembered,
+//     TestStartOnLadder_StartsAtTheHighestPictureTheRememberedLinkCarries and
+//     TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtTheHighestQuality.
+//
 //   - A film whose loudness is not measured offers its sounds unlevelled, each a store of its own
 //     ("-raw"), so a levelled chunk never follows an unlevelled one; a playback goes on with the
 //     sounds its playlist named once the loudness is measured (D259 §2).

@@ -67,8 +67,9 @@ export class Watching {
   }
 
   /**
-   * The Play page asks how the film plays: the film page's decision when it is fresh, else a new
-   * one. Another film being watched is let go of first.
+   * The Play page asks how the film plays: the film page's decision when it is fresh and on the
+   * film's ladder, else a new one, since the warm-up read the keyframes of a film not cut yet and it
+   * may be on its ladder now (D260 §1). Another film being watched is let go of first.
    */
   decide(fileId: number, playableFormats: PlayableFormats): Promise<PlaybackDecision> {
     this.watch(fileId);
@@ -78,6 +79,9 @@ export class Watching {
       // Its start is timed from Play, not from opening the page: what the person waits for.
       const pressedMs = performance.now();
       return warm.decision.then((decision) => {
+        if (decision.onLadder === undefined) {
+          return this.ask(fileId, playableFormats);
+        }
         noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
         return decision;
       });

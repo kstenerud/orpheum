@@ -9,9 +9,28 @@ import { Watching, warmUpKeptMs } from "./watching.ts";
 
 const playableFormats = testServices().playableFormats();
 
-/** A decision naming its media token, as POST /playback answers. */
-function decided(mediaToken: string): Answer {
-  return [200, { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken }];
+/** A decision naming its media token, on its film's ladder unless isCut is false, as POST /playback answers. */
+function decided(mediaToken: string, isCut = true): Answer {
+  const onLadder = {
+    url: `/api/v1/bytes/media/chunks/${mediaToken}/master.m3u8`,
+    startAtBps: 4_000_000,
+    qualityKbps: 2400,
+    height: 1080,
+    isBelowTheLowest: false,
+    soundCarriedGainDb: 0,
+    isReady: false,
+    filmPictureKbps: 2400,
+  };
+  return [
+    200,
+    {
+      delivery: "direct",
+      url: "/u",
+      notDirectReasons: [],
+      mediaToken,
+      ...(isCut ? { onLadder } : {}),
+    },
+  ];
 }
 
 /** The requests heard, by method and path, once every one sent so far has been answered. */
@@ -75,5 +94,21 @@ describe("the film being watched (D258)", () => {
     expect((await watching.decide(7, playableFormats)).mediaToken).toBe("b");
     // Deciding again, as a changed sound does, asks the server again.
     expect((await watching.decide(7, playableFormats)).mediaToken).toBe("c");
+  });
+
+  it("asks again at Play when its page's decision came before the film was cut (D260 §1)", async () => {
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("a", false), decided("b")],
+        "DELETE /playback/a": [204, undefined],
+      },
+      heard,
+    );
+    const watching = new Watching(api, () => 0);
+    watching.warmUp(7, playableFormats);
+    const decision = await watching.decide(7, playableFormats);
+    expect(decision.mediaToken).toBe("b");
+    expect(decision.onLadder).toBeDefined();
   });
 });
