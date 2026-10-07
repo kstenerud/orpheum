@@ -47,6 +47,7 @@ export type {
   TellsCannotKeepUp,
   TogetherConnection,
   TogetherSnapshot,
+  VoiceCallStep,
 } from "./together-connection.ts";
 export { createTogetherVoice, microphoneFailureOf, partnerGainMost } from "./together-voice.ts";
 export type {

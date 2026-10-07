@@ -82,6 +82,8 @@ const (
 	NoteReconnected     NoteKind = "reconnected"
 	// NoteVoiceStats is a voice call's receiver's own statistics, every ten seconds (D262 §1).
 	NoteVoiceStats NoteKind = "voiceStats"
+	// NoteVoiceCall is a step a voice call took, so a call that never connects says how far it got.
+	NoteVoiceCall NoteKind = "voiceCall"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -110,6 +112,8 @@ type PlayerNote struct {
 	OfflineMs int64 `json:"offlineMs,omitempty"`
 	// Voice is a voiceStats note's call, as its receiver measured it (D262 §1).
 	Voice *VoiceStats `json:"voice,omitempty"`
+	// PartnerDeviceID is the other device of a voiceCall note's call; its Why, the step.
+	PartnerDeviceID int64 `json:"partnerDeviceId,omitempty"`
 }
 
 // VoiceStats is one voice call as its receiver measured it since it began: which partner, how
@@ -147,6 +151,18 @@ func (note PlayerNote) isKnown() bool {
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
 	case NoteVoiceStats:
 		return note.Voice != nil && isNoteWord(note.Voice.Path)
+	case NoteVoiceCall:
+		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
+	}
+	return false
+}
+
+// isVoiceCallStep is whether word is a step a voice call takes, as the web client's VoiceCallStep
+// names them.
+func isVoiceCallStep(word string) bool {
+	switch word {
+	case "offered", "answered", "accepted", "connected", "failed", "signalDropped":
+		return true
 	}
 	return false
 }

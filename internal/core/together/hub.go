@@ -573,9 +573,15 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 		return
 	}
-	if note.Kind == NoteVoiceStats {
+	switch note.Kind {
+	case NoteVoiceStats:
 		current.logVoice(ctx, who, from, *note.Voice)
 		return
+	case NoteVoiceCall:
+		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
+			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
+		return
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
 	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))
 	for _, field := range []struct {

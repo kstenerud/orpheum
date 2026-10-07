@@ -6,6 +6,7 @@ import {
   createTogetherConnection,
   type RelaysVoiceSignals,
   type TogetherConnection,
+  type VoiceCallStep,
 } from "./together-connection.ts";
 import type { OpenTogetherSocket, RosterMember, VoiceSignal } from "./together.ts";
 
@@ -511,6 +512,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       call.setGain(this.#snapshot.partnerGain);
       if (entry.isOffering) {
         this.#send(entry, { sdp: await call.offer() });
+        this.#noteStep(entry.deviceId, "offered");
       }
     });
     return entry;
@@ -519,7 +521,11 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   /** Signalling from another device, taken in turn on its call; none from a device not called. */
   #hear(fromDeviceId: number, signal: VoiceSignal): void {
     const entry = this.#calls.get(fromDeviceId);
-    entry?.run(async () => {
+    if (entry === undefined) {
+      this.#noteStep(fromDeviceId, "signalDropped");
+      return;
+    }
+    entry.run(async () => {
       const call = entry.call;
       if (call === undefined) {
         return;
@@ -529,10 +535,17 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
         await call.addCandidate(signal.candidate).catch(() => undefined);
       } else if (entry.isOffering) {
         await call.accept(signal.sdp);
+        this.#noteStep(entry.deviceId, "accepted");
       } else {
         this.#send(entry, { sdp: await call.answer(signal.sdp) });
+        this.#noteStep(entry.deviceId, "answered");
       }
     });
+  }
+
+  /** Tells the core's log the step a call with partnerDeviceId took. */
+  #noteStep(partnerDeviceId: number, why: VoiceCallStep): void {
+    this.#connection?.note({ kind: "voiceCall", partnerDeviceId, why });
   }
 
   #send(entry: CallEntry, signal: VoiceSignal): void {
@@ -545,6 +558,9 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   #setState(entry: CallEntry, state: VoiceCallState): void {
     if (entry.isClosed) {
       return;
+    }
+    if (state !== "connecting" && entry.partner().state !== state) {
+      this.#noteStep(entry.deviceId, state);
     }
     if (state === "failed") {
       this.stop();

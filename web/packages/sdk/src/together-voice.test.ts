@@ -66,6 +66,14 @@ function fakeServer(): FakeServer {
   };
 }
 
+/** The notes of kind the voice device sent, in the order sent. */
+function notesOf(server: FakeServer, kind: string): unknown[] {
+  return server.sent
+    .filter((each) => each["type"] === "note")
+    .map((each) => each["note"])
+    .filter((note) => (note as { readonly kind?: unknown } | undefined)?.kind === kind);
+}
+
 /** What every fake call measures. */
 const measuredCall: VoiceCallStats = {
   roundTripMs: 40,
@@ -363,12 +371,35 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     calls[0]!.setup.events.onState("connected"); // with Karl's device 30; Ann's, 15, connecting
     vi.advanceTimersByTime(voiceStatsEveryMs);
     await settle();
-    const notes = server.sent.filter((each) => each["type"] === "note");
-    expect(notes).toEqual([
-      expect.objectContaining({
-        note: { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } },
-      }),
+    expect(notesOf(server, "voiceStats")).toEqual([
+      { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } },
     ]);
+  });
+
+  it("tells the core's log each step a call takes, and a signal it drops", async () => {
+    const { server, calls } = await talking();
+    server.tell({ type: "rtc", fromDeviceId: 15, sdp: "ann-offer" });
+    server.tell({ type: "rtc", fromDeviceId: 30, sdp: "karl-answer" });
+    server.tell({ type: "rtc", fromDeviceId: 99, sdp: "a stranger's offer" });
+    await settle();
+    calls[0]!.setup.events.onState("connected");
+    calls[0]!.setup.events.onState("connected"); // told twice, noted once
+    // Each call's steps in order; the two calls' run apart.
+    const steps = notesOf(server, "voiceCall");
+    expect(steps).toHaveLength(5);
+    expect(
+      steps.filter((note) => (note as { partnerDeviceId: number }).partnerDeviceId === 30),
+    ).toEqual([
+      { kind: "voiceCall", partnerDeviceId: 30, why: "offered" },
+      { kind: "voiceCall", partnerDeviceId: 30, why: "accepted" },
+      { kind: "voiceCall", partnerDeviceId: 30, why: "connected" },
+    ]);
+    expect(steps).toEqual(
+      expect.arrayContaining([
+        { kind: "voiceCall", partnerDeviceId: 15, why: "answered" },
+        { kind: "voiceCall", partnerDeviceId: 99, why: "signalDropped" },
+      ]),
+    );
   });
 
   it("mutes by switching the microphone's track off, and stops it and detaches when stopped", async () => {
