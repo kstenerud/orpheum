@@ -10,6 +10,7 @@ import {
   adaptQuality,
   beyondTheLink,
   chunkLoadPolicy,
+  chunkedHlsConfig,
   lookForStepUpEveryMs,
   settledAtBps,
   type AdaptingHls,
@@ -156,5 +157,16 @@ describe("where a playback's stepping has settled (D260 §3)", () => {
     const { levels } = new FakeHls();
     expect(settledAtBps({ levels, loadLevel: -1 })).toBeUndefined();
     expect(settledAtBps({ levels, loadLevel: 1 })).toBe(1_992_000);
+  });
+});
+
+describe("how far a chunked playback loads ahead (D260 §3)", () => {
+  it("is hls.js's own unless told, and at most what it is told", () => {
+    expect(chunkedHlsConfig({ startPositionS: 40 })).not.toHaveProperty("maxBufferLength");
+    expect(chunkedHlsConfig({ startPositionS: 40, loadsAheadAtMostS: 10 })).toMatchObject({
+      startPosition: 40,
+      maxBufferLength: 10,
+      maxMaxBufferLength: 10,
+    });
   });
 });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import Hls, { type LoaderResponse, type LoadPolicy } from "hls.js";
+import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.js";
 
 import type { CannotKeepUp } from "@orpheum/sdk";
 
@@ -198,6 +198,29 @@ export interface ChunkedPlayback extends HlsPlayback {
 }
 
 /**
+ * hls.js's settings for a chunked playback from startPositionS, loading at most loadsAheadAtMostS
+ * ahead where given. No probe of the lowest quality first: its chunks are made on request, and only
+ * for a player that needs them.
+ */
+export function chunkedHlsConfig(options: {
+  readonly startPositionS: number;
+  readonly loadsAheadAtMostS?: number;
+}): Partial<HlsConfig> {
+  return {
+    testBandwidth: false,
+    capLevelToPlayerSize: false,
+    startPosition: options.startPositionS,
+    fragLoadPolicy: chunkLoadPolicy,
+    ...(options.loadsAheadAtMostS === undefined
+      ? {}
+      : {
+          maxBufferLength: options.loadsAheadAtMostS,
+          maxMaxBufferLength: options.loadsAheadAtMostS,
+        }),
+  };
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, adapting
  * its quality from startAtBps; else with the element's own HLS, which adapts by itself.
  */
@@ -211,6 +234,11 @@ export function playChunked(
     readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;
     readonly monotonicMs: () => number;
+    /**
+     * How many seconds ahead it loads at most; hls.js's own when absent. A film page's hidden player
+     * fills only its first buffer, so it does not hold a phone's link while its person browses.
+     */
+    readonly loadsAheadAtMostS?: number;
   },
 ): ChunkedPlayback {
   const method = hlsMethod(hlsSupport(video));
@@ -227,14 +255,7 @@ export function playChunked(
     options.onFailed("hls_unsupported");
     return { setAudioRendition: () => undefined, destroy: () => undefined, ...unknowing };
   }
-  // No probe of the lowest quality first: its chunks are made on request, and only for a player
-  // that needs them.
-  const hls = new Hls({
-    testBandwidth: false,
-    capLevelToPlayerSize: false,
-    startPosition: options.startPositionS,
-    fragLoadPolicy: chunkLoadPolicy,
-  });
+  const hls = new Hls(chunkedHlsConfig(options));
   failOnFatal(hls, options.onFailed);
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);

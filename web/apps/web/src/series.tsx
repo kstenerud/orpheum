@@ -12,6 +12,7 @@ import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource } from "./use-resource.ts";
 
 /** A series with its episodes, as the server sends it. */
@@ -93,10 +94,13 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
   );
 }
 
+/** The series' pages this tab has shown. */
+const rememberedSeries = new Remembered<SeriesDetail>();
+
 /** A series' page, loaded by its id. */
 export function Series(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [series] = useResource(
+  const [loaded] = useResource(
     `series/${String(props.id)}`,
     async () => {
       return dataOrThrow(
@@ -107,5 +111,6 @@ export function Series(props: { readonly id: number }): JSX.Element {
     },
     useBackgroundChangesPoller(),
   );
+  const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
   return <Loaded resource={series} render={(value) => <SeriesView series={value} />} />;
 }
