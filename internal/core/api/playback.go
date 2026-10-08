@@ -273,7 +273,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
 		"notDirectReasons", reasons, "isPreparing", started.IsPreparing,
 		"resumePositionMs", started.ResumePositionMs, "audioOutput", started.AudioOutput,
-		"startsOnLadderKbps", startsOnLadderKbps(started))...)
+		"startsOnLadderKbps", startsOnLadderKbps(started), "notOnLadderBecause", started.NotOnLadderBecause)...)
 }
 
 // startsOnLadderKbps is the rate of the picture on its film's ladder a playback starts at, 0 when it

@@ -141,6 +141,11 @@ type Started struct {
 	// itself from there (D260); nil for a film not cut yet, or one that cannot be, which plays as
 	// Decision says.
 	OnLadder *chunks.Offer
+	// NotOnLadderBecause is why a playback does not start on its film's ladder, for the log:
+	// "noGridYet" (its keyframes not read within play_ladder_wait_ms), "cannotBeCut",
+	// "noQualityOffered" or "noLadder"; empty when it does. A film played as its decision says, with
+	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
+	NotOnLadderBecause string
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -191,7 +196,8 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		deviceID: request.DeviceID, decision: decision,
 	}
 	playback.used, playback.startingAudio = used, started.StartingAudio
-	started.OnLadder, err = service.startOnLadder(ctx, holder, request, playback, started.ResumePositionMs)
+	started.OnLadder, started.NotOnLadderBecause, err = service.startOnLadder(ctx, holder, request, playback,
+		started.ResumePositionMs)
 	if err != nil {
 		return Started{}, err
 	}
@@ -235,19 +241,20 @@ const ladderLookEvery = 100 * time.Millisecond
 // startOnLadder starts a playback on its film's ladder from positionMs (D260): at the top, or, with
 // its player's link on the request's network remembered, where that link calls for (D257 §1). A
 // film with no grid yet is waited for, up to play_ladder_wait_ms, while its timeline is read, then nil,
-// playing as its decision says; one that cannot be cut, or offers no picture, is nil at once.
+// playing as its decision says; one that cannot be cut, or offers no picture, is nil at once. A nil
+// offer comes with why, for the log.
 func (service *Service) startOnLadder(
 	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs int64,
-) (*chunks.Offer, error) {
+) (*chunks.Offer, string, error) {
 	if service.chunks == nil {
-		return nil, nil //nolint:nilnil // no ladder is no error
+		return nil, "noLadder", nil
 	}
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
 	kbps, _ := service.speeds.fresh(key, service.clock.Now())
 	playback.positionMs = positionMs
 	waitMs, err := service.settings.Int(ctx, settings.PlayLadderWaitMs)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", settings.PlayLadderWaitMs, err)
+		return nil, "", fmt.Errorf("read %s: %w", settings.PlayLadderWaitMs, err)
 	}
 	waitUntil := service.clock.Now().Add(time.Duration(waitMs) * time.Millisecond)
 	for {
@@ -256,14 +263,17 @@ func (service *Service) startOnLadder(
 		if isWaiting && service.clock.Sleep(ctx, ladderLookEvery) == nil {
 			continue
 		}
-		if errors.Is(startErr, chunks.ErrNoGrid) || errors.Is(startErr, chunks.ErrCannotBeCut) ||
-			errors.Is(startErr, chunks.ErrNoQualityOffered) {
-			return nil, nil //nolint:nilnil // no ladder is no error
+		switch {
+		case errors.Is(startErr, chunks.ErrNoGrid):
+			return nil, "noGridYet", nil
+		case errors.Is(startErr, chunks.ErrCannotBeCut):
+			return nil, "cannotBeCut", nil
+		case errors.Is(startErr, chunks.ErrNoQualityOffered):
+			return nil, "noQualityOffered", nil
+		case startErr != nil:
+			return nil, "", startErr
 		}
-		if startErr != nil {
-			return nil, startErr
-		}
-		return &offer, nil
+		return &offer, "", nil
 	}
 }
 

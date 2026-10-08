@@ -255,7 +255,8 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	decided := harness.play(t, user, chrome(2))
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
 		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
-		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs
+		`"userAgent":"Go-http-client/1.1"`, // which browser, as an iPhone's player differs
+		`"notOnLadderBecause":"noGridYet"`) // why it plays as its decision says
 	token := decided.URL[strings.LastIndex(strings.TrimSuffix(decided.URL, "/master.m3u8"), "/")+1:]
 	if token == "" || strings.Contains(harness.logs.String(), token) {
 		t.Errorf("the log holds the playback's token %q, or none was found in %q", token, decided.URL)
