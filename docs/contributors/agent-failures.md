@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A26 — Committed with the gate failing, three times, in a clone with no git hooks (2026-10-08)
+
+- **What happened:** Earlier commits were committed while `make check` failed, and
+  An earlier commit did not build (three new files never staged). Each time the agent chained the commit
+  after the gate with `;`, or did not stage what it built, and nothing stopped it: this sandbox clone
+  had never run `make setup`, so `core.hooksPath` was unset and the pre-commit hook, which runs the
+  gate on what a commit records, never ran. The Stop hook runs the gate only at the end of a turn,
+  after the commits.
+- **Caught by:** the M4 closing audit, the agent's own reading of its output (the other
+  two), and the owner: *"If you have to remember to do the && properly, that's a process failure
+  because you're nondeterministic. We need to fix the process"*.
+- **Gate:** `.claude/hooks/pre_bash.py` refuses a `git commit` while `core.hooksPath` is not
+  `.githooks`, naming `make setup`; with the hooks installed, the pre-commit hook gates every commit.
+
 ### A25 — Called a design choice a necessity, and weighed an option by it (2026-10-08)
 
 - **What happened:** setting the decided way to cut a film with no keyframe index (D259 §3)

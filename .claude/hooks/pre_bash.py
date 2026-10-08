@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import subprocess
 from pathlib import Path
 
 import hooklib
@@ -254,6 +255,44 @@ def npm_adds_package(command: str) -> bool:
     return False
 
 
+def runs_git_commit(command: str) -> bool:
+    """Whether a simple command of command is `git commit`, after any prefix such as `env`."""
+    for args, _ in simple_commands(tokens(command)):
+        words = [word for word in args if not ASSIGNMENT.match(word)]
+        while words and words[0] in PREFIXES:
+            words = words[1:]
+        if words and Path(words[0]).name == "git" and git_subcommand(words[1:]) == "commit":
+            return True
+    return False
+
+
+# git's options that take the word after them as their value.
+GIT_VALUE_OPTIONS = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"})
+
+
+def git_subcommand(words: list[str]) -> str:
+    """The subcommand of a git command's words after `git`: the first that is not one of git's own
+    options or an option's value; "" for none."""
+    index = 0
+    while index < len(words):
+        word = words[index]
+        if word in GIT_VALUE_OPTIONS:
+            index += 2
+        elif word.startswith("-"):
+            index += 1
+        else:
+            return word
+    return ""
+
+
+def hooks_installed(root: Path) -> bool:
+    """Whether git runs this project's hooks in root: core.hooksPath is .githooks, as `make setup`
+    sets it. Without them a commit records whatever the tree holds, the gate passed or not."""
+    done = subprocess.run(["git", "-C", str(root), "config", "--get", "core.hooksPath"], capture_output=True,
+                          text=True, check=False)
+    return done.stdout.strip() == ".githooks"
+
+
 def main() -> None:
     event = hooklib.read_event()
     command = str((event.get("tool_input") or {}).get("command") or "")
@@ -269,6 +308,14 @@ def main() -> None:
         )
     elif skips_hooks(command):
         hooklib.deny("Git hooks are part of the gate; don't bypass or repoint them.")
+    elif runs_git_commit(command) and not hooks_installed(hooklib.ROOT):
+        # A commit made after a failed `make check`, chained with `;`, went in because nothing ran
+        # the gate at the commit: this clone had no hooks (the owner, 2026-10-08: "If you have to
+        # remember to do the && properly, that's a process failure").
+        hooklib.deny(
+            "Git's hooks are not installed in this clone (core.hooksPath is not .githooks), so this "
+            "commit would not run the gate. Run `make setup` first, then commit."
+        )
     elif FORCE_PUSH.search(shell_text(command)):
         hooklib.deny("No force-pushes. Add a commit that fixes the problem instead.")
     elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
