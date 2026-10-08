@@ -144,5 +144,32 @@ class PostEditAndStop(unittest.TestCase):
             (cache / f"check-pending-{kind}").unlink(missing_ok=True)
 
 
+class StopRunsTheGateForWhatChanged(unittest.TestCase):
+    def test_a_documentation_only_turn_runs_the_documentation_gate_and_code_the_whole(self):
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        targets = []
+
+        def command(target, env):
+            targets.append(target)
+            return ["true"]
+
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            (pending / "check-pending-docs").touch()
+            on_stop.main()
+            (pending / "check-pending-docs").touch()
+            (pending / "check-pending-code").touch()
+            on_stop.main()
+        # Documentation alone runs no test of the code (the owner, 2026-10-08).
+        self.assertEqual(targets, ["check-documentation", "check"])
+
+
 if __name__ == "__main__":
     unittest.main()
