@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -301,9 +302,15 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	}
 	var person *together.Person
 	if token := bearerToken(input.Authorization); token != "" {
-		// A lapsed sign-in joins as nobody, as the link allows: it is not refused for it.
-		if principal, authErr := dependencies.Auth.Authenticate(ctx, token); authErr == nil {
+		// A lapsed sign-in joins as nobody, as the link allows: it is not refused for it. One that
+		// could not be checked is the server's failure: joined as nobody, the session would not have
+		// followed its person (D267 §2), and nothing said why (the M4 closing audit, 2026-10-08).
+		principal, authErr := dependencies.Auth.Authenticate(ctx, token)
+		switch {
+		case authErr == nil:
 			person = &together.Person{UserID: principal.UserID, Name: principal.Name}
+		case !errors.Is(authErr, auth.ErrNotAuthenticated):
+			return nil, server.authError(ctx, "check the sign-in of someone joining by a link", authErr)
 		}
 	}
 	joined, err := dependencies.Together.Join(input.Body.Secret, name, person)
