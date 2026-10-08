@@ -2,14 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { startingTuning, type GroupView, type SyncTuning } from "./together.ts";
-import type {
-  GroupCommand,
-  PlayerNote,
-  PlayerState,
-  TogetherConnection,
-  TogetherSnapshot,
-} from "./together-connection.ts";
+import { startingTuning, type GroupView } from "./together.ts";
+import type { GroupCommand, PlayerNote } from "./together-connection.ts";
 import {
   aimAheadAtMostMs,
   checkDriftEveryMs,
@@ -26,6 +20,7 @@ import {
   type QualitySwitched,
 } from "./together-follow.ts";
 import { nudgeForMs } from "./together-drift.ts";
+import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
 /**
  * A player in step with a group playing from 100 s that has measured its link loading half a
@@ -60,145 +55,6 @@ function fallenBehindOnAHalfSpeedLink(isLeading = false): {
   media.fire("waiting");
   return { media, setGroup, commands };
 }
-
-/** A stand-in video element: its position, play state and events, as a test sets them. */
-class FakeMedia {
-  currentTime = 0;
-  playbackRate = 1;
-  /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own names, which this stands in for */
-  muted = false;
-  preservesPitch = true;
-  paused = true;
-  ended = false;
-  seeking = false;
-  /* eslint-enable @typescript-eslint/naming-convention -- the fake's own names follow */
-  readyState = 4;
-  networkState = 2; // NETWORK_LOADING
-  duration = 7200;
-  /** What is loaded, as [start, end] in seconds: all of it unless a test says otherwise. */
-  loaded: [number, number][] = [[0, 7200]];
-  readonly listeners = new Map<string, (event: Event) => void>();
-
-  get buffered(): Pick<TimeRanges, "length" | "start" | "end"> {
-    const { loaded } = this;
-    return {
-      length: loaded.length,
-      start: (index) => loaded[index]?.[0] ?? 0,
-      end: (index) => loaded[index]?.[1] ?? 0,
-    };
-  }
-
-  play(): Promise<void> {
-    this.paused = false;
-    return Promise.resolve();
-  }
-
-  pause(): void {
-    this.paused = true;
-  }
-
-  addEventListener(type: string, listener: (event: Event) => void): void {
-    this.listeners.set(type, listener);
-  }
-
-  removeEventListener(type: string): void {
-    this.listeners.delete(type);
-  }
-
-  /** The browser firing an event at the element. */
-  fire(type: string, event: Event = new Event(type)): void {
-    this.listeners.get(type)?.(event);
-  }
-
-  /** The events fired at the element by its page, by type. */
-  readonly dispatched: string[] = [];
-
-  dispatchEvent(event: Event): boolean {
-    this.dispatched.push(event.type);
-    this.fire(event.type, event);
-    return true;
-  }
-}
-
-/** A stand-in connection whose group a test sets, keeping the commands and reports it is given. */
-function fakeConnection(
-  group: GroupView,
-  tuning: SyncTuning = startingTuning,
-  minimumRttMs?: number,
-): {
-  connection: TogetherConnection;
-  setGroup: (next: GroupView, receivedAtMs: number, placedByRttMs?: number) => void;
-  commands: GroupCommand[];
-  reports: PlayerState[];
-  notes: PlayerNote[];
-} {
-  let snapshot: TogetherSnapshot = {
-    status: "connected",
-    memberId: 1,
-    isHost: false,
-    group,
-    groupReceivedAtMs: 0,
-    groupPlacedByRttMs: undefined,
-    roster: [],
-    endReason: undefined,
-    minimumRttMs,
-    lastRejectionCode: undefined,
-    tuning,
-  };
-  let listener = (): void => undefined;
-  let readPlayer: (() => PlayerState) | undefined;
-  const commands: GroupCommand[] = [];
-  const reports: PlayerState[] = [];
-  const notes: PlayerNote[] = [];
-  return {
-    commands,
-    reports,
-    notes,
-    setGroup: (next, receivedAtMs, placedByRttMs) => {
-      snapshot = {
-        ...snapshot,
-        group: next,
-        groupReceivedAtMs: receivedAtMs,
-        groupPlacedByRttMs: placedByRttMs,
-      };
-      listener();
-    },
-    connection: {
-      snapshot: () => snapshot,
-      subscribe: (heard) => {
-        listener = heard;
-        return () => undefined;
-      },
-      setPlayer: (read) => {
-        readPlayer = read;
-      },
-      reportState: () => {
-        const state = readPlayer?.();
-        if (state !== undefined) {
-          reports.push(state);
-        }
-      },
-      command: (command) => {
-        commands.push(command);
-      },
-      note: (note) => {
-        notes.push(note);
-      },
-      open: () => undefined,
-      close: () => undefined,
-    },
-  };
-}
-
-const paused: GroupView = {
-  state: "Paused",
-  positionMs: 60_000,
-  rate: 1,
-  fileId: 5,
-  event: undefined,
-  seekedFromMs: 0,
-  byMemberId: undefined,
-};
 
 let monotonicNowMs = 0;
 const monotonicMs = (): number => monotonicNowMs;
@@ -250,6 +106,7 @@ describe("a player following its group", () => {
       positionMs: 60_000,
       driftMs: 1000,
       rate: media.playbackRate,
+      returnCostMs: 0, // a player that has not gone back to the group's rate has learned nothing
     });
     const loaded: ChunkLoaded = { track: "video", loadMs: 2000, kbps: 2400, qualityKbps: 1200 };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
@@ -757,24 +614,5 @@ describe("a player following its group", () => {
     media.readyState = 4;
     media.fire("canplay");
     expect(media.currentTime).toBe((monotonicNowMs + 60_000 + aimAheadAtMostMs) / 1000);
-  });
-});
-
-describe("a following player the browser will not start with sound", () => {
-  it("plays muted when its group plays, as playOrPlayMuted does", async () => {
-    const media = new FakeMedia();
-    media.play = function refusingSound(this: FakeMedia): Promise<void> {
-      if (!this.muted) {
-        return Promise.reject(new DOMException("no recent tap", "NotAllowedError"));
-      }
-      this.paused = false;
-      return Promise.resolve();
-    };
-    const { connection } = fakeConnection({ ...paused, state: "Playing" });
-    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
-    await vi.waitFor(() => {
-      expect(media.paused).toBe(false);
-    });
-    expect(media.muted).toBe(true);
   });
 });

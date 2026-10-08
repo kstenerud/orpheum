@@ -7,7 +7,7 @@ import {
   type PlayerState,
   type TogetherConnection,
 } from "./together-connection.ts";
-import { driftCorrection, nudgeForMs } from "./together-drift.ts";
+import { driftCorrection, learnedReturnCostMs, nudgeForMs } from "./together-drift.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
 
 /**
@@ -271,6 +271,10 @@ class GroupFollower {
   /** Whether the last seek was the follower's own, so its seeking is not taken for a person's. */
   #isOwnSeekPending = false;
   #nudgeEndsAtMs = 0;
+  /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
+  #returnCost = { costMs: 0, returns: 0 };
+  /** How far behind it was as its last nudge ended, until what that cost is learned. */
+  #behindAtReturnMs: number | undefined = undefined;
   /** Until when (monotonic) it is not nudged: Safari's position stands still after a change. */
   #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
@@ -510,6 +514,7 @@ class GroupFollower {
   #seek(toMs: number, why: "catchUp" | "hold"): void {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSamples = [];
+    this.#behindAtReturnMs = undefined; // what a seek moves is no return's cost
     this.#isOwnSeekPending = true;
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
@@ -544,28 +549,51 @@ class GroupFollower {
     this.#settlesAtMs = this.#options.monotonicMs() + tuning.settleAfterChangeMs;
   }
 
+  /** Settled after its last return to the group's rate, behindMs behind: what that return cost it. */
+  #learnReturnCost(behindMs: number): void {
+    if (this.#behindAtReturnMs !== undefined) {
+      this.#returnCost = learnedReturnCostMs(this.#returnCost, this.#behindAtReturnMs, behindMs);
+      this.#behindAtReturnMs = undefined;
+    }
+  }
+
+  /**
+   * Plays at rate, if it plays at another, settling its position; a nudge ending, behindMs behind,
+   * has what that return costs learned once the position settles (#learnReturnCost).
+   */
+  #setRate(rate: number, where: GroupNow, behindMs: number): void {
+    const media = this.#media;
+    if (rate === media.playbackRate) {
+      return;
+    }
+    const isNudgeEnding = media.playbackRate !== where.group.rate && rate === where.group.rate;
+    this.#behindAtReturnMs = isNudgeEnding ? behindMs : undefined;
+    media.preservesPitch = where.tuning.shouldNudgeKeepPitch;
+    media.playbackRate = rate;
+    this.#settle();
+  }
+
   /** Corrects a playing player's drift from the group: nudged away, or sought across. */
   #correct(where: GroupNow): void {
     const media = this.#media;
+    const behindMs = where.expectedMs - positionMsOf(media);
+    const isNudging = media.playbackRate !== where.group.rate;
     const correction = driftCorrection(
       { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
       where.tuning,
+      isNudging ? this.#returnCost.costMs : 0,
     );
     // Safari's position stands still up to 250 ms after a change (D250 §7): no nudge on that, but a
     // drift to seek across is far beyond what a still position makes, and is sought across at once.
     if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
       return;
     }
+    this.#learnReturnCost(behindMs);
     // A player stalled and refilling is not nudged: its position does not move, and a faster rate
     // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
     // iPhone was nudged to 2x second after second).
     const isNudged = correction.kind === "nudge" && !this.#isRefilling;
-    const rate = isNudged ? correction.rate : where.group.rate;
-    if (rate !== media.playbackRate) {
-      media.preservesPitch = where.tuning.shouldNudgeKeepPitch;
-      media.playbackRate = rate;
-      this.#settle();
-    }
+    this.#setRate(isNudged ? correction.rate : where.group.rate, where, behindMs);
     if (isNudged) {
       this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
       this.#connection.note({
@@ -573,6 +601,7 @@ class GroupFollower {
         positionMs: positionMsOf(media),
         driftMs: where.expectedMs - positionMsOf(media),
         rate: correction.rate,
+        returnCostMs: Math.round(this.#returnCost.costMs),
       });
     } else if (correction.kind === "seek") {
       this.#catchUp(correction.toMs, where);

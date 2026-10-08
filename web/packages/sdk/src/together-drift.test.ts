@@ -3,7 +3,12 @@
 import { describe, expect, it } from "vitest";
 
 import { startingTuning, type GroupView, type SyncTuning } from "./together.ts";
-import { driftCorrection, expectedPositionMs } from "./together-drift.ts";
+import {
+  driftCorrection,
+  learnedReturnCostMs,
+  returnCostAtMostMs,
+  expectedPositionMs,
+} from "./together-drift.ts";
 
 describe("where the group is (D66: no clock sync)", () => {
   const playing: GroupView = {
@@ -79,5 +84,31 @@ describe("correcting drift by the welcome's tuning (D250 §1)", () => {
         startingTuning,
       ),
     ).toEqual({ kind: "seek", toMs: 9000 });
+  });
+});
+
+describe("a player whose rate going back to its group's costs it time, as Safari's does", () => {
+  it("is nudged on past the group by that cost, so it lands on it", () => {
+    // 100 ms behind is within the allowance, but losing 220 ms as the nudge ends would leave it
+    // 320 ms behind: the nudge goes on.
+    const drift = { expectedMs: 10_100, actualMs: 10_000, groupRate: 1 };
+    expect(driftCorrection(drift, startingTuning, 220)).toEqual({ kind: "nudge", rate: 1.1 });
+    expect(driftCorrection(drift, startingTuning, 0)).toEqual({ kind: "none" });
+    // 120 ms ahead, it will be 100 ms behind once the return costs it 220: it is left alone.
+    const ahead = { expectedMs: 10_000, actualMs: 10_120, groupRate: 1 };
+    expect(driftCorrection(ahead, startingTuning, 220)).toEqual({ kind: "none" });
+  });
+
+  it("learns the cost from each return, a browser that loses nothing learning nothing", () => {
+    // Behind 230 ms as the nudge ended and 450 ms once settled: the return cost 220, taken whole.
+    const first = learnedReturnCostMs({ costMs: 0, returns: 0 }, 230, 450);
+    expect(first).toEqual({ costMs: 220, returns: 1 });
+    // Then averaged: a return that lost 180 moves it halfway.
+    expect(learnedReturnCostMs(first, 230, 410)).toEqual({ costMs: 200, returns: 2 });
+    // Gained, as Chrome's drift wobbles; and a stall, not a cost, counts at the most.
+    expect(learnedReturnCostMs({ costMs: 0, returns: 0 }, 120, 100).costMs).toBe(0);
+    expect(learnedReturnCostMs({ costMs: 0, returns: 0 }, 100, 5000).costMs).toBe(
+      returnCostAtMostMs,
+    );
   });
 });
