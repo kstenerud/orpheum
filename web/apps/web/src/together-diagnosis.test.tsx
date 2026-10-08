@@ -5,7 +5,12 @@ import { playerBufferedFirstEvent, playerMovedItselfEvent, type PlayerNote } fro
 import { useRef, type JSX } from "react";
 import { describe, expect, it } from "vitest";
 
-import { diagnoseAtMostEveryMs, useDiagnosisNotes } from "./together-diagnosis.ts";
+import {
+  diagnoseAtMostEveryMs,
+  noteSized,
+  noteTextMost,
+  useDiagnosisNotes,
+} from "./together-diagnosis.ts";
 import { fire, mount } from "./test-dom.tsx";
 
 describe("a following player's diagnosis", () => {
@@ -51,5 +56,23 @@ describe("a following player's diagnosis", () => {
       notes.slice(2).map((note) => (note.kind === "diagnosis" ? note.why : note.kind)),
     ).toEqual(["bufferedFirst", "bufferedFirst"]);
     mounted.unmount();
+  });
+
+  it("cuts each text to what the server takes, keeping the latest ranges (the M4 closing audit)", () => {
+    const ranges = Array.from(
+      { length: 60 },
+      (_, index) => `${String(index * 10)}.00-${String(index * 10 + 5)}.00`,
+    );
+    const sized = noteSized({
+      videoBuffered: ranges.join(" "),
+      audioBuffered: "",
+      lastError: "x".repeat(400),
+      mapping: "",
+      streaming: "streaming",
+    });
+    expect(sized.videoBuffered.length).toBeLessThanOrEqual(noteTextMost);
+    expect(sized.videoBuffered.endsWith("590.00-595.00")).toBe(true);
+    expect(sized.lastError).toHaveLength(noteTextMost);
+    expect(sized.streaming).toBe("streaming");
   });
 });
