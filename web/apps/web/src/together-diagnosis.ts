@@ -59,10 +59,15 @@ export function useDiagnosisNotes(
     }
     let lastMs = Number.NEGATIVE_INFINITY;
     const diagnose = (why: "movedItself" | "stalled" | "bufferedFirst"): void => {
-      if (why !== "bufferedFirst" && nowMs() - lastMs < diagnoseAtMostEveryMs) {
+      const isFirstChunk = why === "bufferedFirst";
+      if (!isFirstChunk && nowMs() - lastMs < diagnoseAtMostEveryMs) {
         return;
       }
-      lastMs = nowMs();
+      // A first chunk's note is outside the limit, and so does not start it: one silenced the
+      // stall that came right after it (the M4 closing audit, 2026-10-08).
+      if (!isFirstChunk) {
+        lastMs = nowMs();
+      }
       connection.note({
         kind: "diagnosis",
         why,
