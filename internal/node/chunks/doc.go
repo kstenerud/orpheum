@@ -29,6 +29,15 @@
 //     TestMake_TimesASoundBySamplesAfterItsLeadIn; with the pinned FFmpeg, two runs' chunks join
 //     into one stream at the film's times, by TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes
 //     (integration tier).
+//   - A copied picture's run seeks past its first keyframe, before the next, as the core says:
+//     FFmpeg moves a seek into Matroska 130 ms earlier, so a seek at the keyframe lands on the one
+//     before it and every chunk of the run would hold the one before it. A decoded stream seeks to
+//     its start. Enforced by TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd and, with the
+//     pinned FFmpeg, TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes, whose Matroska
+//     picture's packets must be the film's.
+//   - A raw file is made a chunk only when the span the muxer lists for it is its chunk's, and the
+//     run's last only once FFmpeg has ended: FFmpeg stopped in a file closes it and lists it as
+//     finished. Enforced by TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds.
 //   - A run not of a run's shape is refused before anything is made. Enforced by
 //     TestMake_RefusesARunNotOfARunsShape.
 //   - What is not a raw file of the muxer's is refused, never read past its end. Enforced by
@@ -44,5 +53,6 @@
 // # Where to change
 //
 //   - arguments.go: the FFmpeg command line. maker.go: one run, its raw files and their times.
-//     fmp4.go: reading and retiming fragmented MP4.
+//     fmp4.go: reading and retiming fragmented MP4. listed.go: the muxer's list and the spans it
+//     says.
 package chunks

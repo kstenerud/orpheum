@@ -43,6 +43,20 @@ func film(t *testing.T, runner *execx.Runner) string {
 	return path
 }
 
+// inMatroska is the film copied into Matroska, which FFmpeg seeks by decode time: it moves a seek
+// 130 ms earlier, so a seek at a keyframe lands on the one before it (idiosyncrasies.md).
+func inMatroska(t *testing.T, runner *execx.Runner, source string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "a film (2020).mkv")
+	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
+		"-v", "error", "-i", "file:" + source, "-map", "0", "-c", "copy", "file:" + path,
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 // keyframeGrid is the film's chunks: its picture's keyframes as FFmpeg's timeline has them, which a
 // read-through finds (internal/node/readthrough), a keyframe every two seconds; then its end.
 func keyframeGrid(t *testing.T, runner *execx.Runner, source string) []int64 {
@@ -80,11 +94,23 @@ func sourceTimes(t *testing.T, runner *execx.Runner, source, stream string, keyf
 	return times
 }
 
-// packetTimes are the shown times, in seconds, of the packets of the stream joined from a store's
-// init and its chunks, in order: what a player plays.
-func packetTimes(t *testing.T, runner *execx.Runner, storePath string, chunkCount int) []float64 {
+// packetSizes are the sizes of the packets of stream, in decode order: a copied picture's are the
+// source's, packet for packet, where times alone match a run begun a keyframe early.
+func packetSizes(t *testing.T, runner *execx.Runner, path, stream string) []string {
 	t.Helper()
-	joined := filepath.Join(t.TempDir(), "joined.mp4")
+	listed, err := runner.Run(t.Context(), execx.FFprobe, confine.Access{}, []string{
+		"-v", "error", "-select_streams", stream, "-show_entries", "packet=size", "-of", "csv=p=0", "file:" + path,
+	}, 16<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Fields(string(listed))
+}
+
+// joined is a store's init and its chunks written as one file, what a player plays.
+func joined(t *testing.T, storePath string, chunkCount int) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "joined.mp4")
 	contents, err := os.ReadFile(filepath.Join(storePath, chunks.InitName))
 	if err != nil {
 		t.Fatal(err)
@@ -96,10 +122,17 @@ func packetTimes(t *testing.T, runner *execx.Runner, storePath string, chunkCoun
 		}
 		contents = append(contents, chunk...)
 	}
-	if err := os.WriteFile(joined, contents, 0o600); err != nil { //nolint:gosec // the test's own temporary file
+	if err := os.WriteFile(path, contents, 0o600); err != nil { //nolint:gosec // the test's own temporary file
 		t.Fatal(err)
 	}
-	return sourceTimes(t, runner, joined, "0", false)
+	return path
+}
+
+// packetTimes are the shown times, in seconds, of the packets of the stream joined from a store's
+// init and its chunks, in order: what a player plays.
+func packetTimes(t *testing.T, runner *execx.Runner, storePath string, chunkCount int) []float64 {
+	t.Helper()
+	return sourceTimes(t, runner, joined(t, storePath, chunkCount), "0", false)
 }
 
 // makeInTwoRuns makes stream's chunks 0–2 in one run and 3–5 in another, the second with its
@@ -113,6 +146,9 @@ func makeInTwoRuns(
 			VideoStreamIndex: 0, VideoCodec: "h264", Stream: stream, StoreDir: storeDir,
 			FirstChunk: first, BoundsMs: grid[first : first+4],
 		}
+		if stream.Kind == nodeproto.StreamPicture {
+			command.PictureSeekMs = (grid[first] + grid[first+1]) / 2 // midway to the next keyframe
+		}
 		if stream.Kind == nodeproto.StreamSound && first > 0 {
 			command.SoundLeadInMs = grid[first-1]
 		}
@@ -124,7 +160,8 @@ func makeInTwoRuns(
 
 // Chunks made by two runs far apart join into one stream: every picture once, at its time in the
 // film, the second run's first chunk shown at its bound, the copied picture and the encoded quality
-// alike; and the sound continuous, its join under a frame (D247 §10; slow-links.md §10).
+// alike, from MP4 and from Matroska, which FFmpeg seeks differently (idiosyncrasies.md); and the
+// sound continuous, its join under a frame (D247 §10; slow-links.md §10).
 func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	t.Parallel()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
@@ -139,11 +176,25 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	maker := chunks.NewMaker(runner, shelf, directory, prepare.EncoderX264)
-	for storeDir, stream := range map[string]nodeproto.ChunkStream{
-		"1/chunks-picture/0123456789abcdef":  {Kind: nodeproto.StreamPicture},
-		"1/chunks-q300k96p/0123456789abcdef": {Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96},
+	matroska := inMatroska(t, runner, source)
+	picture := nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}
+	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96}
+	for storeDir, made := range map[string]struct {
+		source string
+		stream nodeproto.ChunkStream
+	}{
+		"1/chunks-picture/0123456789abcdef":  {source, picture},
+		"2/chunks-picture/0123456789abcdef":  {matroska, picture},
+		"1/chunks-q300k96p/0123456789abcdef": {source, quality},
+		"2/chunks-q300k96p/0123456789abcdef": {matroska, quality},
 	} {
-		makeInTwoRuns(t, maker, source, storeDir, grid, stream)
+		makeInTwoRuns(t, maker, made.source, storeDir, grid, made.stream)
+		if made.stream.Kind == nodeproto.StreamPicture {
+			stored := packetSizes(t, runner, joined(t, filepath.Join(directory, storeDir), len(grid)-1), "0")
+			if want := packetSizes(t, runner, made.source, "v:0"); !slices.Equal(stored, want) {
+				t.Errorf("%s: the copied picture's packets are not the film's, packet for packet", storeDir)
+			}
+		}
 		times := packetTimes(t, runner, filepath.Join(directory, storeDir), len(grid)-1)
 		if len(times) != len(pictures) {
 			t.Errorf("%s: %d pictures, want the film's %d", storeDir, len(times), len(pictures))

@@ -91,6 +91,8 @@ User-Agent (D263; the User-Agent is logged only).
 | Two pages in the test container cannot call each other. | [mDNS-obfuscated host candidates cannot be resolved inside a container](#mdns-obfuscated-host-candidates-cannot-be-resolved-inside-a-container) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
+| A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
+| A chunk held a fraction of its frames, with a gap after it. | [The segment muxer lists the file it was writing as finished when FFmpeg is stopped](#the-segment-muxer-lists-the-file-it-was-writing-as-finished-when-ffmpeg-is-stopped) |
 | The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid | [The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid](#the-hls-muxer-cuts-by-cumulative-time-and-cannot-keep-a-copied-picture-to-a-keyframe-grid) |
 | Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt` | [Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`](#each-output-file-starts-its-fmp4-times-at-zero-and-upstream-has-no-flag-for-absolute-tfdt) |
 | FMP4 init segments differ between runs unless the edit list is off | [fMP4 init segments differ between runs unless the edit list is off](#fmp4-init-segments-differ-between-runs-unless-the-edit-list-is-off) |
@@ -1029,6 +1031,48 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   keyframes": open (checked 2026-10-08). **Better workaround:** `-segment_time_delta 0.05` is the muxer's own
   flag for our 50 ms early cut, so the cut times could stay exact.
 
+
+### An input seek at a keyframe of a Matroska film lands on the keyframe before it
+
+- **Symptom:** a copied picture's run asked to start at a keyframe began one keyframe early, and
+  every chunk of the run held the chunk before it, retimed to its own place: *Flow* jumped back and
+  repeated, and its store had chunks that overlapped (picture chunk 38 held 10.43 s where its chunk
+  is 9.30 s; staging, 2026-10-08). Only a stream copy shows it: a decode trims to the seek exactly.
+- **Cause:** `fftools/ffmpeg_demux.c` moves an input `-ss` 3/23 s (130 ms) earlier for a format
+  without `AVFMT_SEEK_TO_PTS`, Matroska, AVI and MPEG-TS among them (MP4 has it), when any stream
+  has B-frame delay, and the demuxer then lands on the keyframe at or before that. A seek exactly at
+  a keyframe so lands on the one before it.
+- **What we do:** a copied picture's run seeks midway to the next keyframe, at least 131 ms past
+  its first and before the next (`chunks.PictureSeekMs` in `internal/core/chunks/job.go`;
+  `nodeproto.MakeChunks.PictureSeekMs`); the muxer's cut times stay relative to the first keyframe,
+  where the copy begins. The node also refuses a raw file whose listed span is not its chunk's
+  (`internal/node/chunks/listed.go`), which a whole run begun early passes when chunks are as long as
+  the stretches between keyframes.
+- **Evidence:** **[measured]** on *Flow* with the pinned FFmpeg 8.1.2: `-ss 388.930`, a keyframe,
+  wrote 378.503–388.930 as the run's first file; `-ss 391.078`, midway, wrote the grid's chunks.
+  `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes` compares a Matroska copy's packets with
+  the film's, and fails without the seek. **[source]**
+  [ffmpeg_demux.c](https://github.com/FFmpeg/FFmpeg/blob/release/8.0/fftools/ffmpeg_demux.c)
+  (`dts_heuristic`, `seek_timestamp -= 3*AV_TIME_BASE / 23`). **[web]**
+  [Kyoo PR #320](https://github.com/zoriya/Kyoo/pull/320): "`-ss` seeks to the keyframe prior the
+  given time ... if the given time is a keyframe, this is UB"; Kyoo's `transcoder/src/stream.go`
+  seeks midway to the next keyframe for the same reason. FFmpeg's trac refuses automated search, so
+  no FFmpeg ticket was checked (2026-10-08).
+
+### The segment muxer lists the file it was writing as finished when FFmpeg is stopped
+
+- **Symptom:** a chunk held 23 frames of its 10 s, and the stream had a gap after it (*Flow*'s
+  picture chunk 37, staging, 2026-10-08).
+- **Cause:** on SIGINT, FFmpeg's graceful quit, the muxer writes its trailer, closing the file it
+  was in the middle of, and adds it to `-segment_list` like any other: the list does not say a file
+  was cut short. The node's watchdog stops a stalled run with SIGINT first.
+- **What we do:** a raw file is made a chunk only when its listed span is its chunk's, within
+  500 ms, and the run's last chunk only once FFmpeg has ended, so whether a cut or the end closed it
+  is known (`internal/node/chunks/listed.go`, `maker.go`).
+- **Evidence:** **[measured]** FFmpeg 8.1.2 given SIGINT two seconds into a run listed
+  `00040.mp4,4.379000,10.927000`, a file whose cut was at 14.68 s.
+  `TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds`. **[web]** no public report found (searched
+  GitHub issues of Kyoo and Jellyfin, 2026-10-08).
 
 ### The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid
 

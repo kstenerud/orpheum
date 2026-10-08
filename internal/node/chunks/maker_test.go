@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,13 +23,31 @@ import (
 )
 
 // fakeFFmpeg stands in for FFmpeg's segment muxer: it writes raw, one file after another into the
-// run's raw directory, listing each once it is whole, and says its progress after each; then it
-// ends with err.
+// run's raw directory, listing each once it is whole, at the span between the cuts it was told, or
+// as spans says, and says its progress after each; then it ends with err.
 type fakeFFmpeg struct {
 	raw     map[int][]byte
 	numbers []int
+	spans   map[int]string
 	err     error
 	ran     execx.WatchedRun
+}
+
+// listedSpan is raw file number's span as the muxer lists it, "<start>,<end>" in seconds: between
+// the cuts around it, or a tenth of a second past the last for what is written past the run.
+func (fake *fakeFFmpeg) listedSpan(arguments []string, number int) string {
+	if span, isSet := fake.spans[number]; isSet {
+		return span
+	}
+	first, _ := strconv.Atoi(valueOf(arguments, "-segment_start_number")) //nolint:errcheck // the maker's own
+	cuts := []string{"0"}
+	cuts = append(cuts, strings.Split(valueOf(arguments, "-segment_times"), ",")...)
+	index := number - first
+	if index+1 < len(cuts) {
+		return cuts[index] + "," + cuts[index+1]
+	}
+	last, _ := strconv.ParseFloat(cuts[len(cuts)-1], 64) //nolint:errcheck // the maker's own
+	return cuts[len(cuts)-1] + "," + strconv.FormatFloat(last+0.1, 'f', 3, 64)
 }
 
 func (fake *fakeFFmpeg) RunWatched(_ context.Context, run execx.WatchedRun) (execx.Ran, error) {
@@ -40,7 +60,7 @@ func (fake *fakeFFmpeg) RunWatched(_ context.Context, run execx.WatchedRun) (exe
 		if err := os.WriteFile(filepath.Join(rawPath, name), fake.raw[number], 0o600); err != nil {
 			return execx.Ran{}, err
 		}
-		list += name + ",0,0\n"
+		list += name + "," + fake.listedSpan(run.Arguments, number) + "\n"
 		if err := os.WriteFile(listPath, []byte(list), 0o600); err != nil {
 			return execx.Ran{}, err
 		}
@@ -171,9 +191,18 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	soundless := run(nodeproto.ChunkStream{Kind: nodeproto.StreamSound})
 	leadInOnAPicture := run(picture)
 	leadInOnAPicture.SoundLeadInMs = 1000
+	seekAtTheKeyframe := run(picture)
+	seekAtTheKeyframe.PictureSeekMs = seekAtTheKeyframe.BoundsMs[0]
+	seekPastTheNextChunk := run(picture)
+	seekPastTheNextChunk.PictureSeekMs = seekPastTheNextChunk.BoundsMs[1]
+	seekingQuality := run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96})
+	seekingQuality.PictureSeekMs = 103_854
 	for name, command := range map[string]nodeproto.MakeChunks{
 		"a store outside the shape": climbing, "bounds not rising": falling,
 		"a sound with no track": soundless, "a lead-in on a picture": leadInOnAPicture,
+		"a picture seeking at its keyframe":      seekAtTheKeyframe,
+		"a picture seeking past its first chunk": seekPastTheNextChunk,
+		"a quality with a picture's seek":        seekingQuality,
 	} {
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)
@@ -182,6 +211,55 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 		}
 		if entries, err := os.ReadDir(directory); err != nil || len(entries) != 0 || fake.ran.Arguments != nil {
 			t.Errorf("%s: something was made or run", name)
+		}
+	}
+}
+
+// A raw file whose listed span is not its chunk's is never made a chunk, and fails the run, keeping
+// the chunks before it: FFmpeg missed a cut or cut a keyframe off, or was stopped in the file and
+// listed it (idiosyncrasies.md). The run's last chunk, which FFmpeg's
+// end may close before its bound, as at a film's end, is taken only when FFmpeg ended of itself.
+func TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds(t *testing.T) {
+	t.Parallel()
+	picture := func(numbers ...int) map[int][]byte {
+		raw := map[int][]byte{}
+		for _, number := range numbers {
+			raw[number] = rawOf(24000, fragmentOf(0, 240, 0))
+		}
+		return raw
+	}
+	stalled := errors.New("stalled")
+	for _, test := range []struct {
+		name      string
+		spans     map[int]string
+		numbers   []int
+		err       error
+		wantLast  int
+		wantError bool
+	}{
+		{"a cut missed, holding two chunks", map[int]string{10: "0,13.714"}, []int{10, 11, 12, 13}, nil, -1, true},
+		{"a cut a keyframe early", map[int]string{11: "9.300,14.000"}, []int{10, 11, 12, 13}, nil, 10, true},
+		{"a file FFmpeg was stopped in", map[int]string{11: "9.960,11.000"}, []int{10, 11}, stalled, 10, true},
+		{"the last chunk, stopped in", map[int]string{12: "13.714,15.000"}, []int{10, 11, 12}, stalled, 11, true},
+		{
+			"the last chunk, ended early by the film's end",
+			map[int]string{12: "13.714,22.900"},
+			[]int{10, 11, 12},
+			nil, 12, false,
+		},
+	} {
+		fake := &fakeFFmpeg{raw: picture(test.numbers...), numbers: test.numbers, spans: test.spans, err: test.err}
+		maker, shelf, _ := makerOver(t, fake)
+		command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
+		last, err := maker.Make(t.Context(), "/films/a.mkv", command, nil)
+		if last != test.wantLast || (err != nil) != test.wantError {
+			t.Errorf("%s: the run made through %d, %v; want %d, failing %v", test.name, last, err, test.wantLast,
+				test.wantError)
+		}
+		for n := test.wantLast + 1; n <= 12; n++ {
+			if shelf.HasFile(command.StoreDir, ChunkName(n)) {
+				t.Errorf("%s: chunk %d was made of a file not cut at its bounds", test.name, n)
+			}
 		}
 	}
 }

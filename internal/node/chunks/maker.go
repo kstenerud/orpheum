@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -105,6 +104,9 @@ func check(command nodeproto.MakeChunks) error {
 		return fmt.Errorf("%w: a %s stream with a sound of %v", ErrBadRun,
 			command.Stream.Kind, command.Stream.Sound)
 	}
+	if err := checkSeek(command); err != nil {
+		return err
+	}
 	isLeadInWrong := !isSound || command.FirstChunk == 0 || command.SoundLeadInMs >= command.BoundsMs[0]
 	if command.SoundLeadInMs != 0 && isLeadInWrong {
 		return fmt.Errorf("%w: a lead-in at %d ms", ErrBadRun, command.SoundLeadInMs)
@@ -112,6 +114,18 @@ func check(command nodeproto.MakeChunks) error {
 	stream := command.Stream
 	if stream.Kind == nodeproto.StreamQuality && (stream.BitRateKbps <= 0 || stream.Height <= 0) {
 		return fmt.Errorf("%w: a quality of %d kb/s at %dp", ErrBadRun, stream.BitRateKbps, stream.Height)
+	}
+	return nil
+}
+
+// checkSeek refuses a copied picture whose seek is not past its first keyframe and before its
+// second chunk, and any other stream with a picture's seek.
+func checkSeek(command nodeproto.MakeChunks) error {
+	isPicture := command.Stream.Kind == nodeproto.StreamPicture
+	seekMs := command.PictureSeekMs
+	if isSeekPastFirstKeyframe := seekMs > command.BoundsMs[0] && seekMs < command.BoundsMs[1]; isPicture !=
+		isSeekPastFirstKeyframe {
+		return fmt.Errorf("%w: a %s seeking to %d ms", ErrBadRun, command.Stream.Kind, seekMs)
 	}
 	return nil
 }
@@ -153,6 +167,7 @@ func (maker *Maker) Make(
 		Watch:     watch,
 	})
 	// What FFmpeg finished before it ended or was stopped is made into chunks either way.
+	taker.end(runErr == nil)
 	takeErr := taker.takeFinished()
 	if runErr != nil {
 		return taker.last(), fmt.Errorf("make chunks of %s: %w", command.StoreDir, runErr)
@@ -174,7 +189,17 @@ type rawTaker struct {
 	lastChunk    int // guarded by mutex
 	// hasInit is whether the run has put the store's init; guarded by mutex.
 	hasInit bool
-	failed  error // guarded by mutex: the first failure, after which nothing more is taken
+	// hasEnded is whether FFmpeg has ended, and hasEndedCleanly whether it ended of itself, at the
+	// run's end, and not stopped or failing; guarded by mutex.
+	hasEnded, hasEndedCleanly bool
+	failed                    error // guarded by mutex: the first failure, after which nothing more is taken
+}
+
+// end says FFmpeg has ended, cleanly or not: the run's last chunk is taken only then.
+func (taker *rawTaker) end(isClean bool) {
+	taker.mutex.Lock()
+	defer taker.mutex.Unlock()
+	taker.hasEnded, taker.hasEndedCleanly = true, isClean
 }
 
 func (taker *rawTaker) last() int {
@@ -202,7 +227,11 @@ func (taker *rawTaker) takeFinished() error {
 	lines := strings.Split(string(listed), "\n")
 	// The last line is whole only once it ends with a newline.
 	for ; taker.taken < len(lines)-1; taker.taken++ {
-		if err := taker.take(lines[taker.taken]); err != nil {
+		err := taker.take(lines[taker.taken])
+		if errors.Is(err, errNotYet) {
+			return nil
+		}
+		if err != nil {
 			taker.failed = err
 			return err
 		}
@@ -210,23 +239,41 @@ func (taker *rawTaker) takeFinished() error {
 	return nil
 }
 
+// errNotYet is the run's last chunk listed before FFmpeg has ended: whether a cut closed it or
+// FFmpeg's end did is not known yet.
+var errNotYet = errors.New("the run's last chunk waits for FFmpeg to end")
+
 // take makes one listed raw file into its chunk, or drops it: a sound's lead-in, or what FFmpeg
-// wrote past the run's last chunk.
+// wrote past the run's last chunk. A file whose span is not its chunk's fails the run, and is never
+// made a chunk: FFmpeg cut it elsewhere, or was stopped in it and listed it (idiosyncrasies.md).
 func (taker *rawTaker) take(line string) error {
-	name, _, _ := strings.Cut(line, ",")
-	number, err := strconv.Atoi(strings.TrimSuffix(name, ".mp4"))
+	entry, err := parseListed(line)
 	if err != nil {
-		return fmt.Errorf("the run's list names %q", name)
+		return err
 	}
-	defer func() { _ = taker.keeper.DiscardRaw(taker.rawPath, name) }() //nolint:errcheck // eviction takes what is left
+	name, number := entry.name, entry.number
 	command := taker.command
 	lastOfRun := command.FirstChunk + len(command.BoundsMs) - 2
+	if number == lastOfRun && !taker.hasEnded {
+		return errNotYet
+	}
+	defer func() { _ = taker.keeper.DiscardRaw(taker.rawPath, name) }() //nolint:errcheck // eviction takes what is left
 	if number > lastOfRun {
 		return nil
 	}
 	if !rawNamePattern.MatchString(name) {
 		return fmt.Errorf("the run's list names %q, not a raw file of its own", name)
 	}
+	if spanErr := checkSpan(command, entry, number == lastOfRun && taker.hasEndedCleanly); spanErr != nil {
+		return spanErr
+	}
+	return taker.makeChunk(name, number)
+}
+
+// makeChunk makes raw file number, named name, into its chunk, at its time in the film, putting the
+// store's init first if the run has not; a sound's lead-in is counted and dropped.
+func (taker *rawTaker) makeChunk(name string, number int) error {
+	command := taker.command
 	raw, err := os.ReadFile(filepath.Join(taker.rawPath, name)) //nolint:gosec // a raw file's name, checked above
 	if err != nil {
 		return fmt.Errorf("read raw %s: %w", name, err)

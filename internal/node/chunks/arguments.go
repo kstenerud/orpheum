@@ -30,6 +30,16 @@ func runStartMs(command nodeproto.MakeChunks) int64 {
 	return command.BoundsMs[0]
 }
 
+// seekMs is where FFmpeg is told to seek: a copied picture's seek, past its first keyframe, so
+// FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); otherwise the run's start, which a
+// decode trims to exactly.
+func seekMs(command nodeproto.MakeChunks) int64 {
+	if command.Stream.Kind == nodeproto.StreamPicture {
+		return command.PictureSeekMs
+	}
+	return runStartMs(command)
+}
+
 // firstRawNumber is the number of the run's first raw file: its first chunk's, or one before it
 // for a sound's lead-in.
 func firstRawNumber(command nodeproto.MakeChunks) int {
@@ -76,7 +86,7 @@ func keyframeTimes(command nodeproto.MakeChunks) string {
 // absolute path, the run's raw directory, where the segment muxer writes, and the node's encoder.
 func Arguments(sourcePath, rawPath string, command nodeproto.MakeChunks, encoder prepare.Encoder) []string {
 	end := command.BoundsMs[len(command.BoundsMs)-1]
-	arguments := []string{"-v", "error", "-nostats", "-ss", seconds(runStartMs(command)), "-to", seconds(end)}
+	arguments := []string{"-v", "error", "-nostats", "-ss", seconds(seekMs(command)), "-to", seconds(end)}
 	arguments = append(arguments, execx.FileInput(sourcePath)...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
