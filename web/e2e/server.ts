@@ -15,7 +15,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { makeFilmFile, pruneFilmCache } from "./film-cache.ts";
+import { filmCache } from "./film-cache.ts";
 
 /** The people and films the tests use; the spec reads them from here. */
 export const owner = { name: "owner", password: "owner-browser-test" } as const;
@@ -87,7 +87,7 @@ async function makeFilm(ffmpeg: string, library: string, film: Film): Promise<vo
     path.join(folder, `${film.title} (${String(film.year)}).nfo`),
     nfoXml(film.title, film.year),
   );
-  await makeFilmFile(
+  await filmCache.put(
     ffmpeg,
     film.ffmpegInputArguments,
     path.join(folder, `${film.title} (${String(film.year)}).${film.extension}`),
@@ -306,7 +306,7 @@ function specFilms(root: string): Film[] {
 
 /** Makes films in library, all at once, each from the film cache where it has it. */
 async function makeFilms(ffmpeg: string, library: string, films: readonly Film[]): Promise<void> {
-  pruneFilmCache();
+  filmCache.prune();
   await Promise.all(
     films.map(async (film) => {
       await makeFilm(ffmpeg, library, film);

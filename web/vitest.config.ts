@@ -6,7 +6,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ["{packages,apps}/*/src/**/*.test.{ts,tsx}"],
+    // e2e/ holds the browser tier's own helpers, whose logic is tested like any other.
+    include: ["{packages,apps}/*/src/**/*.test.{ts,tsx}", "e2e/**/*.test.ts"],
     environment: "node",
     // A committed `.only` would silently skip the rest of the suite.
     allowOnly: false,
