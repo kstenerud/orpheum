@@ -83,3 +83,37 @@ func TestTogether_TheHostSeesEachLinkToPassOnAgain(t *testing.T) {
 		t.Errorf("the host sees links %+v; want the one made, with its secret", details.Body.Links)
 	}
 }
+
+// A join whose sign-in cannot be checked, the database failing, is the server's failure, not a join
+// as nobody, after which the session would not follow its person; a lapsed sign-in joins as nobody
+// (D267 §2; the M4 closing audit, 2026-10-08).
+func TestTogether_AJoinWhoseSignInCannotBeCheckedFails(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	made := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", opened.Body.SessionID), admin,
+		map[string]string{"hostNote": "my partner"})
+	var link TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	lapsed := harness.do(t, http.MethodPost, "/together/join", "not-a-live-session",
+		map[string]any{"secret": link.Body.Secret, "name": "Pat"})
+	if lapsed.status != http.StatusOK {
+		t.Fatalf("a join with a lapsed sign-in = %d %s; want it joined as nobody", lapsed.status, lapsed.body)
+	}
+	second := harness.do(t, http.MethodPost, fmt.Sprintf("/together/%d/links", opened.Body.SessionID), admin,
+		map[string]string{"hostNote": "a neighbour"})
+	if err := json.Unmarshal([]byte(second.body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	if err := harness.database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	failed := harness.do(t, http.MethodPost, "/together/join", admin,
+		map[string]any{"secret": link.Body.Secret, "name": "Sam"})
+	if failed.status != http.StatusInternalServerError {
+		t.Errorf("a join whose sign-in could not be checked = %d %s; want 500", failed.status, failed.body)
+	}
+}
