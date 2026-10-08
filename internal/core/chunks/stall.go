@@ -111,7 +111,7 @@ func (service *Service) startAt(
 	picture, chunk := chosen.stream, chosen.chunk
 	// A stall asks for its quality again, a new try, though a run of it was evicted (D250 §6).
 	service.runs.unevict(StoreDir(playback.FileID, picture, film.grid.ID()))
-	if err := service.Ensure(ctx, playback.FileID, picture, chunk); err != nil {
+	if err := service.Ensure(ctx, playback.FileID, film.kind, picture, chunk); err != nil {
 		return Offer{}, err
 	}
 	offer := Offer{
@@ -123,7 +123,7 @@ func (service *Service) startAt(
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
-		if err := service.Ensure(ctx, playback.FileID, sound, chunk); err != nil {
+		if err := service.Ensure(ctx, playback.FileID, film.kind, sound, chunk); err != nil {
 			return Offer{}, err
 		}
 		track, err := service.levelledTrack(ctx, film, sound)

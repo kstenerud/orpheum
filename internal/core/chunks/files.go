@@ -20,8 +20,10 @@ type StoreFile struct {
 	Target      string
 	ContentType string
 	fileID      int64
-	stream      Stream
-	storeDir    string
+	// kind is what its film is cut at, as its playback's is.
+	kind     GridKind
+	stream   Stream
+	storeDir string
 	// isInit is whether it is the store's init rather than chunk chunk.
 	isInit bool
 	chunk  int
@@ -63,14 +65,15 @@ func (service *Service) StoreFileOf(
 	return StoreFile{
 		NodeID: film.file.NodeID, Target: nodeproto.PathBytesChunks + dir + "/" + name,
 		ContentType: renditions.ContentType(name),
-		fileID:      playback.FileID, stream: stream, storeDir: dir, isInit: isInit, chunk: chunk, runFrom: runFrom,
+		fileID:      playback.FileID, kind: film.kind, stream: stream, storeDir: dir, isInit: isInit, chunk: chunk,
+		runFrom: runFrom,
 	}, nil
 }
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
 // or, for the init, from the chunk the playback is at.
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
-	return service.Ensure(ctx, file.fileID, file.stream, file.runFrom)
+	return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.runFrom)
 }
 
 // CoveringRun is the run of a file's store that will make the chunk the file waits for (Want), as

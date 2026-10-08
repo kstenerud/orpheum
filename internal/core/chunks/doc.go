@@ -44,6 +44,16 @@
 //     TestGridID_IsTheHashOfItsStartsAndLengthAndNamesTheStore and
 //     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber.
 //
+//   - A film whose file has no index of its keyframes is cut on time, a chunk at each multiple of the
+//     segment length, and its playback offered the qualities, at least one, and not the picture
+//     copied; it is read through ahead of the sweep, and a playback that began on time keeps that
+//     grid to its end, a run on it made on it (D269). Enforced by
+//     TestTimeGridOf_StartsAChunkAtEachMultipleOfTheLengthAndMergesAShortLastOne,
+//     TestMasterPlaylist_AFilmWhoseFileHasNoIndexIsCutOnTimeWithoutItsPictureCopied,
+//     TestMasterPlaylist_APlaybackThatBeganOnTimeStaysOnTimeOnceTheKeyframesAreKnown and
+//     TestHandleMakeChunks_ARunOnTimeIsMadeOnTheTimeGrid; through the API by
+//     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo (internal/core/api).
+//
 //   - A playback is offered the picture copied unless its player cannot decode it, each quality
 //     below the film's own picture in bit rate and height, and every sound a prepare makes, its
 //     starting track's standard mix the default; any other stream or file is ErrNoStream, before the

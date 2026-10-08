@@ -18529,6 +18529,10 @@ work once a title is likely are the precedent ([cold-start.md](../design/researc
 
 ## D259 — A film's cut points come from where each one falls, from the file's own index, or from reading ahead of the player, never only from a whole read
 
+> **§3 replaced by [D269](#d269--a-film-with-no-keyframe-index-is-cut-on-time-and-plays-encoded-at-once-its-original-picture-is-copied-once-a-read-through-has-found-its-keyframes)**
+> (2026-10-08): a file with no index is cut on time and played encoded at once, not read ahead of
+> the player.
+
 **Decided** (2026-10-06, confirmed 2026-10-07), by the project owner: chunks.md §6, agreed when the
 read-through of every film over a network mount took minutes and a film whose read-through failed
 could never be offered a lower quality; confirmed when films added from the NAS stalled with

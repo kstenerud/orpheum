@@ -8,6 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -55,13 +59,27 @@ type Service struct {
 	nodes     Nodes
 	exchanges *nodes.Exchanges
 	clock     clock.Clock
+	// noIndex are the pictures whose files a read from the index found none in, by payload hash and
+	// stream index, in memory: a restart asks the node again, which answers at once (D269 §2).
+	noIndex noIndexes
+}
+
+// noIndexes are the pictures whose files have no index of their keyframes.
+type noIndexes struct {
+	mutex sync.Mutex
+	byKey map[string]bool // guarded by mutex
+}
+
+// noIndexKey names one picture of a file's bytes.
+func noIndexKey(payloadHash []byte, videoStreamIndex int) string {
+	return hex.EncodeToString(payloadHash) + "/" + strconv.Itoa(videoStreamIndex)
 }
 
 // NewService returns the read-through service, recording the nodes' read-throughs with exchanges.
 func NewService(parts Parts) *Service {
 	service := &Service{
 		database: parts.Database, queue: parts.Queue, nodes: parts.Nodes,
-		exchanges: parts.Exchanges, clock: parts.Clock,
+		exchanges: parts.Exchanges, clock: parts.Clock, noIndex: noIndexes{byKey: map[string]bool{}},
 	}
 	parts.Exchanges.Record(nodeproto.CommandReadThrough, service.record)
 	return service
@@ -77,13 +95,29 @@ const fileIDsPerSweepRead = 1000
 // of a video with sound, or the timeline of one with a picture. It leaves out a file under a root or
 // disk that is unavailable, which is not there to read (D231 §5, D233 §10).
 func (service *Service) FilesToReadThrough(ctx context.Context) ([]int64, error) {
+	files, err := service.filesToReadThrough(ctx)
+	ids := make([]int64, 0, len(files))
+	for _, file := range files {
+		ids = append(ids, file.id)
+	}
+	return ids, err
+}
+
+// sweptFile is a file FilesToReadThrough finds, by its id, and its path as its node reported it.
+type sweptFile struct {
+	id   int64
+	path []byte
+}
+
+// filesToReadThrough is FilesToReadThrough, each file with its path.
+func (service *Service) filesToReadThrough(ctx context.Context) ([]sweptFile, error) {
 	queries := service.database.Read()
 	lastFileID, err := queries.GetMaxFileID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the last file id: %w", err)
 	}
 	unavailability := library.NewUnavailability(queries)
-	var ids []int64
+	var files []sweptFile
 	for after := int64(0); after < lastFileID; after += fileIDsPerSweepRead {
 		rows, listErr := queries.ListFilesToReadThrough(ctx, sqlcgen.ListFilesToReadThroughParams{
 			AfterID: after, ThroughID: after + fileIDsPerSweepRead,
@@ -97,24 +131,41 @@ func (service *Service) FilesToReadThrough(ctx context.Context) ([]int64, error)
 				return nil, underErr
 			}
 			if !isUnavailable {
-				ids = append(ids, row.ID)
+				files = append(files, sweptFile{id: row.ID, path: row.ReportedPathRaw})
 			}
 		}
 	}
-	return ids, nil
+	return files, nil
+}
+
+// hasIndexReader is whether the file at path, as its node reported it, is of a container the node
+// reads an index of keyframes from, by its extension: Matroska's cues and an MP4's sync samples
+// (internal/node/container). Any other, AVI, MPEG-TS and the rest, is read through ahead of the
+// sweep (D269 §4); a Matroska file without cues is found out at its first play.
+func hasIndexReader(path []byte) bool {
+	switch strings.ToLower(filepath.Ext(string(path))) {
+	case ".mkv", ".mk3d", ".webm", ".mp4", ".m4v", ".mov":
+		return true
+	}
+	return false
 }
 
 // QueueReadThroughs queues a read-through for every file FilesToReadThrough finds (D226 §2), behind
-// everything a person is waiting on, and returns how many it queued.
+// everything a person is waiting on, a file of a container with no index the node reads ahead of the
+// others (D269 §4), and returns how many it queued.
 func (service *Service) QueueReadThroughs(ctx context.Context) (int, error) {
-	ids, err := service.FilesToReadThrough(ctx)
+	files, err := service.filesToReadThrough(ctx)
 	if err != nil {
 		return 0, err
 	}
 	queued := 0
-	for _, id := range ids {
+	for _, file := range files {
+		priority := jobs.PriorityBackground
+		if !hasIndexReader(file.path) {
+			priority = jobs.PriorityAheadOfSweep // its keyframes are known no other way (D269 §4)
+		}
 		added, enqueueErr := service.queue.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: id},
+			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: file.id}, Priority: priority,
 			Reason: "reads it through, for how loud it is and where its picture can be cut",
 		})
 		if enqueueErr != nil {
@@ -135,6 +186,28 @@ func (service *Service) ReadForPlay(ctx context.Context, fileID int64) (bool, er
 	added, err := service.queue.Enqueue(ctx, jobs.Request{
 		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: fileID}, Priority: jobs.PriorityPlayNow,
 		Reason: "a player is waiting for where its picture can be cut",
+	})
+	if err != nil {
+		return false, fmt.Errorf("queue a read-through of file %d: %w", fileID, err)
+	}
+	return added, nil
+}
+
+// HasNoIndex is whether a read of the picture's keyframes from its file's index found none: its film
+// is cut on time until it is read through (D269 §2).
+func (service *Service) HasNoIndex(payloadHash []byte, videoStreamIndex int) bool {
+	service.noIndex.mutex.Lock()
+	defer service.noIndex.mutex.Unlock()
+	return service.noIndex.byKey[noIndexKey(payloadHash, videoStreamIndex)]
+}
+
+// ReadFirst queues a read-through of the file ahead of the sweep, for the keyframes its index lacks
+// (D269 §4): a person played it on time, and the next to play it gets its picture copied. It reports
+// whether it queued one.
+func (service *Service) ReadFirst(ctx context.Context, fileID int64) (bool, error) {
+	added, err := service.queue.Enqueue(ctx, jobs.Request{
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: fileID}, Priority: jobs.PriorityAheadOfSweep,
+		Reason: "reads it through for its keyframes, which its file has no index of",
 	})
 	if err != nil {
 		return false, fmt.Errorf("queue a read-through of file %d: %w", fileID, err)
@@ -202,10 +275,12 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 		return err
 	}
 	if job.Priority >= jobs.PriorityPlayNow && command.VideoTimeline != nil {
-		// A player waits on where the picture can be cut: asked for that alone, the node reads it
-		// from the file's index in a fraction of a second, where reading the loudness too takes as long
-		// as reading the film (D259 §2). The sweep reads the loudness after.
+		// A player waits on where the picture can be cut: asked for that alone, from the file's index,
+		// the node answers in a fraction of a second, or says the file has none, where reading the
+		// loudness too takes as long as reading the film (D259 §2, D269 §2). The sweep reads the
+		// loudness and the bytes in each second after.
 		command.LoudnessTracks = nil
+		command.VideoTimeline.IsFromIndexOnly = true
 	}
 	if len(command.LoudnessTracks) == 0 && command.VideoTimeline == nil {
 		return nil
@@ -331,6 +406,12 @@ func (service *Service) record(ctx context.Context, _ int64, result nodeproto.Re
 	payloadHash, err := hex.DecodeString(command.Video.PayloadHash)
 	if err != nil {
 		return fmt.Errorf("%w: a payload hash %q: %w", nodes.ErrMalformedResult, command.Video.PayloadHash, err)
+	}
+	if answer.HasNoIndex && command.VideoTimeline != nil {
+		service.noIndex.mutex.Lock()
+		service.noIndex.byKey[noIndexKey(payloadHash, command.VideoTimeline.VideoStreamIndex)] = true
+		service.noIndex.mutex.Unlock()
+		return nil
 	}
 	return service.keep(ctx, payloadHash, *command, *answer)
 }

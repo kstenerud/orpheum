@@ -35,6 +35,10 @@ type LoudnessTrack struct {
 type VideoTimelineAsk struct {
 	// VideoStreamIndex is the picture's stream index, as ffprobe numbers every stream.
 	VideoStreamIndex int `json:"videoStreamIndex"`
+	// IsFromIndexOnly asks for its keyframes from the file's own index alone, never by reading the
+	// file through, for a player waiting on them: a file with none answers HasNoIndex at once
+	// (D259 §2, D269 §2). False reads the file through.
+	IsFromIndexOnly bool `json:"isFromIndexOnly,omitempty"`
 }
 
 // ReadThroughResult is the node's answer: what it learned of the video, each part it was asked
@@ -55,6 +59,9 @@ type ReadThroughResult struct {
 	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
 	// the bytes the first time.
 	Stall *Stall `json:"stall,omitempty"`
+	// HasNoIndex answers a timeline asked for from the index alone of a file that has none: its
+	// film is cut on time until it is read through (D269 §2).
+	HasNoIndex bool `json:"hasNoIndex,omitempty"`
 }
 
 // TrackLoudness is one track's measurements.

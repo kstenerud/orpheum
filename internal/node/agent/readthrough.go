@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/container"
@@ -45,7 +46,14 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 	if agent.workers.ThroughReader == nil {
 		return refuse(errors.New("this node does not read videos through"))
 	}
-	if keyframes, isIndexed := agent.indexedKeyframes(command); isIndexed {
+	if command.VideoTimeline != nil && command.VideoTimeline.IsFromIndexOnly {
+		keyframes, err := agent.indexedKeyframes(command)
+		switch {
+		case errors.Is(err, container.ErrNoIndex):
+			return nodeproto.ReadThroughResult{HasNoIndex: true}
+		case err != nil:
+			return refuse(err)
+		}
 		return nodeproto.ReadThroughResult{VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: keyframes}}
 	}
 	videoPath, err := agent.verifiedSourcePath(command.Video)
@@ -64,23 +72,20 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 }
 
 // indexedKeyframes are the picture's keyframes from the file's own index, for a read-through that
-// asks for the picture's timeline alone, as a player waiting on a lower quality's grid does (D259
-// §2): read in a fraction of a second, without reading the film, and without its bytes in each
-// second, which only a read through finds. A file with no index, or one asked for its loudness too,
-// is read through.
-func (agent *Agent) indexedKeyframes(command nodeproto.ReadThrough) ([]int64, bool) {
-	if command.VideoTimeline == nil || len(command.LoudnessTracks) > 0 {
-		return nil, false
-	}
+// asks for them from the index alone, as a player waiting on its film's grid does (D259 §2): read in
+// a fraction of a second, without reading the film, and without its bytes in each second, which only
+// a read through finds. A file with no index the reader follows, Matroska's cues or an MP4's sync
+// samples, is container.ErrNoIndex: its film is cut on time (D269 §2). A file that cannot be opened
+// or read is the error that says so, a refusal tried again.
+func (agent *Agent) indexedKeyframes(command nodeproto.ReadThrough) ([]int64, error) {
 	file, err := agent.openNamed(command.Video)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	defer readonly.Close(file)
 	info, err := file.Stat()
 	if err != nil {
-		return nil, false
+		return nil, fmt.Errorf("the file to read the index of: %w", err)
 	}
-	keyframes, err := container.KeyframesMs(file, info.Size(), command.VideoTimeline.VideoStreamIndex)
-	return keyframes, err == nil
+	return container.KeyframesMs(file, info.Size(), command.VideoTimeline.VideoStreamIndex)
 }

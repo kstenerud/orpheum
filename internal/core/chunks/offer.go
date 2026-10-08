@@ -35,6 +35,17 @@ type Playback struct {
 	PositionMs int64
 	// StartedAt is when its person pressed play: what failed before then is tried again for them.
 	StartedAt time.Time
+	// IsOnTime is whether it began on its film cut on time, its file having no index of its
+	// keyframes: it stays so to its end, though a read-through finds them meanwhile (D269 §3).
+	IsOnTime bool
+}
+
+// gridKind is what the playback's film is cut at: on time, once it began so, else on keyframes.
+func (playback Playback) gridKind() GridKind {
+	if playback.IsOnTime {
+		return OnTime
+	}
+	return OnKeyframes
 }
 
 // qualityPeakPerAverage is how far over its average a quality's bit rate may rise: the node caps
@@ -95,7 +106,8 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
 		isUnlevelled: len(levels) == 0,
 	}
-	if playback.IsSourcePictureDecodable {
+	// A picture copied begins each chunk on a keyframe: a film cut on time has none there (D269 §1).
+	if playback.IsSourcePictureDecodable && film.kind == OnKeyframes {
 		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamPicture})
 	}
 	averageBps, height := film.pictureAverageBps(), film.picture.Video.Height
@@ -104,7 +116,23 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
 		}
 	}
+	if len(offered.pictures) == 0 && film.kind == OnTime && len(all) > 0 {
+		only := onlyQuality(all, height)
+		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: only})
+	}
 	return offered, nil
+}
+
+// onlyQuality is the one quality a film cut on time is offered when none is below its own picture,
+// as a picture of low bit rate has none: the highest no taller than it, else the lowest, so its
+// playback has a picture (D269 §1). The qualities are chunk_qualities, highest first.
+func onlyQuality(all []qualities.Quality, height int) qualities.Quality {
+	for _, quality := range all {
+		if height <= 0 || quality.Height <= height {
+			return quality
+		}
+	}
+	return all[len(all)-1]
 }
 
 // pictureAverageBps is the film's own picture's average bit rate: from its bytes in each second, or,
@@ -155,13 +183,15 @@ func (film cutFilm) variantOf(stream Stream, soundKbps int) variant {
 }
 
 // cutForPlay is the playback's film as it is cut into chunks, for a player waiting on it. A film
-// with no grid yet is read through at play priority (D247 §2), and is ErrNoGrid until it has one.
-// A read-through that failed before its person pressed play is tried again for them, its failure
-// forgotten: a person's play makes every attempt, and only a failure on that attempt is theirs to
-// see (the owner, 2026-10-06, D248).
+// with no grid yet is read through at play priority (D247 §2), from its file's index, and is
+// ErrNoGrid until it has one; a film whose file has no index is cut on time, and read through
+// ahead of the sweep for its keyframes, which a later playback is cut at (D269). A read-through
+// that failed before its person pressed play is tried again for them, its failure forgotten: a
+// person's play makes every attempt, and only a failure on that attempt is theirs to see (the
+// owner, 2026-10-06, D248).
 func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutFilm, error) {
 	fileID := playback.FileID
-	film, isCut, err := service.cut(ctx, fileID)
+	film, isCut, err := service.cut(ctx, fileID, playback.gridKind())
 	if errors.Is(err, ErrCannotBeCut) && film.picture.Codec != "" {
 		isRetried, retryErr := service.readThrough.RetryFailedForPlay(ctx, fileID, film.file.PayloadHash,
 			film.picture.StreamIndex, playback.StartedAt)
@@ -175,6 +205,13 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 	if err != nil || isCut {
 		return film, err
 	}
+	if service.readThrough.HasNoIndex(film.file.PayloadHash, film.picture.StreamIndex) {
+		if _, err = service.readThrough.ReadFirst(ctx, fileID); err != nil {
+			return film, err
+		}
+		film, _, err = service.cut(ctx, fileID, OnTime)
+		return film, err
+	}
 	if _, err = service.readThrough.ReadForPlay(ctx, fileID); err != nil {
 		return film, err
 	}
@@ -183,16 +220,17 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 
 // MasterPlaylist is the master playlist of the playback's film cut into chunks (chunks.md §3): every
 // sound a prepare would make, the playback's starting track's standard mix the default, and every
-// picture it is offered, highest first. A film with no grid yet is ErrNoGrid, and is being read
-// through for one; one that cannot be cut is ErrCannotBeCut.
-func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, error) {
+// picture it is offered, highest first; and what the film is cut at, which the playback keeps from
+// then on (D269 §3). A film with no grid yet is ErrNoGrid, and is being read through for one; one
+// that cannot be cut is ErrCannotBeCut.
+func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, GridKind, error) {
 	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	offered, err := service.offerOf(ctx, film, playback)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
@@ -215,7 +253,7 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	for _, picture := range offered.pictures {
 		variants = append(variants, film.variantOf(picture, offered.soundKbps))
 	}
-	return masterPlaylist(sounds, variants), nil
+	return masterPlaylist(sounds, variants), film.kind, nil
 }
 
 // MediaPlaylist is the playlist of one stream the playback is offered, every chunk of the film's
