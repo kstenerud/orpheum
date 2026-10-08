@@ -19,6 +19,9 @@ pointers.
 3. **Standards:** [`docs/contributors/standards/`](docs/contributors/standards/README.md).
    Principles: [`docs/contributors/principles/`](docs/contributors/principles/README.md).
    Decisions: [`docs/contributors/decisions/index.md`](docs/contributors/decisions/index.md).
+4. **When a platform misbehaves** (a browser, hls.js, the kernel, a tool), look it up in
+   [`docs/contributors/idiosyncrasies.md`](docs/contributors/idiosyncrasies.md) before
+   diagnosing; when you find a new one, add it there, in the commit with its workaround.
 
 ## The gate
 
