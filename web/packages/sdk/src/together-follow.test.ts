@@ -676,6 +676,23 @@ describe("a leading player's own moves", () => {
   });
 });
 
+describe("a leading player awaiting the answer to its command", () => {
+  it("is not held back to the group as it was by a pong or a roster before the answer", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, heardNoAnswer, commands } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: true, monotonicMs });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    // The host presses play: its command is sent, and its video plays.
+    media.paused = false;
+    media.fire("play");
+    expect(commands).toEqual([{ command: "play" }]);
+    heardNoAnswer(); // a pong arrives before the server's answer
+    expect(media.paused).toBe(false);
+    setGroup({ ...paused, state: "Waiting" }, 0); // the answer: it waits at its sync point
+    expect(media.paused).toBe(true);
+  });
+});
+
 describe("a leading player's command", () => {
   it("is noted with the player's last events, its own marked, so the log says what made it", () => {
     const media = new FakeMedia();

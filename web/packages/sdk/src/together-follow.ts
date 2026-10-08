@@ -195,10 +195,14 @@ class GroupFollower {
   /** Whether the group was last told it buffers, so loading only tells it of a change. */
   #wasReportedBuffering: boolean | undefined = undefined;
   /**
-   * Whether a command this player sent awaits the server's answer: until the group changes, the
-   * player is left as its person put it, not pulled back to the group as it was.
+   * Whether a command this player sent awaits the server's answer: until the group is told again or
+   * the command refused, the player is left as its person put it, not pulled back to the group as
+   * it was. A pong or a roster is no answer: taken for one, a pong arriving just after a host's play
+   * held the player paused again (the M4 closing audit, 2026-10-08).
    */
   #isAwaitingGroup = false;
+  /** The connection's answers heard when this player last sent a command (answersHeard). */
+  #answersHeardAtCommand = 0;
   /** When its own last seek started, on the monotonic clock, until it has loaded; else undefined. */
   #seekStartedAtMs: number | undefined = undefined;
   /** How long its own last seek took to load. */
@@ -225,11 +229,19 @@ class GroupFollower {
     return { positionMs: positionMsOf(this.#media), isPlaying: !this.#media.paused, isBuffering };
   };
 
-  /** The group changed: whatever this player asked for is answered. */
-  readonly groupChanged = (): void => {
-    this.#isAwaitingGroup = false;
+  /** The connection changed: a command this player sent is answered once an answer was heard since. */
+  readonly connectionChanged = (): void => {
+    if (this.#connection.snapshot().answersHeard !== this.#answersHeardAtCommand) {
+      this.#isAwaitingGroup = false;
+    }
     this.apply();
   };
+
+  /** Awaits the server's answer to a command this player is sending, or will once its drag ends. */
+  #awaitAnswer(): void {
+    this.#isAwaitingGroup = true;
+    this.#answersHeardAtCommand = this.#connection.snapshot().answersHeard;
+  }
 
   /** Puts the player where the group is now, when the group plays its film. */
   readonly apply = (): void => {
@@ -303,7 +315,7 @@ class GroupFollower {
       return;
     }
     clearTimeout(this.#pendingCommand);
-    this.#isAwaitingGroup = true;
+    this.#awaitAnswer();
     this.#pendingCommand = setTimeout(() => {
       this.#pendingCommand = undefined;
       this.#send(command);
@@ -412,7 +424,7 @@ class GroupFollower {
   }
 
   #send(command: GroupCommand): void {
-    this.#isAwaitingGroup = true;
+    this.#awaitAnswer();
     this.#connection.command(command);
     if (command.command === "pause" || command.command === "seek" || command.command === "play") {
       // Which of its player's events made the command: a host's play stopped 0.4 s later by a
@@ -734,7 +746,7 @@ export function followGroup(
     media.addEventListener(event, listener);
   }
   connection.setPlayer(follower.playerState);
-  const unsubscribe = connection.subscribe(follower.groupChanged);
+  const unsubscribe = connection.subscribe(follower.connectionChanged);
   const checker = setInterval(follower.tick, checkDriftEveryMs);
   follower.apply();
   connection.reportState();
