@@ -84,11 +84,32 @@ export async function makeFilmFile(
     const now = new Date();
     utimesSync(kept, now, now);
   } else {
-    mkdirSync(cacheDirectory, { recursive: true });
-    // Made under another name, so a run stopped halfway keeps no half film.
-    const making = `${kept}.${String(process.pid)}.making${extension}`;
-    await run(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", ...ffmpegArguments, making]);
-    renameSync(making, kept);
+    // Two films of one run made from the same arguments are one film, made once: made twice at
+    // once under one name, the first renamed it away and the second's FFmpeg failed (2026-10-08).
+    let making = makings.get(kept);
+    if (making === undefined) {
+      making = makeKept(ffmpeg, ffmpegArguments, kept).finally(() => {
+        makings.delete(kept);
+      });
+      makings.set(kept, making);
+    }
+    await making;
   }
   copyFileSync(kept, target, constants.COPYFILE_FICLONE);
+}
+
+/** The films this process is making, each by where it is kept, until it is kept. */
+const makings = new Map<string, Promise<void>>();
+
+/** Makes at kept the film FFmpeg makes from ffmpegArguments. */
+async function makeKept(
+  ffmpeg: string,
+  ffmpegArguments: readonly string[],
+  kept: string,
+): Promise<void> {
+  mkdirSync(cacheDirectory, { recursive: true });
+  // Made under another name, so a run stopped halfway keeps no half film.
+  const making = `${kept}.${String(process.pid)}.making${path.extname(kept)}`;
+  await run(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", ...ffmpegArguments, making]);
+  renameSync(making, kept);
 }
