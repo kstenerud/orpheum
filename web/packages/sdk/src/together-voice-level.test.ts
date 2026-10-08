@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   levelOf,
+  mixToMono,
   nextVoiceGain,
   voiceGainMost,
   voiceGainRise,
@@ -39,5 +40,21 @@ describe("raising a quiet microphone to a speaking level", () => {
   it("measures a level as the samples' root mean square", () => {
     expect(levelOf(new Float32Array([0.1, -0.1, 0.1, -0.1]))).toBeCloseTo(0.1);
     expect(levelOf(new Float32Array([]))).toBe(0);
+  });
+});
+
+describe("a voice's channels", () => {
+  it("are mixed to one, which plays in both ears", () => {
+    const node: {
+      channelCount: number;
+      channelCountMode: ChannelCountMode;
+      channelInterpretation: ChannelInterpretation;
+    } = { channelCount: 2, channelCountMode: "max", channelInterpretation: "discrete" };
+    mixToMono(node);
+    expect(node).toEqual({
+      channelCount: 1,
+      channelCountMode: "explicit",
+      channelInterpretation: "speakers",
+    });
   });
 });

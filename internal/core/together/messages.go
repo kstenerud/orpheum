@@ -2,6 +2,8 @@
 
 package together
 
+import "slices"
+
 // MessageType names one message of the session WebSocket (cut-a §5.1).
 type MessageType string
 
@@ -99,7 +101,11 @@ const (
 	// stalled ("stalled"): an iPhone that jumped 10 s on its own and then sat waiting said nothing
 	// of what it held (the owner's test, 2026-10-08).
 	NoteDiagnosis NoteKind = "diagnosis"
-	NoteUnmuted   NoteKind = "unmuted"
+	// NoteLed is a leading player's command, why its kind ("pause", "seek", "play"), with the
+	// player's last events: a host's play was stopped 0.4 s later by a pause no one could say the
+	// source of (the owner's tests, 2026-10-08).
+	NoteLed     NoteKind = "led"
+	NoteUnmuted NoteKind = "unmuted"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -144,6 +150,8 @@ type PlayerNote struct {
 	VideoBuffered string `json:"videoBuffered,omitempty"`
 	AudioBuffered string `json:"audioBuffered,omitempty"`
 	LastError     string `json:"lastError,omitempty"`
+	// Events are a led note's player's last events, "<event>[(own)]@<monotonic ms>", oldest first.
+	Events string `json:"events,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -196,7 +204,7 @@ func (note PlayerNote) isKnown() bool {
 		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
-	case NoteDiagnosis:
+	case NoteDiagnosis, NoteLed:
 		return note.isKnownDiagnosis()
 	}
 	return false
@@ -213,17 +221,21 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePlaced,
-		NotePlayedMuted, NoteUnmuted, NoteDiagnosis: // not voice's: isKnown reads them
+		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed: // not voice's: isKnown reads them
 	}
 	return false
 }
 
-// isKnownDiagnosis is whether a diagnosis note is one the server logs: why it was sent, a known
-// word, and its text no longer than diagnosisTextMost.
+// isKnownDiagnosis is whether a diagnosis or led note is one the server logs: why it was sent, a
+// known word for its kind, and its text no longer than diagnosisTextMost.
 func (note PlayerNote) isKnownDiagnosis() bool {
-	isWhyKnown := note.Why == "movedItself" || note.Why == "stalled"
-	return isWhyKnown && note.Track == "" && len(note.VideoBuffered) <= diagnosisTextMost &&
-		len(note.AudioBuffered) <= diagnosisTextMost && len(note.LastError) <= diagnosisTextMost
+	whys := []string{"movedItself", "stalled"}
+	if note.Kind == NoteLed {
+		whys = []string{"pause", "seek", "play"}
+	}
+	return slices.Contains(whys, note.Why) && note.Track == "" && len(note.VideoBuffered) <= diagnosisTextMost &&
+		len(note.AudioBuffered) <= diagnosisTextMost && len(note.LastError) <= diagnosisTextMost &&
+		len(note.Events) <= diagnosisTextMost
 }
 
 // isVoicePlayback is whether word is how a voice call's sound plays, as the web client's

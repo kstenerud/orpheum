@@ -53,6 +53,21 @@ export function levelOf(samples: Float32Array): number {
   return Math.sqrt(sum / samples.length);
 }
 
+/**
+ * Makes node mix whatever comes in to one channel: a voice is one, and a microphone that says it
+ * has two with the voice in one alone, as some phones' do, otherwise reached its listener in one
+ * ear (the owner's test, 2026-10-08: "her voice only came through my left earphone").
+ */
+export function mixToMono(
+  node: Pick<AudioNode, "channelCount" | "channelCountMode" | "channelInterpretation">,
+): void {
+  Object.assign(node, {
+    channelCount: 1,
+    channelCountMode: "explicit",
+    channelInterpretation: "speakers",
+  });
+}
+
 /** A microphone raised to a speaking level, and the track a call sends now. */
 export interface LevelledMicrophone {
   /** The levelled track while Web Audio runs, the microphone's own while it does not. */
@@ -84,6 +99,9 @@ export function levelMicrophone(
   limiter.knee.value = 0;
   limiter.ratio.value = 20;
   const destination = context.createMediaStreamDestination();
+  mixToMono(gainNode);
+  mixToMono(limiter);
+  mixToMono(destination);
   source.connect(analyser);
   source.connect(gainNode).connect(limiter).connect(destination);
   const samples = new Float32Array(analyser.fftSize);

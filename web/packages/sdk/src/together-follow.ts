@@ -71,6 +71,9 @@ export const loadSampleMarginMs = 5000;
  */
 export const checkDriftEveryMs = 1000;
 
+/** How many of its player's last events a leading player's command note carries. */
+export const recentEventsKept = 8;
+
 /** The part of a video or audio element that following a group uses. */
 export type FollowedMedia = Pick<
   HTMLMediaElement,
@@ -204,6 +207,8 @@ class GroupFollower {
   /** Whether the last seek was the follower's own, so its seeking is not taken for a person's. */
   #isOwnSeekPending = false;
   #nudgeEndsAtMs = 0;
+  /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
+  #recentEvents: string[] = [];
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
   #returnCost = { costMs: 0, returns: 0 };
   /** How far behind it was as its last nudge ended, until what that cost is learned. */
@@ -280,6 +285,7 @@ class GroupFollower {
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
+    this.#keepEvent(event);
     if (event === "playing" || event === "seeked") {
       this.#settle();
     }
@@ -426,7 +432,28 @@ class GroupFollower {
   #send(command: GroupCommand): void {
     this.#isAwaitingGroup = true;
     this.#connection.command(command);
+    if (command.command === "pause" || command.command === "seek" || command.command === "play") {
+      // Which of its player's events made the command: a host's play stopped 0.4 s later by a
+      // pause no one could say the source of (the owner's tests, 2026-10-08).
+      this.#connection.note({
+        kind: "led",
+        why: command.command,
+        events: this.#recentEvents.join(" "),
+      });
+    }
     this.#connection.reportState();
+  }
+
+  /** Keeps event, its time and whether the follower made it, among the last recentEventsKept. */
+  #keepEvent(event: string): void {
+    const isOwn =
+      (event === "pause" && this.#isOwnPausePending) ||
+      ((event === "seeking" || event === "seeked") && this.#isOwnSeekPending);
+    const atMs = Math.round(this.#options.monotonicMs());
+    this.#recentEvents = [
+      ...this.#recentEvents,
+      `${event}${isOwn ? "(own)" : ""}@${String(atMs)}`,
+    ].slice(-recentEventsKept);
   }
 
   #whereNow(): GroupNow | undefined {

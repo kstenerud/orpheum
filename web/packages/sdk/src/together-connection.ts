@@ -124,6 +124,12 @@ export type PlayerNote =
   | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | {
+      readonly kind: "led";
+      readonly why: "pause" | "seek" | "play";
+      /** The player's last events, as "<event>[(own)]@<monotonic ms>", oldest first. */
+      readonly events: string;
+    }
+  | {
       readonly kind: "diagnosis";
       readonly why: "movedItself" | "stalled";
       readonly positionMs: number;
