@@ -4086,6 +4086,8 @@ rule that has to exist before the first node ships.
 
 ## D62 — Watch Together is a first-class feature, and the per-client surface is six methods
 
+> **Narrowed by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §4** (2026-10-08): in M5 a host's play, pause and seek are sent from the skinned player's controls and the Media Session's handlers, and the follower moves its player itself; the player's events count as a person's moves only where no control of ours was used.
+
 **Decided** (2026-09-19). Build synchronised remote playback with shared controls: anyone in the
 group may play, pause and seek; volume stays local. Research:
 [watch-together.md](../design/research/watch-together.md).
@@ -17574,6 +17576,8 @@ alone."*
 
 ## D240 — The core keeps the smarts: a scan is a listing the core compares, the work it implies is the core's to schedule, and the node enforces its devices' limits and pauses background work for play
 
+> **§5 revised by [D255](#d255--work-has-three-priorities-a-persons-a-fast-operations-and-a-slow-ones-and-a-higher-one-bumps-the-lowest-when-nothing-is-free)** (2026-10-07): work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps a running job of the lowest when nothing is free.
+
 **Decided** (2026-10-02), by the project owner, on the proposal for the jobs rebuild's 4d: *"Let's
 step back and think about how we're doing jobs. [...] it seems to me that we're best off keeping
 most of the smarts in the core."* Then, on the proposal below: *"yes, all of that makes sense"*,
@@ -17945,6 +17949,8 @@ leaves Cut A, and a polished UI takes its place.
 
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §4's signed-in guest history is deferred as a nice-to-have, no longer in M4's acceptance.
 
+> **§3–§5 refined by [D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)** (2026-10-08): a guest's membership is kept by their browser, a signed-in person's follows their account, one member may be on several devices, and §4's signed-in recipient is brought forward for the session alone.
+
 **Decided** (2026-10-05), by the project owner, reviewing M4's Phases A, B and E as built, and
 answering the three questions that review left (§7–§9). **Revises**
 [D121](#d121--an-ability-is-a-row-in-a-closed-table-with-a-two-valued-grant-chosen-at-session-creation),
@@ -17954,7 +17960,7 @@ answering the three questions that review left (§7–§9). **Revises**
 [D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)'s
 "a guest is not a principal", and
 [D243](#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in)
-§1, §2, §4 and §11.
+§1, §2, §4, §9's session cap and §11.
 
 1. **No "outsider" kind of account.** The owner: *"Can't the capabilities (see other members,
    downloads, etc) be attached to a role so that the admin can choose his own granularity? We
@@ -18239,6 +18245,8 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 ## D250 — A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
 
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): the drift left alone is 150 ms by default, not 500 (§1).
+
+> **§1 refined by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §2** (2026-10-08): a player whose rate's returns cost it more than the drift left alone corrects by seeks alone, beyond `together_seek_only_drift_left_alone_ms` (400 ms by default).
 
 **Decided** (2026-10-06), by the project owner, after a viewer on an iPhone at an airport found the
 film unwatchable on a link fast enough for her quality, and after the research of
@@ -18598,6 +18606,8 @@ link.
 > **§7 revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)
 > §2, confirmed by D270 §3** (2026-10-08): voice on the congested profile is held to its bounds.
 
+> **§1 refined by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §2** (2026-10-08): the 150 ms left alone holds for players that nudge; a pair with a player that corrects by seeks alone is held to 500 ms apart 95% of the time.
+
 **Decided** (2026-10-07), by the project owner, answering §8 of the M4 audit
 (design/research/audit-2026-10-06.md): *"1: yes, 2: yes, 3: defer as a nice to have in future, 4:
 yes, 5: yes, 6: rewrite it, 7: best effort, but we really need to look into how apps like signal and
@@ -18692,6 +18702,8 @@ packets.
 **Status:** Decided 2026-10-07.
 
 ## D264 — A follower places its group by the pong with the shortest round trip, which carries where the group is
+
+> **§1–§2 refined by [D268](#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) §1** (2026-10-08): a placing ages by 50 parts per million of its age, so a later pong with a somewhat longer round trip may place the group anew; a device pings each second three times after a new timeline, then every 15 s.
 
 **Decided** (2026-10-07), by the project owner, on the congested profile's failed run (D263):
 asked whether to find and fix the guest's steady offset or accept it, *"yes"* to finding and

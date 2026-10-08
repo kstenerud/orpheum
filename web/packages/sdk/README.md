@@ -68,6 +68,20 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 [D120](../../../docs/contributors/decisions/working-notes.md),
 [D191](../../../docs/contributors/decisions/working-notes.md), [D193](../../../docs/contributors/decisions/working-notes.md) §4, §6,
 [D246](../../../docs/contributors/decisions/working-notes.md);
+for Watch Together:
+
+- [D250](../../../docs/contributors/decisions/working-notes.md#d250--a-watch-together-group-stops-only-at-its-own-sync-points-a-members-trouble-is-theirs-to-catch-up-on-from-what-is-already-being-made):
+  the group stops only at its sync points; drift, catching up and the welcome's tuning.
+- [D262](../../../docs/contributors/decisions/working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it):
+  voice on a bad link: its statistics, its codec settings, and the film giving way to it.
+- [D264](../../../docs/contributors/decisions/working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is):
+  a follower places its group by a pong.
+- [D267](../../../docs/contributors/decisions/working-notes.md#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices):
+  hello's `sessionToken`: a signed-in person's membership follows their account.
+- [D268](../../../docs/contributors/decisions/working-notes.md#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls):
+  a placing ages, drift is corrected as the device measures it, the group starts at a named
+  moment, and a follower's own moves are marked.
+
 [cut-a.md](../../../docs/contributors/design/plans/cut-a.md) §5;
 [watch-together.md](../../../docs/contributors/design/plans/watch-together.md), Sync;
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).

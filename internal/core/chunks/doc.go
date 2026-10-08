@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package chunks cuts a film into chunks made when a player first asks for one, so a slow link
-// gets lower qualities hls.js switches between by itself (D247 §10, chunks.md). It holds the grid, a
-// film's chunk boundaries, its main picture's keyframes, which a read-through keeps in
-// persistent.db (internal/core/readthrough), merged so each chunk is at least
-// hls_segment_length_seconds long; the streams a film is cut into, its picture copied, a quality of
-// chunk_qualities or a sound, each a store on the film's node; the playlists a playback is offered;
-// the make_chunks job, a run of one store's chunks given to the node; and, in memory, each store's
-// chunks known made and its runs on their way. The player's move to the chunks comes after
-// (chunks.md §5).
+// gets lower qualities, among which the player's own bitrate controller chooses (D247 §10, D265,
+// chunks.md). It holds the grid, a film's chunk boundaries: on its main picture's keyframes, from
+// the file's own index or a read-through kept in persistent.db (internal/core/readthrough), each
+// chunk starting at the first keyframe at or after the next multiple of
+// hls_segment_length_seconds, so a chunk may be shorter or longer than that (D259 §1); or, for a
+// file with no index not yet read through, on time, at each multiple (D269 §1). It holds too the
+// streams a film is cut into, its picture copied, a quality of chunk_qualities or a sound, each a
+// store on the film's node; the playlists a playback is offered; the make_chunks job, a run of one
+// store's chunks given to the node; and, in memory, each store's chunks known made and its runs on
+// their way. A film plays from its chunks from the start (D260).
 //
 // # Invariants
 //
