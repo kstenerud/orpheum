@@ -17,6 +17,7 @@ Docs for building and changing this project.
 | Know the coding rules | [`standards/`](standards/README.md) |
 | Know the engineering disposition | [`principles/`](principles/README.md) |
 | Audit between milestones | [`audit-checklist.md`](audit-checklist.md) |
+| Find why the gates or test tiers got slower | [`test-weight.md`](test-weight.md) |
 
 ## The directories
 
