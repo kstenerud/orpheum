@@ -6,6 +6,8 @@
  * leaves the film, and what counts as a measurement of the link. abr.ts asks them.
  */
 
+import { haveFutureData } from "./stalls.ts";
+
 /** A quality as the controller reads it: its peak bit rate, BANDWIDTH, and its average, the sound's included. */
 export interface ChoiceLevel {
   readonly bitrate: number;
@@ -217,4 +219,13 @@ export interface StandingStill {
  */
 export function isUnplayable(still: StandingStill): boolean {
   return still.forMs >= standsStillAtMostMs && still.chunksLoaded >= chunksWhileStill;
+}
+
+/**
+ * Whether a video is waiting to play at its position (D266): playing, or paused short of the data
+ * to play on. An autoplaying video stays paused until it can play, so one whose decoder never
+ * starts reads as paused forever; one a person paused, its data there, is not waiting.
+ */
+export function isWaitingToPlay(media: Pick<HTMLMediaElement, "paused" | "readyState">): boolean {
+  return !media.paused || media.readyState < haveFutureData;
 }

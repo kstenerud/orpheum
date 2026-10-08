@@ -18778,9 +18778,14 @@ Safari played it, and so did Firefox from the start (the owner's test). No brows
 it tries: it says it plays HEVC, and does, from an IDR. Branching on the browser's name is not
 done (the User-Agent is logged only).
 
-1. **A quality is unplayable on this device** when its video, asked to play, has stood still for
+1. **A quality is unplayable on this device** when its video, waiting to play, has stood still for
    6 s while at least two chunks of picture arrived: the link carries them, and the decoder does
-   not play them. A slow link brings fewer, and a chunk being made none.
+   not play them. A slow link brings fewer, and a chunk being made none. **Waiting to play** is
+   playing, or paused short of the data to play on (readyState below HAVE_FUTURE_DATA): an
+   autoplaying video stays paused until it can play, so Flow's, resumed part-way, sat paused at
+   readyState 1 and the first form of this rule, which counted only a video not paused, never
+   fired (the owner's retest, 2026-10-08). A video a person paused, its data there, is not
+   waiting. Each stall report carries the video's readyState and whether it was paused.
 2. **It is given up for the rest of the playback**, with every quality above it: what is loaded is
    dropped and the video loads again from where it stood, at the highest quality below it; neither
    the step-up nor hls.js's own forcing chooses it again.

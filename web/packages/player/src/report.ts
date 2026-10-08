@@ -119,9 +119,15 @@ export class PlayReporter {
     this.readLinkKbps = read;
   }
 
-  /** The player stalled at positionMs (D247 §2); the server is told at once. */
-  recordStall(positionMs: number): void {
-    this.stalls.push({ positionMs: Math.max(0, Math.round(positionMs)) });
+  /**
+   * The player stalled at positionMs (D247 §2), the video then at readyState, paused or not, which
+   * say whether it lacked data or could not play what it had (D266); the server is told at once.
+   */
+  recordStall(positionMs: number, video?: Pick<HTMLMediaElement, "readyState" | "paused">): void {
+    this.stalls.push({
+      positionMs: Math.max(0, Math.round(positionMs)),
+      ...(video === undefined ? {} : { readyState: video.readyState, isPaused: video.paused }),
+    });
     this.flush(positionMs);
   }
 

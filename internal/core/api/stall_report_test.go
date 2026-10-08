@@ -15,7 +15,7 @@ import (
 // stallReport is a report of seq that says the player stalled at positionMs on a link of 2 Mb/s.
 func stallReport(seq, positionMs int64) map[string]any {
 	body := reportBody(seq, positionMs, 0)
-	body["stalls"] = []any{map[string]any{"positionMs": positionMs}}
+	body["stalls"] = []any{map[string]any{"positionMs": positionMs, "readyState": 1, "isPaused": true}}
 	body["linkKbps"] = 2000
 	return body
 }
@@ -69,6 +69,7 @@ func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryRep
 	logged := harness.logs.String()
 	if !strings.Contains(logged, `"msg":"a player reported stalls"`) ||
 		!strings.Contains(logged, `"stallPositionsMs":[12000]`) ||
+		!strings.Contains(logged, `"stallReadyStates":[1]`) || !strings.Contains(logged, `"stallsPaused":[true]`) ||
 		!strings.Contains(logged, `"msg":"a stalling player was offered a lower quality"`) ||
 		!strings.Contains(logged, `"qualityKbps":1200`) || !strings.Contains(logged, `"isReady":false`) {
 		t.Errorf("the stall and the offer were not logged as they happened:\n%s", logged)

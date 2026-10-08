@@ -18,6 +18,7 @@ import type Hls from "hls.js";
 import {
   giveUpFor,
   isUnplayable,
+  isWaitingToPlay,
   measuresTheLink,
   startingLevel,
   steadyLevel,
@@ -59,7 +60,7 @@ export interface ChoosingHls {
   readonly maxAutoLevel: number;
   readonly mainForwardBufferInfo: { readonly len: number } | null;
   /** The video it plays into, whose position shows whether it plays. */
-  readonly media: Pick<HTMLMediaElement, "currentTime" | "paused"> | null;
+  readonly media: Pick<HTMLMediaElement, "currentTime" | "paused" | "readyState"> | null;
 }
 
 /** What a playback tells its choosing. */
@@ -269,14 +270,14 @@ export class Choosing<Chunk extends FollowedChunk> {
   }
 
   /**
-   * Gives up the quality loading as unplayable here when the video, asked to play, stands still
+   * Gives up the quality loading as unplayable here when the video, waiting to play, stands still
    * while its chunks arrive (D266): every quality from it up is dropped, what is loaded with it, and
    * the video loads again from where it is at the quality chosen next.
    */
   #lookAtPlaying(): void {
     const media = this.#hls.media;
     const nowMs = this.#options.monotonicMs();
-    if (media === null || media.paused) {
+    if (media === null || !isWaitingToPlay(media)) {
       this.#still = undefined;
       return;
     }

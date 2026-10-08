@@ -17,7 +17,7 @@ export const stallAfterMs = 1000;
 export const slowLoadAfterMs = 15_000;
 
 /** HTMLMediaElement.HAVE_FUTURE_DATA, which a plain page may not define: it can play on. */
-const haveFutureData = 3;
+export const haveFutureData = 3;
 
 /** The part of a video element stall-watching reads. */
 export type WatchedMedia = Pick<

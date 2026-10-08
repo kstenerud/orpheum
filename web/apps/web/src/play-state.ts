@@ -288,7 +288,7 @@ function watchForReport(
 ): () => void {
   const stopWatchingStalls = watchStalls(video, (stall) => {
     movingDown.stalled();
-    reporter.recordStall(stall.positionMs);
+    reporter.recordStall(stall.positionMs, video);
   });
   const stopTellingUnplayable = tellUnplayable(video, reporter);
   return () => {

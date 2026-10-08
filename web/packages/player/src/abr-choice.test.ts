@@ -6,6 +6,7 @@ import {
   chunksWhileStill,
   giveUpFor,
   isUnplayable,
+  isWaitingToPlay,
   linkShare,
   linkShareForQuality,
   linkShareWhenAhead,
@@ -169,5 +170,13 @@ describe("a quality this device cannot play (D266)", () => {
   it("is not yet one that stood still briefly, or whose chunks were slow to come", () => {
     expect(isUnplayable({ forMs: standsStillAtMostMs - 1, chunksLoaded: 10 })).toBe(false);
     expect(isUnplayable({ forMs: 60_000, chunksLoaded: chunksWhileStill - 1 })).toBe(false);
+  });
+});
+
+describe("a video waiting to play (D266)", () => {
+  it("is one playing, or paused short of the data to play on, as an autoplaying one is", () => {
+    expect(isWaitingToPlay({ paused: false, readyState: 4 })).toBe(true);
+    expect(isWaitingToPlay({ paused: true, readyState: 1 })).toBe(true);
+    expect(isWaitingToPlay({ paused: true, readyState: 4 })).toBe(false); // a person paused it
   });
 });
