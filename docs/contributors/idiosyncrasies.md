@@ -148,6 +148,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie" | [Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie"](#go-regexps-w-d-s-and-b-are-ascii-only-and-fail-silently-on-names-like-amélie) |
 | `x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087) | [`x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087)](#xtextcollate-is-stuck-at-unicode-62-and-sorts-korean-by-code-point-golanggo19087) |
 | "parallel golangci-lint is running". | [golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout](#golangci-lint-refuses-to-start-beside-another-run-exit-3-and-prints-nothing-on-stdout) |
+| A copy of git's index takes a file edited to the same size in the same second for unchanged | [A copy of git's index with a new time hides a file changed in the second the index was written](#a-copy-of-gits-index-with-a-new-time-hides-a-file-changed-in-the-second-the-index-was-written) |
 | The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local` | [The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local`](#the-default-http-transport-reads-https_proxy-and-go-downloads-another-toolchain-unless-gotoolchainlocal) |
 | Go's standard library reads the process's TZ | [Go's standard library reads the process's TZ](#gos-standard-library-reads-the-processs-tz) |
 | Vitest strips types without type-checking, so a types-only change can never fail a test | [Vitest strips types without type-checking, so a types-only change can never fail a test](#vitest-strips-types-without-type-checking-so-a-types-only-change-can-never-fail-a-test) |
@@ -1863,6 +1864,24 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   then fails with "parallel golangci-lint is running"; `--allow-parallel-runners` skips the lock. Reported as
   [golangci/golangci-lint#869](https://github.com/golangci/golangci-lint/issues/869) (closed 2020); no issue
   about the empty stdout found (searched the repo's issues, 2026-10-08).
+
+
+### A copy of git's index with a new time hides a file changed in the second the index was written
+
+- **Technology:** git's index stat cache ("racy git").
+- **Symptom:** a tree built from a copy of the index (`GIT_INDEX_FILE`, `git add -A`,
+  `git write-tree`) records a file's old content when it was edited to the same size within the
+  second the real index was written: `make check`'s area stamp skipped a step that should have run
+  (`test_area_stamp.py` failed under load, 2026-10-08).
+- **Cause:** git trusts an entry whose size and mtime match the file, and re-hashes it only when the
+  file's mtime is not before the index file's own: a "racily clean" entry. A copy given a new mtime
+  makes every such entry look safely older than its index.
+- **What we do:** `shutil.copy2`, which keeps the index's time, in `working_tree_id`
+  (`scripts/check_stamp.py`), which both the commit stamp and `scripts/area_stamp.py` use.
+  `test_a_file_changed_in_the_second_the_index_was_written_is_seen` sets the times and checks it.
+- **Evidence:** [doc] git's `Documentation/technical/racy-git.txt`
+  (https://git-scm.com/docs/racy-git): an entry is racily clean when its mtime is not before the
+  index file's, and git then compares contents.
 
 
 ### The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local`
