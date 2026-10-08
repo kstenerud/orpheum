@@ -90,7 +90,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     ]);
     // The secret is spent: it is in neither the address nor the history.
     expect(services.navigation.fragment()).toBe("");
-    expect(window.sessionStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
     // Asked at once, before anything plays, and kept in this browser.
     expect(mounted.container.textContent).toContain("How does this device play sound?");
     await server.accept();
@@ -116,7 +116,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("lets a viewer change how this browser makes sound, and asks for the film again with it", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -149,7 +149,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("plays the film the host puts on, asked for by the membership, and names who did it", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -196,7 +196,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("offers the sound at a tap when the browser would only play the film muted", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -226,7 +226,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("reports a viewer's stall by the membership, and moves to the lower quality offered (D247 §2)", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -273,7 +273,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("tells a viewer the player's own words when a prepared film fails, asking nothing of the host's file", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -305,9 +305,51 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("comes back as the same member by the link it joined by, after the page was closed (D267 §1)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential", link: "link-secret" }),
+    );
+    const { services, heard, server } = viewerServices("/together#link-secret", {});
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    expect(server.heard[0]).toMatchObject({ type: "hello", credential: "viewer-credential" });
+    expect(heard).toEqual([]); // no join: the spent link is not used again
+    expect(services.navigation.fragment()).toBe("");
+    mounted.unmount();
+  });
+
+  it("has back, signed in, the session its person joined on another device (D267 §2)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    const { services, server } = viewerServices(
+      "/together",
+      {
+        "GET /together/mine": [
+          200,
+          {
+            sessions: [
+              {
+                sessionId: 1,
+                memberId: 2,
+                isHost: false,
+                membershipCredential: "phone-credential",
+              },
+            ],
+          },
+        ],
+      },
+      "signed-in-token",
+    );
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    expect(server.heard[0]).toMatchObject({ type: "hello", credential: "phone-credential" });
+    mounted.unmount();
+  });
+
   it("leaves, and says so, forgetting the membership", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -318,13 +360,13 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await click(buttonWithText(mounted.container, "Leave"));
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /together/leave"]);
     expect(mounted.container.textContent).toContain("You left the session.");
-    expect(window.sessionStorage.getItem("orpheum.together.viewer")).toBeNull();
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toBeNull();
     mounted.unmount();
   });
 
   it("tells a viewer the host ended the session", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
@@ -339,7 +381,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
 
   it("joins by a new link pasted into a tab still on the page, which does not load again", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );

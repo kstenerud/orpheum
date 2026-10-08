@@ -17,12 +17,8 @@ import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { Loaded } from "./title.tsx";
-import {
-  forgetMembership,
-  keepMembership,
-  readMembership,
-  type Membership,
-} from "./together-storage.ts";
+import { useMembership } from "./together-membership.ts";
+import { forgetMembership, keepMembership, type Membership } from "./together-storage.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
@@ -45,10 +41,10 @@ export function togetherUrl(origin: string, secret: string): string {
  */
 export function WatchTogether(): JSX.Element {
   const { t } = useTranslation();
-  const [membership, setMembership] = useState(() => readMembership(tabStorage(), "host"));
+  // Started here, or had back from the server on another of the host's devices (D267 §2).
+  const membership = useMembership(tabStorage, "host");
   const start = (started: Membership): void => {
     keepMembership(tabStorage(), "host", started);
-    setMembership(started);
   };
   return (
     <section className="watch-together" aria-labelledby="watch-together-heading">
@@ -62,7 +58,6 @@ export function WatchTogether(): JSX.Element {
           onStarted={start}
           onEnded={() => {
             forgetMembership(tabStorage(), "host");
-            setMembership(undefined);
           }}
         />
       )}
@@ -187,7 +182,12 @@ function SessionView(props: {
       {issued === undefined ? null : <IssuedLink note={issued.note} secret={issued.secret} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>
-        <SessionPeople details={props.details} run={runRequest} onChanged={props.onChanged} />
+        <SessionPeople
+          details={props.details}
+          run={runRequest}
+          onChanged={props.onChanged}
+          onIssued={setIssued}
+        />
         <ConfirmButton
           label={t("watchTogether.end")}
           consequence={t("watchTogether.endConsequence")}
@@ -202,6 +202,37 @@ function SessionView(props: {
       </BusyGroup>
     </>
   );
+}
+
+/** A member as the session's details list them. */
+type SessionMember = NonNullable<SessionDetails["members"]>[number];
+
+/**
+ * Gives member a new link: someone moving to another device, not signed in, comes back by one. They
+ * are removed, cutting off every device they came in on, and the link admits them again under the
+ * same note (D267 §4). Returns the link to pass on.
+ */
+async function relink(
+  api: ReturnType<typeof useServices>["api"],
+  member: SessionMember & { readonly sessionId: number },
+  idempotencyKey: string,
+): Promise<{ readonly note: string; readonly secret: string }> {
+  const { sessionId: id } = member;
+  const hostNote = member.hostNote ?? member.name;
+  throwIfRefused(
+    await api.POST("/together/{id}/eject/{member}", {
+      params: { path: { id, member: member.id } },
+      ...idempotent(`${idempotencyKey}-eject`),
+    }),
+  );
+  const made = dataOrThrow(
+    await api.POST("/together/{id}/links", {
+      params: { path: { id } },
+      body: { hostNote },
+      ...idempotent(`${idempotencyKey}-link`),
+    }),
+  );
+  return { note: hostNote, secret: made.secret };
 }
 
 /** Making one person's link: the host's note of who it is for, which only the host sees. */
@@ -246,11 +277,49 @@ function IssuedLink(props: { readonly note: string; readonly secret: string }): 
   );
 }
 
+/** One link not used yet, with the host's note of who it is for, to withdraw. */
+function LinkRow(props: {
+  readonly hostNote: string;
+  readonly onWithdraw: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <li>
+      {t("watchTogether.waitingLink", { note: props.hostNote })}{" "}
+      <button type="button" onClick={props.onWithdraw}>
+        {t("watchTogether.withdraw")}
+      </button>
+    </li>
+  );
+}
+
+/** One member who joined, with the host's note, to remove or give a new link. */
+function MemberRow(props: {
+  readonly member: SessionMember;
+  readonly onEject: () => void;
+  readonly onRelink: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <li>
+      {t("watchTogether.member", { name: props.member.name, note: props.member.hostNote ?? "" })}{" "}
+      <button type="button" onClick={props.onEject}>
+        {t("watchTogether.eject")}
+      </button>{" "}
+      <button type="button" onClick={props.onRelink}>
+        {t("watchTogether.relink")}
+      </button>
+    </li>
+  );
+}
+
 /** Each link, waiting or used, and each member who joined, with the host's note of who each is. */
 function SessionPeople(props: {
   readonly details: SessionDetails;
   readonly run: (request: (idempotencyKey: string) => Promise<void>) => void;
   readonly onChanged: () => void;
+  /** Told the new link a member was given, which cut off their devices (D267 §4). */
+  readonly onIssued: (issued: { readonly note: string; readonly secret: string }) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -269,39 +338,37 @@ function SessionPeople(props: {
       {links.length === 0 && members.length === 0 ? <p>{t("watchTogether.nobody")}</p> : null}
       <ul>
         {members.map((member) => (
-          <li key={`member-${String(member.id)}`}>
-            {t("watchTogether.member", { name: member.name, note: member.hostNote ?? "" })}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                sendThenReload((idempotencyKey) =>
-                  api.POST("/together/{id}/eject/{member}", {
-                    params: { path: { id, member: member.id } },
-                    ...idempotent(idempotencyKey),
-                  }),
-                );
-              }}
-            >
-              {t("watchTogether.eject")}
-            </button>
-          </li>
+          <MemberRow
+            key={`member-${String(member.id)}`}
+            member={member}
+            onEject={() => {
+              sendThenReload((idempotencyKey) =>
+                api.POST("/together/{id}/eject/{member}", {
+                  params: { path: { id, member: member.id } },
+                  ...idempotent(idempotencyKey),
+                }),
+              );
+            }}
+            onRelink={() => {
+              props.run(async (idempotencyKey) => {
+                props.onIssued(await relink(api, { ...member, sessionId: id }, idempotencyKey));
+                props.onChanged();
+              });
+            }}
+          />
         ))}
         {links.map((link) => (
-          <li key={`link-${String(link.id)}`}>
-            {t("watchTogether.waitingLink", { note: link.hostNote })}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                sendThenReload(() =>
-                  api.DELETE("/together/{id}/links/{link}", {
-                    params: { path: { id, link: link.id } },
-                  }),
-                );
-              }}
-            >
-              {t("watchTogether.withdraw")}
-            </button>
-          </li>
+          <LinkRow
+            key={`link-${String(link.id)}`}
+            hostNote={link.hostNote}
+            onWithdraw={() => {
+              sendThenReload(() =>
+                api.DELETE("/together/{id}/links/{link}", {
+                  params: { path: { id, link: link.id } },
+                }),
+              );
+            }}
+          />
         ))}
       </ul>
     </>

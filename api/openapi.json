@@ -2430,6 +2430,50 @@
         ],
         "type": "object"
       },
+      "MyTogetherBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isHost": {
+            "type": "boolean"
+          },
+          "memberId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "membershipCredential": {
+            "type": "string"
+          },
+          "sessionId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessionId",
+          "memberId",
+          "isHost",
+          "membershipCredential"
+        ],
+        "type": "object"
+      },
+      "MyTogetherOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/MyTogetherBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "type": "object"
+      },
       "NewDeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -9827,6 +9871,17 @@
     "/together/join": {
       "post": {
         "operationId": "joinTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9895,6 +9950,48 @@
           }
         },
         "summary": "Leave the session you joined (a viewer)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
+    "/together/mine": {
+      "get": {
+        "operationId": "listMyTogether",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyTogetherOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2)",
         "tags": [
           "Watch Together"
         ]

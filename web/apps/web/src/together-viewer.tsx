@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { startingAudioTrack } from "./audio-tracks.tsx";
-import { browserStorage, tabStorage } from "./browser-storage.ts";
+import { browserStorage } from "./browser-storage.ts";
 import {
   CredentialsField,
   CredentialsForm,
@@ -40,6 +40,8 @@ import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
+import { haveBackMySessions } from "./together-mine.ts";
+import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
 import { SoundChoices, SoundLine } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
@@ -66,22 +68,37 @@ import { useResource } from "./use-resource.ts";
  * their own volume and Leave. The link's secret is after #, and leaves the address once used.
  */
 export function TogetherViewer(): JSX.Element {
-  const { navigation } = useServices();
+  const { api, navigation } = useServices();
+  const token = useToken();
   const [secret, setSecret] = useState(() => secretFromHash(navigation.fragment()));
-  const [membership, setMembership] = useState(() =>
-    secret === undefined ? readMembership(tabStorage(), "viewer") : undefined,
-  );
+  const kept = useMembership(browserStorage, "viewer");
+  // The membership this browser keeps, unless a link other than the one it joined by was opened:
+  // the same link opened again comes back as the same member (D267 §1).
+  const membership = secret === undefined || kept?.link === secret ? kept : undefined;
   const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
+  useEffect(() => {
+    // Signed in, a session joined on another device follows them here (D267 §2).
+    if (token !== undefined && secret === undefined) {
+      void haveBackMySessions(api).catch(() => undefined);
+    }
+  }, [api, token, secret]);
+  useEffect(() => {
+    if (membership !== undefined && secret !== undefined) {
+      // Come back by the link already joined by: it leaves the address, as at the join.
+      navigation.replace({ screen: "together" });
+    }
+  }, [membership, secret, navigation]);
   // A link pasted into a tab already here changes only what follows #, and the page does not load
-  // again: the new link is joined in place of whatever this tab was in.
+  // again: the new link is joined in place of whatever this browser was in, unless it is the same.
   useEffect(
     () =>
       navigation.subscribe(() => {
         const pasted = secretFromHash(navigation.fragment());
         if (pasted !== undefined) {
-          forgetMembership(tabStorage(), "viewer");
+          if (readMembership(browserStorage(), "viewer")?.link !== pasted) {
+            forgetMembership(browserStorage(), "viewer");
+          }
           setSecret(pasted);
-          setMembership(undefined);
           setEndReason(undefined);
         }
       }),
@@ -98,10 +115,11 @@ export function TogetherViewer(): JSX.Element {
       <JoinForm
         secret={secret}
         onJoined={(joined) => {
-          keepMembership(tabStorage(), "viewer", joined);
+          // Kept with its link in this browser: closing the page does not lose it (D267 §1).
+          keepMembership(browserStorage(), "viewer", { ...joined, link: secret });
           // The secret is spent: it stays in neither the address nor the history (D243 §3).
           navigation.replace({ screen: "together" });
-          setMembership(joined);
+          setSecret(undefined);
         }}
       />
     );
@@ -110,8 +128,7 @@ export function TogetherViewer(): JSX.Element {
     <ViewerSession
       membership={membership}
       onOver={(reason) => {
-        forgetMembership(tabStorage(), "viewer");
-        setMembership(undefined);
+        forgetMembership(browserStorage(), "viewer");
         setEndReason(reason);
       }}
     />

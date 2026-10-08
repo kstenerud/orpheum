@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api } from "@orpheum/sdk";
-import { useMemo, useSyncExternalStore, type JSX } from "react";
+import { useEffect, useMemo, useSyncExternalStore, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { About } from "./about.tsx";
@@ -36,6 +36,7 @@ import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
 import { ThisDevice } from "./this-device.tsx";
 import { Title } from "./title.tsx";
+import { haveBackMySessions } from "./together-mine.ts";
 import { readMembership, subscribeToMemberships } from "./together-storage.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
 import { useResource } from "./use-resource.ts";
@@ -72,6 +73,11 @@ function SignedIn(): JSX.Element {
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
   const poller = useServersPoller();
   const isHostingTogether = useIsHostingTogether();
+  useEffect(() => {
+    // A session this person is in follows them to this device (D267 §2); one not had back is
+    // offered again by the screens that start or join one.
+    void haveBackMySessions(api).catch(() => undefined);
+  }, [api]);
   return (
     <BackgroundChangesContext value={poller}>
       <AppShell

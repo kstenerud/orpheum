@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { followGroup, startingTuning, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
-import { forgetMembership, readMembership, type Membership } from "./together-storage.ts";
+import { useMembership } from "./together-membership.ts";
+import { forgetMembership, type Membership } from "./together-storage.ts";
 import { VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
@@ -33,17 +34,18 @@ interface HostPlayer {
  * session it shows nothing and does nothing.
  */
 export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
-  const [membership, setMembership] = useState(() => readMembership(tabStorage(), "host"));
+  // Started on this device or another of the host's, had back from the server (D267 §2).
+  const membership = useMembership(tabStorage, "host");
   if (membership === undefined) {
     return null;
   }
   return (
     <HostLeading
+      key={membership.credential}
       {...props}
       membership={membership}
       onOver={() => {
         forgetMembership(tabStorage(), "host");
-        setMembership(undefined);
       }}
     />
   );

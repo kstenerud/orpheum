@@ -53,6 +53,15 @@ is a player's position, buffering, play, pause, seek and rate
   ([D252](../../decisions/working-notes.md#d252--m4s-acceptance-shapes-each-clients-network-with-the-kernels-netem-in-a-run-of-its-own-at-the-milestones-end)
   §5). The host may withdraw a link: it admits no one from then on, and a person who already
   joined by it stays.
+- **A membership follows its person** ([D267](../../decisions/working-notes.md#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)). A guest's is kept by the browser that
+  joined, with the link it came by, so closing the page loses nothing and the same link opened
+  again in that browser comes back as the same member; no other browser can use it. Someone
+  signed in, the host or a guest who joined signed in, has their session back on any device they
+  sign in on (`GET /together/mine`), each device with a credential of its own, so one device
+  having it back cuts off no other. Someone not signed in moves to another device by a **New
+  link** from the host, which removes them, cutting off every device they came in on, and admits
+  whoever opens it under the same note. The host plays in one place at a time; whichever device
+  they play on leads.
 - **A viewer is an ephemeral account** (D246 §3): a hidden, built-in role that cannot be edited,
   restricted to the playback screen. No browsing, no library, no control of playback. The viewer
   picks the name the others see; someone signed in finds their own name filled in. The membership
