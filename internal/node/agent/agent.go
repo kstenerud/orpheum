@@ -488,9 +488,9 @@ func (agent *Agent) status() nodeproto.Status {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
+	takenCommandSeq, held := takenThenHeld(&agent.takenCommandSeq, agent.held)
 	status := nodeproto.Status{
-		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: agent.held(),
-		TakenCommandSeq: agent.takenCommandSeq.Load(),
+		SentAt: agent.clock.Now().UnixMilli(), Disks: disks, Held: held, TakenCommandSeq: takenCommandSeq,
 	}
 	if agent.workers.Stuck != nil {
 		status.Stuck = agent.workers.Stuck()
@@ -506,6 +506,19 @@ func (agent *Agent) status() nodeproto.Status {
 		}
 	}
 	return status
+}
+
+// takenThenHeld is the last command the node took, then the work it holds, read in that order. A
+// command is held before it counts as taken, so every command the status says was taken is among
+// what it says is held, or among what has ended. Read the other way round, a command taken between
+// the two reads is said taken and not held, and the core judges the work lost and gives it again
+// later (D234 §6): a scan lost so at a server's start delayed identifying a library by minutes
+// (TestM2_EveryFileHasAFiling…, under check-pr's load, 2026-10-08).
+func takenThenHeld(
+	takenCommandSeq *atomic.Int64, held func() []nodeproto.HeldAttempt,
+) (int64, []nodeproto.HeldAttempt) {
+	taken := takenCommandSeq.Load()
+	return taken, held()
 }
 
 // held is every attempt the node holds, and every one whose result the core has not acknowledged,
