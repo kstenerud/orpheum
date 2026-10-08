@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { setVoiceLive } from "./voice-live.ts";
-import { voiceStatsEveryMs, type VoiceCallStats } from "./together-voice-stats.ts";
+import {
+  voiceFirstStatsAfterMs,
+  voiceStatsEveryMs,
+  type VoiceCallStats,
+} from "./together-voice-stats.ts";
 import {
   createTogetherConnection,
   type RelaysVoiceSignals,
@@ -340,7 +344,14 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     this.#attach();
   };
 
+  /** Turns voice off: the person's Leave voice, told to the core's log as left. */
   readonly stop = (): void => {
+    this.#end("left");
+  };
+
+  /** Turns voice off, telling the core's log why: the person left, or a call could not connect. */
+  #end(why: "left" | "unreachable"): void {
+    this.#connection?.note({ kind: "voiceOff", why });
     this.#generation += 1;
     this.#closeCalls();
     for (const unsubscribe of this.#unsubscribes) {
@@ -357,7 +368,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
     this.#microphone = undefined;
     this.#change({ ...offSnapshot, partnerGain: this.#snapshot.partnerGain });
-  };
+  }
 
   readonly setMuted = (isMuted: boolean): void => {
     for (const track of this.#microphone?.getAudioTracks() ?? []) {
@@ -415,20 +426,25 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   /** Tells the core's log how each connected call is going (D262 §1). */
   #reportCalls(connection: TogetherConnection): void {
     for (const entry of this.#calls.values()) {
-      const { call } = entry;
-      if (call === undefined || entry.partner().state !== "connected") {
-        continue;
-      }
-      call.measure().then(
-        (stats) => {
-          connection.note({
-            kind: "voiceStats",
-            voice: { partnerDeviceId: entry.deviceId, ...stats },
-          });
-        },
-        () => undefined, // a call that cannot say is said nothing of; its next measure may
-      );
+      this.#reportCall(connection, entry);
     }
+  }
+
+  /** Tells the core's log how one call is going, if it is connected. */
+  #reportCall(connection: TogetherConnection, entry: CallEntry): void {
+    const { call } = entry;
+    if (call === undefined || entry.isClosed || entry.partner().state !== "connected") {
+      return;
+    }
+    call.measure().then(
+      (stats) => {
+        connection.note({
+          kind: "voiceStats",
+          voice: { partnerDeviceId: entry.deviceId, ...stats },
+        });
+      },
+      () => undefined, // a call that cannot say is said nothing of; its next measure may
+    );
   }
 
   /** Keeps a call with every other person's voice device the session's roster lists. */
@@ -561,9 +577,17 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
     if (state !== "connecting" && entry.partner().state !== state) {
       this.#noteStep(entry.deviceId, state);
+      const connection = this.#connection;
+      if (state === "connected" && connection !== undefined) {
+        // The first measure soon after: a call that carries silence, or plays to no one, is said
+        // before its people give up on it (the owner's test, 2026-10-08: calls of 8 s).
+        setTimeout(() => {
+          this.#reportCall(connection, entry);
+        }, voiceFirstStatsAfterMs);
+      }
     }
     if (state === "failed") {
-      this.stop();
+      this.#end("unreachable");
       this.#change({ ...this.#snapshot, status: "failed", failure: "unreachable" });
       return;
     }

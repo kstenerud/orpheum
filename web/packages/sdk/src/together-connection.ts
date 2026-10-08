@@ -75,6 +75,8 @@ export interface PlayerState {
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
  * - voiceCall: a voice call with partnerDeviceId took a step, why: VoiceCallStep, so a call that
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
+ * - voiceOff: voice turned off, why: the person left ("left") or a call could not connect
+ *   ("unreachable");
  * - placed: a pong with a roundTripMs shorter than any before placed the group anew, moving where
  *   it is expected by movedMs (ahead when positive), the wait on the way of what placed it before
  *   (D264);
@@ -113,6 +115,7 @@ export type PlayerNote =
       readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
+  | { readonly kind: "voiceOff"; readonly why: "left" | "unreachable" }
   | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | { readonly kind: "unmuted"; readonly positionMs: number };

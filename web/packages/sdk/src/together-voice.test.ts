@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { TogetherSocketListeners } from "./together.ts";
 import { firstReconnectWaitMs } from "./together-connection.ts";
-import { voiceStatsEveryMs, type VoiceCallStats } from "./together-voice-stats.ts";
+import {
+  voiceFirstStatsAfterMs,
+  voiceStatsEveryMs,
+  type VoiceCallStats,
+} from "./together-voice-stats.ts";
 import { isVoiceLive } from "./voice-live.ts";
 import {
   createTogetherVoice,
@@ -84,6 +88,9 @@ const measuredCall: VoiceCallStats = {
   packetsLate: 0,
   fecPackets: 1,
   path: "direct",
+  receivedLevel: 0.12,
+  sentLevel: 0.08,
+  playback: "webAudio",
 };
 
 /** A call as a test sees it: what it was made with and what was done to it. */
@@ -365,14 +372,27 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(isVoiceLive()).toBe(false);
   });
 
-  it("tells the core's log how each connected call goes, every ten seconds (D262 §1)", async () => {
+  it("tells the core's log how each connected call goes, soon after it connects and every ten seconds (D262 §1)", async () => {
     vi.useFakeTimers();
     const { server, calls } = await talking();
     calls[0]!.setup.events.onState("connected"); // with Karl's device 30; Ann's, 15, connecting
-    vi.advanceTimersByTime(voiceStatsEveryMs);
+    const measured = { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } };
+    vi.advanceTimersByTime(voiceFirstStatsAfterMs);
     await settle();
-    expect(notesOf(server, "voiceStats")).toEqual([
-      { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } },
+    expect(notesOf(server, "voiceStats")).toEqual([measured]);
+    vi.advanceTimersByTime(voiceStatsEveryMs - voiceFirstStatsAfterMs);
+    await settle();
+    expect(notesOf(server, "voiceStats")).toEqual([measured, measured]);
+  });
+
+  it("tells the core's log why voice turned off: the person left, or a call could not connect", async () => {
+    const left = await talking();
+    left.voice.stop();
+    expect(notesOf(left.server, "voiceOff")).toEqual([{ kind: "voiceOff", why: "left" }]);
+    const unreachable = await talking();
+    unreachable.calls[0]!.setup.events.onState("failed");
+    expect(notesOf(unreachable.server, "voiceOff")).toEqual([
+      { kind: "voiceOff", why: "unreachable" },
     ]);
   });
 

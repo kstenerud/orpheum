@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
-import { voiceCallStatsOf, type VoiceCallStats } from "./together-voice-stats.ts";
+import {
+  voiceCallStatsOf,
+  type VoiceCallStats,
+  type VoicePlayback,
+} from "./together-voice-stats.ts";
 import type {
   MicrophoneProcessing,
   VoiceCall,
@@ -69,43 +73,90 @@ function candidateFrom(text: string): RTCIceCandidateInit {
   };
 }
 
-/** Where the other's voice plays, at a gain the person sets. */
+/** Where the other's voice plays, at a gain the person sets, and how it plays now. */
 interface PlayedVoice {
   readonly setGain: (gain: number) => void;
+  readonly playback: () => VoicePlayback;
   readonly stop: () => void;
+}
+
+/** How a voice plays through context now: Web Audio while it runs, its element otherwise. */
+export function playbackOf(context: Pick<AudioContext, "state"> | undefined): VoicePlayback {
+  // Safari's "interrupted" is not in the type: iOS sets it as the microphone opens.
+  const state: string | undefined = context?.state;
+  switch (state) {
+    case "running":
+      return "webAudio";
+    case "suspended":
+      return "elementSuspended";
+    case "interrupted":
+      return "elementInterrupted";
+    case "closed":
+      return "elementClosed";
+    case undefined:
+    default:
+      return "element";
+  }
+}
+
+/**
+ * Where a voice at gain plays as playback says: through Web Audio, at the gain, its element muted;
+ * or through its element, no louder than it came, Web Audio silent so it is never heard twice.
+ */
+export function routeOf(
+  playback: VoicePlayback,
+  gain: number,
+): {
+  readonly isElementMuted: boolean;
+  readonly elementVolume: number;
+  readonly webAudioGain: number;
+} {
+  const isMixed = playback === "webAudio";
+  return {
+    isElementMuted: isMixed,
+    elementVolume: Math.min(1, gain),
+    webAudioGain: isMixed ? gain : 0,
+  };
 }
 
 /**
  * Plays stream through a gain node of context, one per remote voice (watch-together.md: per-source
- * gain), or through the audio element alone where Web Audio is not running. Chrome plays a remote
+ * gain), while the context runs, and through its audio element while it does not, switching as the
+ * context's state changes. iOS suspends or interrupts the context as the microphone opens, and a
+ * voice that went only to Web Audio was then heard by no one: an iPhone and an Android phone
+ * connected and neither heard the other (the owner's test, 2026-10-08). Chrome plays a remote
  * stream into Web Audio only while a media element holds it too, so a muted one does.
  */
 function playVoice(stream: MediaStream, context: AudioContext | undefined): PlayedVoice {
   const element = new Audio();
   element.srcObject = stream;
-  const isMixed = context?.state === "running";
-  element.muted = isMixed;
   void element.play().catch(() => undefined);
-  if (context === undefined || !isMixed) {
-    return {
-      setGain: (gain) => {
-        element.volume = Math.min(1, gain); // an element plays no louder than it came
-      },
-      stop: () => {
-        element.srcObject = null;
-      },
-    };
+  let gain = 1;
+  let nodes: { readonly source: AudioNode; readonly gainNode: GainNode } | undefined;
+  if (context !== undefined) {
+    nodes = { source: context.createMediaStreamSource(stream), gainNode: context.createGain() };
+    nodes.source.connect(nodes.gainNode).connect(context.destination);
   }
-  const source = context.createMediaStreamSource(stream);
-  const gainNode = context.createGain();
-  source.connect(gainNode).connect(context.destination);
+  const route = (): void => {
+    const routed = routeOf(playbackOf(context), gain);
+    element.muted = routed.isElementMuted;
+    element.volume = routed.elementVolume;
+    if (nodes !== undefined) {
+      nodes.gainNode.gain.value = routed.webAudioGain;
+    }
+  };
+  route();
+  context?.addEventListener("statechange", route);
   return {
-    setGain: (gain) => {
-      gainNode.gain.value = gain;
+    setGain: (next) => {
+      gain = next;
+      route();
     },
+    playback: () => playbackOf(context),
     stop: () => {
-      source.disconnect();
-      gainNode.disconnect();
+      context?.removeEventListener("statechange", route);
+      nodes?.source.disconnect();
+      nodes?.gainNode.disconnect();
       element.srcObject = null;
     },
   };
@@ -149,13 +200,16 @@ async function takeOwn(peer: RTCPeerConnection, made: RTCSessionDescriptionInit)
   return sdp;
 }
 
-/** The call as its receiver measured it so far (voiceCallStatsOf). */
-async function measureCall(peer: RTCPeerConnection): Promise<VoiceCallStats> {
+/** The call as its receiver measured it so far, and how its sound plays (voiceCallStatsOf). */
+async function measureCall(
+  peer: RTCPeerConnection,
+  playback: VoicePlayback,
+): Promise<VoiceCallStats> {
   const reports: Record<string, unknown>[] = [];
   (await peer.getStats()).forEach((report: Record<string, unknown>) => {
     reports.push({ ...report });
   });
-  return voiceCallStatsOf(reports);
+  return voiceCallStatsOf(reports, playback);
 }
 
 /** One call over the browser's RTCPeerConnection, sending the microphone, playing what comes. */
@@ -205,12 +259,42 @@ function startBrowserCall(
       gain = next;
       played?.setGain(next);
     },
-    measure: async () => await measureCall(peer),
+    measure: async () => await measureCall(peer, played?.playback() ?? playbackOf(context)),
     close: () => {
       played?.stop();
       peer.close();
     },
   };
+}
+
+/**
+ * Resumes context at the person's next tap anywhere on page while it does not run: iOS suspends or
+ * interrupts it as the microphone opens, and resumes it only from a gesture (WebKit 273511). Its
+ * voices play through their elements meanwhile (playVoice).
+ */
+export function resumeAtTaps(
+  context: {
+    readonly state: string;
+    readonly resume: () => Promise<void>;
+    readonly addEventListener: (type: "statechange", listener: () => void) => void;
+  },
+  page: {
+    readonly addEventListener: (type: "pointerdown", listener: () => void) => void;
+    readonly removeEventListener: (type: "pointerdown", listener: () => void) => void;
+  },
+): void {
+  const resume = (): void => {
+    void context.resume().catch(() => undefined);
+  };
+  const follow = (): void => {
+    if (context.state === "running" || context.state === "closed") {
+      page.removeEventListener("pointerdown", resume);
+    } else {
+      page.addEventListener("pointerdown", resume);
+    }
+  };
+  context.addEventListener("statechange", follow);
+  follow();
 }
 
 /** The browser's devices for voice, and the audio context its voices play through. */
@@ -230,6 +314,7 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
     openMicrophone: async (processing) => {
       if (context === undefined && "AudioContext" in window) {
         context = new AudioContext();
+        resumeAtTaps(context, document);
         void context.resume().catch(() => undefined);
       }
       const microphone = await openBrowserMicrophone(processing);
