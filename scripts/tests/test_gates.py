@@ -538,6 +538,15 @@ class GenerateLeavesNothingBehind(unittest.TestCase):
         self.assertIn("trap 'rm -f \"$$openapi_next\"' EXIT INT TERM", recipe)
 
 
+class DocumentationGate(unittest.TestCase):
+    def test_the_documentation_gate_runs_the_go_test_that_reads_a_document(self):
+        """TestArch_EachTableHasOneWritingPackage reads schema.md: a change of documentation alone
+        could break it unseen until the next code turn (the M4 closing audit, 2026-10-08)."""
+        makefile = (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text()
+        recipe = makefile.split("\ncheck-documentation:", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("TestArch_EachTableHasOneWritingPackage", recipe)
+
+
 class IntegrationTier(unittest.TestCase):
     def test_the_tier_runs_only_the_tagged_tests_and_fails_when_it_finds_none(self):
         """The unit tests ran in make check; the tier runs the tests only -tags integration builds,
