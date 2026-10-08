@@ -159,3 +159,28 @@ func FuzzKeyframesMs(f *testing.F) {
 		}
 	})
 }
+
+// A ctts table's offsets are found for every sync sample in one walk: each sample in its run, 0
+// past the table's end, a sample out of order found from the table's start; and the table is parsed
+// once, however many keyframes, where it was parsed for each (the M4 closing audit, 2026-10-08).
+// AllocsPerRun panics in a parallel test.
+//
+//nolint:paralleltest // as above
+func TestCompositionOffsets_FindsEachSamplesRunInOneWalk(t *testing.T) {
+	// Samples 1-2 shown 10 ticks late, 3-5 5 ticks early (a version 1, signed, table), then none.
+	ctts := []byte{1, 0, 0, 0}
+	for _, word := range []uint32{2, 2, 10, 3, 0xFFFFFFFB} {
+		ctts = binary.BigEndian.AppendUint32(ctts, word)
+	}
+	got := compositionOffsets(ctts, []uint32{1, 2, 3, 5, 6, 2})
+	if want := []int64{10, 10, -5, -5, 0, 10}; !slices.Equal(got, want) {
+		t.Errorf("the offsets = %v; want %v", got, want)
+	}
+	many := make([]uint32, 5000)
+	for index := range many {
+		many[index] = uint32(index + 1)
+	}
+	if allocations := testing.AllocsPerRun(5, func() { compositionOffsets(ctts, many) }); allocations > 2 {
+		t.Errorf("finding 5000 samples' offsets allocated %v times; want the table parsed once", allocations)
+	}
+}

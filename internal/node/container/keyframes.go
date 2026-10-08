@@ -370,12 +370,16 @@ func trakKeyframesMs(trak []byte) ([]int64, error) {
 		return nil, err
 	}
 	offsetTable, hasOffsets := child(stbl, "ctts")
+	var offsets []int64
+	if hasOffsets {
+		offsets = compositionOffsets(offsetTable, syncSamples)
+	}
 	start := editMediaStart(trak)
 	keyframes := make([]int64, 0, len(syncSamples))
-	for index, sample := range syncSamples {
+	for index := range syncSamples {
 		shown := decodeTimes[index] - start
 		if hasOffsets {
-			shown += compositionOffset(offsetTable, sample)
+			shown += offsets[index]
 		}
 		if shown >= 0 {
 			keyframes = append(keyframes, shown*1000/timescale)
@@ -468,20 +472,30 @@ func runsOf(table []byte) ([]run, error) {
 	return runs, nil
 }
 
-// compositionOffset is sample's offset in a ctts table, 1-based; 0 past its end.
-func compositionOffset(ctts []byte, sample uint32) int64 {
+// compositionOffsets are the offsets in a ctts table of samples, 1-based, each 0 past its end: the
+// table is parsed once, and samples in ascending order, as a sync-sample table lists them, are found
+// in one walk through it. Looking each up from the table's start took seconds for a two-hour film
+// with B-frames, its table some 170,000 runs (the M4 closing audit, 2026-10-08).
+func compositionOffsets(ctts []byte, samples []uint32) []int64 {
+	offsets := make([]int64, len(samples))
 	runs, err := runsOf(ctts)
 	if err != nil {
-		return 0
+		return offsets
 	}
-	first := int64(1)
-	for _, entry := range runs {
-		if int64(sample) < first+entry.count {
-			return entry.value
+	runIndex, first := 0, int64(1) // the run being looked in, and its first sample
+	for index, sample := range samples {
+		if int64(sample) < first { // out of order: from the table's start again
+			runIndex, first = 0, 1
 		}
-		first += entry.count
+		for runIndex < len(runs) && int64(sample) >= first+runs[runIndex].count {
+			first += runs[runIndex].count
+			runIndex++
+		}
+		if runIndex < len(runs) {
+			offsets[index] = runs[runIndex].value
+		}
 	}
-	return 0
+	return offsets
 }
 
 // editMediaStart is where a trak's edit list starts its media, in the media's timescale: the first
