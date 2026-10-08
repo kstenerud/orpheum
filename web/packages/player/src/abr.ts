@@ -45,6 +45,7 @@ export const paceAboveQuality = 1.25;
 
 /** A chunk as choosing follows it: hls.js's Fragment, or a test's. */
 export interface FollowedChunk {
+  readonly url: string;
   readonly level: number;
   readonly duration: number;
   readonly stats: Pick<LoaderStats, "loaded" | "total" | "aborted"> & {
@@ -71,6 +72,8 @@ export interface ChoosingOptions {
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
+  /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */
+  readonly fromCache: (url: string) => boolean | undefined;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
@@ -226,6 +229,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       arrivingMs: loading.end - loading.first,
       bytes: loaded,
       paceBps: this.#paces.get(chunk),
+      isFromCache: this.#options.fromCache(chunk.url),
     });
     this.#hasMeasured ||= isCounted;
     return isCounted;

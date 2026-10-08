@@ -38,6 +38,7 @@ function chunkAt(level: number): FollowedChunk & {
   stats: { loaded: number; total: number; loading: { first: number; end: number } };
 } {
   return {
+    url: `/c/${String(level)}.m4s`,
     level,
     duration: 10,
     stats: { loaded: 0, total: 0, aborted: false, loading: { start: 0, first: 0, end: 0 } },
@@ -46,6 +47,8 @@ function chunkAt(level: number): FollowedChunk & {
 
 let nowMs = 0;
 let isVoiceLive = false;
+/** The chunks the browser says it took from its cache, by URL; any other it says nothing of. */
+let cachedUrls = new Set<string>();
 
 /** A playback's choosing, offered startAtBps, the link estimated at what the test sets. */
 function choosingFrom(startAtBps: number): {
@@ -67,6 +70,7 @@ function choosingFrom(startAtBps: number): {
       startAtBps,
       monotonicMs: () => nowMs,
       isVoiceLive: () => isVoiceLive,
+      fromCache: (url) => (cachedUrls.has(url) ? true : undefined),
       onUnplayable: (found) => unplayable.push(found),
     },
     {
@@ -96,6 +100,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   nowMs = 0;
   isVoiceLive = false;
+  cachedUrls = new Set<string>();
 });
 
 afterEach(() => {
@@ -166,6 +171,13 @@ describe("choosing a chunked playback's quality (D265)", () => {
     const { choosing } = choosingFrom(40_000_000);
     expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 4 })).toBe(false);
     expect(choosing.linkKbps()).toBeUndefined();
+  });
+
+  it("does not count a chunk the browser says came from its cache, however long it took", () => {
+    const { choosing } = choosingFrom(40_000_000);
+    cachedUrls.add("/c/3.m4s");
+    expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 2000 })).toBe(false);
+    expect(load(choosing, 2, { bytes: 3_200_000, loadMs: 2000 })).toBe(true);
   });
 
   it("obeys a quality hls.js forces until a chunk of it loads, and its echo of a choice changes nothing", () => {
@@ -303,7 +315,12 @@ describe("the bitrate controller inside hls.js (D265 §1)", () => {
   }
 
   it("is what hls.js asks for its levels, and counts a chunk in its estimate only when it measures the link", () => {
-    const abr = orpheumAbr({ startAtBps: 0, monotonicMs: () => nowMs, isVoiceLive: () => false });
+    const abr = orpheumAbr({
+      startAtBps: 0,
+      monotonicMs: () => nowMs,
+      isVoiceLive: () => false,
+      fromCache: () => undefined,
+    });
     const hls = new Hls({ abrController: abr.controller, abrEwmaDefaultEstimate: 500_000 });
     const choosing = abr.choosing();
     expect(choosing).toBeDefined();

@@ -30,7 +30,10 @@ export const shareRisesToS = 25;
 /** The share of the link the film may take while voice is live (D262 §2). */
 export const voiceLinkShare = 0.5;
 
-/** A load quicker than this came from the browser's cache, not over the link (D265 §7). */
+/**
+ * A load quicker than this came from the browser's cache, not over the link (D265 §7): the guess
+ * where the browser does not say (LoadedChunk.isFromCache).
+ */
 export const cacheHitUnderMs = 10;
 
 /**
@@ -177,16 +180,19 @@ export interface LoadedChunk {
   readonly bytes: number;
   /** The pace it was asked to arrive at, bits a second; undefined when it was not paced. */
   readonly paceBps: number | undefined;
+  /** Whether the browser says it came from its cache; undefined where it does not say (cache-hit.ts). */
+  readonly isFromCache: boolean | undefined;
 }
 
 /**
- * Whether a loaded chunk measures the link (D265 §7): not one from the browser's cache, which
- * loads in under cacheHitUnderMs, as the film page's chunks do when Play reads them again; and a
+ * Whether a loaded chunk measures the link (D265 §7): not one from the browser's cache, as the film
+ * page's chunks are when Play reads them again, which the browser says, or, where it does not, one
+ * that loaded in under cacheHitUnderMs; and a
  * paced one only when it arrived at no more than pacedCountsAtMostShare of its pace, the link, not
  * the pace, holding it back.
  */
 export function measuresTheLink(chunk: LoadedChunk): boolean {
-  if (chunk.loadMs < cacheHitUnderMs) {
+  if (chunk.isFromCache ?? chunk.loadMs < cacheHitUnderMs) {
     return false;
   }
   if (chunk.paceBps === undefined) {

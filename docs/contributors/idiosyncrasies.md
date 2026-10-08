@@ -373,6 +373,11 @@ User-Agent (D263; the User-Agent is logged only).
   iOS 17, `navigator.audioSession.type = "playback"` keeps Web Audio playing with the switch on silent (same
   bug, comment 6); the older workaround was a looping silent `<audio>` element. A gain through Web Audio may
   therefore be possible on iOS 17+, subject to the MSE and HLS Web Audio bugs in the next entry.
+  **Not adopted (2026-10-08):** it gives the film nothing, since a streamed film through Web Audio is silent
+  on Safari (next entry) and an element's volume stays read-only; and voice, the one thing we play
+  through Web Audio, plays only once the microphone is open, when iOS has already made the session
+  play-and-record, which the silent switch does not mute. Setting "playback" then could disturb the
+  microphone. It matters again only if something plays through Web Audio without the microphone.
 
 
 ### iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain
@@ -762,8 +767,11 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 
 - **Symptom:** #5826 reads a throttled 1 Mb/s link as 404 MB/s. Here, the film page's preloaded chunks are read
   again by Play.
-- **What we do:** chunks loaded in under 10 ms are not counted, and paced chunks count only at 0.9 of the pace
-  or less. `web/packages/player/src/abr-choice.ts:32,38,180-186`; `web/packages/player/src/abr.ts:468-472`.
+- **What we do:** a chunk whose Resource Timing entry transferred nothing for its body came from the cache
+  and is not counted; one that transferred is counted however fast it came; where the browser says nothing,
+  chunks loaded in under 10 ms are not counted. Paced chunks count only at 0.9 of the pace or less. The
+  page's timing buffer is emptied each time it fills. `web/packages/player/src/cache-hit.ts`,
+  `abr-choice.ts` (`measuresTheLink`), `abr.ts` (`measures`); D265 §7, amended 2026-10-08.
 - **Evidence:** D265 §7; https://github.com/video-dev/hls.js/issues/5826; `research/slow-links.md` §2.
   **[web]** [hls.js#5826](https://github.com/video-dev/hls.js/issues/5826), "Cached Fragments increase
   BandwidthEstimate causing suboptimal quality selection": open, labelled "Browser issue" and "Missing
@@ -773,7 +781,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `PerformanceResourceTiming.transferSize`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceResourceTiming/transferSize)
   is 0 for a resource fetched from a local cache (and for a cross-origin one without `Timing-Allow-Origin`),
   so for our same-origin chunks a Resource Timing entry could mark a cache hit directly instead of the
-  under-10 ms guess.
+  under-10 ms guess. Adopted 2026-10-08 (the owner).
 
 
 ### The `abrController` config type is nominal, so a custom controller must subclass

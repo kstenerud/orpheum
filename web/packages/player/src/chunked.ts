@@ -4,6 +4,7 @@ import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.j
 
 import { isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
+import { fromCacheBy } from "./cache-hit.ts";
 import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
 import { orpheumAbr } from "./abr.ts";
 import { diagnose, diagnosisOf } from "./diagnosis.ts";
@@ -261,6 +262,7 @@ export function playChunked(
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,
     isVoiceLive,
+    fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     onUnplayable: sendUnplayable(video),
   });
   const hls = new Hls({
