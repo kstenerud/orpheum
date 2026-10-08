@@ -3,13 +3,13 @@
 
 import "./i18n.ts";
 
-import { ReportRefused } from "@orpheum/player";
+import { playerFoundUnplayableEvent, ReportRefused } from "@orpheum/player";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
-import { noteDecisionTimes, sendReport } from "./play-state.ts";
+import { noteDecisionTimes, sendReport, tellUnplayable } from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
 import {
   mount,
@@ -194,5 +194,20 @@ describe("play state", () => {
       "Starting at 480p, 1.2 Mb/s. The quality follows your connection.",
     );
     expect(mounted.container.textContent).not.toContain("Playing the original file");
+  });
+});
+
+describe("a quality the player cannot play here (D266)", () => {
+  it("is reported at once, with where the video stood, and not once the reporting stops", () => {
+    const video = new EventTarget();
+    const recorded: [unknown, number][] = [];
+    const stop = tellUnplayable(video, {
+      recordUnplayable: (unplayable, positionMs) => recorded.push([unplayable, positionMs]),
+    });
+    const found = { qualityKbps: 36_208, positionMs: 420_500 };
+    video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));
+    stop();
+    video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));
+    expect(recorded).toEqual([[found, 420_500]]);
   });
 });

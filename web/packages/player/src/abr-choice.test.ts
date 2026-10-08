@@ -3,12 +3,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  chunksWhileStill,
   giveUpFor,
+  isUnplayable,
   linkShare,
   linkShareForQuality,
   linkShareWhenAhead,
   measuresTheLink,
   startingLevel,
+  standsStillAtMostMs,
   steadyLevel,
   voiceCeiling,
   type ChunkOnItsWay,
@@ -155,5 +158,16 @@ describe("what measures the link (D265 §7)", () => {
     // 4.2 Mb/s arriving: at a 4.4 Mb/s pace, the pace held it; at 6 Mb/s, the link did.
     expect(measuresTheLink({ ...loaded, paceBps: 4_400_000 })).toBe(false);
     expect(measuresTheLink({ ...loaded, paceBps: 6_000_000 })).toBe(true);
+  });
+});
+
+describe("a quality this device cannot play (D266)", () => {
+  it("is one whose video stood still while its chunks kept arriving", () => {
+    expect(isUnplayable({ forMs: standsStillAtMostMs, chunksLoaded: chunksWhileStill })).toBe(true);
+  });
+
+  it("is not yet one that stood still briefly, or whose chunks were slow to come", () => {
+    expect(isUnplayable({ forMs: standsStillAtMostMs - 1, chunksLoaded: 10 })).toBe(false);
+    expect(isUnplayable({ forMs: 60_000, chunksLoaded: chunksWhileStill - 1 })).toBe(false);
   });
 });

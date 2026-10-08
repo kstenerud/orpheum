@@ -159,3 +159,23 @@ func TestReport_AStallOnTheLadderIsOfferedNothing(t *testing.T) {
 		t.Errorf("a stall on the ladder opened %d runs; want none", runs-started)
 	}
 }
+
+// A quality a player gave up as one its device cannot play is logged with where, so a film that
+// freezes on one device says why (D266).
+func TestReport_AQualityAPlayerCannotPlayIsLogged(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	body := reportBody(1, 420_500, 0)
+	body["unplayable"] = map[string]any{"qualityKbps": 36_208, "positionMs": 420_500}
+	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	if !strings.Contains(logged, `"msg":"a player found a quality its device cannot play"`) ||
+		!strings.Contains(logged, `"qualityKbps":36208`) || !strings.Contains(logged, `"positionMs":420500`) {
+		t.Errorf("the unplayable quality was not logged:\n%s", logged)
+	}
+}

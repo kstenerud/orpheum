@@ -193,3 +193,28 @@ export function measuresTheLink(chunk: LoadedChunk): boolean {
   const arrivedBps = (chunk.bytes * 8 * 1000) / Math.max(1, chunk.arrivingMs);
   return arrivedBps <= pacedCountsAtMostShare * chunk.paceBps;
 }
+
+/** How long a playing video may stand still, its chunks arriving, before its quality is given up as unplayable (D266). */
+export const standsStillAtMostMs = 6000;
+
+/** How many chunks of its quality arrive while it stands still that show the link is not why (D266). */
+export const chunksWhileStill = 2;
+
+/** A video asked to play whose position has not moved, and what arrived meanwhile. */
+export interface StandingStill {
+  /** How long its position has stood still while it was asked to play, in ms. */
+  readonly forMs: number;
+  /** How many chunks of picture loaded meanwhile. */
+  readonly chunksLoaded: number;
+}
+
+/**
+ * Whether the quality a video stands still at is one this device cannot play (D266): asked to
+ * play, its position stood still for standsStillAtMostMs while chunksWhileStill chunks arrived, so
+ * the link carries it and the decoder does not. Firefox on macOS took Flow's own picture, 10-bit
+ * HEVC whose every keyframe after the first is a CRA, and froze at any start but the film's
+ * beginning while its chunks kept arriving (the owner's test, 2026-10-07).
+ */
+export function isUnplayable(still: StandingStill): boolean {
+  return still.forMs >= standsStillAtMostMs && still.chunksLoaded >= chunksWhileStill;
+}

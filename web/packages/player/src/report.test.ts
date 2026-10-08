@@ -132,6 +132,19 @@ describe("reporting play state", () => {
     expect(sent[2]).not.toHaveProperty("stalls");
   });
 
+  it("tells a quality its device cannot play at once, once, and again after a report that failed (D266)", async () => {
+    const { reporter, sent, failNext } = fakeReporter();
+    failNext();
+    reporter.recordUnplayable({ qualityKbps: 36_208, positionMs: 420_500 }, 420_500);
+    await settled();
+    reporter.flush(420_500);
+    await settled();
+    expect(sent[0]?.unplayable).toEqual({ qualityKbps: 36_208, positionMs: 420_500 });
+    reporter.flush(421_000);
+    await settled();
+    expect(sent[1]).not.toHaveProperty("unplayable");
+  });
+
   it("sends nothing more once a report is refused for good", async () => {
     const { reporter, sent, refuseNext, attempts } = fakeReporter();
     refuseNext();

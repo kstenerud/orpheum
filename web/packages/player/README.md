@@ -32,7 +32,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   ahead; steps up only one quality at a time, after `holdBeforeStepUpMs` at its quality, with
   `stepUpBufferMs` loaded ahead and a link `stepUpHeadroom` times the next quality's rate (D247
   §9); holds the film to half the link while voice is live; and counts neither a chunk from the
-  browser's cache nor one its pace held back as a measure of the link.
+  browser's cache nor one its pace held back as a measure of the link. A quality whose video,
+  asked to play, stands still while its chunks arrive is given up as one the device cannot play,
+  with every quality above it, and reported (D266).
   `abr-choice.test.ts`, `abr.test.ts`, `step-up.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in

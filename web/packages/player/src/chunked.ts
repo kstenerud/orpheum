@@ -32,6 +32,33 @@ export const chunkFirstByteWaitMs = 30_000;
  */
 export const chunkAskAgainCount = 90;
 
+/**
+ * The event a chunked playback's video is sent when it gives up a quality as one this device
+ * cannot play, its detail an UnplayableQuality, for the play report to tell the core (D266).
+ */
+export const playerFoundUnplayableEvent = "orpheumplayerfoundunplayable";
+
+/** A quality given up as unplayable here: its BANDWIDTH, in kbit/s, and where the video stood. */
+export interface UnplayableQuality {
+  readonly qualityKbps: number;
+  readonly positionMs: number;
+}
+
+/** An event's UnplayableQuality, or undefined when it carries none. */
+export function unplayableOf(event: Event): UnplayableQuality | undefined {
+  if (!(event instanceof CustomEvent)) {
+    return undefined;
+  }
+  const detail: unknown = event.detail;
+  if (typeof detail !== "object" || detail === null) {
+    return undefined;
+  }
+  const { qualityKbps, positionMs } = Object.fromEntries(Object.entries(detail));
+  return typeof qualityKbps === "number" && typeof positionMs === "number"
+    ? { qualityKbps, positionMs }
+    : undefined;
+}
+
 /** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
 export const paceHeader = "Orpheum-Pace-Kbps";
 
@@ -196,6 +223,9 @@ export function playChunked(
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,
     isVoiceLive,
+    onUnplayable: (unplayable) => {
+      video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: unplayable }));
+    },
   });
   const hls = new Hls({
     ...chunkedHlsConfig({ ...options, paceKbps: () => abr.choosing()?.paceKbps() }),

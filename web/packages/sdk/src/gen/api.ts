@@ -2714,6 +2714,7 @@ export interface components {
             spans: components["schemas"]["SpanBody"][] | null;
             stalls?: components["schemas"]["StallBody"][] | null;
             startup?: components["schemas"]["StartupBody"];
+            unplayable?: components["schemas"]["UnplayableBody"];
         };
         ReportOutputBody: {
             /** @description The lower quality the first stall started, ready or not (D253 §1) */
@@ -3142,6 +3143,12 @@ export interface components {
             reason: "node_away" | "root_missing" | "disk_missing";
             /** Format: int64 */
             unavailableAt?: number;
+        };
+        UnplayableBody: {
+            /** Format: int64 */
+            positionMs: number;
+            /** Format: int64 */
+            qualityKbps: number;
         };
         UnusedBody: {
             key: string;
