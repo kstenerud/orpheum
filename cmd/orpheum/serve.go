@@ -48,7 +48,10 @@ func serve(
 	logger *slog.Logger,
 ) (err error) {
 	server := api.NewServer(logger)
-	clientFiles, _ := webclient.Files()
+	clientFiles, hasClient := webclient.Files()
+	if hasClient {
+		server.SetClientScript(webclient.ScriptName(clientFiles))
+	}
 	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
 	httpServer := &http.Server{
 		Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
