@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0034_baseline.sql`, and the one step after it, `0035_video_timeline.sql`;
+> baseline, `0035_baseline.sql`, and the one step after it, `0036_video_timeline_read_failure.sql`;
 > the notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0034 are folded into the baseline and survive only in
+> added or renamed a column. Steps 0001 to 0035 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -334,6 +334,7 @@ CREATE TABLE video_timeline (                              -- class O: what the 
   bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
   failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
   made_at     INTEGER NOT NULL,
+  read_failure TEXT,                     -- 0036: FFmpeg's words when a read through failed after the index gave the keyframes, which are kept (D270 §1)
   PRIMARY KEY (payload_hash, video_stream_index)
 ) WITHOUT ROWID;
 ```

@@ -69,4 +69,5 @@ type VideoTimeline struct {
 	BytesInEachSecondJSON string
 	Failure               *string
 	MadeAt                int64
+	ReadFailure           *string
 }

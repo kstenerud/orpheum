@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 34
--- compatible_version 34
+-- user_version 36
+-- compatible_version 35
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -683,6 +683,17 @@ CREATE TABLE version (                                     -- class I
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
+
+-- table video_timeline
+CREATE TABLE video_timeline (                              -- class O: what the node read (D247 section 10)
+  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as file.payload_hash (D179)
+  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
+  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
+  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
+  failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
+  made_at     INTEGER NOT NULL, read_failure TEXT,
+  PRIMARY KEY (payload_hash, video_stream_index)
+) WITHOUT ROWID;
 
 -- table watchlist
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
