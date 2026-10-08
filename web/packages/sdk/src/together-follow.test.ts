@@ -634,3 +634,18 @@ describe("a leading player held at a sync point", () => {
     expect(commands).toEqual([]);
   });
 });
+
+describe("a leading player's command", () => {
+  it("is noted with the player's last events, its own marked, so the log says what made it", () => {
+    const media = new FakeMedia();
+    const { connection, notes } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media, connection, { fileId: 5, isLeading: true, monotonicMs });
+    media.paused = false;
+    monotonicNowMs = 500;
+    media.fire("pause"); // its person's pause
+    vi.advanceTimersByTime(scrubPauseWindowMs * 2);
+    expect(notes.filter((note) => note.kind === "led")).toEqual([
+      { kind: "led", why: "pause", events: "pause@500" },
+    ]);
+  });
+});

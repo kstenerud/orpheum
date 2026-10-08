@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
-import { levelMicrophone, type LevelledMicrophone } from "./together-voice-level.ts";
+import { levelMicrophone, mixToMono, type LevelledMicrophone } from "./together-voice-level.ts";
 import {
   voiceCallStatsOf,
   type VoiceCallStats,
@@ -136,6 +136,9 @@ function playVoice(stream: MediaStream, context: AudioContext | undefined): Play
   let nodes: { readonly source: AudioNode; readonly gainNode: GainNode } | undefined;
   if (context !== undefined) {
     nodes = { source: context.createMediaStreamSource(stream), gainNode: context.createGain() };
+    // One channel, which the destination plays in both ears: a voice sent as two, one of them
+    // silent, reached one ear alone (the owner's test, 2026-10-08).
+    mixToMono(nodes.gainNode);
     nodes.source.connect(nodes.gainNode).connect(context.destination);
   }
   const route = (): void => {

@@ -227,3 +227,23 @@ func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
 		}
 	}
 }
+
+// A leading player's command is logged at INFO with its player's last events: a host's play was
+// stopped 0.4 s later by a pause no one could say the source of (the owner's tests, 2026-10-08).
+func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteLed, Why: "pause", Events: "play@100 pause(own)@120 play@125 pause@510",
+	}})
+	logged := stage.logs.String()
+	if !strings.Contains(logged, `msg="watch together: a leading player sent a command"`) ||
+		!strings.Contains(logged, `command=pause events="play@100 pause(own)@120 play@125 pause@510"`) {
+		t.Errorf("the log does not say the command and its events:\n%s", logged)
+	}
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteLed, Why: "dance"}})
+	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+		t.Errorf("an unknown command answered %+v; want rejected as invalid", rejected)
+	}
+}

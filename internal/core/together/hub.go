@@ -643,6 +643,10 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logger.InfoContext(ctx, "watch together: voice turned off",
 			append(current.deviceAttributes(who, from), "why", note.Why)...)
 		return true
+	case NoteLed:
+		current.logger.InfoContext(ctx, "watch together: a leading player sent a command",
+			append(current.deviceAttributes(who, from), "command", note.Why, "events", note.Events)...)
+		return true
 	case NoteDiagnosis:
 		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
 			append(current.deviceAttributes(who, from), "why", note.Why, positionMsAttribute, note.PositionMs,
