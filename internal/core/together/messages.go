@@ -86,9 +86,10 @@ const (
 	NoteVoiceStats NoteKind = "voiceStats"
 	// NoteVoiceCall is a step a voice call took, so a call that never connects says how far it got.
 	NoteVoiceCall NoteKind = "voiceCall"
-	// NotePlaced is a follower placing its group anew by a pong with a shorter round trip than any
-	// before, and how far that moved where it expects the group (D264).
-	NotePlaced NoteKind = "placed"
+	// NotePonged is a pong a follower heard: where it said the group is against where the follower
+	// expected it, and whether it placed the group anew (D264, D268 §1). A placing kept for minutes
+	// has residuals that are the two clocks' skew.
+	NotePonged NoteKind = "ponged"
 	// NoteVoiceOff is voice turning off, and why: the person left ("left"), or a call could not
 	// connect ("unreachable"). Calls of 8 s ended with nothing to say whether a person or a failure
 	// ended them (the owner's test, 2026-10-08).
@@ -139,10 +140,11 @@ type PlayerNote struct {
 	Voice *VoiceStats `json:"voice,omitempty"`
 	// PartnerDeviceID is the other device of a voiceCall note's call; its Why, the step.
 	PartnerDeviceID int64 `json:"partnerDeviceId,omitempty"`
-	// RoundTripMs is a placed note's pong's round trip; MovedMs, how far it moved where the group is
-	// expected, ahead when positive: the wait on the way of what placed it before (D264).
+	// RoundTripMs is a ponged note's pong's round trip; ResidualMs, how far ahead of where the
+	// follower expected the group the pong said it is (behind when negative); its Why, whether the
+	// pong placed the group anew ("placed") or not ("kept").
 	RoundTripMs int64 `json:"roundTripMs,omitempty"`
-	MovedMs     int64 `json:"movedMs,omitempty"`
+	ResidualMs  int64 `json:"residualMs,omitempty"`
 	// ReadyState, VideoBuffered, AudioBuffered and LastError are a diagnosis note's: the video's
 	// readyState, what its picture's and sound's buffers hold, as "from-to" ranges in seconds, and
 	// the last error its player reported.
@@ -200,8 +202,8 @@ func (note PlayerNote) isKnown() bool {
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall:
 		return note.isKnownVoice()
-	case NotePlaced:
-		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
+	case NotePonged:
+		return note.RoundTripMs >= 0 && (note.Why == "placed" || note.Why == "kept") && note.Track == ""
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
 	case NoteDiagnosis, NoteLed:
@@ -220,7 +222,7 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.Why == "left" || note.Why == "unreachable"
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
-	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePlaced,
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed: // not voice's: isKnown reads them
 	}
 	return false

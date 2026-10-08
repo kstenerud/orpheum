@@ -635,9 +635,10 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
 			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
 		return true
-	case NotePlaced:
-		current.logger.InfoContext(ctx, "watch together: a player placed its group by a shorter round trip",
-			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs, "movedMs", note.MovedMs)...)
+	case NotePonged:
+		current.logger.InfoContext(ctx, "watch together: a player's pong said where the group is",
+			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs,
+				"residualMs", note.ResidualMs, "placing", note.Why)...)
 		return true
 	case NoteVoiceOff:
 		current.logger.InfoContext(ctx, "watch together: voice turned off",

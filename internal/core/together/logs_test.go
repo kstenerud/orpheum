@@ -137,19 +137,27 @@ func TestHub_LogsAVoiceCallsStepsAndRefusesAnUnknownOne(t *testing.T) {
 	}
 }
 
-// A follower placing its group by a shorter round trip is logged at info with how far it moved
-// where the group is expected, so a steady offset on a person's link is read from the log (D264).
-func TestHub_LogsAPlayerPlacingItsGroupByAShorterRoundTrip(t *testing.T) {
+// Each pong a follower hears is logged at info with where it said the group is against where the
+// follower expected it, and whether it placed the group anew: a steady offset on a person's link,
+// and two devices' clock skew, are read from the log (D264, D268 §1).
+func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
-		Kind: NotePlaced, RoundTripMs: 84, MovedMs: 173,
-	}})
-	want := `level=INFO msg="watch together: a player placed its group by a shorter round trip"`
-	if logged := stage.logs.String(); !strings.Contains(logged, want) ||
-		!strings.Contains(logged, "roundTripMs=84 movedMs=173") {
-		t.Errorf("the log does not say the placing:\n%s", logged)
+	for _, note := range []PlayerNote{
+		{Kind: NotePonged, RoundTripMs: 84, ResidualMs: 173, Why: "placed"},
+		{Kind: NotePonged, RoundTripMs: 97, ResidualMs: -12, Why: "kept"},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	}
+	want := `level=INFO msg="watch together: a player's pong said where the group is"`
+	logged := stage.logs.String()
+	for _, said := range []string{
+		"roundTripMs=84 residualMs=173 placing=placed", "roundTripMs=97 residualMs=-12 placing=kept",
+	} {
+		if !strings.Contains(logged, want) || !strings.Contains(logged, said) {
+			t.Errorf("the log does not say %q:\n%s", said, logged)
+		}
 	}
 }
 

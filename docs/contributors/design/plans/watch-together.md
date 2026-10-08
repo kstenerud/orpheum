@@ -113,10 +113,12 @@ player fills from the run already making its quality (D250 §5).
 where it was last placed, the time since, and the transit of what placed it
 ([D66](../../decisions/working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips):
 no shared clock, each device's own monotonic time). Each pong says where the group is as the
-server answers, and the pong with the shortest round trip yet places it, half that round trip
-old; until one does, the group message that announced it, half the shortest round trip measured
-([D264](../../decisions/working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is)).
-A new timeline is pinged for at once. Then, checking each second:
+server answers, and the pong that is off by least now places it: half its round trip, and, as a
+placing ages, 50 parts per million of its age, so the two clocks' skew never builds up over a film;
+until one does, the group message that announced it, half the shortest round trip measured
+([D264](../../decisions/working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is),
+D268 §1). A new timeline is pinged for each second three times, then every 15 s, and each pong is
+noted with where it said the group is against where it was expected. Then, checking each second:
 
 | Drift | Correction | Setting, default |
 | --- | --- | --- |
