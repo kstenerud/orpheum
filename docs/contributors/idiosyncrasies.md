@@ -1851,8 +1851,11 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 ### golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout
 
 - **Symptom:** "parallel golangci-lint is running". A gate read the empty stdout as "no findings" and passed.
-- **What we do:** `--allow-serial-runners` (Makefile:117-123), and
-  `scripts/lint_speculative_api.py:110-123` fails on any exit status but 0 or 1.
+- **What we do:** `--allow-serial-runners` for `make go-lint`'s runs (`Makefile`, `go-lint`), and
+  `scripts/lint_speculative_api.py` fails on any exit status but 0 or 1. The speculative-API check
+  lints its platforms at once with `--allow-parallel-runners`, each on a `GOLANGCI_LINT_CACHE` of its
+  own, since nothing says what the lock protects; waiting on it took 36 s of a `make check` (the test
+  audit, 2026-10-08).
 - **Evidence:** commit "fix(gates): the linters wait for another run's lock, and a linter that could not run fails" (2026-09-30).
   **[web]**
   [`pkg/commands/run.go`](https://raw.githubusercontent.com/golangci/golangci-lint/main/pkg/commands/run.go):

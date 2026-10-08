@@ -201,7 +201,7 @@ exists, and every `TestArch_` test is cited.
 | Target | What it runs | Who runs it |
 | --- | --- | --- |
 | `make check` | every gate that needs only the pinned toolchain: docs, the gate scripts' tests, source headers, dependencies, claims, Go lint, vet and unit tests including `TestArch_`, the generated-code diff, and the web workspace's checks. The `check:` line in the Makefile is the list | the Stop hook, the pre-commit hook, CI on every push |
-| `make check-pr` | the integration tier (`make test-integration`, the pinned FFmpeg and MKVToolNix and the reference scale), the browser tier, an uncached web lint and the gates that compare against a base revision: revert-red, test weakening, commit messages | CI on a branch; by hand before merging |
+| `make check-pr` | the integration tier (`make test-integration`: the tests only `-tags integration` builds, with the pinned FFmpeg and MKVToolNix and the reference scale; the rest ran in `make check`), the browser tier, an uncached web lint and the gates that compare against a base revision: revert-red, test weakening, commit messages | CI on a branch; by hand before merging |
 | `make test-all` | `make check`, then the race detector with the test cache off; the tagged integration tier joins it when it exists | before merging; CI |
 | lab runner | the device tiers ([device-lab.md](../design/plans/device-lab.md)) | nightly and on demand |
 

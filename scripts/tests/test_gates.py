@@ -314,7 +314,10 @@ class RevertRed(unittest.TestCase):
         self.assertTrue(rr.is_test_file("web/packages/sdk/src/pick.test.ts"))
         self.assertFalse(rr.is_test_file("web/packages/sdk/src/pick.ts"))
         self.assertEqual(rr.scope_for("internal/core/api/x.go"), ["go", "test", "./internal/core/api/..."])
-        self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"), ["npm", "--prefix", "web", "run", "test"])
+        self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"),
+                         ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
+                          "apps/web/src/App.tsx"])
+        self.assertEqual(rr.wide_scope("web/apps/web/src/App.tsx"), rr.WEB_SUITE)
         self.assertIsNone(rr.scope_for("docs/x.md"))
         self.assertEqual(rr.scope_for("internal/store/sqlcgen/browse.sql.go"),
                          ["go", "test", "-tags", "integration", "./internal/store/..."])
@@ -533,16 +536,23 @@ class LinterLock(unittest.TestCase):
         found = ["sh", "-c", "echo 'a.go:1:6: func f is unused (unused)'; exit 1"]
         self.assertIn("unused", lsa.run(found, dict(os.environ), ".", lsa.LINTER_RAN))
 
-    def test_every_lint_run_waits_for_another_runs_lock(self):
-        commands = []
+    def test_every_lint_run_waits_for_another_runs_lock_or_keeps_a_cache_of_its_own(self):
+        commands, envs = [], []
 
         def record(cmd, env, cwd, ran=None):
             commands.append(cmd)
+            envs.append(env)
             return "{}" if cmd[0] == "go" else ""
 
         with mock.patch.object(lsa, "run", record), mock.patch.object(lsa, "compiled_files", lambda *a: set()):
             lsa.collect("linux/amd64", "golangci-lint", ".")
-        self.assertIn("--allow-serial-runners", commands[-1])
+            lsa.collect("darwin/arm64", "golangci-lint", ".")
+        # The speculative check's runs go at once, each on a cache no other run uses.
+        self.assertIn("--allow-parallel-runners", commands[1])
+        self.assertIn("--allow-parallel-runners", commands[3])
+        caches = {envs[1]["GOLANGCI_LINT_CACHE"], envs[3]["GOLANGCI_LINT_CACHE"]}
+        self.assertEqual(len(caches), 2)
+        self.assertTrue(all("golangci-lint-speculative" in cache for cache in caches))
         runs = re.findall(r"(?m)^\t@golangci-lint run .*$", (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text())
         self.assertEqual(len(runs), 2)
         for line in runs:

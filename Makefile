@@ -78,7 +78,15 @@ check-docs: ## Links, anchors, decision citations and the decision index
 	@$(PYTHON) scripts/check_docs.py
 
 .PHONY: check-scripts
-check-scripts: ## The gate scripts' own tests, and shellcheck on every shell script
+check-scripts: ## The gate scripts' own tests, and shellcheck on every shell script; not again while only Go, TypeScript or docs changed since they passed
+	@$(PYTHON) scripts/area_stamp.py check-scripts $(SCRIPTS_READ) -- $(MAKE) --no-print-directory check-scripts-run
+
+# What the gate scripts' tests read: all but the Go and TypeScript sources and the docs (scripts/
+# area_stamp.py; the test audit, 2026-10-08).
+SCRIPTS_READ = . ':(exclude,glob)**/*.go' ':(exclude,glob)**/*.ts' ':(exclude,glob)**/*.tsx' ':(exclude)docs'
+
+.PHONY: check-scripts-run
+check-scripts-run:
 	@$(HERMETIC) $(PYTHON) scripts/py_tests.py
 	@files="$$(git ls-files --cached --others --exclude-standard | grep -E '(\.sh$$|^\.githooks/)' || true)"; \
 	  if [ -n "$$files" ]; then shellcheck $$files; fi
@@ -167,10 +175,11 @@ web-lint:
 	@npm --prefix web run --silent lint
 web-format-check:
 	@npm --prefix web run --silent format:check
+# The two not again while nothing under web/ changed since they passed (scripts/area_stamp.py).
 web-deps-check:
-	@npm --prefix web run --silent deps:check
+	@$(PYTHON) scripts/area_stamp.py web-deps-check web -- npm --prefix web run --silent deps:check
 web-test:
-	@npm --prefix web run --silent test
+	@$(PYTHON) scripts/area_stamp.py web-test web -- npm --prefix web run --silent test
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale
@@ -270,11 +279,19 @@ test-all: check ## The gate, then the race detector and uncached tests
 	@$(UNCONTROLLED)
 	@$(HERMETIC) go test -race -count=1 ./...
 
+# The integration tier's tests are those in test files only it builds (`//go:build integration`):
+# the rest are the unit tier's, which make check passed on the same code, and running all of them
+# again, uncached, took 38 s of check-pr against 20 s for these alone (the test audit, 2026-10-08).
+INTEGRATION_TEST_FILES = $(shell grep -rl --include='*_test.go' '^//go:build integration$$' cmd internal 2>/dev/null)
+INTEGRATION_ONLY_TESTS = $(shell echo '$(INTEGRATION_TEST_FILES)' | xargs -r grep -ho '^func Test[A-Za-z0-9_]*' | sed 's/^func //' | paste -sd'|' -)
+INTEGRATION_PACKAGES = $(sort $(patsubst %/,./%,$(dir $(INTEGRATION_TEST_FILES))))
+
 .PHONY: test-integration
 test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do)
 	@$(UNCONTROLLED)
+	@test -n '$(INTEGRATION_ONLY_TESTS)' || { echo "test-integration: no test file builds only with -tags integration; the tier would test nothing"; exit 1; }
 	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
-		go test -tags integration -count=1 ./...
+		go test -tags integration -count=1 -run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES)
 
 .PHONY: test-browser
 # Within check-pr (a BASE given), the tier is skipped when nothing it builds or runs changed: docs,
