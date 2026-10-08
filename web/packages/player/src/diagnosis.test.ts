@@ -76,6 +76,12 @@ describe("what a stalled video held, for its report (D266)", () => {
       initPTS: 900_000,
       timescale: 90_000,
     });
+    // Found again at another quality's init: not kept again.
+    listeners.get(Hls.Events.INIT_PTS_FOUND)!("", {
+      id: "main",
+      initPTS: 990_000,
+      timescale: 90_000,
+    });
     const buffered = listeners.get(Hls.Events.FRAG_BUFFERED)!;
     buffered("", { id: "main", frag: { sn: 30, start: 300, startPTS: 300.0417 } });
     buffered("", { id: "main", frag: { sn: 31, start: 310, startPTS: 310 } }); // not the first
