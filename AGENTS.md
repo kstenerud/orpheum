@@ -21,7 +21,8 @@ pointers.
    Decisions: [`docs/contributors/decisions/index.md`](docs/contributors/decisions/index.md).
 4. **When a platform misbehaves** (a browser, hls.js, the kernel, a tool), look it up in
    [`docs/contributors/idiosyncrasies.md`](docs/contributors/idiosyncrasies.md) before
-   diagnosing; when you find a new one, add it there, in the commit with its workaround.
+   diagnosing; when you suspect a new one, search online for who else has met it and what
+   worked for them, then add it there, in the commit with its workaround.
 
 ## The gate
 
