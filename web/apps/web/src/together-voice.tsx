@@ -170,7 +170,7 @@ export function VoiceControls(props: {
           onClick={() => {
             void voice.start({
               shouldCancelEcho: props.tuning.shouldCancelMicrophoneEcho,
-              shouldLevel: props.tuning.shouldLevelMicrophone,
+              shouldLevel: props.tuning.shouldBrowserLevelMicrophone,
             });
           }}
         >

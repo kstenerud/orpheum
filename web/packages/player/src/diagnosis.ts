@@ -24,7 +24,7 @@ export interface PlaybackDiagnosis {
    * Whether an iPhone's ManagedMediaSource lets the player load now, "streaming" or "stopped", as
    * its last startstreaming or endstreaming said; "" where the source says neither.
    */
-  readonly streaming: string;
+  readonly mediaSourceState: string;
 }
 
 /** What a diagnosis keeps as hls.js tells it. */
@@ -33,7 +33,7 @@ interface Kept {
   audio: string;
   lastError: string;
   mapping: string[];
-  streaming: string;
+  mediaSourceState: string;
 }
 
 /** The longest a diagnosis's mapping may be, as the server takes it. */
@@ -100,7 +100,13 @@ export interface DiagnosedHls {
  * playerBufferedFirstEvent as each playlist's first chunk is buffered.
  */
 export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
-  const diagnosis: Kept = { video: "", audio: "", lastError: "", mapping: [], streaming: "" };
+  const diagnosis: Kept = {
+    video: "",
+    audio: "",
+    lastError: "",
+    mapping: [],
+    mediaSourceState: "",
+  };
   diagnoses.set(video, diagnosis);
   hls.on(Hls.Events.BUFFER_APPENDED, (_event, data) => {
     const { video: picture, audio, audiovideo } = data.timeRanges;
@@ -143,10 +149,10 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
   });
   hls.on(Hls.Events.MEDIA_ATTACHED, (_event, data) => {
     data.mediaSource?.addEventListener("startstreaming", () => {
-      diagnosis.streaming = "streaming";
+      diagnosis.mediaSourceState = "streaming";
     });
     data.mediaSource?.addEventListener("endstreaming", () => {
-      diagnosis.streaming = "stopped";
+      diagnosis.mediaSourceState = "stopped";
     });
   });
 }
@@ -168,6 +174,6 @@ export function diagnosisOf(
         ? diagnosis.lastError
         : `media error ${String(elementError.code)}: ${elementError.message}`.slice(0, 200),
     mapping: diagnosis.mapping.join("; ").slice(0, mappingTextMost),
-    streaming: diagnosis.streaming,
+    mediaSourceState: diagnosis.mediaSourceState,
   };
 }

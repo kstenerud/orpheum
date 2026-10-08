@@ -103,7 +103,7 @@ const (
 	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
 	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
 	ShouldTogetherVoiceCancelEcho                  Key = "should_together_voice_cancel_echo"
-	ShouldTogetherVoiceLevelMicrophone             Key = "should_together_voice_level_microphone"
+	ShouldTogetherVoiceBrowserLevelMicrophone      Key = "should_together_voice_browser_level_microphone"
 	ChunkHoldMs                                    Key = "chunk_hold_ms"
 	ChunkNewRunBeyondSeconds                       Key = "chunk_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent                    Key = "chunk_run_slowest_speed_percent"
@@ -305,7 +305,7 @@ func togetherDefinitions() []Definition {
 				"while talk was enabled\"",
 		},
 		{
-			Key: ShouldTogetherVoiceLevelMicrophone, Kind: KindBool, StartJSON: json.RawMessage("false"),
+			Key: ShouldTogetherVoiceBrowserLevelMicrophone, Kind: KindBool, StartJSON: json.RawMessage("false"),
 			Description: "whether the browser's gain control and noise suppression work on a Watch Together " +
 				"person's microphone: a partner with neither is quiet beside the film, but Firefox on Android " +
 				"makes a call of them, turning the film down and taking its volume buttons",

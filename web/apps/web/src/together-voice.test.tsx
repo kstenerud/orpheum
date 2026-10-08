@@ -79,7 +79,7 @@ const membership = { sessionId: 1, credential: "viewer-credential" };
 const echoCancelledTuning: SyncTuning = {
   ...startingTuning,
   shouldCancelMicrophoneEcho: true,
-  shouldLevelMicrophone: false,
+  shouldBrowserLevelMicrophone: false,
 };
 
 const relay = { urls: ["turn:orpheum.test:443"], username: "u", credential: "p", expiresAt: 1 };

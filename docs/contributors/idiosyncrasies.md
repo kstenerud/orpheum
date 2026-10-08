@@ -261,7 +261,7 @@ User-Agent (D263; the User-Agent is logged only).
 - **Symptom:** with voice on, the film was turned down and the volume buttons stopped changing its volume.
   Chrome on Android does this only for echo cancelling (see 3.1).
 - **Cause:** presumably the audio session switches to communication mode. Unverified for Firefox.
-- **What we do:** `should_together_voice_level_microphone` (`shouldLevelMicrophone`) is off by default.
+- **What we do:** `should_together_voice_browser_level_microphone` (`shouldBrowserLevelMicrophone`) is off by default.
   `web/packages/sdk/src/together-voice-browser.ts:13-18`; `web/packages/sdk/src/together.ts:109,121`;
   `internal/core/settings/registry.go:296-301`; `internal/core/together/messages.go:262-267`.
 - **Evidence:** [owner] 2026-10-07, Firefox 157 on Android 16; VQ23.

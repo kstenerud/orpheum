@@ -200,7 +200,7 @@ it has no reference for. **Headphones on at least one side are the supported set
 ([D63](../../decisions/working-notes.md#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration)),
 and the voice controls say so. Content-referenced echo cancellation was deleted (D193 §4). The
 browser's echo cancellation, gain control and noise suppression on the microphone are settings,
-off by default (`should_together_voice_cancel_echo`, `should_together_voice_level_microphone`):
+off by default (`should_together_voice_cancel_echo`, `should_together_voice_browser_level_microphone`):
 on Android they made a call of it, turning the film down and taking the volume buttons.
 
 **Voice is held to its bounds on every link the acceptance emulates**, the congested one too

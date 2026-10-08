@@ -57,9 +57,9 @@ type UnplayableBody struct {
 // StartupBody is how long a playback took to start, each from when the player asked how the file
 // plays, in milliseconds: to the answer, to the first frame's data, and to playing.
 type StartupBody struct {
-	DecisionMs  int64 `json:"decisionMs"  minimum:"0"`
-	FirstDataMs int64 `json:"firstDataMs" minimum:"0"`
-	PlayingMs   int64 `json:"playingMs"   minimum:"0"`
+	DecidedAfterMs   int64 `json:"decidedAfterMs"  minimum:"0"`
+	FirstDataAfterMs int64 `json:"firstDataAfterMs" minimum:"0"`
+	PlayingAfterMs   int64 `json:"playingAfterMs"   minimum:"0"`
 }
 
 // StallBody is one stall: a wait for data, while the player played, where it was; and the video's
@@ -224,8 +224,9 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 		return
 	}
 	server.logger.InfoContext(ctx, "a playback started playing", "userId", reporter.holder.UserID,
-		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID, "decisionMs", startup.DecisionMs,
-		"firstDataMs", startup.FirstDataMs, "playingMs", startup.PlayingMs, "linkKbps", linkKbps)
+		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+		"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
+		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps)
 }
 
 // logUnplayable says a player gave up a quality its device cannot play, and where: Flow froze in

@@ -17,7 +17,7 @@ const notDiagnosed: PlaybackDiagnosis = {
   audioBuffered: "",
   lastError: "",
   mapping: "",
-  streaming: "",
+  mediaSourceState: "",
 };
 
 /**
@@ -33,7 +33,7 @@ export function noteSized(diagnosis: PlaybackDiagnosis): PlaybackDiagnosis {
     audioBuffered: diagnosis.audioBuffered.slice(-noteTextMost),
     lastError: diagnosis.lastError.slice(0, noteTextMost),
     mapping: diagnosis.mapping.slice(0, noteTextMost),
-    streaming: diagnosis.streaming,
+    mediaSourceState: diagnosis.mediaSourceState,
   };
 }
 

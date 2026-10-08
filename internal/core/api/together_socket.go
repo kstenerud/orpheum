@@ -163,7 +163,7 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 	}{
 		{settings.ShouldTogetherNudgeKeepPitch, &tuning.ShouldNudgeKeepPitch},
 		{settings.ShouldTogetherVoiceCancelEcho, &tuning.ShouldCancelMicrophoneEcho},
-		{settings.ShouldTogetherVoiceLevelMicrophone, &tuning.ShouldLevelMicrophone},
+		{settings.ShouldTogetherVoiceBrowserLevelMicrophone, &tuning.ShouldBrowserLevelMicrophone},
 	} {
 		value, err := dependencies.Settings.Bool(ctx, read.key)
 		if err != nil {

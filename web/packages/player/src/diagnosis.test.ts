@@ -46,7 +46,7 @@ describe("what a stalled video held, for its report (D266)", () => {
       audioBuffered: "296.40-317.23",
       lastError: "bufferStalledError: stalled",
       mapping: "",
-      streaming: "",
+      mediaSourceState: "",
     });
     const decodeFailed: Pick<MediaError, "code" | "message"> = {
       code: 3,
@@ -90,9 +90,9 @@ describe("what a stalled video held, for its report (D266)", () => {
     expect(told).toEqual(["main", "audio"]);
     expect(diagnosisOf(video)).toMatchObject({
       mapping: "initPTS main 10.000; main sn 30 at 300.00 pts 300.04; audio sn 30 at 300.00 pts ?",
-      streaming: "streaming",
+      mediaSourceState: "streaming",
     });
     mediaSource.dispatchEvent(new Event("endstreaming"));
-    expect(diagnosisOf(video)?.streaming).toBe("stopped");
+    expect(diagnosisOf(video)?.mediaSourceState).toBe("stopped");
   });
 });

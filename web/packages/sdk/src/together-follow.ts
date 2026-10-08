@@ -430,9 +430,9 @@ class GroupFollower {
       // Which of its player's events made the command: a host's play stopped 0.4 s later by a
       // pause no one could say the source of (the owner's tests, 2026-10-08).
       this.#connection.note({
-        kind: "led",
+        kind: "leaderCommand",
         why: command.command,
-        events: this.#recentEvents.join(" "),
+        recentEvents: this.#recentEvents.join(" "),
       });
     }
     this.#connection.reportState();

@@ -43,7 +43,7 @@ describe("a following player's diagnosis", () => {
         audioBuffered: "",
         lastError: "",
         mapping: "",
-        streaming: "",
+        mediaSourceState: "",
       },
     ]);
     nowMs += diagnoseAtMostEveryMs;
@@ -68,11 +68,11 @@ describe("a following player's diagnosis", () => {
       audioBuffered: "",
       lastError: "x".repeat(400),
       mapping: "",
-      streaming: "streaming",
+      mediaSourceState: "streaming",
     });
     expect(sized.videoBuffered.length).toBeLessThanOrEqual(noteTextMost);
     expect(sized.videoBuffered.endsWith("590.00-595.00")).toBe(true);
     expect(sized.lastError).toHaveLength(noteTextMost);
-    expect(sized.streaming).toBe("streaming");
+    expect(sized.mediaSourceState).toBe("streaming");
   });
 });

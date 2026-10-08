@@ -4507,26 +4507,26 @@
       "StartupBody": {
         "additionalProperties": false,
         "properties": {
-          "decisionMs": {
+          "decidedAfterMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "firstDataMs": {
+          "firstDataAfterMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "playingMs": {
+          "playingAfterMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           }
         },
         "required": [
-          "decisionMs",
-          "firstDataMs",
-          "playingMs"
+          "decidedAfterMs",
+          "firstDataAfterMs",
+          "playingAfterMs"
         ],
         "type": "object"
       },

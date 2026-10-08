@@ -84,9 +84,9 @@ export interface PlayerState {
  *   by seeks alone, D268 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
  *   left alone, so it corrects by seeks alone from now on (D268 §2);
- * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at kbps, of a quality
+ * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
  *   of qualityKbps;
- * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at estimateKbps;
+ * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at linkEstimateKbps;
  * - reconnected: connected again after offlineMs, why: "closed" (its socket closed) or "silent"
  *   (nothing was heard on it);
  * - voiceStats: a voice call with partnerDeviceId, as its receiver measured it (D262 §1);
@@ -94,7 +94,7 @@ export interface PlayerState {
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
  * - voiceOff: voice turned off, why: the person left ("left") or a call could not connect
  *   ("unreachable");
- * - ponged: a pong of roundTripMs said where the group is, residualMs ahead of where the device
+ * - ponged: a pong of roundTripMs said where the group is, aheadOfExpectedMs ahead of where the device
  *   expected it (behind when negative), and placed the group anew ("placed") or not ("kept"): the
  *   residuals of a placing kept for minutes are the two clocks' skew (D264, D268 §1);
  * - ownMarkExpired: a seek or pause the follower made fired no event within ownMarkLastsMs, and its
@@ -126,13 +126,13 @@ export type PlayerNote =
       readonly kind: "chunkLoaded";
       readonly track: "video" | "audio";
       readonly loadMs: number;
-      readonly kbps: number;
+      readonly loadedKbps: number;
       readonly qualityKbps: number;
     }
   | {
       readonly kind: "qualitySwitched";
       readonly qualityKbps: number;
-      readonly estimateKbps: number;
+      readonly linkEstimateKbps: number;
     }
   | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
   | {
@@ -144,17 +144,17 @@ export type PlayerNote =
   | {
       readonly kind: "ponged";
       readonly roundTripMs: number;
-      readonly residualMs: number;
+      readonly aheadOfExpectedMs: number;
       readonly why: "placed" | "kept";
     }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
   | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
   | {
-      readonly kind: "led";
+      readonly kind: "leaderCommand";
       readonly why: "pause" | "seek" | "play";
       /** The player's last events, as "<event>[(own)]@<monotonic ms>", oldest first. */
-      readonly events: string;
+      readonly recentEvents: string;
     }
   | {
       readonly kind: "diagnosis";
@@ -167,7 +167,7 @@ export type PlayerNote =
       /** How hls.js placed its first chunks (diagnosisOf). */
       readonly mapping: string;
       /** Whether an iPhone's media source lets it load: "streaming", "stopped" or "". */
-      readonly streaming: string;
+      readonly mediaSourceState: string;
     }
   | { readonly kind: "unmuted"; readonly positionMs: number };
 
@@ -651,7 +651,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
     this.note({
       kind: "ponged",
       roundTripMs: Math.round(rttMs),
-      residualMs: Math.round(saysMs - (expectedGroupPositionMs(before, nowMs) ?? saysMs)),
+      aheadOfExpectedMs: Math.round(saysMs - (expectedGroupPositionMs(before, nowMs) ?? saysMs)),
       why: after.groupReceivedAtMs === before.groupReceivedAtMs ? "kept" : "placed",
     });
   }
