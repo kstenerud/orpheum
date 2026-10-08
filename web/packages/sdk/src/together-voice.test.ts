@@ -161,6 +161,8 @@ interface Rig {
   readonly microphone: FakeMicrophone;
   readonly calls: FakeCall[];
   readonly iceAsked: number[];
+  /** Each time the devices were told voice ended. */
+  readonly ended: number[];
   /** Whether each opening of the microphone asked for the browser's processing. */
   readonly processedAsked: MicrophoneProcessing[];
 }
@@ -176,6 +178,7 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
   const microphone = fakeMicrophone();
   const calls: FakeCall[] = [];
   const iceAsked: number[] = [];
+  const ended: number[] = [];
   const processedAsked: MicrophoneProcessing[] = [];
   const voice = createTogetherVoice({
     credential: "membership",
@@ -195,10 +198,13 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
         calls.push(call);
         return call;
       },
+      voiceEnded: () => {
+        ended.push(ended.length);
+      },
     },
   });
   open.push(voice);
-  return { voice, server, microphone, calls, iceAsked, processedAsked };
+  return { voice, server, microphone, calls, iceAsked, ended, processedAsked };
 }
 
 /** Lets every promise waiting settle. */
@@ -383,6 +389,15 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     vi.advanceTimersByTime(voiceStatsEveryMs - voiceFirstStatsAfterMs);
     await settle();
     expect(notesOf(server, "voiceStats")).toEqual([measured, measured]);
+  });
+
+  it("tells its devices voice ended once its microphone stops, so they undo what they did for it", async () => {
+    const { voice, ended } = await talking();
+    expect(ended).toEqual([]);
+    voice.stop();
+    expect(ended).toEqual([0]);
+    voice.stop(); // already off: nothing to undo again
+    expect(ended).toEqual([0]);
   });
 
   it("tells the core's log why voice turned off: the person left, or a call could not connect", async () => {

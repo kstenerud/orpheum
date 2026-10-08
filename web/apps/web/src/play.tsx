@@ -104,6 +104,7 @@ export function PlayView(props: {
         video={video}
         startPositionMs={props.decision.resumePositionMs}
         cannotKeepUp={cannotKeepUp}
+        audioOutput={props.decision.audioOutput}
       />
     </>
   );

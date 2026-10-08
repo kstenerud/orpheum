@@ -19,7 +19,7 @@ import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
-import { VoiceControls } from "./together-voice.tsx";
+import { movesSoundToTheEarpiece, VoiceControls } from "./together-voice.tsx";
 
 /** A call as a test sees it. */
 interface FakeCall extends VoiceCall {
@@ -67,6 +67,7 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
         calls.push(call);
         return call;
       },
+      voiceEnded: () => undefined,
       close: () => undefined,
     },
   };
@@ -139,7 +140,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services, server } = voiceServices(devices, heard);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -174,7 +179,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services, server } = voiceServices(devices, []);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -197,7 +206,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -225,7 +238,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -252,7 +269,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services, server } = voiceServices(devices);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -272,7 +293,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     const { services } = voiceServices(devices);
     const mounted = await mount(
       withServices(
-        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        <VoiceControls
+          membership={membership}
+          tuning={echoCancelledTuning}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -298,7 +323,13 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     viewer.unmount();
     const host = await mount(
       withServices(
-        <HostPlaysTogether fileId={5} video={null} startPositionMs={0} cannotKeepUp={undefined} />,
+        <HostPlaysTogether
+          fileId={5}
+          video={null}
+          startPositionMs={0}
+          cannotKeepUp={undefined}
+          audioOutput="headphones"
+        />,
         services,
       ),
     );
@@ -306,5 +337,43 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
       "Talk",
     );
     host.unmount();
+  });
+});
+
+describe("voice on an iPhone without headphones", () => {
+  it("is told by a touch screen and Safari's audio session, not by the browser's name", () => {
+    expect(movesSoundToTheEarpiece({ maxTouchPoints: 5, audioSession: {} })).toBe(true);
+    expect(movesSoundToTheEarpiece({ maxTouchPoints: 0, audioSession: {} })).toBe(false);
+    expect(movesSoundToTheEarpiece({ maxTouchPoints: 5 })).toBe(false);
+  });
+
+  it("warns before Talk that the film goes quiet, unless headphones are on", async () => {
+    Object.defineProperty(navigator, "maxTouchPoints", { value: 5, configurable: true });
+    Object.defineProperty(navigator, "audioSession", { value: {}, configurable: true });
+    try {
+      for (const [audioOutput, isWarned] of [
+        ["built_in_speakers", true],
+        ["headphones", false],
+      ] as const) {
+        const { services } = voiceServices(fakeDevices());
+        const mounted = await mount(
+          withServices(
+            <VoiceControls
+              membership={membership}
+              tuning={echoCancelledTuning}
+              audioOutput={audioOutput}
+            />,
+            services,
+          ),
+        );
+        expect(mounted.container.textContent.includes("moves all sound to the earpiece")).toBe(
+          isWarned,
+        );
+        mounted.unmount();
+      }
+    } finally {
+      Reflect.deleteProperty(navigator, "audioSession");
+      Reflect.deleteProperty(navigator, "maxTouchPoints");
+    }
   });
 });

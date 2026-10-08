@@ -4,6 +4,7 @@ import { followGroup, startingTuning, type CannotKeepUp, type GroupCommand } fro
 import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { AudioOutput } from "./accounts.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
@@ -24,6 +25,8 @@ interface HostPlayer {
   readonly startPositionMs: number;
   /** Whether even the host's lowest quality cannot keep up, which everyone is told (D247 §8). */
   readonly cannotKeepUp: CannotKeepUp | undefined;
+  /** How this device makes sound, which voice on an iPhone without headphones warns of. */
+  readonly audioOutput: AudioOutput | undefined;
 }
 
 /**
@@ -104,6 +107,7 @@ function HostLeading(
         membership={props.membership}
         sessionToken={token}
         tuning={snapshot?.tuning ?? startingTuning}
+        audioOutput={props.audioOutput}
       />
     </div>
   );
