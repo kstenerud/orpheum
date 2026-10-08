@@ -20,6 +20,23 @@ const notDiagnosed: PlaybackDiagnosis = {
   streaming: "",
 };
 
+/**
+ * The longest a diagnosis note's text may be, as the server takes it (diagnosisTextMost): a note
+ * longer is refused, and a buffer fragmented by many seeks wrote ranges longer.
+ */
+export const noteTextMost = 300;
+
+/** A diagnosis cut to what a note carries: each text's last noteTextMost characters, the latest. */
+export function noteSized(diagnosis: PlaybackDiagnosis): PlaybackDiagnosis {
+  return {
+    videoBuffered: diagnosis.videoBuffered.slice(-noteTextMost),
+    audioBuffered: diagnosis.audioBuffered.slice(-noteTextMost),
+    lastError: diagnosis.lastError.slice(0, noteTextMost),
+    mapping: diagnosis.mapping.slice(0, noteTextMost),
+    streaming: diagnosis.streaming,
+  };
+}
+
 /** The fewest ms between two diagnoses of one player: a stall that repeats is said once a while. */
 export const diagnoseAtMostEveryMs = 5000;
 
@@ -51,7 +68,7 @@ export function useDiagnosisNotes(
         why,
         positionMs: Math.round(video.currentTime * 1000),
         readyState: video.readyState,
-        ...(diagnosisOf(video) ?? notDiagnosed),
+        ...noteSized(diagnosisOf(video) ?? notDiagnosed),
       });
     };
     const onMoved = (): void => {
