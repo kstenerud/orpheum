@@ -3,7 +3,6 @@
 package main
 
 import (
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -26,26 +25,19 @@ func TestServeClient_ServesTheClientAndNamesItsScriptOnEveryAnswer(t *testing.T)
 	}{{true, "index-DCLi77_b.js"}, {false, ""}} {
 		server := api.NewServer(slog.New(slog.DiscardHandler))
 		serveClient(server, client, built.hasClient)
-		served := httptest.NewServer(server.Handler())
-		answer, err := served.Client().Get(served.URL + api.Prefix + "/health")
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = answer.Body.Close()
-		if got := answer.Header.Get(api.ClientScriptHeader); got != built.want {
+		answer := httptest.NewRecorder()
+		server.Handler().ServeHTTP(answer,
+			httptest.NewRequestWithContext(t.Context(), http.MethodGet, api.Prefix+"/health", nil))
+		if got := answer.Header().Get(api.ClientScriptHeader); got != built.want {
 			t.Errorf("built with a client %v, an API answer names %q; want %q", built.hasClient, got, built.want)
 		}
-		if built.hasClient {
-			home, err := served.Client().Get(served.URL + "/")
-			if err != nil {
-				t.Fatal(err)
-			}
-			body, err := io.ReadAll(home.Body)
-			_ = home.Body.Close()
-			if err != nil || home.StatusCode != http.StatusOK || !strings.Contains(string(body), "index-DCLi77_b.js") {
-				t.Errorf("/ answered %d %q, %v; want the client's page", home.StatusCode, body, err)
-			}
+		if !built.hasClient {
+			continue
 		}
-		served.Close()
+		home := httptest.NewRecorder()
+		server.Handler().ServeHTTP(home, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+		if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), "index-DCLi77_b.js") {
+			t.Errorf("/ answered %d %q; want the client's page", home.Code, home.Body.String())
+		}
 	}
 }
