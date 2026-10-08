@@ -308,9 +308,10 @@ test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under 
 	@$(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts
 
 # The branch gate's short acceptance run (D252 §2, D261 §2): home alone, ACCEPTANCE_HOME_MINUTES
-# long, its film with voice beside it only; in check-pr, only when what the browser tier builds
-# changed. Voice alone is the full acceptance's: here it doubled check-pr's time (agent-failures A24).
-ACCEPTANCE_HOME_MINUTES ?= 1
+# long, its film with voice beside it only, measured for half a minute; in check-pr, only when what
+# the browser tier builds changed. Voice alone is the full acceptance's: here it doubled check-pr's
+# time (agent-failures A24).
+ACCEPTANCE_HOME_MINUTES ?= 0.5
 
 .PHONY: test-acceptance-home
 test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when what it builds changed

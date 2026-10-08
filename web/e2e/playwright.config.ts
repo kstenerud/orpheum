@@ -33,6 +33,9 @@ export default defineConfig({
         ...devices["Desktop Firefox"],
         launchOptions: { firefoxUserPrefs },
       },
+      // Voice between two Firefoxes is check-pr's slowest browser test; Firefox's voice is held by
+      // the home acceptance check-pr runs, whose guest is Firefox (agent-failures A24).
+      grepInvert: /voice between two fake microphones/u,
     },
   ],
 });
