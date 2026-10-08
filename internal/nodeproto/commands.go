@@ -125,8 +125,8 @@ const (
 	SlotArtwork     Slot = "artwork"
 )
 
-// Slot is the slot the work runs in, or "" for work that holds none: a listing or an examining,
-// which hold only a reader of their device, a scan, a cancel.
+// Slot is the slot the work runs in, or "" for work that holds none: a listing, an examining or a
+// read of a video's index alone, which hold only a reader of their device, a scan, a cancel.
 func (work Work) Slot() Slot {
 	switch {
 	case work.Prepare != nil && work.Prepare.Profile == ProfileRemux:
@@ -135,7 +135,7 @@ func (work Work) Slot() Slot {
 		return SlotEncode
 	case work.ExtractSubtitle != nil:
 		return SlotExtract
-	case work.ReadThrough != nil:
+	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly():
 		return SlotReadThrough
 	case work.MakeChunks != nil && work.MakeChunks.Stream.Kind == StreamQuality:
 		return SlotEncode

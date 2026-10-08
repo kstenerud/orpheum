@@ -31,10 +31,11 @@ func (all *Exchanges) SetQuickPasses(passes QuickPasses) {
 // film takes minutes, so half a minute costs the detailed pass little.
 const quickPassRecheckEvery = 30 * time.Second
 
-// readsWholeFiles is whether work reads a video through: a read-through, or extracting a subtitle
-// from inside one. Such work, in the background, waits for a scan's quick pass of its disk (D255).
+// readsWholeFiles is whether work reads a video through: a read-through, but one of its index alone,
+// or extracting a subtitle from inside one. Such work, in the background, waits for a scan's quick pass of its disk (D255).
 func readsWholeFiles(work nodeproto.Work) bool {
-	return work.ReadThrough != nil || (work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil)
+	return (work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly()) ||
+		(work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil)
 }
 
 // parkBehindQuickPass parks background work that reads whole files on a device that a scan is still on

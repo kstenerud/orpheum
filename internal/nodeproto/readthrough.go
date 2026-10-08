@@ -22,6 +22,12 @@ type ReadThrough struct {
 	DurationMs int64 `json:"durationMs,omitempty"`
 }
 
+// IsFromIndexOnly is whether the read-through reads the file's index alone, milliseconds, never the
+// whole file: it holds no read-through slot and is fast work, not slow (D255 §1, D269 §5).
+func (command ReadThrough) IsFromIndexOnly() bool {
+	return command.VideoTimeline != nil && command.VideoTimeline.IsFromIndexOnly
+}
+
 // LoudnessTrack is one audio track to measure.
 type LoudnessTrack struct {
 	// StreamIndex is the track's stream index, as ffprobe numbers every stream.

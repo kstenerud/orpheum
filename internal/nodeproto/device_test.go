@@ -68,3 +68,17 @@ func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.
 		}
 	}
 }
+
+// A read of a video's index alone holds no slot, only a reader of its device, as an examining does;
+// a read through holds the read-through slot (D255 §1, D269 §5).
+func TestSlot_AReadOfAVideosIndexAloneHoldsNoSlot(t *testing.T) {
+	t.Parallel()
+	indexOnly := Work{ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{IsFromIndexOnly: true}}}
+	if got := indexOnly.Slot(); got != "" {
+		t.Errorf("a read of the index alone holds %q, want no slot", got)
+	}
+	whole := Work{ReadThrough: &ReadThrough{VideoTimeline: &VideoTimelineAsk{}}}
+	if got := whole.Slot(); got != SlotReadThrough {
+		t.Errorf("a read through holds %q, want %q", got, SlotReadThrough)
+	}
+}
