@@ -68,11 +68,12 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		_ = connection.Close(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
 		return
 	}
-	var person *together.Person
-	if hello.SessionToken != "" {
-		if principal, authErr := dependencies.Auth.Authenticate(ctx, hello.SessionToken); authErr == nil {
-			person = &together.Person{UserID: principal.UserID, Name: principal.Name}
-		}
+	person, err := signedInPerson(ctx, dependencies, hello.SessionToken)
+	if err != nil {
+		// Could not be checked: the server's failure, and the device comes again (the M4 closing audit).
+		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked", "err", err)
+		_ = connection.Close(websocket.StatusInternalError, "try again") //nolint:errcheck // closing
+		return
 	}
 	outbox := make(chan together.Outbound, outboxSize)
 	var closing sync.Once
