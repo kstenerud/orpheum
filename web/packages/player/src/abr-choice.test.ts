@@ -149,11 +149,23 @@ describe("the film giving way to voice (D262 §2, D265 §6)", () => {
 });
 
 describe("what measures the link (D265 §7)", () => {
-  const loaded = { loadMs: 2000, arrivingMs: 1900, bytes: 1_000_000, paceBps: undefined };
+  const loaded = {
+    loadMs: 2000,
+    arrivingMs: 1900,
+    bytes: 1_000_000,
+    paceBps: undefined,
+    isFromCache: undefined,
+  };
 
   it("is a chunk that came over the link, not from the browser's cache", () => {
     expect(measuresTheLink(loaded)).toBe(true);
     expect(measuresTheLink({ ...loaded, loadMs: 4, arrivingMs: 1 })).toBe(false);
+  });
+
+  it("goes by what the browser says of its cache, where it says, however long the load took", () => {
+    expect(measuresTheLink({ ...loaded, isFromCache: true })).toBe(false);
+    // A fast link on the house's network: over the link, in under cacheHitUnderMs.
+    expect(measuresTheLink({ ...loaded, loadMs: 4, arrivingMs: 1, isFromCache: false })).toBe(true);
   });
 
   it("is a paced chunk only when the link, not its pace, held it back", () => {

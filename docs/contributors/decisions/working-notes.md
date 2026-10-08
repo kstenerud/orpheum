@@ -18755,7 +18755,10 @@ the voice cap ratcheted the film to its lowest quality.
 7. **What counts as a measurement:** a chunk that loaded in under 10 ms came from the browser's
    cache, as the film page's chunks do when Play reads them again, and is not counted; a paced
    chunk counts only when it arrived at no more than 0.9 of its pace, where the link, not the
-   pace, held it back.
+   pace, held it back. *Amended 2026-10-08 (owner):* where the browser says, its Resource Timing
+   entry for the chunk decides instead: a chunk that transferred nothing for its body came from
+   the cache, and one that transferred came over the link however fast it was; the 10 ms guess is
+   kept for a browser that does not say (`web/packages/player/src/cache-hit.ts`).
 8. **hls.js's own forcing**, a switch down after a load error, is obeyed until a chunk of that
    quality loads.
 
