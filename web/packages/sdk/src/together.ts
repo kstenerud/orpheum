@@ -91,6 +91,11 @@ export interface SyncTuning {
   readonly nudgeMostPercent: number;
   /** How far off a player seeks rather than nudges. */
   readonly seekDriftBeyondMs: number;
+  /**
+   * How far off the group's position a player that corrects by seeks alone is left alone: one
+   * whose rate's changes cost it more than leaveDriftUpToMs (D268 §2).
+   */
+  readonly seekOnlyLeaveDriftUpToMs: number;
   /** How full a player catching up aims to have its buffer when the group reaches it, in percent. */
   readonly catchUpBufferPercent: number;
   /**
@@ -114,6 +119,7 @@ export const startingTuning: SyncTuning = {
   leaveDriftUpToMs: 150,
   nudgeMostPercent: 10,
   seekDriftBeyondMs: 3000,
+  seekOnlyLeaveDriftUpToMs: 400,
   catchUpBufferPercent: 80,
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
@@ -259,6 +265,11 @@ function parseTuning(value: unknown): SyncTuning {
     leaveDriftUpToMs: numberIn(record, "leaveDriftUpToMs", startingTuning.leaveDriftUpToMs),
     nudgeMostPercent: numberIn(record, "nudgeMostPercent", startingTuning.nudgeMostPercent),
     seekDriftBeyondMs: numberIn(record, "seekDriftBeyondMs", startingTuning.seekDriftBeyondMs),
+    seekOnlyLeaveDriftUpToMs: numberIn(
+      record,
+      "seekOnlyLeaveDriftUpToMs",
+      startingTuning.seekOnlyLeaveDriftUpToMs,
+    ),
     catchUpBufferPercent: numberIn(
       record,
       "catchUpBufferPercent",

@@ -358,6 +358,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       leaveDriftUpToMs: 750,
       nudgeMostPercent: 5,
       seekDriftBeyondMs: 4000,
+      seekOnlyLeaveDriftUpToMs: 500,
       catchUpBufferPercent: 60,
       settleAfterChangeMs: 450,
       shouldNudgeKeepPitch: false,

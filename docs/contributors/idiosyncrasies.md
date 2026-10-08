@@ -307,8 +307,12 @@ User-Agent (D263; the User-Agent is logged only).
   the fallback. `internal/core/settings/registry.go:281-284`. Each player also learns what its rate going back
   to the group's costs it, and a nudge goes on past the group by that much, so it lands on it: on two iPhones
   each nudge's end cost about 220 ms, beyond the 150 ms allowance, and they were nudged some 40 times in two
-  minutes, their sound stuttering at each (the owner's tests, 2026-10-08; `learnedReturnCostMs` and
+  minutes, their sound stuttering at each (the owner's tests, 2026-10-08; `learnedLossMs` and
   `driftCorrection` in `web/packages/sdk/src/together-drift.ts`; each nudge's note logs `returnCostMs`).
+  Once two returns have cost it more than the drift left alone, the player stops nudging and corrects
+  by seeks alone, beyond `together_seek_only_drift_left_alone_ms` (400 ms), each seek aimed past the
+  group by what its seeks have learned to lose, as MediaSync does on Safari (D268 §2;
+  `seekOnlyCorrection`; the log's `a player corrects by seeks alone`). VQ27 checks it on an iPhone.
 - **Evidence:** D250 §7, D62; VQ22 (open); `research/safari-versions.md` §3, §5; [web].
   **[web]** [WebKit bug 163433](https://bugs.webkit.org/show_bug.cgi?id=163433), "playbackRate update while
   playing creates a small pause in the playback" (about 80 ms on iOS, 300 ms on macOS): NEW since 2016;

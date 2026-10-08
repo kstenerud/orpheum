@@ -27,7 +27,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands
   still then (D250 §7); a drift to seek across is still sought across at once. A player learns
   what its rate going back to the group's costs it, some 220 ms on an iPhone (WebKit 163433), and a
-  nudge goes on past the group by that much, so it lands on it rather than nudging again.
+  nudge goes on past the group by that much, so it lands on it rather than nudging again. Once
+  `returnsBeforeSeeksOnly` returns cost it more than `leaveDriftUpToMs`, it corrects by seeks alone,
+  beyond `seekOnlyLeaveDriftUpToMs`, each aimed past the group by what its seeks have learned to lose
+  (D268 §2). `src/together-follow-devices.test.ts`.
   `src/together-drift.test.ts`, `src/together-follow.test.ts`.
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's: a

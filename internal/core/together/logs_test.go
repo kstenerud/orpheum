@@ -176,6 +176,25 @@ func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
 	}
 }
 
+// A follower that corrects by seeks alone from now on is logged at info, with what its rate's
+// returns cost it: which device holds its group less tightly, and why, is read from the log (D268 §2).
+func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteCorrectsBySeeks, ReturnCostMs: 220,
+	}})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteSought, PositionMs: 60_000, ToMs: 60_600, Why: "skip",
+	}})
+	want := `level=INFO msg="watch together: a player corrects by seeks alone"`
+	if logged := stage.logs.String(); !strings.Contains(logged, want) ||
+		!strings.Contains(logged, "returnCostMs=220") || !strings.Contains(logged, "why=skip") {
+		t.Errorf("the log does not say the player corrects by seeks, and skipped:\n%s", logged)
+	}
+}
+
 // A browser refusing to play with sound, and the tap that turns it on, are logged at INFO: a guest's
 // iPhone sat silent and nothing said why (the owner's test, 2026-10-08).
 func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {

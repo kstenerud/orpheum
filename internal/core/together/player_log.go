@@ -91,6 +91,10 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logger.InfoContext(ctx, "watch together: voice turned off",
 			append(current.deviceAttributes(who, from), "why", note.Why)...)
 		return true
+	case NoteCorrectsBySeeks:
+		current.logger.InfoContext(ctx, "watch together: a player corrects by seeks alone",
+			append(current.deviceAttributes(who, from), "returnCostMs", note.ReturnCostMs)...)
+		return true
 	case NoteOwnMarkExpired:
 		current.logger.InfoContext(ctx, "watch together: a player's own move fired no event; its mark was given up",
 			append(current.deviceAttributes(who, from), "move", note.Why)...)
