@@ -197,3 +197,40 @@ func checkQualityRun(t *testing.T, sent nodeproto.MakeChunks, gridID string) {
 			"identity, bounded by the grid's starts and the last's end", sent)
 	}
 }
+
+// A copied picture's run seeks midway between its first keyframe and the next, so FFmpeg lands on
+// its first keyframe and not the one before it (idiosyncrasies.md).
+func TestHandleMakeChunks_APictureRunSeeksPastItsFirstKeyframe(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	gridID := mustGrid(t, fixture.service).ID()
+	fixture.start(t, 10, testRun{"picture", gridID, runArgs{FirstChunk: 2, LastChunk: 3}})
+	sent := testutil.Receive(t, fixture.node.sent, "the run's command").MakeChunks
+	if sent == nil || sent.PictureSeekMs != 25_000 || !slices.Equal(sent.BoundsMs, []int64{20_000, 30_000, 40_000}) {
+		t.Fatalf("the node was sent %+v; want chunks 2 and 3 read from a seek to 25 s, midway to the next "+
+			"keyframe", sent)
+	}
+}
+
+// The seek is midway to the next keyframe, or the film's end; at least FFmpeg's 131 ms past the
+// keyframe, so a Matroska seek moved earlier still lands on it; and always before the next keyframe.
+func TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext(t *testing.T) {
+	t.Parallel()
+	keyframes := []int64{0, 10_000, 10_200, 10_300, 20_000}
+	for _, test := range []struct {
+		name        string
+		startMs     int64
+		wantSeekMs  int64
+		explanation string
+	}{
+		{"far apart", 0, 5_000, "midway"},
+		{"200 ms apart", 10_000, 10_131, "131 ms past it, beyond midway"},
+		{"100 ms apart", 10_200, 10_299, "a millisecond before the next keyframe"},
+		{"the last keyframe", 20_000, 25_000, "midway to the film's end"},
+	} {
+		if got := PictureSeekMs(keyframes, test.startMs, 30_000); got != test.wantSeekMs {
+			t.Errorf("%s: the run at %d ms seeks to %d ms, want %d: %s",
+				test.name, test.startMs, got, test.wantSeekMs, test.explanation)
+		}
+	}
+}

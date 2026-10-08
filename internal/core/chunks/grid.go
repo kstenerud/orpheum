@@ -84,6 +84,8 @@ type cutFilm struct {
 	picture           nodeproto.ProbeStream
 	grid              Grid
 	bytesInEachSecond []int64
+	// keyframesMs are the picture's keyframes, ascending, as its timeline has them.
+	keyframesMs []int64
 }
 
 // cut is the file's film as it is cut into chunks, as Grid says.
@@ -114,8 +116,7 @@ func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, e
 		return film, false, fmt.Errorf("%w: FFmpeg could not read file %d through: %s", ErrCannotBeCut, fileID,
 			*timeline.Failure)
 	}
-	var keyframesMs []int64
-	if err = json.Unmarshal([]byte(timeline.KeyframesMsJSON), &keyframesMs); err != nil {
+	if err = json.Unmarshal([]byte(timeline.KeyframesMsJSON), &film.keyframesMs); err != nil {
 		return film, false, fmt.Errorf("the keyframes of file %d: %w", fileID, err)
 	}
 	if err = json.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &film.bytesInEachSecond); err != nil {
@@ -129,7 +130,7 @@ func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, e
 	if durationMs <= 0 {
 		durationMs = int64(len(film.bytesInEachSecond)) * time.Second.Milliseconds()
 	}
-	starts, err := GridOf(keyframesMs, durationMs, minChunk.Milliseconds())
+	starts, err := GridOf(film.keyframesMs, durationMs, minChunk.Milliseconds())
 	if err != nil {
 		return film, false, fmt.Errorf("file %d: %w", fileID, err)
 	}

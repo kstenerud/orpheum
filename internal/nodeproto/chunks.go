@@ -60,6 +60,12 @@ type MakeChunks struct {
 	// FirstChunk: the run starts its sound there and drops that chunk, which carries the encoder's
 	// priming (slow-links.md §10). Zero otherwise.
 	SoundLeadInMs int64 `json:"soundLeadInMs,omitempty"`
+	// PictureSeekMs is, for a copied picture, where FFmpeg is told to seek: past the run's first
+	// keyframe, before the next. FFmpeg lands on the keyframe at or before a seek, and moves a seek
+	// into a Matroska file 130 ms earlier, so a seek at the keyframe itself lands on the one before
+	// it and every chunk of the run is the one before it (docs/contributors/idiosyncrasies.md).
+	// Zero for other streams.
+	PictureSeekMs int64 `json:"pictureSeekMs,omitempty"`
 }
 
 // MakeChunksReport is the node's word on how a run ended: its states are a prepare's.

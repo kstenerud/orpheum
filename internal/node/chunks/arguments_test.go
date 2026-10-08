@@ -20,23 +20,37 @@ func valueOf(arguments []string, flag string) string {
 }
 
 // run is a run of chunks 10 to 12, which start at 98.849, 108.859 and 112.613 s and end at
-// 122.581 s, as 12 Marrow Larks's grid has them (slow-links.md §10).
+// 122.581 s, as 12 Marrow Larks's grid has them (slow-links.md §10); a copied picture's seeks to
+// 103.854 s, midway to the keyframe after its first.
 func run(stream nodeproto.ChunkStream) nodeproto.MakeChunks {
-	return nodeproto.MakeChunks{
+	command := nodeproto.MakeChunks{
 		VideoStreamIndex: 0, VideoCodec: "h264", Stream: stream, StoreDir: "7/chunks-x/0123456789abcdef",
 		FirstChunk: 10, BoundsMs: []int64{98_849, 108_859, 112_613, 122_581},
 	}
+	if stream.Kind == nodeproto.StreamPicture {
+		command.PictureSeekMs = 103_854
+	}
+	return command
 }
 
 // A run reads from its first chunk to its last's end, and cuts at each chunk after the first and
 // at the end, so what FFmpeg writes past it is a file of its own; a picture's cuts come a little
-// early, so a keyframe at the time is never missed (slow-links.md §10).
+// early, so a keyframe at the time is never missed (slow-links.md §10). A copied picture seeks past
+// its first keyframe, which FFmpeg lands on, and not the one before it (idiosyncrasies.md); a
+// decoded stream seeks to its start, which a decode trims to.
 func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 	t.Parallel()
 	arguments := Arguments("/films/a.mp4", "/prepared/7/chunks-x/0123456789abcdef/raw-1",
 		run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), prepare.EncoderX264)
-	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "98.849" || end != "122.581" {
-		t.Errorf("the run reads %s to %s, want 98.849 to 122.581", start, end)
+	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "103.854" || end != "122.581" {
+		t.Errorf("the run reads %s to %s, want from its seek, 103.854, to 122.581", start, end)
+	}
+	quality := Arguments("/a", "/r", run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamQuality, BitRateKbps: 1200,
+		Height: 480,
+	}), prepare.EncoderX264)
+	if start := valueOf(quality, "-ss"); start != "98.849" {
+		t.Errorf("an encoded quality reads from %s, want its start, 98.849", start)
 	}
 	if slices.Index(arguments, "-ss") > slices.Index(arguments, "-i") {
 		t.Error("the start is an output option; it must seek the input")

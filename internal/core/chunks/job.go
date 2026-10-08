@@ -130,8 +130,30 @@ func (service *Service) makeChunks(ctx context.Context, film cutFilm, run stored
 			command.SoundLeadInMs = film.grid.StartsMs[args.FirstChunk-1]
 		}
 	case nodeproto.StreamPicture:
+		command.PictureSeekMs = PictureSeekMs(film.keyframesMs, film.grid.StartsMs[args.FirstChunk],
+			film.grid.FilmDurationMs)
 	}
 	return command, nil
+}
+
+// seekMovedEarlierMs is how much earlier FFmpeg moves an input seek into a file it does not seek by
+// shown time, Matroska among them, when a picture has B-frames: 3/23 s, rounded up
+// (fftools/ffmpeg_demux.c; docs/contributors/idiosyncrasies.md).
+const seekMovedEarlierMs = 131
+
+// PictureSeekMs is where a copied picture's run starting at the keyframe at startMs seeks, so
+// FFmpeg lands on that keyframe and not the one before it: midway to the next keyframe, or to the
+// film's end at durationMs, and at least seekMovedEarlierMs past the start, but always before the
+// next keyframe (Kyoo seeks midway for the same reason; idiosyncrasies.md). With keyframes closer
+// than that, a Matroska run still lands one early, and the node refuses its chunks.
+func PictureSeekMs(keyframesMs []int64, startMs, durationMs int64) int64 {
+	nextMs := durationMs
+	after, _ := slices.BinarySearch(keyframesMs, startMs+1)
+	if after < len(keyframesMs) && keyframesMs[after] < nextMs {
+		nextMs = keyframesMs[after]
+	}
+	seekMs := max(startMs+(nextMs-startMs)/2, startMs+seekMovedEarlierMs)
+	return min(seekMs, nextMs-1)
 }
 
 // levelledTrack is a sound stream's audio track as a prepare carries it, with the levelling gain
