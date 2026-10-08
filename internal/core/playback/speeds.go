@@ -37,14 +37,21 @@ type linkSpeeds struct {
 
 func newLinkSpeeds() *linkSpeeds { return &linkSpeeds{byKey: map[speedKey]measuredSpeed{}} }
 
-// remember keeps a player's measurement on a network, in place of the last.
-func (speeds *linkSpeeds) remember(key speedKey, kbps int64, at time.Time) {
+// remember keeps a player's measurement on a network, in place of the last, and forgets every one no
+// longer fresh: each player on each network it ever played from was kept for the server's life (the
+// M4 closing audit, 2026-10-08).
+func (speeds *linkSpeeds) remember(key speedKey, kbps int64, measuredAt time.Time) {
 	if kbps <= 0 || key.network == "" {
 		return
 	}
 	speeds.mutex.Lock()
 	defer speeds.mutex.Unlock()
-	speeds.byKey[key] = measuredSpeed{kbps: kbps, at: at}
+	for known, measured := range speeds.byKey {
+		if measuredAt.Sub(measured.at) > speedFreshFor {
+			delete(speeds.byKey, known)
+		}
+	}
+	speeds.byKey[key] = measuredSpeed{kbps: kbps, at: measuredAt}
 }
 
 // fresh is a player's speed on a network, and whether one was measured within speedFreshFor of now.

@@ -55,3 +55,16 @@ func TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork(t *testing.T) {
 		t.Errorf("after a measurement of nothing, the speed is %d; want 2000 kept", kbps)
 	}
 }
+
+// A speed no longer fresh is forgotten at the next measurement, so a server keeps no more than a
+// day's players and networks (the M4 closing audit, 2026-10-08).
+func TestLinkSpeeds_ForgetsTheStaleAtTheNextMeasurement(t *testing.T) {
+	t.Parallel()
+	speeds := newLinkSpeeds()
+	start := time.Date(2026, time.October, 8, 20, 0, 0, 0, time.UTC)
+	speeds.remember(speedKey{player: "device 1", network: "home"}, 2400, start)
+	speeds.remember(speedKey{player: "device 2", network: "home"}, 900, start.Add(speedFreshFor+time.Minute))
+	if len(speeds.byKey) != 1 {
+		t.Errorf("after a day, the speeds kept are %v; want only the fresh one", speeds.byKey)
+	}
+}
