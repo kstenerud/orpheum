@@ -203,8 +203,8 @@ browser's echo cancellation, gain control and noise suppression on the microphon
 off by default (`should_together_voice_cancel_echo`, `should_together_voice_level_microphone`):
 on Android they made a call of it, turning the film down and taking the volume buttons.
 
-**On a congested link voice is best effort** (D261 §7): D243 §9's voice bounds hold for the home
-and mobile profiles, not the congested one.
+**Voice is held to its bounds on every link the acceptance emulates**, the congested one too
+(D263 §2, which revised D261 §7's best effort; D270 §3).
 
 ## What each person sees
 
@@ -295,8 +295,8 @@ Undecided, or where the code and a decision disagree. Each needs the owner.
   minutes under each netem profile: *home* (20 ms), *mobile* (80 ± 30 ms, 1% loss) and
   *congested* (150 ± 50 ms, 3% loss, 5 Mbit/s). The *home* run is in every branch check (D261 §2);
   the full run is `make test-acceptance`, at a milestone's end.
-- Voice arrives one-way under 300 ms with under 2% audible loss under *home* and *mobile*;
-  *congested* is best effort (D261 §7).
+- Voice arrives one-way under 300 ms with under 2% audible loss under every profile, *congested*
+  too (D263 §2, D270 §3).
 - A link works once and only once, after a reload too; no credential appears in any address of a
   HAR capture; a viewer plays only the film on; an anonymous viewer's history does not advance.
 - A stall or a drop on one side never stops the other; the group waits only at its sync points,
