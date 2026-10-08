@@ -120,7 +120,14 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
   });
   // How hls.js placed its first chunks, and whether its media source lets it load.
   const buffered = new Set<string>();
+  const initPtsFound = new Set<string>();
   hls.on(Hls.Events.INIT_PTS_FOUND, (_event, data) => {
+    // The first of each track's, as its first chunk's: hls.js finds it again at a new quality's
+    // init, and the mapping grew with every switch (the M4 closing audit, 2026-10-08).
+    if (initPtsFound.has(data.id)) {
+      return;
+    }
+    initPtsFound.add(data.id);
     diagnosis.mapping.push(`initPTS ${data.id} ${(data.initPTS / data.timescale).toFixed(3)}`);
   });
   hls.on(Hls.Events.FRAG_BUFFERED, (_event, data) => {
