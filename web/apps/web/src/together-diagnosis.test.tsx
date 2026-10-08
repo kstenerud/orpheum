@@ -55,6 +55,11 @@ describe("a following player's diagnosis", () => {
     expect(
       notes.slice(2).map((note) => (note.kind === "diagnosis" ? note.why : note.kind)),
     ).toEqual(["bufferedFirst", "bufferedFirst"]);
+    // A first chunk's note does not silence a move right after it (the M4 closing audit).
+    nowMs += diagnoseAtMostEveryMs;
+    await fire(video, new CustomEvent(playerBufferedFirstEvent, { detail: "main" }));
+    await fire(video, new Event(playerMovedItselfEvent));
+    expect(notes.at(-1)).toMatchObject({ kind: "diagnosis", why: "movedItself" });
     mounted.unmount();
   });
 
