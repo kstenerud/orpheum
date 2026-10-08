@@ -18840,3 +18840,55 @@ the same person, and having it back on one device replaced the credential of the
    its sessions.
 
 **Status:** Decided 2026-10-08.
+
+## D268 — A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
+
+**Decided** (2026-10-08), by the project owner, on the review of Watch Together's synchronisation
+(design/research/sync-review-2026-10-08.md): *"ok, agreed"*, to its four recommendations that
+change the design; and *"at a future time I want to be able to grant guests play/pause rights, and
+possibly seek as well."* **Refines** [D264](#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is)
+§1–§2, [D250](#d250--a-watch-together-group-stops-only-at-its-own-sync-points-a-members-trouble-is-theirs-to-catch-up-on-from-what-is-already-being-made)
+§1 and [D261](#d261--the-m4-audits-questions-answered) §1; **amends** cut-a §5.1's group message;
+**narrows** [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+per-client surface for the M5 player.
+
+The review found the design sound and three things wrong with how it was built: a 150 ms allowance
+tighter than anyone ships, on a browser whose rate changes cost 220 ms each; a group placed once and
+then extrapolated for a whole film on each device's own clock, so two devices' clocks, tens of parts
+per million apart, open hundreds of milliseconds between them over two hours; and a host's moves read
+from the player's events with one-shot marks, where most of a week's bugs lived.
+
+1. **A placing ages.** A pong of the timeline followed places the group anew when it is better now
+   than the placing it has: half its round trip, against half the placing's round trip plus the
+   placing's age times an assumed difference of 50 parts per million between the two clocks (BBC's
+   figure for DVB-CSS). A placing a few minutes old gives way to a pong whose round trip is a little
+   longer. A device pings each second three times after a new timeline, then every 15 s. Each pong
+   is noted with its residual: where it says the group is, against where the follower expected it,
+   so a pair of devices' skew is read from the log. A re-placing's step is the drift correction's
+   to absorb. Still no clock is shared ([D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips)).
+2. **A player corrects its drift as its device measures it**, never by its User-Agent (D250 §7). A
+   player that learns its rate going back to the group's costs it more than the drift left alone
+   corrects by seeks alone from then on: beyond `together_seek_only_drift_left_alone_ms` (400 ms by
+   default), a small seek past the group by what its seeks have learned to lose, as MediaSync does
+   on Safari. Every other player nudges as before. A pair with a player that corrects by seeks is
+   held to 500 ms apart 95% of the time, its pair's bound in D263's bounds per client pair; D243
+   §9's 200 ms holds for players that nudge, as the acceptance's Chrome and Firefox do.
+3. **A group starts at a moment the server names.** The end of a sync point's wait announces
+   Playing from a position, starting `startsInMs` later: `together_start_lead_ms`, 500 ms by
+   default. The server's group stands at that position until then. Each follower holds its player
+   there, and plays at the message's arrival plus what was left of the lead, less half its round
+   trip. A pong or a later group message says what is left of the lead. Every player then starts at
+   once, rather than each as the message reaches it and then nudged.
+4. **A host's moves are taken at the controls.** In M5, the skinned player's play, pause and seek,
+   and the Media Session's handlers (lock screen, media keys, the iPhone's own fullscreen), send the
+   command, and the follower moves the player itself, as its own move. The player's events are a
+   person's moves only where no control of ours was used: then by comparing the player's state with
+   both what the follower last asked of it and the group's, as Syncplay does, not by one-shot marks.
+   Until then, an own move's mark lasts at most 2 s, and its expiry is noted.
+5. **Guests may later be given play and pause, and perhaps seek.** Not in Cut A, where the host
+   alone controls playback (D246 §8). Kept open: a command carries no privilege of its own; the hub
+   asks whether the member who sent it may give it, and answers yes for the host alone. §4 is what
+   makes the rest possible: a guest's player, like the host's, would send commands from its controls,
+   not events.
+
+**Status:** Decided 2026-10-08.
