@@ -139,17 +139,25 @@ export class Watching {
     }
     // Its start is timed from Play, not from opening the page: what the person waits for.
     const pressedMs = performance.now();
-    return warm.decision.then((decision) => {
-      const settledAtBps = warm.preload?.settledAtBps();
-      warm.preload?.stop();
-      if (decision.onLadder === undefined) {
-        return this.ask(fileId, playableFormats);
-      }
-      noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
-      return settledAtBps === undefined
-        ? decision
-        : { ...decision, onLadder: { ...decision.onLadder, startAtBps: settledAtBps } };
-    });
+    return warm.decision.then(
+      (decision) => {
+        const settledAtBps = warm.preload?.settledAtBps();
+        warm.preload?.stop();
+        if (decision.onLadder === undefined) {
+          // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
+          this.tokens.delete(decision.mediaToken);
+          this.leave(decision.mediaToken);
+          return this.ask(fileId, playableFormats);
+        }
+        noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
+        return settledAtBps === undefined
+          ? decision
+          : { ...decision, onLadder: { ...decision.onLadder, startAtBps: settledAtBps } };
+      },
+      // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
+      // first press of Play instead (the M4 closing audit, 2026-10-08).
+      () => this.ask(fileId, playableFormats),
+    );
   }
 
   private async ask(fileId: number, playableFormats: PlayableFormats): Promise<PlaybackDecision> {

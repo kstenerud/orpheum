@@ -142,6 +142,23 @@ describe("the film being watched (D258)", () => {
     expect(decision.onLadder).toBeDefined();
   });
 
+  it("lets go of the warm-up's playback when it asks again at Play, and asks again for one that failed", async () => {
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("a", false), decided("b"), [503, {}], decided("c")],
+        "DELETE /playback/a": [204, undefined],
+      },
+      heard,
+    );
+    const watching = new Watching(api, () => 0, standInPreloads().start);
+    watching.warmUp(7, playableFormats);
+    expect((await watching.decide(7, playableFormats)).mediaToken).toBe("b");
+    expect(await settled(heard)).toContain("DELETE /playback/a");
+    watching.warmUp(7, playableFormats); // the server fails this warm-up
+    expect((await watching.decide(7, playableFormats)).mediaToken).toBe("c");
+  });
+
   it("preloads a film on its ladder from where it resumes, and Play starts where the preload settled (D260 §3)", async () => {
     const preloads = standInPreloads();
     const { watching } = watchingServed([], preloads);
