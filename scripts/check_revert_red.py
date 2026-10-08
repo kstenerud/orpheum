@@ -349,13 +349,21 @@ def scope_for(path: str) -> list[str] | None:
     if is_python(path):
         return PY_TESTS_COMMAND
     if TS_SOURCE.search(path):
-        return ["npm", "--prefix", "web", "run", "test"]
+        # The tests that import it, by vitest's import graph, as a Go file's package; none, and it
+        # widens to the whole suite (wide_scope): all of it for each file took 54 s of check-pr.
+        return [*VITEST_RELATED, str(Path(path).relative_to("web"))]
     return None
+
+
+VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web"]
+WEB_SUITE = ["npm", "--prefix", "web", "run", "test"]
 
 
 def wide_scope(path: str) -> list[str] | None:
     if GO_SOURCE.search(path):
         return ["go", "test", "./..."]
+    if TS_SOURCE.search(path):
+        return WEB_SUITE
     return None
 
 

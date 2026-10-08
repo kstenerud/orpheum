@@ -32,6 +32,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # e.g. "store/netfs_linux.go:34:6: func isNetworkFilesystemMagic is unused (unused)"
@@ -122,16 +123,24 @@ def run(cmd: list[str], env: dict[str, str], cwd: str, ran: tuple[int, ...] | No
     return proc.stdout
 
 
+def linter_cache(platform: str) -> str:
+    """golangci-lint's cache for one platform's run of this check, apart from every other run's."""
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return str(Path(base) / "golangci-lint-speculative" / platform.replace("/", "-"))
+
+
 def collect(platform: str, linter: str, root: str) -> tuple[set[tuple[str, str, str]], set[str]]:
     goos, goarch = platform.split("/", 1)
-    env = {**os.environ, "GOOS": goos, "GOARCH": goarch}
+    env = {**os.environ, "GOOS": goos, "GOARCH": goarch, "GOLANGCI_LINT_CACHE": linter_cache(platform)}
     listed = run(["go", "list", "-json", "./..."], env, root)
     if not listed.strip():
         raise SystemExit(f"go list produced nothing for {platform}; cannot judge what compiles there")
     found = run(
-        # --allow-serial-runners waits for another run's lock (make check's go-lint beside this,
-        # or another worktree's gate) instead of refusing to start.
-        [linter, "run", "--allow-serial-runners", "--no-config", "--default=none", "-E", "unused",
+        # --allow-parallel-runners: the platforms are linted at once, and beside make check's
+        # go-lint, rather than each waiting on the others' lock; one after another, they took 36 s
+        # of a make check after a Go change (the test audit, 2026-10-08). Each keeps a cache of its
+        # own (linter_cache), since golangci-lint says nothing of what its lock protects.
+        [linter, "run", "--allow-parallel-runners", "--no-config", "--default=none", "-E", "unused",
          "--tests=false", "./..."],
         env,
         root,
@@ -152,9 +161,11 @@ def main() -> int:
 
     flagged: dict[str, set[tuple[str, str, str]]] = {}
     compiled: dict[str, set[str]] = {}
-    for p in platforms:
-        print(f">> unused --tests=false {p}", flush=True)
-        flagged[p], compiled[p] = collect(p, args.linter, root)
+    print(f">> unused --tests=false {', '.join(platforms)}", flush=True)
+    with ThreadPoolExecutor(max_workers=len(platforms) or 1) as pool:
+        collected = list(pool.map(lambda platform: collect(platform, args.linter, root), platforms))
+    for p, (found, built) in zip(platforms, collected, strict=True):
+        flagged[p], compiled[p] = found, built
 
     verdicts = speculative(flagged, compiled)
     if not verdicts:

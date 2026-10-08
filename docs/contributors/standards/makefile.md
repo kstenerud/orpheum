@@ -79,7 +79,10 @@ runs it.
 
 `make check` is the fast gate. The Stop hook, the pre-commit hook and CI all run it; the
 pre-commit hook skips a commit of exactly the tree the gate last passed on
-(`scripts/check_stamp.py`), since the Stop hook has just run it. Both hooks run it where the
+(`scripts/check_stamp.py`), since the Stop hook has just run it. Within it, the web tests, the
+web dependency rules and the gate scripts' tests run again only when what each reads changed
+since it last passed (`scripts/area_stamp.py`): a Go-only turn does not re-run the web suite.
+Both hooks run it where the
 tools are: directly in the development image or on a host with Go and Node, through `./dev`
 otherwise (`scripts/run_gate.py`, D235). Its checks run in parallel after
 two that must come first, the tools and the generated code, and a target added to it must not
