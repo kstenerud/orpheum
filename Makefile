@@ -387,8 +387,12 @@ generate: web-deps ## Regenerate committed generated code (sqlc for persistent.d
 	  $(PYTHON) scripts/fetch_tools.py; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
-	@openapi_next=$$(mktemp api/openapi.json.XXXXXX) && \
-	  { go run ./cmd/orpheum openapi > "$$openapi_next" && mv "$$openapi_next" api/openapi.json; } || { rm -f "$$openapi_next"; exit 1; }
+	@# Made in the system's temporary directory and removed however the run ends: made beside
+	@# api/openapi.json, a make check stopped mid-step left api/openapi.json.XXXXXX in the tree
+	@# (2026-10-08). Copied over only when it differs, so an unchanged document is not touched.
+	@openapi_next=$$(mktemp "$${TMPDIR:-/tmp}/openapi.json.XXXXXX") && trap 'rm -f "$$openapi_next"' EXIT INT TERM && \
+	  go run ./cmd/orpheum openapi > "$$openapi_next" && \
+	  { cmp -s "$$openapi_next" api/openapi.json || cp "$$openapi_next" api/openapi.json; }
 	@npm --prefix web exec --workspace @orpheum/sdk -- openapi-typescript ../../../api/openapi.json \
 	  --output src/gen/api.ts --alphabetize --empty-objects-unknown >/dev/null
 
