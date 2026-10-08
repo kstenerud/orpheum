@@ -96,6 +96,40 @@ func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing
 	}
 }
 
+// A quality offered by the file's bit rate, before the picture's bytes in each second were known, is
+// still the playback's once they are, though they put the picture's own below it (the M4 closing
+// audit).
+func TestMediaPlaylist_AQualityOfferedBeforeThePicturesBytesWereKnownIsServedAfter(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	settingsService, isService := service.settings.(*settings.Service)
+	if !isService {
+		t.Fatal("the fixture's settings are not the settings service")
+	}
+	settingstest.Set(t, settingsService, settings.ChunkQualities, `"3000k@720p,1200k@480p"`)
+	// Film 2's file runs at four megabits; its picture, once read, at two.
+	err := service.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.UpsertVideoTimeline(t.Context(), sqlcgen.UpsertVideoTimelineParams{
+			PayloadHash: []byte{0x02}, KeyframesMsJSON: "[0,10000,20000]",
+			BytesInEachSecondJSON: "[" + strings.Repeat("250000,", 29) + "250000]",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	playback := Playback{FileID: 2, IsSourcePictureDecodable: true}
+	text, _, err := service.MasterPlaylist(t.Context(), playback)
+	if err != nil || strings.Contains(text, "q3000k720p") {
+		t.Fatalf("film 2 once its picture is read is offered\n%s, %v; want no 3000k quality", text, err)
+	}
+	if _, err = service.MediaPlaylist(t.Context(), playback, "q3000k720p"); err != nil {
+		t.Errorf("the 3000k quality a playback was offered before the read = %v; want it served still", err)
+	}
+	if _, err = service.MediaPlaylist(t.Context(), playback, "q6000k1080p"); !errors.Is(err, ErrNoStream) {
+		t.Errorf("a quality never offered = %v; want ErrNoStream", err)
+	}
+}
+
 func TestStoreFileOf_OffersOnlyTheStreamsAndFilesThePlaybackHas(t *testing.T) {
 	t.Parallel()
 	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
