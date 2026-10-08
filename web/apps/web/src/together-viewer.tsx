@@ -40,6 +40,7 @@ import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
+import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -471,6 +472,7 @@ function useFollowing(
 ): MutedFilm {
   const { connection, volume } = following;
   const [isMuted, setIsMuted] = useState(false);
+  useDiagnosisNotes(videoRef, connection);
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {

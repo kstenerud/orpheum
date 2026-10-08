@@ -82,7 +82,10 @@ export interface PlayerState {
  *   (D264);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
  *   tap, and it plays muted (playedMutedEvent);
- * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap).
+ * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap);
+ * - diagnosis: what the player holds at positionMs as it moved itself over a gap ("movedItself") or
+ *   stalled ("stalled"): its readyState, its picture's and sound's buffered ranges and its last
+ *   error.
  */
 export type PlayerNote =
   | {
@@ -120,6 +123,15 @@ export type PlayerNote =
   | { readonly kind: "voiceOff"; readonly why: "left" | "unreachable" }
   | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
+  | {
+      readonly kind: "diagnosis";
+      readonly why: "movedItself" | "stalled";
+      readonly positionMs: number;
+      readonly readyState: number;
+      readonly videoBuffered: string;
+      readonly audioBuffered: string;
+      readonly lastError: string;
+    }
   | { readonly kind: "unmuted"; readonly positionMs: number };
 
 /**

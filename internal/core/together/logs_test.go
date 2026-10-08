@@ -196,3 +196,34 @@ func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 		t.Errorf("an unknown why answered %+v; want rejected as invalid", rejected)
 	}
 }
+
+// What a player holds as it moved itself over a gap, or stalled, is logged at INFO: an iPhone that
+// jumped 10 s on its own and then sat waiting said nothing of what it held (the owner's test,
+// 2026-10-08). An unknown why, or text past diagnosisTextMost, is refused.
+func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteDiagnosis, Why: "movedItself", PositionMs: 10_319, ReadyState: 1,
+		VideoBuffered: "10.14-30.20", AudioBuffered: "0.00-30.10", LastError: "bufferSeekOverHole: hole",
+	}})
+	logged := stage.logs.String()
+	for _, want := range []string{
+		`level=INFO msg="watch together: a device's player said what it holds"`,
+		`why=movedItself positionMs=10319 readyState=1 videoBuffered=10.14-30.20 audioBuffered=0.00-30.10`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log does not say %s:\n%s", want, logged)
+		}
+	}
+	for _, unknown := range []*PlayerNote{
+		{Kind: NoteDiagnosis, Why: "bored"},
+		{Kind: NoteDiagnosis, Why: "stalled", LastError: strings.Repeat("x", diagnosisTextMost+1)},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
+		if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+			t.Errorf("note %+v answered %+v; want rejected as invalid", unknown, rejected)
+		}
+	}
+}

@@ -9,16 +9,18 @@ import {
   checkDriftEveryMs,
   scrubPauseWindowMs,
   followGroup,
+  refillAheadMs,
+  playerLoadsAheadMs,
+  waitAheadAtMostMs,
+} from "./together-follow.ts";
+import {
   fellBehindEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
-  refillAheadMs,
-  playerLoadsAheadMs,
-  waitAheadAtMostMs,
   type ChunkLoaded,
   type QualitySwitched,
-} from "./together-follow.ts";
+} from "./together-player-events.ts";
 import { nudgeForMs } from "./together-drift.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
@@ -614,5 +616,21 @@ describe("a player following its group", () => {
     media.readyState = 4;
     media.fire("canplay");
     expect(media.currentTime).toBe((monotonicNowMs + 60_000 + aimAheadAtMostMs) / 1000);
+  });
+});
+
+describe("a leading player held at a sync point", () => {
+  it("does not take the hold's own pause for its person's, once the group plays on", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media, connection, { fileId: 5, isLeading: true, monotonicMs });
+    media.paused = false;
+    // The host pressed play: the group waits at its sync point, then plays.
+    setGroup({ ...paused, state: "Waiting" }, 0);
+    expect(media.paused).toBe(true);
+    setGroup({ ...paused, state: "Playing" }, 0);
+    media.fire("pause"); // the hold's pause, its event arriving once the group plays on
+    vi.advanceTimersByTime(scrubPauseWindowMs * 2);
+    expect(commands).toEqual([]);
   });
 });
