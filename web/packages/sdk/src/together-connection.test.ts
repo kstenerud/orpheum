@@ -5,10 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createTogetherConnection,
   deadAfterUnansweredPings,
+  expectedGroupPositionMs,
   longestReconnectWaitMs,
   pingEveryMs,
   reconnectWaitMs,
   stateEveryMs,
+  youngPingEveryMs,
+  youngPings,
 } from "./together-connection.ts";
 import { parseTogetherMessage, startingTuning, type TogetherSocketListeners } from "./together.ts";
 
@@ -151,7 +154,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
   });
 
-  it("places a playing group by the pong with the shortest round trip, noting each placing (D264)", () => {
+  it("places a playing group by the pong with the shortest round trip, noting each pong (D264)", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({
       credential: "c",
@@ -186,7 +189,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
     expect(sockets.sent.filter((each) => each["type"] === "note").at(-1)).toMatchObject({
       // From 10.18 s, where the group message put it with no round trip yet measured, to 10.28 s.
-      note: { kind: "placed", roundTripMs: 80, movedMs: 100 },
+      note: { kind: "ponged", roundTripMs: 80, residualMs: 100, why: "placed" },
     });
     // A longer round trip places nothing; a pong of another timeline neither.
     monotonicNowMs = 3500;
@@ -205,12 +208,120 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       group: { positionMs: 10_240, fileId: 3 },
       groupPlacedByRttMs: 80,
     });
+    // The longer one is noted with where it said the group is: 11.25 s, against 11.6 s expected.
+    // The other timeline's says nothing of this one.
+    expect(
+      sockets.sent.filter((each) => each["type"] === "note").map((each) => each["note"]),
+    ).toEqual([
+      { kind: "ponged", roundTripMs: 80, residualMs: 100, why: "placed" },
+      { kind: "ponged", roundTripMs: 500, residualMs: -350, why: "kept" },
+    ]);
     // A new timeline is placed by its group message again, until a pong places it.
     monotonicNowMs = 4000;
     socket.onMessage(
       JSON.stringify({ v: 2, type: "group", seq: 3, group: { ...playing, fileId: 8 } }),
     );
     expect(connection.snapshot().groupPlacedByRttMs).toBeUndefined();
+  });
+
+  it("lets a placing age, so a pong whose round trip is a little longer places the group minutes later (D268 §1)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    monotonicNowMs = 2000;
+    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
+    monotonicNowMs = 2040;
+    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 2000, group: playing }));
+    expect(connection.snapshot().groupPlacedByRttMs).toBe(40);
+    // A minute on, 60 ms against 40: off by 30 ms, against 20 ms and 3 ms of age. Kept.
+    monotonicNowMs = 62_040;
+    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 61_980, group: playing }));
+    expect(connection.snapshot().groupPlacedByRttMs).toBe(40);
+    // Seven minutes on, 21 ms of age: the 60 ms pong places it.
+    monotonicNowMs = 422_040;
+    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 421_980, group: playing }));
+    expect(connection.snapshot()).toMatchObject({
+      groupPlacedByRttMs: 60,
+      groupReceivedAtMs: 422_040,
+    });
+  });
+
+  it("holds a group within 100 ms over two hours on a clock running 100 ppm fast (D268 §1)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    // The device's clock at the server's time realMs: 100 ppm fast.
+    const deviceMs = (realMs: number): number => 1000 + realMs * 1.0001;
+    const playingAt = (positionMs: number): Record<string, unknown> => ({
+      state: "Playing",
+      positionMs,
+      rate: 1,
+      fileId: 3,
+    });
+    monotonicNowMs = deviceMs(0);
+    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playingAt(0) }));
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    for (let realMs = 0, index = 0; realMs < twoHoursMs; realMs += pingEveryMs, index++) {
+      // The shortest round trip comes first; the later ones are 40 to 80 ms, each way alike.
+      const rttMs = index === 0 ? 20 : 40 + ((index * 17) % 41);
+      monotonicNowMs = deviceMs(realMs + rttMs);
+      socket.onMessage(
+        JSON.stringify({
+          v: 2,
+          type: "pong",
+          tMono: Math.round(deviceMs(realMs)),
+          group: playingAt(realMs + rttMs / 2),
+        }),
+      );
+    }
+    monotonicNowMs = deviceMs(twoHoursMs);
+    const offMs =
+      (expectedGroupPositionMs(connection.snapshot(), monotonicNowMs) ?? 0) - twoHoursMs;
+    // Placed once by the first pong, it would be 720 ms ahead.
+    expect(Math.abs(offMs)).toBeLessThan(100);
+  });
+
+  it("pings a new timeline each second until youngPings are answered, one at a time (D268 §1)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    const socket = sockets.opened[0]!;
+    socket.onOpen();
+    socket.onMessage(JSON.stringify(welcome));
+    monotonicNowMs = 1100;
+    socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1000 }));
+    const pings = (): number => sockets.sent.filter((each) => each["type"] === "ping").length;
+    const before = pings();
+    const playing = { state: "Playing", positionMs: 10_000, rate: 1, fileId: 3 };
+    socket.onMessage(JSON.stringify({ v: 2, type: "group", seq: 2, group: playing }));
+    expect(pings()).toBe(before + 1);
+    // Unanswered, the next waits: a link slower than a second never counts it as unanswered.
+    vi.advanceTimersByTime(youngPingEveryMs);
+    expect(pings()).toBe(before + 1);
+    for (let answered = 1; answered < youngPings + 2; answered++) {
+      socket.onMessage(JSON.stringify({ v: 2, type: "pong", tMono: 1100, group: playing }));
+      vi.advanceTimersByTime(youngPingEveryMs);
+    }
+    expect(pings()).toBe(before + youngPings);
   });
 
   it("places nothing, and notes nothing of it, on a voice device, which plays nothing", () => {

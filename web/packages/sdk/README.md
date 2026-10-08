@@ -18,9 +18,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   `not-into-another-package-by-path` and `no-barrel-files` stop other routes in.
 - **Watch Together keeps no shared clock** (D66): a playing group's expected position is its
   position plus the local monotonic time since what placed it was sent, the time since it arrived
-  and half a round trip, times its rate: that of the pong with the shortest round trip yet, which
-  says where the group is, or until one has, the group message's, half the shortest round trip
-  (D264); drift within `leaveDriftUpToMs` is left, up to
+  and half a round trip, times its rate: that of the pong that is off by least now, half its round trip
+  and, as it ages, 50 ppm of its age, which says where the group is, or until one has, the group
+  message's, half the shortest round trip (D264, D268 §1); a new timeline is pinged each second
+  three times, and each pong is noted with its residual; drift within `leaveDriftUpToMs` is left, up to
   `seekDriftBeyondMs` nudged for about a second by at most `nudgeMostPercent` of the rate, beyond
   it sought across (D250 §1); each of these the welcome's tuning, from the settings. For `settleAfterChangeMs` after it starts
   playing, lands a seek or changes its rate, a player is not nudged, as Safari's position stands

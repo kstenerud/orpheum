@@ -32,6 +32,20 @@ export const stateEveryMs = 60_000;
 export const pingEveryMs = 15_000;
 
 /**
+ * How many pings a device sends a second apart once a new timeline arrives, so a short round trip
+ * places it early (D268 §1, as Jellyfin pings each second three times before it pings each minute).
+ */
+export const youngPings = 3;
+export const youngPingEveryMs = 1000;
+
+/**
+ * How far apart two devices' clocks are taken to run, in parts per million: a placing ages by this
+ * share of its age, so one a few minutes old gives way to a pong whose round trip is a little
+ * longer (D268 §1; BBC's figure for DVB-CSS, which assumes 50 ppm of frequency error).
+ */
+export const assumedClockSkewPpm = 50;
+
+/**
  * How many pings in a row may go unanswered, nothing at all heard since, before the device takes
  * its socket for dead and connects again: a phone whose network dropped it may never be told its
  * socket closed, and kept missing the host's pauses and seeks long after the server had given up
@@ -77,9 +91,9 @@ export interface PlayerState {
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
  * - voiceOff: voice turned off, why: the person left ("left") or a call could not connect
  *   ("unreachable");
- * - placed: a pong with a roundTripMs shorter than any before placed the group anew, moving where
- *   it is expected by movedMs (ahead when positive), the wait on the way of what placed it before
- *   (D264);
+ * - ponged: a pong of roundTripMs said where the group is, residualMs ahead of where the device
+ *   expected it (behind when negative), and placed the group anew ("placed") or not ("kept"): the
+ *   residuals of a placing kept for minutes are the two clocks' skew (D264, D268 §1);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
  *   tap, and it plays muted (playedMutedEvent);
  * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap);
@@ -121,7 +135,12 @@ export type PlayerNote =
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
   | { readonly kind: "voiceOff"; readonly why: "left" | "unreachable" }
-  | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number }
+  | {
+      readonly kind: "ponged";
+      readonly roundTripMs: number;
+      readonly residualMs: number;
+      readonly why: "placed" | "kept";
+    }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | {
       readonly kind: "led";
@@ -285,6 +304,20 @@ function afterGroup(current: TogetherSnapshot, group: GroupView, nowMs: number):
   };
 }
 
+/**
+ * Whether a pong of rttMs, at nowMs, places the group better than the placing a snapshot has: by
+ * what each may be off now, half its round trip, and for the placing also its age times
+ * assumedClockSkewPpm, so a placing ages and gives way (D264, D268 §1).
+ */
+function isBetterPlacing(current: TogetherSnapshot, rttMs: number, nowMs: number): boolean {
+  const placedRttMs = current.groupPlacedByRttMs;
+  if (placedRttMs === undefined) {
+    return true;
+  }
+  const ageMs = nowMs - current.groupReceivedAtMs;
+  return rttMs / 2 < placedRttMs / 2 + (ageMs * assumedClockSkewPpm) / 1_000_000;
+}
+
 /** The snapshot after a pong: its round trip measured, and the group placed anew by it (D264). */
 function afterPong(
   current: TogetherSnapshot,
@@ -293,11 +326,11 @@ function afterPong(
 ): TogetherSnapshot {
   const rttMs = Math.max(0, nowMs - message.tMono);
   const measured = { ...current, minimumRttMs: Math.min(rttMs, current.minimumRttMs ?? rttMs) };
-  // A pong of the timeline followed places it anew when its round trip is the shortest yet:
-  // its wait is bounded by what was measured, a group message's by nothing (D264).
+  // A pong of the timeline followed places it anew when it is off by less than the placing now:
+  // its wait is bounded by what was measured, a group message's by nothing (D264, D268 §1).
   return message.group !== undefined &&
     isSameTimeline(current.group, message.group) &&
-    rttMs < (current.groupPlacedByRttMs ?? Number.POSITIVE_INFINITY)
+    isBetterPlacing(current, rttMs, nowMs)
     ? {
         ...measured,
         group: { ...current.group, positionMs: message.group.positionMs },
@@ -404,6 +437,8 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   /** Which socket is the current one: each open and reconnect makes a new one. */
   #generation = 0;
+  /** How many of a young timeline's pings are still to be sent (#pingYoung). */
+  #youngPingsLeft = 0;
   /** Pings sent on the current socket since anything was last heard on it. */
   #unansweredPings = 0;
   /** When, on the monotonic clock, and how the last socket was lost, until a welcome again. */
@@ -525,8 +560,20 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
   };
 
   /**
-   * After a message: a new timeline is pinged for at once, so a measured round trip places it
-   * within one; a pong that placed the timeline anew is noted, with how far it moved it (D264).
+   * One of a young timeline's pings, while any are left: only once the last is answered, so pings a
+   * second apart on a link slower than that never count as unanswered (D268 §1).
+   */
+  readonly #pingYoung = (): void => {
+    if (this.#youngPingsLeft > 0 && this.#unansweredPings === 0) {
+      this.#youngPingsLeft -= 1;
+      this.#ping();
+    }
+  };
+
+  /**
+   * After a message: a new timeline is pinged for at once and youngPings times in all, so a
+   * measured round trip places it early; each pong of the timeline is noted, with where it said
+   * the group is against where it was expected, and whether it placed it anew (D264, D268 §1).
    */
   #tellPlacing(message: TogetherServerMessage, before: TogetherSnapshot, nowMs: number): void {
     const after = this.#snapshot;
@@ -537,19 +584,22 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
     }
     if (message.type !== "pong") {
       if (after.groupReceivedAtMs !== before.groupReceivedAtMs) {
-        this.#ping();
+        this.#youngPingsLeft = youngPings;
+        this.#pingYoung();
       }
       return;
     }
-    if (after.groupPlacedByRttMs !== before.groupPlacedByRttMs) {
-      const wasMs = expectedGroupPositionMs(before, nowMs) ?? 0;
-      const isMs = expectedGroupPositionMs(after, nowMs) ?? 0;
-      this.note({
-        kind: "placed",
-        roundTripMs: Math.round(after.groupPlacedByRttMs ?? 0),
-        movedMs: Math.round(isMs - wasMs),
-      });
+    if (message.group === undefined || !isSameTimeline(before.group, message.group)) {
+      return;
     }
+    const rttMs = Math.max(0, nowMs - message.tMono);
+    const saysMs = message.group.positionMs + (rttMs / 2) * message.group.rate;
+    this.note({
+      kind: "ponged",
+      roundTripMs: Math.round(rttMs),
+      residualMs: Math.round(saysMs - (expectedGroupPositionMs(before, nowMs) ?? saysMs)),
+      why: after.groupReceivedAtMs === before.groupReceivedAtMs ? "kept" : "placed",
+    });
   }
 
   /** Gives up on a socket nothing is heard on, as if it closed: it connects again after a wait. */
@@ -578,6 +628,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
     this.#stopTimers();
     this.#timers = [
       setInterval(this.#ping, pingEveryMs),
+      setInterval(this.#pingYoung, youngPingEveryMs),
       setInterval(this.reportState, stateEveryMs),
     ];
   }
