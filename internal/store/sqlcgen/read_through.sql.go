@@ -26,7 +26,9 @@ func (q *Queries) GetMaxFileID(ctx context.Context) (int64, error) {
 }
 
 const listFilesToReadThrough = `-- name: ListFilesToReadThrough :many
-SELECT f.id, f.node_id, f.reported_path_raw
+SELECT f.id, f.node_id, f.reported_path_raw,
+  CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)
+    AS has_timeline
 FROM file f
 WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
   AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
@@ -49,6 +51,7 @@ type ListFilesToReadThroughRow struct {
 	ID              int64
 	NodeID          int64
 	ReportedPathRaw []byte
+	HasTimeline     int64
 }
 
 // The live videos, among the ids after after_id and up to through_id, whose bytes have no loudness
@@ -59,7 +62,8 @@ type ListFilesToReadThroughRow struct {
 // a cover: disposition bit 1024 is FFmpeg's AV_DISPOSITION_ATTACHED_PIC. A timeline is looked for
 // by payload hash alone; the read-through picks the main picture. A timeline read from the file's
 // index has its keyframes but not its bytes in each second, which only a read through finds (D259
-// section 2), so it is read through still.
+// section 2), so it is read through still. has_timeline is 1 when the bytes have any timeline, so
+// one with none is read from its index first, the sweep's fast tier (D269 section 5).
 func (q *Queries) ListFilesToReadThrough(ctx context.Context, arg ListFilesToReadThroughParams) ([]ListFilesToReadThroughRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToReadThrough, arg.AfterID, arg.ThroughID)
 	if err != nil {
@@ -69,7 +73,12 @@ func (q *Queries) ListFilesToReadThrough(ctx context.Context, arg ListFilesToRea
 	items := []ListFilesToReadThroughRow{}
 	for rows.Next() {
 		var i ListFilesToReadThroughRow
-		if err := rows.Scan(&i.ID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.ReportedPathRaw,
+			&i.HasTimeline,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

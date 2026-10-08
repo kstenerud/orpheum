@@ -103,10 +103,12 @@ func (service *Service) FilesToReadThrough(ctx context.Context) ([]int64, error)
 	return ids, err
 }
 
-// sweptFile is a file FilesToReadThrough finds, by its id, and its path as its node reported it.
+// sweptFile is a file FilesToReadThrough finds, by its id, its path as its node reported it, and
+// whether its bytes have any timeline yet.
 type sweptFile struct {
-	id   int64
-	path []byte
+	id          int64
+	path        []byte
+	hasTimeline bool
 }
 
 // filesToReadThrough is FilesToReadThrough, each file with its path.
@@ -131,11 +133,61 @@ func (service *Service) filesToReadThrough(ctx context.Context) ([]sweptFile, er
 				return nil, underErr
 			}
 			if !isUnavailable {
-				files = append(files, sweptFile{id: row.ID, path: row.ReportedPathRaw})
+				swept := sweptFile{id: row.ID, path: row.ReportedPathRaw, hasTimeline: row.HasTimeline != 0}
+				files = append(files, swept)
 			}
 		}
 	}
 	return files, nil
+}
+
+// readThroughArgs are a read-through job's arguments: IsFromIndexOnly asks for its picture's
+// keyframes from its file's index alone, never a read through (D269 §5); none reads it through.
+type readThroughArgs struct {
+	IsFromIndexOnly bool `json:"isFromIndexOnly,omitempty"`
+}
+
+// argsJSON is the arguments as a job carries them: "{}" for a read through.
+func (args readThroughArgs) argsJSON() string {
+	encoded, err := json.Marshal(args)
+	if err != nil {
+		return "{}" // a struct of one bool always encodes
+	}
+	return string(encoded)
+}
+
+// argsOf are a read-through job's arguments; a job whose arguments do not read as them reads through.
+func argsOf(job jobs.Job) readThroughArgs {
+	var args readThroughArgs
+	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+		return readThroughArgs{}
+	}
+	return args
+}
+
+// sweptRead is the read-through the sweep asks of a file, in tiers (D269 §4, §5): one with no
+// timeline whose container has an index the node reads is read from that index alone first,
+// milliseconds, and read through after it (followIndexRead); one whose container has none, ahead
+// of the rest; the rest in the background.
+func sweptRead(file sweptFile) jobs.Request {
+	request := jobs.Request{
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: file.id}, Priority: jobs.PriorityBackground,
+		Reason: "reads it through, for how loud it is and where its picture can be cut",
+	}
+	switch {
+	case !hasIndexReader(file.path):
+		request.Priority = jobs.PriorityAheadOfSweep // its keyframes are known no other way
+	case !file.hasTimeline:
+		request.Priority, request.ArgsJSON = jobs.PriorityIndexFirst, readThroughArgs{IsFromIndexOnly: true}.argsJSON()
+		request.Reason = "reads its index, for where its picture can be cut"
+	}
+	return request
+}
+
+// isIndexReadJob is whether a read-through job asks for the picture's keyframes from its file's
+// index alone: a player's, waiting on them, or the sweep's fast tier (D259 §2, D269 §5).
+func isIndexReadJob(job jobs.Job) bool {
+	return job.Priority >= jobs.PriorityPlayNow || argsOf(job).IsFromIndexOnly
 }
 
 // hasIndexReader is whether the file at path, as its node reported it, is of a container the node
@@ -160,14 +212,7 @@ func (service *Service) QueueReadThroughs(ctx context.Context) (int, error) {
 	}
 	queued := 0
 	for _, file := range files {
-		priority := jobs.PriorityBackground
-		if !hasIndexReader(file.path) {
-			priority = jobs.PriorityAheadOfSweep // its keyframes are known no other way (D269 §4)
-		}
-		added, enqueueErr := service.queue.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: file.id}, Priority: priority,
-			Reason: "reads it through, for how loud it is and where its picture can be cut",
-		})
+		added, enqueueErr := service.queue.Enqueue(ctx, sweptRead(file))
 		if enqueueErr != nil {
 			return queued, enqueueErr
 		}
@@ -185,7 +230,8 @@ func (service *Service) QueueReadThroughs(ctx context.Context) (int, error) {
 func (service *Service) ReadForPlay(ctx context.Context, fileID int64) (bool, error) {
 	added, err := service.queue.Enqueue(ctx, jobs.Request{
 		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: fileID}, Priority: jobs.PriorityPlayNow,
-		Reason: "a player is waiting for where its picture can be cut",
+		ArgsJSON: readThroughArgs{IsFromIndexOnly: true}.argsJSON(),
+		Reason:   "a player is waiting for where its picture can be cut",
 	})
 	if err != nil {
 		return false, fmt.Errorf("queue a read-through of file %d: %w", fileID, err)
@@ -274,13 +320,16 @@ func (service *Service) HandleReadThrough(ctx context.Context, job jobs.Job) err
 	if err != nil {
 		return err
 	}
-	if job.Priority >= jobs.PriorityPlayNow && command.VideoTimeline != nil {
+	if isIndexReadJob(job) && command.VideoTimeline != nil {
 		// A player waits on where the picture can be cut: asked for that alone, from the file's index,
 		// the node answers in a fraction of a second, or says the file has none, where reading the
 		// loudness too takes as long as reading the film (D259 §2, D269 §2). The sweep reads the
 		// loudness and the bytes in each second after.
 		command.LoudnessTracks = nil
 		command.VideoTimeline.IsFromIndexOnly = true
+	}
+	if argsOf(job).IsFromIndexOnly && command.VideoTimeline == nil {
+		return nil // its timeline is kept since it was queued: the full read is the sweep's
 	}
 	if len(command.LoudnessTracks) == 0 && command.VideoTimeline == nil {
 		return nil
@@ -383,12 +432,36 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			case answer.Failure != "":
 				return jobs.MarkPermanent(errors.New(answer.Failure))
 			}
-			return nil
+			return service.followIndexRead(ctx, job, attempt.Work.ReadThrough, answer)
 		},
 		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
 			return nodes.UnansweredOutcome(job, err, keepFailure(ctx, attempt))
 		},
 	}
+}
+
+// followIndexRead queues a file's full read once its index was read (D269 §5): for its loudness
+// and its bytes in each second, ahead of the others when it has no index, its keyframes known no
+// other way, else in the background. The job its index was read by is running still, so this one,
+// with other arguments, is queued beside it rather than taken for it.
+func (service *Service) followIndexRead(
+	ctx context.Context, job jobs.Job, command *nodeproto.ReadThrough, answer nodeproto.ReadThroughResult,
+) error {
+	if command == nil || command.VideoTimeline == nil || !command.VideoTimeline.IsFromIndexOnly {
+		return nil
+	}
+	priority := jobs.PriorityBackground
+	if answer.HasNoIndex {
+		priority = jobs.PriorityAheadOfSweep
+	}
+	_, err := service.queue.Enqueue(ctx, jobs.Request{
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: job.FileID}, Priority: priority,
+		Reason: "reads it through, for how loud it is and its bytes in each second",
+	})
+	if err != nil {
+		return fmt.Errorf("queue file %d's read-through after its index: %w", job.FileID, err)
+	}
+	return nil
 }
 
 // record keeps what a read-through learned of a file, or FFmpeg's word that it cannot be read, by

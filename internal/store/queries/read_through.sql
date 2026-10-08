@@ -15,8 +15,11 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 -- a cover: disposition bit 1024 is FFmpeg's AV_DISPOSITION_ATTACHED_PIC. A timeline is looked for
 -- by payload hash alone; the read-through picks the main picture. A timeline read from the file's
 -- index has its keyframes but not its bytes in each second, which only a read through finds (D259
--- section 2), so it is read through still.
-SELECT f.id, f.node_id, f.reported_path_raw
+-- section 2), so it is read through still. has_timeline is 1 when the bytes have any timeline, so
+-- one with none is read from its index first, the sweep's fast tier (D269 section 5).
+SELECT f.id, f.node_id, f.reported_path_raw,
+  CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)
+    AS has_timeline
 FROM file f
 WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
   AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
