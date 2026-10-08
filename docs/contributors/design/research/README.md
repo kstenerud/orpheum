@@ -66,6 +66,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [artwork-cache.md](artwork-cache.md) | How Jellyfin, Plex, Emby and Kodi bound (they do not) and evict their image caches; TMDB images measured in WebP and JPEG; an eviction order and the high-water case. 2026-09-25. |
 | [direct-reachability.md](direct-reachability.md) | When a client truly cannot reach a residential server directly: CGNAT/DS-Lite and inbound IPv6 by ISP, client IPv6 by network and device, why hole-punching figures do not apply to browsers, TVs and Cast, a server-by-client matrix, and why a user-run VPS always suffices so a hosted relay is never the only technical answer. 2026-09-25. Feeds D71, D72, D193. |
 | [internationalisation.md](internationalisation.md) | UI strings, collation, FTS5 tokenisers, the multi-language metadata model, libass bidi and line breaking, font coverage, and the Unicode traps in Go and in our own node pipeline. Mostly **measured**, not cited. §8 covers how Netflix does it and what transfers; §9 settles the fallback font. Backs D45–D54. |
+| [sync-review-2026-10-08.md](sync-review-2026-10-08.md) | (2026-10-08) An outside review of Watch Together's sync against Jellyfin SyncPlay, Syncplay, MediaSync, DVB-CSS and NTP: telling a person's moves from the player's, catch-up, drift correction on Safari, the group clock's ageing, the iPhone start-up. Ranked recommendations, those that change the frozen design marked. Feeds D250, D261, D264 and the M5 player. |
 
 ## Method and its limits
 
