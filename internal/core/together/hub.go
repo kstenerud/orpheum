@@ -590,32 +590,8 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 		return
 	}
-	switch note.Kind {
-	case NoteVoiceStats:
-		current.logVoice(ctx, who, from, *note.Voice)
+	if current.logAtInfo(ctx, who, from, note) {
 		return
-	case NoteVoiceCall:
-		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
-			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
-		return
-	case NotePlaced:
-		current.logger.InfoContext(ctx, "watch together: a player placed its group by a shorter round trip",
-			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs, "movedMs", note.MovedMs)...)
-		return
-	case NoteVoiceOff:
-		current.logger.InfoContext(ctx, "watch together: voice turned off",
-			append(current.deviceAttributes(who, from), "why", note.Why)...)
-		return
-	case NotePlayedMuted:
-		current.logger.InfoContext(ctx,
-			"watch together: the browser would not play the film with sound; it plays muted",
-			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
-		return
-	case NoteUnmuted:
-		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
-			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
-		return
-	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
 	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))
 	for _, field := range []struct {
@@ -646,6 +622,45 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		attributes = append(attributes, "track", note.Track)
 	}
 	current.logger.DebugContext(ctx, "watch together: a device's player noted", attributes...)
+}
+
+// logAtInfo logs, at info, a note that says what a person asks about, voice and what a player held
+// among them, and reports whether it did; a player's corrections and loads are left to logNote.
+func (current *session) logAtInfo(ctx context.Context, who *member, from *device, note *PlayerNote) bool {
+	switch note.Kind {
+	case NoteVoiceStats:
+		current.logVoice(ctx, who, from, *note.Voice)
+		return true
+	case NoteVoiceCall:
+		current.logger.InfoContext(ctx, "watch together: a voice call took a step",
+			append(current.deviceAttributes(who, from), "partnerDeviceId", note.PartnerDeviceID, "step", note.Why)...)
+		return true
+	case NotePlaced:
+		current.logger.InfoContext(ctx, "watch together: a player placed its group by a shorter round trip",
+			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs, "movedMs", note.MovedMs)...)
+		return true
+	case NoteVoiceOff:
+		current.logger.InfoContext(ctx, "watch together: voice turned off",
+			append(current.deviceAttributes(who, from), "why", note.Why)...)
+		return true
+	case NoteDiagnosis:
+		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
+			append(current.deviceAttributes(who, from), "why", note.Why, positionMsAttribute, note.PositionMs,
+				"readyState", note.ReadyState, "videoBuffered", note.VideoBuffered,
+				"audioBuffered", note.AudioBuffered, "lastError", note.LastError)...)
+		return true
+	case NotePlayedMuted:
+		current.logger.InfoContext(ctx,
+			"watch together: the browser would not play the film with sound; it plays muted",
+			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+		return true
+	case NoteUnmuted:
+		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
+			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+		return true
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
+	}
+	return false
 }
 
 // logVoice says how a voice call is going, as its receiver measured it: a call that broke up on a

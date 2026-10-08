@@ -70,16 +70,16 @@ export { browserVoiceDevices } from "./together-voice-browser.ts";
 export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export { isVoiceLive } from "./voice-live.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
+export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
+export type { FollowedMedia } from "./together-follow.ts";
 export {
   fellBehindEvent,
-  followGroup,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
-  waitAheadAtMostMs,
-} from "./together-follow.ts";
+} from "./together-player-events.ts";
+export type { ChunkLoaded, QualitySwitched } from "./together-player-events.ts";
 export { playedMutedEvent, soundOnAtTap } from "./together-sound.ts";
-export type { ChunkLoaded, FollowedMedia, QualitySwitched } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */

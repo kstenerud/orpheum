@@ -95,7 +95,11 @@ const (
 	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
 	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
 	NotePlayedMuted NoteKind = "playedMuted"
-	NoteUnmuted     NoteKind = "unmuted"
+	// NoteDiagnosis is what a player holds when it moved itself over a gap ("movedItself") or
+	// stalled ("stalled"): an iPhone that jumped 10 s on its own and then sat waiting said nothing
+	// of what it held (the owner's test, 2026-10-08).
+	NoteDiagnosis NoteKind = "diagnosis"
+	NoteUnmuted   NoteKind = "unmuted"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -133,7 +137,17 @@ type PlayerNote struct {
 	// expected, ahead when positive: the wait on the way of what placed it before (D264).
 	RoundTripMs int64 `json:"roundTripMs,omitempty"`
 	MovedMs     int64 `json:"movedMs,omitempty"`
+	// ReadyState, VideoBuffered, AudioBuffered and LastError are a diagnosis note's: the video's
+	// readyState, what its picture's and sound's buffers hold, as "from-to" ranges in seconds, and
+	// the last error its player reported.
+	ReadyState    int64  `json:"readyState,omitempty"`
+	VideoBuffered string `json:"videoBuffered,omitempty"`
+	AudioBuffered string `json:"audioBuffered,omitempty"`
+	LastError     string `json:"lastError,omitempty"`
 }
+
+// diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
+const diagnosisTextMost = 300
 
 // VoiceStats is one voice call as its receiver measured it since it began: which partner, how
 // far the sound came and how long the jitter buffer held it and aimed to, the share of its samples
@@ -182,6 +196,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
+	case NoteDiagnosis:
+		return note.isKnownDiagnosis()
 	}
 	return false
 }
@@ -197,9 +213,17 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePlaced,
-		NotePlayedMuted, NoteUnmuted: // not voice's: isKnown reads them
+		NotePlayedMuted, NoteUnmuted, NoteDiagnosis: // not voice's: isKnown reads them
 	}
 	return false
+}
+
+// isKnownDiagnosis is whether a diagnosis note is one the server logs: why it was sent, a known
+// word, and its text no longer than diagnosisTextMost.
+func (note PlayerNote) isKnownDiagnosis() bool {
+	isWhyKnown := note.Why == "movedItself" || note.Why == "stalled"
+	return isWhyKnown && note.Track == "" && len(note.VideoBuffered) <= diagnosisTextMost &&
+		len(note.AudioBuffered) <= diagnosisTextMost && len(note.LastError) <= diagnosisTextMost
 }
 
 // isVoicePlayback is whether word is how a voice call's sound plays, as the web client's
