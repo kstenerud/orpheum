@@ -3,12 +3,14 @@
 package api
 
 import (
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -76,25 +78,74 @@ func (harness testHarness) findFilmOneHasNoIndex(t *testing.T) {
 	harness.finishJobs(t) // as the queue's runner does once its handler returns
 }
 
-// The sweep reads a file of a container whose index the node does not read, as an AVI, ahead of the
-// others, its keyframes known no other way (D269 §4).
+// The sweep reads in tiers: a film with no timeline whose container has an index the node reads, from
+// that index alone first, and a file of a container whose index the node does not read through,
+// ahead of the background; an index read, answered, is followed by the film's full read (D269 §4,
+// §5).
 func TestReadThrough_TheSweepReadsAFileWithNoIndexReaderFirst(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.shelveFilms(t)
 	harness.shelvePictures(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	storetest.ExecRaw(t, harness.databasePath,
 		`UPDATE file SET reported_path_raw = CAST('/media/Film (2002).avi' AS BLOB) WHERE id = 2`)
 	if queued, err := harness.readThrough.QueueReadThroughs(t.Context()); err != nil || queued != 2 {
 		t.Fatalf("the sweep queued %d, %v; want both films", queued, err)
 	}
-	priorities := map[int64]int64{}
+	byFile := harness.readThroughsByFile(t)
+	type read struct {
+		priority int64
+		args     string
+	}
+	got := map[int64]read{}
+	for fileID, jobsOfFile := range byFile {
+		got[fileID] = read{jobsOfFile[0].Priority, jobsOfFile[0].ArgsJSON}
+	}
+	if want := (map[int64]read{
+		1: {jobs.PriorityIndexFirst, `{"isFromIndexOnly":true}`}, 2: {jobs.PriorityAheadOfSweep, "{}"},
+	}); !maps.Equal(got, want) {
+		t.Fatalf("the sweep's reads by file = %+v; want the MP4's index first and the AVI read through ahead", got)
+	}
+	if err := harness.queue.Cancel(t.Context(), byFile[2][0].ID); err != nil { // the MP4's alone is run
+		t.Fatal(err)
+	}
+	harness.readFilmOnesIndexInTheSweep(t)
+	// Its full read follows, queued beside the index read that was still running.
+	fullReads := harness.readThroughsByFile(t)[1]
+	if len(fullReads) != 1 || fullReads[0].ArgsJSON != "{}" || fullReads[0].Priority != jobs.PriorityBackground {
+		t.Errorf("after its index read, the MP4's reads queued = %+v; want its full read in the background", fullReads)
+	}
+}
+
+// readFilmOnesIndexInTheSweep runs the read-through jobs due: film 1's index read alone, which asks
+// for its timeline from its index, and which its node answers with keyframes.
+func (harness testHarness) readFilmOnesIndexInTheSweep(t *testing.T) {
+	t.Helper()
+	runner := harness.queue.NewRunner(jobs.KindReadThrough, harness.readThrough.HandleReadThrough)
+	ran := make(chan error, 1)
+	go func() { ran <- runner.RunDue(t.Context()) }()
+	first := harness.nextCommand(t)
+	if read := first.ReadThrough; read == nil || read.VideoTimeline == nil || !read.VideoTimeline.IsFromIndexOnly ||
+		len(read.LoudnessTracks) != 0 {
+		t.Fatalf("the MP4's first read asked %+v; want its timeline from its index alone", read)
+	}
+	harness.answerReadThrough(t, first.JobID, nodeproto.ReadThroughResult{
+		VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: []int64{0, 2000}},
+	})
+	if err := testutil.Receive(t, ran, "the read-through runner to end"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// readThroughsByFile are the open read-through jobs, by the file each reads.
+func (harness testHarness) readThroughsByFile(t *testing.T) map[int64][]cachegen.Job {
+	t.Helper()
+	byFile := map[int64][]cachegen.Job{}
 	for _, job := range harness.openJobs(t, jobs.KindReadThrough) {
 		if job.FileID != nil {
-			priorities[*job.FileID] = job.Priority
+			byFile[*job.FileID] = append(byFile[*job.FileID], job)
 		}
 	}
-	if priorities[1] != jobs.PriorityBackground || priorities[2] != jobs.PriorityAheadOfSweep {
-		t.Errorf("the sweep's priorities by file = %v; want the MP4 in the background and the AVI ahead", priorities)
-	}
+	return byFile
 }

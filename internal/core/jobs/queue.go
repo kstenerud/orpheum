@@ -127,7 +127,10 @@ const (
 	// PriorityAheadOfSweep is work no person waits for that goes before a sweep's: a film whose file
 	// has no index of its keyframes, read through for them, so most are known before anyone plays
 	// them (D269 §4).
-	PriorityAheadOfSweep   int64 = 1
+	PriorityAheadOfSweep int64 = 1
+	// PriorityIndexFirst is the read of a file's index alone, milliseconds, before any full read:
+	// the fast tier, so most films are cut on their keyframes before anyone plays them (D269 §5).
+	PriorityIndexFirst     int64 = 2
 	PriorityPersonsRequest int64 = 20
 )
 

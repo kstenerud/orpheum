@@ -15,7 +15,9 @@
 //     a timeline kept so, its keyframes without its bytes in each second, is read through still by
 //     the sweep, which adds the bytes and keeps the keyframes (D259 §2). A file with no index says
 //     so, which is remembered in memory, keeping nothing; the sweep reads a file of a container whose
-//     index the node does not read ahead of the others (D269 §2, §4).
+//     index the node does not read ahead of the others (D269 §2, §4). The sweep reads the index alone
+//     of each film with no timeline first, its fast tier, and each index read is followed by the
+//     film's full read, a file with no index ahead of the background (D269 §5).
 //     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest,
 //     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo and
 //     TestReadThrough_TheSweepReadsAFileWithNoIndexReaderFirst (internal/core/api),

@@ -18928,4 +18928,12 @@ viewers nothing, and reading ahead of the player would have made a seek past wha
 
 A file with an index keeps D259 §1–§2: its keyframes from the index, its picture copied.
 
+5. **Every file's index is read first, then every file is read through** (the owner, the same
+   day: *"As we do the scan, we keep the 'scan fast stuff first, slow stuff later' approach"* and
+   *"yes add the fast tier"*). The sweep after a scan reads the index alone of each film that has no
+   timeline, milliseconds each, ahead of any full read, so most films are cut on their keyframes
+   before anyone plays them; each index read is followed by the film's full read, for its loudness
+   and its bytes in each second, a file with no index ahead of the others. Every film ends with its
+   keyframes known: the eventual state.
+
 **Status:** Decided 2026-10-08.
