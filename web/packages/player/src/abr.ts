@@ -81,7 +81,9 @@ export interface ChoosingOptions {
 export interface ChoosingLink<Chunk extends FollowedChunk> {
   readonly estimateBps: () => number;
   readonly giveUp: (chunk: Chunk) => void;
-  /** Drops what is loaded and loads again from where the video is, at the quality chosen next. */
+  /**
+   * Builds the video's decoding anew and loads again from where it is, at the quality chosen next.
+   */
   readonly loadAgain: () => void;
 }
 
@@ -389,8 +391,10 @@ class OrpheumAbrController extends AbrController {
         hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
       },
       loadAgain: () => {
-        // eslint-disable-next-line no-param-reassign -- hls.js drops its buffer and loads again, choosing automatically
-        hls.currentLevel = -1;
+        // A new MediaSource, so the browser's decoding is built anew: dropping the buffer alone
+        // left Firefox on macOS stuck after Flow's HEVC, every lower quality frozen too, for two
+        // minutes (the owner's test, 2026-10-08). It loads again from where the video was.
+        hls.recoverMediaError();
       },
     });
   }

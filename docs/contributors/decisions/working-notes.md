@@ -18785,10 +18785,13 @@ done (the User-Agent is logged only).
    autoplaying video stays paused until it can play, so Flow's, resumed part-way, sat paused at
    readyState 1 and the first form of this rule, which counted only a video not paused, never
    fired (the owner's retest, 2026-10-08). A video a person paused, its data there, is not
-   waiting. Each stall report carries the video's readyState and whether it was paused.
-2. **It is given up for the rest of the playback**, with every quality above it: what is loaded is
-   dropped and the video loads again from where it stood, at the highest quality below it; neither
-   the step-up nor hls.js's own forcing chooses it again.
+   waiting. Each stall report carries the video's readyState, whether it was paused, what its
+   picture's and sound's buffers held, and the player's last error.
+2. **It is given up for the rest of the playback**, with every quality above it, and the video's
+   decoding is built anew, a new MediaSource (hls.js's `recoverMediaError`), loading again from
+   where it stood at the highest quality below it; neither the step-up nor hls.js's own forcing
+   chooses it again. Dropping the buffer alone left Firefox on macOS stuck after Flow's HEVC, every
+   lower quality frozen too, for about two minutes (the owner's retest, 2026-10-08).
 3. **The play report tells the core**, which logs the quality and where it stood.
 
 **Status:** Decided 2026-10-07.

@@ -63,6 +63,11 @@ type StallBody struct {
 	PositionMs int64 `json:"positionMs"           minimum:"0"`
 	ReadyState int64 `json:"readyState,omitempty" minimum:"0" maximum:"4" required:"false"`
 	IsPaused   bool  `json:"isPaused,omitempty"   required:"false"`
+	// VideoBuffered and AudioBuffered are what the picture's and the sound's buffers held, as
+	// "from-to" ranges in seconds; LastError, the player's last error, recovered or not.
+	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
+	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
+	LastError     string `json:"lastError,omitempty"     maxLength:"200" required:"false"`
 }
 
 // EventBody is one change of play state.
@@ -195,13 +200,8 @@ func (server *Server) logReport(
 	for _, stall := range report.Stalls {
 		positions = append(positions, stall.PositionMs)
 	}
-	readyStates := make([]int64, 0, len(stalls))
-	paused := make([]bool, 0, len(stalls))
-	for _, stall := range stalls {
-		readyStates, paused = append(readyStates, stall.ReadyState), append(paused, stall.IsPaused)
-	}
-	server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions,
-		"stallReadyStates", readyStates, "stallsPaused", paused)...)
+	server.logger.InfoContext(ctx, "a player reported stalls", append(append(who, "stallPositionsMs", positions),
+		stallDiagnosis(stalls)...)...)
 	if offer := answer.LowerQuality; offer != nil {
 		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
 			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
@@ -231,6 +231,26 @@ func (server *Server) logUnplayable(ctx context.Context, reporter reporter, unpl
 	server.logger.InfoContext(ctx, "a player found a quality its device cannot play", "userId", reporter.holder.UserID,
 		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
 		"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs)
+}
+
+// stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether
+// it was paused, what its picture's and sound's buffers held, and its last error (D266).
+func stallDiagnosis(stalls []StallBody) []any {
+	readyStates := make([]int64, 0, len(stalls))
+	paused := make([]bool, 0, len(stalls))
+	videoBuffered := make([]string, 0, len(stalls))
+	audioBuffered := make([]string, 0, len(stalls))
+	lastErrors := make([]string, 0, len(stalls))
+	for _, stall := range stalls {
+		readyStates, paused = append(readyStates, stall.ReadyState), append(paused, stall.IsPaused)
+		videoBuffered = append(videoBuffered, stall.VideoBuffered)
+		audioBuffered = append(audioBuffered, stall.AudioBuffered)
+		lastErrors = append(lastErrors, stall.LastError)
+	}
+	return []any{
+		"stallReadyStates", readyStates, "stallsPaused", paused,
+		"stallVideoBuffered", videoBuffered, "stallAudioBuffered", audioBuffered, "stallLastErrors", lastErrors,
+	}
 }
 
 // reporter is who reports on a playback, and from which device: 0 for none.

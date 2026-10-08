@@ -6,6 +6,7 @@ import { isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
 import { orpheumAbr } from "./abr.ts";
+import { diagnose } from "./diagnosis.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -232,6 +233,7 @@ export function playChunked(
     abrController: abr.controller,
   });
   failOnFatal(hls, options.onFailed);
+  diagnose(hls, video);
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);

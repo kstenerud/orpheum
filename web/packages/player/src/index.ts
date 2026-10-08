@@ -11,6 +11,8 @@
 
 export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.ts";
 export type { PlaybackFailure } from "./failure.ts";
+export { diagnosisOf } from "./diagnosis.ts";
+export type { PlaybackDiagnosis } from "./diagnosis.ts";
 export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
 export { canFollowAGroup, hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";

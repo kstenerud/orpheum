@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { diagnosisOf } from "./diagnosis.ts";
 import type { components } from "@orpheum/sdk";
 
 // The report's shapes are the API's, generated into the SDK, so a field the server renames is
@@ -120,13 +121,19 @@ export class PlayReporter {
   }
 
   /**
-   * The player stalled at positionMs (D247 §2), the video then at readyState, paused or not, which
-   * say whether it lacked data or could not play what it had (D266); the server is told at once.
+   * The player stalled at positionMs (D247 §2), the video then at readyState, paused or not, with
+   * what its buffers held and its last error, which say whether it lacked data or could not play
+   * what it had (D266); the server is told at once.
    */
-  recordStall(positionMs: number, video?: Pick<HTMLMediaElement, "readyState" | "paused">): void {
+  recordStall(
+    positionMs: number,
+    video?: Pick<HTMLMediaElement, "readyState" | "paused" | "error">,
+  ): void {
+    const diagnosis = video === undefined ? undefined : diagnosisOf(video);
     this.stalls.push({
       positionMs: Math.max(0, Math.round(positionMs)),
       ...(video === undefined ? {} : { readyState: video.readyState, isPaused: video.paused }),
+      ...diagnosis,
     });
     this.flush(positionMs);
   }
