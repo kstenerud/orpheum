@@ -262,7 +262,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
 
   it("is on the viewer's page and with the host's player", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "headphones");
-    window.sessionStorage.setItem("orpheum.together.viewer", JSON.stringify(membership));
+    window.localStorage.setItem("orpheum.together.viewer", JSON.stringify(membership));
     window.sessionStorage.setItem(
       "orpheum.together.host",
       JSON.stringify({ sessionId: 1, credential: "host-credential" }),

@@ -21,7 +21,9 @@ import {
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer } from "./test-together.ts";
+import { tabStorage } from "./browser-storage.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
+import { keepMembership } from "./together-storage.ts";
 import { WatchTogether } from "./watch-together.tsx";
 
 const karl = { id: 1, name: "Karl", isHost: true };
@@ -108,6 +110,53 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     await click(buttonWithText(mounted.container, "Remove"));
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/eject/2");
     expect(mounted.container.textContent).not.toContain("Gran (Grandma)");
+    mounted.unmount();
+  });
+
+  it("gives a guest a new link, removing them so the devices they came in on are cut off (D267 §4)", async () => {
+    hostSession();
+    const heard: Heard[] = [];
+    const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          [200, { sessionId: 3, links: [], members: [karl, gran] }],
+          [200, { sessionId: 3, links: [{ id: 5, hostNote: "Grandma" }], members: [karl] }],
+        ],
+        "POST /together/3/eject/2": [204, undefined],
+        "POST /together/3/links": [201, { linkId: 5, secret: "n3w" }],
+      },
+      heard,
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    await click(buttonWithText(mounted.container, "New link"));
+    expect(heard.map((each) => each.methodAndPath)).toEqual([
+      "GET /together/3",
+      "POST /together/3/eject/2",
+      "POST /together/3/links",
+      "GET /together/3",
+    ]);
+    expect(heard[2]?.body).toEqual({ hostNote: "Grandma" });
+    expect(mounted.container.querySelector("output")?.textContent).toBe(
+      "http://orpheum.test/together#n3w",
+    );
+    mounted.unmount();
+  });
+
+  it("shows the session had back from the server after it drew, started on another device (D267 §2)", async () => {
+    const services = servedBy(
+      { "GET /together/3": [200, { sessionId: 3, links: [], members: [karl] }] },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    expect(buttonWithText(mounted.container, "Start a session")).toBeDefined();
+    await act(async () => {
+      keepMembership(tabStorage(), "host", { sessionId: 3, credential: "phone-credential" });
+      await Promise.resolve();
+    });
+    expect(mounted.container.textContent).toContain("No one is invited yet.");
     mounted.unmount();
   });
 

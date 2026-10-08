@@ -123,10 +123,12 @@ type member struct {
 	name   string
 	isHost bool
 	// hostNote is the host's note of who the member is, from their link; only the host sees it.
-	hostNote       string
-	person         *Person
-	credentialHash [sha256.Size]byte
-	devices        map[int64]*device
+	hostNote string
+	person   *Person
+	// credentialHashes are the credentials its devices say hello with, the newest last: one per
+	// device that had the membership, so having it back on one cuts off no other (D267 §3).
+	credentialHashes [][sha256.Size]byte
+	devices          map[int64]*device
 }
 
 // device is one connected client of a member.
@@ -203,7 +205,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 		}
 		for _, hostMember := range each.members {
 			if hostMember.isHost {
-				hostMember.credentialHash = sha256.Sum256([]byte(credential))
+				hostMember.addCredential(credential)
 			}
 		}
 		return Opened{SessionID: each.id, MembershipCredential: credential}, nil
@@ -217,9 +219,9 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	hub.lastID++
 	hostPerson := host
 	opened.members[hub.lastID] = &member{
-		id: hub.lastID, name: host.Name, isHost: true, person: &hostPerson,
-		credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
+		id: hub.lastID, name: host.Name, isHost: true, person: &hostPerson, devices: map[int64]*device{},
 	}
+	opened.members[hub.lastID].addCredential(credential)
 	hub.sessions[opened.id] = opened
 	return Opened{SessionID: opened.id, MembershipCredential: credential, IsNew: true}, nil
 }
@@ -320,8 +322,9 @@ type Joined struct {
 }
 
 // Join admits the person a link was made for, once, as a member named name, the name the others
-// see (D246 §3).
-func (hub *Hub) Join(secret, name string) (Joined, error) {
+// see (D246 §3); signed in, as person, whose devices have the membership back without the link
+// (D267 §2). Not signed in, person is nil.
+func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
 	if err != nil {
 		return Joined{}, fmt.Errorf("make a membership credential: %w", err)
@@ -335,9 +338,9 @@ func (hub *Hub) Join(secret, name string) (Joined, error) {
 	hub.lastID++
 	used.usedBy = hub.lastID
 	joined.members[hub.lastID] = &member{
-		id: hub.lastID, name: name, hostNote: used.hostNote,
-		credentialHash: sha256.Sum256([]byte(credential)), devices: map[int64]*device{},
+		id: hub.lastID, name: name, hostNote: used.hostNote, person: person, devices: map[int64]*device{},
 	}
+	joined.members[hub.lastID].addCredential(credential)
 	joined.sendRoster()
 	return Joined{SessionID: joined.id, MemberID: hub.lastID, MembershipCredential: credential}, nil
 }
@@ -712,7 +715,7 @@ func (hub *Hub) memberByCredential(credential string) (*session, *member) {
 	hash := sha256.Sum256([]byte(credential))
 	for _, each := range hub.sessions {
 		for _, candidate := range each.members {
-			if subtle.ConstantTimeCompare(candidate.credentialHash[:], hash[:]) == 1 {
+			if candidate.admits(hash) {
 				return each, candidate
 			}
 		}

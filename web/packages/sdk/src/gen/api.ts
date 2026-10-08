@@ -1415,6 +1415,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sessions you are in, as host or as a member who joined signed in, each with a credential for this device (D267 §2) */
+        get: operations["listMyTogether"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/playback": {
         parameters: {
             query?: never;
@@ -2340,6 +2357,17 @@ export interface components {
             reason: "node_away" | "root_missing" | "disk_missing";
             /** Format: int64 */
             unavailableAt?: number;
+        };
+        MyTogetherBody: {
+            isHost: boolean;
+            /** Format: int64 */
+            memberId: number;
+            membershipCredential: string;
+            /** Format: int64 */
+            sessionId: number;
+        };
+        MyTogetherOutputBody: {
+            sessions: components["schemas"]["MyTogetherBody"][] | null;
         };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
@@ -6493,7 +6521,10 @@ export interface operations {
     joinTogether: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -6541,6 +6572,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMyTogether: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTogetherOutputBody"];
+                };
             };
             /** @description Error */
             default: {

@@ -93,7 +93,7 @@ func (stage sessionStage) join(t *testing.T) Joined {
 	if err != nil {
 		t.Fatal(err)
 	}
-	joined, err := stage.hub.Join(made.Secret, "partner")
+	joined, err := stage.hub.Join(made.Secret, "partner", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,11 +348,11 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	guest, err := stage.hub.Join(made.Secret, "Gran")
+	guest, err := stage.hub.Join(made.Secret, "Gran", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(made.Secret, "stranger"); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(made.Secret, "stranger", nil); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a second join by one link = %v; want ErrNoSession", err)
 	}
 	for _, member := range hostBox.last(MessageRoster).Roster {
@@ -372,7 +372,7 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	if err = stage.hub.RemoveLink(stage.opened.SessionID, stage.owner.UserID, unused.LinkID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = stage.hub.Join(unused.Secret, "cousin"); !errors.Is(err, ErrNoSession) {
+	if _, err = stage.hub.Join(unused.Secret, "cousin", nil); !errors.Is(err, ErrNoSession) {
 		t.Errorf("a join by a withdrawn link = %v; want ErrNoSession", err)
 	}
 }

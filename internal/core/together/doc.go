@@ -44,6 +44,11 @@
 //     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
 //     TestHub_OpeningAgainGivesTheHostTheirSession and, through the API,
 //     TestTogether_OnlyAHostOpensMakesLinksAndEnds.
+//   - A signed-in person's sessions follow them to any device, each device with a credential of
+//     its own that cuts off no other, a member keeping the newest few (D267 §2, §3). Enforced by
+//     TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember,
+//     TestMine_HavingTheSessionBackOnOneDeviceCutsOffNoOther, TestMine_KeepsAMembersNewestCredentials
+//     and, through the API, TestTogether_ASessionFollowsWhoeverJoinedSignedIn.
 //   - The host puts on only a film their role reaches (D243 §4), and a viewer plays only what is on,
 //     while they are in. Enforced by TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay,
 //     TestHub_AViewerPlaysWhatTheSessionPlaysWhileTheyAreIn and, through the API,

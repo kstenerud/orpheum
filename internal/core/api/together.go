@@ -90,6 +90,9 @@ type RemoveTogetherLinkInput struct {
 // JoinTogetherInput joins a session by a link's secret, read from after # (D243 §3), with the name
 // the others will see (D246 §3).
 type JoinTogetherInput struct {
+	// AuthorizationHeader is optional: someone signed in joins as themselves, and their session
+	// follows them to their other devices (D267 §2).
+	AuthorizationHeader
 	Body struct {
 		Secret string `json:"secret" maxLength:"100" minLength:"1"`
 		Name   string `doc:"How the others see you" json:"name" maxLength:"100" minLength:"1"`
@@ -166,6 +169,11 @@ func (server *Server) registerTogether() {
 		OperationID: "openTogether", Method: http.MethodPost, Path: "/together", Tags: tags,
 		Summary: "Start a Watch Together session, nothing playing, or have back the one you host (D246 §5)",
 	}, server.openTogether)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "listMyTogether", Method: http.MethodGet, Path: "/together/mine", Tags: tags,
+		Summary: "The sessions you are in, as host or as a member who joined signed in, each with a " +
+			"credential for this device (D267 §2)",
+	}, server.listMyTogether)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTogether", Method: http.MethodGet, Path: "/together/{id}", Tags: tags,
 		Summary: "The session's links and members, with your notes (host)",
@@ -290,13 +298,20 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 	if name == "" {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.name", "a name is needed")
 	}
-	joined, err := dependencies.Together.Join(input.Body.Secret, name)
+	var person *together.Person
+	if token := bearerToken(input.Authorization); token != "" {
+		// A lapsed sign-in joins as nobody, as the link allows: it is not refused for it.
+		if principal, authErr := dependencies.Auth.Authenticate(ctx, token); authErr == nil {
+			person = &together.Person{UserID: principal.UserID, Name: principal.Name}
+		}
+	}
+	joined, err := dependencies.Together.Join(input.Body.Secret, name, person)
 	if err != nil {
 		server.logger.InfoContext(ctx, "watch together: a join was refused", "name", name, "err", err)
 		return nil, server.togetherError(ctx, "join a session", err)
 	}
 	server.logger.InfoContext(ctx, "watch together: someone joined by a link",
-		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name)
+		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name, "isSignedIn", person != nil)
 	output := &JoinTogetherOutput{}
 	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
 	output.Body.MembershipCredential = joined.MembershipCredential
