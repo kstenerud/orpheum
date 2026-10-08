@@ -59,6 +59,9 @@ type tokenPlayback struct {
 	startedAt  time.Time
 	decision   decide.Decision
 	positionMs int64
+	// hasPlayed is whether a report has said it played: started, or watched a span. Until then its
+	// position is where a player not yet loaded reads 0, never where the person is (hasPlayedBy).
+	hasPlayed bool
 	// stopMessage, once the admin stopped the playback, is what its player is told in the answer to
 	// its next report, which ends it (D243 §9).
 	stopMessage *string
@@ -260,10 +263,11 @@ func (all *tokens) keepOffer(token string, offer chunks.Offer) {
 }
 
 // keepPosition keeps where a report said a token's playback is.
-func (all *tokens) keepPosition(token string, positionMs int64) {
+func (all *tokens) keepPosition(token string, positionMs int64, hasPlayed bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	if known, found := all.playbackByToken[token]; found {
 		known.positionMs = positionMs
+		known.hasPlayed = known.hasPlayed || hasPlayed
 	}
 }

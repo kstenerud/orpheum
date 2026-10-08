@@ -125,6 +125,7 @@ func (service *Service) Report(
 	if !found {
 		return Answer{}, ErrNoToken
 	}
+	playback.hasPlayed = hasPlayedBy(playback, report)
 	if isNew {
 		// A Watch Together viewer is nobody's: nothing it watches is recorded (D243 §2).
 		if holder.UserID != 0 {
@@ -134,7 +135,7 @@ func (service *Service) Report(
 				return Answer{}, keepErr
 			}
 		}
-		service.tokens.keepPosition(token, report.PositionMs)
+		service.tokens.keepPosition(token, report.PositionMs, playback.hasPlayed)
 	}
 	answer := Answer{StopMessage: playback.stopMessage}
 	if playback.stopMessage != nil {
@@ -210,7 +211,24 @@ func (service *Service) Stop(playbackID int64, message string) error {
 	return nil
 }
 
-// keepReport writes a new report: its events and spans to the log, and the position through the guard.
+// hasPlayedBy is whether playback has played, with report: an earlier report said so, or this one
+// says it started or watched a span. A player that never played reports where its video, not yet
+// loaded, reads 0, and that position moved the person's own: a host whose session's film never
+// loaded found their place in Conan gone (the owner, 2026-10-08).
+func hasPlayedBy(playback tokenPlayback, report Report) bool {
+	if playback.hasPlayed || len(report.Spans) > 0 {
+		return true
+	}
+	for _, event := range report.Events {
+		if event.Kind == EventStarted {
+			return true
+		}
+	}
+	return false
+}
+
+// keepReport writes a new report: its events and spans to the log, and the position through the
+// guard, once the playback has played, this report included (hasPlayed).
 func (service *Service) keepReport(
 	ctx context.Context, playback tokenPlayback, userID, deviceID, nowMs int64, report Report,
 ) error {
@@ -235,6 +253,9 @@ func (service *Service) keepReport(
 			if err := log.appendSpan(ctx, queries, span); err != nil {
 				return err
 			}
+		}
+		if !playback.hasPlayed {
+			return nil // where a player not yet loaded stands is not where its person is
 		}
 		err := queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
 			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.ReportSeq,

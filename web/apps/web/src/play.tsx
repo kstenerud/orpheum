@@ -122,6 +122,22 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
 };
 
 /**
+ * Where a player moving to a lower quality goes on from: where its video is, once it has loaded
+ * enough to say; before that, where it was asked to start. A video not loaded reads 0, and a host
+ * resuming Bram at 51:22 was moved to its first minute, whose chunks no one had made (the owner,
+ * 2026-10-08).
+ */
+export function positionToMoveFrom(
+  video: Pick<HTMLVideoElement, "readyState" | "currentTime"> | null,
+  startPositionMs: number,
+): number {
+  const haveMetadata = 1; // HTMLMediaElement.HAVE_METADATA, which a plain page may not define
+  return video !== null && video.readyState >= haveMetadata
+    ? video.currentTime * 1000
+    : startPositionMs;
+}
+
+/**
  * Keeps the playback's play state on the server, and hands a lower quality the server offered a
  * stalled player on, with where the video is (D247 §2).
  */
@@ -138,11 +154,12 @@ function useReportedPlayState(
     resumePositionMs: props.decision.resumePositionMs,
     readLinkKbps: props.readLinkKbps,
   });
+  const startPositionMs = props.decision.resumePositionMs;
   useEffect(() => {
     if (lowerQuality !== undefined) {
-      onLowerQuality(lowerQuality, (videoRef.current?.currentTime ?? 0) * 1000);
+      onLowerQuality(lowerQuality, positionToMoveFrom(videoRef.current, startPositionMs));
     }
-  }, [lowerQuality, onLowerQuality, videoRef]);
+  }, [lowerQuality, onLowerQuality, videoRef, startPositionMs]);
   return { refusal, stopMessage };
 }
 

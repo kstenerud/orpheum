@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { audioRenditionIndex, playbackFailureText, PlayView } from "./play.tsx";
+import { audioRenditionIndex, playbackFailureText, PlayView, positionToMoveFrom } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
@@ -133,5 +133,14 @@ describe("playing a file", () => {
     const texts = playbackFailures.map((failure) => playbackFailureText(t, failure));
     expect(new Set(texts).size).toBe(texts.length);
     expect(playbackFailureText(t, "unsupported")).toBe("this browser does not play its format");
+  });
+});
+
+describe("where a player moving to a lower quality goes on from", () => {
+  it("is where its video is once it has loaded, and where it was to start before then", () => {
+    expect(positionToMoveFrom({ readyState: 4, currentTime: 3090 }, 3_082_298)).toBe(3_090_000);
+    // Not loaded, the video reads 0: Bram resumed at 51:22 went on from its first minute.
+    expect(positionToMoveFrom({ readyState: 0, currentTime: 0 }, 3_082_298)).toBe(3_082_298);
+    expect(positionToMoveFrom(null, 3_082_298)).toBe(3_082_298);
   });
 });

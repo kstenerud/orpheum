@@ -21,13 +21,20 @@ func (harness testHarness) report(t *testing.T, sessionToken string, decided dec
 	return harness.do(t, http.MethodPost, "/playback/"+decided.MediaToken+"/report", sessionToken, body)
 }
 
-// reportBody is a report of the position positionMs, read sampledBeforeMs before it was sent.
+// reportBody is a report of the position positionMs, read sampledBeforeMs before it was sent, by a
+// player that has played: its first report says it started, as a player's does once it plays.
 func reportBody(seq, positionMs, sampledBeforeMs int64) map[string]any {
 	const sentMonoMs = 1_000_000
+	events := []any{}
+	if seq == 1 {
+		events = append(events, map[string]any{
+			"kind": "started", "positionMs": positionMs, "happenedMonoMs": sentMonoMs - sampledBeforeMs,
+		})
+	}
 	return map[string]any{
 		"reportSeq": seq, "sentMonoMs": sentMonoMs, "positionMs": positionMs,
 		"positionReadMonoMs": sentMonoMs - sampledBeforeMs,
-		"events":             []any{}, "spans": []any{},
+		"events":             events, "spans": []any{},
 	}
 }
 
@@ -127,5 +134,28 @@ func TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength(t *tes
 	harness.report(t, user, unknown, reportBody(1, 950_000, 0))
 	if got := harness.play(t, user, chrome(2)).ResumePositionMs; got != 950_000 {
 		t.Errorf("a file of unknown length resumes at %d, want 950000", got)
+	}
+}
+
+// A playback that has not played moves no one's position: its player, its video not yet loaded,
+// reports 0, and a host whose session's film never loaded found their place in Conan gone (the
+// owner, 2026-10-08). Once it says it started, it moves it.
+func TestPlayState_APlaybackThatHasNotPlayedMovesNoPosition(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	watched := harness.play(t, user, chrome(2))
+	harness.report(t, user, watched, reportBody(1, 600_000, 0))
+	harness.clock.Advance(time.Second)
+	stuck := harness.play(t, user, chrome(2))
+	notStarted := reportBody(2, 0, 0) // its first report, but of a player that has not played
+	notStarted["reportSeq"] = 1
+	if sent := harness.report(t, user, stuck, notStarted); sent.status != http.StatusOK {
+		t.Fatalf("the stuck player's report: %d %s", sent.status, sent.body)
+	}
+	harness.clock.Advance(time.Second)
+	if got := harness.play(t, user, chrome(2)).ResumePositionMs; got != 600_000 {
+		t.Errorf("after a player that never played reported 0:00 the position is %d, want 600000", got)
 	}
 }
