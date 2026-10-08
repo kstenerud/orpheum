@@ -9,7 +9,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
-import { noteDecisionTimes, sendReport, tellUnplayable } from "./play-state.ts";
+import {
+  decisionTimesKept,
+  decisionTimesOf,
+  noteDecisionTimes,
+  sendReport,
+  tellUnplayable,
+} from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
 import {
   mount,
@@ -211,5 +217,16 @@ describe("a quality the player cannot play here (D266)", () => {
     stop();
     video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));
     expect(recorded).toEqual([[found, 420_500]]);
+  });
+
+  it("keeps the decision times of the newest playbacks alone, as warm-ups never played go (the M4 closing audit)", () => {
+    for (let index = 0; index <= decisionTimesKept; index++) {
+      noteDecisionTimes(`kept-${String(index)}`, index, index + 1);
+    }
+    expect(decisionTimesOf("kept-0")).toBeUndefined();
+    expect(decisionTimesOf(`kept-${String(decisionTimesKept)}`)).toEqual({
+      askedMs: decisionTimesKept,
+      decidedMs: decisionTimesKept + 1,
+    });
   });
 });
