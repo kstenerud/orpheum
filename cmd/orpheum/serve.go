@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -49,10 +50,7 @@ func serve(
 ) (err error) {
 	server := api.NewServer(logger)
 	clientFiles, hasClient := webclient.Files()
-	if hasClient {
-		server.SetClientScript(webclient.ScriptName(clientFiles))
-	}
-	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
+	serveClient(server, clientFiles, hasClient)
 	httpServer := &http.Server{
 		Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
 	}
@@ -547,4 +545,14 @@ func mountDebug(
 			"should_serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}
 	return nil
+}
+
+// serveClient serves the built web client, clientFiles, at "/", and has every API answer name its
+// script, so a page left open across an update reloads itself (api.ClientScriptHeader); a binary
+// built without the client, hasClient false, serves the placeholder and names none.
+func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) {
+	if hasClient {
+		server.SetClientScript(webclient.ScriptName(clientFiles))
+	}
+	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
 }
