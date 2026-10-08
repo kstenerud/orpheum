@@ -750,3 +750,18 @@ func TestAgent_RefusesACommandItCannotReadAndSaysItsProtocolInItsHello(t *testin
 			nodeproto.ProtocolVersion)
 	}
 }
+
+// A status says the last command taken before the work held, so a command taken while the held
+// work is listed is not said taken: said taken and not held, the core judges it lost (D234 §6).
+func TestTakenThenHeld_NeverSaysACommandTakenThatTheHeldWorkMisses(t *testing.T) {
+	t.Parallel()
+	var taken atomic.Int64
+	taken.Store(24)
+	seq, held := takenThenHeld(&taken, func() []nodeproto.HeldAttempt {
+		taken.Store(25) // command 25 is taken and held just after the work is listed
+		return []nodeproto.HeldAttempt{{JobID: 24, AttemptToken: "t24"}}
+	})
+	if seq != 24 || len(held) != 1 {
+		t.Errorf("the status says command %d taken, holding %v; want 24, whose work it lists", seq, held)
+	}
+}
