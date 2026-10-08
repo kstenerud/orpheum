@@ -145,5 +145,6 @@ export default async function acceptanceSetup(): Promise<() => Promise<void>> {
   const seconds = (acceptanceMinutes() + 5) * 60;
   return await startServer(
     chosenProfiles().map((profile) => longFilm(acceptanceFilm(profile.name), seconds)),
+    false,
   );
 }

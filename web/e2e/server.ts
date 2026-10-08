@@ -3,8 +3,9 @@
 /**
  * Playwright's global setup: a server of its own, on loopback, in a directory of its own, over a
  * library generated here with the pinned FFmpeg. `make test-browser` builds the binary, with the
- * web client in it, and names it and FFmpeg in the environment. The films are made for this run,
- * one per browser, so no browser plays a copy another already prepared (cut-a §8, M3).
+ * web client in it, and names it and FFmpeg in the environment. The library is new each run, one
+ * timing film per browser, so no browser plays a copy another already prepared (cut-a §8, M3); its
+ * films are copies of those the film cache keeps, made once (film-cache.ts).
  */
 
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
@@ -13,6 +14,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+import { makeFilmFile, pruneFilmCache } from "./film-cache.ts";
 
 /** The people and films the tests use; the spec reads them from here. */
 export const owner = { name: "owner", password: "owner-browser-test" } as const;
@@ -77,21 +80,18 @@ export interface Film {
 }
 
 /** Makes one film, in its own folder with an NFO naming it, as a library holds one. */
-function makeFilm(ffmpeg: string, library: string, film: Film): void {
+async function makeFilm(ffmpeg: string, library: string, film: Film): Promise<void> {
   const folder = path.join(library, `${film.title} (${String(film.year)})`);
   mkdirSync(folder, { recursive: true });
   writeFileSync(
     path.join(folder, `${film.title} (${String(film.year)}).nfo`),
     nfoXml(film.title, film.year),
   );
-  execFileSync(ffmpeg, [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-y",
-    ...film.ffmpegInputArguments,
+  await makeFilmFile(
+    ffmpeg,
+    film.ffmpegInputArguments,
     path.join(folder, `${film.title} (${String(film.year)}).${film.extension}`),
-  ]);
+  );
 }
 
 /**
@@ -283,48 +283,56 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   return await startServer([]);
 }
 
-/** Makes the library under root, the films every spec uses and extraFilms beside them, and returns it. */
-function makeFilms(ffmpeg: string, root: string, extraFilms: readonly Film[]): string {
-  const library = path.join(root, "films");
+/** The films the browser tier's specs use, their subtitles written under root. */
+function specFilms(root: string): Film[] {
   const assPath = path.join(root, "timing.ass");
   writeFileSync(assPath, timingAssText);
-  makeFilm(ffmpeg, library, {
-    title: warmUpFilm,
-    year: 2020,
-    extension: "mp4",
-    ffmpegInputArguments: warmUpArguments,
-  });
-  makeFilm(ffmpeg, library, {
-    title: preparedFilm,
-    year: 2021,
-    extension: "mkv",
-    ffmpegInputArguments: preparedFilmArguments,
-  });
-  for (const film of extraFilms) {
-    makeFilm(ffmpeg, library, film);
-  }
-  browsers.forEach((browser, index) => {
-    makeFilm(ffmpeg, library, {
+  return [
+    { title: warmUpFilm, year: 2020, extension: "mp4", ffmpegInputArguments: warmUpArguments },
+    {
+      title: preparedFilm,
+      year: 2021,
+      extension: "mkv",
+      ffmpegInputArguments: preparedFilmArguments,
+    },
+    ...browsers.map((browser, index) => ({
       title: timingFilm(browser),
       year: 2024,
       extension: "mkv",
       ffmpegInputArguments: timingFilmArguments(assPath, index * 90),
-    });
-  });
-  return library;
+    })),
+  ];
+}
+
+/** Makes films in library, all at once, each from the film cache where it has it. */
+async function makeFilms(ffmpeg: string, library: string, films: readonly Film[]): Promise<void> {
+  pruneFilmCache();
+  await Promise.all(
+    films.map(async (film) => {
+      await makeFilm(ffmpeg, library, film);
+    }),
+  );
 }
 
 /**
- * Makes the library, with extraFilms beside the films every spec uses, starts the server — the
- * core, then the node beside it, two services as in deployment (D235 §4) — and returns what
- * stops both and removes everything.
+ * Makes the library, with extraFilms beside the films every spec uses, or alone when
+ * shouldMakeSpecFilms is false, as for the acceptance, which plays none of them (the test audit, 2026-10-08); starts
+ * the server — the core, then the node beside it, two services as in deployment (D235 §4) — and
+ * returns what stops both and removes everything.
  */
-export async function startServer(extraFilms: readonly Film[]): Promise<() => Promise<void>> {
+export async function startServer(
+  extraFilms: readonly Film[],
+  shouldMakeSpecFilms = true,
+): Promise<() => Promise<void>> {
   const binary = requiredEnv("ORPHEUM_TEST_BINARY");
   const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
   const ffmpeg = path.join(ffmpegDirectory, "ffmpeg");
   const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-"));
-  const library = makeFilms(ffmpeg, root, extraFilms);
+  const library = path.join(root, "films");
+  await makeFilms(ffmpeg, library, [
+    ...(shouldMakeSpecFilms ? specFilms(root) : []),
+    ...extraFilms,
+  ]);
 
   const port = await freePort();
   const instances = makeInstances({ binary, root, library, ffmpegDirectory, port });
