@@ -75,6 +75,8 @@ check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if anot
 
 .PHONY: check-documentation
 check-documentation: check-docs check-claims check-architecture ## The gate for a change of documentation alone (scripts/documentation_only.py): what reads the docs, and no test of the code
+	@# The one Go test that reads a document, schema.md's owners table (the M4 closing audit).
+	@$(HERMETIC) go test -run '^TestArch_EachTableHasOneWritingPackage$$' ./internal/archtest/
 
 # Within check-pr (a BASE given), whether the branch changed documentation alone: then the tiers
 # that test the code have nothing to find (the owner, 2026-10-08).
