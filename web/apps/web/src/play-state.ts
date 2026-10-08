@@ -2,9 +2,11 @@
 
 import {
   PlayReporter,
+  playerFoundUnplayableEvent,
   ReportRefused,
   reportEveryMs,
   seekTo,
+  unplayableOf,
   watchStalls,
   type PlayReport,
 } from "@orpheum/player";
@@ -254,6 +256,47 @@ interface ReportListener {
  * measures it (D247 §2), where it is every reportEveryMs while playing, and when the page is
  * hidden. The admin's stop pauses the video and ends the reports (D243 §9).
  */
+/**
+ * Reports each quality the video's player gives up as one its device cannot play, at once (D266).
+ * Returns the stopping.
+ */
+export function tellUnplayable(
+  video: EventTarget,
+  reporter: Pick<PlayReporter, "recordUnplayable">,
+): () => void {
+  const listener = (event: Event): void => {
+    const unplayable = unplayableOf(event);
+    if (unplayable !== undefined) {
+      reporter.recordUnplayable(unplayable, unplayable.positionMs);
+    }
+  };
+  video.addEventListener(playerFoundUnplayableEvent, listener);
+  return () => {
+    video.removeEventListener(playerFoundUnplayableEvent, listener);
+  };
+}
+
+/**
+ * Reports what the video tells about its playing, at once: each stall, which may move it to a lower
+ * quality (D247 §2), and each quality its player gives up as unplayable here (D266). Returns the
+ * stopping.
+ */
+function watchForReport(
+  video: HTMLVideoElement,
+  reporter: PlayReporter,
+  movingDown: Pick<MovingDown, "stalled">,
+): () => void {
+  const stopWatchingStalls = watchStalls(video, (stall) => {
+    movingDown.stalled();
+    reporter.recordStall(stall.positionMs);
+  });
+  const stopTellingUnplayable = tellUnplayable(video, reporter);
+  return () => {
+    stopWatchingStalls();
+    stopTellingUnplayable();
+  };
+}
+
 function startReporting(
   video: HTMLVideoElement,
   playback: PlayStateOf & { readonly api: Api },
@@ -289,10 +332,7 @@ function startReporting(
   }, reportSeqCounter(mediaToken));
   reporter.measureLinkWith(playback.readLinkKbps);
   const videoEvents = reportVideoEvents(video, reporter, playback);
-  const stopWatchingStalls = watchStalls(video, (stall) => {
-    movingDown.stalled();
-    reporter.recordStall(stall.positionMs);
-  });
+  const stopWatching = watchForReport(video, reporter, movingDown);
   const ticker = setInterval(() => {
     if (!video.paused && hasMedia(video)) {
       reporter.flush(positionMs(video));
@@ -307,7 +347,7 @@ function startReporting(
   return () => {
     clearInterval(ticker);
     movingDown.stop();
-    stopWatchingStalls();
+    stopWatching();
     document.removeEventListener("visibilitychange", flushWhenHidden);
     videoEvents.stop();
     // The video may be emptied already: where it last was is where the person left it.
@@ -396,10 +436,7 @@ export function useStallReports(
       movingDown.answered(answer.lowerQuality);
     }, reportSeqCounter(mediaToken));
     reporter.measureLinkWith(() => linkReader.current());
-    const stopWatching = watchStalls(video, (stall) => {
-      movingDown.stalled();
-      reporter.recordStall(stall.positionMs);
-    });
+    const stopWatching = watchForReport(video, reporter, movingDown);
     return () => {
       movingDown.stop();
       stopWatching();

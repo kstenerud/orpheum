@@ -30,6 +30,7 @@ class FakeHls implements ChoosingHls {
   readonly minAutoLevel = 0;
   readonly maxAutoLevel = 3;
   mainForwardBufferInfo = { len: 0 };
+  media: Pick<HTMLMediaElement, "currentTime" | "paused"> | null = null;
 }
 
 /** A chunk of picture at level, ten seconds long, asked for at 0, with nothing arrived yet. */
@@ -52,16 +53,29 @@ function choosingFrom(startAtBps: number): {
   choosing: Choosing<FollowedChunk>;
   link: { estimateBps: number };
   givenUp: FollowedChunk[];
+  loadsAgain: number[];
+  unplayable: { readonly qualityKbps: number; readonly positionMs: number }[];
 } {
   const hls = new FakeHls();
   const link = { estimateBps: 0 };
   const givenUp: FollowedChunk[] = [];
+  const loadsAgain: number[] = [];
+  const unplayable: { readonly qualityKbps: number; readonly positionMs: number }[] = [];
   const choosing = new Choosing<FollowedChunk>(
     hls,
-    { startAtBps, monotonicMs: () => nowMs, isVoiceLive: () => isVoiceLive },
-    { estimateBps: () => link.estimateBps, giveUp: (chunk) => givenUp.push(chunk) },
+    {
+      startAtBps,
+      monotonicMs: () => nowMs,
+      isVoiceLive: () => isVoiceLive,
+      onUnplayable: (found) => unplayable.push(found),
+    },
+    {
+      estimateBps: () => link.estimateBps,
+      giveUp: (chunk) => givenUp.push(chunk),
+      loadAgain: () => loadsAgain.push(nowMs),
+    },
   );
-  return { hls, choosing, link, givenUp };
+  return { hls, choosing, link, givenUp, loadsAgain, unplayable };
 }
 
 /** Loads a chunk at level over the link: bytes in loadMs, its first after 50 ms. */
@@ -165,6 +179,72 @@ describe("choosing a chunked playback's quality (D265)", () => {
     load(choosing, 1, { bytes: 1_600_000, loadMs: 1000 });
     expect(choosing.forcedLevel()).toBe(-1);
     expect(choosing.nextLevel()).toBe(1); // and the step down holds
+  });
+});
+
+describe("a quality this device cannot play (D266)", () => {
+  /** A video asked to play at positionS, its picture loading at level 3 on a fast link. */
+  function standingAt(positionS: number): ReturnType<typeof choosingFrom> {
+    const chosen = choosingFrom(40_000_000);
+    chosen.link.estimateBps = 30_000_000;
+    chosen.hls.loadLevel = 3;
+    chosen.hls.media = { currentTime: positionS, paused: false };
+    chosen.choosing.firstLevel();
+    vi.advanceTimersByTime(lookAtChunkEveryMs); // it stands still from here
+    return chosen;
+  }
+
+  it("is given up when the video stands still while its chunks arrive, and loaded again lower", () => {
+    const { choosing, loadsAgain, unplayable } = standingAt(420.5);
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 420_500 }]);
+    expect(loadsAgain).toEqual([6000]);
+    expect(choosing.nextLevel()).toBe(2);
+  });
+
+  it("is never chosen again, by the step-up or by hls.js's forcing", () => {
+    const { hls, choosing } = standingAt(420.5);
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    hls.media = { currentTime: 430, paused: false };
+    hls.currentLevel = 2;
+    hls.mainForwardBufferInfo = { len: 60 };
+    nowMs = 1_000_000;
+    vi.advanceTimersByTime(lookForStepUpEveryMs);
+    expect(choosing.nextLevel()).toBe(2);
+    choosing.setLevel(3);
+    expect(choosing.forcedLevel()).toBe(-1);
+  });
+
+  it("is not given up while chunks are slow to come, while paused, or while the video plays", () => {
+    const slow = standingAt(420.5);
+    load(slow.choosing, 3, { bytes: 6_000_000, loadMs: 1000 }); // one chunk: the link may be why
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(slow.unplayable).toEqual([]);
+
+    nowMs = 0;
+    const paused = standingAt(420.5);
+    paused.hls.media = { currentTime: 420.5, paused: true };
+    load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(paused.unplayable).toEqual([]);
+
+    nowMs = 0;
+    const playing = standingAt(420.5);
+    load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    playing.hls.media = { currentTime: 423.5, paused: false };
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(playing.unplayable).toEqual([]);
   });
 });
 

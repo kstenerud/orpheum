@@ -17,6 +17,7 @@ import type Hls from "hls.js";
 
 import {
   giveUpFor,
+  isUnplayable,
   measuresTheLink,
   startingLevel,
   steadyLevel,
@@ -24,6 +25,9 @@ import {
   type ChoiceLevel,
 } from "./abr-choice.ts";
 import { nextCap } from "./step-up.ts";
+
+/** How far, in seconds, a video's position must move to be playing, not standing still. */
+const movedAtLeastS = 0.1;
 
 /** How often the controller looks at a chunk on its way (D265 §3). */
 export const lookAtChunkEveryMs = 500;
@@ -54,6 +58,8 @@ export interface ChoosingHls {
   readonly minAutoLevel: number;
   readonly maxAutoLevel: number;
   readonly mainForwardBufferInfo: { readonly len: number } | null;
+  /** The video it plays into, whose position shows whether it plays. */
+  readonly media: Pick<HTMLMediaElement, "currentTime" | "paused"> | null;
 }
 
 /** What a playback tells its choosing. */
@@ -63,12 +69,19 @@ export interface ChoosingOptions {
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
+  /** Told of a quality given up as one this device cannot play, and where (D266). */
+  readonly onUnplayable?: (unplayable: {
+    readonly qualityKbps: number;
+    readonly positionMs: number;
+  }) => void;
 }
 
 /** What choosing is given of the link: hls.js's estimate of it, and how to give a chunk up. */
 export interface ChoosingLink<Chunk extends FollowedChunk> {
   readonly estimateBps: () => number;
   readonly giveUp: (chunk: Chunk) => void;
+  /** Drops what is loaded and loads again from where the video is, at the quality chosen next. */
+  readonly loadAgain: () => void;
 }
 
 /**
@@ -90,6 +103,11 @@ export class Choosing<Chunk extends FollowedChunk> {
   #forced: number | undefined;
   #lastChosen = -1;
   #hasMeasured = false;
+  /** Since when the video, asked to play, has stood still where it is, and how many chunks came meanwhile. */
+  #still:
+    { readonly sinceMs: number; readonly positionS: number; chunksLoaded: number } | undefined;
+  /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
+  #unplayableFrom: number | undefined;
   readonly #timers: ReturnType<typeof setInterval>[];
 
   constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
@@ -100,6 +118,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#timers = [
       setInterval(() => {
         this.#lookAtChunk();
+        this.#lookAtPlaying();
       }, lookAtChunkEveryMs),
       setInterval(() => {
         this.#lookForStepUp();
@@ -146,7 +165,11 @@ export class Choosing<Chunk extends FollowedChunk> {
    */
   setLevel(level: number): void {
     const clamped = this.#clamped(level);
-    if (level < 0 || clamped === this.#lastChosen) {
+    if (
+      level < 0 ||
+      clamped === this.#lastChosen ||
+      clamped >= (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)
+    ) {
       return;
     }
     this.#forced = clamped;
@@ -164,6 +187,9 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture loaded. */
   loaded(chunk: Chunk): void {
+    if (this.#still !== undefined) {
+      this.#still.chunksLoaded += 1;
+    }
     if (this.#onItsWay?.chunk === chunk) {
       this.#onItsWay = undefined;
     }
@@ -242,6 +268,46 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#link.giveUp(chunk);
   }
 
+  /**
+   * Gives up the quality loading as unplayable here when the video, asked to play, stands still
+   * while its chunks arrive (D266): every quality from it up is dropped, what is loaded with it, and
+   * the video loads again from where it is at the quality chosen next.
+   */
+  #lookAtPlaying(): void {
+    const media = this.#hls.media;
+    const nowMs = this.#options.monotonicMs();
+    if (media === null || media.paused) {
+      this.#still = undefined;
+      return;
+    }
+    const still = this.#still;
+    if (still === undefined || Math.abs(media.currentTime - still.positionS) > movedAtLeastS) {
+      this.#still = { sinceMs: nowMs, positionS: media.currentTime, chunksLoaded: 0 };
+      return;
+    }
+    const level = this.#hls.loadLevel;
+    if (
+      level > this.#hls.minAutoLevel &&
+      isUnplayable({ forMs: nowMs - still.sinceMs, chunksLoaded: still.chunksLoaded })
+    ) {
+      this.#giveUpUnplayable(level, still.positionS);
+    }
+  }
+
+  /** Gives level up, with every quality above it, and loads again from positionS below it (D266). */
+  #giveUpUnplayable(level: number, positionS: number): void {
+    this.#unplayableFrom = Math.min(level, this.#unplayableFrom ?? level);
+    this.#still = undefined;
+    this.#onItsWay = undefined;
+    this.#lower(level - 1);
+    this.#lastChosen = -1;
+    this.#options.onUnplayable?.({
+      qualityKbps: Math.round((this.#hls.levels[level]?.bitrate ?? 0) / 1000),
+      positionMs: Math.round(positionS * 1000),
+    });
+    this.#link.loadAgain();
+  }
+
   #lookForStepUp(): void {
     const ceiling = this.#ceiling;
     if (ceiling === undefined) {
@@ -255,7 +321,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       bufferedAheadMs: this.#bufferAheadS() * 1000,
       sinceChangeMs: this.#options.monotonicMs() - this.#changedAtMs,
     });
-    if (raised !== ceiling) {
+    if (raised !== ceiling && raised < (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)) {
       this.#ceiling = raised;
       this.#changedAtMs = this.#options.monotonicMs();
     }
@@ -320,6 +386,10 @@ class OrpheumAbrController extends AbrController {
       giveUp: (frag) => {
         frag.abortRequests();
         hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
+      },
+      loadAgain: () => {
+        // eslint-disable-next-line no-param-reassign -- hls.js drops its buffer and loads again, choosing automatically
+        hls.currentLevel = -1;
       },
     });
   }

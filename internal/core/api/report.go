@@ -34,8 +34,18 @@ type ReportInput struct {
 		// Startup is how long the playback took to start, sent once, with the report after its
 		// first frame: what makes a slow start show in the log.
 		Startup *StartupBody `json:"startup,omitempty" required:"false"`
+		// Unplayable is a quality the player gave up as one its device cannot play, sent once,
+		// with the report after (D266).
+		Unplayable *UnplayableBody `json:"unplayable,omitempty" required:"false"`
 	}
 	ClientFacts
+}
+
+// UnplayableBody is a quality a player gave up as one its device cannot play: its rate, and where
+// the video stood still while its chunks arrived (D266).
+type UnplayableBody struct {
+	QualityKbps int64 `json:"qualityKbps" minimum:"0"`
+	PositionMs  int64 `json:"positionMs"  minimum:"0"`
 }
 
 // StartupBody is how long a playback took to start, each from when the player asked how the file
@@ -151,6 +161,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	server.logReport(ctx, reporter, report, answer)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
+	server.logUnplayable(ctx, reporter, input.Body.Unplayable)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -199,6 +210,17 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 	server.logger.InfoContext(ctx, "a playback started playing", "userId", reporter.holder.UserID,
 		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID, "decisionMs", startup.DecisionMs,
 		"firstDataMs", startup.FirstDataMs, "playingMs", startup.PlayingMs, "linkKbps", linkKbps)
+}
+
+// logUnplayable says a player gave up a quality its device cannot play, and where: Flow froze in
+// Firefox on macOS at any start but its beginning, and only the owner's test said why (D266).
+func (server *Server) logUnplayable(ctx context.Context, reporter reporter, unplayable *UnplayableBody) {
+	if unplayable == nil {
+		return
+	}
+	server.logger.InfoContext(ctx, "a player found a quality its device cannot play", "userId", reporter.holder.UserID,
+		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+		"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs)
 }
 
 // reporter is who reports on a playback, and from which device: 0 for none.

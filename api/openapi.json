@@ -3592,6 +3592,9 @@
           },
           "startup": {
             "$ref": "#/components/schemas/StartupBody"
+          },
+          "unplayable": {
+            "$ref": "#/components/schemas/UnplayableBody"
           }
         },
         "required": [
@@ -5056,6 +5059,26 @@
         "required": [
           "reason",
           "nodeName"
+        ],
+        "type": "object"
+      },
+      "UnplayableBody": {
+        "additionalProperties": false,
+        "properties": {
+          "positionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "qualityKbps": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "qualityKbps",
+          "positionMs"
         ],
         "type": "object"
       },
