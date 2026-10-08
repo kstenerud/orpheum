@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 import subprocess
 import sys
@@ -438,11 +439,47 @@ def check_gates(base: str, head: str) -> int:
     return 1
 
 
-def main() -> int:
+class CannotCheck(Exception):
+    """The commit being written could not be made into a commit to check."""
+
+
+def commit_being_written(message_file: str) -> tuple[str, str] | None:
+    """(HEAD, a commit of the index with the message being written on HEAD), for the commit-msg
+    hook: the commit is a dangling object no branch names, so the range's rules apply to the commit
+    as it will be recorded, its own trailers alone explaining it (D270 §4). None before a first
+    commit; CannotCheck when the commit cannot be made, which fails rather than passes unchecked."""
+    head = git("rev-parse", "-q", "--verify", "HEAD").strip()
+    if not head:
+        return None
+    tree = git("write-tree").strip()
+    # The object is never recorded: a fixed name stands in where git has none, as under the gate.
+    env = {**os.environ, "GIT_AUTHOR_NAME": "commit-msg check", "GIT_AUTHOR_EMAIL": "check@localhost",
+           "GIT_COMMITTER_NAME": "commit-msg check", "GIT_COMMITTER_EMAIL": "check@localhost"}
+    done = subprocess.run(["git", "commit-tree", tree, "-p", head, "-F", message_file], capture_output=True,
+                          text=True, check=False, env=env)
+    commit = done.stdout.strip()
+    if not tree or done.returncode != 0 or not commit:
+        raise CannotCheck(f"the commit being written could not be checked: {done.stderr.strip()}")
+    return head, commit
+
+
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base", required=True)
+    ap.add_argument("--base")
     ap.add_argument("--head", default="HEAD")
-    args = ap.parse_args()
+    ap.add_argument("--message-file", help="check the commit being written with this message (commit-msg)")
+    args = ap.parse_args(argv)
+    if args.message_file:
+        try:
+            being_written = commit_being_written(args.message_file)
+        except CannotCheck as cannot:
+            print(f"check_test_weakening: {cannot}", file=sys.stderr)
+            return 1
+        if being_written is None:
+            return 0
+        args.base, args.head = being_written
+    elif not args.base:
+        ap.error("--base is required unless --message-file is given")
     gate_status = check_gates(args.base, args.head)
     moves: list[str] = []
     found = weakenings(args.base, args.head, moves)

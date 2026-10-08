@@ -2,4 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Checks the commit message being written against the same rules CI applies to a branch.
 set -euo pipefail
-exec python3 scripts/lint_commits.py --message-file "$1"
+python3 scripts/lint_commits.py --message-file "$1"
+# A test made weaker or a gate changed is explained by a trailer on the commit that does it, not a
+# later one (D270 §4): the commit being written is checked as it will be recorded.
+exec python3 scripts/check_test_weakening.py --message-file "$1"
