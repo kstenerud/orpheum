@@ -14,8 +14,8 @@ export const stepUpHeadroom = 1.5;
 export const stepUpBufferMs = 20_000;
 
 /**
- * A quality hls.js may play: its average bit rate, as its playlist's AVERAGE-BANDWIDTH says, the
- * sound's included. Its peak, BANDWIDTH, is hls.js's own to step down by.
+ * A quality the player may play: its average bit rate, as its playlist's AVERAGE-BANDWIDTH says, the
+ * sound's included, which the step-up weighs against the link.
  */
 export interface Level {
   readonly averageBitrate: number;
@@ -25,7 +25,7 @@ export interface Level {
 export interface StepUpState {
   /** The qualities, lowest first, as hls.js orders them. */
   readonly levels: readonly Level[];
-  /** The highest quality hls.js may choose now. */
+  /** The highest quality the player's bitrate controller may choose now (D265). */
   readonly cap: number;
   /** The quality playing. */
   readonly playing: number;
@@ -37,10 +37,11 @@ export interface StepUpState {
 }
 
 /**
- * The highest quality hls.js may choose next: one above the cap, once the player has played at the
- * cap for holdBeforeStepUpMs with stepUpBufferMs loaded ahead and a link stepUpHeadroom times the
- * next quality's rate; else the cap as it is. One quality at a time, never past the top (D247 §9).
- * Stepping down is hls.js's own, at once, on its measurement.
+ * The highest quality the bitrate controller may choose next: one above the cap, once the player
+ * has played at the cap for holdBeforeStepUpMs with stepUpBufferMs loaded ahead and a link
+ * stepUpHeadroom times the next quality's rate; else the cap as it is. One quality at a time, never
+ * past the top (D247 §9). Stepping down is the bitrate controller's own (abr.ts, D265 §3–§4), at
+ * once, on its measurement.
  */
 export function nextCap(state: StepUpState): number {
   const above = state.cap + 1;

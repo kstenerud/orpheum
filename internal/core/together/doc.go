@@ -73,6 +73,11 @@
 //   - D250 §2–§5: the group stops only at its own sync points; a member's trouble is theirs to
 //     catch up on.
 //   - D191: the session behaves as if nobody has an account.
+//   - D264, D268 §1: a pong carries where the group is, by which a follower places it.
+//   - D267: a membership kept by the browser that joined or a signed-in person's account, on
+//     several devices at once.
+//   - D268: drift corrected as the device measures it, the group's named start, and the notes that
+//     say how a follower follows.
 //   - D243 §1, §3 and §9: a guest's cookie, secrets after #, and the numbers it is held to, as
 //     D261 §1, §7 revised them; a signed-in member's viewing is deferred (D261 §3).
 //   - docs/contributors/design/plans/watch-together.md, and cut-a §5.1: the messages.

@@ -79,7 +79,7 @@ is a player's position, buffering, play, pause, seek and rate
   ([D119](../../decisions/working-notes.md#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak),
   as D246 revised it).
 - **Signing in records nothing yet.** A device that says hello with a signed-in person's session
-  token makes the membership theirs (D243 §2), but recording their viewing as their own is
+  token makes the membership theirs (D243 §2, D267 §2), but recording their viewing as their own is
   deferred (D246 §4, D261 §3). An anonymous viewer accrues nothing.
 - **A session lives in the server's memory.** A host has one; reopening the host's page gives it
   back. A restart ends every session.
@@ -162,8 +162,10 @@ sync mentions bitrate
 How a player chooses is the solo player's, the same in a group:
 
 - **A film that can be cut plays from its ladder** of qualities from the start, at the top unless
-  its device's link on that network is remembered slower, and hls.js steps down and back up as it
-  plays ([D260](../../decisions/working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays),
+  its device's link on that network is remembered slower, and Orpheum's own bitrate controller,
+  inside hls.js, steps it down and back up as it plays
+  ([D265](../../decisions/working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs),
+  [D260](../../decisions/working-notes.md#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays),
   [D257](../../decisions/working-notes.md#d257--a-player-starts-on-the-version-its-link-can-carry-chosen-before-play-from-the-speed-remembered-for-that-device-on-that-network)).
 - **A film not cut yet** plays its original or a prepared copy; the first stall starts a lower
   version, offered in the stall's answer, and the player moves to it once it is ready if it still

@@ -139,8 +139,9 @@ export const chunkLoadPolicy: LoadPolicy = {
 };
 
 /**
- * A quality hls.js plays, as the playlist says: its peak bit rate, which hls.js steps down by, its
- * average, the sound's included, and its picture's height.
+ * A quality hls.js plays, as the playlist says: its peak bit rate, by which the start is chosen and
+ * a voice's pace set, its average, the sound's included, by which the bitrate controller weighs
+ * the link (D265), and its picture's height.
  */
 export interface PlayedLevel {
   readonly bitrate: number;

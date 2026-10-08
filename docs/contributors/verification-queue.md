@@ -202,10 +202,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   `web/apps/web/src/together-voice.tsx`)
 - [ ] **VQ22** — An iPhone on iOS 17.1 or later follows a group the host plays on a laptop, against
   staging. Passes when, over five minutes of playing, with a pause, a play and a seek by the host,
-  the iPhone's sound does not skip or stutter as it keeps in step, and staging's log shows its
-  nudges (`"nudged"` notes) no more often than every few seconds, not one after every play or
-  seek. If the sound skips at each nudge, set **should_together_nudge_keep_pitch** to off on the
-  Settings page, join again, and say whether the skips stop. Only a real iPhone shows whether
+  the iPhone keeps in step after each, and its sound does not stutter beyond the short skips VQ27
+  allows. Its nudges are VQ27's, no longer this item's: since D268 §2 an iPhone whose returns to the group's rate cost it more than the drift
+  left alone stops nudging and corrects by seeks alone, so it may log no `"nudged"` note after its
+  first minute. If the sound skips at each nudge before then, set
+  **should_together_nudge_keep_pitch** to off on the Settings page, join again, and say whether the
+  skips stop. Only a real iPhone shows whether
   Safari's still position just after a change, and its switch of pitch keeping, are answered
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
 - [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against

@@ -88,8 +88,10 @@ rests on, so the claim can be checked against them; a total goes stale with the 
   normal. The false belief came from having no stated budget: nothing said how long check-pr should
   take, so the agent noticed no change.
 - **Caught by:** the owner: "check-pr was supposed to be under 5 minutes. what happened?"
-- **Gate:** none yet. Proposed: check-pr prints its elapsed time, and fails or warns past a stated
-  budget, written in standards/makefile.md. A test that adds to a gate's run says what it adds.
+- **Gate:** a warning, not a failure. check-pr prints its elapsed time, and past its budget,
+  the Makefile's `CHECK_PR_BUDGET_S` (300 s), says so and asks for the step that grew
+  (standards/makefile.md). It still passes. That a step added to check-pr states what it adds is
+  the standard's, review-only.
 
 ### A23 — Told the owner a tag would not travel, without checking the tool (2026-10-06)
 
