@@ -71,8 +71,8 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
 			clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{waitMs: wait.waitMs},
 		}
 		started := clock.Now()
-		offer, err := service.startOnLadder(t.Context(), Holder{}, Request{}, tokenPlayback{fileID: 1}, 0)
-		if err != nil || (offer != nil) != wait.isOnLadder {
+		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, tokenPlayback{fileID: 1}, 0)
+		if err != nil || (offer != nil) != wait.isOnLadder || (why == "noGridYet") == wait.isOnLadder {
 			t.Errorf("waiting %d ms, with no grid for %d looks: %+v, %v; want on its ladder %t", wait.waitMs,
 				wait.noGridFor, offer, err, wait.isOnLadder)
 		}
