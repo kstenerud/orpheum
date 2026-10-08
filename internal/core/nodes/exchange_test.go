@@ -128,9 +128,8 @@ func newExchanges(t *testing.T) exchangeBench {
 	database := storetest.OpenMigrated(t)
 	bench.cache = storetest.OpenCache(t)
 	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Rooms: bench.sender, Unsent: bench.sender, Clock: bench.now, Random: rand.Reader,
-		Logger: logger,
-		Cache:  bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
+		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger,
+		Cache: bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
 	})
 	return bench
 }

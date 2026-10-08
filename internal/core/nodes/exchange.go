@@ -115,12 +115,11 @@ type ExchangeParts struct {
 	MaxSilence time.Duration
 	// Rooms are what each node can run at once: Service.
 	Rooms Rooms
-	// Unsent hears of each attempt kept before its command is queued: Service. Nil hears nothing.
-	Unsent Unsent
 }
 
-// Unsent hears that the command of attempt token will be queued for a node once its job is recorded
-// assigned: until then, or unsentGrace, no status judges it lost (Service.WillSend).
+// Unsent is a Sender that hears that the command of attempt token will be queued for a node once
+// its job is recorded assigned: until then, or unsentGrace, no status judges it lost
+// (Service.WillSend). A Sender that is not hears nothing.
 type Unsent interface {
 	WillSend(nodeID int64, token string)
 }
@@ -194,9 +193,11 @@ var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)
 
 // NewExchanges returns the exchanges with nodes.
 func NewExchanges(parts ExchangeParts) *Exchanges {
+	unsent, _ := parts.Sender.(Unsent) //nolint:errcheck // a Sender that is not Unsent hears nothing
 	return &Exchanges{
+		unsent: unsent,
 		sender: parts.Sender, clock: parts.Clock, random: parts.Random, logger: parts.Logger, cache: parts.Cache,
-		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms, unsent: parts.Unsent,
+		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
 		brokenInvariants: map[int64]int{},
