@@ -304,7 +304,11 @@ User-Agent (D263; the User-Agent is logged only).
   less in Chrome and Firefox (hls.js #7616, shaka #2823). Jellyfin turned SpeedToSync off ("failing on Safari").
 - **Cause:** inferred: WebKit swaps AVPlayerItem's pitch algorithm when the rate is not 1 [source].
 - **What we do:** the `should_together_nudge_keep_pitch` setting, small and infrequent nudges, and seek-only as
-  the fallback. `internal/core/settings/registry.go:281-284`.
+  the fallback. `internal/core/settings/registry.go:281-284`. Each player also learns what its rate going back
+  to the group's costs it, and a nudge goes on past the group by that much, so it lands on it: on two iPhones
+  each nudge's end cost about 220 ms, beyond the 150 ms allowance, and they were nudged some 40 times in two
+  minutes, their sound stuttering at each (the owner's tests, 2026-10-08; `learnedReturnCostMs` and
+  `driftCorrection` in `web/packages/sdk/src/together-drift.ts`; each nudge's note logs `returnCostMs`).
 - **Evidence:** D250 §7, D62; VQ22 (open); `research/safari-versions.md` §3, §5; [web].
   **[web]** [WebKit bug 163433](https://bugs.webkit.org/show_bug.cgi?id=163433), "playbackRate update while
   playing creates a small pause in the playback" (about 80 ms on iOS, 300 ms on macOS): NEW since 2016;

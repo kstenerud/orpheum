@@ -90,6 +90,8 @@ export type PlayerNote =
       readonly positionMs: number;
       readonly driftMs: number;
       readonly rate: number;
+      /** What the player learned its rate going back to the group's costs it (driftCorrection). */
+      readonly returnCostMs: number;
     }
   | {
       readonly kind: "sought";

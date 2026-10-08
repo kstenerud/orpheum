@@ -465,11 +465,17 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     connection.open();
     sockets.opened[0]!.onOpen();
     sockets.opened[0]!.onMessage(JSON.stringify(welcome));
-    connection.note({ kind: "nudged", positionMs: 1234.6, driftMs: 80.2, rate: 1.05 });
+    connection.note({
+      kind: "nudged",
+      positionMs: 1234.6,
+      driftMs: 80.2,
+      rate: 1.05,
+      returnCostMs: 220,
+    });
     expect(sockets.sent.at(-1)).toEqual({
       v: 2,
       type: "note",
-      note: { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05 },
+      note: { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05, returnCostMs: 220 },
     });
     sockets.opened[0]!.onClose(1006);
     connection.note({ kind: "sought", positionMs: 0, toMs: 1, why: "hold" }); // not connected
@@ -479,7 +485,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     sockets.opened[1]!.onMessage(JSON.stringify(welcome));
     const notes = sockets.sent.filter((each) => each["type"] === "note");
     expect(notes.map((each) => each["note"])).toEqual([
-      { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05 },
+      { kind: "nudged", positionMs: 1235, driftMs: 80, rate: 1.05, returnCostMs: 220 },
       { kind: "reconnected", offlineMs: 3000, why: "closed" },
     ]);
   });

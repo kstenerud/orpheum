@@ -110,6 +110,9 @@ type PlayerNote struct {
 	// played at for the nudge.
 	DriftMs int64   `json:"driftMs,omitempty"`
 	Rate    float64 `json:"rate,omitempty"`
+	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
+	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
+	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
 	// Why is a seek's ("catchUp", "hold") or a reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and Kbps are a chunk's: "video" or "audio", how long it took, and how fast.

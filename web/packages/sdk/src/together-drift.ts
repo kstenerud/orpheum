@@ -37,20 +37,46 @@ export type DriftCorrection =
  * The correction for a player at actualMs while the group is at expectedMs playing at groupRate:
  * none within tuning's leaveDriftUpToMs, a seek beyond its seekDriftBeyondMs, else a rate that
  * closes the gap over nudgeForMs, no further from the group's than its nudgeMostPercent: a larger
- * drift is closed by the nudges that follow (D250 §1).
+ * drift is closed by the nudges that follow (D250 §1). A player being nudged loses returnCostMs as
+ * its rate goes back to the group's, as Safari does, some 220 ms each time: it is judged by where it
+ * will be after that loss, so its nudge ends past the group by the loss and lands on it. Judged by
+ * where it was, every nudge ended 220 ms behind, beyond the allowance, and an iPhone was nudged 40
+ * times in two minutes, its sound stuttering at each (the owner's tests, 2026-10-08).
  */
 export function driftCorrection(
   drift: { readonly expectedMs: number; readonly actualMs: number; readonly groupRate: number },
   tuning: SyncTuning,
+  returnCostMs = 0,
 ): DriftCorrection {
   const behindMs = drift.expectedMs - drift.actualMs;
-  if (Math.abs(behindMs) <= tuning.leaveDriftUpToMs) {
-    return { kind: "none" };
-  }
   if (Math.abs(behindMs) > tuning.seekDriftBeyondMs) {
     return { kind: "seek", toMs: drift.expectedMs };
   }
+  const afterReturnMs = behindMs + returnCostMs;
+  if (Math.abs(afterReturnMs) <= tuning.leaveDriftUpToMs) {
+    return { kind: "none" };
+  }
   const most = tuning.nudgeMostPercent / 100;
-  const factor = Math.min(1 + most, Math.max(1 - most, 1 + behindMs / nudgeForMs));
+  const factor = Math.min(1 + most, Math.max(1 - most, 1 + afterReturnMs / nudgeForMs));
   return { kind: "nudge", rate: drift.groupRate * factor };
+}
+
+/** The most a player's rate going back to its group's is taken to cost: beyond it, a stall. */
+export const returnCostAtMostMs = 500;
+
+/**
+ * What a player's rate going back to its group's costs it, learned from one more return: where it
+ * was behind as it returned and where once its position settled, between 0 and returnCostAtMostMs.
+ * The first return's loss is taken whole, the best there is, and each one after averaged with what
+ * was learned (half and half), so a player that loses time learns it at once and a wobble moves it
+ * little. A browser that loses nothing, Chrome or Firefox, learns about 0, and nudges as before.
+ */
+export function learnedReturnCostMs(
+  learned: { readonly costMs: number; readonly returns: number },
+  behindAtReturnMs: number,
+  behindNowMs: number,
+): { readonly costMs: number; readonly returns: number } {
+  const lostMs = Math.min(returnCostAtMostMs, Math.max(0, behindNowMs - behindAtReturnMs));
+  const costMs = learned.returns === 0 ? lostMs : (learned.costMs + lostMs) / 2;
+  return { costMs, returns: learned.returns + 1 };
 }
