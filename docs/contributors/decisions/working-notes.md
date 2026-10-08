@@ -18892,3 +18892,36 @@ from the player's events with one-shot marks, where most of a week's bugs lived.
    not events.
 
 **Status:** Decided 2026-10-08.
+
+## D269 — A film with no keyframe index is cut on time and plays encoded at once; its original picture is copied once a read-through has found its keyframes
+
+**Decided** (2026-10-08), by the project owner, on the question of what matching the original's
+keyframes buys the viewer: *"Ok, go with your recommendations on the key frames issue"*; and, on
+knowing a file's keyframes before it is played, *"is it possible as a future enhancement to scan
+and save the index of a video so that we know up front what we're dealing with?"* **Replaces**
+[D259](#d259--a-films-cut-points-come-from-where-each-one-falls-from-the-files-own-index-or-from-reading-ahead-of-the-player-never-only-from-a-whole-read)
+§3's reading ahead of the player.
+
+Only the original picture, copied, needs the film's own keyframes: HLS has a video segment start
+on one (Apple's authoring specification 7.4), and every other stream is encoded, its keyframes
+placed where it is cut. Most files with no index cannot be copied to a browser at all (Xvid and
+DivX in AVI, MPEG-2 in a TV recording's MPEG-TS), so waiting for their keyframes bought their
+viewers nothing, and reading ahead of the player would have made a seek past what it read wait.
+
+1. **A file with no index of its keyframes is cut on time**: a chunk starts at each multiple of
+   `hls_segment_length_seconds`, a last chunk shorter than that merged into the one before. Its
+   playback is offered the encoded qualities and the sounds at once, from any point, and not the
+   picture copied.
+2. **The node says a file has no index at once.** A read-through a player waits on asks for the
+   index alone, and a file with none answers so in a fraction of a second, rather than being read
+   through while the player waits.
+3. **A playback keeps the grid it started on.** One that began on time stays on time to its end,
+   though a read-through finds the keyframes meanwhile; a playback after that is offered the picture
+   copied, on the keyframes, when its player decodes it.
+4. **Files with no index are read through first** by the sweep that reads every film through, so
+   most are known before anyone plays them; what a read-through learns is kept by the file's bytes,
+   and the file itself is never changed.
+
+A file with an index keeps D259 §1–§2: its keyframes from the index, its picture copied.
+
+**Status:** Decided 2026-10-08.
