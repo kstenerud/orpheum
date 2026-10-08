@@ -283,7 +283,19 @@ func (service *Service) offeredStream(
 	if err != nil {
 		return film, stream, err
 	}
-	if !offered.has(stream) {
+	if offered.has(stream) {
+		return film, stream, nil
+	}
+	// A playback offered its film before its picture's bytes in each second were known was offered
+	// by the file's bit rate, sound and all: a quality between the two is the playback's still,
+	// which once it came was refused mid-film (the M4 closing audit, 2026-10-08).
+	before := film
+	before.bytesInEachSecond = nil
+	offeredBefore, err := service.offerOf(ctx, before, playback)
+	if err != nil {
+		return film, stream, err
+	}
+	if !offeredBefore.has(stream) {
 		return film, stream, fmt.Errorf("%w: file %d's %s", ErrNoStream, playback.FileID, streamName)
 	}
 	return film, stream, nil
