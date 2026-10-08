@@ -31,8 +31,10 @@
 //   - Play state records against the source file, never a prepared rendition, and a position moves
 //     only for a report about a later moment of watching, anchored from the device's monotonic
 //     clock, so two devices reporting out of order never rewind it; a report sent again changes
-//     nothing (D217 §7, D165). Enforced by
-//     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
+//     nothing; and only for a playback that has played, which a report says by its started event
+//     or a span, never one whose player, not yet loaded, reads 0 (D217 §7, D165). Enforced by
+//     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition,
+//     TestPlayState_APlaybackThatHasNotPlayedMovesNoPosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
 //
 //   - A playback not on its ladder: its first stall starts the lower quality its link carries where its player was, and
