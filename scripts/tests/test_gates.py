@@ -528,6 +528,17 @@ class GateChangedTrailer(unittest.TestCase):
             __import__("os").chdir(cwd)
 
 
+class IntegrationTier(unittest.TestCase):
+    def test_the_tier_runs_only_the_tagged_tests_and_fails_when_it_finds_none(self):
+        """The unit tests ran in make check; the tier runs the tests only -tags integration builds,
+        by name, and a selection gone empty fails rather than testing nothing (the test audit)."""
+        makefile = (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text()
+        recipe = makefile.split("\ntest-integration:", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("test -n '$(INTEGRATION_ONLY_TESTS)' ||", recipe)
+        self.assertIn("-run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES)", recipe)
+        self.assertNotIn("./...", recipe)
+
+
 class LinterLock(unittest.TestCase):
     def test_a_linter_that_could_not_start_fails_rather_than_finding_nothing(self):
         refused = ["sh", "-c", "echo 'Error: parallel golangci-lint is running' >&2; exit 3"]
