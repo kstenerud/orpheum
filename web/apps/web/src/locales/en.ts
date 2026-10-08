@@ -250,6 +250,8 @@ export const en = {
   title: {
     runtime: "{{minutes}} min",
     season: "Season {{season}}",
+    episodeCount: "Episodes: {{count}}",
+    allSeasons: "All seasons",
     place: "{{series}} · season {{season}}, episode {{number}}",
     versions: "Versions",
     version: "Version {{index}}",

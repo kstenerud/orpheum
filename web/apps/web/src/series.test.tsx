@@ -36,12 +36,22 @@ describe("SeriesView", () => {
         episode(33, { seasonNumber: 2, episodeNumber: 1 }),
       ],
     };
+    // The series' page lists its seasons, specials last, each with a still and its count, leading
+    // to its episodes (the owner, 2026-10-07: series, then seasons, then episodes).
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(markup.indexOf("Season 1")).toBeLessThan(markup.indexOf("Season 2"));
     expect(markup.indexOf("Season 2")).toBeLessThan(markup.indexOf("Specials"));
     expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
-    expect(markup).toContain("not on disk");
-    expect(markup).toContain('href="/titles/32"');
+    expect(markup).toContain("Episodes: 2");
+    expect(markup).toContain('href="/series/20?season=1"');
+    expect(markup).not.toContain('href="/titles/32"');
+    // A season's page lists its episodes, each with its still and whether it is on disk.
+    const season = renderToStaticMarkup(withServices(<SeriesView series={series} season={1} />));
+    expect(season).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
+    expect(season).toContain("not on disk");
+    expect(season).toContain('href="/titles/32"');
+    expect(season).not.toContain('href="/titles/33"');
+    expect(season).toContain('href="/series/20"');
     expect(bySeason([]).length).toBe(0);
   });
 });
@@ -67,5 +77,21 @@ describe("an episode that cannot be played now (D241 §3)", () => {
       "This cannot be played now: devnas, the machine that holds it, is not connected.",
     );
     expect(markup).toContain("series__item--absent");
+  });
+});
+
+describe("a series of one season", () => {
+  it("shows its episodes at once, with no season to choose", () => {
+    const series: SeriesDetail = {
+      id: 21,
+      kind: "series",
+      name: "Short Run",
+      libraryId: 1,
+      art: {},
+      episodes: [episode(50, { seasonNumber: 1, episodeNumber: 1 })],
+    };
+    const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
+    expect(markup).toContain('href="/titles/50"');
+    expect(markup).not.toContain("All seasons");
   });
 });

@@ -5,7 +5,8 @@ export type Route =
   | { readonly screen: "films" }
   | { readonly screen: "series" }
   | { readonly screen: "title"; readonly itemId: number }
-  | { readonly screen: "series-page"; readonly collectionId: number }
+  /** A series' page: its seasons, or one season's episodes (the owner, 2026-10-07: drill down). */
+  | { readonly screen: "series-page"; readonly collectionId: number; readonly season?: number }
   | { readonly screen: "play"; readonly fileId: number }
   | { readonly screen: "search"; readonly query: string }
   | { readonly screen: "identify" }
@@ -44,7 +45,12 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/titles\/([1-9]\d{0,15})$/u, toRoute: (itemId) => ({ screen: "title", itemId }) },
   {
     pattern: /^\/series\/([1-9]\d{0,15})$/u,
-    toRoute: (collectionId) => ({ screen: "series-page", collectionId }),
+    toRoute: (collectionId, search) => {
+      const season = Number(search.get("season") ?? "-1");
+      return Number.isInteger(season) && season >= 0 && season < 10_000
+        ? { screen: "series-page", collectionId, season }
+        : { screen: "series-page", collectionId };
+    },
   },
   { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId) => ({ screen: "play", fileId }) },
   {
@@ -87,7 +93,8 @@ export function routeHref(route: Route): string {
     return `/titles/${String(route.itemId)}`;
   }
   if (route.screen === "series-page") {
-    return `/series/${String(route.collectionId)}`;
+    const season = route.season === undefined ? "" : `?season=${String(route.season)}`;
+    return `/series/${String(route.collectionId)}${season}`;
   }
   if (route.screen === "play") {
     return `/play/${String(route.fileId)}`;
