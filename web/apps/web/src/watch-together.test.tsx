@@ -5,7 +5,7 @@ import "./i18n.ts";
 
 import { act, useState, type JSX } from "react";
 import { stallAfterMs } from "@orpheum/player";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PlayView } from "./play.tsx";
 import {
@@ -342,9 +342,15 @@ describe("the host's player in a session (D246 §5)", () => {
     // Playing, it runs out of data, and the report's answer moves it to the lower quality.
     Object.defineProperty(video, "paused", { value: false });
     await act(async () => {
-      video.dispatchEvent(new Event("playing"));
-      video.dispatchEvent(new Event("waiting"));
-      await new Promise((resolve) => setTimeout(resolve, stallAfterMs + 50));
+      // The stall's wait on fake time, not the real clock's (rule 16; the test audit, 2026-10-08).
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        video.dispatchEvent(new Event("playing"));
+        video.dispatchEvent(new Event("waiting"));
+        await vi.advanceTimersByTimeAsync(stallAfterMs + 50);
+      } finally {
+        vi.useRealTimers();
+      }
     });
     expect(mounted.container.textContent).toContain("moves to a lower quality");
     expect(server.heard.filter((message) => message["type"] === "command")).toEqual([]);
