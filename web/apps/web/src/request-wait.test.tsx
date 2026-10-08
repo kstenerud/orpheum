@@ -14,8 +14,13 @@ import { useRequest } from "./use-request.ts";
 let mounted: Mounted | undefined;
 
 beforeEach(() => {
-  // Time passes on its own too, so the test's own settling, which waits on a timer, settles.
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], shouldAdvanceTime: true });
+  // Time passes on its own too, a millisecond at a time, so the test's own settling, which waits
+  // on a timer, settles at once rather than in real 20 ms steps (the test audit, 2026-10-08).
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "Date"],
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 1,
+  });
 });
 
 afterEach(() => {

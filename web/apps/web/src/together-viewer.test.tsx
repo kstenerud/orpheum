@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { stallAfterMs } from "@orpheum/player";
 import { playedMutedEvent } from "@orpheum/sdk";
 import { act } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./app.tsx";
 import { createNavigation } from "./navigation.ts";
@@ -259,9 +259,15 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     // Playing along, it runs out of data.
     Object.defineProperty(video, "paused", { value: false });
     await act(async () => {
-      video.dispatchEvent(new Event("playing"));
-      video.dispatchEvent(new Event("waiting"));
-      await new Promise((resolve) => setTimeout(resolve, stallAfterMs + 50));
+      // The stall's wait on fake time, not the real clock's (rule 16; the test audit, 2026-10-08).
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        video.dispatchEvent(new Event("playing"));
+        video.dispatchEvent(new Event("waiting"));
+        await vi.advanceTimersByTimeAsync(stallAfterMs + 50);
+      } finally {
+        vi.useRealTimers();
+      }
     });
     const report = heard.find((each) => each.methodAndPath === "POST /playback/t/report");
     expect(report?.body).toMatchObject({ stalls: [{ positionMs: 0 }] });
