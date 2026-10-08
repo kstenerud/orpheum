@@ -417,6 +417,21 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(false);
   });
 
+  it("after a stall is ready held a hair before what it loaded, as it is held at its start (the M4 closing audit)", () => {
+    const media = new FakeMedia();
+    const { connection, reports } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    media.fire("seeked");
+    media.readyState = 2;
+    media.fire("waiting");
+    // Its position reads half a millisecond before the start of what it loaded.
+    media.currentTime = 60;
+    media.loaded = [[60.0005, 60 + refillAheadMs / 1000 + 1]];
+    media.readyState = 3;
+    media.fire("progress");
+    expect(reports.at(-1)?.isBuffering).toBe(false);
+  });
+
   it("after a stall plays on with what it has once the browser stops loading, or the film ends", () => {
     const media = new FakeMedia();
     const { connection, reports } = fakeConnection(paused);
