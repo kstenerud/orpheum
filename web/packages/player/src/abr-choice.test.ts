@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  chunksNotHeld,
   chunksWhileStill,
   giveUpFor,
   isUnplayable,
@@ -164,12 +165,29 @@ describe("what measures the link (D265 §7)", () => {
 
 describe("a quality this device cannot play (D266)", () => {
   it("is one whose video stood still while its chunks kept arriving", () => {
-    expect(isUnplayable({ forMs: standsStillAtMostMs, chunksLoaded: chunksWhileStill })).toBe(true);
+    expect(
+      isUnplayable({
+        forMs: standsStillAtMostMs,
+        chunksLoaded: chunksWhileStill,
+        chunksNotHeld: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("is, at once, one whose chunks the browser took and held nothing of", () => {
+    expect(isUnplayable({ forMs: 1000, chunksLoaded: 2, chunksNotHeld })).toBe(true);
+    expect(isUnplayable({ forMs: 1000, chunksLoaded: 2, chunksNotHeld: chunksNotHeld - 1 })).toBe(
+      false,
+    );
   });
 
   it("is not yet one that stood still briefly, or whose chunks were slow to come", () => {
-    expect(isUnplayable({ forMs: standsStillAtMostMs - 1, chunksLoaded: 10 })).toBe(false);
-    expect(isUnplayable({ forMs: 60_000, chunksLoaded: chunksWhileStill - 1 })).toBe(false);
+    expect(
+      isUnplayable({ forMs: standsStillAtMostMs - 1, chunksLoaded: 10, chunksNotHeld: 0 }),
+    ).toBe(false);
+    expect(
+      isUnplayable({ forMs: 60_000, chunksLoaded: chunksWhileStill - 1, chunksNotHeld: 0 }),
+    ).toBe(false);
   });
 });
 

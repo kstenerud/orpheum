@@ -202,12 +202,20 @@ export const standsStillAtMostMs = 6000;
 /** How many chunks of its quality arrive while it stands still that show the link is not why (D266). */
 export const chunksWhileStill = 2;
 
+/**
+ * How many chunks of picture, appended while the video stands still, may add nothing to what it
+ * holds before their quality is given up at once (D266).
+ */
+export const chunksNotHeld = 2;
+
 /** A video asked to play whose position has not moved, and what arrived meanwhile. */
 export interface StandingStill {
   /** How long its position has stood still while it was asked to play, in ms. */
   readonly forMs: number;
   /** How many chunks of picture loaded meanwhile. */
   readonly chunksLoaded: number;
+  /** How many of them the browser took and held nothing of (hls.js's bufferAppendNoProgress). */
+  readonly chunksNotHeld: number;
 }
 
 /**
@@ -215,10 +223,16 @@ export interface StandingStill {
  * play, its position stood still for standsStillAtMostMs while chunksWhileStill chunks arrived, so
  * the link carries it and the decoder does not. Firefox on macOS took Flow's own picture, 10-bit
  * HEVC whose every keyframe after the first is a CRA, and froze at any start but the film's
- * beginning while its chunks kept arriving (the owner's test, 2026-10-07).
+ * beginning while its chunks kept arriving (the owner's test, 2026-10-07). Sooner, when the
+ * browser holds nothing of chunksNotHeld chunks it took: Firefox on macOS took each of Flow's HEVC
+ * chunks after a CRA and held none of it, hls.js reporting "append did not increase buffered
+ * coverage" and doing nothing about it (the owner's test, 2026-10-08).
  */
 export function isUnplayable(still: StandingStill): boolean {
-  return still.forMs >= standsStillAtMostMs && still.chunksLoaded >= chunksWhileStill;
+  return (
+    still.chunksNotHeld >= chunksNotHeld ||
+    (still.forMs >= standsStillAtMostMs && still.chunksLoaded >= chunksWhileStill)
+  );
 }
 
 /**

@@ -2,6 +2,7 @@
 
 import {
   AbrController,
+  ErrorDetails,
   Events,
   PlaylistLevelType,
   type Fragment,
@@ -108,7 +109,13 @@ export class Choosing<Chunk extends FollowedChunk> {
   #hasMeasured = false;
   /** Since when the video, asked to play, has stood still where it is, and how many chunks came meanwhile. */
   #still:
-    { readonly sinceMs: number; readonly positionS: number; chunksLoaded: number } | undefined;
+    | {
+        readonly sinceMs: number;
+        readonly positionS: number;
+        chunksLoaded: number;
+        chunksNotHeld: number;
+      }
+    | undefined;
   /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
   #unplayableFrom: number | undefined;
   readonly #timers: ReturnType<typeof setInterval>[];
@@ -201,6 +208,16 @@ export class Choosing<Chunk extends FollowedChunk> {
     }
   }
 
+  /**
+   * The browser took a chunk of picture of level and held nothing of it (hls.js's
+   * bufferAppendNoProgress): counted while the video stands still at that quality (D266).
+   */
+  notHeld(level: number): void {
+    if (this.#still !== undefined && level === this.#hls.loadLevel) {
+      this.#still.chunksNotHeld += 1;
+    }
+  }
+
   /** Whether a loaded chunk of picture measures the link, to be counted in the estimate (D265 §7). */
   measures(chunk: Chunk): boolean {
     const { loading, loaded } = chunk.stats;
@@ -285,13 +302,22 @@ export class Choosing<Chunk extends FollowedChunk> {
     }
     const still = this.#still;
     if (still === undefined || Math.abs(media.currentTime - still.positionS) > movedAtLeastS) {
-      this.#still = { sinceMs: nowMs, positionS: media.currentTime, chunksLoaded: 0 };
+      this.#still = {
+        sinceMs: nowMs,
+        positionS: media.currentTime,
+        chunksLoaded: 0,
+        chunksNotHeld: 0,
+      };
       return;
     }
     const level = this.#hls.loadLevel;
     if (
       level > this.#hls.minAutoLevel &&
-      isUnplayable({ forMs: nowMs - still.sinceMs, chunksLoaded: still.chunksLoaded })
+      isUnplayable({
+        forMs: nowMs - still.sinceMs,
+        chunksLoaded: still.chunksLoaded,
+        chunksNotHeld: still.chunksNotHeld,
+      })
     ) {
       this.#giveUpUnplayable(level, still.positionS);
     }
@@ -427,6 +453,14 @@ class OrpheumAbrController extends AbrController {
       },
       error: (event, data) => {
         this.onError(event, data);
+        const { frag } = data;
+        if (
+          data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&
+          frag !== undefined &&
+          isPicture(frag)
+        ) {
+          this.choosing.notHeld(frag.level);
+        }
       },
     };
   }

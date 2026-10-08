@@ -32,6 +32,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Symptom | Entry |
 |---|---|
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
+| The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
@@ -160,25 +161,29 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe
 
-- **Technology:** Firefox (macOS, HEVC through the system decoder) + x265's open-GOP keyframes.
-- **Symptom:** *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. The
-  player spun while its chunks kept arriving on a fast link. It played from the film's beginning, and Safari
-  played it everywhere. No error appears: `isTypeSupported` says HEVC is playable, and it is, from an IDR.
+- **Technology:** Firefox 156 on macOS, HEVC through the system decoder, and x265's open-GOP keyframes.
+- **Symptom:** *Flow* (10-bit HEVC by x265) froze at any start but the film's beginning: the player spun,
+  paused at readyState 1, while its chunks kept arriving on a fast link. Safari played it everywhere, and so
+  did Firefox from 0:00. Nothing says so in advance: `isTypeSupported` says HEVC is playable, and it is,
+  from an IDR.
 - **Cause:** x265's keyframes after the first are CRA, not IDR, so every chunk but the first starts on a CRA.
-  Firefox/macOS does not start decoding there. Established by the owner's test. Firefox's internal reason is
-  unverified.
-- **What we do:** D266. A quality whose video stands still for 6 s while at least 2 picture chunks arrive is
-  unplayable on this device. It is given up for the playback, with every quality above it, and the core
-  logs it. There is no User-Agent branching.
-  `web/packages/player/src/abr-choice.ts:198-220` (`standsStillAtMostMs`, `chunksWhileStill`,
-  `isUnplayable`); `web/packages/player/src/abr.ts:271-293`; `internal/core/api/report.go:215-224`.
-- **Evidence:** D266, [owner] 2026-10-07; an earlier commit.
-- **Caution:** agent-failures A22 (2026-10-06) records an earlier wrong diagnosis, "Firefox can't decode HEVC" (a23361e2).
-  Part of that freeze was our own gap bug (dbc913c8), so do not list "Firefox lies about HEVC".
+  Firefox on macOS takes such a chunk and **holds nothing of it**. Captured at the moment of giving up: the
+  picture's buffer was empty while the sound's held 416.24–501.78, and hls.js reported
+  `bufferAppendNoProgress: Fragment append did not increase buffered coverage`. Firefox's reason (likely not
+  counting a CRA as a random access point on that path) is unverified.
+- **What we do:** D266. A quality is given up for the playback, with every quality above it, and the video's
+  decoding is built anew (`recoverMediaError`). This happens at once when two of its chunks are held nothing
+  of, or after 6 s standing still while two chunks arrive. The core logs the quality, with the video as it
+  was. There is no User-Agent branching.
+  `web/packages/player/src/abr-choice.ts` (`isUnplayable`, `chunksNotHeld`); `web/packages/player/src/abr.ts`
+  (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayable`).
+- **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
+  empty picture buffer and `bufferAppendNoProgress` above, 05:16 UTC on staging).
+- **Caution:** agent-failures A22 (2026-10-06) records an earlier wrong diagnosis, "Firefox can't decode
+  HEVC". Part of that freeze was our own gap bug. A stall report taken *after* a
+  rebuild showed the sound missing instead: that was the new pipeline refilling, not the cause.
 - **Firefox on Linux plays the same chunks:** headless Firefox 155 on Linux, through Playwright against
-  staging on 2026-10-07, loaded Flow's own picture from chunk 44 (416 s) on and played through 420.6 s
-  without a stall. So the failure is in the macOS decoding path, not in Firefox's MSE or the chunks.
-
+  staging on 2026-10-07/08, played Flow's own picture from mid-film chunks, picture and sound buffered alike.
 
 ### Firefox offers no RED (redundant audio) for Opus
 
@@ -607,6 +612,19 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **Evidence:** [staging] 2026-10-07. **Borderline:** this is a documented default.
 
 ---
+
+### hls.js reports a fragment the browser held nothing of, then does nothing about it
+
+- **Technology:** hls.js 1.7.3, `bufferAppendNoProgress`.
+- **Symptom:** the browser takes a fragment's append without error but adds nothing to the buffer. hls.js
+  raises a non-fatal `bufferAppendNoProgress` error, and its error controller answers with a do-nothing action.
+  The player goes on loading chunk after chunk that is never held, and the video never starts.
+- **Cause:** `error-controller.ts` groups `BUFFER_APPEND_NO_PROGRESS` with stalls and nudges, which need no
+  action [source].
+- **What we do:** D266. The bitrate controller counts these for picture chunks while the video stands still.
+  Two of them give the quality up at once (`notHeld` in `web/packages/player/src/abr.ts`).
+- **Evidence:** [owner] 2026-10-08, Flow in Firefox on macOS; `/yoloai/cache/hls.js`
+  `src/controller/error-controller.ts` and `buffer-controller.ts` at v1.7.3.
 
 ---
 

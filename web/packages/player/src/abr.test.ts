@@ -221,6 +221,15 @@ describe("a quality this device cannot play (D266)", () => {
     expect(choosing.forcedLevel()).toBe(-1);
   });
 
+  it("is given up at once when the browser holds nothing of two of its chunks", () => {
+    const { choosing, unplayable } = standingAt(416.9);
+    choosing.notHeld(3);
+    choosing.notHeld(3);
+    nowMs = 1000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 416_900 }]);
+  });
+
   it("is given up on an autoplaying video, paused until it can play, that never can", () => {
     const { hls, choosing, unplayable } = standingAt(303.98);
     hls.media = { currentTime: 303.98, paused: true, readyState: 1 };
