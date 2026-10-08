@@ -3,7 +3,7 @@
 /**
  * Watch Together between two browsers, a host signed in and a guest by their link (M4's
  * acceptance, D252): the link works once, and only once joined; no credential is ever in an
- * address; and voice between two fake microphones arrives within D243 §9's bounds.
+ * address; a film the browser would play only muted offers its sound at a tap; and voice between two fake microphones arrives within D243 §9's bounds.
  */
 
 import { readFileSync } from "node:fs";
@@ -81,6 +81,23 @@ test("an invitation works once, only once joined, and no credential is ever in a
   await join(guest, link);
   await hostPlays(host, warmUpFilm);
   await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+
+  // A browser that would play the film only muted, as an iPhone does long after the Join tap, gets
+  // Tap for sound over the picture, and the tap turns the sound on.
+  const video = guest.locator("video");
+  await video.evaluate((element: HTMLVideoElement) => {
+    // eslint-disable-next-line no-param-reassign -- muting the guest's video is what is simulated
+    element.muted = true;
+    element.dispatchEvent(new Event("orpheumplayedmuted"));
+  });
+  const soundOn = guest.getByRole("button", { name: "Tap for sound" });
+  const [picture, button] = await Promise.all([video.boundingBox(), soundOn.boundingBox()]);
+  expect(
+    picture !== null && button !== null && button.y + button.height <= picture.y + picture.height,
+    "Tap for sound is over the picture",
+  ).toBe(true);
+  await soundOn.click();
+  expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);
 
   // Joined, it is spent: another browser opening it is told so.
   const late = await browser.newContext();
