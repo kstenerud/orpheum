@@ -161,6 +161,21 @@ func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 	}
 }
 
+// A follower's own move that fired no event, its mark given up, is logged at info: a mark left
+// waiting took a person's later move for the follower's own (D268 §4).
+func TestHub_LogsAPlayersOwnMarkGivenUp(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteOwnMarkExpired, Why: "pause",
+	}})
+	want := `level=INFO msg="watch together: a player's own move fired no event; its mark was given up"`
+	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, "move=pause") {
+		t.Errorf("the log does not say the mark given up:\n%s", logged)
+	}
+}
+
 // A browser refusing to play with sound, and the tap that turns it on, are logged at INFO: a guest's
 // iPhone sat silent and nothing said why (the owner's test, 2026-10-08).
 func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {

@@ -94,6 +94,8 @@ export interface PlayerState {
  * - ponged: a pong of roundTripMs said where the group is, residualMs ahead of where the device
  *   expected it (behind when negative), and placed the group anew ("placed") or not ("kept"): the
  *   residuals of a placing kept for minutes are the two clocks' skew (D264, D268 §1);
+ * - ownMarkExpired: a seek or pause the follower made fired no event within ownMarkLastsMs, and its
+ *   mark was given up (D268 §4);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
  *   tap, and it plays muted (playedMutedEvent);
  * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap);
@@ -142,6 +144,7 @@ export type PlayerNote =
       readonly why: "placed" | "kept";
     }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
+  | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
   | {
       readonly kind: "led";
       readonly why: "pause" | "seek" | "play";

@@ -16,6 +16,7 @@ import {
   playerSwitchedQualityEvent,
   qualitySwitchedOf,
 } from "./together-player-events.ts";
+import { OwnMoves } from "./together-own-moves.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
 
 /**
@@ -204,8 +205,8 @@ class GroupFollower {
   readonly #media: FollowedMedia;
   readonly #connection: TogetherConnection;
   readonly #options: FollowOptions;
-  /** Whether the last seek was the follower's own, so its seeking is not taken for a person's. */
-  #isOwnSeekPending = false;
+  /** The moves it makes itself, marked so their events are not taken for its person's. */
+  readonly #ownMoves = new OwnMoves();
   #nudgeEndsAtMs = 0;
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
   #recentEvents: string[] = [];
@@ -237,8 +238,6 @@ class GroupFollower {
    * undefined while it follows as usual (D247 §4, amended 2026-10-06).
    */
   #waitAtMs: number | undefined = undefined;
-  /** Whether the pause it made to wait ahead is still to be heard: a leading player's is no command. */
-  #isOwnPausePending = false;
   /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
   #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
   /** Film loaded per second of the link, as last measured; undefined until it has been. */
@@ -272,7 +271,7 @@ class GroupFollower {
     if (where.group.state === "Playing" && this.#isWaitingAhead(where)) {
       // A player that jumped ahead to catch up waits there, paused and loading, for the group.
       if (!this.#media.paused) {
-        this.#isOwnPausePending = true;
+        this.#ownMoves.mark("pause", this.#options.monotonicMs());
         this.#media.pause();
       }
     } else if (where.group.state === "Playing") {
@@ -310,15 +309,7 @@ class GroupFollower {
 
   /** Whether event is of a seek or pause the follower made itself, not its person: no command. */
   #isOwnMove(event: string): boolean {
-    const isOwnSeek = (event === "seeking" || event === "seeked") && this.#isOwnSeekPending;
-    if (event === "seeked") {
-      this.#isOwnSeekPending = false;
-    }
-    const isOwnPause = event === "pause" && this.#isOwnPausePending;
-    if (event === "pause") {
-      this.#isOwnPausePending = false;
-    }
-    return isOwnSeek || isOwnPause;
+    return this.#ownMoves.heard(event, this.#options.monotonicMs());
   }
 
   /**
@@ -343,6 +334,9 @@ class GroupFollower {
    * which the server ends a wait whose time is up (D247 §4).
    */
   readonly tick = (): void => {
+    for (const move of this.#ownMoves.expired(this.#options.monotonicMs())) {
+      this.#connection.note({ kind: "ownMarkExpired", why: move });
+    }
     this.#sampleLoading();
     this.apply();
     if (this.#connection.snapshot().group?.state === "Waiting") {
@@ -361,7 +355,7 @@ class GroupFollower {
 
   /** The player moves the video itself: the seeking that follows is not its person's. */
   readonly playerMovedItself = (): void => {
-    this.#isOwnSeekPending = true;
+    this.#ownMoves.mark("seek", this.#options.monotonicMs());
   };
 
   /** Stops what is pending, as the follower stops. */
@@ -446,10 +440,9 @@ class GroupFollower {
 
   /** Keeps event, its time and whether the follower made it, among the last recentEventsKept. */
   #keepEvent(event: string): void {
-    const isOwn =
-      (event === "pause" && this.#isOwnPausePending) ||
-      ((event === "seeking" || event === "seeked") && this.#isOwnSeekPending);
-    const atMs = Math.round(this.#options.monotonicMs());
+    const nowMs = this.#options.monotonicMs();
+    const isOwn = this.#ownMoves.isOwn(event, nowMs);
+    const atMs = Math.round(nowMs);
     this.#recentEvents = [
       ...this.#recentEvents,
       `${event}${isOwn ? "(own)" : ""}@${String(atMs)}`,
@@ -475,7 +468,7 @@ class GroupFollower {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSamples = [];
     this.#behindAtReturnMs = undefined; // what a seek moves is no return's cost
-    this.#isOwnSeekPending = true;
+    this.#ownMoves.mark("seek", this.#options.monotonicMs());
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
   }
@@ -631,7 +624,7 @@ class GroupFollower {
       // Its own pause, never its person's: a host's play passes through a sync point's Waiting, and
       // this pause's event, arriving once the group played on, was sent to everyone as the host's
       // pause, so each play stopped 0.4 s later (the owner's test, 2026-10-08).
-      this.#isOwnPausePending = true;
+      this.#ownMoves.mark("pause", this.#options.monotonicMs());
       media.pause();
     }
     // While its own seek still loads, the browser's player moves it a little as it loads (hls.js
