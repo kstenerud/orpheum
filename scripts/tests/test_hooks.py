@@ -118,6 +118,25 @@ class PreBash(unittest.TestCase):
         self.assertEqual(self.bash('git commit -m "docs: never use go get or --no-verify"'), "")
 
 
+class CommitNeedsHooks(unittest.TestCase):
+    def test_a_commit_is_refused_where_gits_hooks_are_not_installed(self):
+        import tempfile
+
+        sys.path.insert(0, str(HOOKS))
+        import pre_bash  # noqa: PLC0415
+
+        for cmd in ("git commit -q -m x", "make check; git commit -m x", "env A=1 git -C . commit -F -",
+                    "cd /x && git commit --amend"):
+            self.assertTrue(pre_bash.runs_git_commit(cmd), cmd)
+        for cmd in ("git log --grep commit", "git status", "echo git commit", "grep -n commit x"):
+            self.assertFalse(pre_bash.runs_git_commit(cmd), cmd)
+        bare = Path(tempfile.mkdtemp())
+        subprocess.run(["git", "init", "-q", str(bare)], check=True)
+        self.assertFalse(pre_bash.hooks_installed(bare))
+        subprocess.run(["git", "-C", str(bare), "config", "core.hooksPath", ".githooks"], check=True)
+        self.assertTrue(pre_bash.hooks_installed(bare))
+
+
 class GatePaths(unittest.TestCase):
     def test_classification(self):
         self.assertTrue(gate_paths.is_gate("web/apps/web/tsconfig.json"))
