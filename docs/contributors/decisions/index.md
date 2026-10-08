@@ -69,7 +69,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D59](working-notes.md#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret) A node publishes a snapshot plus a journal; it observes, it does not interpret — *revisited by D116*
 - [D60](working-notes.md#d60--snapshotting-and-discarding-are-different-operations-with-different-triggers) Snapshotting and discarding are different operations with different triggers
 - [D61](working-notes.md#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open) Containment now, detection later and plugin-shaped; four affordances to keep open
-- [D62](working-notes.md#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods) Watch Together is a first-class feature, and the per-client surface is six methods — *revisited by D66*
+- [D62](working-notes.md#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods) Watch Together is a first-class feature, and the per-client surface is six methods — *revisited by D66, D268*
 - [D63](working-notes.md#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration) Voice chat is WebRTC, and headphones are the supported configuration — *revisited by D65*
 - [D65](working-notes.md#d65--playback-offset-is-per-participant-and-it-is-an-echo-control) Playback offset is per-participant, and it is an echo control
 - [D66](working-notes.md#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips) No clock synchronisation: monotonic local time and bounded round-trips — *revisited by D264*
@@ -269,10 +269,11 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D261](working-notes.md#d261--the-m4-audits-questions-answered) The M4 audit's questions, answered
 - [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it — *revisited by D263, D265*
 - [D263](working-notes.md#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr) The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
-- [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is
+- [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is — *revisited by D268*
 - [D265](working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs) The chunked player chooses its quality with a bitrate controller of its own, inside hls.js — *revisited by D266*
 - [D266](working-notes.md#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up) A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up
 - [D267](working-notes.md#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices) A Watch Together membership is kept by the browser that joined, or by the account of whoever is signed in, and one member may be on several devices
+- [D268](working-notes.md#d268--a-watch-together-player-corrects-drift-as-its-device-measures-it-places-its-group-by-recent-pongs-starts-at-a-moment-the-server-names-and-its-hosts-moves-are-taken-at-the-controls) A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
 
 ## Archived
 
