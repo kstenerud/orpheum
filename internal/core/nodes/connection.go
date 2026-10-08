@@ -23,8 +23,12 @@ type connectedNode struct {
 	// seqByToken is the last command sent for each attempt, its work or its cancel, until the
 	// node's status says it took it: the reconciliation judges no attempt whose command is on its way.
 	seqByToken map[string]int64
-	wake       chan struct{}
-	lastHeard  time.Time
+	// unsentSince is when each attempt given to the node whose command is not queued yet was given:
+	// its job is recorded assigned first, which a busy database makes slow, and a status meanwhile
+	// cannot have taken it (WillSend).
+	unsentSince map[string]time.Time
+	wake        chan struct{}
+	lastHeard   time.Time
 	// openPollCount is how many long-polls for its commands are open: while one is, it is
 	// connected however long ago it last spoke.
 	openPollCount int

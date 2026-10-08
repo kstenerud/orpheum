@@ -5,6 +5,7 @@ package nodes
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -59,6 +60,7 @@ func (service *Service) Withdraw(nodeID int64, token string) bool {
 	if !found {
 		return false
 	}
+	delete(node.unsentSince, token)
 	wasWorkQueued := false
 	node.commands = slices.DeleteFunc(node.commands, func(command nodeproto.Command) bool {
 		isTheAttempts := command.AttemptToken == token
@@ -81,6 +83,27 @@ func (service *Service) StartOf(nodeID int64) string {
 	return ""
 }
 
+// unsentGrace is the longest an attempt whose command is not queued yet counts as on its way: a
+// job's assignment that is never recorded, its command never queued, is then judged lost as any
+// attempt the node does not hold, where recording one takes a busy database seconds at most.
+const unsentGrace = time.Minute
+
+// WillSend notes that the command of attempt token will be queued for nodeID once its job is recorded
+// assigned. Until it is, a status cannot have taken it, and judged by one it would be lost: the M2
+// acceptance under check-pr's load lost a scan so, and waited minutes for it (2026-10-08).
+func (service *Service) WillSend(nodeID int64, token string) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.nodesHeardSinceStart[nodeID]
+	if !found {
+		return
+	}
+	if node.unsentSince == nil {
+		node.unsentSince = map[string]time.Time{}
+	}
+	node.unsentSince[token] = service.clock.Now()
+}
+
 // Enqueue queues a command for a node that has said hello, numbering it, and wakes a waiting
 // long-poll; one for a node that has not is dropped. Work goes through Send, which parks it on a
 // node that is not connected; a cancel goes straight here.
@@ -95,6 +118,7 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	node.nextCommandSeq++
 	node.commands = append(node.commands, command)
 	if command.AttemptToken != "" {
+		delete(node.unsentSince, command.AttemptToken)
 		if node.seqByToken == nil {
 			node.seqByToken = map[string]int64{}
 		}

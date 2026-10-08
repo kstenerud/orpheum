@@ -299,7 +299,7 @@ func openPlayback(
 func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges {
 	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
 		Sender: opened.nodes, Clock: clock.System{}, Random: rand.Reader, Logger: logger, Cache: opened.cache,
-		Settings: opened.settings, MaxSilence: prepareMaxSilence, Rooms: opened.nodes,
+		Settings: opened.settings, MaxSilence: prepareMaxSilence, Rooms: opened.nodes, Unsent: opened.nodes,
 	})
 	opened.nodes.SetResultSink(exchanges)
 	return exchanges

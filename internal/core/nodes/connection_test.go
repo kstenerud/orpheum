@@ -249,6 +249,26 @@ func TestStatus_IsReconciledWithWhatTheNodeWasGivenButForCommandsOnTheirWay(t *t
 	}
 }
 
+// An attempt given to a node whose command is not queued yet, its job's assignment still being
+// recorded, is on its way to a status, which cannot have taken it; for unsentGrace at most, after which
+// one never queued is judged as any other (the M2 acceptance under check-pr's load, 2026-10-08).
+func TestStatus_JudgesNoAttemptWhoseCommandIsNotQueuedYet(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	sink := &recordingResultSink{}
+	harness.service.SetResultSink(sink)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	harness.service.WillSend(reply.NodeID, "being assigned")
+	harness.postStatus(t, reply.NodeID, nodeproto.Status{})
+	harness.clock.Advance(unsentGrace)
+	harness.postStatus(t, reply.NodeID, nodeproto.Status{})
+	if len(sink.reconciled) != 2 || !sink.reconciled[0].onTheirWay["being assigned"] ||
+		sink.reconciled[1].onTheirWay["being assigned"] {
+		t.Errorf("reconciled %+v; want the attempt on its way, then judged once unsentGrace has passed",
+			sink.reconciled)
+	}
+}
+
 // An attempt's commands the node has not taken are withdrawn when its job ends, its work and its
 // cancel, and never sent (S27); withdrawing says whether the work was still queued.
 func TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem(t *testing.T) {

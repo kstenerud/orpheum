@@ -95,6 +95,19 @@ func TestAssign_AJobGivenToANodeIsResolvedByItsWordAndForgotten(t *testing.T) {
 }
 
 // A node whose own code failed running a job says so: the attempt fails like any other, tried
+// An attempt is said to be on its way before it is kept, so a status that comes before its command
+// is queued, its job's assignment still being recorded, does not judge it lost.
+func TestAssign_SaysAnAttemptIsOnItsWayBeforeItsCommandIsQueued(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), nil))
+	sent := bench.assign(t)
+	if !slices.Equal(bench.sender.willSend, []string{sent.AttemptToken}) {
+		t.Errorf("the attempts said to be on their way are %v, want the one sent, %s", bench.sender.willSend,
+			sent.AttemptToken)
+	}
+}
+
 // again and never kept as the file's, and its kind's answer is not asked (the owner, 2026-10-05).
 func TestAssign_ANodesCrashOnAJobIsAnAttemptsFailureAndNotItsKinds(t *testing.T) {
 	t.Parallel()
