@@ -528,6 +528,16 @@ class GateChangedTrailer(unittest.TestCase):
             __import__("os").chdir(cwd)
 
 
+class GenerateLeavesNothingBehind(unittest.TestCase):
+    def test_the_openapi_document_is_made_outside_the_tree_and_removed_however_the_run_ends(self):
+        """A make check stopped mid-generate left api/openapi.json.XXXXXX in the tree (2026-10-08)."""
+        makefile = (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text()
+        recipe = makefile.split("\ngenerate:", 1)[1].split("\n\n", 1)[0]
+        self.assertNotIn("mktemp api/", recipe)
+        self.assertIn('mktemp "$${TMPDIR:-/tmp}/openapi.json.XXXXXX"', recipe)
+        self.assertIn("trap 'rm -f \"$$openapi_next\"' EXIT INT TERM", recipe)
+
+
 class IntegrationTier(unittest.TestCase):
     def test_the_tier_runs_only_the_tagged_tests_and_fails_when_it_finds_none(self):
         """The unit tests ran in make check; the tier runs the tests only -tags integration builds,
