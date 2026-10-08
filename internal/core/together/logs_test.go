@@ -73,7 +73,9 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 
 // A voice call's statistics, as its receiver measured them, are logged at info, so a call that broke
 // up says whether its sound came late, was lost, or went through the relay over TCP (D262 §1, §4);
-// one without its statistics, or with an unknown path, is refused.
+// one without its statistics, or with an unknown path or playback, is refused. They say how loud what
+// it received and sent were, and how it plays: an iPhone and an Android phone connected and neither
+// heard the other, and nothing said which side was silent (the owner's test, 2026-10-08).
 func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -82,16 +84,20 @@ func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing
 		Kind: NoteVoiceStats, Voice: &VoiceStats{
 			PartnerDeviceID: 4, RoundTripMs: 340, JitterBufferMs: 905, JitterBufferTargetMs: 880,
 			ConcealedShare: 0.043, PacketsLost: 312, PacketsLate: 97, FECPackets: 40, Path: "udp",
+			ReceivedLevel: 0.126, SentLevel: 0.032, Playback: "elementInterrupted",
 		},
 	}})
 	want := `level=INFO msg="watch together: a voice call measured"`
 	fields := `partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 concealedShare=0.043 ` +
-		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp`
+		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp receivedLevel=0.126 sentLevel=0.032 ` +
+		`playback=elementInterrupted`
 	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, fields) {
 		t.Errorf("the log does not say the call's statistics:\n%s", logged)
 	}
 	unknowns := []*PlayerNote{
-		{Kind: NoteVoiceStats}, {Kind: NoteVoiceStats, Voice: &VoiceStats{Path: "carrier pigeon"}},
+		{Kind: NoteVoiceStats},
+		{Kind: NoteVoiceStats, Voice: &VoiceStats{Path: "carrier pigeon"}},
+		{Kind: NoteVoiceStats, Voice: &VoiceStats{Path: "udp", Playback: "a gramophone"}},
 	}
 	for _, unknown := range unknowns {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
@@ -164,5 +170,25 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log does not say %s:\n%s", want, logged)
 		}
+	}
+}
+
+// Voice turning off is logged at INFO with why: calls of 8 s ended with nothing to say whether a
+// person or a failure ended them (the owner's test, 2026-10-08); an unknown why is refused.
+func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	off := func(why string) Inbound {
+		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceOff, Why: why}}
+	}
+	stage.hub.Handle(t.Context(), device, off("left"))
+	if logged := stage.logs.String(); !strings.Contains(logged, `level=INFO msg="watch together: voice turned off"`) ||
+		!strings.Contains(logged, "why=left") {
+		t.Errorf("the log does not say voice turned off, and why:\n%s", logged)
+	}
+	stage.hub.Handle(t.Context(), device, off("bored"))
+	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+		t.Errorf("an unknown why answered %+v; want rejected as invalid", rejected)
 	}
 }

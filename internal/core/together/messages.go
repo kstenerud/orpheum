@@ -87,6 +87,10 @@ const (
 	// NotePlaced is a follower placing its group anew by a pong with a shorter round trip than any
 	// before, and how far that moved where it expects the group (D264).
 	NotePlaced NoteKind = "placed"
+	// NoteVoiceOff is voice turning off, and why: the person left ("left"), or a call could not
+	// connect ("unreachable"). Calls of 8 s ended with nothing to say whether a person or a failure
+	// ended them (the owner's test, 2026-10-08).
+	NoteVoiceOff NoteKind = "voiceOff"
 	// NotePlayedMuted is a browser refusing to start the film with sound for want of a recent tap,
 	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
 	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
@@ -142,6 +146,14 @@ type VoiceStats struct {
 	PacketsLate          int64   `json:"packetsLate"`
 	FECPackets           int64   `json:"fecPackets"`
 	Path                 string  `json:"path"`
+	// ReceivedLevel and SentLevel are how loud, on average from 0 to 1, what the receiver got and
+	// what its microphone sent were; Playback, how it plays what it gets: "webAudio", or its audio
+	// element while Web Audio is "elementSuspended", "elementInterrupted", "elementClosed", or absent
+	// ("element"). A call that carries silence, or plays to no one, says so (the owner's test,
+	// 2026-10-08, where an iPhone and an Android phone connected and neither heard the other).
+	ReceivedLevel float64 `json:"receivedLevel"`
+	SentLevel     float64 `json:"sentLevel"`
+	Playback      string  `json:"playback"`
 }
 
 // positionMsAttribute names a position, in ms, in a log line.
@@ -161,14 +173,38 @@ func (note PlayerNote) isKnown() bool {
 	switch note.Kind {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
-	case NoteVoiceStats:
-		return note.Voice != nil && isNoteWord(note.Voice.Path)
-	case NoteVoiceCall:
-		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
+	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall:
+		return note.isKnownVoice()
 	case NotePlaced:
 		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
+	}
+	return false
+}
+
+// isKnownVoice is whether a voice note is one the server logs: statistics with a known path and
+// playback, voice turned off for a known reason, or a call's known step with a partner.
+func (note PlayerNote) isKnownVoice() bool {
+	switch note.Kind {
+	case NoteVoiceStats:
+		return note.Voice != nil && isNoteWord(note.Voice.Path) && isVoicePlayback(note.Voice.Playback)
+	case NoteVoiceOff:
+		return note.Why == "left" || note.Why == "unreachable"
+	case NoteVoiceCall:
+		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePlaced,
+		NotePlayedMuted, NoteUnmuted: // not voice's: isKnown reads them
+	}
+	return false
+}
+
+// isVoicePlayback is whether word is how a voice call's sound plays, as the web client's
+// VoicePlayback names them.
+func isVoicePlayback(word string) bool {
+	switch word {
+	case "webAudio", "elementSuspended", "elementInterrupted", "elementClosed", "element":
+		return true
 	}
 	return false
 }
