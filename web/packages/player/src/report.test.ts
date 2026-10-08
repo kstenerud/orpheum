@@ -2,7 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
+import Hls from "hls.js";
+
+import { diagnose, type DiagnosedHls } from "./diagnosis.ts";
+import { bufferedTextMost, PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
 import { settled } from "./test-timing.ts";
 
 /** A counter of report numbers, as one playback's reporters share. */
@@ -130,6 +133,50 @@ describe("reporting play state", () => {
     reporter.flush(70_000);
     await settled();
     expect(sent[2]).not.toHaveProperty("stalls");
+  });
+
+  it("tells a stall only what its body takes, its buffered ranges cut to the server's length", async () => {
+    const { reporter, sent, setNow } = fakeReporter();
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+    } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { readyState: 1, paused: false, error: null });
+    diagnose(hls, video);
+    const many = Array.from({ length: 60 }, (_, index): [number, number] => [
+      index * 10,
+      index * 10 + 5,
+    ]);
+    listeners.get(Hls.Events.BUFFER_APPENDED)!("", {
+      timeRanges: {
+        video: {
+          length: many.length,
+          start: (index: number) => many[index]![0],
+          end: (index: number) => many[index]![1],
+        },
+      },
+    });
+    listeners.get(Hls.Events.FRAG_BUFFERED)!("", { id: "main", frag: { sn: 1, start: 0 } });
+    reporter.recordStall(61_500, video);
+    await settled();
+    const [stall] = sent[1]?.stalls ?? [];
+    expect(Object.keys(stall ?? {}).sort()).toEqual(
+      [
+        "audioBuffered",
+        "isPaused",
+        "lastError",
+        "positionMs",
+        "readyState",
+        "videoBuffered",
+      ].sort(),
+    );
+    expect(stall?.videoBuffered?.length).toBeLessThanOrEqual(bufferedTextMost);
+    expect(stall?.videoBuffered?.endsWith("590.00-595.00")).toBe(true);
   });
 
   it("tells a quality its device cannot play at once, once, and again after a report that failed (D266)", async () => {
