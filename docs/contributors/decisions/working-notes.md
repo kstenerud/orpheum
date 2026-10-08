@@ -18803,3 +18803,34 @@ done (the User-Agent is logged only).
 3. **The play report tells the core**, which logs the quality and where it stood.
 
 **Status:** Decided 2026-10-07.
+
+## D267 — A Watch Together membership is kept by the browser that joined, or by the account of whoever is signed in, and one member may be on several devices
+
+**Decided** (2026-10-08), by the project owner, after testing with two guests on iPhones: *"(a)
+agreed"*; on several devices, *"whatever makes this easier in future"* for voice and controls on a
+phone with playback on a TV, the host avoiding playing in two places for now; *"(c) Yes let's make
+sessions follow them. If they're not logged in, they need to get a regenerated invite link to switch
+devices (which cuts off the current one and any device that connected with it)."* **Refines**
+[D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback) §3–§5; **brings forward** its §4's signed-in recipient, for the session
+alone (their viewing recorded as their own stays later).
+
+A guest who closed the page could not come back: the link is single use and the membership lived in
+the tab. A host who opened the session on a laptop saw nothing of it on their phone, signed in as
+the same person, and having it back on one device replaced the credential of the other.
+
+1. **A guest's membership is kept by their browser**, not the tab: the same browser opening the page
+   or the link again comes back as the same member. The link stays single use, and no other browser
+   can use it.
+2. **A signed-in person's membership follows their account.** Joining by a link while signed in
+   makes the member that person; the host is one already. Any device they are signed in on has the
+   session back without a link, the Watch Together page and the player asking the server which
+   sessions they are in.
+3. **One member may be on several devices at once**, each with a credential of its own: having the
+   session back on one device cuts off no other. Each device keeps its role (playback or voice), the
+   seam for voice and controls on a phone while a TV plays ([D245](working-notes.md#d245--cut-a-ends-with-a-polished-skinned-web-ui-built-on-research-and-the-remote-tv-comes-right-after-it)). The host plays in one
+   place at a time; whichever device the host plays on leads.
+4. **Someone not signed in moves to another device by a new link**: the host makes one for that
+   member, which removes the member, cutting off every device that came in with them, and admits
+   whoever opens it, under the same note.
+
+**Status:** Decided 2026-10-08.
