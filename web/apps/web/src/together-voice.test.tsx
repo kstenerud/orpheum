@@ -169,6 +169,29 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     mounted.unmount();
   });
 
+  it("says no one hears them while no one else has voice on, as Karl found talking alone", async () => {
+    const devices = fakeDevices();
+    const { services, server } = voiceServices(devices, []);
+    const mounted = await mount(
+      withServices(
+        <VoiceControls membership={membership} tuning={echoCancelledTuning} />,
+        services,
+      ),
+    );
+    await click(buttonWithText(mounted.container, "Talk"));
+    await server.accept();
+    await server.say({
+      ...welcome,
+      roster: welcome.roster.map((member) => ({
+        ...member,
+        devices: member.devices.filter((device) => device.role !== "voice"),
+      })),
+    });
+    expect(devices.calls).toHaveLength(0);
+    expect(mounted.container.textContent).toContain("no one hears you yet");
+    mounted.unmount();
+  });
+
   it("mutes the microphone, sets the partner's volume, and leaves voice", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);

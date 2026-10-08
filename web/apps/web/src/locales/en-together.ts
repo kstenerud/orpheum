@@ -41,7 +41,7 @@ export const enTogether = {
       leave: "Leave voice",
       partner: "Partner",
       connecting: "Voice: connecting…",
-      alone: "Voice is on. No one else has turned theirs on yet.",
+      alone: "Voice is on, but no one hears you yet: the others hear you once they press Talk too.",
       connectingTo: "Voice: connecting to {{names, list}}…",
       browserReason: "The browser said: {{reason}}",
       connectedTo: "Voice: connected to {{names, list}}",
