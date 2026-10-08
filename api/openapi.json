@@ -5028,6 +5028,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "secret": {
+            "description": "The link's secret, after # in its address, to pass on again (D267 §5)",
+            "type": "string"
+          },
           "usedByMemberId": {
             "format": "int64",
             "type": "integer"
@@ -5035,7 +5039,8 @@
         },
         "required": [
           "id",
-          "hostNote"
+          "hostNote",
+          "secret"
         ],
         "type": "object"
       },

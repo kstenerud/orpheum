@@ -3147,6 +3147,8 @@ export interface components {
             hostNote: string;
             /** Format: int64 */
             id: number;
+            /** @description The link's secret, after # in its address, to pass on again (D267 §5) */
+            secret: string;
             /** Format: int64 */
             usedByMemberId?: number;
         };

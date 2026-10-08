@@ -60,3 +60,26 @@ func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 		t.Errorf("GET /together/mine signed out = %d, want 401", signedOut.status)
 	}
 }
+
+// The host's view of the session carries each link's secret, to pass on again after a reload, used
+// or not (D267 §5).
+func TestTogether_TheHostSeesEachLinkToPassOnAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	made := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "Grandma"})
+	var link TogetherLinkOutput
+	if err := json.Unmarshal([]byte(made.body), &link.Body); err != nil {
+		t.Fatal(err)
+	}
+	read := harness.do(t, http.MethodGet, path, admin, nil)
+	var details TogetherDetailsOutput
+	if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil || read.status != http.StatusOK {
+		t.Fatalf("GET %s = %d %s", path, read.status, read.body)
+	}
+	if len(details.Body.Links) != 1 || details.Body.Links[0].Secret != link.Body.Secret {
+		t.Errorf("the host sees links %+v; want the one made, with its secret", details.Body.Links)
+	}
+}

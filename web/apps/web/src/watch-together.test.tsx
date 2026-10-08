@@ -160,6 +160,42 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     mounted.unmount();
   });
 
+  it("shows each link again after a reload, waiting or used, to pass on (D267 §5)", async () => {
+    hostSession();
+    const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          {
+            sessionId: 3,
+            links: [
+              { id: 4, hostNote: "Grandma", secret: "gran-s3cret", usedByMemberId: 2 },
+              { id: 5, hostNote: "a cousin", secret: "cousin-s3cret" },
+            ],
+            members: [karl, gran],
+          },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    const shows = [...mounted.container.querySelectorAll("button")].filter(
+      (button) => button.textContent === "Show link",
+    );
+    expect(shows).toHaveLength(2);
+    await click(shows[0]);
+    expect(mounted.container.querySelector("output")?.textContent).toBe(
+      "http://orpheum.test/together#gran-s3cret",
+    );
+    await click(shows[1]);
+    expect(mounted.container.querySelector("output")?.textContent).toBe(
+      "http://orpheum.test/together#cousin-s3cret",
+    );
+    mounted.unmount();
+  });
+
   it("says when a role may not host", async () => {
     const services = servedBy({ "POST /together": refusal(403, "forbidden") }, [], "token");
     const mounted = await mount(withServices(<WatchTogether />, services));

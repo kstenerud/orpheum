@@ -61,7 +61,8 @@ is a player's position, buffering, play, pause, seek and rate
   having it back cuts off no other. Someone not signed in moves to another device by a **New
   link** from the host, which removes them, cutting off every device they came in on, and admits
   whoever opens it under the same note. The host plays in one place at a time; whichever device
-  they play on leads.
+  they play on leads. The host can **Show link** again for any link, waiting or used, after a
+  reload or for a guest to come back by on the browser that joined (§5).
 - **A viewer is an ephemeral account** (D246 §3): a hidden, built-in role that cannot be edited,
   restricted to the playback screen. No browsing, no library, no control of playback. The viewer
   picks the name the others see; someone signed in finds their own name filled in. The membership

@@ -80,3 +80,33 @@ func TestMine_KeepsAMembersNewestCredentials(t *testing.T) {
 		t.Errorf("the oldest of %d credentials still admits", credentialsKeptPerMember+1)
 	}
 }
+
+// The host sees each link's secret, waiting or used, to pass it on again: a page reloaded before
+// it was shared lost it, and a guest comes back by it on the browser that joined (D267 §5).
+func TestDetailsOf_ShowsTheHostEachLinkToPassOnAgain(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	waiting, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	used, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = stage.hub.Join(used.Secret, "Gran", nil); err != nil {
+		t.Fatal(err)
+	}
+	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets := map[int64]string{}
+	for _, each := range details.Links {
+		secrets[each.ID] = each.Secret
+	}
+	if secrets[waiting.LinkID] != waiting.Secret || secrets[used.LinkID] != used.Secret {
+		t.Errorf("the host sees the links' secrets %v; want the waiting %q and the used %q",
+			secrets, waiting.Secret, used.Secret)
+	}
+}

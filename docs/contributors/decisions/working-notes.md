@@ -18832,5 +18832,11 @@ the same person, and having it back on one device replaced the credential of the
 4. **Someone not signed in moves to another device by a new link**: the host makes one for that
    member, which removes the member, cutting off every device that came in with them, and admits
    whoever opens it, under the same note.
+5. **The host can show any link again**, waiting or used (*"I need a way to view the link (even if
+   it's been used, since the guest can now use it to connect back using the same device)"*, the
+   owner, the same day, after a reload lost one before it was shared). The server keeps each link's
+   secret with its hash, in memory, for the session's life, as it keeps the session itself: someone
+   who could read the server's memory could read a live link, a cost of the same order as reading
+   its sessions.
 
 **Status:** Decided 2026-10-08.

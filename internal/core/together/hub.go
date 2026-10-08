@@ -95,7 +95,10 @@ type session struct {
 type link struct {
 	id         int64
 	secretHash [sha256.Size]byte
-	hostNote   string
+	// secret is the link itself, kept for the host to pass on again: a page reloaded before it was
+	// shared lost it, and a guest comes back by it on the browser that joined (D267 §1, §5).
+	secret   string
+	hostNote string
 	// usedBy is the member who joined by it, or 0 while it waits.
 	usedBy int64
 }
@@ -249,7 +252,9 @@ func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string) (LinkMade,
 		return LinkMade{}, err
 	}
 	hub.lastID++
-	hosted.links[hub.lastID] = &link{id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), hostNote: hostNote}
+	hosted.links[hub.lastID] = &link{
+		id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), secret: secret, hostNote: hostNote,
+	}
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
 }
 
@@ -272,6 +277,8 @@ func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
 type LinkView struct {
 	ID       int64
 	HostNote string
+	// Secret is the link's secret, for the host to pass on again (D267 §5).
+	Secret string
 	// UsedBy is the member who joined by it, or 0 while it waits.
 	UsedBy int64
 }
@@ -303,7 +310,9 @@ func (hub *Hub) DetailsOf(sessionID, hostUserID int64) (Details, error) {
 	}
 	details := Details{SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now())}
 	for _, each := range hosted.links {
-		details.Links = append(details.Links, LinkView{ID: each.id, HostNote: each.hostNote, UsedBy: each.usedBy})
+		details.Links = append(details.Links, LinkView{
+			ID: each.id, HostNote: each.hostNote, Secret: each.secret, UsedBy: each.usedBy,
+		})
 	}
 	for _, each := range hosted.members {
 		details.Members = append(details.Members, MemberDetail{

@@ -95,6 +95,7 @@ export const enTogether = {
     member: "{{name}} ({{note}})",
     eject: "Remove",
     relink: "New link",
+    showLink: "Show link",
     waitingLink: "A link for {{note}}, not used yet",
     withdraw: "Withdraw",
     end: "End the session",
