@@ -25,6 +25,12 @@ import {
 } from "./together-player-events.ts";
 import { OwnMoves } from "./together-own-moves.ts";
 import {
+  nextPhase,
+  startingPhase,
+  type CorrectionPhase,
+  type PhaseEvent,
+} from "./together-phase.ts";
+import {
   haveFutureData,
   haveMetadata,
   hasRefilled,
@@ -154,20 +160,25 @@ const followedEvents = [
   "ended",
 ] as const;
 
-/** One player following its group, as followGroup describes it. */
+/**
+ * One player following its group, as followGroup describes it. Where it is in correcting its drift
+ * is one CorrectionPhase, moved only by #move (together-phase.ts). The rest of its state is facts
+ * that hold beside any phase: whether it has once been in step, is refilling, waits for the group's
+ * answer to its command, has a seek loading, or corrects by seeks alone; and until when its
+ * position is settling.
+ */
 class GroupFollower {
   readonly #media: FollowedMedia;
   readonly #connection: TogetherConnection;
   readonly #options: FollowOptions;
   /** The moves it makes itself, marked so their events are not taken for its person's. */
   readonly #ownMoves = new OwnMoves();
-  #nudgeEndsAtMs = 0;
+  /** Where it is in correcting its drift. */
+  #phase: CorrectionPhase = startingPhase;
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
   #recentEvents: string[] = [];
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
   #returnCost: LearnedLoss = { costMs: 0, moves: 0 };
-  /** How far behind it was as its last nudge ended, until what that cost is learned. */
-  #behindAtReturnMs: number | undefined = undefined;
   /**
    * Whether it corrects by seeks alone, its rate's returns costing it more than the drift left
    * alone (D268 §2): from then on, for as long as it follows.
@@ -175,8 +186,6 @@ class GroupFollower {
   #isCorrectingBySeeks = false;
   /** Where its seeks land short of where they aim, as learned (seekOnlyCorrection). */
   #seekLoss: LearnedLoss = { costMs: 0, moves: 0 };
-  /** How far behind its last skip aimed to put it (ahead, so negative), until its loss is learned. */
-  #behindAtSkipMs: number | undefined = undefined;
   /** Until when (monotonic) it is not nudged: Safari's position stands still after a change. */
   #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
@@ -198,11 +207,6 @@ class GroupFollower {
   #startTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
-  /**
-   * Where a player catching up alone waits, paused and loading, for the playing group to arrive;
-   * undefined while it follows as usual (D247 §4, amended 2026-10-06).
-   */
-  #waitAtMs: number | undefined = undefined;
   /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
   #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
   /** Film loaded per second of the link, as last measured; undefined until it has been. */
@@ -452,11 +456,15 @@ class GroupFollower {
   #seek(toMs: number, why: "catchUp" | "hold" | "skip"): void {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSamples = [];
-    this.#behindAtReturnMs = undefined; // what a seek moves is no return's cost
-    this.#behindAtSkipMs = undefined; // nor, unless it is one, a skip's
+    this.#move({ kind: "sought" });
     this.#ownMoves.mark("seek", this.#options.monotonicMs());
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
+  }
+
+  /** Moves its phase by event. */
+  #move(event: PhaseEvent): void {
+    this.#phase = nextPhase(this.#phase, event);
   }
 
   /** Plays along with a playing group, its drift nudged away or sought across. */
@@ -467,7 +475,7 @@ class GroupFollower {
     }
     // A player still loading is corrected by nothing: each correction would start its load again.
     if (
-      where.nowMs < this.#nudgeEndsAtMs ||
+      (this.#phase.kind === "nudging" && where.nowMs < this.#phase.untilMs) ||
       media.seeking ||
       media.ended ||
       media.readyState < haveFutureData
@@ -493,11 +501,11 @@ class GroupFollower {
    * Once its returns cost it more than the drift left alone, it corrects by seeks alone (D268 §2).
    */
   #learnReturnCost(behindMs: number, tuning: SyncTuning): void {
-    if (this.#behindAtReturnMs === undefined) {
+    if (this.#phase.kind !== "returning") {
       return;
     }
-    this.#returnCost = learnedLossMs(this.#returnCost, this.#behindAtReturnMs, behindMs);
-    this.#behindAtReturnMs = undefined;
+    this.#returnCost = learnedLossMs(this.#returnCost, this.#phase.behindMs, behindMs);
+    this.#move({ kind: "learned" });
     const { costMs, moves } = this.#returnCost;
     if (moves >= returnsBeforeSeeksOnly && costMs > tuning.leaveDriftUpToMs) {
       this.#isCorrectingBySeeks = true;
@@ -515,7 +523,7 @@ class GroupFollower {
       return;
     }
     const isNudgeEnding = media.playbackRate !== where.group.rate && rate === where.group.rate;
-    this.#behindAtReturnMs = isNudgeEnding ? behindMs : undefined;
+    this.#move({ kind: "rateChanged", returnedBehindMs: isNudgeEnding ? behindMs : undefined });
     media.preservesPitch = where.tuning.shouldNudgeKeepPitch;
     media.playbackRate = rate;
     this.#settle();
@@ -547,7 +555,7 @@ class GroupFollower {
     const isNudged = correction.kind === "nudge" && !this.#isRefilling;
     this.#setRate(isNudged ? correction.rate : where.group.rate, where, behindMs);
     if (isNudged) {
-      this.#nudgeEndsAtMs = where.nowMs + nudgeForMs;
+      this.#move({ kind: "nudged", untilMs: where.nowMs + nudgeForMs });
       this.#connection.note({
         kind: "nudged",
         positionMs: positionMsOf(media),
@@ -578,14 +586,14 @@ class GroupFollower {
     if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
       return;
     }
-    if (this.#behindAtSkipMs !== undefined) {
-      this.#seekLoss = learnedLossMs(this.#seekLoss, this.#behindAtSkipMs, behindMs);
-      this.#behindAtSkipMs = undefined;
+    if (this.#phase.kind === "skipping") {
+      this.#seekLoss = learnedLossMs(this.#seekLoss, this.#phase.behindMs, behindMs);
+      this.#move({ kind: "learned" });
     }
     this.#setRate(where.group.rate, where, behindMs);
     if (correction.kind === "skip" && !this.#isRefilling) {
       this.#seek(correction.toMs, "skip");
-      this.#behindAtSkipMs = where.expectedMs - correction.toMs;
+      this.#move({ kind: "skipped", behindMs: where.expectedMs - correction.toMs });
     } else if (correction.kind === "seek") {
       this.#catchUp(correction.toMs, where);
     }
@@ -597,16 +605,15 @@ class GroupFollower {
    * than it could have jumped. Then it follows as usual, playing on with what it loaded meanwhile.
    */
   #isWaitingAhead(where: GroupNow): boolean {
-    const waitAtMs = this.#waitAtMs;
-    if (waitAtMs === undefined) {
+    if (this.#phase.kind !== "waitingAhead") {
       return false;
     }
-    const aheadMs = waitAtMs - where.expectedMs;
+    const aheadMs = this.#phase.atMs - where.expectedMs;
     const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
     if (aheadMs > leaveDriftUpToMs && aheadMs <= waitAheadAtMostMs + seekDriftBeyondMs) {
       return true;
     }
-    this.#waitAtMs = undefined;
+    this.#move({ kind: "stoppedWaiting" });
     return false;
   }
 
@@ -621,7 +628,7 @@ class GroupFollower {
     }
     const targetMs = toMs + this.#catchUpLeadMs(where.group.rate, where.tuning);
     this.#seek(targetMs, "catchUp");
-    this.#waitAtMs = targetMs;
+    this.#move({ kind: "jumpedAhead", atMs: targetMs });
   }
 
   /**
@@ -648,7 +655,7 @@ class GroupFollower {
   /** Holds the player paused at the group's position: Paused, Waiting or Idle. */
   #holdAt(where: GroupNow): void {
     const media = this.#media;
-    this.#waitAtMs = undefined; // a group that stops is followed where it stopped
+    this.#move({ kind: "stoppedWaiting" }); // a group that stops is followed where it stopped
     media.playbackRate = where.group.rate;
     if (!media.paused) {
       // Its own pause, never its person's: a host's play passes through a sync point's Waiting, and
