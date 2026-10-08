@@ -365,7 +365,7 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 		LeaveDriftUpToMs: 150, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, SeekOnlyLeaveDriftUpToMs: 400,
 		CatchUpBufferPercent: 80, SyncWaitMs: 20_000, StartLeadMs: 500, SettleAfterChangeMs: 300,
 		ShouldNudgeKeepPitch:       true,
-		ShouldCancelMicrophoneEcho: false, ShouldLevelMicrophone: false,
+		ShouldCancelMicrophoneEcho: false, ShouldBrowserLevelMicrophone: false,
 	}
 	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
 		*welcome.Tuning != want {
@@ -376,13 +376,13 @@ func TestTogether_ADeviceIsWelcomedWithTheSettingsDriftNumbers(t *testing.T) {
 			"together_drift_left_alone_ms": 750, "together_settle_after_change_ms": 400,
 			"together_seek_only_drift_left_alone_ms": 600,
 			"should_together_nudge_keep_pitch":       false, "should_together_voice_cancel_echo": true,
-			"should_together_voice_level_microphone": true,
+			"should_together_voice_browser_level_microphone": true,
 		}})
 	if changed.status != http.StatusOK {
 		t.Fatalf("PUT /config = %d %s", changed.status, changed.body)
 	}
 	want.LeaveDriftUpToMs, want.SettleAfterChangeMs, want.SeekOnlyLeaveDriftUpToMs = 750, 400, 600
-	want.ShouldNudgeKeepPitch, want.ShouldCancelMicrophoneEcho, want.ShouldLevelMicrophone = false, true, true
+	want.ShouldNudgeKeepPitch, want.ShouldCancelMicrophoneEcho, want.ShouldBrowserLevelMicrophone = false, true, true
 	if welcome := harness.dialTogether(t, opened.Body.MembershipCredential).awaitWelcome(); welcome.Tuning == nil ||
 		*welcome.Tuning != want {
 		t.Errorf("after the setting changed, the welcome's tuning = %+v; want %+v", welcome.Tuning, want)

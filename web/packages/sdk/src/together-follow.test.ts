@@ -127,9 +127,14 @@ describe("a player following its group", () => {
       rate: media.playbackRate,
       returnCostMs: 0, // a player that has not gone back to the group's rate has learned nothing
     });
-    const loaded: ChunkLoaded = { track: "video", loadMs: 2000, kbps: 2400, qualityKbps: 1200 };
+    const loaded: ChunkLoaded = {
+      track: "video",
+      loadMs: 2000,
+      loadedKbps: 2400,
+      qualityKbps: 1200,
+    };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
-    const switched: QualitySwitched = { qualityKbps: 800, estimateKbps: 2500 };
+    const switched: QualitySwitched = { qualityKbps: 800, linkEstimateKbps: 2500 };
     media.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
     expect(notes.slice(-2)).toEqual([
       { kind: "chunkLoaded", ...loaded },
@@ -717,8 +722,8 @@ describe("a leading player's command", () => {
     monotonicNowMs = 500;
     media.fire("pause"); // its person's pause
     vi.advanceTimersByTime(scrubPauseWindowMs * 2);
-    expect(notes.filter((note) => note.kind === "led")).toEqual([
-      { kind: "led", why: "pause", events: "pause@500" },
+    expect(notes.filter((note) => note.kind === "leaderCommand")).toEqual([
+      { kind: "leaderCommand", why: "pause", recentEvents: "pause@500" },
     ]);
   });
 });

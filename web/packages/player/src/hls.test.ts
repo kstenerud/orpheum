@@ -107,13 +107,13 @@ describe("playing a prepared rendition", () => {
     expect(told).toEqual([
       {
         type: playerLoadedChunkEvent,
-        detail: { track: "video", loadMs: 2000, kbps: 2000, qualityKbps: 1200 },
+        detail: { track: "video", loadMs: 2000, loadedKbps: 2000, qualityKbps: 1200 },
       },
       {
         type: playerLoadedChunkEvent,
-        detail: { track: "audio", loadMs: 2000, kbps: 2000, qualityKbps: 0 },
+        detail: { track: "audio", loadMs: 2000, loadedKbps: 2000, qualityKbps: 0 },
       },
-      { type: playerSwitchedQualityEvent, detail: { qualityKbps: 800, estimateKbps: 2500 } },
+      { type: playerSwitchedQualityEvent, detail: { qualityKbps: 800, linkEstimateKbps: 2500 } },
     ]);
   });
 

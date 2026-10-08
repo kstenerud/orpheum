@@ -2989,11 +2989,11 @@ export interface components {
         };
         StartupBody: {
             /** Format: int64 */
-            decisionMs: number;
+            decidedAfterMs: number;
             /** Format: int64 */
-            firstDataMs: number;
+            firstDataAfterMs: number;
             /** Format: int64 */
-            playingMs: number;
+            playingAfterMs: number;
         };
         StopBody: {
             message: string;

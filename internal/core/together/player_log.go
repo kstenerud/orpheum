@@ -50,9 +50,9 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		{"driftMs", note.DriftMs},
 		{"returnCostMs", note.ReturnCostMs},
 		{"loadMs", note.LoadMs},
-		{"kbps", note.Kbps},
+		{"loadedKbps", note.LoadedKbps},
 		{"qualityKbps", note.QualityKbps},
-		{"estimateKbps", note.EstimateKbps},
+		{"linkEstimateKbps", note.LinkEstimateKbps},
 		{"offlineMs", note.OfflineMs},
 	} {
 		if field.value != 0 {
@@ -85,7 +85,7 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NotePonged:
 		current.logger.InfoContext(ctx, "watch together: a player's pong said where the group is",
 			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs,
-				"residualMs", note.ResidualMs, "placing", note.Why)...)
+				"aheadOfExpectedMs", note.AheadOfExpectedMs, "placing", note.Why)...)
 		return true
 	case NoteVoiceOff:
 		current.logger.InfoContext(ctx, "watch together: voice turned off",
@@ -99,16 +99,16 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logger.InfoContext(ctx, "watch together: a player's own move fired no event; its mark was given up",
 			append(current.deviceAttributes(who, from), "move", note.Why)...)
 		return true
-	case NoteLed:
+	case NoteLeaderCommand:
 		current.logger.InfoContext(ctx, "watch together: a leading player sent a command",
-			append(current.deviceAttributes(who, from), "command", note.Why, "events", note.Events)...)
+			append(current.deviceAttributes(who, from), "command", note.Why, "recentEvents", note.RecentEvents)...)
 		return true
 	case NoteDiagnosis:
 		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
 			append(current.deviceAttributes(who, from), "why", note.Why, positionMsAttribute, note.PositionMs,
 				"readyState", note.ReadyState, "videoBuffered", note.VideoBuffered,
 				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
-				"mapping", note.Mapping, "streaming", note.Streaming)...)
+				"mapping", note.Mapping, "mediaSourceState", note.MediaSourceState)...)
 		return true
 	case NotePlayedMuted:
 		current.logger.InfoContext(ctx,

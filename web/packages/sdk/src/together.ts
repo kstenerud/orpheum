@@ -116,7 +116,7 @@ export interface SyncTuning {
    */
   readonly shouldCancelMicrophoneEcho: boolean;
   /** Whether the browser's gain control and noise suppression work on the microphone for voice. */
-  readonly shouldLevelMicrophone: boolean;
+  readonly shouldBrowserLevelMicrophone: boolean;
 }
 
 /** The tuning a device follows by before its welcome says, or where it says none: the settings' starting values. */
@@ -129,7 +129,7 @@ export const startingTuning: SyncTuning = {
   settleAfterChangeMs: 300,
   shouldNudgeKeepPitch: true,
   shouldCancelMicrophoneEcho: false,
-  shouldLevelMicrophone: false,
+  shouldBrowserLevelMicrophone: false,
 };
 
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
@@ -296,10 +296,10 @@ function parseTuning(value: unknown): SyncTuning {
       "shouldCancelMicrophoneEcho",
       startingTuning.shouldCancelMicrophoneEcho,
     ),
-    shouldLevelMicrophone: booleanIn(
+    shouldBrowserLevelMicrophone: booleanIn(
       record,
-      "shouldLevelMicrophone",
-      startingTuning.shouldLevelMicrophone,
+      "shouldBrowserLevelMicrophone",
+      startingTuning.shouldBrowserLevelMicrophone,
     ),
   };
 }

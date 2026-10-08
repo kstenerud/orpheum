@@ -45,7 +45,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 		Kind: NoteSought, PositionMs: 50_000, ToMs: 124_000, Why: "catchUp",
 	}})
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
-		Kind: NoteChunkLoaded, Track: "video", LoadMs: 5200, Kbps: 2300, QualityKbps: 1200,
+		Kind: NoteChunkLoaded, Track: "video", LoadMs: 5200, LoadedKbps: 2300, QualityKbps: 1200,
 	}})
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteNudged, PositionMs: 30_000, DriftMs: 380, Rate: 1.1, ReturnCostMs: 220,
@@ -53,7 +53,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	logged := stage.logs.String()
 	for _, want := range []string{
 		`kind=sought positionMs=50000 toMs=124000 why=catchUp`,
-		`kind=chunkLoaded loadMs=5200 kbps=2300 qualityKbps=1200 track=video`,
+		`kind=chunkLoaded loadMs=5200 loadedKbps=2300 qualityKbps=1200 track=video`,
 		`kind=nudged positionMs=30000 driftMs=380 returnCostMs=220 rate=1.1`,
 	} {
 		isNoted := strings.Contains(logged, `msg="watch together: a device's player noted"`)
@@ -145,15 +145,15 @@ func TestHub_LogsEachPongAPlayerHeardWithItsResidual(t *testing.T) {
 	stage := newStage(t)
 	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
 	for _, note := range []PlayerNote{
-		{Kind: NotePonged, RoundTripMs: 84, ResidualMs: 173, Why: "placed"},
-		{Kind: NotePonged, RoundTripMs: 97, ResidualMs: -12, Why: "kept"},
+		{Kind: NotePonged, RoundTripMs: 84, AheadOfExpectedMs: 173, Why: "placed"},
+		{Kind: NotePonged, RoundTripMs: 97, AheadOfExpectedMs: -12, Why: "kept"},
 	} {
 		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
 	}
 	want := `level=INFO msg="watch together: a player's pong said where the group is"`
 	logged := stage.logs.String()
 	for _, said := range []string{
-		"roundTripMs=84 residualMs=173 placing=placed", "roundTripMs=97 residualMs=-12 placing=kept",
+		"roundTripMs=84 aheadOfExpectedMs=173 placing=placed", "roundTripMs=97 aheadOfExpectedMs=-12 placing=kept",
 	} {
 		if !strings.Contains(logged, want) || !strings.Contains(logged, said) {
 			t.Errorf("the log does not say %q:\n%s", said, logged)
@@ -280,15 +280,15 @@ func TestHub_LogsHowAPlayerPlacedItsFirstChunks(t *testing.T) {
 	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteDiagnosis, Why: "bufferedFirst", PositionMs: 300_000, ReadyState: 1,
-		Mapping: "initPTS main 10.000; main sn 30 at 300.00 pts 300.00", Streaming: "streaming",
+		Mapping: "initPTS main 10.000; main sn 30 at 300.00 pts 300.00", MediaSourceState: "streaming",
 	}})
 	want := `why=bufferedFirst positionMs=300000 readyState=1`
-	mapping := `mapping="initPTS main 10.000; main sn 30 at 300.00 pts 300.00" streaming=streaming`
+	mapping := `mapping="initPTS main 10.000; main sn 30 at 300.00 pts 300.00" mediaSourceState=streaming`
 	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, mapping) {
 		t.Errorf("the log does not say how the player placed its first chunk:\n%s", logged)
 	}
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
-		Kind: NoteDiagnosis, Why: "bufferedFirst", Streaming: "maybe",
+		Kind: NoteDiagnosis, Why: "bufferedFirst", MediaSourceState: "maybe",
 	}})
 	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
 		t.Errorf("an unknown streaming state answered %+v; want rejected as invalid", rejected)
@@ -302,14 +302,16 @@ func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {
 	stage := newStage(t)
 	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
-		Kind: NoteLed, Why: "pause", Events: "play@100 pause(own)@120 play@125 pause@510",
+		Kind: NoteLeaderCommand, Why: "pause", RecentEvents: "play@100 pause(own)@120 play@125 pause@510",
 	}})
 	logged := stage.logs.String()
 	if !strings.Contains(logged, `msg="watch together: a leading player sent a command"`) ||
-		!strings.Contains(logged, `command=pause events="play@100 pause(own)@120 play@125 pause@510"`) {
+		!strings.Contains(logged, `command=pause recentEvents="play@100 pause(own)@120 play@125 pause@510"`) {
 		t.Errorf("the log does not say the command and its events:\n%s", logged)
 	}
-	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteLed, Why: "dance"}})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteLeaderCommand, Why: "dance",
+	}})
 	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
 		t.Errorf("an unknown command answered %+v; want rejected as invalid", rejected)
 	}

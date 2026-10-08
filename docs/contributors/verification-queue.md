@@ -210,7 +210,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (D250 §7; safari-versions.md §3, §4). (`web/packages/sdk/src/together-follow.ts`)
 - [ ] **VQ23** — The host on an Android phone with headphones plays a film in a session against
   staging in **Chrome** and presses **Talk**, with **should_together_voice_cancel_echo** off and
-  **should_together_voice_level_microphone** set on (it starts off). Passes when the film stays at
+  **should_together_voice_browser_level_microphone** set on (it starts off). Passes when the film stays at
   its usual loudness, the phone's volume buttons still change it while voice is on, and the other
   person hears the host clearly over their film with their Partner slider at 100%. Firefox on
   Android failed this (the owner's test, 2026-10-07: the volume buttons stopped working), which is
@@ -229,7 +229,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   drawn ones when fullscreen ends. Only a real phone shows that its fullscreen player draws a
   page's text track (D254). (`web/packages/player/src/fullscreen-captions.ts`)
 - [ ] **VQ26** — Against staging, two people in a session, one on an Android phone in Firefox with
-  `should_together_voice_level_microphone` off, the other on an iPhone on its own speaker: before
+  `should_together_voice_browser_level_microphone` off, the other on an iPhone on its own speaker: before
   Talk, the iPhone shows the earpiece warning; both press Talk and speak for 20 s at a normal
   distance. Passes when each hears the other clearly at the partner volume's 100%, the log's
   `a voice call measured` lines show `receivedLevel` near 0.1 on both sides, and the Android

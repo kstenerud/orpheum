@@ -167,10 +167,12 @@ describe("play state", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     const sent = heard.find((request) => request.methodAndPath === "POST /playback/timed/report");
-    expect(sent?.body).toMatchObject({ startup: { decisionMs: 200 } });
-    const { startup } = sent?.body as { startup: { firstDataMs: number; playingMs: number } };
-    expect(startup.firstDataMs).toBeGreaterThanOrEqual(3000);
-    expect(startup.playingMs).toBeGreaterThanOrEqual(startup.firstDataMs);
+    expect(sent?.body).toMatchObject({ startup: { decidedAfterMs: 200 } });
+    const { startup } = sent?.body as {
+      startup: { firstDataAfterMs: number; playingAfterMs: number };
+    };
+    expect(startup.firstDataAfterMs).toBeGreaterThanOrEqual(3000);
+    expect(startup.playingAfterMs).toBeGreaterThanOrEqual(startup.firstDataAfterMs);
   });
 
   it("starts on the ladder its decision names, and says the quality follows the connection (D260)", async () => {

@@ -174,7 +174,7 @@ export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchE
     const loaded: ChunkLoaded = {
       track: isVideo ? "video" : "audio",
       loadMs,
-      kbps: loadMs > 0 ? (total * 8) / loadMs : 0,
+      loadedKbps: loadMs > 0 ? (total * 8) / loadMs : 0,
       qualityKbps: isVideo ? (hls.levels[frag.level]?.bitrate ?? 0) / 1000 : 0,
     };
     video.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
@@ -182,7 +182,7 @@ export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchE
   hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
     const switched: QualitySwitched = {
       qualityKbps: (hls.levels[data.level]?.bitrate ?? 0) / 1000,
-      estimateKbps: hls.bandwidthEstimate / 1000,
+      linkEstimateKbps: hls.bandwidthEstimate / 1000,
     };
     video.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
   });

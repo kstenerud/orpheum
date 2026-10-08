@@ -189,7 +189,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
     expect(sockets.sent.filter((each) => each["type"] === "note").at(-1)).toMatchObject({
       // From 10.18 s, where the group message put it with no round trip yet measured, to 10.28 s.
-      note: { kind: "ponged", roundTripMs: 80, residualMs: 100, why: "placed" },
+      note: { kind: "ponged", roundTripMs: 80, aheadOfExpectedMs: 100, why: "placed" },
     });
     // A longer round trip places nothing; a pong of another timeline neither.
     monotonicNowMs = 3500;
@@ -213,8 +213,8 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     expect(
       sockets.sent.filter((each) => each["type"] === "note").map((each) => each["note"]),
     ).toEqual([
-      { kind: "ponged", roundTripMs: 80, residualMs: 100, why: "placed" },
-      { kind: "ponged", roundTripMs: 500, residualMs: -350, why: "kept" },
+      { kind: "ponged", roundTripMs: 80, aheadOfExpectedMs: 100, why: "placed" },
+      { kind: "ponged", roundTripMs: 500, aheadOfExpectedMs: -350, why: "kept" },
     ]);
     // A new timeline is placed by its group message again, until a pong places it.
     monotonicNowMs = 4000;
@@ -399,7 +399,7 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
       settleAfterChangeMs: 450,
       shouldNudgeKeepPitch: false,
       shouldCancelMicrophoneEcho: true,
-      shouldLevelMicrophone: false,
+      shouldBrowserLevelMicrophone: false,
     };
     sockets.opened[0]!.onMessage(JSON.stringify({ ...welcome, tuning }));
     expect(connection.snapshot().tuning).toEqual(tuning);

@@ -102,7 +102,7 @@ const (
 	// ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): an iPhone that jumped 10 s
 	// on its own and then sat waiting said nothing of what it held (the owner's test, 2026-10-08).
 	NoteDiagnosis NoteKind = "diagnosis"
-	// NoteLed is a leading player's command, why its kind ("pause", "seek", "play"), with the
+	// NoteLeaderCommand is a leading player's command, why its kind ("pause", "seek", "play"), with the
 	// player's last events: a host's play was stopped 0.4 s later by a pause no one could say the
 	// source of (the owner's tests, 2026-10-08).
 	// NoteOwnMarkExpired is a seek or pause a follower made itself, Why, firing no event within the
@@ -112,7 +112,7 @@ const (
 	// NoteCorrectsBySeeks is a follower whose rate's returns to its group's cost it ReturnCostMs,
 	// more than the drift left alone, correcting by seeks alone from then on (D268 §2).
 	NoteCorrectsBySeeks NoteKind = "correctsBySeeks"
-	NoteLed             NoteKind = "led"
+	NoteLeaderCommand   NoteKind = "leaderCommand"
 	NoteUnmuted         NoteKind = "unmuted"
 )
 
@@ -133,37 +133,38 @@ type PlayerNote struct {
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
 	// Why is a seek's ("catchUp", "hold", "skip") or a reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
-	// Track, LoadMs and Kbps are a chunk's: "video" or "audio", how long it took, and how fast.
-	Track  string `json:"track,omitempty"`
-	LoadMs int64  `json:"loadMs,omitempty"`
-	Kbps   int64  `json:"kbps,omitempty"`
-	// QualityKbps is the quality a chunk was of, or that the player switched to; EstimateKbps, the
+	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
+	Track      string `json:"track,omitempty"`
+	LoadMs     int64  `json:"loadMs,omitempty"`
+	LoadedKbps int64  `json:"loadedKbps,omitempty"`
+	// QualityKbps is the quality a chunk was of, or that the player switched to; LinkEstimateKbps, the
 	// player's estimate of its link at the switch.
-	QualityKbps  int64 `json:"qualityKbps,omitempty"`
-	EstimateKbps int64 `json:"estimateKbps,omitempty"`
+	QualityKbps      int64 `json:"qualityKbps,omitempty"`
+	LinkEstimateKbps int64 `json:"linkEstimateKbps,omitempty"`
 	// OfflineMs is how long a reconnecting device was without its socket.
 	OfflineMs int64 `json:"offlineMs,omitempty"`
 	// Voice is a voiceStats note's call, as its receiver measured it (D262 §1).
 	Voice *VoiceStats `json:"voice,omitempty"`
 	// PartnerDeviceID is the other device of a voiceCall note's call; its Why, the step.
 	PartnerDeviceID int64 `json:"partnerDeviceId,omitempty"`
-	// RoundTripMs is a ponged note's pong's round trip; ResidualMs, how far ahead of where the
+	// RoundTripMs is a ponged note's pong's round trip; AheadOfExpectedMs, how far ahead of where the
 	// follower expected the group the pong said it is (behind when negative); its Why, whether the
 	// pong placed the group anew ("placed") or not ("kept").
-	RoundTripMs int64 `json:"roundTripMs,omitempty"`
-	ResidualMs  int64 `json:"residualMs,omitempty"`
-	// ReadyState, VideoBuffered, AudioBuffered, LastError, Mapping and Streaming are a diagnosis
+	RoundTripMs       int64 `json:"roundTripMs,omitempty"`
+	AheadOfExpectedMs int64 `json:"aheadOfExpectedMs,omitempty"`
+	// ReadyState, VideoBuffered, AudioBuffered, LastError, Mapping and MediaSourceState are a diagnosis
 	// note's: the video's readyState, what its picture's and sound's buffers hold, as "from-to"
 	// ranges in seconds, the last error its player reported, how its player placed the first chunk
 	// of each playlist, and whether an iPhone's media source lets it load ("streaming", "stopped").
-	ReadyState    int64  `json:"readyState,omitempty"`
-	VideoBuffered string `json:"videoBuffered,omitempty"`
-	AudioBuffered string `json:"audioBuffered,omitempty"`
-	LastError     string `json:"lastError,omitempty"`
-	Mapping       string `json:"mapping,omitempty"`
-	Streaming     string `json:"streaming,omitempty"`
-	// Events are a led note's player's last events, "<event>[(own)]@<monotonic ms>", oldest first.
-	Events string `json:"events,omitempty"`
+	ReadyState       int64  `json:"readyState,omitempty"`
+	VideoBuffered    string `json:"videoBuffered,omitempty"`
+	AudioBuffered    string `json:"audioBuffered,omitempty"`
+	LastError        string `json:"lastError,omitempty"`
+	Mapping          string `json:"mapping,omitempty"`
+	MediaSourceState string `json:"mediaSourceState,omitempty"`
+	// RecentEvents are a leaderCommand note's player's last events, "<event>[(own)]@<monotonic ms>",
+	// oldest first.
+	RecentEvents string `json:"recentEvents,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -216,7 +217,7 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownFollowing()
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
-	case NoteDiagnosis, NoteLed:
+	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
 	}
 	return false
@@ -237,7 +238,8 @@ func (note PlayerNote) isKnownFollowing() bool {
 	case NoteCorrectsBySeeks:
 		return note.ReturnCostMs >= 0 && note.Why == ""
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
-		NoteVoiceCall, NoteVoiceOff, NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed: // isKnown reads them
+		NoteVoiceCall, NoteVoiceOff, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
+		NoteLeaderCommand: // isKnown reads them
 	}
 	return false
 }
@@ -253,23 +255,23 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
-		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed, NoteOwnMarkExpired,
+		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
 		NoteCorrectsBySeeks: // not voice's: isKnown reads them
 	}
 	return false
 }
 
-// isKnownDiagnosis is whether a diagnosis or led note is one the server logs: why it was sent, a
+// isKnownDiagnosis is whether a diagnosis or leaderCommand note is one the server logs: why it was sent, a
 // known word for its kind, and its text no longer than diagnosisTextMost.
 func (note PlayerNote) isKnownDiagnosis() bool {
 	whys := []string{"movedItself", "stalled", "bufferedFirst"}
-	if note.Kind == NoteLed {
+	if note.Kind == NoteLeaderCommand {
 		whys = []string{"pause", "seek", "play"}
 	}
 	return slices.Contains(whys, note.Why) && note.Track == "" && len(note.VideoBuffered) <= diagnosisTextMost &&
 		len(note.AudioBuffered) <= diagnosisTextMost && len(note.LastError) <= diagnosisTextMost &&
-		len(note.Events) <= diagnosisTextMost && len(note.Mapping) <= diagnosisTextMost &&
-		slices.Contains([]string{"", "streaming", "stopped"}, note.Streaming)
+		len(note.RecentEvents) <= diagnosisTextMost && len(note.Mapping) <= diagnosisTextMost &&
+		slices.Contains([]string{"", "streaming", "stopped"}, note.MediaSourceState)
 }
 
 // isVoicePlayback is whether word is how a voice call's sound plays, as the web client's
@@ -385,9 +387,9 @@ type Tuning struct {
 	// ShouldCancelMicrophoneEcho is whether the browser cancels echo on a person's microphone for
 	// voice (D63: headphones need none); on Android it makes a call of it.
 	ShouldCancelMicrophoneEcho bool `json:"shouldCancelMicrophoneEcho"`
-	// ShouldLevelMicrophone is whether the browser's gain control and noise suppression work on a
+	// ShouldBrowserLevelMicrophone is whether the browser's gain control and noise suppression work on a
 	// person's microphone for voice.
-	ShouldLevelMicrophone bool `json:"shouldLevelMicrophone"`
+	ShouldBrowserLevelMicrophone bool `json:"shouldBrowserLevelMicrophone"`
 }
 
 // GroupState is the group's play state (watch-together.md, Sync): Waiting is paused until every

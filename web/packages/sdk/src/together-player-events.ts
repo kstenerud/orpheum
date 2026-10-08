@@ -38,7 +38,7 @@ export const playerLoadedChunkEvent = "orpheumplayerloadedchunk";
 export interface ChunkLoaded {
   readonly track: "video" | "audio";
   readonly loadMs: number;
-  readonly kbps: number;
+  readonly loadedKbps: number;
   /** The quality the chunk is of, in kbit/s. */
   readonly qualityKbps: number;
 }
@@ -52,7 +52,7 @@ export const playerSwitchedQualityEvent = "orpheumplayerswitchedquality";
 /** A quality a player began playing, as playerSwitchedQualityEvent tells it. */
 export interface QualitySwitched {
   readonly qualityKbps: number;
-  readonly estimateKbps: number;
+  readonly linkEstimateKbps: number;
 }
 
 /** The detail an event carries, when it is a CustomEvent whose detail has every one of fields. */
@@ -70,20 +70,21 @@ function detailWith(event: Event, fields: readonly string[]): Record<string, unk
 
 /** A playerLoadedChunkEvent's chunk, or undefined when the event carries none. */
 export function chunkLoadedOf(event: Event): ChunkLoaded | undefined {
-  const detail = detailWith(event, ["track", "loadMs", "kbps", "qualityKbps"]);
-  const { track, loadMs, kbps, qualityKbps } = detail ?? {};
+  const detail = detailWith(event, ["track", "loadMs", "loadedKbps", "qualityKbps"]);
+  const { track, loadMs, loadedKbps, qualityKbps } = detail ?? {};
   return (track === "video" || track === "audio") &&
     typeof loadMs === "number" &&
-    typeof kbps === "number" &&
+    typeof loadedKbps === "number" &&
     typeof qualityKbps === "number"
-    ? { track, loadMs, kbps, qualityKbps }
+    ? { track, loadMs, loadedKbps, qualityKbps }
     : undefined;
 }
 
 /** A playerSwitchedQualityEvent's quality, or undefined when the event carries none. */
 export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
-  const { qualityKbps, estimateKbps } = detailWith(event, ["qualityKbps", "estimateKbps"]) ?? {};
-  return typeof qualityKbps === "number" && typeof estimateKbps === "number"
-    ? { qualityKbps, estimateKbps }
+  const { qualityKbps, linkEstimateKbps } =
+    detailWith(event, ["qualityKbps", "linkEstimateKbps"]) ?? {};
+  return typeof qualityKbps === "number" && typeof linkEstimateKbps === "number"
+    ? { qualityKbps, linkEstimateKbps }
     : undefined;
 }

@@ -116,3 +116,9 @@ trailer on the commit that removes it.
 | `subtitle_choice` | `subtitle_used` (a file's) and `subtitle_language` (a work's) | D230 |
 | `'invite'` | `'issued_secret'`: the grant kind of a registration invitation and a device code; listed quoted, as a stored value, since "invite" is an ordinary word | D231, the jobs rebuild's Phase 3 |
 | `"invite"` | `"issued_secret"`, as above | D231, the jobs rebuild's Phase 3 |
+| `should_together_voice_level_microphone` | `should_together_voice_browser_level_microphone` | D270 §2 |
+| `shouldLevelMicrophone` | `shouldBrowserLevelMicrophone` | D270 §2 |
+| `residualMs` | `aheadOfExpectedMs` | D270 §2 |
+| `decisionMs` | `decidedAfterMs` | D270 §2 |
+| `firstDataMs` | `firstDataAfterMs` | D270 §2 |
+| `playingMs` | `playingAfterMs` | D270 §2 |

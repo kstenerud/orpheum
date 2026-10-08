@@ -145,12 +145,12 @@ function startupListeners(
   if (times === undefined) {
     return {};
   }
-  let firstDataMs: number | undefined;
+  let firstDataAfterMs: number | undefined;
   let isTold = false;
   const sinceAsked = (ms: number): number => Math.max(0, Math.round(ms - times.askedMs));
   return {
     loadeddata: () => {
-      firstDataMs ??= performance.now();
+      firstDataAfterMs ??= performance.now();
     },
     playing: () => {
       if (isTold || !hasMedia(video)) {
@@ -158,11 +158,11 @@ function startupListeners(
       }
       isTold = true;
       decisionTimesByToken.delete(mediaToken);
-      const playingMs = performance.now();
+      const playingAfterMs = performance.now();
       reporter.recordStartup({
-        decisionMs: sinceAsked(times.decidedMs),
-        firstDataMs: sinceAsked(firstDataMs ?? playingMs),
-        playingMs: sinceAsked(playingMs),
+        decidedAfterMs: sinceAsked(times.decidedMs),
+        firstDataAfterMs: sinceAsked(firstDataAfterMs ?? playingAfterMs),
+        playingAfterMs: sinceAsked(playingAfterMs),
       });
     },
   };
