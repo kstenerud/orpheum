@@ -54,6 +54,7 @@ User-Agent (D263; the User-Agent is logged only).
 | The partner was too quiet even at 400% receiver gain. | [Chrome on Android with processing off captures quietly ("quiet, sometimes silent, streams")](#chrome-on-android-with-processing-off-captures-quietly-quiet-sometimes-silent-streams) |
 | Remote voice routed only through Web Audio is silent. | [Chrome plays a remote WebRTC stream into Web Audio only while a media element also holds it](#chrome-plays-a-remote-webrtc-stream-into-web-audio-only-while-a-media-element-also-holds-it) |
 | Brave on Android refused the microphone | [Brave on Android refused the microphone](#brave-on-android-refused-the-microphone) |
+| A video with `autoplay` that never gets its first frame reports `paused === true` and `readyState` 1 indefinitely. | [An autoplaying video reads as paused until it can play, so a video that never can looks paused forever](#an-autoplaying-video-reads-as-paused-until-it-can-play-so-a-video-that-never-can-looks-paused-forever) |
 | At `http://devnas.example:5173` every click threw before it sent anything, and sign-in "did nothing". | [Secure-context APIs are simply absent on plain HTTP off localhost](#secure-context-apis-are-simply-absent-on-plain-http-off-localhost) |
 | A browser plays only the original file's first audio track | [A browser plays only the original file's first audio track](#a-browser-plays-only-the-original-files-first-audio-track) |
 | Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3 | [Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3](#browsers-other-than-chrome-play-no-matroska-and-none-plays-truehd-dts-or-most-ac-3) |
@@ -447,6 +448,19 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** plan-deviations P20. [doc] Low priority.
 
 ---
+
+### An autoplaying video reads as paused until it can play, so a video that never can looks paused forever
+
+- **Technology:** HTML media elements (all browsers), the `autoplay` attribute.
+- **Symptom:** a video with `autoplay` that never gets its first frame reports `paused === true` and
+  `readyState` 1 indefinitely, while the page shows it loading; nothing says it was ever asked to play.
+- **Cause:** the spec's autoplaying flag starts playback only once the element reaches
+  HAVE_ENOUGH_DATA; until then `paused` stays true [doc].
+- **What we do:** D266 counts a video as waiting to play when it is not paused **or** is paused short
+  of HAVE_FUTURE_DATA (`isWaitingToPlay`, `web/packages/player/src/abr-choice.ts`); stall reports carry
+  `readyState` and `isPaused` (`internal/core/api/report.go`).
+- **Evidence:** [owner] 2026-10-08: Flow resumed part-way in Firefox on macOS sat paused at readyState 1,
+  and the first form of D266, which ignored paused videos, never fired.
 
 ---
 

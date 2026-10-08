@@ -2914,8 +2914,11 @@ export interface components {
             toPositionMs: number;
         };
         StallBody: {
+            isPaused?: boolean;
             /** Format: int64 */
             positionMs: number;
+            /** Format: int64 */
+            readyState?: number;
         };
         StartPlaybackInputBody: {
             /** Format: int64 */

@@ -4282,8 +4282,17 @@
       "StallBody": {
         "additionalProperties": false,
         "properties": {
+          "isPaused": {
+            "type": "boolean"
+          },
           "positionMs": {
             "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "readyState": {
+            "format": "int64",
+            "maximum": 4,
             "minimum": 0,
             "type": "integer"
           }

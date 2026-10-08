@@ -30,7 +30,7 @@ class FakeHls implements ChoosingHls {
   readonly minAutoLevel = 0;
   readonly maxAutoLevel = 3;
   mainForwardBufferInfo = { len: 0 };
-  media: Pick<HTMLMediaElement, "currentTime" | "paused"> | null = null;
+  media: Pick<HTMLMediaElement, "currentTime" | "paused" | "readyState"> | null = null;
 }
 
 /** A chunk of picture at level, ten seconds long, asked for at 0, with nothing arrived yet. */
@@ -188,7 +188,7 @@ describe("a quality this device cannot play (D266)", () => {
     const chosen = choosingFrom(40_000_000);
     chosen.link.estimateBps = 30_000_000;
     chosen.hls.loadLevel = 3;
-    chosen.hls.media = { currentTime: positionS, paused: false };
+    chosen.hls.media = { currentTime: positionS, paused: false, readyState: 1 };
     chosen.choosing.firstLevel();
     vi.advanceTimersByTime(lookAtChunkEveryMs); // it stands still from here
     return chosen;
@@ -211,7 +211,7 @@ describe("a quality this device cannot play (D266)", () => {
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    hls.media = { currentTime: 430, paused: false };
+    hls.media = { currentTime: 430, paused: false, readyState: 4 };
     hls.currentLevel = 2;
     hls.mainForwardBufferInfo = { len: 60 };
     nowMs = 1_000_000;
@@ -219,6 +219,16 @@ describe("a quality this device cannot play (D266)", () => {
     expect(choosing.nextLevel()).toBe(2);
     choosing.setLevel(3);
     expect(choosing.forcedLevel()).toBe(-1);
+  });
+
+  it("is given up on an autoplaying video, paused until it can play, that never can", () => {
+    const { hls, choosing, unplayable } = standingAt(303.98);
+    hls.media = { currentTime: 303.98, paused: true, readyState: 1 };
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 303_980 }]);
   });
 
   it("is not given up while chunks are slow to come, while paused, or while the video plays", () => {
@@ -230,7 +240,7 @@ describe("a quality this device cannot play (D266)", () => {
 
     nowMs = 0;
     const paused = standingAt(420.5);
-    paused.hls.media = { currentTime: 420.5, paused: true };
+    paused.hls.media = { currentTime: 420.5, paused: true, readyState: 4 }; // its data there
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
@@ -241,7 +251,7 @@ describe("a quality this device cannot play (D266)", () => {
     const playing = standingAt(420.5);
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    playing.hls.media = { currentTime: 423.5, paused: false };
+    playing.hls.media = { currentTime: 423.5, paused: false, readyState: 4 };
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(playing.unplayable).toEqual([]);

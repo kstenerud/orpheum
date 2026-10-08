@@ -121,11 +121,11 @@ describe("reporting play state", () => {
     expect(sent[0]).not.toHaveProperty("linkKbps"); // not measured yet
     link.kbps = 1834.6;
     failNext();
-    reporter.recordStall(61_500);
+    reporter.recordStall(61_500, { readyState: 1, paused: true });
     await settled();
     reporter.flush(62_000);
     await settled();
-    expect(sent[1]?.stalls).toEqual([{ positionMs: 61_500 }]);
+    expect(sent[1]?.stalls).toEqual([{ positionMs: 61_500, readyState: 1, isPaused: true }]);
     expect(sent[1]?.linkKbps).toBe(1835);
     reporter.flush(70_000);
     await settled();

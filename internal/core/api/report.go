@@ -56,9 +56,13 @@ type StartupBody struct {
 	PlayingMs   int64 `json:"playingMs"   minimum:"0"`
 }
 
-// StallBody is one stall: a wait for data, while the player played, where it was.
+// StallBody is one stall: a wait for data, while the player played, where it was; and the video's
+// readyState and whether it was paused then, which say whether it lacked data or could not play
+// what it had (D266: Flow's video sat paused at readyState 1, which only a guess found).
 type StallBody struct {
-	PositionMs int64 `json:"positionMs" minimum:"0"`
+	PositionMs int64 `json:"positionMs"           minimum:"0"`
+	ReadyState int64 `json:"readyState,omitempty" minimum:"0" maximum:"4" required:"false"`
+	IsPaused   bool  `json:"isPaused,omitempty"   required:"false"`
 }
 
 // EventBody is one change of play state.
@@ -159,7 +163,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
-	server.logReport(ctx, reporter, report, answer)
+	server.logReport(ctx, reporter, report, answer, input.Body.Stalls)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
 	server.logUnplayable(ctx, reporter, input.Body.Unplayable)
 	output := &ReportOutput{}
@@ -178,7 +182,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 // 2026-10-06). Who is the holder's user, 0 for a viewer, and the file they may play; never the
 // session's key.
 func (server *Server) logReport(
-	ctx context.Context, reporter reporter, report playback.Report, answer playback.Answer,
+	ctx context.Context, reporter reporter, report playback.Report, answer playback.Answer, stalls []StallBody,
 ) {
 	who := []any{
 		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
@@ -191,7 +195,13 @@ func (server *Server) logReport(
 	for _, stall := range report.Stalls {
 		positions = append(positions, stall.PositionMs)
 	}
-	server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions)...)
+	readyStates := make([]int64, 0, len(stalls))
+	paused := make([]bool, 0, len(stalls))
+	for _, stall := range stalls {
+		readyStates, paused = append(readyStates, stall.ReadyState), append(paused, stall.IsPaused)
+	}
+	server.logger.InfoContext(ctx, "a player reported stalls", append(who, "stallPositionsMs", positions,
+		"stallReadyStates", readyStates, "stallsPaused", paused)...)
 	if offer := answer.LowerQuality; offer != nil {
 		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
 			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
