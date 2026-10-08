@@ -4282,8 +4282,16 @@
       "StallBody": {
         "additionalProperties": false,
         "properties": {
+          "audioBuffered": {
+            "maxLength": 400,
+            "type": "string"
+          },
           "isPaused": {
             "type": "boolean"
+          },
+          "lastError": {
+            "maxLength": 200,
+            "type": "string"
           },
           "positionMs": {
             "format": "int64",
@@ -4295,6 +4303,10 @@
             "maximum": 4,
             "minimum": 0,
             "type": "integer"
+          },
+          "videoBuffered": {
+            "maxLength": 400,
+            "type": "string"
           }
         },
         "required": [

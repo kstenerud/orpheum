@@ -2914,11 +2914,14 @@ export interface components {
             toPositionMs: number;
         };
         StallBody: {
+            audioBuffered?: string;
             isPaused?: boolean;
+            lastError?: string;
             /** Format: int64 */
             positionMs: number;
             /** Format: int64 */
             readyState?: number;
+            videoBuffered?: string;
         };
         StartPlaybackInputBody: {
             /** Format: int64 */
