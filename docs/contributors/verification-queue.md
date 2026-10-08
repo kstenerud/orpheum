@@ -228,3 +228,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   still show in fullscreen, plainly styled, keep the offset set below the video, and go back to the
   drawn ones when fullscreen ends. Only a real phone shows that its fullscreen player draws a
   page's text track (D254). (`web/packages/player/src/fullscreen-captions.ts`)
+- [ ] **VQ26** — Against staging, two people in a session, one on an Android phone in Firefox with
+  `should_together_voice_level_microphone` off, the other on an iPhone on its own speaker: before
+  Talk, the iPhone shows the earpiece warning; both press Talk and speak for 20 s at a normal
+  distance. Passes when each hears the other clearly at the partner volume's 100%, the log's
+  `a voice call measured` lines show `receivedLevel` near 0.1 on both sides, and the Android
+  phone's film stays at normal loudness; then the iPhone presses Leave voice and its film's sound
+  is back on the speaker within a few seconds, not some 20 s later. Only real phones show a
+  microphone's level, Android's call mode and iOS's earpiece (the owner's test, 2026-10-08).
+  (`web/packages/sdk/src/together-voice-level.ts`, `together-voice-browser.ts`)

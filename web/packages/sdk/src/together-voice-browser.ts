@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
+import { levelMicrophone, type LevelledMicrophone } from "./together-voice-level.ts";
 import {
   voiceCallStatsOf,
   type VoiceCallStats,
@@ -216,14 +217,22 @@ async function measureCall(
 function startBrowserCall(
   setup: VoiceCallSetup<MediaStream>,
   context: AudioContext | undefined,
+  levelled: LevelledMicrophone | undefined,
 ): VoiceCall {
   const peer = new RTCPeerConnection({
     iceServers: [...setup.iceServers],
     iceTransportPolicy: "all", // standard ICE picks the path: direct, or through the relay (D193 §4)
   });
-  const senders = setup.microphone
-    .getAudioTracks()
-    .map((track) => peer.addTrack(track, setup.microphone));
+  // The microphone raised to a speaking level where the browser's levelling is off, else its own.
+  const senders =
+    levelled === undefined
+      ? setup.microphone.getAudioTracks().map((track) => peer.addTrack(track, setup.microphone))
+      : [peer.addTrack(levelled.sentTrack(), setup.microphone)];
+  if (levelled !== undefined) {
+    for (const sender of senders) {
+      levelled.follow(sender);
+    }
+  }
   preferRed(peer);
   let gain = 1;
   let played: PlayedVoice | undefined;
@@ -310,6 +319,9 @@ export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
  */
 export function browserVoiceDevices(): BrowserVoiceDevices {
   let context: AudioContext | undefined;
+  // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
+  let levelled:
+    { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
   return {
     openMicrophone: async (processing) => {
       if (context === undefined && "AudioContext" in window) {
@@ -317,17 +329,64 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
         resumeAtTaps(context, document);
         void context.resume().catch(() => undefined);
       }
+      startCallAudio();
       const microphone = await openBrowserMicrophone(processing);
       // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
       // for: Firefox keeps a resume pending until it lets the page play sound, and voice hung at
       // "Asking for your microphone" (the browser tier, 2026-10-06).
       void context?.resume().catch(() => undefined);
+      levelled?.level.close();
+      levelled = undefined;
+      // Without the browser's levelling, which on Android makes a call of voice, a phone's microphone
+      // is too quiet to hear: it is raised here instead (the owner's choice, 2026-10-08).
+      const level =
+        processing.shouldLevel || context === undefined
+          ? undefined
+          : levelMicrophone(microphone, context);
+      levelled = level === undefined ? undefined : { microphone, level };
       return microphone;
     },
-    startCall: (setup) => startBrowserCall(setup, context),
+    voiceEnded: () => {
+      levelled?.level.close();
+      levelled = undefined;
+      endCallAudio();
+    },
+    startCall: (setup) =>
+      startBrowserCall(
+        setup,
+        context,
+        levelled?.microphone === setup.microphone ? levelled.level : undefined,
+      ),
     close: () => {
+      levelled?.level.close();
+      levelled = undefined;
       void context?.close().catch(() => undefined);
       context = undefined;
     },
   };
+}
+
+/** What a browser's audio session can be told, where it has one (Safari 16.4 and later). */
+type SessionAudio = "auto" | "playback" | "play-and-record";
+
+/** Tells the browser's audio session what it plays, where it has one; elsewhere nothing. */
+function setSessionAudio(type: SessionAudio): void {
+  const audioSession: unknown = Reflect.get(navigator, "audioSession");
+  if (typeof audioSession === "object" && audioSession !== null) {
+    Reflect.set(audioSession, "type", type);
+  }
+}
+
+/** Before the microphone opens: the session back to the browser's own choice. */
+function startCallAudio(): void {
+  setSessionAudio("auto");
+}
+
+/**
+ * Once voice is over: the session told it plays only, so iOS leaves the call it made of voice at
+ * once, the film's sound back on the speaker, rather than some 20 s later (the owner's test,
+ * 2026-10-08; unconfirmed on a phone, VQ26).
+ */
+function endCallAudio(): void {
+  setSessionAudio("playback");
 }

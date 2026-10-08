@@ -120,6 +120,11 @@ export interface VoiceDevices<Microphone extends VoiceMicrophone> {
    */
   readonly openMicrophone: (processing: MicrophoneProcessing) => Promise<Microphone>;
   readonly startCall: (setup: VoiceCallSetup<Microphone>) => VoiceCall;
+  /**
+   * Voice is over, the microphone stopped: what the devices did for it is undone, the microphone's
+   * levelling and, on iOS, the call it made of the browser's sound (the owner's test, 2026-10-08).
+   */
+  readonly voiceEnded: () => void;
 }
 
 /** One other person's voice device this one has a call with, and how it goes. */
@@ -365,6 +370,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     this.#ownDeviceId = undefined;
     if (this.#microphone !== undefined) {
       stopTracks(this.#microphone);
+      this.#options.devices.voiceEnded();
     }
     this.#microphone = undefined;
     this.#change({ ...offSnapshot, partnerGain: this.#snapshot.partnerGain });

@@ -35,6 +35,8 @@ export const enTogether = {
       label: "Voice",
       talk: "Talk",
       headphones: "Use headphones, so the film does not reach your microphone.",
+      earpiece:
+        "On this device, voice moves all sound to the earpiece: the film goes quiet until a while after voice is off. Use headphones.",
       starting: "Asking for your microphone…",
       mute: "Mute",
       unmute: "Unmute",

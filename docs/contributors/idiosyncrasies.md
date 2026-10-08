@@ -509,7 +509,12 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### iOS Safari with the microphone open sends call audio to the earpiece, quietly (WebKit 230902)
 
-- **What we do:** headphones are the supported voice set-up (D63). This is listed for the device lab.
+- **What we do:** headphones are the supported voice set-up (D63). Before Talk on a device with a
+  touch screen and Safari's audio session, without headphones, the voice controls warn that the film
+  goes quiet; when voice ends, the session is set to `playback`, so iOS leaves the call at once rather
+  than some 20 s later (the owner's test, 2026-10-08, where a guest's film went silent on the phone's
+  speaker; VQ26 confirms it on a phone). `web/apps/web/src/together-voice.tsx`
+  (`movesSoundToTheEarpiece`), `web/packages/sdk/src/together-voice-browser.ts` (`endCallAudio`).
 - **Evidence:** D188 [web]. Whether `navigator.audioSession` fixes it is unverified.
   **[web]** [WebKit bug 230902](https://bugs.webkit.org/show_bug.cgi?id=230902), "REGRESSION(Safari 15 -
   iOS15): [WebRTC] MediaStreamTack audio volume too low": RESOLVED CONFIGURATION CHANGED; Twilio and others
