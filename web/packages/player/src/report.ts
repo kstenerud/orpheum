@@ -63,6 +63,12 @@ export class ReportRefused extends Error {
  * sent again, with its changes, in the next one, unless send rejected with ReportRefused: then
  * nothing more is sent, since nothing would be taken.
  */
+/**
+ * The longest a stall's buffered ranges may be, as the server takes them (StallBody): a buffer
+ * fragmented by many seeks keeps its latest ranges, at the end.
+ */
+export const bufferedTextMost = 400;
+
 export class PlayReporter {
   private hasStarted = false;
   private events: PlayEvent[] = [];
@@ -133,7 +139,16 @@ export class PlayReporter {
     this.stalls.push({
       positionMs: Math.max(0, Math.round(positionMs)),
       ...(video === undefined ? {} : { readyState: video.readyState, isPaused: video.paused }),
-      ...diagnosis,
+      // Only what a stall's body takes: the server refuses any other field, and a refused report
+      // silences the reporter for good. The whole diagnosis, spread in, carried the mapping a
+      // Watch Together note added, and every chunked playback's stall was refused (2026-10-08).
+      ...(diagnosis === undefined
+        ? {}
+        : {
+            videoBuffered: diagnosis.videoBuffered.slice(-bufferedTextMost),
+            audioBuffered: diagnosis.audioBuffered.slice(-bufferedTextMost),
+            lastError: diagnosis.lastError,
+          }),
     });
     this.flush(positionMs);
   }
