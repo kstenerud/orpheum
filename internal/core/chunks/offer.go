@@ -25,7 +25,7 @@ var ErrNoStream = errors.New("no such stream of chunks")
 type Playback struct {
 	FileID int64
 	// IsSourcePictureDecodable is whether the player decodes the film's own picture: false when the
-	// playback's decision re-encoded it (profile h264-8m), so the picture copied is not offered.
+	// playback's decision re-encoded it (profile h264), so the picture copied is not offered.
 	IsSourcePictureDecodable bool
 	// HasStartingAudio is whether the playback started with an audio track, and
 	// StartingAudioTrackIndex is that track's place among the film's audio tracks.

@@ -102,7 +102,7 @@ than a taxonomy.
 
 [D193](../../decisions/working-notes.md) §2. D83 wanted a continuous control, but a prepared
 rendition is a shared cache ([D169](../../decisions/working-notes.md)), so each one made by the
-node's prepare job — `remux` and `h264-8m` alike — carries **two stereo downmixes as two audio
+node's prepare job — `remux` and `h264` alike — carries **two stereo downmixes as two audio
 renditions**: the standard matrix, and the same with the centre channel raised. The client
 picks by the user's preference, and **switching between them mid-film needs no new job**.
 Finer steps can come later as further renditions.

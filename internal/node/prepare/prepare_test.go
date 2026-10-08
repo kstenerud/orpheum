@@ -196,7 +196,7 @@ func TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan(t *testing.T) {
 		}
 		return made
 	}
-	if made := prepareWith(nodeproto.ProfileH264At8M); made.VideoEncoder != "h264_qsv" || made.RealtimeFactor != 4.25 {
+	if made := prepareWith(nodeproto.ProfileH264); made.VideoEncoder != "h264_qsv" || made.RealtimeFactor != 4.25 {
 		t.Errorf("an encode on a Quick Sync node made %+v; want h264_qsv at FFmpeg's last speed, 4.25 (D225 §3)", made)
 	}
 	if made := prepareWith(nodeproto.ProfileRemux); made.VideoEncoder != "copy" {
@@ -218,13 +218,13 @@ func TestPreparer_OnlyAnEncodeOnTheGPUIsGrantedItsDevices(t *testing.T) {
 		}
 		return granted[0]
 	}
-	if !prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileH264At8M).UsesGPU {
+	if !prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileH264).UsesGPU {
 		t.Error("an encode with Quick Sync is not granted the GPU; confined, it would fail")
 	}
 	if prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileRemux).UsesGPU {
 		t.Error("a remux is granted the GPU, which it never uses")
 	}
-	if prepareWith(prepare.EncoderX264, nodeproto.ProfileH264At8M).UsesGPU {
+	if prepareWith(prepare.EncoderX264, nodeproto.ProfileH264).UsesGPU {
 		t.Error("an x264 encode is granted the GPU, which it never uses")
 	}
 }
@@ -275,10 +275,10 @@ func TestPreparer_WatchesARunWithADeadlineFromTheSourcesLengthAndTheSpeedLastMea
 		}
 	}
 	const twoHoursMs = 2 * 60 * 60 * 1000
-	prepareFilm(nodeproto.ProfileH264At8M, twoHoursMs)
-	prepareFilm(nodeproto.ProfileH264At8M, twoHoursMs)
+	prepareFilm(nodeproto.ProfileH264, twoHoursMs)
+	prepareFilm(nodeproto.ProfileH264, twoHoursMs)
 	prepareFilm(nodeproto.ProfileRemux, twoHoursMs)
-	prepareFilm(nodeproto.ProfileH264At8M, 0)
+	prepareFilm(nodeproto.ProfileH264, 0)
 	// Three times the expected length: two hours at half of real time before a speed is measured,
 	// then at the 4.25 times the fake's FFmpeg said; per profile; a day when the length is unknown.
 	speed, lengthMs := 4.25, float64(twoHoursMs)

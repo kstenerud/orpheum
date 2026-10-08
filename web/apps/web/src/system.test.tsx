@@ -57,7 +57,7 @@ const connected: SystemNode = {
     {
       sourceFileId: 42,
       path: "Films/Metropolis (1995)/Metropolis.mkv",
-      profile: "h264-8m",
+      profile: "h264",
       state: "complete",
       videoEncoder: "h264_qsv",
       realtimeFactor: 6.5,

@@ -57,7 +57,7 @@ In Cut A: F1–F13, F19, F20, F26, F88, F89, F90; F35 for two with voice; F21's 
 fetch-on-request half; the minimal part of F33 (the last subtitle and audio language chosen in a series
 follows its unwatched episodes, [D230](contributors/decisions/working-notes.md); subtitles start off,
 [D223](contributors/decisions/working-notes.md) §3); D83's dialogue boost and loudness levelling
-from F24 ([D226](contributors/decisions/working-notes.md)); F14's first form, **prepare** with the `remux` and `h264-8m` profiles
+from F24 ([D226](contributors/decisions/working-notes.md)); F14's first form, **prepare** with the `remux` and `h264` profiles
 ([D193](contributors/decisions/working-notes.md)); F15's reachability for one remote person.
 Not F30: her television joins a session as a device of her membership, so pairing waits
 ([D191](contributors/decisions/working-notes.md)). Everything else follows it.

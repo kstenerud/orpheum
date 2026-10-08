@@ -16,7 +16,7 @@
 //   - A rendition is fMP4 HLS with an EVENT playlist, every source audio track carried, and a
 //     boosted mix beside the standard one for a track with a centre (D217 §3). Enforced by
 //     TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre.
-//   - Copied HEVC is tagged hvc1; h264-8m is 8-bit H.264 with a keyframe at every segment
+//   - Copied HEVC is tagged hvc1; h264 is 8-bit H.264 with a keyframe at every segment
 //     length, since a segment is cut only at one. Enforced by
 //     TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264 and
 //     TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength.

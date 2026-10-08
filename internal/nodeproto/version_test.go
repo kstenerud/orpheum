@@ -58,6 +58,9 @@ var wireShapeByVersion = map[int]string{
 	27: "da2013ff5f23f714b20736e23777b8bc2b789e3081c303b1f8dabf696d258b93",
 	28: "6bdbf1b3f005722262d083b7f09eb588726d77d8bb5d84f956c3ae27cc338a74",
 	29: "f66a79df079cd7e04cdbacee5f2969d3b6402bac42928c3130732c3c9f4f5ce3",
+	// 30 renames the encoding prepare profile to "h264" (retired-names.md): the shape is the same, the
+	// value is not, and a node of 29 refuses it (D270 §2).
+	30: "f66a79df079cd7e04cdbacee5f2969d3b6402bac42928c3130732c3c9f4f5ce3",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -24,8 +24,8 @@ type PrepareProfile string
 
 // The profiles: the picture copied, or re-encoded to H.264 at about 8 Mb/s.
 const (
-	ProfileRemux    PrepareProfile = "remux"
-	ProfileH264At8M PrepareProfile = "h264-8m"
+	ProfileRemux PrepareProfile = "remux"
+	ProfileH264  PrepareProfile = "h264"
 )
 
 // Prepare is one prepare job: the video named by identity (D100), the profile, the audio
@@ -46,7 +46,7 @@ type Prepare struct {
 	// SourceDurationMs is the source's length as the probe gave it, from which the node sets the
 	// prepare's deadline; zero when unknown.
 	SourceDurationMs int64 `json:"sourceDurationMs,omitempty"`
-	// VideoKbps is an encode's average rate for its picture (D256): set for h264-8m, by the source
+	// VideoKbps is an encode's average rate for its picture (D256): set for h264, by the source
 	// picture's height; zero, for a node or a command from before it, is the profile's 8 Mb/s.
 	VideoKbps int `json:"videoKbps,omitempty"`
 	// SegmentLengthSeconds is each HLS segment's target length (D217 §3).

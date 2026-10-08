@@ -4,10 +4,10 @@ package decide
 
 import "github.com/kstenerud/orpheum/internal/nodeproto"
 
-// encodeKbpsMost is the h264-8m profile's rate, its most: a 1080p picture's (cut-a §6).
+// encodeKbpsMost is the h264 profile's rate, its most: a 1080p picture's (cut-a §6).
 const encodeKbpsMost = 8000
 
-// EncodeKbps is the average rate an h264-8m encode of probe's picture is made at (D256): the top of
+// EncodeKbps is the average rate an h264 encode of probe's picture is made at (D256): the top of
 // Apple's HLS authoring ladder for its height, at most the profile's 8 Mb/s, and never above the
 // original's own rate, since an encode is there to be lighter than the original (the owner,
 // 2026-10-07). 8 Mb/s of a 640×272 DVD rip made a 5.3 GB copy that stalled every two seconds on a

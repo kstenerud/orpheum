@@ -201,7 +201,7 @@ func TestPlayback_ARenditionOnTheNodesDiskIsAdoptedAndAnUnfinishedOneEvicted(t *
 		t.Fatal(err)
 	}
 	made := strconv.FormatInt(filmFileID, 10) + "/remux/0123456789abcdef"
-	unfinished := strconv.FormatInt(filmFileID, 10) + "/h264-8m/fedcba9876543210"
+	unfinished := strconv.FormatInt(filmFileID, 10) + "/h264/fedcba9876543210"
 	for _, dir := range []string{made, unfinished} {
 		writeFile(t, filepath.Join(config.Instance.preparedDir(), dir, "master.m3u8"), "#EXTM3U")
 	}

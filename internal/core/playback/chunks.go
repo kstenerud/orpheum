@@ -37,7 +37,7 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	chunked := chunks.Playback{
 		FileID: playback.fileID, PositionMs: playback.positionMs, StartedAt: playback.startedAt,
 		// A playback whose picture its decision re-encodes is one whose player cannot decode it.
-		IsSourcePictureDecodable: playback.decision.Profile != decide.H264At8M,
+		IsSourcePictureDecodable: playback.decision.Profile != decide.H264,
 		IsOnTime:                 playback.isOnTime,
 	}
 	if playback.startingAudio != nil {

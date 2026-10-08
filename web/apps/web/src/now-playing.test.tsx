@@ -24,7 +24,7 @@ const playing = {
   fileId: 7,
   name: "Metropolis",
   delivery: "hls",
-  profile: "h264-8m",
+  profile: "h264",
   notDirectReasons: ["container"],
   positionMs: 60_000,
   startedAt: 1_790_000_000_000,

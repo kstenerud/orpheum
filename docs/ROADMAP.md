@@ -42,7 +42,7 @@ and a new decision is made only when code or a measurement forces one.
 - **Playback in a browser:** direct play, negotiation, **remux to fMP4 and audio transcoding**
   (mandatory — browsers and Chromecast refuse MKV and most of TrueHD, DTS and AC-3), all through
   **prepare** ([D193](contributors/decisions/working-notes.md)): one node FFmpeg job per File and
-  profile (`remux`, `h264-8m`) writing a growing HLS `EVENT` playlist, so playback starts once the
+  profile (`remux`, `h264`) writing a growing HLS `EVENT` playlist, so playback starts once the
   first segments exist. The node does every media read and FFmpeg run; the core authenticates
   and relays.
 - **Finding and resuming:** browse and search, play state and Continue Watching, artwork.
@@ -56,7 +56,7 @@ and a new decision is made only when code or a measurement forces one.
 - **Together:** local accounts, invite from outside, Watch Together for two with voice (browser
   WebRTC through a TURN server embedded in our binary), reachability (a port-forward, then IPv6,
   then a standard tunnel to a VPS, under one public HTTPS name from DNS-01), prepared versions
-  (prepare's `h264-8m`), the cast receiver. The session behaves as if nobody has an account; a
+  (prepare's `h264`), the cast receiver. The session behaves as if nobody has an account; a
   signed-in participant's viewing is also recorded as their own
   ([D191](contributors/decisions/working-notes.md)). **Her television plays and her phone
   talks** ([D188](contributors/decisions/working-notes.md)), by the first path her setup allows: its browser, our cast receiver,
@@ -152,7 +152,7 @@ running rather than when it ends.
 **What ships in the playback service:** ranged direct-play `GET`, relayed by the core from the
 node; the **three-axis rendition negotiation** (video ‖ audio ‖ subtitles,
 [D22](contributors/decisions/working-notes.md)); **audio transcoding and remuxing** — and in
-Cut A a `h264-8m` video encode — all in the node's prepare job
+Cut A a `h264` video encode — all in the node's prepare job
 ([D193](contributors/decisions/working-notes.md)); text subtitle extraction with font
 attachments; a **transcode-reason field** that can say "this server cannot transcode video"; and
 a capability handshake, which in Cut A is how a node advertises `remux`, `aac` and its encoder
@@ -230,7 +230,7 @@ its deadline is the first client ship, because our clients go through app stores
 televisions never update.
 
 **Deliberately absent:** ~~any *video* encoder. Remote access. Sharing.~~ Cut A brings a video
-encoder (prepare's `h264-8m`), reachability and invites (D178, D193). Still absent: sharing
+encoder (prepare's `h264`), reachability and invites (D178, D193). Still absent: sharing
 beyond an invite, plugins, music.
 
 ---
@@ -268,7 +268,7 @@ rather than a stretch. In order, after the web client:
 3. **Invite someone outside the house** ([D174](contributors/decisions/working-notes.md)) — an
    account, a role, a link.
 4. **Prepared versions** — ~~Phase 4(a)'s batch transcoder, moved forward: a film chosen in
-   advance gets a ~8 Mbps Version and then direct-plays~~ prepare's `h264-8m` profile started
+   advance gets a ~8 Mbps Version and then direct-plays~~ prepare's `h264` profile started
    in advance: "get this ready", or automatically when a session is created (D193 §2). The
    result is a cache, not a Version ([D169](contributors/decisions/working-notes.md)). Live ABR
    (4b) stays late.
@@ -304,7 +304,7 @@ app lives or dies on, research cannot settle it, and it is what the paired proto
 advertises (`h264_qsv`, `h264_nvenc`, `x264`), and the core sends a job to a node that can do
 it. That keeps D19's point — no privileged encoder logic in the core — without a plugin API.
 
-Note what Cut A already covers: **prepare**, with `remux` and `h264-8m` — audio transcoding, the
+Note what Cut A already covers: **prepare**, with `remux` and `h264` — audio transcoding, the
 common case, and a single video profile. This phase is the *video* remainder.
 
 **(a) Compatibility transcoding first** — a *library* problem. Old or odd files, converted
@@ -537,7 +537,7 @@ measured demand was **8 reactions** against subtitles' 479.
    genuinely multi-tenant deployment ever appears, adding Postgres means a second set of
    `sqlc`-generated queries.
 5. **Codec patents.** Separate from copyright licence and not resolved by being open source.
-   Direct-play-first reduces a default install's exposure, though Cut A's `h264-8m` profile
+   Direct-play-first reduces a default install's exposure, though Cut A's `h264` profile
    does encode H.264 — through the hardware encoder where present; get real advice before
    anything commercial.
 6. **Scope creep into audiobooks, comics, live TV, photos.** The competitive trackers show

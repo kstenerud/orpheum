@@ -2035,7 +2035,7 @@ export interface components {
             /** @description Empty when the library no longer has the file */
             path: string;
             /** @enum {string} */
-            profile: "remux" | "h264-8m";
+            profile: "remux" | "h264";
             /**
              * Format: double
              * @description Seconds of the source prepared per second of running
@@ -2977,7 +2977,7 @@ export interface components {
             onLadder?: components["schemas"]["LadderBody"];
             preferences: components["schemas"]["PlaybackPreferencesBody"];
             /** @enum {string} */
-            profile?: "remux" | "h264-8m";
+            profile?: "remux" | "h264";
             /** Format: int64 */
             resumePositionMs: number;
             /** Format: int64 */

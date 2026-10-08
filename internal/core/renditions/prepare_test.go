@@ -166,7 +166,7 @@ func TestReleaseWanted_LetsGoOfThePrepareOfTheFilesRenditionInTheProfile(t *test
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
 		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
+			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		return insertErr
@@ -180,7 +180,7 @@ func TestReleaseWanted_LetsGoOfThePrepareOfTheFilesRenditionInTheProfile(t *test
 	if len(queue.released) != 0 {
 		t.Errorf("leaving a profile with no rendition let go of %v", queue.released)
 	}
-	if err := service.ReleaseWanted(t.Context(), 3, nodeproto.ProfileH264At8M); err != nil {
+	if err := service.ReleaseWanted(t.Context(), 3, nodeproto.ProfileH264); err != nil {
 		t.Fatal(err)
 	}
 	if len(queue.released) != 1 || queue.released[0] != (jobs.Target{RenditionID: rendition}) {
@@ -196,7 +196,7 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
 		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
+			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		return insertErr
@@ -208,7 +208,7 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 		State: nodeproto.PrepareDone, SizeBytes: 10, VideoEncoder: "h264_qsv",
 		RealtimeFactor: 6.5,
 	}
-	run := renditionRun{fileID: 3, profile: "h264-8m", runID: "0123456789abcdef"}
+	run := renditionRun{fileID: 3, profile: "h264", runID: "0123456789abcdef"}
 	if isCurrent, finishErr := service.finish(t.Context(), run, &done, ""); finishErr != nil || !isCurrent {
 		t.Fatalf("finishing the making = %v, %v; want it recorded", isCurrent, finishErr)
 	}

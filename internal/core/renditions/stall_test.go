@@ -166,7 +166,7 @@ func TestPrepareCommand_AnEncodeCarriesTheRateForItsSourcesHeight(t *testing.T) 
 	probe := nodeproto.Probe{Streams: []nodeproto.ProbeStream{
 		{Kind: "video", StreamIndex: 0, Codec: "mpeg4", Video: nodeproto.ProbeVideo{Width: 640, Height: 272}},
 	}}
-	encode := prepareCommand(nodeproto.BytesFile{}, 3, nodeproto.ProfileH264At8M, "0123456789abcdef", probe)
+	encode := prepareCommand(nodeproto.BytesFile{}, 3, nodeproto.ProfileH264, "0123456789abcdef", probe)
 	if encode.VideoKbps != 1000 {
 		t.Errorf("an encode of a 640×272 picture is told %d kb/s, want 1000", encode.VideoKbps)
 	}

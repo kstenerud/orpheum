@@ -40,7 +40,7 @@ const prepareStallWindow = 3 * time.Minute
 const unmeasuredRealtimeFactor = 0.5
 
 // renditionDirPattern is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
-var renditionDirPattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
+var renditionDirPattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264)/[0-9a-f]{16}$`)
 
 // ErrBadRenditionDir is a rendition directory that is not "<file_id>/<profile>/<run_id>".
 var ErrBadRenditionDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run_id>")
@@ -113,7 +113,7 @@ func (preparer *Preparer) Prepare(
 		return Made{}, fmt.Errorf("make the rendition's directory: %w", err)
 	}
 	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
-	isOnGPU := command.Profile == nodeproto.ProfileH264At8M && preparer.encoder.UsesGPU()
+	isOnGPU := command.Profile == nodeproto.ProfileH264 && preparer.encoder.UsesGPU()
 	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, UsesGPU: isOnGPU}
 	var realtimeFactor float64
 	watch := execx.Watch{
@@ -141,7 +141,7 @@ func (preparer *Preparer) Prepare(
 		return Made{}, err
 	}
 	videoEncoder := videoCopied
-	if command.Profile == nodeproto.ProfileH264At8M {
+	if command.Profile == nodeproto.ProfileH264 {
 		videoEncoder = string(preparer.encoder)
 	}
 	made := Made{SizeBytes: sizeBytes, VideoEncoder: videoEncoder, RealtimeFactor: realtimeFactor}

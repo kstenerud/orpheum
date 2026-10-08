@@ -68,10 +68,10 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeing
 		bytes int
 		ago   time.Duration
 	}{
-		"1/remux/aaaaaaaaaaaaaaaa":   {100, 10 * 24 * time.Hour}, // oldest, past its grace, but being written
-		"2/remux/bbbbbbbbbbbbbbbb":   {100, 5 * 24 * time.Hour},  // past its grace
-		"3/remux/cccccccccccccccc":   {100, 1 * time.Hour},       // within its grace, least recent within
-		"4/h264-8m/dddddddddddddddd": {100, 10 * time.Minute},    // within its grace
+		"1/remux/aaaaaaaaaaaaaaaa": {100, 10 * 24 * time.Hour}, // oldest, past its grace, but being written
+		"2/remux/bbbbbbbbbbbbbbbb": {100, 5 * 24 * time.Hour},  // past its grace
+		"3/remux/cccccccccccccccc": {100, 1 * time.Hour},       // within its grace, least recent within
+		"4/h264/dddddddddddddddd":  {100, 10 * time.Minute},    // within its grace
 	})
 	done := shelf.MarkWriting("1/remux/aaaaaaaaaaaaaaaa")
 	defer done()
@@ -81,7 +81,7 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeing
 	}
 	// 400 bytes against 250: the one past its grace goes; the one being written stays; then the
 	// least recent within its grace, as the budget still needs it.
-	want := []string{"1/remux/aaaaaaaaaaaaaaaa", "4/h264-8m/dddddddddddddddd"}
+	want := []string{"1/remux/aaaaaaaaaaaaaaaa", "4/h264/dddddddddddddddd"}
 	if got := remainingRunDirs(t, shelf); !slices.Equal(got, want) || usage.UsedBytes != 200 {
 		t.Errorf("left %v with %d bytes, want %v with 200 (D217 §5)", got, usage.UsedBytes, want)
 	}

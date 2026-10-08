@@ -30,8 +30,8 @@ type Profile string
 // The profiles: the video copied, or re-encoded to H.264 at about 8 Mb/s. Both carry the audio
 // as AAC stereo, standard and boosted.
 const (
-	Remux    Profile = "remux"
-	H264At8M Profile = "h264-8m"
+	Remux Profile = "remux"
+	H264  Profile = "h264"
 )
 
 // Reason says why a file is not played directly (cut-a §5.2). It is shown on screen (D188).
@@ -101,7 +101,7 @@ func Decide(input Input) Decision {
 	}
 	profile := Remux
 	if !videoFits {
-		profile = H264At8M
+		profile = H264
 	}
 	return Decision{Delivery: HLS, Profile: profile, NotDirectReasons: reasons}
 }

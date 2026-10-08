@@ -72,7 +72,7 @@ type StartPlaybackOutput struct {
 type StartPlaybackOutputBody struct {
 	Delivery DeliveryKind `json:"delivery"`
 	URL      string       `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
-	Profile  string       `enum:"remux,h264-8m" json:"profile,omitempty"`
+	Profile  string       `enum:"remux,h264" json:"profile,omitempty"`
 	// NotDirectReasons say why it is not played directly, to show on screen (D188).
 	NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,audio_track,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
 	// IsPreparing is whether the rendition is still being made; its playlist answers 425 until
