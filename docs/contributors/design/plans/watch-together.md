@@ -126,6 +126,14 @@ noted with where it said the group is against where it was expected. Then, check
 | up to 3 s | play up to 10% faster or slower than the group for about a second, repeated | `together_nudge_most_percent`, 10 |
 | beyond 3 s | seek to the group | `together_seek_drift_beyond_ms`, 3000 |
 
+**A player corrects as its device measures it** (D268 §2). Each player learns what its rate going
+back to the group's costs it, about 220 ms on an iPhone (WebKit 163433), and nudges on past the
+group by that much. Once two returns have cost it more than the drift left alone, it stops nudging
+and corrects by seeks alone: beyond `together_seek_only_drift_left_alone_ms` (400 ms), a small seek
+past the group by what its seeks have learned to lose. A pair with such a player is held to 500 ms
+apart 95% of the time; D243 §9's 200 ms holds for players that nudge. It is never chosen by the
+browser's name.
+
 A player's position is not read for drift for `together_settle_after_change_ms` (300 ms) after it
 starts playing, seeks or changes rate, since Safari's stands still for a moment then. A nudge keeps
 the sound's pitch (`should_together_nudge_keep_pitch`). Every value is a setting sent to each device

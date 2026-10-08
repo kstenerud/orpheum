@@ -109,8 +109,11 @@ const (
 	// time its mark lasts: the mark is given up, so a person's later move is not taken for the
 	// follower's own (D268 §4).
 	NoteOwnMarkExpired NoteKind = "ownMarkExpired"
-	NoteLed            NoteKind = "led"
-	NoteUnmuted        NoteKind = "unmuted"
+	// NoteCorrectsBySeeks is a follower whose rate's returns to its group's cost it ReturnCostMs,
+	// more than the drift left alone, correcting by seeks alone from then on (D268 §2).
+	NoteCorrectsBySeeks NoteKind = "correctsBySeeks"
+	NoteLed             NoteKind = "led"
+	NoteUnmuted         NoteKind = "unmuted"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -128,7 +131,7 @@ type PlayerNote struct {
 	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
 	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
-	// Why is a seek's ("catchUp", "hold") or a reconnection's ("closed", "silent").
+	// Why is a seek's ("catchUp", "hold", "skip") or a reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and Kbps are a chunk's: "video" or "audio", how long it took, and how fast.
 	Track  string `json:"track,omitempty"`
@@ -196,7 +199,7 @@ const positionMsAttribute = "positionMs"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
+	case "", "catchUp", "hold", "skip", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
 		return true
 	}
 	return false
@@ -209,14 +212,32 @@ func (note PlayerNote) isKnown() bool {
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall:
 		return note.isKnownVoice()
-	case NotePonged:
-		return note.RoundTripMs >= 0 && (note.Why == "placed" || note.Why == "kept") && note.Track == ""
+	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks:
+		return note.isKnownFollowing()
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
-	case NoteOwnMarkExpired:
-		return (note.Why == "seek" || note.Why == "pause") && note.Track == ""
 	case NoteDiagnosis, NoteLed:
 		return note.isKnownDiagnosis()
+	}
+	return false
+}
+
+// isKnownFollowing is whether a note of how a follower follows its group is one the server logs: a
+// pong that placed the group or not, a mark given up on a seek or a pause, or a player that
+// corrects by seeks alone.
+func (note PlayerNote) isKnownFollowing() bool {
+	if note.Track != "" {
+		return false
+	}
+	switch note.Kind {
+	case NotePonged:
+		return note.RoundTripMs >= 0 && (note.Why == "placed" || note.Why == "kept")
+	case NoteOwnMarkExpired:
+		return note.Why == "seek" || note.Why == "pause"
+	case NoteCorrectsBySeeks:
+		return note.ReturnCostMs >= 0 && note.Why == ""
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
+		NoteVoiceCall, NoteVoiceOff, NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed: // isKnown reads them
 	}
 	return false
 }
@@ -232,7 +253,8 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
-		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed, NoteOwnMarkExpired: // not voice's: isKnown reads them
+		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed, NoteOwnMarkExpired,
+		NoteCorrectsBySeeks: // not voice's: isKnown reads them
 	}
 	return false
 }
@@ -343,6 +365,9 @@ type Tuning struct {
 	NudgeMostPercent int64 `json:"nudgeMostPercent"`
 	// SeekDriftBeyondMs is how far off a player seeks rather than nudges.
 	SeekDriftBeyondMs int64 `json:"seekDriftBeyondMs"`
+	// SeekOnlyLeaveDriftUpToMs is how far off the group's position a player that corrects by seeks
+	// alone is left alone: one whose rate's changes cost it more than LeaveDriftUpToMs (D268 §2).
+	SeekOnlyLeaveDriftUpToMs int64 `json:"seekOnlyLeaveDriftUpToMs"`
 	// CatchUpBufferPercent is how full a player catching up aims to have its buffer when the group
 	// reaches it (D250 §4).
 	CatchUpBufferPercent int64 `json:"catchUpBufferPercent"`

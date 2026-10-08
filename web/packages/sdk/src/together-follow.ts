@@ -7,7 +7,13 @@ import {
   type PlayerState,
   type TogetherConnection,
 } from "./together-connection.ts";
-import { driftCorrection, learnedReturnCostMs, nudgeForMs } from "./together-drift.ts";
+import {
+  driftCorrection,
+  learnedLossMs,
+  nudgeForMs,
+  seekOnlyCorrection,
+  type LearnedLoss,
+} from "./together-drift.ts";
 import {
   chunkLoadedOf,
   fellBehindEvent,
@@ -17,6 +23,17 @@ import {
   qualitySwitchedOf,
 } from "./together-player-events.ts";
 import { OwnMoves } from "./together-own-moves.ts";
+import {
+  haveFutureData,
+  haveMetadata,
+  hasRefilled,
+  isInStep,
+  isOnLoaded,
+  loadedEndMs,
+  playableAt,
+  positionMsOf,
+  type FollowedMedia,
+} from "./together-media.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
 
 /**
@@ -26,14 +43,6 @@ import { playOrPlayMuted } from "./together-sound.ts";
  * seek, to where it ended (the owner's tests, 2026-10-05).
  */
 export const scrubPauseWindowMs = 300;
-
-/**
- * After a stall or a seek, a player is ready again only with this much of the film loaded ahead of
- * it. Ready at its first frame, a player whose link is slower than the film plays that frame and
- * stalls again, and a group that waits for it plays and freezes in turn without end (the owner's
- * first test, 2026-10-05). Alone, the browser waits for more itself; in a group, this is that wait.
- */
-export const refillAheadMs = 10_000;
 
 /**
  * The furthest a catch-up seek aims ahead of the group: by the time a seek has loaded the group has
@@ -72,37 +81,15 @@ export const loadSampleMarginMs = 5000;
  */
 export const checkDriftEveryMs = 1000;
 
+/**
+ * How many of its rate's returns to the group's a player learns from before it may correct by
+ * seeks alone: one return's loss may be a stall's, and a Chrome taken for an iPhone would hold its
+ * group less tightly for nothing (D268 §2).
+ */
+export const returnsBeforeSeeksOnly = 2;
+
 /** How many of its player's last events a leading player's command note carries. */
 export const recentEventsKept = 8;
-
-/** The part of a video or audio element that following a group uses. */
-export type FollowedMedia = Pick<
-  HTMLMediaElement,
-  | "currentTime"
-  | "muted"
-  | "playbackRate"
-  | "preservesPitch"
-  | "paused"
-  | "ended"
-  | "seeking"
-  | "readyState"
-  | "networkState"
-  | "buffered"
-  | "duration"
-  | "play"
-  | "pause"
-  | "addEventListener"
-  | "removeEventListener"
-  | "dispatchEvent"
->;
-
-/**
- * HTMLMediaElement.HAVE_METADATA, HAVE_FUTURE_DATA and NETWORK_IDLE, which a plain page may not
- * define.
- */
-const haveMetadata = 1;
-const haveFutureData = 3;
-const networkIdle = 1;
 
 /** How a player follows its group. */
 export interface FollowOptions {
@@ -120,42 +107,6 @@ interface GroupNow {
   readonly nowMs: number;
   /** How to follow it, as the welcome said (D250 §1). */
   readonly tuning: SyncTuning;
-}
-
-/** The player's position, in ms. */
-function positionMsOf(media: FollowedMedia): number {
-  return media.currentTime * 1000;
-}
-
-/** Whether the player is where the group is, near enough to play along without a seek. */
-function isInStep(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): boolean {
-  return (
-    media.readyState >= haveFutureData &&
-    !media.seeking &&
-    Math.abs(positionMsOf(media) - expectedMs) <= tuning.seekDriftBeyondMs
-  );
-}
-
-/**
- * Whether the player has loaded enough ahead to play on after a stall or a seek: refillAheadMs, or
- * up to the film's end, or all the browser will load while it is paused, since the browser has
- * stopped loading and waiting longer gains nothing.
- */
-function hasRefilled(media: FollowedMedia): boolean {
-  if (media.readyState < haveFutureData) {
-    return false;
-  }
-  if (media.networkState === networkIdle) {
-    return true;
-  }
-  const { buffered, currentTime } = media;
-  for (let index = 0; index < buffered.length; index++) {
-    const endS = buffered.end(index);
-    if (buffered.start(index) <= currentTime && currentTime <= endS) {
-      return (endS - currentTime) * 1000 >= refillAheadMs || endS >= media.duration;
-    }
-  }
-  return false;
 }
 
 /** The command a leading player's own event is, if any: its person's play, pause or seek. */
@@ -211,9 +162,18 @@ class GroupFollower {
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
   #recentEvents: string[] = [];
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
-  #returnCost = { costMs: 0, returns: 0 };
+  #returnCost: LearnedLoss = { costMs: 0, moves: 0 };
   /** How far behind it was as its last nudge ended, until what that cost is learned. */
   #behindAtReturnMs: number | undefined = undefined;
+  /**
+   * Whether it corrects by seeks alone, its rate's returns costing it more than the drift left
+   * alone (D268 §2): from then on, for as long as it follows.
+   */
+  #isCorrectingBySeeks = false;
+  /** Where its seeks land short of where they aim, as learned (seekOnlyCorrection). */
+  #seekLoss: LearnedLoss = { costMs: 0, moves: 0 };
+  /** How far behind its last skip aimed to put it (ahead, so negative), until its loss is learned. */
+  #behindAtSkipMs: number | undefined = undefined;
   /** Until when (monotonic) it is not nudged: Safari's position stands still after a change. */
   #settlesAtMs = 0;
   /** Whether it has once been where the group is: until then it holds no one up (D246 §6). */
@@ -464,10 +424,11 @@ class GroupFollower {
     };
   }
 
-  #seek(toMs: number, why: "catchUp" | "hold"): void {
+  #seek(toMs: number, why: "catchUp" | "hold" | "skip"): void {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
     this.#loadSamples = [];
     this.#behindAtReturnMs = undefined; // what a seek moves is no return's cost
+    this.#behindAtSkipMs = undefined; // nor, unless it is one, a skip's
     this.#ownMoves.mark("seek", this.#options.monotonicMs());
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#media.currentTime = Math.max(0, toMs) / 1000;
@@ -502,11 +463,20 @@ class GroupFollower {
     this.#settlesAtMs = this.#options.monotonicMs() + tuning.settleAfterChangeMs;
   }
 
-  /** Settled after its last return to the group's rate, behindMs behind: what that return cost it. */
-  #learnReturnCost(behindMs: number): void {
-    if (this.#behindAtReturnMs !== undefined) {
-      this.#returnCost = learnedReturnCostMs(this.#returnCost, this.#behindAtReturnMs, behindMs);
-      this.#behindAtReturnMs = undefined;
+  /**
+   * Settled after its last return to the group's rate, behindMs behind: what that return cost it.
+   * Once its returns cost it more than the drift left alone, it corrects by seeks alone (D268 §2).
+   */
+  #learnReturnCost(behindMs: number, tuning: SyncTuning): void {
+    if (this.#behindAtReturnMs === undefined) {
+      return;
+    }
+    this.#returnCost = learnedLossMs(this.#returnCost, this.#behindAtReturnMs, behindMs);
+    this.#behindAtReturnMs = undefined;
+    const { costMs, moves } = this.#returnCost;
+    if (moves >= returnsBeforeSeeksOnly && costMs > tuning.leaveDriftUpToMs) {
+      this.#isCorrectingBySeeks = true;
+      this.#connection.note({ kind: "correctsBySeeks", returnCostMs: Math.round(costMs) });
     }
   }
 
@@ -530,6 +500,10 @@ class GroupFollower {
   #correct(where: GroupNow): void {
     const media = this.#media;
     const behindMs = where.expectedMs - positionMsOf(media);
+    if (this.#isCorrectingBySeeks) {
+      this.#correctBySeeks(where, behindMs);
+      return;
+    }
     const isNudging = media.playbackRate !== where.group.rate;
     const correction = driftCorrection(
       { expectedMs: where.expectedMs, actualMs: positionMsOf(media), groupRate: where.group.rate },
@@ -541,7 +515,7 @@ class GroupFollower {
     if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
       return;
     }
-    this.#learnReturnCost(behindMs);
+    this.#learnReturnCost(behindMs, where.tuning);
     // A player stalled and refilling is not nudged: its position does not move, and a faster rate
     // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
     // iPhone was nudged to 2x second after second).
@@ -556,6 +530,37 @@ class GroupFollower {
         rate: correction.rate,
         returnCostMs: Math.round(this.#returnCost.costMs),
       });
+    } else if (correction.kind === "seek") {
+      this.#catchUp(correction.toMs, where);
+    }
+  }
+
+  /**
+   * Corrects a playing player's drift, behindMs, by seeks alone: skipped across past the group by
+   * what its skips have learned to lose, or sought across to catch up (D268 §2). Its rate is the
+   * group's, a nudge under way when it began correcting so ending.
+   */
+  #correctBySeeks(where: GroupNow, behindMs: number): void {
+    const correction = seekOnlyCorrection(
+      {
+        expectedMs: where.expectedMs,
+        actualMs: positionMsOf(this.#media),
+        groupRate: where.group.rate,
+      },
+      where.tuning,
+      this.#seekLoss.costMs,
+    );
+    if (where.nowMs < this.#settlesAtMs && correction.kind !== "seek") {
+      return;
+    }
+    if (this.#behindAtSkipMs !== undefined) {
+      this.#seekLoss = learnedLossMs(this.#seekLoss, this.#behindAtSkipMs, behindMs);
+      this.#behindAtSkipMs = undefined;
+    }
+    this.#setRate(where.group.rate, where, behindMs);
+    if (correction.kind === "skip" && !this.#isRefilling) {
+      this.#seek(correction.toMs, "skip");
+      this.#behindAtSkipMs = where.expectedMs - correction.toMs;
     } else if (correction.kind === "seek") {
       this.#catchUp(correction.toMs, where);
     }
@@ -648,56 +653,13 @@ class GroupFollower {
 }
 
 /**
- * Where a paused player can be held at expectedMs: there, or, when that falls in a gap just
- * before what it loaded, within the seek threshold, the start of what it loaded. A copied picture
- * is cut at its source's keyframes, so its first loaded frame can come a moment after the group's
- * position; a paused player never steps over that gap as a playing one does, is never ready, and
- * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac).
- */
-/** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
-function loadedEndMs(media: FollowedMedia): number | undefined {
-  const { buffered, currentTime } = media;
-  for (let index = 0; index < buffered.length; index++) {
-    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
-      return buffered.end(index) * 1000;
-    }
-  }
-  return undefined;
-}
-
-/** Whether the player's position is on something it loaded, to within a millisecond. */
-function isOnLoaded(media: FollowedMedia): boolean {
-  const { buffered, currentTime } = media;
-  for (let index = 0; index < buffered.length; index++) {
-    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function playableAt(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): number {
-  const { buffered } = media;
-  const expectedS = expectedMs / 1000;
-  for (let index = 0; index < buffered.length; index++) {
-    const startS = buffered.start(index);
-    if (startS <= expectedS && expectedS <= buffered.end(index)) {
-      return expectedMs;
-    }
-    if (startS > expectedS && (startS - expectedS) * 1000 <= tuning.seekDriftBeyondMs) {
-      return startS * 1000;
-    }
-  }
-  return expectedMs;
-}
-
-/**
  * Makes media follow the group while it plays options.fileId (watch-together.md, Sync): paused at
  * the group's position while it is Paused, Waiting or Idle; playing while it is Playing, its drift
  * nudged away by the rate or sought across. It tells the group its state on every change, and
  * counts as buffering until it has once been where the group is, so a player still loading holds
- * no one up (D246 §6), and after a stall or a seek until it has refillAheadMs loaded. A leading player's own play, pause and seek become commands; the
- * follower's own do not. Returns the stopping.
+ * no one up (D246 §6), and after a stall or a seek until it has refillAheadMs loaded. A leading
+ * player's own play, pause and seek become commands; the follower's own do not. Returns the
+ * stopping.
  */
 export function followGroup(
   media: FollowedMedia,

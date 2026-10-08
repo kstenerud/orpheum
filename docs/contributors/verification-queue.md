@@ -237,3 +237,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   is back on the speaker within a few seconds, not some 20 s later. Only real phones show a
   microphone's level, Android's call mode and iOS's earpiece (the owner's test, 2026-10-08).
   (`web/packages/sdk/src/together-voice-level.ts`, `together-voice-browser.ts`)
+- [ ] **VQ27** — Against staging, a host on a computer and a guest on an iPhone in Safari, both
+  with sound, play a film for 5 minutes. Passes when the log shows the iPhone's `a player corrects
+  by seeks alone` within its first minute, with `returnCostMs` above 150, and no `nudged` note
+  from it after that line; the computer's player never logs it; and the guest hears no stutter
+  after the first minute beyond one short skip at most every minute or so. Only a real iPhone
+  shows what its rate's returns cost and how far its seeks land (D268 §2).
+  (`web/packages/sdk/src/together-follow.ts`, `together-drift.ts`)

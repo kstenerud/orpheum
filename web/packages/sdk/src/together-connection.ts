@@ -80,7 +80,10 @@ export interface PlayerState {
  * owner's test, 2026-10-06, where nothing said what a viewer's iPhone did between its jumps):
  * - nudged: played at rate for a moment, driftMs behind the group (ahead when negative);
  * - sought: moved itself from positionMs to toMs, why: "catchUp" (jumping ahead of a group it fell
- *   behind) or "hold" (to where a stopped group is);
+ *   behind), "hold" (to where a stopped group is) or "skip" (a small seek of a player that corrects
+ *   by seeks alone, D268 §2);
+ * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
+ *   left alone, so it corrects by seeks alone from now on (D268 §2);
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at kbps, of a quality
  *   of qualityKbps;
  * - qualitySwitched: began playing the quality of qualityKbps, its link estimated at estimateKbps;
@@ -117,7 +120,7 @@ export type PlayerNote =
       readonly kind: "sought";
       readonly positionMs: number;
       readonly toMs: number;
-      readonly why: "catchUp" | "hold";
+      readonly why: "catchUp" | "hold" | "skip";
     }
   | {
       readonly kind: "chunkLoaded";
@@ -146,6 +149,7 @@ export type PlayerNote =
     }
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
+  | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
   | {
       readonly kind: "led";
       readonly why: "pause" | "seek" | "play";

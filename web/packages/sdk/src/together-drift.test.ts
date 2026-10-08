@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 import { startingTuning, type GroupView, type SyncTuning } from "./together.ts";
 import {
   driftCorrection,
-  learnedReturnCostMs,
-  returnCostAtMostMs,
+  learnedLossMs,
+  lossAtMostMs,
+  seekOnlyCorrection,
   expectedPositionMs,
 } from "./together-drift.ts";
 
@@ -101,14 +102,33 @@ describe("a player whose rate going back to its group's costs it time, as Safari
 
   it("learns the cost from each return, a browser that loses nothing learning nothing", () => {
     // Behind 230 ms as the nudge ended and 450 ms once settled: the return cost 220, taken whole.
-    const first = learnedReturnCostMs({ costMs: 0, returns: 0 }, 230, 450);
-    expect(first).toEqual({ costMs: 220, returns: 1 });
+    const first = learnedLossMs({ costMs: 0, moves: 0 }, 230, 450);
+    expect(first).toEqual({ costMs: 220, moves: 1 });
     // Then averaged: a return that lost 180 moves it halfway.
-    expect(learnedReturnCostMs(first, 230, 410)).toEqual({ costMs: 200, returns: 2 });
+    expect(learnedLossMs(first, 230, 410)).toEqual({ costMs: 200, moves: 2 });
     // Gained, as Chrome's drift wobbles; and a stall, not a cost, counts at the most.
-    expect(learnedReturnCostMs({ costMs: 0, returns: 0 }, 120, 100).costMs).toBe(0);
-    expect(learnedReturnCostMs({ costMs: 0, returns: 0 }, 100, 5000).costMs).toBe(
-      returnCostAtMostMs,
-    );
+    expect(learnedLossMs({ costMs: 0, moves: 0 }, 120, 100).costMs).toBe(0);
+    expect(learnedLossMs({ costMs: 0, moves: 0 }, 100, 5000).costMs).toBe(lossAtMostMs);
+  });
+});
+
+describe("the correction of a player that corrects by seeks alone (D268 §2)", () => {
+  it("leaves a drift within its own allowance, skips past the group by its seeks' loss, and catches up beyond", () => {
+    const at = (behindMs: number): { expectedMs: number; actualMs: number; groupRate: number } => ({
+      expectedMs: 10_000,
+      actualMs: 10_000 - behindMs,
+      groupRate: 1.25,
+    });
+    expect(seekOnlyCorrection(at(400), startingTuning, 200)).toEqual({ kind: "none" });
+    expect(seekOnlyCorrection(at(-400), startingTuning, 200)).toEqual({ kind: "none" });
+    expect(seekOnlyCorrection(at(401), startingTuning, 200)).toEqual({
+      kind: "skip",
+      toMs: 10_250,
+    });
+    expect(seekOnlyCorrection(at(-401), startingTuning, 0)).toEqual({ kind: "skip", toMs: 10_000 });
+    expect(seekOnlyCorrection(at(3001), startingTuning, 200)).toEqual({
+      kind: "seek",
+      toMs: 10_000,
+    });
   });
 });

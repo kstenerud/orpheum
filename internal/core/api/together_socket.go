@@ -141,6 +141,7 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		{settings.TogetherDriftLeftAloneMs, &tuning.LeaveDriftUpToMs},
 		{settings.TogetherNudgeMostPercent, &tuning.NudgeMostPercent},
 		{settings.TogetherSeekDriftBeyondMs, &tuning.SeekDriftBeyondMs},
+		{settings.TogetherSeekOnlyDriftLeftAloneMs, &tuning.SeekOnlyLeaveDriftUpToMs},
 		{settings.TogetherCatchUpBufferPercent, &tuning.CatchUpBufferPercent},
 		{settings.TogetherSettleAfterChangeMs, &tuning.SettleAfterChangeMs},
 	} {

@@ -9,7 +9,6 @@ import {
   checkDriftEveryMs,
   scrubPauseWindowMs,
   followGroup,
-  refillAheadMs,
   playerLoadsAheadMs,
   waitAheadAtMostMs,
 } from "./together-follow.ts";
@@ -22,6 +21,7 @@ import {
   type QualitySwitched,
 } from "./together-player-events.ts";
 import { nudgeForMs } from "./together-drift.ts";
+import { refillAheadMs } from "./together-media.ts";
 import { ownMarkLastsMs } from "./together-own-moves.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 

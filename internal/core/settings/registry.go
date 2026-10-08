@@ -95,6 +95,7 @@ const (
 	TogetherDriftLeftAloneMs                       Key = "together_drift_left_alone_ms"
 	TogetherNudgeMostPercent                       Key = "together_nudge_most_percent"
 	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
+	TogetherSeekOnlyDriftLeftAloneMs               Key = "together_seek_only_drift_left_alone_ms"
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
@@ -263,6 +264,11 @@ func togetherDefinitions() []Definition {
 			"ms a Watch Together player may be off the group's position before it seeks rather than nudges "+
 				"(D250 §1)"),
 			"watch-together.md's Sync: \"seek beyond that\", 3 s, kept by D250 §1"),
+		sourced(integerSetting(TogetherSeekOnlyDriftLeftAloneMs, "400", 0, 10_000,
+			"ms a Watch Together player that corrects by seeks alone, its rate's changes costing it more than "+
+				"the drift left alone, may be off the group's position before it seeks (D268 §2)"),
+			"D268 §2: the sync review's 300 to 500 ms for Safari, where a seek or a rate change lands 100 to "+
+				"500 ms off (hls.js#7616) and MediaSync corrects by seeks alone"),
 		sourced(durationSetting(TogetherSyncWaitSeconds, time.Second, "20", 1, 600,
 			"seconds a Watch Together group waits for its players at a sync point (a film put on, the "+
 				"host's play after a pause, the host's seek) before playing without those not ready (D250 §3)"),
