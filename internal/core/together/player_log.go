@@ -103,7 +103,8 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		current.logger.InfoContext(ctx, "watch together: a device's player said what it holds",
 			append(current.deviceAttributes(who, from), "why", note.Why, positionMsAttribute, note.PositionMs,
 				"readyState", note.ReadyState, "videoBuffered", note.VideoBuffered,
-				"audioBuffered", note.AudioBuffered, "lastError", note.LastError)...)
+				"audioBuffered", note.AudioBuffered, "lastError", note.LastError,
+				"mapping", note.Mapping, "streaming", note.Streaming)...)
 		return true
 	case NotePlayedMuted:
 		current.logger.InfoContext(ctx,

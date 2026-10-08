@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { playerMovedItselfEvent, type PlayerNote } from "@orpheum/sdk";
+import { playerBufferedFirstEvent, playerMovedItselfEvent, type PlayerNote } from "@orpheum/sdk";
 import { useRef, type JSX } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -37,11 +37,19 @@ describe("a following player's diagnosis", () => {
         videoBuffered: "",
         audioBuffered: "",
         lastError: "",
+        mapping: "",
+        streaming: "",
       },
     ]);
     nowMs += diagnoseAtMostEveryMs;
     await fire(video, new Event(playerMovedItselfEvent));
     expect(notes).toHaveLength(2);
+    // Each playlist's first chunk is said however soon after another (the sync review, 2026-10-08).
+    await fire(video, new CustomEvent(playerBufferedFirstEvent, { detail: "main" }));
+    await fire(video, new CustomEvent(playerBufferedFirstEvent, { detail: "audio" }));
+    expect(
+      notes.slice(2).map((note) => (note.kind === "diagnosis" ? note.why : note.kind)),
+    ).toEqual(["bufferedFirst", "bufferedFirst"]);
     mounted.unmount();
   });
 });
