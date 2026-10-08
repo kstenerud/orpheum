@@ -18786,7 +18786,12 @@ done (the User-Agent is logged only).
    readyState 1 and the first form of this rule, which counted only a video not paused, never
    fired (the owner's retest, 2026-10-08). A video a person paused, its data there, is not
    waiting. Each stall report carries the video's readyState, whether it was paused, what its
-   picture's and sound's buffers held, and the player's last error.
+   picture's and sound's buffers held, and the player's last error. **Sooner:** two chunks of the
+   picture the browser took and held nothing of (hls.js's `bufferAppendNoProgress`, which hls.js
+   reports and ignores) give the quality up at once. That was Firefox on macOS with Flow: captured
+   when the quality was given up, the picture's buffer was empty, the sound's held, and every
+   chunk's append added nothing (the owner's test, 2026-10-08). The report of a quality given up
+   carries the video as it was, before the rebuild empties it.
 2. **It is given up for the rest of the playback**, with every quality above it, and the video's
    decoding is built anew, a new MediaSource (hls.js's `recoverMediaError`), loading again from
    where it stood at the highest quality below it; neither the step-up nor hls.js's own forcing
