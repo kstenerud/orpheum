@@ -15,8 +15,17 @@ still exist in the tool? If yes, it belongs here; the entry documents the extern
 our workaround. Our own bugs do not belong: they live in commit messages, decisions and
 [agent-failures.md](agent-failures.md).
 
-**How to use.** Scan the symptom index, then read the entry. **When you find a new one,** apply the
-inclusion test, add the entry under its technology with **Symptom**, **Cause** (say "unverified"
+**How to use.** Scan the symptom index, then read the entry.
+
+**When you suspect a new one, search for it before building on it** (the owner, 2026-10-08). Look up
+the symptom and the error text online: the project's issue tracker and changelog, browser bug
+trackers (Bugzilla, WebKit, Chromium), the spec, forums. Find whether others know it, what causes
+it, which versions it affects, and what they tried and what worked. Someone else's diagnosis and
+workaround can save hours of chasing ghosts, and a known bug may already have a fix to wait for or
+a version to pin. Cite what you found as **[web]** evidence; a search that found nothing is worth a
+line too, so the next agent does not repeat it.
+
+**When you find a new one,** apply the inclusion test, add the entry under its technology with **Symptom**, **Cause** (say "unverified"
 where it is), **What we do** (code paths or decision IDs) and **Evidence** (owner's test, staging,
 measurement, source, or web), and add its row to the index, in the commit with the workaround.
 Tags in Evidence: **[owner]** the owner's test, **[staging]**, **[measured]** here, **[source]** the
@@ -161,16 +170,25 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe
 
-- **Technology:** Firefox 156 on macOS, HEVC through the system decoder, and x265's open-GOP keyframes.
+- **Technology:** Firefox 154 and later on macOS (156 seen), MSE with HEVC, and x265's open-GOP keyframes.
 - **Symptom:** *Flow* (10-bit HEVC by x265) froze at any start but the film's beginning: the player spun,
   paused at readyState 1, while its chunks kept arriving on a fast link. Safari played it everywhere, and so
   did Firefox from 0:00. Nothing says so in advance: `isTypeSupported` says HEVC is playable, and it is,
   from an IDR.
 - **Cause:** x265's keyframes after the first are CRA, not IDR, so every chunk but the first starts on a CRA.
-  Firefox on macOS takes such a chunk and **holds nothing of it**. Captured at the moment of giving up: the
-  picture's buffer was empty while the sound's held 416.24–501.78, and hls.js reported
-  `bufferAppendNoProgress: Fragment append did not increase buffered coverage`. Firefox's reason (likely not
-  counting a CRA as a random access point on that path) is unverified.
+  Since Firefox 154, on macOS only, Firefox's MP4 demuxer demotes a CRA to a non-keyframe (a workaround for
+  a VideoToolbox decode failure, Mozilla bug 2049615). File playback falls back to an earlier IDR. An MSE
+  append has none to fall back to, so the coded frame group never opens and every sample is dropped
+  silently: appends succeed, `readyState` stops at HAVE_METADATA, and `buffered` stays empty. Captured at the
+  moment of giving up, the picture's buffer was empty, the sound's held 416.24–501.78, and hls.js reported
+  `bufferAppendNoProgress: Fragment append did not increase buffered coverage`.
+- **Known upstream:** [Mozilla bug 2065822](https://bugzilla.mozilla.org/show_bug.cgi?id=2065822), "MSE
+  silently drops an HEVC coded frame group that starts on a CRA picture (macOS, Gecko >=154)", NEW. A patch
+  (treat every IRAP as a random access point, skip undecodable RASL pictures in AppleVTDecoder) was attached on
+  2026-08-27 and has not landed. The reporter found **no container-level workaround**: `tfhd`/`trun` flags,
+  split init segments, SourceBuffer modes, and relabelling the CRA as IDR_N_LP or BLA_N_LP all failed. Their
+  shipped workaround re-encodes to H.264 in the browser. Re-check this entry when Firefox updates; once the fix
+  ships, the original picture plays mid-film again and D266 stops firing for it on its own.
 - **What we do:** D266. A quality is given up for the playback, with every quality above it, and the video's
   decoding is built anew (`recoverMediaError`). This happens at once when two of its chunks are held nothing
   of, or after 6 s standing still while two chunks arrive. The core logs the quality, with the video as it
@@ -178,12 +196,14 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/player/src/abr-choice.ts` (`isUnplayable`, `chunksNotHeld`); `web/packages/player/src/abr.ts`
   (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayable`).
 - **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
-  empty picture buffer and `bufferAppendNoProgress` above, 05:16 UTC on staging).
+  empty picture buffer and `bufferAppendNoProgress` above, 05:16 UTC on staging); [web] Mozilla bugs 2065822
+  and 2049615, read 2026-10-08.
 - **Caution:** agent-failures A22 (2026-10-06) records an earlier wrong diagnosis, "Firefox can't decode
   HEVC". Part of that freeze was our own gap bug. A stall report taken *after* a
   rebuild showed the sound missing instead: that was the new pipeline refilling, not the cause.
 - **Firefox on Linux plays the same chunks:** headless Firefox 155 on Linux, through Playwright against
-  staging on 2026-10-07/08, played Flow's own picture from mid-film chunks, picture and sound buffered alike.
+  staging on 2026-10-07/08, played Flow's own picture from mid-film chunks, picture and sound buffered alike:
+  the demotion is under `MOZ_APPLEMEDIA`, macOS only.
 
 ### Firefox offers no RED (redundant audio) for Opus
 
