@@ -198,6 +198,15 @@ User-Agent (D263; the User-Agent is logged only).
 - **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
   empty picture buffer and `bufferAppendNoProgress` above, 05:16 UTC on staging); [web] Mozilla bugs 2065822
   and 2049615, read 2026-10-08.
+  **[web]** re-checked 2026-10-08: [Mozilla bug 2065822](https://bugzilla.mozilla.org/show_bug.cgi?id=2065822)
+  is still NEW (last change 2026-10-05; marked as regressed by 2049615, release status set so it counts as
+  confirmed); [Mozilla bug 2049615](https://bugzilla.mozilla.org/show_bug.cgi?id=2049615), "Seeking in video
+  fails", RESOLVED FIXED in 154, is the regressor. Related: [Mozilla bug
+  2072130](https://bugzilla.mozilla.org/show_bug.cgi?id=2072130), "MP4+H264 keyframe workarounds likely cause
+  more seeking issues than they solve", ASSIGNED, patches attached 2026-09-15/29 that argue for removing the
+  MP4 demuxer's keyframe special-casing (H.264 only so far); [Mozilla bug
+  2006226](https://bugzilla.mozilla.org/show_bug.cgi?id=2006226), HEVC in MKV freezing after a skip, FIXED in
+  158 (file playback, not MSE; does not cover our case).
 - **Caution:** agent-failures A22 (2026-10-06) records an earlier wrong diagnosis, "Firefox can't decode
   HEVC". Part of that freeze was our own gap bug. A stall report taken *after* a
   rebuild showed the sound missing instead: that was the new pipeline refilling, not the cause.
@@ -216,6 +225,12 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-voice-codec.ts:73-86`; `web/e2e/acceptance-server.ts:28`;
   `web/e2e/acceptance.spec.ts:264-276`.
 - **Evidence:** D262 §3, D263 §2; `research/voice-bad-links.md` §3 "RED".
+  **[web]** [Mozilla bug 1801367](https://bugzilla.mozilla.org/show_bug.cgi?id=1801367), "Support RFC 2198
+  redundancy (RED) for audio": ASSIGNED (Philipp Hancke); a patch "implement audio/red for WebRTC" was
+  attached 2026-06-18 and has not landed (checked 2026-10-08). The patch enables RED only when it comes before
+  Opus in the codec order, as Chrome does, so our "prefer RED where listed" code should pick it up unchanged
+  once it ships. Related: [Mozilla bug 1886010](https://bugzilla.mozilla.org/show_bug.cgi?id=1886010), DRED
+  and LACE/NoLACE with Opus 1.5, NEW.
 
 
 ### Firefox keeps `AudioContext.resume()` pending until it lets the page play sound
@@ -227,6 +242,13 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-voice-browser.ts:227-247` (comment at `:236-238`).
 - **Evidence:** [measured] browser tier (Playwright Firefox), 2026-10-06; fix 22fba2c0;
   `research/audit-2026-10-06.md` §1.
+  **[web]** this is the specified behaviour, not a Firefox bug: the [Web Audio spec's
+  `resume()`](https://webaudio.github.io/web-audio-api/#dom-audiocontext-resume) says "If the context is not
+  allowed to start, append promise to [[pending promises]] and [[pending resume promises]] and abort these
+  steps", so any browser that blocks autoplay may leave the promise pending until a gesture (read 2026-10-08).
+  Unrelated open ordering bug: [Mozilla bug 2070740](https://bugzilla.mozilla.org/show_bug.cgi?id=2070740),
+  suspend/resume/close promises resolving out of order, NEW. **Contradicts:** the heading frames this as
+  Firefox-specific; the spec allows it in every browser, so the never-await rule applies everywhere.
 
 
 ### Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off
@@ -239,6 +261,14 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-voice-browser.ts:13-18`; `web/packages/sdk/src/together.ts:109,121`;
   `internal/core/settings/registry.go:296-301`; `internal/core/together/messages.go:262-267`.
 - **Evidence:** [owner] 2026-10-07, Firefox 157 on Android 16; VQ23.
+  **[web]** [Mozilla bug 1711032](https://bugzilla.mozilla.org/show_bug.cgi?id=1711032), "Android headset
+  microphone does not work when EchoCancellation is disabled" (NEW): its comments trace Firefox's input path
+  to `passThrough = !(aec || agc || noise)` in `MediaEngineWebRTCAudio.cpp`, and cubeb opens a *voice* input
+  only when `passThrough` is false (cubeb_opensl.c, 2021). That sharpens our unverified cause: any one of the
+  three processing switches, not echo cancelling alone, selects the voice-communication input. [Mozilla bug
+  1839885](https://bugzilla.mozilla.org/show_bug.cgi?id=1839885), "Add APIs for controlling platform/hw echo
+  cancellation and other processing on Android", NEW. No report of the film being turned down found (searched
+  bugzilla.mozilla.org, 2026-10-08).
 
 ---
 
@@ -258,6 +288,10 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together.ts:96-100,118`; `web/packages/sdk/src/together-follow.ts:272,534-551`;
   `internal/core/together/messages.go:258-260`; `internal/core/settings/registry.go:278-279`.
 - **Evidence:** D250 §7 (amended 2026-10-06); `research/safari-versions.md` §3-§4.
+  **[web]** [WebKit bug 258945](https://bugs.webkit.org/show_bug.cgi?id=258945), "[HTMLMediaElement]
+  currentTime shifts after updating playbackRate": NEW since 2023-07, no fix (checked 2026-10-08). It reports
+  the time jumping forward or back after a rate change, the same family; no report of the 250 ms freeze itself
+  was found.
 
 
 ### Safari's rate nudges stutter or skip, especially with pitch-keeping on
@@ -269,6 +303,14 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** the `should_together_nudge_keep_pitch` setting, small and infrequent nudges, and seek-only as
   the fallback. `internal/core/settings/registry.go:281-284`.
 - **Evidence:** D250 §7, D62; VQ22 (open); `research/safari-versions.md` §3, §5; [web].
+  **[web]** [WebKit bug 163433](https://bugs.webkit.org/show_bug.cgi?id=163433), "playbackRate update while
+  playing creates a small pause in the playback" (about 80 ms on iOS, 300 ms on macOS): NEW since 2016;
+  [WebKit bug 225868](https://bugs.webkit.org/show_bug.cgi?id=225868), "REGRESSION: Distorted audio when
+  altering playback-rate on HTMLVideoElement" (since Safari 14.1): NEW;
+  [hls.js#7616](https://github.com/video-dev/hls.js/issues/7616) closed 2026-05 with the maintainer's advice
+  to send Safari bugs to Apple and to change rate or seek only on muted elements, one element playing sound at
+  1x; [shaka-player#2823](https://github.com/shaka-project/shaka-player/issues/2823) closed as WebKit 163433
+  (all checked 2026-10-08).
 
 
 ### iPhone has no `MediaSource`, only `ManagedMediaSource`, and only from iOS 17.1
@@ -283,6 +325,12 @@ User-Agent (D263; the User-Agent is logged only).
   and `cannotHost` strings in `web/apps/web/src/locales/en.ts`.
 - **Evidence:** D250 §7; `research/safari-versions.md` §2; [owner] 2026-10-06 (the iPhone at the airport). This
   is a limitation, not a bug.
+  **[web]** [MDN
+  browser-compat-data](https://github.com/mdn/browser-compat-data/blob/main/api/ManagedMediaSource.json):
+  ManagedMediaSource from Safari 17 and iOS 17.1, `MediaSource` "exposed in Mobile Safari on iPad but not on
+  iPhone"; [WebKit bug 309965](https://bugs.webkit.org/show_bug.cgi?id=309965), "MediaCapabilities can't be
+  used to query ManagedMediaSource support on iPhone": NEW (2026-03), so a MediaCapabilities probe with type
+  `media-source` also reports nothing playable on iPhone (checked 2026-10-08).
 
 
 ### iPhone's ManagedMediaSource decides how far ahead the page may load (about 30 s)
@@ -294,6 +342,13 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-follow.ts:35-41` (`playerLoadsAheadMs`).
 - **Evidence:** D250 §4; `research/playback-in-practice.md` §1; [source] WebKit `ManagedMediaSource.cpp`. The
   real thresholds on iOS are not device-confirmed (test T5).
+  **[web]** [WebKit bug 326390](https://bugs.webkit.org/show_bug.cgi?id=326390), "ManagedMediaSource doesn't
+  fire startstreaming after seeking outside the buffered range": NEW, filed 2026-10-05 against Safari 27.0.1
+  on macOS and iOS. After `endstreaming` at about 30 s buffered, a seek past the buffer never sets `streaming`
+  true again, so hls.js waits forever and the seek never finishes; its repro shows `endstreaming` at 30.1 s
+  buffered. [WebKit bug 305712](https://bugs.webkit.org/show_bug.cgi?id=305712), "REGRESSION (iOS 26.2):
+  ManagedMediaSource Cold Start Failure" (simultaneous appends to two SourceBuffers on the first MMS after
+  Safari starts fail; sequential appends work): NEW (both checked 2026-10-08).
 
 
 ### iOS: an element's volume is read-only to the page, and Web Audio output follows the ring/silent switch
@@ -305,6 +360,16 @@ User-Agent (D263; the User-Agent is logged only).
   applied, and only a prepared copy with the gain baked in is levelled.
   `web/packages/player/src/gain.ts:18-33,97-104`.
 - **Evidence:** D226 §4; VQ13 (open, device check).
+  **[web]** Apple's [Safari HTML5 Audio and Video Guide, iOS-Specific
+  Considerations](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Device-SpecificConsiderations/Device-SpecificConsiderations.html)
+  [doc]: "The volume property is not settable in JavaScript. Reading the volume property always returns 1";
+  [MDN browser-compat-data](https://github.com/mdn/browser-compat-data/blob/main/api/HTMLMediaElement.json)
+  says the same for iOS. [WebKit bug 237322](https://bugs.webkit.org/show_bug.cgi?id=237322), "webaudio api is
+  muted when the iOS ringer is muted": RESOLVED CONFIGURATION CHANGED; WebKit's Jean-Yves Avenard (2024-09)
+  says the default audio session type is `ambient`, hence muted by the switch. **Better workaround:** since
+  iOS 17, `navigator.audioSession.type = "playback"` keeps Web Audio playing with the switch on silent (same
+  bug, comment 6); the older workaround was a looping silent `<audio>` element. A gain through Web Audio may
+  therefore be possible on iOS 17+, subject to the MSE and HLS Web Audio bugs in the next entry.
 
 
 ### iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain
@@ -312,6 +377,15 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** the gain is carried in the prepared sound (`CarriedGainDB`,
   `internal/nodeproto/prepare.go:66-68`).
 - **Evidence:** D226 §4-§5; VQ13.
+  **[web]** [WebKit bug 180696](https://bugs.webkit.org/show_bug.cgi?id=180696), "createMediaElementSource()
+  not working with Hls stream": NEW since 2017; [WebKit bug
+  306493](https://bugs.webkit.org/show_bug.cgi?id=306493), "Safari: MediaElementAudioSourceNode outputs
+  silence for HLS (TS + fMP4) while playback is audible; progressive MP4 works": NEW (2026-01). [WebKit bug
+  266922](https://bugs.webkit.org/show_bug.cgi?id=266922), "MediaElementAudioSourceNode doesn't pass audio
+  sample data to subsequent node if based on MSE": NEW since 2023, reproduced on iPadOS and, in a 2025
+  comment, with hls.js on ManagedMediaSource. **Contradicts:** the limitation is not only native
+  HLS: on Safari an MSE or ManagedMediaSource element also gives Web Audio silence, so hls.js on iPhone cannot
+  be given a Web Audio gain either (checked 2026-10-08).
 
 
 ### iOS suspends the AudioContext as the microphone opens
@@ -321,6 +395,18 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-voice-browser.ts:236-239`.
 - **Evidence:** the code comment only, with no date or device test. Related: WebKit 218012 [web].
   Cause unverified.
+  **[web]** [WebKit bug 218012](https://bugs.webkit.org/show_bug.cgi?id=218012), "Audio Volume reduces
+  considerably on accepting the mic permissions": RESOLVED CONFIGURATION CHANGED. WebKit's youenn fablet
+  (comment 5) says capture changes the audio session category; an AudioContext created before capture plays
+  quietly, and suspending and resuming it during capture restores the volume, which matches our resume after
+  the microphone opens. The remainder for Web Audio moved to [WebKit bug
+  236219](https://bugs.webkit.org/show_bug.cgi?id=236219), "[iOS] Volume of non MediaStreamTrack-based audio
+  reduces when capturing microphone": NEW. Workarounds reported there: render Web Audio through a
+  `MediaStreamAudioDestinationNode` (youenn, 218012 comment 32), or set `navigator.audioSession.type =
+  'play-and-record'` before capture and `'playback'` after (comment 37, iOS 16.4+), though later comments say
+  it works only sometimes and routes playback to the receiver. [WebKit bug
+  273511](https://bugs.webkit.org/show_bug.cgi?id=273511), "AudioContext stuck on Interrupted" (`resume()`
+  does not help): NEW (all checked 2026-10-08).
 
 
 ### iPhone video fullscreen is not the Fullscreen API, and it leaves page overlays behind
@@ -332,6 +418,12 @@ User-Agent (D263; the User-Agent is logged only).
   fullscreen, and toggled on `fullscreenchange` and on WebKit's `webkitbeginfullscreen`/`webkitendfullscreen`.
   `web/packages/player/src/fullscreen-captions.ts:78-123`.
 - **Evidence:** D254, [owner] 2026-10-07 (the owner's phone); VQ25.
+  **[web]** [MDN browser-compat-data](https://github.com/mdn/browser-compat-data/blob/main/api/Element.json):
+  `requestFullscreen` on iOS Safari is "Only available on iPad, not on iPhone"; [WebKit bug
+  206854](https://bugs.webkit.org/show_bug.cgi?id=206854), "Add Fullscreen API to iOS": NEW since 2020;
+  [WebKit bug 265438](https://bugs.webkit.org/show_bug.cgi?id=265438), "no fullscreen api functions available
+  in iOS 17.2": NEW, where a WebKit engineer notes the iOS Fullscreen API was disabled again from Safari 17.2
+  beta 3 (all checked 2026-10-08).
 
 
 ### Safari's native HLS starts on the first variant listed, whatever start hint is given
@@ -339,6 +431,11 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** a lower start quality, chosen from the remembered link speed, is *listed first* in the master
   playlist (D257 §2).
 - **Evidence:** D257 [web/research].
+  **[web]** Apple's [HLS authoring specification for Apple
+  devices](https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices)
+  [doc], item 1.32: "Defaults are the first variant listed in the Multivariant Playlist within a group of
+  variants having compatible audio", and the default video variant SHOULD be the 2000 kbit/s one (read
+  2026-10-08).
 
 
 ### iPhone Safari loads nothing for a media element until the user has tapped it
@@ -347,6 +444,10 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** on such browsers the warm-up only starts the chunks on the server (D260 §3).
 - **Evidence:** D260; `research/safari-versions.md` §3 "preload" [source]. This is a
   limitation.
+  **[web]** Apple's [Safari HTML5 Audio and Video Guide, iOS-Specific
+  Considerations](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/Device-SpecificConsiderations/Device-SpecificConsiderations.html)
+  [doc]: on iOS "preload and autoplay are disabled. No data is loaded until the user initiates it", and
+  `play()` and `load()` do nothing unless triggered by a user action (archived 2012 guide, read 2026-10-08).
 
 
 ### Native HLS gives the page no track choice, no quality control and no link measurement
@@ -355,6 +456,16 @@ User-Agent (D263; the User-Agent is logged only).
   dialogue-boost switch does nothing there. `web/packages/player/src/hls.ts:65-77`.
 - **Evidence:** `research/safari-versions.md` §3 "Quality control", §6; `research/audit-2026-09-27.md`. This is a
   limitation.
+  **[web]** **Contradicts:** Safari exposes a native HLS stream's `EXT-X-MEDIA` audio renditions as
+  `video.audioTracks` (Safari 7+, [MDN
+  browser-compat-data](https://github.com/mdn/browser-compat-data/blob/main/api/HTMLMediaElement.json)), so a
+  track choice is possible on the native path, though buggy: [WebKit bug
+  297904](https://bugs.webkit.org/show_bug.cgi?id=297904), "REGRESSION (iOS 26): video.audioTracks mislabels
+  default language and fails to switch audio tracks reliably with HLS": NEW; [WebKit bug
+  301928](https://bugs.webkit.org/show_bug.cgi?id=301928), duplicated `AudioTrack` IDs within one group: NEW;
+  [WebKit bug 318785](https://bugs.webkit.org/show_bug.cgi?id=318785), AudioTrack objects re-created in Safari
+  26.3-26.5: NEW (checked 2026-10-08). No public API for quality control or link measurement on native HLS was
+  found.
 
 
 ### Native-HLS `<video>` (and `<img>`) cannot send an Authorization header
@@ -362,18 +473,40 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** a media cookie scoped to `/api/v1/bytes/`, while API calls and hls.js use the header.
   `internal/core/api/media_cookie.go`.
 - **Evidence:** D154, D216. This is a limitation that forced the design.
+  **[web]** no tracker; it is how media elements fetch. [Stack Overflow
+  56146913](https://stackoverflow.com/questions/56146913/using-token-based-authentication-for-html5-video) and
+  [68483348](https://stackoverflow.com/questions/68483348/how-do-i-provide-token-in-the-query-string-for-every-subsequent-m3u8-file-reques)
+  show the usual workarounds: a header only where a JavaScript player (hls.js, video.js) makes the requests,
+  otherwise a cookie, or a token in the URL of every playlist and chunk (searched Stack Overflow and
+  whatwg/html, 2026-10-08).
 
 
 ### iOS Safari with the microphone open sends call audio to the earpiece, quietly (WebKit 230902)
 
 - **What we do:** headphones are the supported voice set-up (D63). This is listed for the device lab.
 - **Evidence:** D188 [web]. Whether `navigator.audioSession` fixes it is unverified.
+  **[web]** [WebKit bug 230902](https://bugs.webkit.org/show_bug.cgi?id=230902), "REGRESSION(Safari 15 -
+  iOS15): [WebRTC] MediaStreamTack audio volume too low": RESOLVED CONFIGURATION CHANGED; Twilio and others
+  there diagnosed the route as the earpiece rather than a low volume. **Fixed upstream:** WebKit's youenn
+  fablet (comment 116) says iOS 15.4 needs no workaround for MediaStreamTrack audio, 15.2-15.3 partly; the fix
+  covers MediaStreamTrack rendering only, and the Web Audio and media-element part is [WebKit bug
+  236219](https://bugs.webkit.org/show_bug.cgi?id=236219): NEW. On `navigator.audioSession`: a comment on
+  [WebKit bug 218012](https://bugs.webkit.org/show_bug.cgi?id=218012) (iOS 18.6) reports that `type =
+  "play-and-record"` routes playback to the receiver, so it does not fix the earpiece; youenn (236219 comment
+  6) says getUserMedia switches the session to play-and-record at the call ("VC") volume level (all checked
+  2026-10-08).
 
 
 ### Safari supports zstd content-encoding only from 26 (iOS fully from 26.3)
 
 - **What we do:** gzip to clients; zstd only between node and core (D129).
 - **Evidence:** D129 [web, caniuse 2026-09-21]. This is a limitation.
+  **[web]** [caniuse zstd data](https://github.com/Fyrd/caniuse/blob/main/features-json/zstd.json): Safari
+  26.0-26.2 decodes zstd but does not request it; 26.3+ supports it, on macOS only with macOS 26.3 Tahoe.
+  [WebKit bug 279815](https://bugs.webkit.org/show_bug.cgi?id=279815), "Support zstd content-encoding": still
+  NEW; [WebKit bug 311087](https://bugs.webkit.org/show_bug.cgi?id=311087), "Safari hangs on HTTP/1.1
+  responses with Content-Encoding: zstd + Transfer-Encoding: chunked over TLS" (Safari 26.3.1; gzip
+  unaffected): NEW, a further reason to keep gzip to clients (checked 2026-10-08).
 
 
 ### Safari needs a copied HEVC picture tagged `hvc1` (FFmpeg's MP4 muxer writes `hev1` by default)
@@ -385,6 +518,13 @@ User-Agent (D263; the User-Agent is logged only).
   `internal/node/chunks/arguments_test.go:60`; commit "feat(prepare): the node prepares fMP4 HLS renditions with every audio track, standard and boosted, and serves them on its byte socket" (2026-09-25). **Cause unverified in the
   repo:** the tests cite cut-a §6, which has no hvc1 text, and no Safari failure is recorded. It is
   well-known Apple behaviour [web].
+  **[web]** Apple's [HLS authoring specification for Apple
+  devices](https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices)
+  [doc], item 1.10: "use 'avc1', 'hvc1', or 'dvh1' rather than 'avc3', 'hev1', or 'dvhe'" (parameter sets in
+  the sample description, not in the samples); [Stack Overflow
+  32152090](https://stackoverflow.com/questions/32152090/encode-h265-to-hvc1-codec): QuickTime needs `hvc1`,
+  and `-c:v copy -tag:v hvc1` relabels without re-encoding (read 2026-10-08). No WebKit bug states the
+  rejection of `hev1`.
 
 ---
 
@@ -404,6 +544,12 @@ User-Agent (D263; the User-Agent is logged only).
   `web/packages/sdk/src/together-voice-browser.ts:13-28`; `web/packages/sdk/src/together.ts:103-107,120`;
   `internal/core/settings/registry.go:288-292`.
 - **Evidence:** [owner] 2026-10-06 (an Android host with headphones); D63; `research/voice-apps.md` §0.1, §2.1.
+  **[web]** [Chromium issue 243506](https://issues.chromium.org/issues/40319017), "improve webrtc audio on
+  Android", FIXED (2013): per a [Stack Overflow
+  answer](https://stackoverflow.com/questions/32215497/chrome-on-android-webrtc-volume-slider-doesnt-work-when-using-microphone)
+  quoting it, Chrome chose communication mode on purpose so the VOICE stream's volume control works, which is
+  why the side buttons move the call volume. No open bug asking to keep media volume found (searched Stack
+  Overflow and Mozilla Bugzilla; issues.chromium.org search needs sign-in, 2026-10-08).
 
 
 ### Chrome on Android with processing off captures quietly ("quiet, sometimes silent, streams")
@@ -414,6 +560,8 @@ User-Agent (D263; the User-Agent is logged only).
   tests Chrome with levelling on and echo cancelling off.
 - **Evidence:** [owner] 2026-10-07; `research/voice-apps.md` §0.2. **Unsure:** the code workaround is only a
   setting, and the default is still off (see 1.4).
+  **[web]** no public report found beyond Chromium's own source comment (searched Stack Overflow;
+  issues.chromium.org search needs sign-in, 2026-10-08).
 
 
 ### Chrome plays a remote WebRTC stream into Web Audio only while a media element also holds it
@@ -422,12 +570,23 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** a muted `Audio` element holds the stream.
   `web/packages/sdk/src/together-voice-browser.ts:78-111` (comment at `:79-82`).
 - **Evidence:** the code comment only. Cause unverified; it is long-standing Chrome behaviour [web].
+  **[web]** [Chromium issue 933677](https://issues.chromium.org/issues/40094084), "MediaStream from RTC is
+  silent (in WebAudio, MediaRecorder, etc.) if not attached to a media element": filed 2019-02-20, still
+  ASSIGNED, last changed 2026-06-11 (read 2026-10-08). The muted media element is the workaround others use
+  too ([Stack Overflow
+  41784137](https://stackoverflow.com/questions/41784137/webrtc-doesnt-work-with-audiocontext),
+  [53325793](https://stackoverflow.com/questions/53325793/no-audio-from-webrct-stream-on-chrome-without-audio-tag)).
 
 
 ### Brave on Android refused the microphone
 
 - **Evidence:** [owner] 2026-10-06/07; `research/voice-apps.md` synthesis row 3. The cause has not been
   researched, and there is no workaround. **Unsure** whether to include it yet.
+  **[web]** no report matching ours found (searched brave/brave-browser issues, 2026-10-08). Nearest:
+  [brave-browser#37176](https://github.com/brave/brave-browser/issues/37176), Android, the microphone stays
+  off after a first "block" is changed to "Ask every time", labelled waiting on Chromium upstream (Chrome does
+  the same), open; [brave-browser#3725](https://github.com/brave/brave-browser/issues/3725) is Web Speech
+  being disabled (desktop), not getUserMedia.
 
 ---
 
@@ -447,30 +606,59 @@ User-Agent (D263; the User-Agent is logged only).
   (`web/packages/sdk/src/together-voice-browser.ts:31-38`). Playwright reproduces this with
   `--host-resolver-rules`. The guest's voice needs a public HTTPS name (D243).
 - **Evidence:** an agent's working note; fix an earlier commit (2026-10-05); D197. [doc]
+  **[web]** [MDN, features restricted to secure
+  contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts/features_restricted_to_secure_contexts)
+  lists the Web Crypto API and `getUserMedia`, and [MDN
+  `getRandomValues`](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues) says it is "the
+  only member of the Crypto interface which can be used from an insecure context" (read 2026-10-08). For
+  testing only, Chrome can treat a named HTTP origin as secure with
+  `chrome://flags/#unsafely-treat-insecure-origin-as-secure` ([Chromium, deprecating powerful features on
+  insecure
+  origins](https://www.chromium.org/Home/chromium-security/deprecating-powerful-features-on-insecure-origins/));
+  it does not help real users.
 
 
 ### A browser plays only the original file's first audio track
 
 - **What we do:** choosing any other track forces a prepare (reason `audio_track`, D230).
 - **Evidence:** D230. This is a limitation (AudioTrackList is unusable in most browsers).
+  **[web]** [MDN browser-compat-data for
+  `HTMLMediaElement.audioTracks`](https://bcd.developer.mozilla.org/bcd/api/v0/current/api.HTMLMediaElement.json):
+  Safari 7+ only; Chrome and Edge behind `#enable-experimental-web-platform-features`, Firefox behind
+  `media.track.enabled` (read 2026-10-08). [Mozilla bug
+  1999618](https://bugzilla.mozilla.org/show_bug.cgi?id=1999618), audioTracks not listing all tracks in
+  Firefox, UNCONFIRMED.
 
 
 ### Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3
 
 - **What we do:** remux to fMP4 and transcode the sound (D3, D178).
 - **Evidence:** working-notes.md; `research/cold-start.md` §4.4. This is a limitation.
+  **[web]** [Mozilla bug 1422891](https://bugzilla.mozilla.org/show_bug.cgi?id=1422891), [meta] Support
+  Matroska in Firefox: [Mozilla bug 1991752](https://bugzilla.mozilla.org/show_bug.cgi?id=1991752), "Enabled
+  matroska by default", FIXED in 145 (H.264, AAC, Opus, Vorbis, VP8/9, AV1, HEVC; FLAC, MP3 and PCM still
+  ASSIGNED), but [Mozilla bug 1988447](https://bugzilla.mozilla.org/show_bug.cgi?id=1988447), "Support
+  Matroska in MSE", is NEW (read 2026-10-08). **Contradicts:** Firefox 145+ plays Matroska files directly, so
+  "other than Chrome" is out of date for file playback; through MSE/hls.js, which is our path, it still does
+  not, so the remux stays.
 
 
 ### A browser `WebSocket` cannot send an Authorization header
 
 - **What we do:** the Watch Together socket authenticates in-band or by cookie (D154 bans credentials in URLs).
 - **Evidence:** `research/audit-2026-09-27.md`. This is a limitation.
+  **[web]** [whatwg/websockets#16](https://github.com/whatwg/websockets/issues/16), "Support for custom
+  headers for handshake", open since 2017 (checked 2026-10-08); [Stack Overflow
+  4361173](https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api) collects the
+  usual workarounds (cookie, token in the subprotocol, first message).
 
 
 ### Browsers cap a cookie's Max-Age at 400 days
 
 - **What we do:** `internal/core/api/media_cookie.go:22-31`.
 - **Evidence:** plan-deviations P20. [doc] Low priority.
+  **[web]** [httpwg/http-extensions#1600](https://github.com/httpwg/http-extensions/issues/1600), "RFC6265bis:
+  Standardize maximum Max-Age cookie attribute value/handling", closed; the cap is in RFC 6265bis, and [#2789](https://github.com/httpwg/http-extensions/issues/2789), asking why the limit binds the user agent, was closed in 2024 by PR #2792.
 
 ---
 
@@ -486,6 +674,12 @@ User-Agent (D263; the User-Agent is logged only).
   `readyState` and `isPaused` (`internal/core/api/report.go`).
 - **Evidence:** [owner] 2026-10-08: Flow resumed part-way in Firefox on macOS sat paused at readyState 1,
   and the first form of D266, which ignored paused videos, never fired.
+  **[web]** [HTML spec, media elements](https://html.spec.whatwg.org/multipage/media.html): only on reaching
+  HAVE_ENOUGH_DATA, and if "eligible for autoplay", "the user agent may ... Set the paused attribute to
+  false"; whereas `play()`'s internal play steps "Change the value of paused to false" at once, whatever the
+  readyState (read 2026-10-08). **Better workaround:** starting the video with `play()` instead of the
+  `autoplay` attribute makes `paused` false immediately, so a video that never gets a frame reads as waiting
+  rather than paused (a check like `isWaitingToPlay` still covers autoplay-blocked cases).
 
 ---
 
@@ -502,6 +696,11 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** our controller looks at the chunk in flight every 500 ms, playing or not.
   `web/packages/player/src/abr-choice.ts:110-118`; `web/packages/player/src/abr.ts:33,243-262`.
 - **Evidence:** D265 §3; [staging] 2026-10-07; abr-controller.md:119-123.
+  **[web]** no public report found of the paused early return (searched hls.js issues and DuckDuckGo,
+  2026-10-08). Nearest: [hls.js#6689](https://github.com/video-dev/hls.js/issues/6689), "Playback stalls in
+  case of strong bandwidth fluctuations": closed by [PR #6763](https://github.com/video-dev/hls.js/pull/6763)
+  for 1.6.0, which reworked the check but kept the early return; at 1.7.3 the return is also skipped when a
+  level change is pending (`levelChange`), so it bites only a paused player with no switch under way.
 
 
 ### It never aborts a slow chunk when stepping down to level 0
@@ -512,6 +711,13 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `FRAG_LOAD_EMERGENCY_ABORTED`. `web/packages/player/src/abr-choice.ts:111-117`;
   `web/packages/player/src/abr.ts:384-393`.
 - **Evidence:** D265 §3 ("the lowest included, which hls.js never gives up for"); abr-controller.md:132-138.
+  **[web]** no public report found (searched hls.js issues, 2026-10-08). The guard came with [PR
+  #6763](https://github.com/video-dev/hls.js/pull/6763), "Check-in on abandon rules check and switch to lowest
+  when stuck on in-flight frag" (2024-10-09, resolves
+  [hls.js#6689](https://github.com/video-dev/hls.js/issues/6689), in 1.6.0); its commit message gives no
+  reason for `nextLoadLevel > 0`, and the same block logs `nextLoadLevel > 0 ? 'and switching down' : ''`, a
+  branch that can never take the empty side, which suggests the level-0 case was not thought through rather
+  than chosen.
 
 
 ### After an abandon, it resets the estimator to a nominal bitrate
@@ -522,6 +728,13 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   give-up never calls `resetEstimator`. `web/packages/player/src/abr.ts:429-455`. This is not commented in the
   code.
 - **Evidence:** abr-controller.md:128-131, :278; D265.
+  **[web]** deliberate upstream: [PR #6082](https://github.com/video-dev/hls.js/pull/6082), "Fix regression in
+  emergency switch down" (2024-01-05, resolves [hls.js#6079](https://github.com/video-dev/hls.js/issues/6079),
+  in 1.5.0), added "Reset estimate when candidate bitrate is lower than adjusted estimate": the reset happens
+  only when `estimate × abrBandWidthUpFactor` exceeds the lower level's bitrate, and [PR
+  #6763](https://github.com/video-dev/hls.js/pull/6763) (1.6.0) added a second reset to the lowest switch
+  level after an in-flight abort. No report found asking to keep the measured history (searched hls.js issues,
+  2026-10-08).
 
 
 ### There is no cache-hit filter: a chunk from the browser's cache reads as link speed (hls.js#5826, open)
@@ -531,6 +744,15 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** chunks loaded in under 10 ms are not counted, and paced chunks count only at 0.9 of the pace
   or less. `web/packages/player/src/abr-choice.ts:32,38,180-186`; `web/packages/player/src/abr.ts:468-472`.
 - **Evidence:** D265 §7; https://github.com/video-dev/hls.js/issues/5826; `research/slow-links.md` §2.
+  **[web]** [hls.js#5826](https://github.com/video-dev/hls.js/issues/5826), "Cached Fragments increase
+  BandwidthEstimate causing suboptimal quality selection": open, labelled "Browser issue" and "Missing
+  Feature" (checked 2026-10-08). The maintainer says hls.js cannot filter cache hits because XHR cannot tell
+  that a response came from cache, and suggests setting `hls.bandwidthEstimate` (a setter since 1.5.0) or a
+  cache buster in `xhrSetup`; no change after 1.7.3 on master. **Better workaround:** [MDN,
+  `PerformanceResourceTiming.transferSize`](https://developer.mozilla.org/en-US/docs/Web/API/PerformanceResourceTiming/transferSize)
+  is 0 for a resource fetched from a local cache (and for a cross-origin one without `Timing-Allow-Origin`),
+  so for our same-origin chunks a Resource Timing entry could mark a cache hit directly instead of the
+  under-10 ms guess.
 
 
 ### The `abrController` config type is nominal, so a custom controller must subclass
@@ -540,6 +762,15 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** `class OrpheumAbrController extends AbrController` plus a subclass factory for each playback.
   `web/packages/player/src/abr.ts:379,503-512`.
 - **Evidence:** abr-controller.md:18-24.
+  **[web]** [TypeScript handbook, "Type
+  Compatibility"](https://www.typescriptlang.org/docs/handbook/type-compatibility.html): a target type with a
+  private member accepts only a source whose private member originated from the same class, which is why
+  `typeof AbrController` is nominal. hls.js has a structural `AbrComponentAPI` type (from [PR
+  #4842](https://github.com/video-dev/hls.js/pull/4842), merged 2023-01-16) but `config.ts` does not use it
+  for the field. Upstream treats subclassing as the route: [PR
+  #7040](https://github.com/video-dev/hls.js/pull/7040), "Separate the calculation of the next level into a
+  protected method", merged 2025-02-24 for someone extending `AbrController`. No issue asks to type the field
+  structurally (searched hls.js issues, 2026-10-08).
 
 
 ### The base constructor calls the virtual `registerListeners()` before the subclass's fields exist
@@ -549,6 +780,10 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `web/packages/player/src/abr.ts:365-372,429-453` (comment: "hls.js registers them from its own constructor,
   before the controller's fields exist").
 - **Evidence:** abr-controller.md:174-180.
+  **[web]** [MDN, "Public class
+  fields"](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Public_class_fields): a
+  derived class's fields are defined only after `super()` returns, so the base constructor cannot see them;
+  this is the language, not hls.js. No hls.js issue found about it (searched hls.js issues, 2026-10-08).
 
 
 ### `EwmaBandWidthEstimator` is exported as a type only
@@ -557,6 +792,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   which hls.js's other controllers read.
 - **What we do:** subclassing keeps the parent's `bwEstimator` (`web/packages/player/src/abr.ts:374-385`).
 - **Evidence:** abr-controller.md:65-68. This is an API limitation.
+  **[web]** no public report found (searched hls.js issues, 2026-10-08); still `export type` on master after
+  1.7.3. `docs/API.md` says a custom controller needs `abrController.bwEstimator.getEstimate()` for
+  `hls.bandwidthEstimate()` to work, without offering a way to build hls.js's estimator.
 
 
 ### The docs understate the ABR controller's interface, and the setter echoes its own value back
@@ -567,6 +805,15 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** override all of them. An echo changes nothing; a different value is an outside force.
   `web/packages/player/src/abr.ts:162-165,474-489`.
 - **Evidence:** abr-controller.md:55-61, :75. The docs disagree with the behaviour.
+  **[web]** [hls.js#3562](https://github.com/video-dev/hls.js/issues/3562), "hls.bandwidthEstimate() uses
+  undocumented abrController property": closed 2021-03-08 (fixed for `bwEstimator` only);
+  [hls.js#4824](https://github.com/video-dev/hls.js/issues/4824), "Do Custom ABR Controllers really need
+  get/set `autoLevelCapping`?": closed 2023-01-16, where the maintainer asked for a typed interface, and [PR
+  #4842](https://github.com/video-dev/hls.js/pull/4842) added one, merged 2023-01-16 (checked 2026-10-08).
+  That interface is `AbrComponentAPI` in `src/types/component-api.ts` (exported as a type): `firstAutoLevel`,
+  `forcedAutoLevel`, `nextAutoLevel`, `bwEstimator`, `resetEstimator`, `destroy`, which matches what we found
+  the core calls; `docs/API.md` at 1.7.3 still lists only `nextAutoLevel` and `destroy`. No report found of
+  the `nextAutoLevel` echo.
 
 
 ### A 425 is never retried, and loads give up after about 10 s by default
@@ -577,6 +824,14 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   with `shouldRetry` retrying 425. `web/packages/player/src/chunked.ts:26-33,65-99` (comment at `:84-87`).
 - **Evidence:** D250 §6, D247 §10. **Unsure:** this is a reasonable default meeting our non-standard use of 425
   ("being made"), not a bug.
+  **[web]** deliberate upstream: 4xx has been final since [PR
+  #2442](https://github.com/video-dev/hls.js/pull/2442) (2020, "HTTP 4XX responses are now marked as
+  'final'"), and `retryForHttpStatus` at 1.7.3 says "Do not retry on status 4xx"; `docs/API.md` documents the
+  `shouldRetry` override we use. [RFC 8470](https://www.rfc-editor.org/rfc/rfc8470.html) defines 425 (Too
+  Early) for replay risk of TLS early data, so our "being made" meaning is our own. The 1.7.3 defaults, read
+  from `src/config.ts`: `maxTimeToFirstByteMs` 10000 and `maxLoadTimeMs` 120000, with a timeout retried 4
+  times at once and an error 6 times at 1-8 s; so "about 10 s" is the first-byte wait, and a silent server
+  fails the load after about 50 s. No report found of 425 specifically (searched hls.js issues, 2026-10-08).
 
 
 ### A held request is counted as download time, so the estimate collapses
@@ -586,6 +841,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** a chunk that is not ready is answered at once with 425, never held (`chunk_hold_ms` defaults to
   0). `internal/core/api/chunks.go:35-39,196-201`.
 - **Evidence:** D250 §5; `research/playback-in-practice.md` §3; suspected on [staging] 2026-10-06.
+  **[web]** no public report found (searched hls.js issues for TTFB and first-byte estimates, 2026-10-08). The
+  sample at 1.7.3 is `loading.start` to parse end minus `min(ttfb, ttfbEstimate)` (`abr-controller.ts`
+  `onFragBuffered`), as stated.
 
 
 ### An open (EVENT, no ENDLIST) playlist is treated as live and starts near its end
@@ -593,6 +851,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **Symptom:** "a film whose prepare had made 46 s began at 40 s".
 - **What we do:** `startPosition: 0`. `web/packages/player/src/hls.ts:191-197`.
 - **Evidence:** [staging] 2026-10-06. [doc] This is live-playlist behaviour that surprises for a growing VOD.
+  **[web]** the HLS spec asks for it: [RFC 8216 §6.3.3](https://www.rfc-editor.org/rfc/rfc8216.html), "If the
+  EXT-X-ENDLIST tag is not present and the client intends to play the media normally, the client SHOULD NOT
+  choose a segment that starts less than three target durations from the end of the Playlist file". hls.js
+  `docs/API.md` (`startPosition`, default -1) starts live by `liveSyncDuration`/`liveSyncDurationCount`. No
+  hls.js issue asks for EVENT playlists to start at 0 (searched 2026-10-08); `startPosition: 0` is the
+  documented route.
 
 
 ### hls.js moves the playhead itself (gap jumps, stall nudges), and the browser reports each as a seek
@@ -605,6 +869,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   (`web/packages/player/src/hls.ts:108-122`). The follower ignores the next `seeking`
   (`web/packages/sdk/src/together-follow.ts:176-182`) and tolerates drift while its own seek loads (`:637-639`).
 - **Evidence:** [owner] 2026-10-05.
+  **[web]** [hls.js#7680](https://github.com/video-dev/hls.js/issues/7680), "Audio gap causing seek events on
+  Chrome only": closed (checked 2026-10-08); its logs show a gap jump arriving as `seeking`/`seeked` on the
+  media element, as here. No report asks for hls.js to mark its own moves. **Better workaround:** since 1.7.0
+  the gap controller is replaceable (`config.gapController`, [1.7.0 release
+  notes](https://github.com/video-dev/hls.js/releases/tag/v1.7.0)); a subclass could flag its own
+  `currentTime` writes at the source instead of inferring them from non-fatal ERROR events (untested).
 
 
 ### A paused player is never stepped over a gap at the start, so it never becomes ready
@@ -613,6 +883,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** a held player is moved onto the first frame it loaded.
   `web/packages/sdk/src/together-follow.ts:640-645`.
 - **Evidence:** [staging] 2026-10-06. The cause is stated in the comment, but hls.js's source is not cited.
+  **[source]** confirmed in hls.js 1.7.3 `gap-controller.ts`: `pausedEndedOrHalted` (`media.paused &&
+  !seeking`) returns before any gap handling, and the start-gap jump itself runs only `if (!media.paused)`.
+  **[web]** no public report found (searched hls.js issues for start gaps while paused, 2026-10-08).
 
 
 ### After an audio-track switch, the audio already decoded in the old mix plays on for 2-4 s
@@ -621,6 +894,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** a seek in place after the switch. `web/packages/player/src/hls.ts:236-246`.
 - **Evidence:** agent-failures A7 (2026-09-26); VQ2 ticked ("works within about a second now"); D217 §3. The first
   diagnosis, segment length, was wrong (an agent error).
+  **[web]** [hls.js#5881](https://github.com/video-dev/hls.js/issues/5881), "Audio track switching does not
+  apply immediately" (Firefox, old audio plays on for seconds): open, milestone 1.8.0, labelled "Browser
+  issue", "Suggested-Workaround" and "seek-to-flush-rendering-pipeline";
+  [hls.js#6355](https://github.com/video-dev/hls.js/issues/6355) has the same label for a video level switch
+  in Chrome and Edge, open (both checked 2026-10-08). The maintainers' own label names our workaround: a seek
+  flushes the browser's rendering pipeline, which a SourceBuffer flush does not.
 
 
 ### Before any measurement, `bandwidthEstimate` returns its configured default, with no "unknown"
@@ -630,6 +909,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** `measuredKbps` is undefined until `FRAG_LOADED`. `web/packages/player/src/hls.ts:143-156`;
   `abr.ts:352`.
 - **Evidence:** [staging] 2026-10-07. **Borderline:** this is a documented default.
+  **[web]** [hls.js#5949](https://github.com/video-dev/hls.js/issues/5949), "Improving initial video quality
+  based on previous sessions": closed, answered (checked 2026-10-08), someone persisting
+  `hls.bandwidthEstimate` across sessions, where the default and a measurement look alike. **Better
+  workaround:** hls.js's estimator has `canEstimate()` (`ewma-bandwidth-estimator.ts`, true once a sample has
+  enough weight), and `getEstimate()` returns the default only while it is false; our subclass holds
+  `bwEstimator`, so it could ask that directly rather than inferring from `FRAG_LOADED`.
 
 ---
 
@@ -645,6 +930,18 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   Two of them give the quality up at once (`notHeld` in `web/packages/player/src/abr.ts`).
 - **Evidence:** [owner] 2026-10-08, Flow in Firefox on macOS; `/yoloai/cache/hls.js`
   `src/controller/error-controller.ts` and `buffer-controller.ts` at v1.7.3.
+  **[web]** `bufferAppendNoProgress` is new in 1.7.0: [PR
+  #7941](https://github.com/video-dev/hls.js/pull/7941), "Mark fragments as gaps after repeated appends
+  without buffered range growth", merged 2026-07-27, and [PR
+  #7979](https://github.com/video-dev/hls.js/pull/7979) fixed false positives in interstitial assets, merged
+  2026-08-19. **Contradicts:** in part. The stream controller does act: it marks a fragment as a gap once the
+  *same* fragment has been appended `appendErrorMaxRetry` (default 3) times without growth
+  (`stream-controller.ts`, `BUFFER_APPEND_NO_PROGRESS` case). The count is per fragment, so a run of different
+  chunks each held nothing of, as with Flow, never reaches it; the do-nothing answer in `error-controller.ts`
+  is only the error controller's part. Related:
+  [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035), "locally determined gaps do not survive
+  recoverMediaError()": open (checked 2026-10-08), which matters because D266 rebuilds with
+  `recoverMediaError`.
 
 ---
 
@@ -657,6 +954,13 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** `setCodecPreferences` with RED first.
   `web/packages/sdk/src/together-voice-codec.ts:73-86`; `together-voice-browser.ts:114-128`.
 - **Evidence:** D262 §3; `research/voice-bad-links.md` §3 "RED".
+  **[web]** [webrtcHacks, "RED: Improving Audio Quality with
+  Redundancy"](https://webrtchacks.com/red-improving-audio-quality-with-redundancy/) (the libwebrtc author):
+  RED is not enabled by default because of its bandwidth cost; to use it, put it before Opus with
+  `setCodecPreferences` or SDP munging. This is by design, not a bug. [Mozilla bug
+  1801367](https://bugzilla.mozilla.org/show_bug.cgi?id=1801367) (comment 0) shows Chrome, Edge and Safari
+  offering RED second, right after Opus, and its 2026-06-18 patch for Firefox keeps the same "enabled only if
+  listed before Opus" rule (checked 2026-10-08).
 
 
 ### No browser API caps the jitter buffer: `jitterBufferTarget` is a floor, not a ceiling
@@ -666,6 +970,10 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** remove the jitter instead. The film is paced server-side and capped at half the link while
   voice is live (D262 §2; `internal/platform/pacing`).
 - **Evidence:** D262; `research/voice-bad-links.md` §3 [measured + source].
+  **[web]** [w3c/webrtc-extensions#199](https://github.com/w3c/webrtc-extensions/issues/199), "Add
+  jitterBufferMaximumDelay attribute to RTCRtpReceiver" (2024-02-09): states that `jitterBufferTarget` sets
+  only a minimum and the upper bound is not controllable from the page; closed, and no maximum exists in the
+  spec (checked 2026-10-08).
 
 
 ### `networkPriority` (DSCP) exists in Chrome and Safari but not Firefox, and `setParameters` may refuse it
@@ -673,6 +981,9 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** set both priorities and swallow a rejection.
   `web/packages/sdk/src/together-voice-browser.ts:130-143`.
 - **Evidence:** D262 §3; `research/voice-bad-links.md` §3. This is a capability difference.
+  **[web]** [Mozilla bug 1249575](https://bugzilla.mozilla.org/show_bug.cgi?id=1249575), "Enable dscp support
+  for WebRTC": NEW since 2016, no patch (checked 2026-10-08). No public report found of Chrome or Safari
+  rejecting it (searched GitHub and Bugzilla, 2026-10-08).
 
 
 ### mDNS-obfuscated host candidates cannot be resolved inside a container
@@ -681,6 +992,12 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 - **What we do:** Chromium gets `--disable-features=WebRtcHideLocalIpsWithMdns`, and Firefox gets
   `media.peerconnection.ice.obfuscate_host_addresses=false`. `web/e2e/browsers.ts:3-19`.
 - **Evidence:** D252 §3. This is an environment limitation.
+  **[web]** [draft-ietf-mmusic-mdns-ice-candidates
+  §3.2.1](https://datatracker.ietf.org/doc/html/draft-ietf-mmusic-mdns-ice-candidates): an mDNS candidate that
+  does not resolve is ignored, so when both peers obfuscate and multicast does not reach, neither has a host
+  candidate for the other and only peer-reflexive learning (which needs one side's address) or STUN/TURN
+  candidates remain. No browser bug tracks it: it is the design working as specified (searched Bugzilla and
+  GitHub, 2026-10-08).
 
 ---
 
@@ -692,6 +1009,11 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
 ### x265 makes every keyframe after the first a CRA (open GOP)
 
 This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is complete. Evidence: D266.
+- **Evidence:** **[web]** [x265 CLI docs](https://x265.readthedocs.io/en/master/cli.html): `--open-gop` "allow
+  I-slices to be non-IDR", default enabled, so this is documented default behaviour, not a bug (checked
+  2026-10-08). **Better workaround:** for pictures we encode ourselves, `-x265-params open-gop=0` makes every
+  keyframe an IDR, and libx265's `-forced-idr 1` ([FFmpeg codecs docs](https://ffmpeg.org/ffmpeg-codecs.html))
+  makes forced keyframes IDR; copied pictures keep their CRAs.
 
 
 ### The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)
@@ -700,12 +1022,22 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `internal/node/chunks/arguments.go:14-18,49-62`.
 - **Evidence:** `research/slow-links.md` §10 [measured 2026-10-05]; test
   `TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd`.
+  **[web]** [FFmpeg formats docs, segment muxer](https://ffmpeg.org/ffmpeg-formats.html): documents exactly
+  this, "key frame times ... may not be set accurately because of rounding issues", and offers
+  `segment_time_delta` (a keyframe starts a segment if PTS >= start_time - time_delta). Related: [FFmpeg
+  ticket 9523](https://trac.ffmpeg.org/ticket/9523), "segment_times splits at I-frames that are not
+  keyframes": open (checked 2026-10-08). **Better workaround:** `-segment_time_delta 0.05` is the muxer's own
+  flag for our 50 ms early cut, so the cut times could stay exact.
 
 
 ### The `hls` muxer cuts by cumulative time and cannot keep a copied picture to a keyframe grid
 
 - **What we do:** the `segment` muxer with `-segment_times` (`internal/node/chunks/arguments.go:96-104`).
 - **Evidence:** `research/slow-links.md` §10 [measured].
+  **[web]** [hlsenc.c](https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/libavformat/hlsenc.c) (read
+  2026-10-08): the cut test is `end_pts = recording_time * vs->number`, i.e. cumulative time from the start,
+  with no list of cut times. Kyoo hit the same and added an `hls_times` option to its own FFmpeg fork
+  ([zoriya/Kyoo#1675](https://github.com/zoriya/Kyoo/pull/1675), merged 2026-08-31); upstream has none.
 
 
 ### Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`
@@ -715,6 +1047,15 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `maker.go:255`.
 - **Evidence:** `research/slow-links.md` §10 [measured: 3,533 frames, no gap];
   `TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes`.
+  **[web]** [zoriya/Kyoo#1578](https://github.com/zoriya/Kyoo/pull/1578) (merged 2026-07-12) rewrote every
+  `tfdt` as we do; [Kyoo#1675](https://github.com/zoriya/Kyoo/pull/1675) (merged 2026-08-31) then dropped it
+  because "manually patching tfdt had some issues with some codecs" (E-AC-3 named) and moved to its fork's
+  `absolute_tfdt` movflag.
+  [movenc.c](https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/libavformat/movenc.c) (read 2026-10-08):
+  with `frag_discont` and no edit list, the first fragment's `tfdt` is the packet's own DTS. **Better
+  workaround:** (unverified here) `-copyts` with `movflags=+frag_discont` keeps source DTS, which is how
+  Jellyfin gets film-time `tfdt` ([jellyfin#18049](https://github.com/jellyfin/jellyfin/issues/18049), open:
+  its catch is a negative `tfdt` when the audio starts early).
 
 
 ### fMP4 init segments differ between runs unless the edit list is off
@@ -722,6 +1063,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `movflags=+frag_keyframe+empty_moov+default_base_moof:use_editlist=0`
   (`internal/node/chunks/arguments.go:102`).
 - **Evidence:** `research/slow-links.md` §10 [measured].
+  **[web]** no public report of the run-to-run difference found (searched FFmpeg trac, 2026-10-08). Related:
+  [FFmpeg ticket 11034](https://trac.ffmpeg.org/ticket/11034), "Stream copy with -use_editlist 0 introduces
+  delay by default": new; it shows the edit list carrying each output's start offset, which plausibly is what
+  varies between runs (unverified).
 
 
 ### The AAC encoder adds 1024 priming samples at each run's start
@@ -729,6 +1074,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** an 8.7 ms seam where two runs meet.
 - **What we do:** a sound run starts one chunk early and drops it. `internal/node/chunks/maker.go:35-37,269-290`.
 - **Evidence:** `research/slow-links.md` §10 [measured]; `TestMake_TimesASoundBySamplesAfterItsLeadIn`. [doc]
+  **[web]** [FFmpeg ticket 10464](https://trac.ffmpeg.org/ticket/10464), "MP4 muxer: muxing with empty moov
+  fails to signal audio encoder delay": new; with `empty_moov` (as ours) no edit list says to drop the 1024
+  priming samples. [Ticket 11031](https://trac.ffmpeg.org/ticket/11031) fixed the same gap for `cmaf` only
+  (checked 2026-10-08).
 
 
 ### Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder
@@ -738,6 +1087,15 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `internal/node/prepare/encoder.go:37-79`.
 - **Evidence:** `research/slow-links.md` §4; `research/playback-in-practice.md` §3 [web/source]; D190; commit
   An earlier commit. Unverified on our QSV hardware.
+  **[web]** [FFmpeg codecs docs](https://ffmpeg.org/ffmpeg-codecs.html) list `forced-idr` for libx264 and
+  libx265 and `forced_idr` among the QSV common options. [FFmpeg ticket
+  8857](https://trac.ffmpeg.org/ticket/8857), "h264_qsv force_key_frames incorret" (every frame became a
+  keyframe): fixed in 2021. Jellyfin's
+  [EncodingHelper.cs](https://raw.githubusercontent.com/jellyfin/jellyfin/master/MediaBrowser.Controller/MediaEncoding/EncodingHelper.cs)
+  (`GetHlsVideoKeyFrameArguments`, read 2026-10-08) says "Unable to force key frames using these encoders" for
+  QSV, NVENC, AMF, RKMPP and SVT-AV1 and sets `-g` and `-keyint_min` to the segment length instead. **Better
+  workaround:** a fixed GOP equal to the chunk length, as Jellyfin does, does not depend on each encoder
+  honouring a forced keyframe.
 
 
 ### `-hls_init_time` does nothing for copied video
@@ -746,6 +1104,11 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `-hls_init_time 1`).
 - **What we do:** ladder from the start (D257, D260) and the keyframe grid from the file's index (D259).
 - **Evidence:** `research/cold-start.md` §4.4-§5 [measured 2026-10-07]. **Unsure:** arguably expected.
+  **[web]** [FFmpeg formats docs](https://ffmpeg.org/ffmpeg-formats.html): "Segment will be cut on the next
+  key frame after this time has passed", so with copied video the first cut waits for the source's second
+  keyframe. This settles the **Unsure** above: documented behaviour. Related misbehaviour: [FFmpeg ticket
+  10098](https://trac.ffmpeg.org/ticket/10098) ("ignores -hls_time if -hls_init_time is set", new) and [ticket
+  9484](https://trac.ffmpeg.org/ticket/9484) (reopened) (checked 2026-10-08).
 
 
 ### Chromaprint refuses a 5.1 input
@@ -754,12 +1117,20 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   written into output file`.
 - **What we do:** downmix with `-ac 2` first (an `assumptions/` test, D111).
 - **Evidence:** D115 [measured 2026-09-20].
+  **[web]**
+  [libavformat/chromaprint.c](https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/libavformat/chromaprint.c)
+  (read 2026-10-08): FFmpeg's `chromaprint` muxer returns EINVAL with "Only up to 2 channels are supported"
+  when the input has more than two channels; the refusal is the muxer's, before Chromaprint is called. No
+  tracker issue found (searched FFmpeg trac and acoustid/chromaprint issues, 2026-10-08).
 
 
 ### FFmpeg's AC-3/E-AC-3 decoder applies DRC by default (`drc_scale = 1`)
 
 - **What we do:** DRC is a per-device preference (D83). Listed in `assumptions/`.
 - **Evidence:** working-notes.md; Jellyfin #10148 [web].
+  **[web]** [FFmpeg codecs docs, AC-3 decoder](https://ffmpeg.org/ffmpeg-codecs.html): `drc_scale` default 1,
+  0 disables DRC; documented, not a bug. [jellyfin#10148](https://github.com/jellyfin/jellyfin/issues/10148),
+  "Can't set Dynamic Range Compression (DRC) decoding preference": closed 2023-08-24 (checked 2026-10-08).
 
 
 ### `-c copy` remux rewrites every Matroska cluster, and mkvpropedit moves grown elements to the end
@@ -767,6 +1138,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** the planned head+tail sampling hash broke on every tag edit.
 - **What we do:** file identity is a hash of the media payload (D179).
 - **Evidence:** working-notes.md [measured].
+  **[web]** no public report found; the [mkvpropedit manual](https://mkvtoolnix.download/doc/mkvpropedit.html)
+  does not describe where a grown element is written (searched the manual, FFmpeg trac and GitHub,
+  2026-10-08).
 
 
 ### FFmpeg reads an input name as a protocol, and reads stdin by default
@@ -774,6 +1148,10 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `-nostdin`, `-protocol_whitelist file -i file:<abs>`.
   `internal/node/execx/execx.go:46-67`.
 - **Evidence:** cut-a §7. [doc] This is security hardening.
+  **[web]** [FFmpeg protocols docs](https://ffmpeg.org/ffmpeg-protocols.html): "All protocols are allowed by
+  default" (`protocol_whitelist`), and the `file:` prefix forces the file protocol; [ffmpeg
+  docs](https://ffmpeg.org/ffmpeg.html): stdin interaction is "on by default unless standard input is used as
+  an input", disabled by `-nostdin`. Both documented (checked 2026-10-08).
 
 
 ### ffprobe's output quirks
@@ -784,6 +1162,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   disposition-1024 filter (`internal/store/queries/read_through.sql:15`,
   `internal/core/library/streams.go:16-18`).
 - **Evidence:** code comments only. [doc] Low priority, and could be merged into one entry.
+  **[web]** no tracker issue found for the Matroska `DURATION` tag or the empty AAC profile (searched FFmpeg
+  trac, 2026-10-08); related: [FFmpeg ticket 11584](https://trac.ffmpeg.org/ticket/11584), "ffprobe returns
+  "n/a" for bitrate in opus audio file": new.
 
 
 ### A Matroska file's cues may list fewer keyframes than the picture has
@@ -791,6 +1172,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** trust each cue, and read through a file without cues (D259 §2-3;
   `internal/node/container/doc.go:3-7`).
 - **Evidence:** D259. [doc] This is a muxer's choice.
+  **[web]** [RFC 9559 §22.1](https://www.rfc-editor.org/rfc/rfc9559#section-22.1): "each keyframe SHOULD be
+  referenced by a CuePoint", a recommendation, not a requirement, so a conforming file may index fewer. No
+  tracker issue found for a specific muxer (searched FFmpeg trac and GitHub, 2026-10-08).
 
 ---
 
@@ -810,6 +1194,18 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   NR-BPDV). The bottleneck is a `tbf` child. D263 §1, correcting D262 §1.
 - **Evidence:** `research/network-profiles.md` :38-51, §3.1, §3.3, §8 item 2 [measured, kernel 6.12,
   2026-10-07].
+  **[web]** [tc-netem(8)](https://man7.org/linux/man-pages/man8/tc-netem.8.html): "Packets will also get
+  reordered if jitter is large enough" because tfifo "keeps packets in order by time to send"; it still
+  advises a `pfifo` child to avoid it, and calls delay correlation "not a true statistical correlation, but an
+  approximation"; [Stack Overflow
+  36994367](https://stackoverflow.com/questions/36994367/how-to-emulate-jitter-without-packet-reordering-using-tc-and-netem)
+  reports the man page's `pfifo` child "doesn't work! Packets still get reordered", and one answer on Linux
+  4.17 found reordering whenever the jitter exceeds the delay; [sch_netem.c
+  (mainline)](https://github.com/torvalds/linux/blob/master/net/sched/sch_netem.c) `netem_enqueue`: only when
+  `q->rate` is set does it take the queue's last `time_to_send` as the reference point ("Last packet in queue
+  is reference point (now)"), so with `rate` no packet is scheduled before an earlier one, which confirms our
+  cause. The only other workaround found (same Stack Overflow page) changes a fixed delay from a loop, which
+  reorders too when the delay falls.
 
 
 ### netem's `limit` counts every packet it holds, including packets only being delayed (and on `lo`, both directions)
@@ -820,6 +1216,14 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   also folds propagation delay into the queue, so delay goes in netem and the bottleneck in tbf.
 - **Evidence:** `research/network-profiles.md` :51-53, §3.1-§3.2, §8 item 3; `research/voice-bad-links.md`
   (`q_netem.c` `.limit = 1000`); an earlier commit. D263 §1.
+  **[web]** [tc-netem(8)](https://man7.org/linux/man-pages/man8/tc-netem.8.html): `limit` "Limits the maximum
+  number of packets the qdisc may hold when doing delay";
+  [sch_netem.c](https://github.com/torvalds/linux/blob/master/net/sched/sch_netem.c) drops when `sch->q.qlen
+  >= sch->limit`, delayed packets included; [Stack Overflow
+  18792347](https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do)
+  quotes Stephen Hemminger: "The value 1000 is low, you want about 50% more than the max packet rate * delay,
+  unless you are trying to emulate a router with a small queue", and an answerer uses `limit 100000`, as we
+  do.
 
 
 ### The loopback's 64 KB MTU and GSO make netem and tbf see 64 KB packets
@@ -830,6 +1234,13 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   starts (`dev:206-217`, `LOOPBACK_MTU`). The acceptance refuses a loopback that has not been set this way.
 - **Evidence:** `research/network-profiles.md` §3.5; `research/voice-bad-links.md` §6; D262 §1; commit
   An earlier commit [measured 2026-10-07].
+  **[web]** [loopback.c](https://github.com/torvalds/linux/blob/master/drivers/net/loopback.c):
+  `loopback_setup` gives `lo` an MTU of `64 * 1024`, software GSO and `GSO_MAX_SIZE`;
+  [sch_tbf.c](https://github.com/torvalds/linux/blob/master/net/sched/sch_tbf.c) segments a GSO packet only
+  when it is larger than the bucket (`qdisc_pkt_len(skb) > q->max_size`), so a 64 KB burst passes a 64 KB
+  packet whole; [sch_netem.c](https://github.com/torvalds/linux/blob/master/net/sched/sch_netem.c) segments
+  GSO packets only when it corrupts. No public report of the effect on voice found (searched Stack Exchange,
+  2026-10-08).
 
 
 ### One qdisc on `lo` is one shared link for both directions and both browsers
@@ -840,11 +1251,19 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   namespaces are deferred (D263 §4).
 - **Evidence:** `research/network-profiles.md` §3.4 [measured]. [doc] This is inherent to loopback, not a
   bug. **Unsure** whether it belongs.
+  **[web]** [Stack Overflow
+  21614595](https://stackoverflow.com/questions/21614595/netem-and-tcpdump-loopback-interface-differing-ingress-and-egress):
+  100 ms of netem on `lo` delays a ping to 127.0.0.1 by 200 ms, the queue counted twice as here;
+  [tc-netem(8)](https://man7.org/linux/man-pages/man8/tc-netem.8.html) recommends netem "on the ingress of the
+  receiver host" for realistic TCP results, which per-browser namespaces would allow.
 
 
 ### `tbf`'s `burst` must be at least rate/HZ, or the rate is never reached
 
 - **What we do:** a 16-64 KB burst. **Evidence:** `research/network-profiles.md` :190-191. [doc] Low priority.
+- **Evidence:** **[web]** [tc-tbf(8)](https://man7.org/linux/man-pages/man8/tc-tbf.8.html): "The minimum
+  buffer size can be calculated by dividing the rate by HZ"; "For 10mbit/s on Intel, you need at least 10kbyte
+  buffer if you want to reach your configured rate!" Documented, not a bug.
 
 
 ### Mainline Linux has only BBRv1, and `tcp_bbr` must already be loaded for an unprivileged process
@@ -860,6 +1279,15 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `cmd/orpheum/https.go:74-80`; `deploy/staging/README.md:34-37`.
 - **Evidence:** D263 §3; `research/network-profiles.md` §5-§6 [measured + source]; an earlier commit;
   `TestListenConfig_AcceptsConnectionsThatSendWithBBRWhereTheKernelHasIt`.
+  **[web]** [tcp_cong.c](https://github.com/torvalds/linux/blob/master/net/ipv4/tcp_cong.c):
+  `tcp_ca_find_autoload` calls `request_module` only `if (!ca && capable(CAP_NET_ADMIN))`, else ENOENT;
+  [tcp_bbr.c](https://github.com/torvalds/linux/blob/master/net/ipv4/tcp_bbr.c) registers with
+  `TCP_CONG_NON_RESTRICTED`, so once loaded it is usable unprivileged even though
+  [tcp(7)](https://man7.org/linux/man-pages/man7/tcp.7.html) says unprivileged processes are limited to
+  `tcp_allowed_congestion_control` (default "reno" plus the default algorithm) [measured here: an unprivileged
+  `setsockopt("bbr")` succeeds with the module loaded]; [google/bbr v3
+  README](https://github.com/google/bbr/blob/v3/README.md): BBRv3 is still a separate kernel branch "intended
+  to enable research collaboration and wider testing".
 
 
 ### iproute2's `ip` drops file capabilities, so `setcap` on `ip` is useless (`tc` keeps them)
@@ -868,12 +1296,27 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   MTU is set with `ip` as root via `docker exec --user 0` when the container starts (`dev:210`).
 - **Evidence:** the `dev:210` comment; an earlier commit. **Cause unverified in the repo.** From general
   knowledge, `ip` calls `drop_cap()` (lib/utils.c) for non-root users unless CAP_NET_ADMIN is inheritable.
+  **[web]** confirms the cause: [iproute2
+  lib/utils.c](https://github.com/iproute2/iproute2/blob/main/lib/utils.c) `drop_cap()` clears every
+  capability for a non-root user unless CAP_NET_ADMIN is in the process's inheritable set, and `ip/ip.c` calls
+  it except for `ip vrf exec`; `tc/tc.c` never calls it. Added by
+  [ba2fc55b](https://github.com/iproute2/iproute2/commit/ba2fc55b99f8363c80ce36681bc1ec97690b66f5) (2018) and
+  relaxed by [9b13cc98](https://github.com/iproute2/iproute2/commit/9b13cc98f5952f62b825461727c8170d37a4037d)
+  ("do not drop capabilities if net_admin=i is set", for callers using ambient capabilities). **Better
+  workaround:** a caller holding CAP_NET_ADMIN as an inheritable and ambient capability (e.g. `setpriv
+  --inh-caps +net_admin --ambient-caps +net_admin ip ...`) keeps it through `ip` without root; root via
+  `docker exec --user 0` stays simpler for us.
 
 
 ### netem orphans delayed packets (`skb_orphan_partial`), so TCP Small Queues does not hold the sender back
 
 - **Evidence:** `research/network-profiles.md` §3.1 [source]. This is context; it forced no workaround.
   **Probably exclude.**
+  **[web]** [sch_netem.c](https://github.com/torvalds/linux/blob/master/net/sched/sch_netem.c): "If a delay is
+  expected, orphan the skb" (`if (q->latency || q->jitter || q->rate) skb_orphan_partial(skb)`);
+  [tc-netem(8)](https://man7.org/linux/man-pages/man8/tc-netem.8.html) LIMITATIONS: "Due to mechanisms like
+  TSQ (TCP Small Queues), for TCP performance test results to be realistic netem must be placed on the ingress
+  of the receiver host."
 
 ---
 
@@ -887,12 +1330,23 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** a run that outlives SIGKILL is "left running", listed as stuck, and its slot is freed.
   `internal/node/execx/execx.go:41-44,357-377`; `stuck.go:11-12`.
 - **Evidence:** D233 §10. [doc]
+  **[web]** [LWN, "TASK_KILLABLE" (2008)](https://lwn.net/Articles/288056/): a `TASK_UNINTERRUPTIBLE` sleeper
+  "will wait forever and there is usually nothing that anybody can do about it short of rebooting";
+  `TASK_KILLABLE` (merged in 2.6.25) lets fatal signals through for code converted to it, the NFS client among
+  the first, so whether SIGKILL works depends on the wait; a block-device read wait usually stays unkillable.
 
 
 ### Pdeathsig fires when the starting *thread* ends, not the process
 
 - **What we do:** the node never ends a thread of its own. `internal/node/execx/process_linux.go:7-13`.
 - **Evidence:** the comment; `prctl(2)`. [doc] This is latent and was never hit.
+  **[web]** [PR_SET_PDEATHSIG(2const)](https://man7.org/linux/man-pages/man2/PR_SET_PDEATHSIG.2const.html)
+  CAVEATS: the "parent" is "the thread that created this process", so the signal comes when that thread
+  terminates; [golang/go#27505](https://github.com/golang/go/issues/27505) (closed 2026-08-12) made Go's
+  `SysProcAttr.Pdeathsig` doc say "the signal is sent on thread termination, which may happen before process
+  termination"; [golang/go#14592](https://github.com/golang/go/issues/14592) ("let idle OS threads exit",
+  open) is why Go threads normally live on, though a goroutine that exits while `runtime.LockOSThread`-ed ends
+  its thread.
 
 
 ### Opening a named pipe read-only blocks until a writer appears
@@ -901,6 +1355,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** open with `O_NONBLOCK` before the regular-file check.
   `internal/node/confine/mediaroot.go:81-88`.
 - **Evidence:** commit "fix(confine): opening a file under a media root never waits for a pipe's writer" (2026-09-29). [doc] POSIX behaviour.
+  **[web]** [fifo(7)](https://man7.org/linux/man-pages/man7/fifo.7.html): "Normally, opening the FIFO blocks
+  until the other end is opened also"; with O_NONBLOCK, "opening for read-only succeeds even if no one has
+  opened on the write side". Documented, as we do.
 
 
 ### Whether Landlock is available depends on the kernel's boot configuration, and the errno says why
@@ -910,12 +1367,25 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** the errno is mapped to a cause and a remedy. `internal/node/confine/landlock_linux.go:95-118`;
   `deploy/staging/README.md:101-103`.
 - **Evidence:** D112; `research/audit-2026-09-23.md` §4.1 [measured]; VQ9.
+  **[web]**
+  [landlock_create_ruleset(2)](https://man7.org/linux/man-pages/man2/landlock_create_ruleset.2.html):
+  EOPNOTSUPP means "Landlock is supported by the kernel but disabled at boot time";
+  [landlock(7)](https://man7.org/linux/man-pages/man7/landlock.7.html): the `lsm=` boot parameter "must
+  contain the string landlock", falling back to `CONFIG_LSM`; Proxmox's kernel build
+  [config-common.opts](https://git.proxmox.com/?p=pve-kernel.git;a=blob_plain;f=debian/rules.d/config-common.opts;hb=HEAD)
+  sets `CONFIG_LSM lockdown,yama,integrity,apparmor`, without landlock, confirming our Proxmox cause (remedy:
+  add `landlock` to `lsm=` on the kernel command line).
 
 
 ### x32 syscalls share AUDIT_ARCH_X86_64, so a seccomp denylist can be bypassed
 
 - **What we do:** refuse every number at or above `x32Bit`. `internal/node/confine/arch_linux_amd64.go:13-23`.
 - **Evidence:** commit "feat(node): every FFmpeg run is confined by Landlock and seccomp through a re-exec shim (cut-a §7)". [doc]
+  **[web]** [seccomp(2)](https://man7.org/linux/man-pages/man2/seccomp.2.html): "The x86-64 ABI and the x32
+  ABI both use AUDIT_ARCH_X86_64"; a policy "must either deny all syscalls with __X32_SYSCALL_BIT or it must
+  recognize syscalls with and without" it, or it "can be bypassed"; before Linux 5.4 numbers 512-547 were also
+  accepted with confused semantics. Our refusal of every number at or above the x32 bit is the man page's
+  first option.
 
 
 ### The kernel's `rotational` flag is wrong behind a USB bridge
@@ -924,6 +1394,15 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** prefer udev's `ID_ATA_ROTATION_RATE_RPM`, and treat a "spinning" disk behind USB as unknown.
   `internal/node/hardware/storage.go:210-230`.
 - **Evidence:** D240 §5; [owner] VQ17, 2026-10-03.
+  **[web]** [sd.c](https://github.com/torvalds/linux/blob/master/drivers/scsi/sd.c)
+  `sd_read_block_characteristics` clears the rotational flag only when VPD page B1 reports a rotation rate of
+  1 (non-rotating), so a disk is "rotational" by default; [usb-storage
+  scsiglue.c](https://github.com/torvalds/linux/blob/master/drivers/usb/storage/scsiglue.c) sets
+  `skip_vpd_pages` ("Some devices don't handle VPD pages correctly"), so behind a usb-storage bridge the page
+  is never read; [Ask Ubuntu
+  911007](https://askubuntu.com/questions/911007/ssd-features-rotational-discard-not-detected-properly-via-usb)
+  reports the same for an SSD over USB. The common fix others use is a udev rule writing `queue/rotational`,
+  which changes the kernel's flag, not our reading of it.
 
 
 ### btrfs and ZFS mounts do not name a block device
@@ -931,6 +1410,11 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** follow btrfs through `/sys/fs/btrfs` and ZFS through udev. `./dev` bind-mounts the host's
   `/run/udev`. `internal/node/hardware/storage.go:261-263,339-340`.
 - **Evidence:** D240 §5. [doc]
+  **[web]** [Unix & Linux
+  137344](https://unix.stackexchange.com/questions/137344/get-device-with-major-number-0-btrfs-subvolume): a
+  btrfs subvolume's device number has major 0, an anonymous device that names no block device; no
+  authoritative kernel document found for ZFS (searched Stack Exchange, 2026-10-08), where the mount source is
+  a dataset name.
 
 
 ### A UDP socket bound to every address replies from the routing table's choice of source
@@ -938,23 +1422,46 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** TURN listens on the tunnel's address `10.77.0.2`. `internal/core/turn/doc.go:28-29`;
   `deploy/vps/README.md:121-124`.
 - **Evidence:** VQ19 (the owner's VPS). [doc]
+  **[web]** [IP_PKTINFO(2const)](https://man7.org/linux/man-pages/man2/IP_PKTINFO.2const.html): a datagram
+  socket can receive the packet's destination address and set the source on `sendmsg`, which is the standard
+  way one wildcard socket replies from the address it was reached on; no tracker entry, it is how routing
+  works. **Better workaround:** IP_PKTINFO/IPV6_PKTINFO would keep a wildcard listener correct on a
+  multi-homed host, if the TURN library supported it (not checked); binding the tunnel address, as we do, is
+  simpler.
 
 
 ### Unix socket paths are limited to 108 bytes on Linux and 104 on macOS
 
 - **What we do:** `maxSocketPathBytes = 103` (`internal/platform/unixsocket/listen.go:14-16`), plus
   `--run-dir`. **Evidence:** D242 §8. [doc]
+- **Evidence:** **[web]** [unix(7)](https://man7.org/linux/man-pages/man7/unix.7.html): "On Linux, sun_path is
+  108 bytes in size", "some implementations have sun_path as short as 92 bytes", and a 108-byte path loses its
+  null terminator when read back (BUGS); Apple's [xnu
+  bsd/sys/un.h](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/un.h) declares
+  `sun_path[104]`.
 
 
 ### inotify does not work over SMB/NFS and runs out of watches silently
 
 - **What we do:** periodic scans correct missed events (D27, D60). **Evidence:** working-notes.md [web].
+- **Evidence:** **[web]** [inotify(7)](https://man7.org/linux/man-pages/man7/inotify.7.html): it "does not
+  catch remote events that occur on network filesystems. (Applications must fall back to polling"; past
+  `max_queued_events` events "are dropped, but an IN_Q_OVERFLOW event is always generated";
+  [inotify_add_watch(2)](https://man7.org/linux/man-pages/man2/inotify_add_watch.2.html) returns ENOSPC when
+  `max_user_watches` is reached. **Contradicts:** running out of watches is not silent at the API: adding a
+  watch fails with ENOSPC ("no space left on device", easily misread) and a full queue reports IN_Q_OVERFLOW;
+  it is silent only where a library drops those errors.
 
 
 ### The NFS client's default timeout is 60 s, retransmitted twice
 
 - **What we do:** a 3-minute prepare stall window. `internal/node/prepare/prepare.go:31-35`.
   **Evidence:** the comment. [doc] Low priority.
+- **Evidence:** **[web]** [nfs(5)](https://man7.org/linux/man-pages/man5/nfs.5.html): "For NFS over TCP the
+  default timeo value is 600 (60 seconds)", with linear backoff (each retransmission adds `timeo`, up to 600
+  s); without `retrans` "the NFS client tries ... each TCP request twice", then logs "server not responding";
+  and the default `hard` mount retries "indefinitely", so a read on a dead server never fails on its own, it
+  only stalls (`soft` returns EIO, `softerr` ETIMEDOUT).
 
 ---
 
@@ -970,6 +1477,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   (`deploy/staging/tunnel.sh:38-42`), and `./staging` recreates both containers. The behaviour is documented
   at `deploy/staging/README.md:94-98`.
 - **Evidence:** the README. No date is given.
+  **[web]** [docker/compose#10263](https://github.com/docker/compose/issues/10263), "restart behavior when
+  using network_mode: service": closed by [docker/compose#10273](https://github.com/docker/compose/pull/10273)
+  (merged 2023-02-14), which makes `docker compose restart` restart the services that share the namespace too
+  (`--no-deps` keeps the old behaviour); a restart by the daemon's restart policy still leaves them cut off.
+  [moby/moby#11777](https://github.com/moby/moby/issues/11777), "Daemon restart not starting containers with
+  shared network in the correct order (--network=container:...)": open since 2015 (checked 2026-10-08).
 
 
 ### Killing the `docker exec` client leaves the process running inside the container
@@ -977,6 +1490,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** a second `./dev make dev` ran two dev loops that fought over ports.
 - **What we do:** `./dev --stop` removes the container.
 - **Evidence:** an agent's working note (2026-10-02).
+  **[web]** [moby/moby#9098](https://github.com/moby/moby/issues/9098), "Kill `docker exec` command will not
+  terminate the spawned process": open since 2014, still reported in 2026; the exec kill API it needs
+  ([moby/moby#35703](https://github.com/moby/moby/issues/35703),
+  [moby/moby#41548](https://github.com/moby/moby/pull/41548)) is open and unmerged (checked 2026-10-08).
+  Others tag the command (`exec -a <id>`) and `pkill` it inside the container before killing the client, or
+  wrap exec to forward signals through the API.
 
 
 ### The dev container had no `tc` and no right to shape its network, and CI's container lacks `NET_ADMIN`
@@ -984,6 +1503,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** iproute2 in the image, `--cap-add NET_ADMIN` (`dev:130-131`), and `NET_ADMIN` for CI.
 - **Evidence:** D252, D261 §2; `research/audit-2026-10-06.md` Q2. This is Docker's capability model.
   **Unsure:** it may be just configuration.
+  **[web]** [Docker's run reference](https://docs.docker.com/engine/containers/run/) lists `NET_ADMIN` among
+  the capabilities not granted by default, which may be added; so this is documented configuration, not a bug
+  (checked 2026-10-08).
 
 
 ### Ubuntu's AppArmor profile for `wg-quick` refuses PostUp's sysctl and nftables, even as root
@@ -992,11 +1514,24 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** a sysctl.d file and a separate `orpheum-forwards.service`. `deploy/vps/vps-wg0.conf:8-10`;
   `deploy/vps/README.md:59-61`.
 - **Evidence:** [owner] the VPS, 2026-10-06.
+  **[web]** The [upstream `wg-quick`
+  profile](https://gitlab.com/apparmor/apparmor/-/raw/master/profiles/apparmor.d/wg-quick) (added 2025-02-07)
+  lets its `sysctl` child write only `net/ipv4/conf/all/src_valid_mark` and runs `nft` and `ip` in narrow
+  child profiles, which explains the denials; it ends with `include if exists <local/wg-quick>` for site
+  additions. Related reports: [Launchpad
+  #2133632](https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/2133632), "wg-quick segfaults when running
+  in LXC -- apparmor" (Confirmed; `aa-complain wg-quick` works around it), and [Launchpad
+  #2127851](https://bugs.launchpad.net/ubuntu/+source/apparmor/+bug/2127851), the same profile denying `stat`
+  on 25.10 (Confirmed). No report about PostUp itself found (searched Launchpad, 2026-10-08). A rule in
+  `/etc/apparmor.d/local/wg-quick` is the other route; ours keeps the forwarding out of the profile entirely.
 
 
 ### ufw silently drops forwarded packets
 
 - **What we do:** `ufw route allow` rules. `deploy/vps/README.md:63-79`. [doc]
+- **Evidence:** [doc] **[web]** [ufw(8)](https://manpages.ubuntu.com/manpages/noble/en/man8/ufw.8.html):
+  routed traffic needs `route` rules (netfilter FORWARD chain) and IP forwarding enabled separately, and ufw's
+  own sysctl settings "may be overridden" (checked 2026-10-08).
 
 
 ### Docker's storage is invisible to `du` and grows without bound
@@ -1004,6 +1539,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** the disk reached 97-99% several times; the Go build cache was 36 GB.
 - **What we do:** prune (no workaround in the repo). **Evidence:** an agent's working note. **Unsure:** this is
   resource behaviour rather than a quirk.
+- **Evidence:** **[web]** Go's build cache trims only entries unused for 5 days and has no size cap:
+  [golang/go#81830](https://github.com/golang/go/issues/81830), "cmd/go: build cache management" (open,
+  NeedsDecision), collects reports of caches of 100 GB and more;
+  [golang/go#69879](https://github.com/golang/go/issues/69879), a configurable cutoff, was closed. Docker's
+  [build cache garbage collection](https://docs.docker.com/build/cache/garbage-collection/) is on by default
+  with size limits (checked 2026-10-08); images, volumes and stopped containers are not collected.
 
 
 ### DS-Lite needs a smaller WireGuard MTU
@@ -1012,12 +1553,20 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** a tunnel MTU of 1380 over IPv4 and 1420 over IPv6, with 1280 as the fallback.
   `deploy/staging/README.md:54-55,92-93`; `deploy/staging/staging.toml:21-23`; `deploy/staging/tunnel.sh:17`.
 - **Evidence:** an agent's working note; D243 §7. Whether 1380 was measured is unverified.
+  **[web]** [RFC 6333 §5.3](https://www.rfc-editor.org/rfc/rfc6333.txt): DS-Lite's IPv4-in-IPv6 tunnel costs
+  40 bytes and path MTU discovery is "not a reliable method" for it. WireGuard's overhead is 60 bytes over
+  IPv4 and 80 over IPv6 ([Donenfeld, wireguard list,
+  2017](https://lists.zx2c4.com/pipermail/wireguard/2017-December/002201.html)), so over DS-Lite IPv4 on a
+  1500-byte link the most is 1500-40-60 = 1400; 1380 leaves 20 bytes spare, and 1420 over IPv6 is the standard
+  figure.
 
 
 ### DS-Lite: no public IPv4 and a changing IPv6 prefix
 
 - **What we do:** a VPS, which the core dials out to over WireGuard (D243 §7).
 - **Evidence:** an agent's working note; `research/direct-reachability.md`. This is an ISP limitation.
+  **[web]** [RFC 6333](https://www.rfc-editor.org/rfc/rfc6333.txt) defines DS-Lite as IPv4 carried to the
+  ISP's AFTR and NATed there, so the subscriber holds no public IPv4 by design (checked 2026-10-08).
 
 ---
 
@@ -1032,6 +1581,16 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** query files are ASCII-only, enforced by `scripts/check_source.py:20-22,57,101-112`.
 - **Evidence:** an agent's working note; `docs/contributors/standards/sql.md:95-97`;
   `research/audit-2026-09-24.md` §4.3; plan-deviations P13 (it recurred).
+  **[web]** [sqlc#4372](https://github.com/sqlc-dev/sqlc/issues/4372), "SQLite: non-ASCII character (em-dash)
+  in SQL comment corrupts generated queries" (v1.30.0): closed 2026-04-17;
+  [sqlc#4523](https://github.com/sqlc-dev/sqlc/issues/4523), "multi-byte UTF-8 in a query comment silently
+  truncates the generated query string" (v1.31.1): closed 2026-08-18. The cause is that the ANTLR SQLite
+  parser counted runes while sqlc sliced the query text by bytes; besides a syntax error it can silently drop
+  a trailing `?` or `ORDER BY` from the generated query. **Fixed upstream:**
+  [sqlc#4535](https://github.com/sqlc-dev/sqlc/pull/4535) replaced the ANTLR parser with a hand-written one
+  (merged 2026-08-01) and [sqlc#4568](https://github.com/sqlc-dev/sqlc/pull/4568) pins it with tests; no
+  release carries it yet (latest v1.31.1, 2026-04-22, checked 2026-10-08), so keep the ASCII rule until a
+  release does.
 
 
 ### `sqlc.slice()` and untyped SQLite columns generate `interface{}`
@@ -1039,18 +1598,37 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `IN (SELECT value FROM json_each(CAST(sqlc.arg(ids) AS TEXT)))`, overrides, and
   `TestGeneratedQueries_HaveNoUntypedValues` (`internal/store/sqlcgen_test.go:15-17`).
 - **Evidence:** sql.md:85-94; an agent's working note.
+  **[web]** [sqlc#3754](https://github.com/sqlc-dev/sqlc/issues/3754), "sqlc always convert something like
+  BOOLEAN(2) and CHAR(255) to interface{}": open; [sqlc#3383](https://github.com/sqlc-dev/sqlc/issues/3383),
+  "interface{} instead of time.Time for json extracted queries": open;
+  [sqlc#1830](https://github.com/sqlc-dev/sqlc/issues/1830), "`json_each`'s `value` parameter isn't
+  supported": open; [sqlc#2452](https://github.com/sqlc-dev/sqlc/issues/2452), "`sqlc.slice()` breaks SQLite
+  queries that contain other parameters": open; [sqlc#3451](https://github.com/sqlc-dev/sqlc/issues/3451),
+  "SQLite cannot use an empty slice for `NOT IN`": open (all checked 2026-10-08).
+  [sqlc#4574](https://github.com/sqlc-dev/sqlc/pull/4574) (merged 2026-08-20, unreleased) only spells
+  `interface{}` as `any`; the untyped values remain.
 
 
 ### sqlc cannot parse FTS5 `MATCH`, `LIKE … ESCAPE` or SQLite 3.53's new `ALTER` forms
 
 - **What we do:** hand-written statements. `internal/store/search.go:30-31`.
 - **Evidence:** sql.md:88-105; an agent's working note.
+  **[web]** [sqlc#3204](https://github.com/sqlc-dev/sqlc/issues/3204), "SQLite: Add support for WHERE clause
+  on the FTS5 Table Name": open; [sqlc#3901](https://github.com/sqlc-dev/sqlc/issues/3901), "`rowid` doesn't
+  work with SQLite FTS5 tables": open (checked 2026-10-08). No issue found for `LIKE … ESCAPE` or the 3.53
+  `ALTER` forms (searched sqlc issues). Unreleased work on main may change this:
+  [sqlc#4535](https://github.com/sqlc-dev/sqlc/pull/4535) replaced the ANTLR SQLite parser with one ported
+  from SQLite's own grammar (merged 2026-08-01) and [sqlc#4579](https://github.com/sqlc-dev/sqlc/pull/4579)
+  models FTS5's hidden columns (closed 2026-08-25); re-test the hand-written statements once a release after
+  v1.31.1 ships.
 
 
 ### `sqlc vet` sees a query after `*` is expanded, so a "no SELECT *" rule can never fire
 
 - **What we do:** `TestArch_QueriesNameEveryColumn` reads the .sql files instead (`sqlc.yaml:66-67`).
 - **Evidence:** sql.md:55.
+  **[web]** no public report found (searched sqlc issues for vet with `SELECT *`, star, expanded, and the vet
+  docs, which do not say `query.sql` is the expanded text; 2026-10-08).
 
 
 ### A pragma set by `Exec` reaches only one connection of the pool, and the pure-Go driver's DSN syntax differs from mattn's
@@ -1059,12 +1637,31 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   are wrong. `internal/store/open.go:26-33,162+` (`verifyPragmas`).
 - **Evidence:** sql.md:165-172; `research/audit-2026-09-23.md` §4.2;
   `TestVerifyPragmas_RefusesAConnectionWithoutThem`. [doc]
+  **[web]** [mattn/go-sqlite3#1058](https://github.com/mattn/go-sqlite3/issues/1058), "PRAGMA Value Gets
+  Reset": closed, the same pool cause, resolved by moving the pragma into the DSN;
+  [mattn/go-sqlite3#762](https://github.com/mattn/go-sqlite3/issues/762), "how to set cache_size for every
+  connection in connection pool?": closed. **Contradicts:** the DSN syntaxes have partly converged:
+  modernc.org/sqlite v1.55.0 (2026-07-20,
+  [CHANGELOG](https://gitlab.com/cznic/sqlite/-/raw/master/CHANGELOG.md), [MR
+  134](https://gitlab.com/cznic/sqlite/-/merge_requests/134)) accepts mattn's `_busy_timeout`,
+  `_foreign_keys`, `_journal_mode`, `_synchronous`, `_auto_vacuum` and `_query_only` keys and validates their
+  values, so a mattn-style key is no longer silently ignored (we pin v1.59.0). The [driver
+  docs](https://pkg.go.dev/modernc.org/sqlite) also say each `_pragma` value runs as SQL text, so anything
+  after a `;` runs too, unless `StrictPragmas(true)` is set (checked 2026-10-08).
 
 
 ### `SQLITE_BUSY_SNAPSHOT` shares "database is locked" with `SQLITE_BUSY`, but `busy_timeout` retries only the latter
 
 - **What we do:** one writer with `_txlock=immediate` and a `query_only` reader pool (`internal/store/open.go:27-33`).
 - **Evidence:** D31; sql.md:186-194; `research/sqlite-reconsidered.md` §2 [web, Navidrome].
+  **[web]** [SQLite result codes, SQLITE_BUSY_SNAPSHOT (517)](https://www.sqlite.org/rescode.html): raised in
+  WAL mode when a read transaction is promoted to a write after another connection wrote;
+  [sqlite3_busy_handler](https://www.sqlite.org/c3ref/busy_handler.html): "If SQLite determines that invoking
+  the busy handler could result in a deadlock, it will go ahead and return SQLITE_BUSY" without calling it.
+  Both match our cause; the documented fix is the one we use, starting write transactions with `BEGIN
+  IMMEDIATE`. The [modernc.org/sqlite CHANGELOG](https://gitlab.com/cznic/sqlite/-/raw/master/CHANGELOG.md)
+  also records a fixed driver bug where SQLITE_BUSY during COMMIT left a pooled connection inside a
+  transaction (checked 2026-10-08).
 
 
 ### Copying a live WAL database's `.db` file gives a file that opens cleanly and has no tables
@@ -1073,12 +1670,21 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `VACUUM INTO` for backups, `os.Stat` before a restore, and refusing `?` in paths (the driver
   splits the DSN there).
 - **Evidence:** D77, D242 §5 [measured].
+  **[web]** [How To Corrupt An SQLite Database File, §1.2 and §1.4](https://www.sqlite.org/howtocorrupt.html)
+  and [WAL mode](https://www.sqlite.org/wal.html): "The WAL file is part of the persistent state of the
+  database and should be kept with the database if the database is copied or moved"; documented, no bug to
+  track. The [modernc.org/sqlite docs](https://pkg.go.dev/modernc.org/sqlite) confirm the `?` split: a plain
+  file name has its query removed before it reaches SQLite, so every key the driver does not interpret is
+  ignored, `mode=ro` included (checked 2026-10-08).
 
 
 ### SQLite's limits: 1000 OR terms ("Expression tree is too large") and 64 tables in a join
 
 - **What we do:** EXISTS subqueries with batched ORs (D75).
 - **Evidence:** working-notes.md [measured on 3.46.1].
+  **[web]** [Limits In SQLite](https://www.sqlite.org/limits.html): `SQLITE_MAX_EXPR_DEPTH` defaults to 1000
+  and can only be lowered at run time; the 64-table join limit comes from the planner's bitmaps and cannot be
+  changed at all. Documented, no bug to track (checked 2026-10-08).
 
 
 ### FTS5 tokeniser gaps
@@ -1088,12 +1694,22 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** two indexes (unicode61 and trigram), alternates normalised in Go, and the user's operators
   lowercased (D48).
 - **Evidence:** working-notes.md [measured].
+  **[web]** [SQLite FTS5 docs](https://www.sqlite.org/fts5.html): unicode61 classes characters and folds case
+  by Unicode 6.1, takes only categories `L* N* Co` as token characters by default, and removes diacritics
+  only, so ligatures and letters like Ø or ß are not folded; `AND`, `OR`, `NOT` and `NEAR` are case-sensitive
+  keywords; FTS5 has no ICU tokenizer. All documented, no bug to track (checked 2026-10-08). **Better
+  workaround:** for Thai, whose vowel and tone marks are category Mn, `tokenize="unicode61 categories 'L* N*
+  Co Mn'"` (the docs' own example) keeps the marks inside a token instead of splitting on them; a Thai run
+  then becomes one token like CJK, which the trigram index already covers.
 
 
 ### `modernc.org/libc` imports `os/exec`, which trips "the core never execs"
 
 - **What we do:** exactly that import edge is exempted in `TestArch_CoreNeverExecs` (D199).
 - **Evidence:** D199; `research/audit-2026-09-24.md` §4.5 [measured, M1].
+  **[web]** no public report found (searched the gitlab.com/cznic/libc issue tracker for exec, 2026-10-08).
+  [source] In libc v1.75.7 the import serves C's `system()` (`Xsystem` runs `exec.Command("sh", "-c", …)` in
+  `libc_musl.go`), which SQLite never calls.
 
 
 ### SQLite's locking is unreliable on network filesystems
@@ -1101,6 +1717,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** refuse the persistent directory on ten statfs magic numbers.
   `internal/core/instancedir/netfs_linux.go:10-42`.
 - **Evidence:** D31; SQLite's FAQ. [doc]
+  **[web]** [SQLite Over a Network](https://www.sqlite.org/useovernet.html) and [WAL
+  mode](https://www.sqlite.org/wal.html): "WAL does not work over a network filesystem", because WAL needs
+  shared memory between processes; the FAQ's advice holds. Documented, no bug to track (checked 2026-10-08).
 
 
 ### `COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR
@@ -1108,6 +1727,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** usernames are case-insensitive for ASCII only (the owner accepted this), and
   `temp_store(MEMORY)`. `internal/store/queries/user.sql:18-19`; `internal/store/open.go:39-41`.
 - **Evidence:** [doc] Low priority.
+  **[web]** [Datatypes, collating sequences](https://www.sqlite.org/datatype3.html): NOCASE folds "only ASCII
+  characters"; [Temporary files](https://www.sqlite.org/tempfiles.html): the directory is chosen from
+  `temp_store_directory`, then `SQLITE_TMPDIR`, then `TMPDIR`, then /var/tmp, /usr/tmp, /tmp and ".".
+  Documented (checked 2026-10-08). **Better workaround:** if Unicode case-insensitive names are ever wanted,
+  modernc.org/sqlite can register a Go collation with `RegisterCollationUtf8`
+  ([docs](https://pkg.go.dev/modernc.org/sqlite)) instead of NOCASE.
 
 ---
 
@@ -1121,6 +1746,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `\p{L}` and the like. Those classes are banned in the naming corpus, which has a non-Latin
   fixture. `internal/core/identify/filename.go:35-38`.
 - **Evidence:** D49. [doc]
+  **[web]** [regexp/syntax](https://pkg.go.dev/regexp/syntax) documents `\w` as `[0-9A-Za-z_]` and `\b` as an
+  "ASCII word boundary" (RE2's semantics). No issue proposing Unicode-aware classes found (searched golang/go
+  issues, 2026-10-08).
 
 
 ### `x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087)
@@ -1128,6 +1756,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** materialised sort keys, with Korean accepted as wrong (D47). Custom SQLite collations were
   rejected.
 - **Evidence:** working-notes.md [measured].
+  **[web]** [golang/go#19087](https://github.com/golang/go/issues/19087), "x/text/collate: collation does not
+  work for Korean": open, NeedsFix, since 2017 (checked 2026-10-08). The maintainer's diagnosis there is that
+  the CLDR tables give Hangul a higher primary weight than Latin and the package lacks script reordering, so
+  Korean sorts after Latin.
+  [`collate/tables.go`](https://raw.githubusercontent.com/golang/text/master/collate/tables.go) on master
+  still says `UnicodeVersion = "6.2.0"`, `CLDRVersion = "23"`.
 
 
 ### golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout
@@ -1136,6 +1770,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** `--allow-serial-runners` (Makefile:117-123), and
   `scripts/lint_speculative_api.py:110-123` fails on any exit status but 0 or 1.
 - **Evidence:** commit "fix(gates): the linters wait for another run's lock, and a linter that could not run fails" (2026-09-30).
+  **[web]**
+  [`pkg/commands/run.go`](https://raw.githubusercontent.com/golangci/golangci-lint/main/pkg/commands/run.go):
+  the lock is `golangci-lint.lock` in `os.TempDir()`; without `--allow-serial-runners` it retries for 5 s and
+  then fails with "parallel golangci-lint is running"; `--allow-parallel-runners` skips the lock. Reported as
+  [golangci/golangci-lint#869](https://github.com/golangci/golangci-lint/issues/869) (closed 2020); no issue
+  about the empty stdout found (searched the repo's issues, 2026-10-08).
 
 
 ### The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local`
@@ -1144,12 +1784,18 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   `deploy/Containerfile:68-71`.
 - **Evidence:** D204; `TestNewClient_TakesNoProxyFromTheEnvironment`. [doc] **Unsure:** these are design
   choices about documented behaviour.
+  **[web]** [net/http `DefaultTransport`](https://pkg.go.dev/net/http) "uses HTTP proxies as directed by the
+  environment variables HTTP_PROXY, HTTPS_PROXY and NO_PROXY"; [Go Toolchains](https://go.dev/doc/toolchain):
+  "The default GOTOOLCHAIN setting is auto", set in `$GOROOT/go.env`, and a toolchain repackaged without that
+  file assumes `local` (checked 2026-10-08).
 
 
 ### Go's standard library reads the process's TZ
 
 - **What we do:** the process zone is kept UTC, and the zone is passed explicitly (D246 §7).
 - **Evidence:** D246 §7. [doc]
+  **[web]** [time.Local](https://pkg.go.dev/time): "On Unix systems, Local consults the TZ environment
+  variable"; no TZ means `/etc/localtime`, and `TZ=""` means UTC (checked 2026-10-08).
 
 ---
 
@@ -1160,18 +1806,38 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 - **What we do:** a green TypeScript revert is also type-checked with `tsc`.
 - **Evidence:** `research/audit-2026-09-27.md` "Four blind spots". [doc]
+  **[web]** [Vite's features guide](https://vite.dev/guide/features) says Vite "only performs transpilation on
+  `.ts` files and does **NOT** perform type checking", and recommends `tsc --noEmit` beside it; [Vitest's
+  type-testing guide](https://vitest.dev/guide/testing-types) offers `--typecheck`, which runs `tsc --noEmit`
+  over `*.test-d.ts` files by default (`typecheck.include`) without running them (read 2026-10-08). Working as
+  designed; no tracker issue.
 
 
 ### happy-dom does not carry a disabled `<fieldset>` to its controls
 
 - **What we do:** the test asserts on the fieldset's own `disabled`. `web/apps/web/src/busy-group.test.tsx:16-30`.
 - **Evidence:** D244 §4.
+  **[web]** [happy-dom#2385](https://github.com/capricorn86/happy-dom/issues/2385), ":disabled does not match
+  form controls inside a disabled <fieldset>" (20.14.0): open, fix in [PR
+  #2386](https://github.com/capricorn86/happy-dom/pull/2386), open, last updated 2026-09-13; the related
+  [happy-dom#2184](https://github.com/capricorn86/happy-dom/issues/2184) (FormData keeps disabled controls) is
+  open too (checked 2026-10-08). Re-check when #2386 merges.
 
 
 ### Playwright grants "microphone" only on Chromium; Firefox needs prefs
 
 - **What we do:** `web/e2e/together-pages.ts:189-200`; `web/e2e/browsers.ts:15-19`.
 - **Evidence:** inferred from the code, which has no comment. Cause unverified.
+  **[web]** [playwright#7635](https://github.com/microsoft/playwright/issues/7635), "support 'microphone'
+  permission on Firefox": a maintainer confirmed "Firefox indeed doesn't support microphone permission"
+  (2021), closed by the stale-issue sweep, not fixed;
+  [playwright#11714](https://github.com/microsoft/playwright/issues/11714) says the same for WebKit (closed
+  the same way, 2022); [playwright#20563](https://github.com/microsoft/playwright/issues/20563) (Firefox and
+  Safari, closed 2023-11) reports `Unknown permission: camera`. The [grantPermissions
+  docs](https://playwright.dev/docs/api/class-browsercontext) say only that "Supported permissions differ
+  between browsers" (read 2026-10-08). This confirms the cause. Users in #20563 grant it in Firefox with
+  `firefoxUserPrefs` `permissions.default.microphone: 1`, browser-wide; our
+  `media.navigator.permission.disabled` does the same job.
 
 
 ### TypeScript checks no excess properties on a body built with a computed key or held in a variable
@@ -1179,11 +1845,21 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** after the D227 renames the client compiled while still sending the old field names.
 - **What we do:** bodies take their names from the generated types via `satisfies`.
 - **Evidence:** agent-failures A12 (2026-09-29). [doc] **Borderline:** TypeScript works as designed.
+  **[web]** [TypeScript#36920](https://github.com/microsoft/TypeScript/issues/36920), "No excess property
+  error for computed property": open, In Discussion/Suggestion (reopens #22427);
+  [TypeScript#60274](https://github.com/microsoft/TypeScript/issues/60274) on computed keys was closed Working
+  as Intended ("this property is possibly valid, therefore not excess"). The
+  [handbook](https://www.typescriptlang.org/docs/handbook/2/objects.html) documents that assigning the literal
+  to a variable first skips the check (read 2026-10-08).
 
 
 ### Playwright's browsers are not installed by `npm ci`
 
 - **Evidence:** `research/audit-2026-09-29.md` §6. [doc] Low priority.
+  **[web]** [Playwright's browsers page](https://playwright.dev/docs/browsers) documents it: each version
+  needs its own browser builds, installed by `npx playwright install` (`--with-deps` in CI);
+  `PLAYWRIGHT_BROWSERS_PATH` shares them between runs (read 2026-10-08). Working as designed; no tracker
+  issue.
 
 ---
 
@@ -1197,6 +1873,12 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** strip `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and related variables.
   `scripts/py_tests.py:26-36`.
 - **Evidence:** commit "feat(gates): a passing check-pr marks where it ended, and the parallel gate's two races are closed" (2026-10-01).
+  **[web]** [githooks(5)](https://git-scm.com/docs/githooks) documents it: GIT_DIR, GIT_WORK_TREE and others
+  "are exported so that Git commands run by the hook can correctly locate the repository", and a hook working
+  in a foreign repository "should clear these environment variables" (read 2026-10-08). **Better workaround:**
+  the docs clear them with `unset $(git rev-parse --local-env-vars)`, git's own list; on git 2.47 it also
+  names GIT_CONFIG, GIT_CONFIG_PARAMETERS, GIT_CONFIG_COUNT, GIT_IMPLICIT_WORK_TREE, GIT_GRAFT_FILE,
+  GIT_NO_REPLACE_OBJECTS, GIT_REPLACE_REF_BASE and GIT_SHALLOW_FILE, which our hand-written list lacks.
 
 
 ### `npm ci` through a symlinked `node_modules` empties the link's target
@@ -1205,11 +1887,23 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   (`scripts/revert_red_trees.py:11-24`).
 - **Evidence:** an agent's working note (2026-10-01). **Unsure:** our Makefile's mtime rule
   triggers the `npm ci`, but the emptying is npm's.
+  **[web]** the [npm ci docs](https://docs.npmjs.com/cli/v11/commands/npm-ci) say "If a `node_modules` is
+  already present, it will be automatically removed before `npm ci` begins its install"; through a link, that
+  removal reaches the target's contents. [npm/cli#3669](https://github.com/npm/cli/issues/3669), "npm install
+  deletes an existing symlinked node_modules directory" (npm 7.21), was closed with no fix shown;
+  [npm/cli#2380](https://github.com/npm/cli/issues/2380), "npm install removes linked packages", is open
+  (checked 2026-10-08). No report of exactly the `npm ci` emptying found.
 
 
 ### Two npm installs at once race
 
 - **What we do:** `web-deps` runs before the parallel steps (Makefile:52-53). The error text was not recorded.
+- **Evidence:** **[web]** [npm/cli#4383](https://github.com/npm/cli/issues/4383), "multiple `npm install`
+  processes in the same folder" (2022), closed with no answer shown;
+  [npm/cli#496](https://github.com/npm/cli/issues/496), "lchown error ... when running multiple installations
+  in parallel", closed; [npm/cli#694](https://github.com/npm/cli/issues/694), "Transient ENOENT / file not
+  found in npm ci", closed (checked 2026-10-08). npm documents no lock for concurrent installs in one folder;
+  serialising them, as we do, is the only workaround seen.
 
 
 ### Vite's dev server misses a `git stash pop` and keeps serving old modules
@@ -1217,22 +1911,41 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** a white screen in every browser.
 - **What we do:** no stash or checkout under `make dev`; restart Vite alone (no workaround in the repo).
 - **Evidence:** an agent's working note (2026-09-28). The cause is inferred.
+  **[web]** no public report found (searched vitejs/vite issues for "git stash" and for branch switches with
+  HMR not updating, 2026-10-08). The nearest is [vite#13593](https://github.com/vitejs/vite/issues/13593),
+  "Support @parcel/watcher" (open), which calls chokidar "slow and known to have issues with file descriptor
+  limits"; [server.watch](https://vite.dev/config/server-options) offers `usePolling` at a CPU cost.
 
 
 ### Python's bytecode cache is keyed on size and an mtime with one-second resolution
 
 - **What we do:** `PYTHONDONTWRITEBYTECODE=1` for probes. `scripts/check_revert_red.py:511-513`. [doc]
+- **Evidence:** **[web]** [PEP 552](https://peps.python.org/pep-0552/) (Final, 3.7): a pyc is prefixed by "the
+  source timestamp, and the source file size"; it added hash-based pycs
+  ([py_compile](https://docs.python.org/3/library/py_compile.html) `CHECKED_HASH`), which only
+  `py_compile`/`compileall` write. [Command line docs](https://docs.python.org/3/using/cmdline.html):
+  `PYTHONDONTWRITEBYTECODE` stops only the *writing* of pycs, so a stale pyc already in `__pycache__` is still
+  read (read 2026-10-08). **Better workaround:** `PYTHONPYCACHEPREFIX` set to a fresh empty directory; per
+  [sys.pycache_prefix](https://docs.python.org/3/library/sys.html#sys.pycache_prefix) (3.8+) Python then reads
+  and writes pycs only there and ignores every `__pycache__` in the source tree.
 
 
 ### `pgrep -f` and `pkill -f` match the shell that runs them
 
 - **Symptom:** a wait loop waited half an hour on its own command line, and a kill killed the calling shell.
 - **What we do:** `ps | grep "[x]"` (no workaround in the repo). **Evidence:** an agent's working note. [doc]
+- **Evidence:** **[web]** [pgrep(1)](https://man7.org/linux/man-pages/man1/pgrep.1.html) (procps-ng) says only
+  that the running pgrep or pkill "will never report itself as a match"; with `-f` "the full command line is
+  used", so the shell whose command line holds the pattern is not excluded (read 2026-10-08). No tracker issue
+  found.
 
 
 ### A trailing-slash `.gitignore` pattern (`node_modules/`) does not match a symlink
 
 - **What we do:** the pattern has no slash. **Evidence:** an agent's working note. [doc]
+- **Evidence:** **[web]** [gitignore(5)](https://git-scm.com/docs/gitignore) documents it: "The pattern `foo/`
+  will match a directory `foo` and paths underneath it, but will not match a regular file or a symbolic link
+  `foo`" (read 2026-10-08). [doc]
 
 
 ### `yoloai apply` replays with `git am`, which stops on an empty patch
@@ -1241,6 +1954,11 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** no empty commits; trailers ride on a real change.
 - **Evidence:** an agent's working note (2026-10-02). **Unsure:** yoloAI is the owner's own tool. It is
   external to Orpheum, but perhaps not in scope.
+  **[web]** [git-am(1)](https://git-scm.com/docs/git-am) documents `--empty=(drop|keep|stop)` for a message
+  without a patch, with `stop` the default; it came in [Git
+  2.35](https://raw.githubusercontent.com/git/git/master/Documentation/RelNotes/2.35.0.adoc) (read
+  2026-10-08). yoloAI has no public tracker to search. **Better workaround:** if yoloAI passed `--empty=keep`
+  to `git am`, an empty commit would replay as an empty commit; that is a change to yoloAI, not to Orpheum.
 
 ---
 
@@ -1254,12 +1972,27 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **What we do:** the records are DNS-only, and the certificate comes by ACME DNS-01 through the API (D72,
   D243 §6). `deploy/vps/README.md:84-86`.
 - **Evidence:** working-notes.md [web]. [doc]
+  **[web]** [Cloudflare's service-specific
+  terms](https://www.cloudflare.com/service-specific-terms-application-services/): video and other large files
+  must be served through paid services (Stream, Images, the Developer Platform), and Cloudflare may limit the
+  CDN for anyone suspected of serving video without them; [proxy
+  status](https://developers.cloudflare.com/dns/proxy-status/) covers HTTP/HTTPS traffic of a proxied record
+  (checked 2026-10-08).
 
 
 ### There is no publicly trusted certificate for a bare IP, and private-IP DNS answers trip rebinding protection
 
 - **What we do:** one public name with DNS-01 (D243).
 - **Evidence:** `research/remote-access.md` §4 [web]. This is a limitation.
+  **[web]** [Let's Encrypt, "6-day and IP Address Certificates are Generally
+  Available"](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability) (2026-01-15): IP address
+  certificates for IPv4 and IPv6, valid 160 hours, from the `shortlived` profile; [the first-IP-certificate
+  post](https://letsencrypt.org/2025/07/01/issuing-our-first-ip-address-certificate) says only http-01 and
+  tls-alpn-01 can validate them, not DNS-01. [dnsmasq's
+  `--stop-dns-rebind`](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html) rejects private-range answers
+  from upstream, the router behaviour behind the second half. **Contradicts:** a publicly trusted certificate
+  for a bare IP has existed since January 2026, though it needs port 80 or 443 reachable on that IP and
+  renewal every few days, so it fits the VPS's public IP but not the home's DS-Lite address.
 
 *Nothing idiosyncratic was found in `internal/core/certificate` or `providers/cloudflare`. The paged-zone
 miss was our own bug (Appendix B).*
