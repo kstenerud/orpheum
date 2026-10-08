@@ -176,13 +176,18 @@ func TestReport_AQualityAPlayerCannotPlayIsLogged(t *testing.T) {
 	harness.shelveFilms(t)
 	playing := harness.play(t, user, chrome(1))
 	body := reportBody(1, 420_500, 0)
-	body["unplayable"] = map[string]any{"qualityKbps": 36_208, "positionMs": 420_500}
+	body["unplayable"] = map[string]any{
+		"qualityKbps": 36_208, "positionMs": 420_500, "readyState": 1,
+		"videoBuffered": "416.29-499.62", "audioBuffered": "425.70-499.80", "lastError": "",
+	}
 	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
 	logged := harness.logs.String()
 	if !strings.Contains(logged, `"msg":"a player found a quality its device cannot play"`) ||
-		!strings.Contains(logged, `"qualityKbps":36208`) || !strings.Contains(logged, `"positionMs":420500`) {
+		!strings.Contains(logged, `"qualityKbps":36208`) || !strings.Contains(logged, `"positionMs":420500`) ||
+		!strings.Contains(logged, `"readyState":1`) || !strings.Contains(logged, `"videoBuffered":"416.29-499.62"`) ||
+		!strings.Contains(logged, `"audioBuffered":"425.70-499.80"`) {
 		t.Errorf("the unplayable quality was not logged:\n%s", logged)
 	}
 }

@@ -46,6 +46,12 @@ type ReportInput struct {
 type UnplayableBody struct {
 	QualityKbps int64 `json:"qualityKbps" minimum:"0"`
 	PositionMs  int64 `json:"positionMs"  minimum:"0"`
+	// ReadyState, VideoBuffered, AudioBuffered and LastError are the video as it was when the
+	// quality was given up, before its decoding was built anew, as a stall's are.
+	ReadyState    int64  `json:"readyState,omitempty"    minimum:"0"       maximum:"4" required:"false"`
+	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
+	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
+	LastError     string `json:"lastError,omitempty"     maxLength:"200" required:"false"`
 }
 
 // StartupBody is how long a playback took to start, each from when the player asked how the file
@@ -230,7 +236,9 @@ func (server *Server) logUnplayable(ctx context.Context, reporter reporter, unpl
 	}
 	server.logger.InfoContext(ctx, "a player found a quality its device cannot play", "userId", reporter.holder.UserID,
 		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
-		"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs)
+		"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs,
+		"readyState", unplayable.ReadyState, "videoBuffered", unplayable.VideoBuffered,
+		"audioBuffered", unplayable.AudioBuffered, "lastError", unplayable.LastError)
 }
 
 // stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether

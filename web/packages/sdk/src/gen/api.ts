@@ -3151,10 +3151,15 @@ export interface components {
             unavailableAt?: number;
         };
         UnplayableBody: {
+            audioBuffered?: string;
+            lastError?: string;
             /** Format: int64 */
             positionMs: number;
             /** Format: int64 */
             qualityKbps: number;
+            /** Format: int64 */
+            readyState?: number;
+            videoBuffered?: string;
         };
         UnusedBody: {
             key: string;
