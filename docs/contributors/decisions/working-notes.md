@@ -17787,7 +17787,9 @@ page. M4's scheduled backups make them too, when M4 builds them.
 
 > **Revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)** (2026-10-07): §9's netem profiles are now home, mobile, congested and lossy as experts would build them, with bounds per client pair.
 
-> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §9's voice bounds are best effort on the congested profile.
+> **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §9's voice bounds are best effort on the congested profile;
+> **and by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)
+> §2** (2026-10-07, confirmed by D270 §3): they hold on every profile again.
 
 **Decided** (2026-10-04), by the project owner, answering D223 §11's nine questions as the audit
 before M4 put them ([audit-2026-10-03.md](../design/research/audit-2026-10-03.md) §8):
@@ -18593,6 +18595,9 @@ link.
 
 ## D261 — The M4 audit's questions, answered
 
+> **§7 revised by [D263](#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr)
+> §2, confirmed by D270 §3** (2026-10-08): voice on the congested profile is held to its bounds.
+
 **Decided** (2026-10-07), by the project owner, answering §8 of the M4 audit
 (design/research/audit-2026-10-06.md): *"1: yes, 2: yes, 3: defer as a nice to have in future, 4:
 yes, 5: yes, 6: rewrite it, 7: best effort, but we really need to look into how apps like signal and
@@ -18935,5 +18940,35 @@ A file with an index keeps D259 §1–§2: its keyframes from the index, its pic
    before anyone plays them; each index read is followed by the film's full read, for its loudness
    and its bytes in each second, a file with no index ahead of the others. Every film ends with its
    keyframes known: the eventual state.
+
+**Status:** Decided 2026-10-08.
+
+## D270 — M4's closing audit's questions, answered
+
+**Decided** (2026-10-08), by the project owner, on §10 of M4's closing audit
+(design/research/audit-2026-10-08.md): *"1-4: agreed"*. Questions 5 (M5's) and 6 (the acceptance
+run) wait for the owner.
+
+1. **A failed full read of a film whose keyframes came from its index is kept**, in a column of its
+   own on the picture's timeline, `read_failure`, not in `failure`, which would make the film
+   uncuttable: the sweep stops reading it through every hour, and a person's play tries it again as
+   D248 §4 tries a failed read.
+2. **Names that reach a setting key or the wire are renamed**, each old name retired:
+   - `should_together_voice_level_microphone` → `should_together_voice_browser_level_microphone`,
+     and the tuning's `shouldLevelMicrophone` → `shouldBrowserLevelMicrophone`: it governs only the
+     browser's own gain control, Orpheum's levelling being on when it is off;
+   - the note kind `led` → `leaderCommand`, and its `events` → `recentEvents`;
+   - the ponged note's `residualMs` → `aheadOfExpectedMs`;
+   - the startup report's `decisionMs`, `firstDataMs` and `playingMs` → `decidedAfterMs`,
+     `firstDataAfterMs` and `playingAfterMs`, durations from the request that started it;
+   - the prepare profile `h264-8m` → `h264`, its rate the picture's own up to a ceiling (D256);
+   - the chunkLoaded note's `kbps` → `loadedKbps`, and the qualitySwitched note's `estimateKbps`
+     → `linkEstimateKbps`;
+   - the diagnosis's `streaming` → `mediaSourceState`.
+3. **Voice on the congested profile is held to its bounds**, as D263 §2 and the acceptance hold
+   it: D263 §2 revises D261 §7's best effort.
+4. **The commit-msg hook runs the test-weakening check on the commit it records**, so a
+   `Test-Weakened`, `Test-Renamed` or `Gate-Changed` trailer is written with the change it
+   explains, not on a later commit.
 
 **Status:** Decided 2026-10-08.
