@@ -40,6 +40,62 @@ counted:
 
 ## Log
 
+### P56 — The gate checked the tree, not the commit, and this clone had no git hooks (M4, 2026-10-08) · gate-design
+
+- **Planned:** the pre-commit hook runs the gate on what a commit records; the Stop hook runs it
+  at the end of each turn.
+- **What happened:** this sandbox clone never ran `make setup`, so no git hook ran. Three commits
+  went in with the gate failing or the build broken (agent-failures A26).
+- **Why the plan missed it:** the hooks were installed by a one-time step, and nothing checked
+  they were there.
+- **Cost:** three fix-forward commits, found by reading output and by the audit.
+- **Process lesson:** a gate that depends on a setup step checks that the step was taken, before
+  the work it guards (the shell hook now refuses a commit without the hooks).
+
+### P55 — Sync was built on one-shot marks and a placing that never aged, and an outside review found it (M4, 2026-10-08) · plan-gap
+
+- **Planned:** D246 and D250's follower, tuned by the owner's tests.
+- **What happened:** a week of fixes to the follower, then the sync review against Jellyfin,
+  Syncplay, MediaSync and NTP found an allowance tighter than any shipped, a group placing that
+  never aged, and intent read from events; D268 changed all three.
+- **Why the plan missed it:** the design was not set against the field before it was built.
+- **Cost:** a week of patches, each fixing the last.
+- **Process lesson:** review a sync or timing design against the field's practice (A14) before
+  building it, and again after a second patch to the same mechanism.
+
+### P54 — hls.js's quality choice was patched four times, then replaced (M4, 2026-10-07) · tool-behaviour
+
+- **Planned:** hls.js chooses the quality (chunks.md §4).
+- **What happened:** four patches to its controller, then D265's controller of our own.
+- **Why the plan missed it:** the library's controller assumed a link and a server unlike ours,
+  chunks made on request.
+- **Cost:** the four patches.
+- **Process lesson:** after the second patch fighting a library's policy, replace the policy
+  rather than patch it again.
+
+### P53 — A device said it plays a codec it could not play from that point (M4, 2026-10-07) · tool-behaviour
+
+- **Planned:** the capability probe decides what a player is sent (D217).
+- **What happened:** D266: a quality whose video stood still while its chunks arrived was one the
+  device could not play.
+- **Why the plan missed it:** a capability query was taken for behaviour.
+- **Process lesson:** confirm a capability by behaviour, not by the query.
+
+### P52 — The acceptance's network profiles were guesses (M4, 2026-10-07) · plan-gap
+
+- **Planned:** D252's three netem profiles.
+- **What happened:** D263 rewrote them from research into four, and BBR was needed on the server.
+- **Process lesson:** take network profiles from published measurements, not intuition.
+
+### P51 — Two decisions hours apart contradicted each other on congested voice (M4, 2026-10-07) · plan-gap
+
+- **Planned:** D261 §7 made voice on the congested profile best effort.
+- **What happened:** D263 §2 held it for every pair, naming neither D261 §7 nor its revision.
+- **Why the plan missed it:** P50's lesson again: a decision changing a bound did not name the
+  one it revised.
+- **Process lesson:** before recording a decision that sets a bound, search for the decisions
+  that set it before, and name each one revised.
+
 ### P50 — A tuning number and an acceptance bound were decided days apart, and contradicted (M4, 2026-10-06) · plan-gap
 
 - **Planned:** D243 §9 bounds two clients to 200 ms apart 95% of the time; D250 §1 then set the
