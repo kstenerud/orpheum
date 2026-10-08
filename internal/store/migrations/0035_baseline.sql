@@ -1,14 +1,14 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 11b21498bbed43cd5066df7cbc9052b6d39c79e2663f601466faba437f3ff00e
--- The baseline (D228): persistent.db's schema at version 34 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0034 (D185's first schema, the steps
+-- orpheum:baseline folds ec4098f0a7de43b8bb9c5092c249b01f3eabf17c76587bc029d435cffa8d01f7
+-- The baseline (D228): persistent.db's schema at version 35 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0035 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
 -- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
 -- reader limits a device was given, D240, 0031's dropping of the node's report sequence, D240,
--- 0032's one fetched subtitle per file, D244, 0033's libraries each role reaches, D243, and 0034's
--- invitations and the admin's note on an account, D246), and builds the schema and the seeded rows
--- they built; the checksum above is 0034_invitation.sql's,
+-- 0032's one fetched subtitle per file, D244, 0033's libraries each role reaches, D243, 0034's
+-- invitations and the admin's note on an account, D246, and 0035's pictures' timelines, D247), and
+-- builds the schema and the seeded rows they built; the checksum above is 0035_video_timeline.sql's,
 -- which a database migrated through that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
@@ -659,3 +659,13 @@ CREATE TABLE role_library (                                -- class A (D243 sect
 ) WITHOUT ROWID;
 CREATE INDEX role_library_library ON role_library(library_id);
 CREATE INDEX artwork_source ON artwork(source_sha256) WHERE source_sha256 IS NOT NULL;
+
+CREATE TABLE video_timeline (                              -- class O: what the node read (D247 section 10)
+  payload_hash BLOB NOT NULL,            -- the bytes it was read from, as file.payload_hash (D179)
+  video_stream_index INTEGER NOT NULL,   -- the picture's stream, as ffprobe numbers every stream
+  keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
+  bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
+  failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
+  made_at     INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, video_stream_index)
+) WITHOUT ROWID;

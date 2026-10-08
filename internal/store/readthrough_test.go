@@ -117,6 +117,66 @@ func TestVideoTimeline_IsKeptByItsBytesAndPictureAndAReadAgainReplacesIt(t *test
 // A timeline's keyframes, once known, are kept: a read through after the file's index was read adds
 // its bytes in each second and leaves the keyframes, so a playback's grid does not move, and a failed
 // read changes nothing of it (D259 §2).
+// A read through that fails after the index gave the keyframes keeps them and its failure as
+// read_failure, and the sweep reads the file no more; a read through that succeeds clears it
+// (D270 section 1).
+func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	storetest.ExecRaw(t, database.Path(),
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
+		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, probe_json, filing,
+		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', 10, X'0c', '{}', 'listed', 1, 1)`,
+		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
+		 VALUES (1, 1, 0, 'video', 'h264', 0)`)
+	failure := "Invalid data found"
+	upsert := func(row sqlcgen.UpsertVideoTimelineParams) sqlcgen.VideoTimeline {
+		t.Helper()
+		row.PayloadHash, row.VideoStreamIndex = []byte{0x0c}, 0
+		if err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+			return queries.UpsertVideoTimeline(t.Context(), row)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		kept, err := database.Read().GetVideoTimeline(t.Context(),
+			sqlcgen.GetVideoTimelineParams{PayloadHash: []byte{0x0c}, VideoStreamIndex: 0})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return kept
+	}
+	swept := func() int {
+		t.Helper()
+		rows, err := database.Read().ListFilesToReadThrough(t.Context(),
+			sqlcgen.ListFilesToReadThroughParams{AfterID: 0, ThroughID: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(rows)
+	}
+	upsert(sqlcgen.UpsertVideoTimelineParams{KeyframesMsJSON: "[0,2000]", BytesInEachSecondJSON: "[]", MadeAt: 1})
+	if swept() != 1 {
+		t.Fatal("a film with its index's keyframes alone is not swept; want it read through")
+	}
+	failed := upsert(sqlcgen.UpsertVideoTimelineParams{
+		KeyframesMsJSON: "[]", BytesInEachSecondJSON: "[]", Failure: &failure, MadeAt: 2,
+	})
+	if failed.KeyframesMsJSON != "[0,2000]" || failed.Failure != nil || failed.ReadFailure == nil ||
+		*failed.ReadFailure != failure {
+		t.Errorf("after its read through failed, the timeline = %+v; want its keyframes and the read's failure", failed)
+	}
+	if swept() != 0 {
+		t.Error("a film whose read through failed is swept again; want it left")
+	}
+	if read := upsert(sqlcgen.UpsertVideoTimelineParams{
+		KeyframesMsJSON: "[0,2000]", BytesInEachSecondJSON: "[5,6]", MadeAt: 3,
+	}); read.ReadFailure != nil {
+		t.Errorf("after a read through that succeeded, the timeline = %+v; want no read failure", read)
+	}
+}
+
 func TestVideoTimeline_KeepsItsKeyframesAndALaterReadAddsItsBytes(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)

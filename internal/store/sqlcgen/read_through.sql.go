@@ -38,7 +38,8 @@ WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
     OR ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'video' AND (s.disposition_flags & 1024) = 0
         LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash
-        AND (v.bytes_in_each_second_json <> '[]' OR v.failure IS NOT NULL) LIMIT 1) IS NULL))
+        AND (v.bytes_in_each_second_json <> '[]' OR v.failure IS NOT NULL OR v.read_failure IS NOT NULL)
+        LIMIT 1) IS NULL))
 ORDER BY f.id
 `
 
@@ -62,7 +63,7 @@ type ListFilesToReadThroughRow struct {
 // a cover: disposition bit 1024 is FFmpeg's AV_DISPOSITION_ATTACHED_PIC. A timeline is looked for
 // by payload hash alone; the read-through picks the main picture. A timeline read from the file's
 // index has its keyframes but not its bytes in each second, which only a read through finds (D259
-// section 2), so it is read through still. has_timeline is 1 when the bytes have any timeline, so
+// section 2), so it is read through still, unless that read failed (read_failure, D270 section 1). has_timeline is 1 when the bytes have any timeline, so
 // one with none is read from its index first, the sweep's fast tier (D269 section 5).
 func (q *Queries) ListFilesToReadThrough(ctx context.Context, arg ListFilesToReadThroughParams) ([]ListFilesToReadThroughRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesToReadThrough, arg.AfterID, arg.ThroughID)

@@ -18951,8 +18951,8 @@ run) wait for the owner.
 
 1. **A failed full read of a film whose keyframes came from its index is kept**, in a column of its
    own on the picture's timeline, `read_failure`, not in `failure`, which would make the film
-   uncuttable: the sweep stops reading it through every hour, and a person's play tries it again as
-   D248 §4 tries a failed read.
+   uncuttable: the sweep stops reading it through every hour; a read through that succeeds later
+   clears it. No one waits on a full read, so a person's play does not try it again.
 2. **Names that reach a setting key or the wire are renamed**, each old name retired:
    - `should_together_voice_level_microphone` → `should_together_voice_browser_level_microphone`,
      and the tuning's `shouldLevelMicrophone` → `shouldBrowserLevelMicrophone`: it governs only the

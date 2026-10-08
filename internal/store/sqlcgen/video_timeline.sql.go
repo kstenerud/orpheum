@@ -33,7 +33,8 @@ func (q *Queries) DeleteVideoTimelineFailedBefore(ctx context.Context, arg Delet
 
 const getVideoTimeline = `-- name: GetVideoTimeline :one
 
-SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at
+SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at,
+  read_failure
 FROM video_timeline WHERE payload_hash = ? AND video_stream_index = ?
 `
 
@@ -55,6 +56,7 @@ func (q *Queries) GetVideoTimeline(ctx context.Context, arg GetVideoTimelinePara
 		&i.BytesInEachSecondJSON,
 		&i.Failure,
 		&i.MadeAt,
+		&i.ReadFailure,
 	)
 	return i, err
 }
@@ -70,6 +72,11 @@ ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
   bytes_in_each_second_json = CASE WHEN excluded.bytes_in_each_second_json = '[]'
     THEN video_timeline.bytes_in_each_second_json ELSE excluded.bytes_in_each_second_json END,
   failure = CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.failure ELSE video_timeline.failure END,
+  read_failure = CASE
+    WHEN video_timeline.keyframes_ms_json <> '[]' AND video_timeline.bytes_in_each_second_json = '[]'
+      AND excluded.failure IS NOT NULL THEN excluded.failure
+    WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL
+    ELSE video_timeline.read_failure END,
   made_at = excluded.made_at
 `
 
@@ -83,8 +90,9 @@ type UpsertVideoTimelineParams struct {
 }
 
 // A timeline's keyframes, once known, are kept, so the grid a playback is cut on does not move: a
-// later read through adds its bytes in each second, and a failure of one changes nothing of it (D259
-// section 2).
+// later read through adds its bytes in each second, and a failure of one is kept as read_failure,
+// the film still cut on its keyframes, so the sweep does not read it again (D259 section 2, D270
+// section 1); a read through that succeeds clears it.
 func (q *Queries) UpsertVideoTimeline(ctx context.Context, arg UpsertVideoTimelineParams) error {
 	_, err := q.db.ExecContext(ctx, upsertVideoTimeline,
 		arg.PayloadHash,

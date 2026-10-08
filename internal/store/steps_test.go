@@ -274,9 +274,9 @@ func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
 	}
 }
 
-// Step 0035 keeps every loudness measurement a database had, and adds video_timeline beside it, by
-// payload hash and picture, which a picture's second read replaces (D247 section 10).
-func TestMigrate_Step0035KeepsTheLoudnessAndKeepsEachPicturesTimelineOnce(t *testing.T) {
+// Step 0036 keeps every picture's timeline, its keyframes and its failure, and adds read_failure,
+// empty, for a full read that fails after the index gave the keyframes (D270 section 1).
+func TestMigrate_Step0036KeepsEachTimelineAndAddsItsReadFailure(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -286,24 +286,15 @@ func TestMigrate_Step0035KeepsTheLoudnessAndKeepsEachPicturesTimelineOnce(t *tes
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database, `INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs,
-		measured_at) VALUES (X'0a', 1, 'stereo', -20, 1)`)
+	execRaw(t, database, `INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
+		made_at) VALUES (X'0a', 0, '[0,2000]', 1)`)
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	got := fmt.Sprint(queryRows(t, database, "SELECT hex(payload_hash), stream_index FROM loudness", 2))
-	if want := "[[0A 1]]"; got != want {
-		t.Errorf("the loudness after the step is %s, want %s: every measurement kept", got, want)
-	}
-	execRaw(t, database, `INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
-		made_at) VALUES (X'0a', 0, '[0,2000]', 1)`)
-	if _, err = database.writer.ExecContext(t.Context(),
-		`INSERT INTO video_timeline (payload_hash, video_stream_index, made_at) VALUES (X'0a', 0, 2)`); err == nil {
-		t.Error("a second timeline for the same bytes and picture was taken, want it refused")
-	}
-	got = fmt.Sprint(queryRows(t, database,
-		"SELECT keyframes_ms_json, bytes_in_each_second_json, failure IS NULL FROM video_timeline", 3))
-	if want := "[[[0,2000] [] 1]]"; got != want {
-		t.Errorf("the timeline is %s, want %s: its keyframes, no seconds yet, no failure", got, want)
+	got := fmt.Sprint(queryRows(t, database,
+		"SELECT keyframes_ms_json, failure IS NULL, read_failure IS NULL FROM video_timeline", 3))
+	if want := "[[[0,2000] 1 1]]"; got != want {
+		t.Errorf("the timeline after the step is %s, want %s: its keyframes kept, no failure of either kind", got,
+			want)
 	}
 }

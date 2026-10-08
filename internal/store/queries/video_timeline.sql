@@ -3,13 +3,15 @@
 -- in each second, by the bytes it was read from.
 
 -- name: GetVideoTimeline :one
-SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at
+SELECT payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure, made_at,
+  read_failure
 FROM video_timeline WHERE payload_hash = ? AND video_stream_index = ?;
 
 -- name: UpsertVideoTimeline :exec
 -- A timeline's keyframes, once known, are kept, so the grid a playback is cut on does not move: a
--- later read through adds its bytes in each second, and a failure of one changes nothing of it (D259
--- section 2).
+-- later read through adds its bytes in each second, and a failure of one is kept as read_failure,
+-- the film still cut on its keyframes, so the sweep does not read it again (D259 section 2, D270
+-- section 1); a read through that succeeds clears it.
 INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json, bytes_in_each_second_json, failure,
   made_at)
 VALUES (sqlc.arg(payload_hash), sqlc.arg(video_stream_index), sqlc.arg(keyframes_ms_json),
@@ -20,6 +22,11 @@ ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
   bytes_in_each_second_json = CASE WHEN excluded.bytes_in_each_second_json = '[]'
     THEN video_timeline.bytes_in_each_second_json ELSE excluded.bytes_in_each_second_json END,
   failure = CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.failure ELSE video_timeline.failure END,
+  read_failure = CASE
+    WHEN video_timeline.keyframes_ms_json <> '[]' AND video_timeline.bytes_in_each_second_json = '[]'
+      AND excluded.failure IS NOT NULL THEN excluded.failure
+    WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL
+    ELSE video_timeline.read_failure END,
   made_at = excluded.made_at;
 
 -- name: DeleteVideoTimelineFailedBefore :execrows
