@@ -25,7 +25,7 @@ import (
 // ensured is Ensure of film 1's stream at chunk wanted, failing the test on an error.
 func ensured(t *testing.T, service *Service, stream Stream, wanted int) {
 	t.Helper()
-	if err := service.Ensure(t.Context(), 1, stream, wanted); err != nil {
+	if err := service.Ensure(t.Context(), 1, OnKeyframes, stream, wanted); err != nil {
 		t.Fatalf("Ensure(%s, %d) = %v", stream.Name(), wanted, err)
 	}
 }
@@ -140,7 +140,7 @@ func TestEnsure_AFilmWithNoGridYetIsSaidSo(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
-	err := service.Ensure(t.Context(), 2, Stream{Kind: nodeproto.StreamPicture}, 0)
+	err := service.Ensure(t.Context(), 2, OnKeyframes, Stream{Kind: nodeproto.StreamPicture}, 0)
 	if !errors.Is(err, ErrNoGrid) || len(queue.requests) != 0 {
 		t.Errorf("Ensure of a film with no timeline = %v, %d runs; want ErrNoGrid and none", err, len(queue.requests))
 	}

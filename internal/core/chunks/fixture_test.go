@@ -3,11 +3,13 @@
 package chunks
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -175,6 +177,23 @@ type fakeReadThrough struct {
 	retried          []int64
 	// released are the files whose read-through a player let go of.
 	released []int64
+	// noIndex are the payload hashes whose files a read from the index found none in; readFirst, the
+	// files read through ahead of the sweep for their keyframes.
+	noIndex   [][]byte
+	readFirst []int64
+}
+
+func (reader *fakeReadThrough) HasNoIndex(payloadHash []byte, _ int) bool {
+	reader.mutex.Lock()
+	defer reader.mutex.Unlock()
+	return slices.ContainsFunc(reader.noIndex, func(each []byte) bool { return bytes.Equal(each, payloadHash) })
+}
+
+func (reader *fakeReadThrough) ReadFirst(_ context.Context, fileID int64) (bool, error) {
+	reader.mutex.Lock()
+	defer reader.mutex.Unlock()
+	reader.readFirst = append(reader.readFirst, fileID)
+	return true, nil
 }
 
 func (reader *fakeReadThrough) RetryFailedForPlay(

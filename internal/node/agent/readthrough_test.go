@@ -140,9 +140,11 @@ func TestAgent_AReadThroughAnswersEachPartItWasAskedFor(t *testing.T) {
 	}
 }
 
-// A read-through asked for a picture's timeline alone, as a player waiting on a lower quality's grid
-// asks, is answered from the file's own index, its keyframes without its bytes in each second, and
-// the film is not read through; a file with no index is read through (D259 §2).
+// A read-through asked for a picture's timeline from the index alone, as a player waiting on its
+// film's grid asks, is answered from the file's own index, its keyframes without its bytes in each
+// second, and the film is not read through; a file with no index says so at once, read no further
+// (D259 §2, D269 §2); and a timeline not asked from the index alone is read through, its bytes
+// with it, though the file has an index.
 func TestAgent_ATimelineAloneIsReadFromTheFilesIndex(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
@@ -154,7 +156,9 @@ func TestAgent_ATimelineAloneIsReadFromTheFilesIndex(t *testing.T) {
 	indexed := nodeproto.BytesFile{
 		RootPath: root.Path(), Path: []byte("indexed.mkv"), PayloadHash: nodetest.PayloadHashHex(t, string(contents)),
 	}
-	core.sendReadThrough(1, nodeproto.ReadThrough{Video: indexed, VideoTimeline: &nodeproto.VideoTimelineAsk{}})
+	core.sendReadThrough(1, nodeproto.ReadThrough{
+		Video: indexed, VideoTimeline: &nodeproto.VideoTimelineAsk{IsFromIndexOnly: true},
+	})
 	fromIndex := receiveReadThrough(t, core)
 	if fromIndex.VideoTimeline == nil || !slices.Equal(fromIndex.VideoTimeline.KeyframesMs, []int64{0, 2002, 4004}) ||
 		fromIndex.VideoTimeline.BytesInEachSecond != nil {
@@ -167,10 +171,18 @@ func TestAgent_ATimelineAloneIsReadFromTheFilesIndex(t *testing.T) {
 		RootPath: root.Path(), Path: []byte("plain.avi"), PayloadHash: nodetest.PayloadHashHex(t, "an AVI"),
 	}
 	core.sendReadThrough(2, nodeproto.ReadThrough{
-		Video: plain, VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 2},
+		Video: plain, VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 2, IsFromIndexOnly: true},
+	})
+	if noIndex := receiveReadThrough(t, core); !noIndex.HasNoIndex || noIndex.VideoTimeline != nil {
+		t.Errorf("a timeline from the index alone of a film with no index answered %+v; want that it has none",
+			noIndex)
+	}
+	core.sendReadThrough(3, nodeproto.ReadThrough{
+		Video: indexed, VideoTimeline: &nodeproto.VideoTimelineAsk{VideoStreamIndex: 2},
 	})
 	readThrough := receiveReadThrough(t, core)
 	if readThrough.VideoTimeline == nil || !slices.Equal(readThrough.VideoTimeline.KeyframesMs, []int64{2000}) {
-		t.Errorf("a timeline alone of a film with no index answered %+v; want it read through", readThrough)
+		t.Errorf("a timeline of an indexed film, not from its index alone, answered %+v; want it read through",
+			readThrough)
 	}
 }

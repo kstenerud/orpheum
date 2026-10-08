@@ -40,10 +40,10 @@ type runArgs struct {
 // queued over chunks a run will make. Each store is the target of its own runs' jobs, so the runs of
 // a film's streams queue side by side, and a run asked for while another of its store waits queued
 // is folded into that one, as the queue folds any repeat request: the next ask plans it again. A
-// store with runs on their way is kept wanted (D234 §3). A run queued is logged. A film with no grid
-// yet is ErrNoGrid.
-func (service *Service) Ensure(ctx context.Context, fileID int64, stream Stream, wanted int) error {
-	film, isCut, err := service.cut(ctx, fileID)
+// store with runs on their way is kept wanted (D234 §3). A run queued is logged. The film is cut at
+// kind, as its playback's is; one with no grid yet is ErrNoGrid.
+func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind, stream Stream, wanted int) error {
+	film, isCut, err := service.cut(ctx, fileID, kind)
 	if err != nil {
 		return err
 	}

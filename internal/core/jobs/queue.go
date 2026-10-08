@@ -123,7 +123,11 @@ const (
 	PriorityPlayNow int64 = 1000
 	// PriorityBackground is work no person waits for: a sweep's, and play-driven work past its
 	// "wanted until".
-	PriorityBackground     int64 = 0
+	PriorityBackground int64 = 0
+	// PriorityAheadOfSweep is work no person waits for that goes before a sweep's: a film whose file
+	// has no index of its keyframes, read through for them, so most are known before anyone plays
+	// them (D269 §4).
+	PriorityAheadOfSweep   int64 = 1
 	PriorityPersonsRequest int64 = 20
 )
 

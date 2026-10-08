@@ -25,12 +25,20 @@ func (service *Service) ChunksOf(ctx context.Context, token string, holder Holde
 	return chunksPlaybackOf(playback), nil
 }
 
+// KeepOnTime says a token's playback was first offered its film's chunks cut on time, its file
+// having no index of its keyframes: it is offered them so to its end, though a read-through finds
+// the keyframes meanwhile (D269 §3).
+func (service *Service) KeepOnTime(token string, holder Holder) {
+	service.tokens.keepOnTime(token, holder)
+}
+
 // chunksPlaybackOf is a playback as the chunks it is offered see it.
 func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	chunked := chunks.Playback{
 		FileID: playback.fileID, PositionMs: playback.positionMs, StartedAt: playback.startedAt,
 		// A playback whose picture its decision re-encodes is one whose player cannot decode it.
 		IsSourcePictureDecodable: playback.decision.Profile != decide.H264At8M,
+		IsOnTime:                 playback.isOnTime,
 	}
 	if playback.startingAudio != nil {
 		chunked.HasStartingAudio, chunked.StartingAudioTrackIndex = true, playback.startingAudio.AudioTrackIndex

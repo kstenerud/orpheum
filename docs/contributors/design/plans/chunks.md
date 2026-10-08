@@ -149,7 +149,10 @@ in this order, each a revision of D247 §10 written before it is built:
    kept, and a later read adds its bytes in each second; an unlevelled sound is a store of its own,
    `sound<track>-<kbps>k-raw`. Measured on the NAS: an MKV's cues in 33 ms, an MP4's sync samples
    in 0.5 s; a Matroska file's cues may list fewer keyframes than its picture has.*
-3. **Read from the stall for a file with no index** (AVI, MPEG-TS, Matroska without cues): the
-   node reads a few minutes ahead of the player's position, saying each keyframe as it reads, and
-   the playlists grow from there. **Required before a public release** (the owner, 2026-10-06):
-   archivers keep these older formats, and they are the likely customers.
+3. **A file with no index is cut on time** (AVI, MPEG-TS, Matroska without cues; D269, which
+   replaced reading ahead of the player): a chunk at each multiple of the segment length, its
+   playback offered the encoded qualities at once, from any point, and not the picture copied,
+   which only a keyframe can begin. The node says a file has no index at once; the file is read
+   through ahead of the sweep, and a later playback is offered its picture copied on its keyframes,
+   while one that began on time stays so. Most such files hold Xvid, DivX or MPEG-2, which no
+   browser plays copied anyway. *Built 2026-10-08.*

@@ -57,6 +57,12 @@ type ReadThrough interface {
 	RetryFailedForPlay(
 		ctx context.Context, fileID int64, payloadHash []byte, videoStreamIndex int, before time.Time,
 	) (bool, error)
+	// HasNoIndex is whether a read-through found the file's bytes have no index of the picture's
+	// keyframes, so its film is cut on time until it is read through (D269 §2).
+	HasNoIndex(payloadHash []byte, videoStreamIndex int) bool
+	// ReadFirst queues a read-through of the file ahead of the sweep, for the keyframes its index
+	// lacks (D269 §4).
+	ReadFirst(ctx context.Context, fileID int64) (bool, error)
 }
 
 // Parts are what the chunks service is built from.

@@ -66,7 +66,7 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	if err != nil {
 		return err
 	}
-	film, isCut, err := service.cut(ctx, run.fileID)
+	film, isCut, err := service.cutForRun(ctx, run)
 	switch {
 	case errors.Is(err, library.ErrNoFile), errors.Is(err, ErrCannotBeCut):
 		return jobs.MarkPermanent(err)
@@ -98,6 +98,20 @@ func (service *Service) HandleMakeChunks(ctx context.Context, job jobs.Job) erro
 	return service.exchanges.Assign(ctx, film.file.NodeID, job, nodeproto.Command{
 		Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &command},
 	})
+}
+
+// cutForRun is the run's film as it is cut on the grid the run was asked on: on its keyframes, or,
+// when that is not the run's grid, on time (D269 §3); reporting false when the film has neither.
+func (service *Service) cutForRun(ctx context.Context, run storedRun) (cutFilm, bool, error) {
+	film, isCut, err := service.cut(ctx, run.fileID, OnKeyframes)
+	if err != nil || (isCut && film.grid.ID() == run.gridID) {
+		return film, isCut, err
+	}
+	timed, isTimed, timeErr := service.cut(ctx, run.fileID, OnTime)
+	if timeErr == nil && isTimed && timed.grid.ID() == run.gridID {
+		return timed, true, nil
+	}
+	return film, isCut, nil
 }
 
 // makeChunks is the node's command for a run, but its source: the film's main picture, never a

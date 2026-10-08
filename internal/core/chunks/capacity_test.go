@@ -82,11 +82,11 @@ func TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse(t *testing.T) {
 		t.Fatalf("the jobs cancelled = %v; want the newer run's, 12", stage.queue.cancelledJobs)
 	}
 	newer := quality(700, 432)
-	if err := stage.service.Ensure(t.Context(), 1, newer, 5); !errors.Is(err, ErrNoRoomToMake) {
+	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, newer, 5); !errors.Is(err, ErrNoRoomToMake) {
 		t.Errorf("a player asking for the evicted store's chunks: %v; want ErrNoRoomToMake", err)
 	}
 	stage.service.runs.unevict(stage.newer)
-	if err := stage.service.Ensure(t.Context(), 1, newer, 5); err != nil {
+	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, newer, 5); err != nil {
 		t.Errorf("a stall asking for it again: %v; want a run queued", err)
 	}
 }

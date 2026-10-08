@@ -11,10 +11,14 @@
 //
 // # Invariants
 //
-//   - A read-through a player waits on asks for the picture's timeline alone, which the node reads
-//     from the file's index; a timeline kept so, its keyframes without its bytes in each second, is
-//     read through still by the sweep, which adds the bytes and keeps the keyframes (D259 §2).
-//     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest (internal/core/api),
+//   - A read-through a player waits on asks for the picture's timeline from the file's index alone;
+//     a timeline kept so, its keyframes without its bytes in each second, is read through still by
+//     the sweep, which adds the bytes and keeps the keyframes (D259 §2). A file with no index says
+//     so, which is remembered in memory, keeping nothing; the sweep reads a file of a container whose
+//     index the node does not read ahead of the others (D269 §2, §4).
+//     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest,
+//     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo and
+//     TestReadThrough_TheSweepReadsAFileWithNoIndexReaderFirst (internal/core/api),
 //     TestVideoTimeline_KeepsItsKeyframesAndALaterReadAddsItsBytes (internal/store).
 //
 //   - Each live video is read through once per payload hash for its loudness, when it has sound,

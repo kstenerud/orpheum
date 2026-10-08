@@ -82,6 +82,9 @@ type tokenPlayback struct {
 	// offer is the lower quality its first stall started, offered in every report's answer from then
 	// on (D253 §1); nil before it stalled.
 	offer *chunks.Offer
+	// isOnTime is whether its film's chunks were first offered to it cut on time, its file having no
+	// index of its keyframes: it keeps that grid to its end (D269 §3).
+	isOnTime bool
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
@@ -143,6 +146,15 @@ func (all *tokens) use(token string, holder Holder, now time.Time, idle time.Dur
 	}
 	known.lastUsedAt = now
 	return *known, true
+}
+
+// keepOnTime marks a token's playback, when holder holds it, as cut on time to its end (D269 §3).
+func (all *tokens) keepOnTime(token string, holder Holder) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	if known, found := all.playbackByToken[token]; found && known.isHeldBy(holder) {
+		known.isOnTime = true
+	}
 }
 
 // isHeldBy is whether holder, or the viewer it also is, holds the playback.

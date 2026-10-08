@@ -23,11 +23,24 @@ import (
 // not this: Grid says it has none, and a read-through makes one.
 var ErrCannotBeCut = errors.New("the film's picture cannot be cut into chunks")
 
+// GridKind is what a film's chunks are cut at (D269).
+type GridKind string
+
+// The kinds of grid.
+const (
+	// OnKeyframes is cut at its picture's keyframes, from its timeline: its picture copied can be
+	// offered, as each chunk of it begins on a keyframe.
+	OnKeyframes GridKind = "keyframes"
+	// OnTime is cut at each multiple of the segment length: a film whose file has no index of its
+	// keyframes, played encoded at once, without its picture copied (D269 §1).
+	OnTime GridKind = "time"
+)
+
 // Grid is a film's chunk boundaries, in the film's own time (chunks.md §1): chunk n runs from
 // StartsMs[n] to StartsMs[n+1], and the last from its start to FilmDurationMs.
 type Grid struct {
 	// StartsMs are each chunk's start, in milliseconds, ascending: keyframes of the picture, so a
-	// copy of it can begin at each.
+	// copy of it can begin at each, or, on time, multiples of the segment length.
 	StartsMs []int64
 	// FilmDurationMs is the film's length, where the last chunk ends.
 	FilmDurationMs int64
@@ -72,8 +85,23 @@ func GridOf(keyframesMs []int64, durationMs, segmentMs int64) ([]int64, error) {
 // picture cannot be cut, fails with ErrCannotBeCut. The film's length is its probe's, or, when the
 // probe does not say, the timeline's seconds.
 func (service *Service) Grid(ctx context.Context, fileID int64) (Grid, bool, error) {
-	film, isCut, err := service.cut(ctx, fileID)
+	film, isCut, err := service.cut(ctx, fileID, OnKeyframes)
 	return film.grid, isCut, err
+}
+
+// TimeGridOf is the starts of the chunks a film durationMs long is cut into on time (D269 §1): each
+// multiple of segmentMs before its end, a last chunk shorter than segmentMs merged into the one
+// before it. It fails with ErrCannotBeCut for a film of no known length, and for a segmentMs that is
+// not positive.
+func TimeGridOf(durationMs, segmentMs int64) ([]int64, error) {
+	if segmentMs <= 0 || durationMs <= 0 {
+		return nil, fmt.Errorf("%w: chunks of %d ms of a film of %d ms", ErrCannotBeCut, segmentMs, durationMs)
+	}
+	var multiples []int64
+	for start := int64(0); start < durationMs; start += segmentMs {
+		multiples = append(multiples, start)
+	}
+	return GridOf(multiples, durationMs, segmentMs)
 }
 
 // cutFilm is a film as it is cut into chunks: its file, its probe, its main picture, the grid and
@@ -84,12 +112,15 @@ type cutFilm struct {
 	picture           nodeproto.ProbeStream
 	grid              Grid
 	bytesInEachSecond []int64
-	// keyframesMs are the picture's keyframes, ascending, as its timeline has them.
+	// keyframesMs are the picture's keyframes, ascending, as its timeline has them; none on time.
 	keyframesMs []int64
+	// kind is what its grid is cut at.
+	kind GridKind
 }
 
-// cut is the file's film as it is cut into chunks, as Grid says.
-func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, error) {
+// cut is the file's film as it is cut into chunks of kind: on its picture's keyframes, as Grid says,
+// reporting false while its picture has no timeline; or on time, which needs none (D269).
+func (service *Service) cut(ctx context.Context, fileID int64, kind GridKind) (cutFilm, bool, error) {
 	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return cutFilm{}, false, fmt.Errorf("file %d: %w", fileID, err)
@@ -102,7 +133,19 @@ func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, e
 	if !hasPicture {
 		return cutFilm{}, false, fmt.Errorf("%w: file %d has no picture", ErrCannotBeCut, fileID)
 	}
-	film := cutFilm{file: file, probe: probe, picture: picture}
+	film := cutFilm{file: file, probe: probe, picture: picture, kind: kind}
+	segment, err := service.settings.Duration(ctx, settings.HLSSegmentLengthSeconds)
+	if err != nil {
+		return film, false, fmt.Errorf("read hls_segment_length_seconds: %w", err)
+	}
+	if kind == OnTime {
+		starts, timeErr := TimeGridOf(probe.Format.DurationMs, segment.Milliseconds())
+		if timeErr != nil {
+			return film, false, fmt.Errorf("file %d: %w", fileID, timeErr)
+		}
+		film.grid = Grid{StartsMs: starts, FilmDurationMs: probe.Format.DurationMs}
+		return film, true, nil
+	}
 	timeline, err := store.OrNotFound(service.database.Read().GetVideoTimeline(ctx, sqlcgen.GetVideoTimelineParams{
 		PayloadHash: file.PayloadHash, VideoStreamIndex: int64(picture.StreamIndex),
 	}))
@@ -122,15 +165,11 @@ func (service *Service) cut(ctx context.Context, fileID int64) (cutFilm, bool, e
 	if err = json.Unmarshal([]byte(timeline.BytesInEachSecondJSON), &film.bytesInEachSecond); err != nil {
 		return film, false, fmt.Errorf("the bytes in each second of file %d: %w", fileID, err)
 	}
-	minChunk, err := service.settings.Duration(ctx, settings.HLSSegmentLengthSeconds)
-	if err != nil {
-		return film, false, fmt.Errorf("read hls_segment_length_seconds: %w", err)
-	}
 	durationMs := probe.Format.DurationMs
 	if durationMs <= 0 {
 		durationMs = int64(len(film.bytesInEachSecond)) * time.Second.Milliseconds()
 	}
-	starts, err := GridOf(film.keyframesMs, durationMs, minChunk.Milliseconds())
+	starts, err := GridOf(film.keyframesMs, durationMs, segment.Milliseconds())
 	if err != nil {
 		return film, false, fmt.Errorf("file %d: %w", fileID, err)
 	}

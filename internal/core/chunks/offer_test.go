@@ -25,7 +25,7 @@ func TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEveryS
 	// 6000k at 1080p is above the film's four megabits and not below its height.
 	settingstest.Set(t, settingsService, settings.ChunkQualities, `"6000k@1080p,3000k@720p,1200k@480p,700k@432p"`)
 	playback := Playback{FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true, StartingAudioTrackIndex: 1}
-	text, err := service.MasterPlaylist(t.Context(), playback)
+	text, _, err := service.MasterPlaylist(t.Context(), playback)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEveryS
 	}
 	// A player that cannot decode the film's picture is offered only the qualities.
 	playback.IsSourcePictureDecodable = false
-	if text, err = service.MasterPlaylist(t.Context(), playback); err != nil || strings.Contains(text, "picture/") {
+	if text, _, err = service.MasterPlaylist(t.Context(), playback); err != nil || strings.Contains(text, "picture/") {
 		t.Errorf("a player that cannot decode the picture is offered\n%s, %v\nwant no picture copied", text, err)
 	}
 	if _, err = service.MediaPlaylist(t.Context(), playback, "picture"); !errors.Is(err, ErrNoStream) {
@@ -62,7 +62,7 @@ func TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEveryS
 func TestMasterPlaylist_AFilmWithNoGridIsReadThroughForOne(t *testing.T) {
 	t.Parallel()
 	service, reader := chunksFixture(t, newFakeQueue(), fakeNode{})
-	_, err := service.MasterPlaylist(t.Context(), Playback{FileID: 2, IsSourcePictureDecodable: true})
+	_, _, err := service.MasterPlaylist(t.Context(), Playback{FileID: 2, IsSourcePictureDecodable: true})
 	if !errors.Is(err, ErrNoGrid) || !slices.Equal(reader.asked, []int64{2}) {
 		t.Errorf("film 2's master playlist = %v, read through %v; want ErrNoGrid and film 2 read through",
 			err, reader.asked)
@@ -86,12 +86,12 @@ func TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt(t *testing
 	}
 	reader.failedBeforePlay = map[int64]bool{2: true}
 	playback := Playback{FileID: 2, IsSourcePictureDecodable: true, StartedAt: time.UnixMilli(10_000)}
-	if _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrNoGrid) ||
+	if _, _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrNoGrid) ||
 		!slices.Equal(reader.retried, []int64{2}) {
 		t.Errorf("a play after film 2's read-through failed = %v, retried %v; want it read through again",
 			err, reader.retried)
 	}
-	if _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrCannotBeCut) {
+	if _, _, err = service.MasterPlaylist(t.Context(), playback); !errors.Is(err, ErrCannotBeCut) {
 		t.Errorf("film 2's read-through failing on the play's attempt = %v; want ErrCannotBeCut", err)
 	}
 }
