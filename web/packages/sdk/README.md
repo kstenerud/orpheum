@@ -30,8 +30,9 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   nudge goes on past the group by that much, so it lands on it rather than nudging again.
   `src/together-drift.test.ts`, `src/together-follow.test.ts`.
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
-  §6), and only the host's own play, pause and seek become commands, never its following's.
-  `src/together-follow.test.ts`.
+  §6), and only the host's own play, pause and seek become commands, never its following's: a
+  move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
+  given up and noted (D268 §4). `src/together-follow.test.ts`, `src/together-own-moves.test.ts`.
 - **After a stall or a seek, a following player is ready again only with `refillAheadMs` loaded
   ahead**, the film's end, or all the browser will load; it corrects nothing while it is still
   loading; a catch-up seek aims ahead by how long its last seek took to load, up to

@@ -105,8 +105,12 @@ const (
 	// NoteLed is a leading player's command, why its kind ("pause", "seek", "play"), with the
 	// player's last events: a host's play was stopped 0.4 s later by a pause no one could say the
 	// source of (the owner's tests, 2026-10-08).
-	NoteLed     NoteKind = "led"
-	NoteUnmuted NoteKind = "unmuted"
+	// NoteOwnMarkExpired is a seek or pause a follower made itself, Why, firing no event within the
+	// time its mark lasts: the mark is given up, so a person's later move is not taken for the
+	// follower's own (D268 §4).
+	NoteOwnMarkExpired NoteKind = "ownMarkExpired"
+	NoteLed            NoteKind = "led"
+	NoteUnmuted        NoteKind = "unmuted"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -206,6 +210,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.RoundTripMs >= 0 && (note.Why == "placed" || note.Why == "kept") && note.Track == ""
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
+	case NoteOwnMarkExpired:
+		return (note.Why == "seek" || note.Why == "pause") && note.Track == ""
 	case NoteDiagnosis, NoteLed:
 		return note.isKnownDiagnosis()
 	}
@@ -223,7 +229,7 @@ func (note PlayerNote) isKnownVoice() bool {
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
-		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed: // not voice's: isKnown reads them
+		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLed, NoteOwnMarkExpired: // not voice's: isKnown reads them
 	}
 	return false
 }

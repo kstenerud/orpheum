@@ -22,6 +22,7 @@ import {
   type QualitySwitched,
 } from "./together-player-events.ts";
 import { nudgeForMs } from "./together-drift.ts";
+import { ownMarkLastsMs } from "./together-own-moves.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
 /**
@@ -632,6 +633,30 @@ describe("a leading player held at a sync point", () => {
     media.fire("pause"); // the hold's pause, its event arriving once the group plays on
     vi.advanceTimersByTime(scrubPauseWindowMs * 2);
     expect(commands).toEqual([]);
+  });
+});
+
+describe("a leading player's own moves", () => {
+  it("gives up a mark whose event never came, noting it, so its person's later pause is a command (D268 §4)", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, commands, notes } = fakeConnection({
+      ...paused,
+      state: "Playing",
+    });
+    followGroup(media, connection, { fileId: 5, isLeading: true, monotonicMs });
+    media.paused = false;
+    // The host pressed play: the group waits, and the hold's pause fires no event.
+    setGroup({ ...paused, state: "Waiting" }, 0);
+    expect(media.paused).toBe(true);
+    monotonicNowMs = ownMarkLastsMs + 1;
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(notes).toContainEqual({ kind: "ownMarkExpired", why: "pause" });
+    setGroup({ ...paused, state: "Playing" }, monotonicNowMs);
+    expect(media.paused).toBe(false);
+    media.paused = true;
+    media.fire("pause"); // its person's pause, a minute later
+    vi.advanceTimersByTime(scrubPauseWindowMs * 2);
+    expect(commands).toEqual([{ command: "pause" }]);
   });
 });
 
