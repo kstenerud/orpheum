@@ -14,6 +14,14 @@
 export const playerMovedItselfEvent = "orpheumplayermoveditself";
 
 /**
+ * The event a player fires at its video as the first chunk of each of its playlists, the picture's
+ * ("main") and the sound's ("audio"), is in its buffer: the follower's page notes what the player
+ * holds then and how hls.js placed it, since an iPhone that jumped 10 s at its start, the chunks'
+ * offset, left only a guess at whether that placing was wrong (the sync review, 2026-10-08).
+ */
+export const playerBufferedFirstEvent = "orpheumplayerbufferedfirst";
+
+/**
  * The event a following player fires at its video as it seeks to catch up with a group it fell
  * behind, having once been in step: a stall in all but name, which a player on a slow link never
  * otherwise counts, every load being a seek's (D247 §2; the owner's test, 2026-10-05).

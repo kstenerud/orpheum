@@ -251,6 +251,31 @@ func TestHub_LogsWhatAPlayerHoldsWhenItMovedItselfOrStalled(t *testing.T) {
 	}
 }
 
+// How a player placed its first chunks, and whether an iPhone's media source lets it load, are
+// logged with what it holds as it buffers each playlist's first chunk: an iPhone's jump of 10 s at
+// its start, the chunks' offset, was left to a guess (the sync review, 2026-10-08). A streaming
+// state the server does not know is refused.
+func TestHub_LogsHowAPlayerPlacedItsFirstChunks(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteDiagnosis, Why: "bufferedFirst", PositionMs: 300_000, ReadyState: 1,
+		Mapping: "initPTS main 10.000; main sn 30 at 300.00 pts 300.00", Streaming: "streaming",
+	}})
+	want := `why=bufferedFirst positionMs=300000 readyState=1`
+	mapping := `mapping="initPTS main 10.000; main sn 30 at 300.00 pts 300.00" streaming=streaming`
+	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, mapping) {
+		t.Errorf("the log does not say how the player placed its first chunk:\n%s", logged)
+	}
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteDiagnosis, Why: "bufferedFirst", Streaming: "maybe",
+	}})
+	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+		t.Errorf("an unknown streaming state answered %+v; want rejected as invalid", rejected)
+	}
+}
+
 // A leading player's command is logged at INFO with its player's last events: a host's play was
 // stopped 0.4 s later by a pause no one could say the source of (the owner's tests, 2026-10-08).
 func TestHub_LogsALeadingPlayersCommandWithItsEvents(t *testing.T) {

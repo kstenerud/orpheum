@@ -74,6 +74,7 @@ export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
 export type { FollowedMedia } from "./together-follow.ts";
 export {
   fellBehindEvent,
+  playerBufferedFirstEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,

@@ -98,9 +98,9 @@ const (
 	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
 	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
 	NotePlayedMuted NoteKind = "playedMuted"
-	// NoteDiagnosis is what a player holds when it moved itself over a gap ("movedItself") or
-	// stalled ("stalled"): an iPhone that jumped 10 s on its own and then sat waiting said nothing
-	// of what it held (the owner's test, 2026-10-08).
+	// NoteDiagnosis is what a player holds when it moved itself over a gap ("movedItself"), stalled
+	// ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): an iPhone that jumped 10 s
+	// on its own and then sat waiting said nothing of what it held (the owner's test, 2026-10-08).
 	NoteDiagnosis NoteKind = "diagnosis"
 	// NoteLed is a leading player's command, why its kind ("pause", "seek", "play"), with the
 	// player's last events: a host's play was stopped 0.4 s later by a pause no one could say the
@@ -149,13 +149,16 @@ type PlayerNote struct {
 	// pong placed the group anew ("placed") or not ("kept").
 	RoundTripMs int64 `json:"roundTripMs,omitempty"`
 	ResidualMs  int64 `json:"residualMs,omitempty"`
-	// ReadyState, VideoBuffered, AudioBuffered and LastError are a diagnosis note's: the video's
-	// readyState, what its picture's and sound's buffers hold, as "from-to" ranges in seconds, and
-	// the last error its player reported.
+	// ReadyState, VideoBuffered, AudioBuffered, LastError, Mapping and Streaming are a diagnosis
+	// note's: the video's readyState, what its picture's and sound's buffers hold, as "from-to"
+	// ranges in seconds, the last error its player reported, how its player placed the first chunk
+	// of each playlist, and whether an iPhone's media source lets it load ("streaming", "stopped").
 	ReadyState    int64  `json:"readyState,omitempty"`
 	VideoBuffered string `json:"videoBuffered,omitempty"`
 	AudioBuffered string `json:"audioBuffered,omitempty"`
 	LastError     string `json:"lastError,omitempty"`
+	Mapping       string `json:"mapping,omitempty"`
+	Streaming     string `json:"streaming,omitempty"`
 	// Events are a led note's player's last events, "<event>[(own)]@<monotonic ms>", oldest first.
 	Events string `json:"events,omitempty"`
 }
@@ -237,13 +240,14 @@ func (note PlayerNote) isKnownVoice() bool {
 // isKnownDiagnosis is whether a diagnosis or led note is one the server logs: why it was sent, a
 // known word for its kind, and its text no longer than diagnosisTextMost.
 func (note PlayerNote) isKnownDiagnosis() bool {
-	whys := []string{"movedItself", "stalled"}
+	whys := []string{"movedItself", "stalled", "bufferedFirst"}
 	if note.Kind == NoteLed {
 		whys = []string{"pause", "seek", "play"}
 	}
 	return slices.Contains(whys, note.Why) && note.Track == "" && len(note.VideoBuffered) <= diagnosisTextMost &&
 		len(note.AudioBuffered) <= diagnosisTextMost && len(note.LastError) <= diagnosisTextMost &&
-		len(note.Events) <= diagnosisTextMost
+		len(note.Events) <= diagnosisTextMost && len(note.Mapping) <= diagnosisTextMost &&
+		slices.Contains([]string{"", "streaming", "stopped"}, note.Streaming)
 }
 
 // isVoicePlayback is whether word is how a voice call's sound plays, as the web client's
