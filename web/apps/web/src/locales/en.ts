@@ -273,6 +273,7 @@ export const en = {
     play: "Play",
   },
   play: {
+    updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
     direct: "Playing the original file, as it is.",
     directFailed: "This browser could not play the original file: {{reason}}.",
     prepared: "Playing a copy prepared for this browser, because {{reasons}}.",

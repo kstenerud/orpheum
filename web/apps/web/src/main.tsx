@@ -15,6 +15,7 @@ import {
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
@@ -31,6 +32,7 @@ const session = createSession(storageIfAllowed(() => window.localStorage));
 const navigation = createNavigation(window);
 const api = createApi({ getToken: session.token });
 api.use(watchForSignOut(session, navigation));
+api.use(pageUpdateWatch.middleware(ownScriptOf(document)));
 const services = {
   api,
   session,

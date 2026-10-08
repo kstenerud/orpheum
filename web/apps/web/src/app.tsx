@@ -4,6 +4,7 @@ import type { Api } from "@orpheum/sdk";
 import { useEffect, useMemo, useSyncExternalStore, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
 import { About } from "./about.tsx";
 import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
@@ -49,11 +50,21 @@ import { WatchTogether } from "./watch-together.tsx";
  */
 export function App(): JSX.Element {
   const route = useRoute();
+  return (
+    <>
+      <RoutedApp route={route} />
+      <ReloadWhenOutdated route={route} />
+    </>
+  );
+}
+
+/** The screen route names, signed in or not. */
+function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.Element {
   const token = useToken();
-  if (route.screen === "register") {
+  if (props.route.screen === "register") {
     return <Register />;
   }
-  if (route.screen === "together") {
+  if (props.route.screen === "together") {
     return <TogetherViewer />;
   }
   return token === undefined ? <SignIn /> : <SignedIn />;

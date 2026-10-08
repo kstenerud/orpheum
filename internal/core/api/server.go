@@ -122,6 +122,8 @@ type Server struct {
 	logger       *slog.Logger
 	health       health
 	dependencies atomic.Pointer[Dependencies]
+	// clientScript is the served web client's script, set before the server serves.
+	clientScript string
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
 	answers idempotentAnswers
 	// togetherSilence is how long a Watch Together device may send nothing, in nanoseconds:
@@ -174,9 +176,31 @@ func NewServer(logger *slog.Logger) *Server {
 	return server
 }
 
-// Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once.
+// Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
+// every answer naming the web client this server serves (ClientScriptHeader).
 func (server *Server) Handler() http.Handler {
-	return server.idempotent(server.pacedMedia(server.mux))
+	return server.namingClient(server.idempotent(server.pacedMedia(server.mux)))
+}
+
+// ClientScriptHeader names, on every answer, the script of the web client this server serves: a
+// page running another, older one, left open across an update, reloads itself when it can (the
+// owner, 2026-10-08: "Maybe the client should send its version and then force a reload if there's
+// a mismatch?"; a host's tab kept running a fixed bug). Absent while the server serves no client.
+const ClientScriptHeader = "X-Orpheum-Client"
+
+// SetClientScript is the name of the web client's script the server serves (webclient.ScriptName).
+func (server *Server) SetClientScript(name string) {
+	server.clientScript = name
+}
+
+// namingClient names the served client's script on every answer next serves.
+func (server *Server) namingClient(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if server.clientScript != "" {
+			writer.Header().Set(ClientScriptHeader, server.clientScript)
+		}
+		next.ServeHTTP(writer, request)
+	})
 }
 
 // Mux is the router, for the composition root to mount debug endpoints beside the API.
