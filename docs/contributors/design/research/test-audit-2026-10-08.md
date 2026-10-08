@@ -437,6 +437,14 @@ about 200 s. Items 6–9 are the owner's gate changes, and should take it to abo
 also cutting `make check`. Items 10–12 trade a test for time; each saves little, and none should
 go in without the owner's trailer.
 
+### What was taken (2026-10-08)
+
+The owner approved the recommendations and the gate changes the same day. Taken: items 1–4 and
+6–9. Item 5 was left: once item 1 made each of the three tests take about 1.5 s, merging them
+would save almost nothing. Items 10–12 trade a test for time and were not proposed for removal.
+Measured afterwards: an unchanged `make check` 17 s against 36 s; the integration tier 10 s; a
+browser-tier run with the films kept 55 s against 84 s.
+
 ## 4. For the dev loop, today, with no change
 
 - **Go:** `go test -run '<Test>' ./<pkg>/` uses the test cache. Leave out `-count=1` unless a
