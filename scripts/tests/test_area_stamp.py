@@ -48,6 +48,9 @@ class AreaStampTest(unittest.TestCase):
         index must keep that time, or a same-size edit in that second reads as unchanged."""
         repo = Repo({"web/a.ts": "1"})
         repo.commit("first")
+        # Git also compares the time a file's inode changed, which no test can set: an edit made
+        # a second later is caught by it, and the case would pass by luck. Only mtime counts here.
+        repo.git("config", "core.trustctime", "false")
         past = 1_700_000_000
         file = repo.root / "web" / "a.ts"
         os.utime(file, (past, past))
