@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A25 — Called a design choice a necessity, and weighed an option by it (2026-10-08)
+
+- **What happened:** setting the decided way to cut a film with no keyframe index (D259 §3)
+  against an alternative, I told the owner that a grid that grows "gets a new id as it grows",
+  so each growth makes a new store, and counted that against the decided way. It is not
+  necessary: the id is a hash of the grid's starts only because a grid was always whole
+  (`Grid.ID`, `internal/core/chunks/streams.go`). Under D259 §1's local rule a start, once
+  known, never changes as more is read, so a growing grid can keep one id. The claim came from
+  reading what the code does as what it must do, at the moment of recommending against it.
+- **Caught by:** the owner: "Why does the grid get a new id as it grows? Is that necessary?"
+- **Gate:** none. The practice: a cost put to the owner against an option says whether it is
+  inherent or only how the code is built now, and an option is not weighed by a cost a small
+  change removes.
+
 ### A24 — Doubled check-pr's time without noticing, and quoted it as normal (2026-10-08)
 
 - **What happened:** check-pr ran in 2.6–5.3 minutes through 2026-10-07. Two of the agent's commits
