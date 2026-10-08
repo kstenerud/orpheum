@@ -11,7 +11,9 @@ import {
   chunkLoadPolicy,
   chunkedHlsConfig,
   paceHeader,
+  playerFoundUnplayableEvent,
   settledAtBps,
+  unplayableOf,
 } from "./chunked.ts";
 
 /** Three qualities, as hls.js reads them from the playlist. */
@@ -95,5 +97,22 @@ describe("asking the server to pace a download (D262 §2)", () => {
     pace = undefined;
     void config.xhrSetup?.(xhr, "/c/q1200k480p/00002.m4s", loaderContext);
     expect(headers).toEqual([[paceHeader, "1863"]]);
+  });
+});
+
+describe("a quality given up as unplayable, as its event tells it (D266)", () => {
+  it("carries where, and the video as it was before its decoding was built anew", () => {
+    const detail = {
+      qualityKbps: 25_991,
+      positionMs: 382_111,
+      readyState: 1,
+      videoBuffered: "378.59-501.83",
+      audioBuffered: "387.95-508.10",
+      lastError: "",
+    };
+    expect(unplayableOf(new CustomEvent(playerFoundUnplayableEvent, { detail }))).toEqual(detail);
+    expect(
+      unplayableOf(new CustomEvent(playerFoundUnplayableEvent, { detail: { qualityKbps: 1 } })),
+    ).toBeUndefined();
   });
 });

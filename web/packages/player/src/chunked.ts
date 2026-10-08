@@ -6,7 +6,7 @@ import { isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
 import { orpheumAbr } from "./abr.ts";
-import { diagnose } from "./diagnosis.ts";
+import { diagnose, diagnosisOf } from "./diagnosis.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -43,6 +43,15 @@ export const playerFoundUnplayableEvent = "orpheumplayerfoundunplayable";
 export interface UnplayableQuality {
   readonly qualityKbps: number;
   readonly positionMs: number;
+  /**
+   * The video as it was when the quality was given up, before its decoding was built anew: its
+   * readyState, what its picture's and sound's buffers held, and its last error. A stall reported
+   * after showed only the rebuilt pipeline refilling (D266).
+   */
+  readonly readyState?: number;
+  readonly videoBuffered?: string;
+  readonly audioBuffered?: string;
+  readonly lastError?: string;
 }
 
 /** An event's UnplayableQuality, or undefined when it carries none. */
@@ -54,10 +63,38 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
   if (typeof detail !== "object" || detail === null) {
     return undefined;
   }
-  const { qualityKbps, positionMs } = Object.fromEntries(Object.entries(detail));
-  return typeof qualityKbps === "number" && typeof positionMs === "number"
-    ? { qualityKbps, positionMs }
-    : undefined;
+  const fields = Object.fromEntries(Object.entries(detail));
+  const { qualityKbps, positionMs, readyState } = fields;
+  if (typeof qualityKbps !== "number" || typeof positionMs !== "number") {
+    return undefined;
+  }
+  const text = (key: string): Readonly<Record<string, string>> =>
+    typeof fields[key] === "string" ? { [key]: fields[key] } : {};
+  return {
+    qualityKbps,
+    positionMs,
+    ...(typeof readyState === "number" ? { readyState } : {}),
+    ...text("videoBuffered"),
+    ...text("audioBuffered"),
+    ...text("lastError"),
+  };
+}
+
+/**
+ * Sends video a playerFoundUnplayableEvent for each quality given up, with the video as it was,
+ * read before its decoding is built anew, which empties every buffer (D266).
+ */
+function sendUnplayable(
+  video: HTMLVideoElement,
+): (unplayable: { readonly qualityKbps: number; readonly positionMs: number }) => void {
+  return (unplayable) => {
+    const found: UnplayableQuality = {
+      ...unplayable,
+      readyState: video.readyState,
+      ...diagnosisOf(video),
+    };
+    video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));
+  };
 }
 
 /** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
@@ -224,9 +261,7 @@ export function playChunked(
     startAtBps: options.startAtBps,
     monotonicMs: options.monotonicMs,
     isVoiceLive,
-    onUnplayable: (unplayable) => {
-      video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: unplayable }));
-    },
+    onUnplayable: sendUnplayable(video),
   });
   const hls = new Hls({
     ...chunkedHlsConfig({ ...options, paceKbps: () => abr.choosing()?.paceKbps() }),
