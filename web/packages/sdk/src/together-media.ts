@@ -70,36 +70,43 @@ export function hasRefilled(media: FollowedMedia): boolean {
   if (media.networkState === networkIdle) {
     return true;
   }
-  const { buffered, currentTime } = media;
-  for (let index = 0; index < buffered.length; index++) {
-    const endS = buffered.end(index);
-    if (buffered.start(index) <= currentTime && currentTime <= endS) {
-      return (endS - currentTime) * 1000 >= refillAheadMs || endS >= media.duration;
-    }
-  }
-  return false;
+  const endS = loadedEndS(media);
+  return (
+    endS !== undefined &&
+    ((endS - media.currentTime) * 1000 >= refillAheadMs || endS >= media.duration)
+  );
 }
 
-/** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
-export function loadedEndMs(media: FollowedMedia): number | undefined {
+/**
+ * How far before what it loaded a player's position may be and still be on it, in seconds: a
+ * player held at its start through playableAt can read a hair before it. One scan, hasRefilled's,
+ * once lacked it, and a player so held kept saying it buffered (the M4 closing audit, 2026-10-08).
+ */
+const onLoadedToleranceS = 0.001;
+
+/** The end, in seconds, of what the player loaded where it is, or undefined where it loaded nothing. */
+function loadedEndS(media: FollowedMedia): number | undefined {
   const { buffered, currentTime } = media;
   for (let index = 0; index < buffered.length; index++) {
-    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
-      return buffered.end(index) * 1000;
+    if (
+      buffered.start(index) - onLoadedToleranceS <= currentTime &&
+      currentTime <= buffered.end(index)
+    ) {
+      return buffered.end(index);
     }
   }
   return undefined;
 }
 
+/** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
+export function loadedEndMs(media: FollowedMedia): number | undefined {
+  const endS = loadedEndS(media);
+  return endS === undefined ? undefined : endS * 1000;
+}
+
 /** Whether the player's position is on something it loaded, to within a millisecond. */
 export function isOnLoaded(media: FollowedMedia): boolean {
-  const { buffered, currentTime } = media;
-  for (let index = 0; index < buffered.length; index++) {
-    if (buffered.start(index) - 0.001 <= currentTime && currentTime <= buffered.end(index)) {
-      return true;
-    }
-  }
-  return false;
+  return loadedEndS(media) !== undefined;
 }
 
 /**
