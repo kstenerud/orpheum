@@ -270,7 +270,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D262](working-notes.md#d262--voice-keeps-working-on-a-bad-link-measured-honestly-sent-to-survive-loss-and-the-film-gives-way-to-it) Voice keeps working on a bad link: measured honestly, sent to survive loss, and the film gives way to it — *revisited by D263, D265*
 - [D263](working-notes.md#d263--the-acceptances-networks-are-realistic-links-emulated-without-artefacts-its-bounds-are-per-client-pair-and-the-server-sends-media-with-bbr) The acceptance's networks are realistic links, emulated without artefacts, its bounds are per client pair, and the server sends media with BBR
 - [D264](working-notes.md#d264--a-follower-places-its-group-by-the-pong-with-the-shortest-round-trip-which-carries-where-the-group-is) A follower places its group by the pong with the shortest round trip, which carries where the group is
-- [D265](working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs) The chunked player chooses its quality with a bitrate controller of its own, inside hls.js
+- [D265](working-notes.md#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs) The chunked player chooses its quality with a bitrate controller of its own, inside hls.js — *revisited by D266*
+- [D266](working-notes.md#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up) A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up
 
 ## Archived
 

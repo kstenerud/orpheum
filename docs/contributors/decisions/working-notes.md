@@ -18718,6 +18718,8 @@ follower's own monotonic clock from the moment it arrived.
 
 ## D265 — The chunked player chooses its quality with a bitrate controller of its own, inside hls.js
 
+> **Refined by [D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)** (2026-10-07): a quality whose video stands still while its chunks arrive is given up as one the device cannot play.
+
 **Decided** (2026-10-07), by the project owner: asked for a bitrate controller of our own in place
 of the patches on hls.js's, then, on [abr-controller.md](../design/research/abr-controller.md)'s
 four new rules, *"Approve all three"* and the fourth, the cache-hit filter, approved. **Refines**
@@ -18760,5 +18762,28 @@ the voice cap ratcheted the film to its lowest quality.
 hls.js's checks of what the browser decodes and its penalty for a quality that failed are not
 kept: the core offers only what the player decodes (D260 §1), and a quality that fails forces a
 switch down (§8).
+
+**Status:** Decided 2026-10-07.
+
+## D266 — A quality whose video stands still while its chunks arrive is one the device cannot play, and is given up
+
+**Decided** (2026-10-07), by the project owner: *"yes"*, on Flow freezing in Firefox on macOS at
+any start but the film's beginning. **Refines**
+[D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs).
+
+Flow's own picture is 10-bit HEVC by x265, whose keyframes are CRA after the first, an IDR; every
+chunk of its picture but the first starts on a CRA. Firefox on macOS decodes HEVC through the
+system and froze at the first frame of any such chunk, spinning while its chunks kept arriving;
+Safari played it, and so did Firefox from the start (the owner's test). No browser says so before
+it tries: it says it plays HEVC, and does, from an IDR. Branching on the browser's name is not
+done (the User-Agent is logged only).
+
+1. **A quality is unplayable on this device** when its video, asked to play, has stood still for
+   6 s while at least two chunks of picture arrived: the link carries them, and the decoder does
+   not play them. A slow link brings fewer, and a chunk being made none.
+2. **It is given up for the rest of the playback**, with every quality above it: what is loaded is
+   dropped and the video loads again from where it stood, at the highest quality below it; neither
+   the step-up nor hls.js's own forcing chooses it again.
+3. **The play report tells the core**, which logs the quality and where it stood.
 
 **Status:** Decided 2026-10-07.
