@@ -199,6 +199,9 @@ PR_LAST_STEP := check-revert-red
 # revert-red, alone, as it shapes the container's loopback, which every tier's tests cross.
 # check-pr-failed does not re-run it: `make test-acceptance-home BASE=...` does.
 PR_SERIAL_STEP := test-acceptance-home
+# How long check-pr may take, in seconds: the owner's five minutes (agent-failures A24). A pass
+# over it says so in its one line.
+CHECK_PR_BUDGET_S := 300
 
 .PHONY: check-pr
 check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
@@ -206,7 +209,7 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 
 .PHONY: check-pr-verbose
 check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), the tiers in parallel, then revert-red; a pass marks HEAD as checked
-	@base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
+	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
@@ -215,7 +218,11 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%); \
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
-	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base"
+	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
+	    took=$$(( $$(date +%s) - started )); \
+	    if [ "$$took" -gt $(CHECK_PR_BUDGET_S) ]; then \
+	      echo "make check-pr: passed in $${took} s, over its $(CHECK_PR_BUDGET_S) s budget: find the step that grew (standards/makefile.md)"; \
+	    else echo "make check-pr: passed in $${took} s"; fi; }
 
 # The loop's re-run: never a pass of check-pr, which is still required before a branch is done.
 .PHONY: check-pr-failed
@@ -301,16 +308,20 @@ test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under 
 	@$(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts
 
 # The branch gate's short acceptance run (D252 §2, D261 §2): home alone, ACCEPTANCE_HOME_MINUTES
-# long; in check-pr, only when what the browser tier builds changed.
-ACCEPTANCE_HOME_MINUTES ?= 2
+# long, its film with voice beside it only; in check-pr, only when what the browser tier builds
+# changed. Voice alone is the full acceptance's: here it doubled check-pr's time (agent-failures A24).
+ACCEPTANCE_HOME_MINUTES ?= 1
 
 .PHONY: test-acceptance-home
 test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when what it builds changed
 	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
 	  ORPHEUM_ACCEPTANCE_MINUTES=$(ACCEPTANCE_HOME_MINUTES) ORPHEUM_ACCEPTANCE_PROFILES=home \
-	    $(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts; fi
+	    $(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts \
+	      E2E_ARGS='--grep "stay in step"'; fi
 
 E2E_CONFIG ?= web/e2e/playwright.config.ts
+# Playwright's own arguments for one run, such as a --grep; none by default.
+E2E_ARGS ?=
 
 .PHONY: browser-tier
 browser-tier:
@@ -319,7 +330,7 @@ browser-tier:
 	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
 	@go build -tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum; status=$$?; $(WEBCLIENT_CLEAR); exit $$status
 	@$(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum-browser" ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" \
-		npm --prefix web exec -- playwright test --config $(E2E_CONFIG)
+		npm --prefix web exec -- playwright test --config $(E2E_CONFIG) $(E2E_ARGS)
 
 # ---------------------------------------------------------------------------------------------
 # Building and generating
