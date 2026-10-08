@@ -113,7 +113,13 @@ interface DecisionTimes {
   readonly decidedMs: number;
 }
 
-/** Each playback's decision times, by media token, until its reporting takes them. */
+/** How many playbacks' decision times a tab keeps, the newest: more than a person starts at once. */
+export const decisionTimesKept = 8;
+
+/**
+ * Each playback's decision times, by media token, until its reporting takes them, the newest
+ * decisionTimesKept.
+ */
 const decisionTimesByToken = new Map<string, DecisionTimes>();
 
 /**
@@ -122,6 +128,14 @@ const decisionTimesByToken = new Map<string, DecisionTimes>();
  */
 export function noteDecisionTimes(mediaToken: string, askedMs: number, decidedMs: number): void {
   decisionTimesByToken.set(mediaToken, { askedMs, decidedMs });
+  // A film page's warm-up that is never played is never told: the oldest are let go of, so the
+  // tab keeps a few at most (the M4 closing audit, 2026-10-08).
+  for (const oldest of decisionTimesByToken.keys()) {
+    if (decisionTimesByToken.size <= decisionTimesKept) {
+      break;
+    }
+    decisionTimesByToken.delete(oldest);
+  }
 }
 
 /** When the playback mediaToken names was asked for and decided, until its start is told. */
@@ -145,12 +159,12 @@ function startupListeners(
   if (times === undefined) {
     return {};
   }
-  let firstDataAfterMs: number | undefined;
+  let firstDataAtMs: number | undefined;
   let isTold = false;
   const sinceAsked = (ms: number): number => Math.max(0, Math.round(ms - times.askedMs));
   return {
     loadeddata: () => {
-      firstDataAfterMs ??= performance.now();
+      firstDataAtMs ??= performance.now();
     },
     playing: () => {
       if (isTold || !hasMedia(video)) {
@@ -158,11 +172,11 @@ function startupListeners(
       }
       isTold = true;
       decisionTimesByToken.delete(mediaToken);
-      const playingAfterMs = performance.now();
+      const playingAtMs = performance.now();
       reporter.recordStartup({
         decidedAfterMs: sinceAsked(times.decidedMs),
-        firstDataAfterMs: sinceAsked(firstDataAfterMs ?? playingAfterMs),
-        playingAfterMs: sinceAsked(playingAfterMs),
+        firstDataAfterMs: sinceAsked(firstDataAtMs ?? playingAtMs),
+        playingAfterMs: sinceAsked(playingAtMs),
       });
     },
   };
