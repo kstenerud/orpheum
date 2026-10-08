@@ -12,19 +12,30 @@ export const nudgeForMs = 1000;
 
 /**
  * Where a group is at the monotonic time nowMs, having been told it at receivedAtMs by a message
- * that took transitMs (none when not given) to arrive: a playing group has moved on at its rate since it was sent (D66:
- * no clock is shared; the round trip bounds how old a message is). Without the transit, every
- * follower sat behind the group by its message's way from the server, 530 ms on a congested link
- * (M4's acceptance, 2026-10-06).
+ * that took transitMs (none when not given) to arrive: a playing group has moved on at its rate
+ * since it was sent, or since it started, its startsInMs after (D66: no clock is shared; the round
+ * trip bounds how old a message is; D268 §3). Without the transit, every follower sat behind the
+ * group by its message's way from the server, 530 ms on a congested link (M4's acceptance,
+ * 2026-10-06).
  */
 export function expectedPositionMs(
   group: GroupView,
   at: { readonly receivedAtMs: number; readonly nowMs: number; readonly transitMs?: number },
 ): number {
-  const { receivedAtMs, nowMs, transitMs = 0 } = at;
   return group.state === "Playing"
-    ? group.positionMs + (nowMs - receivedAtMs + transitMs) * group.rate
+    ? group.positionMs + Math.max(0, at.nowMs - startsAtMs(group, at)) * group.rate
     : group.positionMs;
+}
+
+/**
+ * When, on the monotonic clock, a playing group told at receivedAtMs by a message that took
+ * transitMs starts moving: when the message was sent, plus what was left of its start's lead.
+ */
+export function startsAtMs(
+  group: GroupView,
+  at: { readonly receivedAtMs: number; readonly transitMs?: number },
+): number {
+  return at.receivedAtMs - (at.transitMs ?? 0) + (group.startsInMs ?? 0);
 }
 
 /** What to do about the distance between where a player is and where the group is. */

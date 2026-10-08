@@ -35,6 +35,10 @@
 //     whoever is not ready, the host's player as anyone's, but never to no one (D250 §3). Enforced
 //     by TestHub_ASyncPointWaitsAtMostTheSyncWaitThenPlaysWithoutWhoeverIsNotReady and
 //     TestHub_WithNoPlayerReadyASyncPointWaitsOnPastItsTime.
+//   - A group that starts playing at a sync point's end stands at its position for the start's lead
+//     its devices were welcomed with, and says what is left of it, so every player starts at once;
+//     one that plays on moves on as it was (D268 §3). Enforced by
+//     TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds.
 //   - Only the host controls playback in Cut A, and stopping leaves nothing on; a seek made against
 //     a group another seek has changed is refused as stale (D246 §5, §8). Enforced by
 //     TestHub_OnlyTheHostControlsPlayback, TestHub_TheHostStoppingLeavesNothingPlaying and

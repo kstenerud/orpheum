@@ -63,7 +63,9 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 			refuse(codeInvalid)
 			return
 		}
-		current.group.position, current.group.at = current.positionAt(now), now
+		if now.After(current.group.at) { // a start's lead is kept
+			current.group.position, current.group.at = current.positionAt(now), now
+		}
 		current.group.rate = message.Rate
 		current.change(now, current.group.state, EventChangedRate, sender.id)
 	case CommandChangeItem, CommandStop:
@@ -182,11 +184,17 @@ func (current *session) change(now time.Time, state GroupState, event EventKind,
 	current.announce(now, state, event, byMember, 0)
 }
 
-// announce is change, with where a seek jumped from.
+// announce is change, with where a seek jumped from. A group that starts playing starts moving
+// startLead from now, so every player starts at once (D268 §3); one that plays on moves on as it was.
 func (current *session) announce(
 	now time.Time, state GroupState, event EventKind, byMember int64, seekedFrom time.Duration,
 ) {
-	current.group.position, current.group.at = current.positionAt(now), now
+	switch {
+	case state == GroupPlaying && current.group.state != GroupPlaying:
+		current.group.position, current.group.at = current.positionAt(now), now.Add(current.startLead)
+	case state != GroupPlaying || current.group.state != GroupPlaying:
+		current.group.position, current.group.at = current.positionAt(now), now
+	}
 	current.group.state = state
 	current.group.event, current.group.byMember, current.group.seekedFrom = event, byMember, seekedFrom
 	if state == GroupWaiting {
@@ -207,6 +215,9 @@ func (current *session) logChange(now time.Time) {
 		"sessionId", current.id, "state", string(current.group.state), "event", string(current.group.event),
 		"byMemberId", current.group.byMember, "fileId", current.group.fileID,
 		positionMsAttribute, current.positionAt(now).Milliseconds(),
+	}
+	if startsIn := current.startsIn(now); startsIn > 0 {
+		attributes = append(attributes, "startsInMs", startsIn.Milliseconds())
 	}
 	if current.group.state == GroupWaiting {
 		attributes = append(attributes, "waitingForMemberIds", current.membersNotReady(),
@@ -231,9 +242,10 @@ func (current *session) membersNotReady() []int64 {
 	return waited
 }
 
-// positionAt is where the group is at now: moving at its rate while it plays.
+// positionAt is where the group is at now: moving at its rate while it plays, once its start's
+// lead is over.
 func (current *session) positionAt(now time.Time) time.Duration {
-	if current.group.state != GroupPlaying {
+	if current.group.state != GroupPlaying || now.Before(current.group.at) {
 		return current.group.position
 	}
 	elapsed := now.Sub(current.group.at)
@@ -245,8 +257,16 @@ func (current *session) groupView(now time.Time) *GroupView {
 	return &GroupView{
 		State: current.group.state, PositionMs: current.positionAt(now).Milliseconds(), Rate: current.group.rate,
 		FileID: current.group.fileID, Event: current.group.event, ByMemberID: current.group.byMember,
-		SeekedFromMs: current.group.seekedFrom.Milliseconds(),
+		SeekedFromMs: current.group.seekedFrom.Milliseconds(), StartsInMs: current.startsIn(now).Milliseconds(),
 	}
+}
+
+// startsIn is how long after now a playing group starts moving: what is left of its start's lead.
+func (current *session) startsIn(now time.Time) time.Duration {
+	if current.group.state != GroupPlaying || !now.Before(current.group.at) {
+		return 0
+	}
+	return current.group.at.Sub(now)
 }
 
 // everyPlayerSetsRate is whether every device that plays can set its rate: a group's rate stays

@@ -85,8 +85,11 @@ type session struct {
 	// syncWait is how long a sync point waits for the players (D250 §3): the setting's, as the last
 	// device to attach brought it.
 	syncWait time.Duration
-	links    map[int64]*link
-	members  map[int64]*member
+	// startLead is how long after a sync point's wait ends the group starts moving (D268 §3): the
+	// setting's, as the last device to attach brought it; none until one has.
+	startLead time.Duration
+	links     map[int64]*link
+	members   map[int64]*member
 	// logger is the hub's: each change of the group is logged with the session's id.
 	logger *slog.Logger
 }
@@ -464,6 +467,7 @@ func (hub *Hub) Attach(
 	if tuning.SyncWaitMs > 0 {
 		attached.syncWait = time.Duration(tuning.SyncWaitMs) * time.Millisecond
 	}
+	attached.startLead = time.Duration(tuning.StartLeadMs) * time.Millisecond
 	hub.lastID++
 	attachedMember.devices[hub.lastID] = &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
 	send(Outbound{

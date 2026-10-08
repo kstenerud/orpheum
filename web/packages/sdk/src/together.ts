@@ -43,6 +43,11 @@ export interface GroupView {
   readonly seekedFromMs: number;
   /** The member whose command or state caused the event; undefined when no one did. */
   readonly byMemberId: number | undefined;
+  /**
+   * For a group that is Playing, how long after the message was sent it starts moving from
+   * positionMs, so every player starts at once (D268 §3); 0, or absent, once it moves.
+   */
+  readonly startsInMs?: number | undefined;
 }
 
 /**
@@ -204,6 +209,7 @@ function parseGroup(value: unknown): GroupView | undefined {
     fileId: numberIn(record, "fileId"),
     event: groupEvents.find((each) => each === record["event"]),
     seekedFromMs: numberIn(record, "seekedFromMs"),
+    startsInMs: numberIn(record, "startsInMs"),
     byMemberId: byMemberId === 0 ? undefined : byMemberId,
   };
 }

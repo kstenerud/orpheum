@@ -374,6 +374,9 @@ type Tuning struct {
 	// SyncWaitMs is how long a sync point waits for the players before playing without those not
 	// ready (D250 §3): the server's own, told so a client may say so.
 	SyncWaitMs int64 `json:"syncWaitMs"`
+	// StartLeadMs is how long after a sync point's wait ends every player starts playing: the
+	// server's own, as each group message's StartsInMs says what is left of it (D268 §3).
+	StartLeadMs int64 `json:"startLeadMs"`
 	// SettleAfterChangeMs is how long after it starts playing, finishes a seek or changes its rate
 	// a player's position is not read for drift: Safari's stands still for a moment then (D250 §7).
 	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`
@@ -411,6 +414,10 @@ type GroupView struct {
 	ByMemberID int64     `json:"byMemberId,omitempty"`
 	// SeekedFromMs is where a seek jumped from; PositionMs is where it jumped to.
 	SeekedFromMs int64 `json:"seekedFromMs,omitempty"`
+	// StartsInMs is, for a group that is Playing, how long after the message was sent it starts
+	// moving from PositionMs: what is left of the start's lead, so every player starts at once
+	// (D268 §3). Zero once it moves.
+	StartsInMs int64 `json:"startsInMs,omitempty"`
 }
 
 // EventKind is what changed the group: a code a client words for its viewer, never words.
