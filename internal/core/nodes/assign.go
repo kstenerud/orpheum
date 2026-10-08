@@ -95,6 +95,10 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 		Token: token, JobID: job.ID, Kind: job.Kind, NodeID: nodeID, NodeStartID: all.sender.StartOf(nodeID),
 		Work: command.WithoutBytes(), SentAt: now, Priority: job.Priority,
 	}
+	// Kept before its command is queued, it is on its way to a status until then.
+	if all.unsent != nil {
+		all.unsent.WillSend(nodeID, token)
+	}
 	if err := all.keep(ctx, attempt); err != nil {
 		return err
 	}

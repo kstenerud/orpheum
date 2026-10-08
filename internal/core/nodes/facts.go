@@ -72,6 +72,14 @@ func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *no
 				delete(existing.seqByToken, token)
 			}
 		}
+		now := service.clock.Now()
+		for token, since := range existing.unsentSince {
+			if now.Sub(since) < unsentGrace {
+				onTheirWay[token] = true
+			} else {
+				delete(existing.unsentSince, token)
+			}
+		}
 	}
 	service.mutex.Unlock()
 	if service.resultSink != nil {

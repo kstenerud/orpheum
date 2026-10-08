@@ -40,6 +40,8 @@ type recordingSender struct {
 	withdrawn []string
 	// startID is the start its last hello named.
 	startID string
+	// willSend are the attempts said to be on their way before their commands were queued, by token.
+	willSend []string
 }
 
 func (sender *recordingSender) StartOf(int64) string { return sender.startID }
@@ -71,6 +73,10 @@ func (sender *recordingSender) Send(_ context.Context, _ int64, command nodeprot
 }
 
 func (sender *recordingSender) Enqueue(_ int64, command nodeproto.Command) { sender.sent <- command }
+
+func (sender *recordingSender) WillSend(_ int64, token string) {
+	sender.willSend = append(sender.willSend, token)
+}
 
 func (sender *recordingSender) Unanswered(_ context.Context, _ int64, err error) error {
 	if sender.isGone {
@@ -122,8 +128,9 @@ func newExchanges(t *testing.T) exchangeBench {
 	database := storetest.OpenMigrated(t)
 	bench.cache = storetest.OpenCache(t)
 	bench.exchanges = nodes.NewExchanges(nodes.ExchangeParts{
-		Sender: bench.sender, Rooms: bench.sender, Clock: bench.now, Random: rand.Reader, Logger: logger,
-		Cache: bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
+		Sender: bench.sender, Rooms: bench.sender, Unsent: bench.sender, Clock: bench.now, Random: rand.Reader,
+		Logger: logger,
+		Cache:  bench.cache, Settings: settingstest.Seeded(t, database), MaxSilence: time.Minute,
 	})
 	return bench
 }

@@ -81,6 +81,7 @@ func (resources Resources) deviceOf(work nodeproto.Work) string {
 type Exchanges struct {
 	sender     Sender
 	rooms      Rooms
+	unsent     Unsent
 	clock      clock.Clock
 	random     io.Reader
 	logger     *slog.Logger
@@ -114,6 +115,14 @@ type ExchangeParts struct {
 	MaxSilence time.Duration
 	// Rooms are what each node can run at once: Service.
 	Rooms Rooms
+	// Unsent hears of each attempt kept before its command is queued: Service. Nil hears nothing.
+	Unsent Unsent
+}
+
+// Unsent hears that the command of attempt token will be queued for a node once its job is recorded
+// assigned: until then, or unsentGrace, no status judges it lost (Service.WillSend).
+type Unsent interface {
+	WillSend(nodeID int64, token string)
 }
 
 // Recorder records what a node's result on one kind of work establishes, by the content its echoed
@@ -187,7 +196,7 @@ var ErrNodeRestarted = fmt.Errorf("the node started again: %w", ErrWorkLost)
 func NewExchanges(parts ExchangeParts) *Exchanges {
 	return &Exchanges{
 		sender: parts.Sender, clock: parts.Clock, random: parts.Random, logger: parts.Logger, cache: parts.Cache,
-		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms,
+		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms, unsent: parts.Unsent,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
 		brokenInvariants: map[int64]int{},
