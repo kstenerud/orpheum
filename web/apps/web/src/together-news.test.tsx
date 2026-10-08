@@ -39,6 +39,7 @@ const snapshot: TogetherSnapshot = {
   endReason: undefined,
   minimumRttMs: undefined,
   lastRejectionCode: undefined,
+  answersHeard: 0,
   tuning: startingTuning,
 };
 

@@ -93,6 +93,7 @@ function snapshotOf(group: GroupView, tuning: SyncTuning, minimumRttMs?: number)
     endReason: undefined,
     minimumRttMs,
     lastRejectionCode: undefined,
+    answersHeard: 0,
     tuning,
   };
 }
@@ -105,6 +106,8 @@ export function fakeConnection(
 ): Given & {
   connection: TogetherConnection;
   setGroup: (next: GroupView, receivedAtMs: number, placedByRttMs?: number) => void;
+  /** The connection changing with no answer to a command, as a pong or a roster does. */
+  heardNoAnswer: () => void;
 } {
   let snapshot = snapshotOf(group, tuning, minimumRttMs);
   let listener = (): void => undefined;
@@ -118,7 +121,11 @@ export function fakeConnection(
         group: next,
         groupReceivedAtMs: receivedAtMs,
         groupPlacedByRttMs: placedByRttMs,
+        answersHeard: snapshot.answersHeard + 1,
       };
+      listener();
+    },
+    heardNoAnswer: () => {
       listener();
     },
     connection: {

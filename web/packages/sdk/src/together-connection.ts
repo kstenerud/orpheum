@@ -218,6 +218,11 @@ export interface TogetherSnapshot {
   readonly minimumRttMs: number | undefined;
   /** The last command the server refused, by its code (cut-a §5.2). */
   readonly lastRejectionCode: string | undefined;
+  /**
+   * How many messages that answer a command, a group or a rejection, have been heard: a command
+   * is answered once it moves on, and a pong or a roster is no answer.
+   */
+  readonly answersHeard: number;
   /** How to follow the group, as the welcome said (D250 §1). */
   readonly tuning: SyncTuning;
 }
@@ -266,6 +271,7 @@ const startingSnapshot: TogetherSnapshot = {
   endReason: undefined,
   minimumRttMs: undefined,
   lastRejectionCode: undefined,
+  answersHeard: 0,
   tuning: startingTuning,
 };
 
@@ -396,13 +402,21 @@ function afterMessage(
         roster: message.roster,
         minimumRttMs: undefined,
         tuning: message.tuning,
+        answersHeard: current.answersHeard + 1,
       };
     case "group":
-      return afterGroup(current, message.group, nowMs);
+      return {
+        ...afterGroup(current, message.group, nowMs),
+        answersHeard: current.answersHeard + 1,
+      };
     case "roster":
       return { ...current, roster: message.roster };
     case "rejected":
-      return { ...current, lastRejectionCode: message.code };
+      return {
+        ...current,
+        lastRejectionCode: message.code,
+        answersHeard: current.answersHeard + 1,
+      };
     case "pong":
       return afterPong(current, message, nowMs);
     case "ended":
