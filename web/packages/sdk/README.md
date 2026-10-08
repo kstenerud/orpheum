@@ -33,6 +33,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   beyond `seekOnlyLeaveDriftUpToMs`, each aimed past the group by what its seeks have learned to lose
   (D268 §2). `src/together-follow-devices.test.ts`.
   `src/together-drift.test.ts`, `src/together-follow.test.ts`.
+- **Where a following player is in correcting its drift is one phase**: following, nudging,
+  returning to the group's rate, skipping, or waiting ahead, moved only by `nextPhase`; what holds
+  beside any phase (refilling, a command awaiting the group, settling, correcting by seeks alone)
+  are the follower's facts, not phases (the sync review, 2026-10-08). `src/together-phase.test.ts`.
 - **A Watch Together player holds no one up until it has once been where the group is** (D246
   §6), and only the host's own play, pause and seek become commands, never its following's: a
   move it makes itself is marked, and a mark whose event has not come within `ownMarkLastsMs` is
