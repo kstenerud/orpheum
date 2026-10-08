@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Tests for area_stamp.py: a step runs again only when what it reads changed since it
 # ABOUTME: passed, and a failure records nothing.
+import os
 import sys
 import tempfile
 import unittest
@@ -41,6 +42,25 @@ class AreaStampTest(unittest.TestCase):
             repo.write({"scripts/s.py": "2"})
             self.assertEqual(area_stamp.main(passing), 0)
         self.assertEqual(ran.read_text().splitlines(), ["x", "y", "y"])
+
+    def test_a_file_changed_in_the_second_the_index_was_written_is_seen(self) -> None:
+        """Git re-hashes a file whose time is not before the index's own: the scratch copy of the
+        index must keep that time, or a same-size edit in that second reads as unchanged."""
+        repo = Repo({"web/a.ts": "1"})
+        repo.commit("first")
+        past = 1_700_000_000
+        file = repo.root / "web" / "a.ts"
+        os.utime(file, (past, past))
+        repo.git("update-index", "--refresh")  # the index records the file at that time
+        os.utime(repo.root / ".git" / "index", (past, past))  # and was written in that second
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        step = ["web-test", "web", "--", "sh", "-c", f"echo x >> {ran}"]
+        with repo.cwd():
+            self.assertEqual(area_stamp.main(step), 0)
+            file.write_text("2")  # the same size, in the same second
+            os.utime(file, (past, past))
+            self.assertEqual(area_stamp.main(step), 0)
+        self.assertEqual(ran.read_text(), "x\nx\n")
 
     def test_a_step_without_its_command_is_refused(self) -> None:
         self.assertEqual(area_stamp.main(["web-test", "web"]), 2)

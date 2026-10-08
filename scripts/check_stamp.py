@@ -31,7 +31,10 @@ def working_tree_id() -> str:
     with tempfile.TemporaryDirectory() as scratch:
         copy = Path(scratch) / "index"
         if index.exists():
-            shutil.copyfile(index, copy)  # its stat cache spares hashing unchanged files
+            # Its stat cache spares hashing unchanged files. Its own time is kept, by which git
+            # re-hashes a file changed in the second the index was written: a fresh copy's time
+            # took such a file, edited to the same size, for unchanged (2026-10-08).
+            shutil.copy2(index, copy)
         env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         env["GIT_INDEX_FILE"] = str(copy)
         _git("add", "-A", env=env)
