@@ -312,7 +312,7 @@ type FinishedPrepareBody struct {
 	SourceFileID int64  `json:"sourceFileId"`
 	Path         string `doc:"Empty when the library no longer has the file" json:"path"`
 	// Profile is what was made; State how it ended.
-	Profile        string  `enum:"remux,h264-8m" json:"profile"`
+	Profile        string  `enum:"remux,h264" json:"profile"`
 	State          string  `enum:"complete,failed" json:"state"`
 	VideoEncoder   string  `doc:"h264_qsv, h264_nvenc, x264, or copy for a remux" json:"videoEncoder,omitempty"`
 	RealtimeFactor float64 `doc:"Seconds of the source prepared per second of running" json:"realtimeFactor,omitempty"`

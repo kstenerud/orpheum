@@ -1391,7 +1391,7 @@
           "profile": {
             "enum": [
               "remux",
-              "h264-8m"
+              "h264"
             ],
             "type": "string"
           },
@@ -4460,7 +4460,7 @@
           "profile": {
             "enum": [
               "remux",
-              "h264-8m"
+              "h264"
             ],
             "type": "string"
           },

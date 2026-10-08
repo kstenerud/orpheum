@@ -59,7 +59,7 @@ func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testi
 	if _, full := bench.assignAt(t, 3, remux); full != jobs.SlotDestination(1, "remux") {
 		t.Errorf("a third remux waits on %q, want the node's remux slot", full)
 	}
-	encode := prepareOf(nodeproto.ProfileH264At8M)
+	encode := prepareOf(nodeproto.ProfileH264)
 	if _, full := bench.assignAt(t, 4, encode); full != "" {
 		t.Fatalf("an encode, with tank's two readers and one more, waits on %q", full)
 	}
@@ -103,7 +103,7 @@ func TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders(t *testing.T) {
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
 		ReaderLimits: map[string]int{"zfs:tank": 1},
 	}
-	encode := prepareOf(nodeproto.ProfileH264At8M)
+	encode := prepareOf(nodeproto.ProfileH264)
 	bench.assignAt(t, 1, encode)
 	bench.assignAt(t, 2, encode)
 	if _, full := bench.assignAt(t, 3, encode); full != jobs.ReaderDestination(1, "zfs:tank") {
@@ -127,7 +127,7 @@ func TestAssign_PlayDrivenWorkIsNotHeldBackForItsSlot(t *testing.T) {
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
 		ReaderLimits: map[string]int{"zfs:tank": 8},
 	}
-	encode := prepareOf(nodeproto.ProfileH264At8M)
+	encode := prepareOf(nodeproto.ProfileH264)
 	bench.assignAt(t, 1, encode)
 	bench.assignAt(t, 2, encode)
 	if _, full := bench.assignAt(t, 3, encode); full != jobs.SlotDestination(1, "encode") {

@@ -11,7 +11,7 @@ which:
 * **Remux**: MKV with H.264, AC-3 5.1, an embedded ASS track and a Spanish SRT sidecar. The
   container and the audio refuse the browser; the video does not.
 * **TrueHD**: MKV with TrueHD 5.1, the audio Chromecast and browsers refuse.
-* **HEVC**: 10-bit HEVC, which Firefox cannot decode, so it needs `h264-8m`.
+* **HEVC**: 10-bit HEVC, which Firefox cannot decode, so it needs `h264`.
 * **Versions**: one film at 1080p and 720p, plus a trailer in `trailers/` (an extra).
 * **A series**: three episodes, for Continue Watching and Next Up.
 * **The scanner's other filings**: an AppleDouble `._` file (skipped), a `.mkv` that is text

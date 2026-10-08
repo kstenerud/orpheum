@@ -3,7 +3,7 @@
 
 # Stream service
 
-- **Status:** PLANNED — designed 2026-09-17; **adaptation, audio presentation and the accessibility floor added 2026-09-19** ([D86](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md)). **Scoped to Cut A 2026-09-23** ([D178](../../decisions/working-notes.md), [D193](../../decisions/working-notes.md)): direct play relayed from the node, and **prepare** with the profiles `remux` and `h264-8m`; every FFmpeg run is the node's. [cut-a.md](cut-a.md) §5–§6 holds Cut A's endpoints and the prepare mechanism; the rest of this plan (overlay rendition, custom libass build, served font set, adaptation) follows Cut A.
+- **Status:** PLANNED — designed 2026-09-17; **adaptation, audio presentation and the accessibility floor added 2026-09-19** ([D86](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md)). **Scoped to Cut A 2026-09-23** ([D178](../../decisions/working-notes.md), [D193](../../decisions/working-notes.md)): direct play relayed from the node, and **prepare** with the profiles `remux` and `h264`; every FFmpeg run is the node's. [cut-a.md](cut-a.md) §5–§6 holds Cut A's endpoints and the prepare mechanism; the rest of this plan (overlay rendition, custom libass build, served font set, adaptation) follows Cut A.
 - **Depends on:** library-model.md
 
 ## Scope — direct play, plus prepare
@@ -21,7 +21,7 @@ exist. Cut A has two profiles:
 
 - **`remux`** — video copied; audio converted to `aac-stereo`, plus a second `aac-stereo` with
   the dialogue boost. The common case: MKV, TrueHD, DTS.
-- **`h264-8m`** — video encoded to `h264-sdr` at ~8 Mbps by the node's encoder (Quick Sync,
+- **`h264`** — video encoded to `h264-sdr` at ~8 Mbps by the node's encoder (Quick Sync,
   NVENC or x264, a node capability) with the same two audio renditions; used when the video
   codec does not play or the link is remote and slow.
 
@@ -211,7 +211,7 @@ Three more consequences land here:
   ordinary audio transcode, which is the commonest real transcode anyway.
 - **Video.** Chromecast 1st–3rd generation decode **H.264 and VP8 only**; HEVC arrives with the
   Ultra. So a 10-bit HEVC file to an older dongle needs a *video* transcode — in Cut A,
-  prepare's `h264-8m` profile ([transcoding.md](transcoding.md) §(a)); on a node with no
+  prepare's `h264` profile ([transcoding.md](transcoding.md) §(a)); on a node with no
   encoder, the honest answer is the transcode-reason field rather than a stall.
 
 **And one unresolved risk that collides with [D22](../../decisions/working-notes.md).**

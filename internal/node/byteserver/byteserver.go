@@ -129,7 +129,7 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 
 // renditionNamePattern is the only shape a rendition's file may be named by: "<file_id>/<profile>/<run_id>/" and
 // then the master playlist, or one rendition's playlist, init segment or media segment.
-var renditionNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}/` +
+var renditionNamePattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264)/[0-9a-f]{16}/` +
 	`(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
 
 // serveRenditionFile serves one file of a prepared rendition. A name that is not a rendition's is

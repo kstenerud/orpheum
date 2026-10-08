@@ -5,7 +5,7 @@
 
 # Video transcoding
 
-- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement — **except that §(b) is now on remote access's critical path** ([D86](../../decisions/working-notes.md), 2026-09-19), and §(a) gained a second consumer ([D87](../../decisions/working-notes.md)). **Reshaped for Cut A 2026-09-23** ([D193](../../decisions/working-notes.md)): the encoder is a **node capability**, not a tier-3 plugin (retired, §3); §(a) arrives first as Cut A's **prepare** job, which needs a video encoder for the `h264-8m` profile (Quick Sync, NVENC or x264, from a pinned jellyfin-ffmpeg); §(b), live bandwidth transcoding, is still later. [cut-a.md](cut-a.md) §6 is the mechanism.
+- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement — **except that §(b) is now on remote access's critical path** ([D86](../../decisions/working-notes.md), 2026-09-19), and §(a) gained a second consumer ([D87](../../decisions/working-notes.md)). **Reshaped for Cut A 2026-09-23** ([D193](../../decisions/working-notes.md)): the encoder is a **node capability**, not a tier-3 plugin (retired, §3); §(a) arrives first as Cut A's **prepare** job, which needs a video encoder for the `h264` profile (Quick Sync, NVENC or x264, from a pinned jellyfin-ffmpeg); §(b), live bandwidth transcoding, is still later. [cut-a.md](cut-a.md) §6 is the mechanism.
 - **§(b) is being built** for [D247](../../decisions/working-notes.md) (2026-10-05): lower
   qualities cut at the source's keyframes and made on request; [chunks.md](chunks.md) is the plan.
 - **Depends on:** playback-survey.md, stream-service.md
@@ -70,7 +70,7 @@ assume a shared filesystem *by default*.
 The client cannot decode the file at all. Solve it **once per file**, as a node job producing
 a rendition that is then reused. ~~It does not need to be fast and it must not be on the
 playback path.~~ **In Cut A this is prepare** ([D193](../../decisions/working-notes.md) §2): the
-`h264-8m` profile, started by pressing play, by "get this ready", or when a Watch Together
+`h264` profile, started by pressing play, by "get this ready", or when a Watch Together
 session is created. It writes a growing `EVENT` playlist, so playback starts once the first
 segments exist, and an encode runs at a few times real time on Quick Sync — so remote viewing
 prepares in advance. The result is a cache, not a stored Version

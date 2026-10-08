@@ -31,7 +31,7 @@ func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNV
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
-// encodeKbpsMost is an encode's rate when its command names none: the h264-8m profile's 8 Mb/s.
+// encodeKbpsMost is an encode's rate when its command names none: the h264 profile's 8 Mb/s.
 const encodeKbpsMost = 8000
 
 // encodeArguments are the encoder's video arguments: 8-bit H.264 at kbps on average, 8 Mb/s when it

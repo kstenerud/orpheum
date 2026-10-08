@@ -34,7 +34,7 @@ owner's library, the tool puts it in exactly one bucket per client:
 | **direct** | the original plays as it is | direct play, relayed from the node |
 | **remux** | the codecs play but the container does not (MKV) | prepare, `remux` profile |
 | **audio** | the video plays but the audio does not (TrueHD, DTS, often AC-3) | prepare, `remux` profile (audio converted) |
-| **video** | the video codec, profile or bit depth does not play | prepare, `h264-8m` profile — an encode |
+| **video** | the video codec, profile or bit depth does not play | prepare, `h264` profile — an encode |
 
 Chromecast's answer is taken from the cast receiver's own checks on the device
 (`canDisplayType`, `MediaSource.isTypeSupported`), not from a table. Report the three clients

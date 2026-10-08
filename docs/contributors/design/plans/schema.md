@@ -1056,7 +1056,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   source_file  INTEGER NOT NULL,         -- persistent.db's file; play state records against it
   source_payload_hash BLOB NOT NULL,     -- the source as it was when prepared (D179)
-  profile      TEXT NOT NULL CHECK (profile IN ('remux','h264-8m')),
+  profile      TEXT NOT NULL CHECK (profile IN ('remux','h264')),
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),

@@ -122,3 +122,6 @@ trailer on the commit that removes it.
 | `decisionMs` | `decidedAfterMs` | D270 §2 |
 | `firstDataMs` | `firstDataAfterMs` | D270 §2 |
 | `playingMs` | `playingAfterMs` | D270 §2 |
+| `h264-8m` | `h264` | D270 §2 |
+| `ProfileH264At8M` | `ProfileH264` | D270 §2 |
+| `H264At8M` | `H264` | D270 §2 |

@@ -27,7 +27,7 @@ func finishPrepare(t *testing.T, harness testHarness, fileID int64, encoder stri
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		_, err := queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: fileID, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
+			SourceFile: fileID, SourcePayloadHash: []byte{1}, Profile: "h264", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		if err != nil {
@@ -36,7 +36,7 @@ func finishPrepare(t *testing.T, harness testHarness, fileID int64, encoder stri
 		size, finished := int64(2048), int64(1_790_000_000_000)
 		_, err = queries.SetRenditionComplete(t.Context(), cachegen.SetRenditionCompleteParams{
 			SizeBytes: &size, FinishedAt: &finished, VideoEncoder: &encoder, RealtimeFactor: &realtimeFactor,
-			SourceFile: fileID, Profile: "h264-8m", RunID: "0123456789abcdef",
+			SourceFile: fileID, Profile: "h264", RunID: "0123456789abcdef",
 		})
 		if err != nil {
 			return fmt.Errorf("complete the rendition: %w", err)

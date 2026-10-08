@@ -192,7 +192,7 @@ Notes on the shape:
 - **The core encodes nothing; "prepare" is the one path besides direct play**
   ([D193](../decisions/working-notes.md)). ~~The core needs no video encoder — but it does
   encode audio.~~ One node job per File and profile runs one FFmpeg command that writes an HLS
-  rendition into the node's cache — video copied (`remux`) or encoded (`h264-8m`), audio
+  rendition into the node's cache — video copied (`remux`) or encoded (`h264`), audio
   converted with a dialogue-boost variant, text subtitles extracted — as a growing `EVENT`
   playlist, so playback starts once the first segments exist. The encoder is a **node
   capability** the node advertises (`aac`, `h264_qsv`, `h264_nvenc`, `x264`), so a GPU machine

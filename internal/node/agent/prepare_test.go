@@ -239,7 +239,7 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
-		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir}
+		payload := &nodeproto.Prepare{Video: source, Profile: nodeproto.ProfileH264, RenditionDir: dir}
 		return nodeproto.Command{
 			CommandSeq: job,
 			JobID:      job,
@@ -247,11 +247,11 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		}
 	}
 	// One encode slot: the first encode runs, the second waits for it.
-	core.commands <- encode(1, "3/h264-8m/slow")
+	core.commands <- encode(1, "3/h264/slow")
 	if first := nextProgress(t, core); first.JobID != 1 || first.State != nodeproto.ProgressRunning {
 		t.Fatalf("the first encode's report = %+v, want running", first)
 	}
-	core.commands <- encode(2, "4/h264-8m/0123456789abcdef")
+	core.commands <- encode(2, "4/h264/0123456789abcdef")
 	if waiting := nextProgress(t, core); waiting.JobID != 2 || waiting.State != nodeproto.ProgressWaiting {
 		t.Fatalf("the second encode's report = %+v, want waiting, at once", waiting)
 	}

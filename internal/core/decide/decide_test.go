@@ -157,8 +157,8 @@ func TestDecide_ReEncodesWhatTheClientCannotDecode(t *testing.T) {
 	t.Parallel()
 	mpeg2 := probeOf("mp4", videoStream("mpeg2video", "Main", "yuv420p", ""), audioStream("aac", "LC", 2))
 	got := decide.Decide(decide.Input{Probe: mpeg2, PlayableFormats: browser})
-	if got.Profile != decide.H264At8M || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonVideoCodec}) {
-		t.Errorf("Decide = %+v, want h264-8m for video_codec", got)
+	if got.Profile != decide.H264 || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonVideoCodec}) {
+		t.Errorf("Decide = %+v, want h264 for video_codec", got)
 	}
 }
 

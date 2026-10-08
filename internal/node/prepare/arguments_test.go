@@ -90,10 +90,10 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 		t.Errorf("copied HEVC is %v, want tagged hvc1", hevc)
 	}
 	encoded := prepare.Arguments(
-		"/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, VideoCodec: "hevc"}, prepare.EncoderX264)
+		"/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileH264, VideoCodec: "hevc"}, prepare.EncoderX264)
 	if after(encoded, "-c:v") != "libx264" || after(encoded, "-pix_fmt") != "yuv420p" ||
 		after(encoded, "-b:v") != "8000k" || after(encoded, "-force_key_frames") != "expr:gte(t,n_forced*2)" {
-		t.Errorf("h264-8m is %v, want 8-bit H.264 at 8M with a keyframe every 2 s", encoded)
+		t.Errorf("h264 is %v, want 8-bit H.264 at 8M with a keyframe every 2 s", encoded)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 // (D256).
 func TestArguments_AnEncodeIsMadeAtTheRateItsCommandNames(t *testing.T) {
 	t.Parallel()
-	command := nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, VideoCodec: "mpeg4", VideoKbps: 1000}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileH264, VideoCodec: "mpeg4", VideoKbps: 1000}
 	encoded := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
 	if after(encoded, "-b:v") != "1000k" || after(encoded, "-maxrate") != "1250k" ||
 		after(encoded, "-bufsize") != "2000k" {
@@ -127,7 +127,7 @@ func TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength(t *testing.T) {
 		1: "expr:gte(t,n_forced*1)", 3: "expr:gte(t,n_forced*3)", 10: "expr:gte(t,n_forced*10)",
 		0: "expr:gte(t,n_forced*2)", // out of bounds: the segments' own fallback length
 	} {
-		command := nodeproto.Prepare{Profile: nodeproto.ProfileH264At8M, SegmentLengthSeconds: asked}
+		command := nodeproto.Prepare{Profile: nodeproto.ProfileH264, SegmentLengthSeconds: asked}
 		arguments := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
 		if got := after(arguments, "-force_key_frames"); got != want {
 			t.Errorf("%d-second segments: -force_key_frames %s, want %s (-hls_time %s)", asked, got, want,

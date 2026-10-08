@@ -55,13 +55,13 @@ func TestReconcile_EvictsWhatTheCoreDoesNotKeepAndUnfinishedMakingsButNeverOneBe
 			bytes int
 			ago   time.Duration
 		}{
-			"1/remux/aaaaaaaaaaaaaaaa":   {100, time.Minute}, // kept
-			"2/remux/bbbbbbbbbbbbbbbb":   {100, time.Minute}, // listed, not kept
-			"3/remux/cccccccccccccccc":   {100, time.Minute}, // never finished
-			"4/remux/dddddddddddddddd":   {100, time.Minute}, // being written
-			"5/h264-8m/eeeeeeeeeeeeeeee": {100, time.Minute}, // made since the listing
+			"1/remux/aaaaaaaaaaaaaaaa": {100, time.Minute}, // kept
+			"2/remux/bbbbbbbbbbbbbbbb": {100, time.Minute}, // listed, not kept
+			"3/remux/cccccccccccccccc": {100, time.Minute}, // never finished
+			"4/remux/dddddddddddddddd": {100, time.Minute}, // being written
+			"5/h264/eeeeeeeeeeeeeeee":  {100, time.Minute}, // made since the listing
 		})
-	shelve(t, shelf, "1/remux/aaaaaaaaaaaaaaaa", "2/remux/bbbbbbbbbbbbbbbb", "5/h264-8m/eeeeeeeeeeeeeeee")
+	shelve(t, shelf, "1/remux/aaaaaaaaaaaaaaaa", "2/remux/bbbbbbbbbbbbbbbb", "5/h264/eeeeeeeeeeeeeeee")
 	done := shelf.MarkWriting("4/remux/dddddddddddddddd")
 	defer done()
 	evicted, err := shelf.Reconcile(
@@ -73,7 +73,7 @@ func TestReconcile_EvictsWhatTheCoreDoesNotKeepAndUnfinishedMakingsButNeverOneBe
 	if want := []string{"2/remux/bbbbbbbbbbbbbbbb", "3/remux/cccccccccccccccc"}; !slices.Equal(evicted, want) {
 		t.Errorf("evicted %v, want %v", evicted, want)
 	}
-	want := []string{"1/remux/aaaaaaaaaaaaaaaa", "4/remux/dddddddddddddddd", "5/h264-8m/eeeeeeeeeeeeeeee"}
+	want := []string{"1/remux/aaaaaaaaaaaaaaaa", "4/remux/dddddddddddddddd", "5/h264/eeeeeeeeeeeeeeee"}
 	if got := remainingRunDirs(t, shelf); !slices.Equal(got, want) {
 		t.Errorf("left %v, want %v", got, want)
 	}
