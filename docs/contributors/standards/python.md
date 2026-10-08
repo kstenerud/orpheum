@@ -124,7 +124,7 @@ decisions can be tested (`scripts/tests/test_hooks.py`). They share `hooklib.py`
   stopped gating without saying so, so an event it cannot read is treated as nothing to act on
   rather than raised;
 - **stamps, then acts.** The post-edit hook records whether code or only documents changed; the
-  Stop hook then runs `make check`, or `make check-docs` after a documents-only turn, once, where
+  Stop hook then runs `make check`, or `make check-documentation` after a documents-only turn, once, where
   the tools are (`scripts/run_gate.py`), and blocks the turn with the output if it fails;
 - **says what to do instead** when it refuses. The pre-edit hook's refusal of a gate file
   names why the file is protected and how to propose the change.

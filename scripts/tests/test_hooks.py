@@ -135,6 +135,9 @@ class PostEditAndStop(unittest.TestCase):
         run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "docs/x.md")}})
         self.assertTrue((cache / "check-pending-docs").exists())
         self.assertFalse((cache / "check-pending-code").exists())
+        # A package's README is documentation too: its edit runs no test of the code.
+        run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "web/packages/sdk/README.md")}})
+        self.assertFalse((cache / "check-pending-code").exists())
         run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "internal/x.go")}})
         self.assertTrue((cache / "check-pending-code").exists())
         for kind in ("docs", "code"):

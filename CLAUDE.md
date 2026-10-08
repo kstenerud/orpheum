@@ -9,10 +9,11 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
 
 `.claude/settings.json` registers these hooks, committed so every clone gets them:
 
-- **After an edit**, `.claude/hooks/post_edit.py` records that the tree changed: `code` for
-  anything outside `docs/`, `docs` for documentation.
+- **After an edit**, `.claude/hooks/post_edit.py` records that the tree changed: `docs` for
+  documentation (`docs/` and any Markdown file, `scripts/documentation_only.py`), `code` for the rest.
 - **At the end of a turn**, `.claude/hooks/on_stop.py` runs `make check` (or only
-  `make check-docs` after a docs-only turn). On failure it **blocks the turn** and hands you the
+  `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
+  pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
   output. Fix it; don't argue with it.
 - **Before an edit**, `.claude/hooks/pre_edit.py` refuses changes to a gate (configuration,
   `Makefile`, `scripts/`, hooks, allowlists, baselines, `internal/archtest/`), to generated code

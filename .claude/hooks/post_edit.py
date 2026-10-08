@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: PostToolUse hook for file edits: records that the tree changed, so the Stop hook
-# ABOUTME: knows to run the gate — the whole of it for code, the docs gate for docs.
+# ABOUTME: knows to run the gate — the whole of it for code, the documentation gate for documentation.
 from __future__ import annotations
 
 import hooklib
+from documentation_only import is_documentation
 from gate_paths import relative
 
 PENDING = hooklib.ROOT / ".claude" / ".cache"
@@ -18,7 +19,7 @@ def main() -> None:
     if rel is None or rel.startswith((".git/", ".claude/.cache/")):
         return
     PENDING.mkdir(parents=True, exist_ok=True)
-    kind = "docs" if rel.startswith("docs/") else "code"
+    kind = "docs" if is_documentation(rel) else "code"
     (PENDING / f"check-pending-{kind}").touch()
 
 

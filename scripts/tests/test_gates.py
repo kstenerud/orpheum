@@ -533,7 +533,10 @@ class IntegrationTier(unittest.TestCase):
         """The unit tests ran in make check; the tier runs the tests only -tags integration builds,
         by name, and a selection gone empty fails rather than testing nothing (the test audit)."""
         makefile = (Path(__file__).resolve().parent.parent.parent / "Makefile").read_text()
-        recipe = makefile.split("\ntest-integration:", 1)[1].split("\n\n", 1)[0]
+        wrapper = makefile.split("\ntest-integration:", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("if $(DOCUMENTATION_ONLY); then", wrapper)
+        self.assertIn("test-integration-run", wrapper)
+        recipe = makefile.split("\ntest-integration-run:", 1)[1].split("\n\n", 1)[0]
         self.assertIn("test -n '$(INTEGRATION_ONLY_TESTS)' ||", recipe)
         self.assertIn("-run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES)", recipe)
         self.assertNotIn("./...", recipe)

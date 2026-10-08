@@ -44,7 +44,8 @@ project uses as its template.
 - A plan declares where it stands in a bolded metadata list under its title
   (`- **Status:**`, `- **Depends on:**`), not in its ABOUTME.
 - **Run `make check` before committing** (the Claude Code Stop hook and the pre-commit hook run
-  it for you; `make check-docs` alone for a docs-only change). The docs part is
+  it for you; `make check-documentation`, no test of the code, for a documentation-only change,
+  which is what the hooks and check-pr run for one). The docs part is
   `python3 scripts/check_docs.py`. It fails on a broken link or
   anchor, a decision link that lands on the wrong entry, a gap or duplicate in the D-numbers,
   and a plan, principle or register citing an archived decision. Anchors are GitHub-slugged;
