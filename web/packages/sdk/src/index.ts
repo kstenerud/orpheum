@@ -78,6 +78,7 @@ export {
   playerSwitchedQualityEvent,
   waitAheadAtMostMs,
 } from "./together-follow.ts";
+export { playedMutedEvent, soundOnAtTap } from "./together-sound.ts";
 export type { ChunkLoaded, FollowedMedia, QualitySwitched } from "./together-follow.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 

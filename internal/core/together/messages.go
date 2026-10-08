@@ -87,6 +87,11 @@ const (
 	// NotePlaced is a follower placing its group anew by a pong with a shorter round trip than any
 	// before, and how far that moved where it expects the group (D264).
 	NotePlaced NoteKind = "placed"
+	// NotePlayedMuted is a browser refusing to start the film with sound for want of a recent tap,
+	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
+	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
+	NotePlayedMuted NoteKind = "playedMuted"
+	NoteUnmuted     NoteKind = "unmuted"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -162,6 +167,8 @@ func (note PlayerNote) isKnown() bool {
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NotePlaced:
 		return note.RoundTripMs >= 0 && note.Why == "" && note.Track == ""
+	case NotePlayedMuted, NoteUnmuted:
+		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
 	}
 	return false
 }

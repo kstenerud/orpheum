@@ -590,6 +590,15 @@ func (current *session) logNote(ctx context.Context, who *member, from *device, 
 		current.logger.InfoContext(ctx, "watch together: a player placed its group by a shorter round trip",
 			append(current.deviceAttributes(who, from), "roundTripMs", note.RoundTripMs, "movedMs", note.MovedMs)...)
 		return
+	case NotePlayedMuted:
+		current.logger.InfoContext(ctx,
+			"watch together: the browser would not play the film with sound; it plays muted",
+			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+		return
+	case NoteUnmuted:
+		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
+			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+		return
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
 	attributes := append(current.deviceAttributes(who, from), "kind", string(note.Kind))

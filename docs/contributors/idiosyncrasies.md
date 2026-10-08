@@ -55,6 +55,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Subtitles drawn by JASSUB over the video vanished in fullscreen ("they stop showing when I switch to full screen mode"). | [iPhone video fullscreen is not the Fullscreen API, and it leaves page overlays behind](#iphone-video-fullscreen-is-not-the-fullscreen-api-and-it-leaves-page-overlays-behind) |
 | Safari's native HLS starts on the first variant listed, whatever start hint is given | [Safari's native HLS starts on the first variant listed, whatever start hint is given](#safaris-native-hls-starts-on-the-first-variant-listed-whatever-start-hint-is-given) |
 | The film page's hidden warm-up player loads nothing on iPhone. | [iPhone Safari loads nothing for a media element until the user has tapped it](#iphone-safari-loads-nothing-for-a-media-element-until-the-user-has-tapped-it) |
+| A Watch Together guest's iPhone shows one still after another, with no sound. | [iPhone Safari refuses a film's sound that no recent tap started, and a tap long before does not count](#iphone-safari-refuses-a-films-sound-that-no-recent-tap-started-and-a-tap-long-before-does-not-count) |
 | Native HLS gives the page no track choice, no quality control and no link measurement | [Native HLS gives the page no track choice, no quality control and no link measurement](#native-hls-gives-the-page-no-track-choice-no-quality-control-and-no-link-measurement) |
 | Native-HLS `<video>` (and `<img>`) cannot send an Authorization header | [Native-HLS `<video>` (and `<img>`) cannot send an Authorization header](#native-hls--and--cannot-send-an-authorization-header) |
 | IOS Safari with the microphone open sends call audio to the earpiece, quietly (WebKit 230902) | [iOS Safari with the microphone open sends call audio to the earpiece, quietly (WebKit 230902)](#ios-safari-with-the-microphone-open-sends-call-audio-to-the-earpiece-quietly-webkit-230902) |
@@ -451,6 +452,24 @@ User-Agent (D263; the User-Agent is logged only).
   [doc]: on iOS "preload and autoplay are disabled. No data is loaded until the user initiates it", and
   `play()` and `load()` do nothing unless triggered by a user action (archived 2012 guide, read 2026-10-08).
 
+
+### iPhone Safari refuses a film's sound that no recent tap started, and a tap long before does not count
+
+- **Symptom:** a Watch Together guest on an iPhone saw one still picture after another and heard
+  nothing: her player sat paused, each catch-up seek showing its frame, for the 95 s she watched (the
+  owner's test, 2026-10-08, iOS 26.6.2). She had tapped Join 35 s before the film started.
+- **Cause:** `play()` on a video with sound is refused with `NotAllowedError` unless a user gesture
+  started it; the gesture must be recent, and the element that plays is made only when the film
+  starts. A muted video with `playsinline` may play without one. Low Power Mode refuses even that.
+- **What we do:** the follower plays a refused film muted, fires `playedMutedEvent` and notes
+  `playedMuted`; the viewer's page shows **Tap for sound** over it, whose tap turns the sound on and
+  plays it (`soundOnAtTap`, `web/packages/sdk/src/together-follow.ts`; the owner's choice,
+  2026-10-08). Before, a refused play was swallowed and tried again each second, silently.
+- **Evidence:** **[owner]** staging's log of her session: `playing=false` throughout, drift growing a
+  second a second between catch-up seeks. **[web]** [WebKit, "New `<video>` Policies for
+  iOS"](https://webkit.org/blog/6784/new-video-policies-for-ios/): videos without audio, or muted, may
+  autoplay with `playsinline`; `play()` of a video with sound needs a user gesture, and its promise
+  rejects otherwise. Apple's guide (above) [doc].
 
 ### Native HLS gives the page no track choice, no quality control and no link measurement
 

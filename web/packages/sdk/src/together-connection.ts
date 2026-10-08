@@ -77,7 +77,10 @@ export interface PlayerState {
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
  * - placed: a pong with a roundTripMs shorter than any before placed the group anew, moving where
  *   it is expected by movedMs (ahead when positive), the wait on the way of what placed it before
- *   (D264).
+ *   (D264);
+ * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
+ *   tap, and it plays muted (playedMutedEvent);
+ * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap).
  */
 export type PlayerNote =
   | {
@@ -110,7 +113,9 @@ export type PlayerNote =
       readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
-  | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number };
+  | { readonly kind: "placed"; readonly roundTripMs: number; readonly movedMs: number }
+  | { readonly kind: "playedMuted"; readonly positionMs: number }
+  | { readonly kind: "unmuted"; readonly positionMs: number };
 
 /**
  * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its
