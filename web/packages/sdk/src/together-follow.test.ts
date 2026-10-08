@@ -91,6 +91,22 @@ describe("a player following its group", () => {
     expect(media.playbackRate).toBeGreaterThan(1);
   });
 
+  it("holds its player where the group starts until the moment the server named, then plays (D268 §3)", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing", startsInMs: 500 }, 1000);
+    expect(media.paused).toBe(true);
+    expect(media.currentTime).toBe(60);
+    monotonicNowMs = 1499;
+    vi.advanceTimersByTime(499);
+    expect(media.paused).toBe(true);
+    monotonicNowMs = 1500;
+    vi.advanceTimersByTime(1);
+    expect(media.paused).toBe(false);
+  });
+
   it("tells the server, for its log, each seek and nudge it makes and why, and what its player loads", () => {
     const media = new FakeMedia();
     const { connection, setGroup, notes } = fakeConnection(paused);

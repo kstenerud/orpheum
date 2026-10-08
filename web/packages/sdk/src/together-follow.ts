@@ -3,6 +3,7 @@
 import type { GroupView, SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
+  groupStartsAtMs,
   type GroupCommand,
   type PlayerState,
   type TogetherConnection,
@@ -105,6 +106,8 @@ interface GroupNow {
   readonly group: GroupView;
   readonly expectedMs: number;
   readonly nowMs: number;
+  /** When a playing group starts moving, on the monotonic clock (D268 §3). */
+  readonly startsAtMs: number;
   /** How to follow it, as the welcome said (D250 §1). */
   readonly tuning: SyncTuning;
 }
@@ -191,6 +194,8 @@ class GroupFollower {
   #seekStartedAtMs: number | undefined = undefined;
   /** How long its own last seek took to load. */
   #lastLoadMs = 0;
+  /** The timer that applies a playing group as it starts moving (#applyAt). */
+  #startTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
   /**
@@ -228,19 +233,31 @@ class GroupFollower {
     if (where === undefined || this.#isAwaitingGroup || this.#media.readyState < haveMetadata) {
       return;
     }
-    if (where.group.state === "Playing" && this.#isWaitingAhead(where)) {
-      // A player that jumped ahead to catch up waits there, paused and loading, for the group.
-      if (!this.#media.paused) {
-        this.#ownMoves.mark("pause", this.#options.monotonicMs());
-        this.#media.pause();
-      }
-    } else if (where.group.state === "Playing") {
-      this.#play(where);
+    if (where.group.state === "Playing") {
+      this.#followPlaying(where);
     } else {
       this.#holdAt(where);
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
   };
+
+  /** Follows a playing group: waiting ahead of it, held until it starts, or playing along. */
+  #followPlaying(where: GroupNow): void {
+    if (this.#isWaitingAhead(where)) {
+      // A player that jumped ahead to catch up waits there, paused and loading, for the group.
+      if (!this.#media.paused) {
+        this.#ownMoves.mark("pause", this.#options.monotonicMs());
+        this.#media.pause();
+      }
+    } else if (where.nowMs < where.startsAtMs) {
+      // Every player starts at the moment the server named, not as its message arrived: until
+      // then it is held where the group starts (D268 §3).
+      this.#holdAt(where);
+      this.#applyAt(where.startsAtMs);
+    } else {
+      this.#play(where);
+    }
+  }
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
   readonly heard = (event: string): void => {
@@ -321,7 +338,14 @@ class GroupFollower {
   /** Stops what is pending, as the follower stops. */
   readonly stop = (): void => {
     clearTimeout(this.#pendingCommand);
+    clearTimeout(this.#startTimer);
   };
+
+  /** Applies the group again at atMs, on the monotonic clock: when a playing group starts. */
+  #applyAt(atMs: number): void {
+    clearTimeout(this.#startTimer);
+    this.#startTimer = setTimeout(this.apply, atMs - this.#options.monotonicMs());
+  }
 
   /**
    * Starts refilling at a stall or a seek, and ends it once enough is loaded ahead; times how long
@@ -420,6 +444,7 @@ class GroupFollower {
       group,
       nowMs,
       expectedMs: expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs,
+      startsAtMs: groupStartsAtMs(snapshot) ?? nowMs,
       tuning: snapshot.tuning,
     };
   }

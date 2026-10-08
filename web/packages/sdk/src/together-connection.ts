@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { expectedPositionMs } from "./together-drift.ts";
+import { expectedPositionMs, startsAtMs } from "./together-drift.ts";
 import type { VoiceCallStats } from "./together-voice-stats.ts";
 import {
   parseTogetherMessage,
@@ -291,11 +291,24 @@ export function expectedGroupPositionMs(
   const { group } = snapshot;
   return group === undefined
     ? undefined
-    : expectedPositionMs(group, {
-        receivedAtMs: snapshot.groupReceivedAtMs,
-        nowMs,
-        transitMs: (snapshot.groupPlacedByRttMs ?? snapshot.minimumRttMs ?? 0) / 2,
-      });
+    : expectedPositionMs(group, { ...placingOf(snapshot), nowMs });
+}
+
+/**
+ * When, on the monotonic clock, the playing group a snapshot follows starts moving: when the
+ * message that placed it was sent, plus what was left of its start's lead (D268 §3); undefined
+ * while it follows none.
+ */
+export function groupStartsAtMs(snapshot: TogetherSnapshot): number | undefined {
+  return snapshot.group === undefined ? undefined : startsAtMs(snapshot.group, placingOf(snapshot));
+}
+
+/** When what placed a snapshot's group arrived, and how long it took to (D66, D264). */
+function placingOf(snapshot: TogetherSnapshot): { receivedAtMs: number; transitMs: number } {
+  return {
+    receivedAtMs: snapshot.groupReceivedAtMs,
+    transitMs: (snapshot.groupPlacedByRttMs ?? snapshot.minimumRttMs ?? 0) / 2,
+  };
 }
 
 /** The snapshot after a group message: a new timeline, or the one it follows told again. */
@@ -306,7 +319,14 @@ function afterGroup(current: TogetherSnapshot, group: GroupView, nowMs: number):
     // every player. Re-based on each, a host on a tethered link was nudged every few seconds
     // while a viewer kept catching up, and Firefox's sound drifted ahead of its picture
     // (staging, 2026-10-06).
-    return { ...current, group: { ...group, positionMs: current.group.positionMs } };
+    return {
+      ...current,
+      group: {
+        ...group,
+        positionMs: current.group.positionMs,
+        startsInMs: current.group.startsInMs,
+      },
+    };
   }
   return {
     ...current,
@@ -345,7 +365,11 @@ function afterPong(
     isBetterPlacing(current, rttMs, nowMs)
     ? {
         ...measured,
-        group: { ...current.group, positionMs: message.group.positionMs },
+        group: {
+          ...current.group,
+          positionMs: message.group.positionMs,
+          startsInMs: message.group.startsInMs,
+        },
         groupReceivedAtMs: nowMs,
         groupPlacedByRttMs: rttMs,
       }
@@ -605,7 +629,11 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
       return;
     }
     const rttMs = Math.max(0, nowMs - message.tMono);
-    const saysMs = message.group.positionMs + (rttMs / 2) * message.group.rate;
+    const saysMs = expectedPositionMs(message.group, {
+      receivedAtMs: nowMs,
+      nowMs,
+      transitMs: rttMs / 2,
+    });
     this.note({
       kind: "ponged",
       roundTripMs: Math.round(rttMs),

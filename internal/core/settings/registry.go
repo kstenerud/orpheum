@@ -98,6 +98,7 @@ const (
 	TogetherSeekOnlyDriftLeftAloneMs               Key = "together_seek_only_drift_left_alone_ms"
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
+	TogetherStartLeadMs                            Key = "together_start_lead_ms"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
 	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
@@ -273,6 +274,11 @@ func togetherDefinitions() []Definition {
 			"seconds a Watch Together group waits for its players at a sync point (a film put on, the "+
 				"host's play after a pause, the host's seek) before playing without those not ready (D250 §3)"),
 			"D250 §3: the owner, 2026-10-06: \"30 seconds is too long. Let's start at 20.\""),
+		sourced(integerSetting(TogetherStartLeadMs, "500", 0, 5_000,
+			"ms after a Watch Together group's sync point ends that every player starts playing, at once, "+
+				"rather than each as the message reaches it (D268 §3)"),
+			"D268 §3: Jellyfin schedules each start at now + max(2 x the highest ping, 500 ms) "+
+				"(PlayingGroupState.cs:67; the sync review, 2026-10-08)"),
 		sourced(integerSetting(TogetherCatchUpBufferPercent, "80", 10, 100,
 			"percent of what its player loads ahead that a Watch Together player catching up alone aims "+
 				"to have loaded when the group reaches it; it jumps ahead by its link's time to load that "+
