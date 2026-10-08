@@ -39,6 +39,7 @@ type TogetherInput struct {
 type TogetherLinkBody struct {
 	ID       int64  `json:"id"`
 	HostNote string `doc:"Who it is for; only the host sees it" json:"hostNote"`
+	Secret   string `doc:"The link's secret, after # in its address, to pass on again (D267 §5)" json:"secret"`
 	// UsedByMemberID is the member who joined by it; absent while it waits.
 	UsedByMemberID int64 `json:"usedByMemberId,omitempty"`
 }
@@ -248,7 +249,7 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	output.Body.Links = make([]TogetherLinkBody, 0, len(details.Links))
 	for _, each := range details.Links {
 		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
-			ID: each.ID, HostNote: each.HostNote, UsedByMemberID: each.UsedBy,
+			ID: each.ID, HostNote: each.HostNote, Secret: each.Secret, UsedByMemberID: each.UsedBy,
 		})
 	}
 	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
