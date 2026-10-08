@@ -3,12 +3,19 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
 // mine is GET /together/mine as token.
@@ -116,4 +123,37 @@ func TestTogether_AJoinWhoseSignInCannotBeCheckedFails(t *testing.T) {
 	if failed.status != http.StatusInternalServerError {
 		t.Errorf("a join whose sign-in could not be checked = %d %s; want 500", failed.status, failed.body)
 	}
+}
+
+// A device whose sign-in cannot be checked, the database failing, is closed as the server's failure,
+// to come again, not attached as nobody (D267 §2; the M4 closing audit, 2026-10-08).
+func TestTogether_ADeviceWhoseSignInCannotBeCheckedIsClosed(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	if err := harness.database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	address := "ws" + strings.TrimPrefix(harness.httpServer.URL, "http") + togetherSocketPath
+	connection, _, err := websocket.Dial(ctx, address, nil) //nolint:bodyclose // coder/websocket closes it
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // closing what may be closed
+	if err = wsjson.Write(ctx, connection, together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageHello, Credential: opened.Body.MembershipCredential,
+		Role: together.RolePlayback, SessionToken: admin,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var message together.Outbound
+	err = wsjson.Read(ctx, connection, &message)
+	if status := websocket.CloseStatus(err); status != websocket.StatusInternalError {
+		t.Errorf("a device whose sign-in could not be checked read %+v, %v; want closed as the server's failure",
+			message, err)
+	}
+	harness.logs.AwaitLine(t, `"msg":"watch together: a device's sign-in could not be checked"`)
 }
