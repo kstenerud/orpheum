@@ -4,6 +4,7 @@
 import "./i18n.ts";
 
 import { stallAfterMs } from "@orpheum/player";
+import { playedMutedEvent } from "@orpheum/sdk";
 import { act } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -190,6 +191,36 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       mounted.container.querySelector(".together-viewer__stage .together-viewer__title")
         ?.textContent,
     ).toBe("Metropolis");
+    mounted.unmount();
+  });
+
+  it("offers the sound at a tap when the browser would only play the film muted", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.sessionStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+    });
+    const video = mounted.container.querySelector("video");
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    // The follower found the browser refusing the film's sound, and plays it muted.
+    if (video !== null) {
+      video.muted = true;
+    }
+    await fire(video, new Event(playedMutedEvent));
+    await click(buttonWithText(mounted.container, "Tap for sound"));
+    expect(video?.muted).toBe(false);
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
     mounted.unmount();
   });
 

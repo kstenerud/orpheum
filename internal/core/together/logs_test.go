@@ -142,3 +142,27 @@ func TestHub_LogsAPlayerPlacingItsGroupByAShorterRoundTrip(t *testing.T) {
 		t.Errorf("the log does not say the placing:\n%s", logged)
 	}
 }
+
+// A browser refusing to play with sound, and the tap that turns it on, are logged at INFO: a guest's
+// iPhone sat silent and nothing said why (the owner's test, 2026-10-08).
+func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	for _, note := range []PlayerNote{
+		{Kind: NotePlayedMuted, PositionMs: 4919}, {Kind: NoteUnmuted, PositionMs: 31585},
+	} {
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &note})
+	}
+	logged := stage.logs.String()
+	for _, want := range []string{
+		`level=INFO msg="watch together: the browser would not play the film with sound; it plays muted"`,
+		"positionMs=4919",
+		`level=INFO msg="watch together: a tap turned a muted player's sound on"`,
+		"positionMs=31585",
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log does not say %s:\n%s", want, logged)
+		}
+	}
+}

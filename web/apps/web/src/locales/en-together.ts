@@ -18,6 +18,7 @@ export const enTogether = {
       "This link does not work: it was used already, withdrawn, or the session is over. Ask the person who sent it for a new one.",
     viewerHeading: "Watching together",
     stage: "The film",
+    soundOn: "Tap for sound",
     volume: "Volume",
     leave: "Leave",
     connecting: "Connecting…",

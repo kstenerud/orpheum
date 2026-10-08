@@ -5,6 +5,8 @@ import "./together-viewer.css";
 import { mediaErrorFailure, type PlaybackFailure } from "@orpheum/player";
 import {
   followGroup,
+  playedMutedEvent,
+  soundOnAtTap,
   startingTuning,
   type TellsCannotKeepUp,
   type TogetherConnection,
@@ -430,18 +432,38 @@ function useMovingDown(
   }, [lowerQuality, onLowerQuality]);
 }
 
-/** Makes the video follow the group while it plays fileId, at the viewer's volume. */
+/** Whether the film plays muted, the browser having refused its sound, and the tap that turns it on. */
+interface MutedFilm {
+  readonly isMuted: boolean;
+  readonly turnSoundOn: () => void;
+}
+
+/**
+ * Makes the video follow the group while it plays fileId, at the viewer's volume, and says when it
+ * plays muted: a browser refuses a film's sound that no recent tap started, and a guest's starts
+ * long after their Join (playedMutedEvent).
+ */
 function useFollowing(
   videoRef: RefObject<HTMLVideoElement | null>,
   fileId: number,
   following: Following,
-): void {
+): MutedFilm {
   const { connection, volume } = following;
+  const [isMuted, setIsMuted] = useState(false);
   useEffect(() => {
     const video = videoRef.current;
-    return video === null
-      ? undefined
-      : followGroup(video, connection, { fileId, isLeading: false, monotonicMs });
+    if (video === null) {
+      return undefined;
+    }
+    const onPlayedMuted = (): void => {
+      setIsMuted(true);
+    };
+    video.addEventListener(playedMutedEvent, onPlayedMuted);
+    const stopFollowing = followGroup(video, connection, { fileId, isLeading: false, monotonicMs });
+    return () => {
+      stopFollowing();
+      video.removeEventListener(playedMutedEvent, onPlayedMuted);
+    };
   }, [videoRef, connection, fileId]);
   useEffect(() => {
     const video = videoRef.current;
@@ -449,6 +471,24 @@ function useFollowing(
       video.volume = volume;
     }
   }, [videoRef, volume]);
+  const turnSoundOn = useCallback(() => {
+    const video = videoRef.current;
+    if (video !== null) {
+      soundOnAtTap(video, connection);
+    }
+    setIsMuted(false);
+  }, [videoRef, connection]);
+  return { isMuted, turnSoundOn };
+}
+
+/** Over a film the browser would only play muted, the tap that turns its sound on. */
+function SoundOnButton(props: MutedFilm): JSX.Element | null {
+  const { t } = useTranslation();
+  return props.isMuted ? (
+    <button type="button" className="together-viewer__sound-on" onClick={props.turnSoundOn}>
+      {t("together.soundOn")}
+    </button>
+  ) : null;
 }
 
 /** The original file, following the group; it plays when the group does, never on its own. */
@@ -458,7 +498,7 @@ function DirectFilm(
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<string | undefined>(undefined);
-  useFollowing(videoRef, props.fileId, props.following);
+  const muted = useFollowing(videoRef, props.fileId, props.following);
   useMovingDown(videoRef, props, useBufferMeter(videoRef, props.decision.fileBitRateKbps));
   return (
     <>
@@ -476,6 +516,7 @@ function DirectFilm(
           );
         }}
       />
+      <SoundOnButton {...muted} />
       {failure === undefined ? null : <p role="alert">{failure}</p>}
     </>
   );
@@ -500,12 +541,13 @@ function PreparedFilm(
     decision,
     startIndex,
   );
-  useFollowing(videoRef, props.fileId, props.following);
+  const muted = useFollowing(videoRef, props.fileId, props.following);
   useMovingDown(videoRef, props, () => playbackRef.current?.estimateKbps());
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
       <video className="together-viewer__video" ref={videoRef} playsInline />
+      <SoundOnButton {...muted} />
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
@@ -540,12 +582,13 @@ function ChunkedFilm(
     { offer: props.offer, positionMs: startMs },
     onFailed,
   );
-  useFollowing(videoRef, props.fileId, props.following);
+  const muted = useFollowing(videoRef, props.fileId, props.following);
   useToldCannotKeepUp(props.following.connection, cannotKeepUp);
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
       <video className="together-viewer__video" ref={videoRef} playsInline />
+      <SoundOnButton {...muted} />
       <LadderNotes
         offer={props.offer}
         playing={playing}

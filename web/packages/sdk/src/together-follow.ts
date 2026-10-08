@@ -8,6 +8,7 @@ import {
   type TogetherConnection,
 } from "./together-connection.ts";
 import { driftCorrection, nudgeForMs } from "./together-drift.ts";
+import { playOrPlayMuted } from "./together-sound.ts";
 
 /**
  * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
@@ -66,6 +67,7 @@ export const checkDriftEveryMs = 1000;
 export type FollowedMedia = Pick<
   HTMLMediaElement,
   | "currentTime"
+  | "muted"
   | "playbackRate"
   | "preservesPitch"
   | "paused"
@@ -517,7 +519,7 @@ class GroupFollower {
   #play(where: GroupNow): void {
     const media = this.#media;
     if (media.paused && !media.ended) {
-      media.play().catch(() => undefined); // a refused play stays paused, and is tried again
+      this.#startPlaying();
     }
     // A player still loading is corrected by nothing: each correction would start its load again.
     if (
@@ -529,6 +531,11 @@ class GroupFollower {
       return;
     }
     this.#correct(where);
+  }
+
+  /** Plays, muted if the browser will not play it with sound (playOrPlayMuted). */
+  #startPlaying(): void {
+    playOrPlayMuted(this.#media, this.#connection);
   }
 
   /** Reads no drift from the player's position for the tuning's settleAfterChangeMs from now. */

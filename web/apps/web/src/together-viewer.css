@@ -36,6 +36,15 @@
   background: var(--color-video-background);
 }
 
+/* Over a film the browser would only play muted, in its middle: the one tap its sound needs. */
+.together-viewer__sound-on {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+}
+
 .together-viewer__volume {
   display: flex;
   gap: var(--space-3);

@@ -66,6 +66,7 @@ class FakeMedia {
   currentTime = 0;
   playbackRate = 1;
   /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own names, which this stands in for */
+  muted = false;
   preservesPitch = true;
   paused = true;
   ended = false;
@@ -756,5 +757,24 @@ describe("a player following its group", () => {
     media.readyState = 4;
     media.fire("canplay");
     expect(media.currentTime).toBe((monotonicNowMs + 60_000 + aimAheadAtMostMs) / 1000);
+  });
+});
+
+describe("a following player the browser will not start with sound", () => {
+  it("plays muted when its group plays, as playOrPlayMuted does", async () => {
+    const media = new FakeMedia();
+    media.play = function refusingSound(this: FakeMedia): Promise<void> {
+      if (!this.muted) {
+        return Promise.reject(new DOMException("no recent tap", "NotAllowedError"));
+      }
+      this.paused = false;
+      return Promise.resolve();
+    };
+    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    await vi.waitFor(() => {
+      expect(media.paused).toBe(false);
+    });
+    expect(media.muted).toBe(true);
   });
 });
