@@ -16,7 +16,16 @@ const voiceConcealedAtMostShare = 0.02;
 /** The host's session, started on the Watch Together screen, with one link made for Anna. */
 export async function startSessionWithLink(host: Page): Promise<string> {
   await host.goto(`${serverUrl()}/watch-together`);
-  await host.getByRole("button", { name: "Start a session" }).click();
+  // A session an earlier test left open, one failing before it ended it, is the host's on every
+  // device signed in (D267 §2): the screen shows it, not Start. It is ended first.
+  const start = host.getByRole("button", { name: "Start a session" });
+  const end = host.getByRole("button", { name: "End the session" });
+  await expect(start.or(end)).toBeVisible();
+  if (await end.isVisible()) {
+    await end.click();
+    await host.getByRole("button", { name: "End it" }).click();
+  }
+  await start.click();
   await host.getByLabel("Who it is for (only you see this)").fill("Anna");
   await host.getByRole("button", { name: "Make a link" }).click();
   const link = host.locator("output.share__link");
