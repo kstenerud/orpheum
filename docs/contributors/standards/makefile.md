@@ -113,8 +113,11 @@ queries that read whole tables reached `main` because only CI ran it.
 
 ### The fix-and-re-run loop
 
-`make check-pr` takes minutes, most of them in steps that passed. While fixing a failure, re-run
-only what failed, then run the whole gate once:
+`make check-pr` has a budget of **five minutes** (`CHECK_PR_BUDGET_S`, the owner's): its one line
+on a pass says how long it took, and says so when it took longer. A step or test added to it
+states what it adds, and one that would take it past the budget goes to the milestone's runs
+instead (agent-failures A24: it doubled unnoticed). Most of its minutes are in steps that passed.
+While fixing a failure, re-run only what failed, then run the whole gate once:
 
 1. **Loop on the narrowest run that shows the failure**: `go test -run <Test> ./<pkg>/`,
    `npm --prefix web test -- <file>`, or revert-red on chosen files with
