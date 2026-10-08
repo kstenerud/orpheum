@@ -9,5 +9,11 @@ if python3 scripts/check_stamp.py fresh; then
   echo "make check: already passed on this exact tree"
   exit 0
 fi
+# A commit of documentation alone runs the documentation gate, no test of the code
+# (scripts/documentation_only.py; the owner, 2026-10-08).
+target=check
+if python3 scripts/documentation_only.py --staged; then
+  target=check-documentation
+fi
 # Where the tools are: here, or in the development image through ./dev (scripts/run_gate.py).
-exec python3 scripts/run_gate.py check
+exec python3 scripts/run_gate.py "$target"

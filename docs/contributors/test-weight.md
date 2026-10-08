@@ -128,6 +128,20 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** `setTimeout` inside `await new Promise` in a test, `time.Sleep` outside a
   bounded poll, `shouldAdvanceTime` without `advanceTimeDelta`.
 
+### 9. A change that cannot affect the code paying for the code's tests
+
+- **Mechanism:** a gate classifies changes too coarsely, so a change that cannot alter what a
+  test sees still runs the tests.
+- **Instance:** a commit of documentation alone ran the whole `make check` in the pre-commit
+  hook. check-pr ran its integration tier and uncached lint for it. The Stop hook already ran only
+  the docs check, but only for `docs/`, so a package README ran everything.
+- **Why it was invisible:** each tool decided for itself, and only one of them had been taught.
+- **Fix:** `scripts/documentation_only.py` is the one definition (`docs/` and any Markdown file).
+  Both hooks and check-pr use it, and `make check-documentation` (about 2 s) runs only what reads
+  the docs (the owner, 2026-10-08).
+- **Warning sign:** a classification written in more than one place, such as a hook's
+  `startswith("docs/")`.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Stop hook: if the turn changed files, run the gate (`make check`, or `make
-# ABOUTME: check-docs` after a docs-only turn) where the tools are, and block the turn if it fails.
+# ABOUTME: check-documentation` after a documentation-only turn) where the tools are; block on failure.
 from __future__ import annotations
 
 import json
@@ -22,7 +22,7 @@ def main() -> None:
     if code.exists():
         target = "check"
     elif docs.exists():
-        target = "check-docs"
+        target = "check-documentation"
     else:
         return
     try:

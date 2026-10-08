@@ -81,7 +81,10 @@ runs it.
 pre-commit hook skips a commit of exactly the tree the gate last passed on
 (`scripts/check_stamp.py`), since the Stop hook has just run it. Within it, the web tests, the
 web dependency rules and the gate scripts' tests run again only when what each reads changed
-since it last passed (`scripts/area_stamp.py`): a Go-only turn does not re-run the web suite.
+since it last passed (`scripts/area_stamp.py`): a Go-only turn does not re-run the web suite. A
+change of documentation alone (`docs/` and Markdown, `scripts/documentation_only.py`) runs
+`make check-documentation` instead, in both hooks, and check-pr skips its integration tier, its
+browser tiers and its uncached lint for it: no test of the code.
 Both hooks run it where the
 tools are: directly in the development image or on a host with Go and Node, through `./dev`
 otherwise (`scripts/run_gate.py`, D235). Its checks run in parallel after

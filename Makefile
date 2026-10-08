@@ -73,6 +73,13 @@ check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if anot
 	@command -v $(PYTHON) >/dev/null || { echo "python3 is not installed"; exit 1; }
 	@command -v shellcheck >/dev/null || { echo "shellcheck is not installed"; exit 1; }
 
+.PHONY: check-documentation
+check-documentation: check-docs check-claims check-architecture ## The gate for a change of documentation alone (scripts/documentation_only.py): what reads the docs, and no test of the code
+
+# Within check-pr (a BASE given), whether the branch changed documentation alone: then the tiers
+# that test the code have nothing to find (the owner, 2026-10-08).
+DOCUMENTATION_ONLY = [ -n '$(BASE)' ] && $(PYTHON) scripts/documentation_only.py --base '$(BASE)'
+
 .PHONY: check-docs
 check-docs: ## Links, anchors, decision citations and the decision index
 	@$(PYTHON) scripts/check_docs.py
@@ -247,8 +254,9 @@ mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner
 	@$(PYTHON) scripts/branch_base.py --mark '$(or $(REV),HEAD)'
 
 .PHONY: web-lint-full
-web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed
-	@npm --prefix web run --silent lint:full
+web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed; in check-pr, not for documentation alone
+	@if $(DOCUMENTATION_ONLY); then echo "web-lint-full: skipped; documentation alone changed since $(BASE)"; \
+	  else npm --prefix web run --silent lint:full; fi
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190); ONLY="a b" probes only those paths
@@ -287,7 +295,12 @@ INTEGRATION_ONLY_TESTS = $(shell echo '$(INTEGRATION_TEST_FILES)' | xargs -r gre
 INTEGRATION_PACKAGES = $(sort $(patsubst %/,./%,$(dir $(INTEGRATION_TEST_FILES))))
 
 .PHONY: test-integration
-test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do)
+test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do); in check-pr, not for documentation alone
+	@if $(DOCUMENTATION_ONLY); then echo "test-integration: skipped; documentation alone changed since $(BASE)"; \
+	  else $(MAKE) --no-print-directory test-integration-run; fi
+
+.PHONY: test-integration-run
+test-integration-run:
 	@$(UNCONTROLLED)
 	@test -n '$(INTEGRATION_ONLY_TESTS)' || { echo "test-integration: no test file builds only with -tags integration; the tier would test nothing"; exit 1; }
 	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
