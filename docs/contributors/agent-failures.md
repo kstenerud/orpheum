@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A27 — Blamed the owner's tool for a fault it had not traced (2026-10-08)
+
+- **What happened:** twice in one day the sandbox's whole working tree turned up staged, with no
+  staging command of the agent's to explain it. Having found nothing in the Makefile or `scripts/`
+  that writes the real index, the agent told the owner the likely cause was a host-side
+  `yoloai diff` run around then. It offered that as its best guess, with no evidence of any host
+  command, and it was false: the owner had run none in hours. Labelling a guess as unconfirmed does
+  not license offering it: an untraced fault is reported as untraced, with what was ruled out.
+- **Caught by:** the owner: *"That's weird, because I'm not at a terminal and have not run any
+  yoloai commands in hours."*
+- **Gate:** none yet. The cause is still unknown. A watcher in the sandbox now logs the process
+  table the moment the index gains staged entries, so the next occurrence names its writer.
+  Unstaging and staging by path keeps commits right meanwhile.
+
 ### A26 — Committed with the gate failing, three times, in a clone with no git hooks (2026-10-08)
 
 - **What happened:** Earlier commits were committed while `make check` failed, and
