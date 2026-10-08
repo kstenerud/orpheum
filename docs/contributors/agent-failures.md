@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A24 — Doubled check-pr's time without noticing, and quoted it as normal (2026-10-08)
+
+- **What happened:** check-pr ran in 2.6–5.3 minutes through 2026-10-07. Two of the agent's commits
+  each added time to its serial step. An earlier commit put the home acceptance in check-pr. An earlier commit
+  (D263) then added a "voice alone" test that runs under every profile, so under home too, about
+  3.2 minutes more. The serial step went from about 2.5 to 6 minutes, and check-pr from about 5 to
+  10–14.5. The agent told the owner check-pr would take "about 25 minutes". That figure was never
+  measured, and it was wrong too: the runs took 10–14.5 minutes. The agent treated the slowdown as
+  normal. The false belief came from having no stated budget: nothing said how long check-pr should
+  take, so the agent noticed no change.
+- **Caught by:** the owner: "check-pr was supposed to be under 5 minutes. what happened?"
+- **Gate:** none yet. Proposed: check-pr prints its elapsed time, and fails or warns past a stated
+  budget, written in standards/makefile.md. A test that adds to a gate's run says what it adds.
+
 ### A23 — Told the owner a tag would not travel, without checking the tool (2026-10-06)
 
 - **What happened:** asked to tag the demo-safe commit so it would not be forgotten, I tagged it
