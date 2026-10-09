@@ -142,9 +142,11 @@ func (reader *requestReader) request(ctx context.Context, remoteAddress string) 
 	if err != nil {
 		return nil, fmt.Errorf("make the request: %w", err)
 	}
-	request.Header = reader.head.Headers
-	if request.Header == nil {
-		request.Header = http.Header{}
+	// A browser names headers in lower case; the handler reads them by their canonical names.
+	for name, values := range reader.head.Headers {
+		for _, value := range values {
+			request.Header.Add(name, value)
+		}
 	}
 	request.RemoteAddr, request.RequestURI = remoteAddress, target.RequestURI()
 	return request, nil
