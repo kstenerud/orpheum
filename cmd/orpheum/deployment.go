@@ -122,7 +122,7 @@ func beginDeployment(dir string, kind deployment.Kind) (deploymentMessage, error
   2. On the VPS, put this end's public key in /etc/wireguard/wg0.conf's [Peer] PublicKey, and restart
      the tunnel there (systemctl restart wg-quick@wg0), unless it already holds this key:
        %s
-  3. Write the deployment again.
+  3. Run the command that began it again: deploy/release/build.sh, or ./staging.
 `, kind, deployment.ValuesFile, publicKey)}, nil
 }
 
