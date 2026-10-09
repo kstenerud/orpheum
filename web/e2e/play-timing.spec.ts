@@ -2,7 +2,7 @@
 
 import { expect, test } from "@playwright/test";
 
-import { isPlaying, openFilm, serverUrl, signIn } from "./pages.ts";
+import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
 import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
@@ -18,17 +18,16 @@ test("an MKV with H.264, TrueHD and ASS loads its first chunks on its page and p
   await signIn(page);
 
   // A device is asked how it plays sound before its first film; a film played as it is answers
-  // it here, so the timed press is an ordinary one.
-  await openFilm(page, warmUpFilm);
+  // it here, so the timed press is an ordinary one. Its page is opened once it is on its ladder,
+  // whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr runs, 2026-10-09).
+  await openFilmOnItsLadder(page, warmUpFilm);
   await page.getByRole("link", { name: "Play" }).click();
   await page.getByRole("button", { name: /Built-in speakers/ }).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   await expect(page.locator(".play__reason")).toContainText(onTheLadder);
 
   // Its page fills the player's first buffer before Play is pressed (D260 §3).
-  const preloaded = page.waitForRequest(/\/bytes\/media\/chunks\/.+\.m4s/u);
-  await openFilm(page, timingFilm(browserName));
-  await preloaded;
+  await openFilmOnItsLadder(page, timingFilm(browserName));
   const pressedAt = Date.now();
   await page.getByRole("link", { name: "Play" }).click();
   await expect.poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] }).toBe(true);
