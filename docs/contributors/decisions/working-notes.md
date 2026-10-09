@@ -19135,4 +19135,15 @@ D214, D249 and D272 §1–§2, and D112's refusal.
    missing, as the System page already shows; `node.confinement_policy` starts at `"report"`, and
    `"require"` stays for an admin who wants the refusal.
 
+**Added** (2026-10-09, the same day), by the project owner:
+
+6. **The protocol between a core and its discovery is stable and simple, so the two never upgrade
+   in lockstep.** *"Ideally we should be able to survive multiple updates without having to make an
+   incompatible change that requires them to upgrade. When that does eventually happen, we should
+   support the previous 2-3 versions (negotiable here, not sure what number would be ideal) as
+   well, with a deprecation warning that the next change could make them unsupported if they
+   haven't upgraded."* Changes are additive wherever they can be; a breaking one raises the
+   protocol's major version, the service keeps answering the previous ones for a deprecation
+   window, and a core on a deprecated version tells its admin. The window's size is still open.
+
 **Status:** Decided 2026-10-09.
