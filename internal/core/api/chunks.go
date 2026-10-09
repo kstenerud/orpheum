@@ -80,7 +80,7 @@ func (server *Server) chunksPlayback(
 
 // getChunksMasterPlaylist answers GET /bytes/media/chunks/{token}/master.m3u8. While the film has no
 // grid it is read through, and the player is told to ask again (425); a playback first offered its
-// film cut on time keeps it so (D269 §3).
+// film cut on time keeps it so (D269 §3), and one first offered its sounds unlevelled keeps them so.
 func (server *Server) getChunksMasterPlaylist(
 	ctx context.Context, input *ChunksMasterInput,
 ) (*huma.StreamResponse, error) {
@@ -92,14 +92,14 @@ func (server *Server) getChunksMasterPlaylist(
 	if err != nil {
 		return nil, server.playbackError(ctx, "find a playback's chunks", err)
 	}
-	text, kind, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
+	text, kept, err := dependencies.Chunks.MasterPlaylist(ctx, chunked)
 	if err != nil {
 		return nil, server.chunksError(ctx, "write a master playlist of chunks", err)
 	}
-	if kind == chunks.OnTime && !chunked.IsOnTime {
+	if kept != chunked.Kept() {
 		// The playback keeps the grid it began on, though a read-through finds the film's keyframes
-		// before it ends (D269 §3).
-		dependencies.Playback.KeepOnTime(input.Token, holder)
+		// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.
+		dependencies.Playback.Keep(input.Token, holder, kept)
 	}
 	return playlistResponse(text), nil
 }
