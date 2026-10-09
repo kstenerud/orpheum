@@ -18870,7 +18870,7 @@ the same person, and having it back on one device replaced the credential of the
 
 ## D268 — A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
 
-> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §5's later guest rights are decided: play and pause, and changing the position, granted by default and withheld per invite.
+> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §5's later guest rights are decided: play and pause, and changing the position, chosen per invite, each invite starting with the last one's.
 
 **Decided** (2026-10-08), by the project owner, on the review of Watch Together's synchronisation
 (design/research/sync-review-2026-10-08.md): *"ok, agreed"*, to its four recommendations that
@@ -19017,14 +19017,15 @@ with five guests, two of whom asked why they could not pause: *"I think we need 
    throughout. This revises D251 §1's later light palette.
 4. **A guest may play and pause, and may change the position, unless the host withholds it.**
    - The rights are granular: play and pause is one, changing the position the other.
-   - Both are granted by default. The host withholds either with a checkbox when creating the
-     invite.
+   - The host chooses them with a checkbox each when creating the invite. The first invite starts
+     with both; each later one starts with the rights of the last one issued (the owner, on
+     D246 §8: *"Actually, yeah it should copy the previous invite's rights."*).
    - A right granted lasts as long as the invite. The host already removes a person during
      playback.
 
    This revises D246 §8 and D268 §5, which kept control with the host alone in Cut A. D246 §8's
-   later form is kept, granular rights given per invite, with one change: every invite starts with
-   every right, not with the rights of the last one issued. D268 §5's shape
+   later form is kept as it was: granular rights given per invite, each invite starting with the
+   last one's. D268 §5's shape
    holds: a command carries no privilege of its own, and the hub asks whether the member who sent
    it may give it, now by the rights of that member's invite. It rides on D268 §4, a guest's
    player sending commands from its controls.
