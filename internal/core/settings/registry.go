@@ -73,6 +73,7 @@ const (
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
 	NewLibraryDefaultScanEveryHours                Key = "new_library_default_scan_every_hours"
+	WatchedLibraryScanEveryHours                   Key = "watched_library_scan_every_hours"
 	LoudnessTargetLUFS                             Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	ReadThroughSweepEveryHours                     Key = "read_through_sweep_every_hours"
@@ -358,6 +359,11 @@ func scanDefinitions() []Definition {
 			"how many videos of one folder a node reads in one go, each with the files beside it; a lost one "+
 				"is read again (D240 §8)"),
 			"the owner's choice, 2026-10-03: a folder of a few dozen loose films is a few of them"),
+		sourced(durationSetting(WatchedLibraryScanEveryHours, time.Hour, "24", 1, 8760,
+			"hours between full scans of a watched library's folders, beneath the watching, which can miss "+
+				"a change and never says so (D27, D272 §1)"),
+			"best guess: daily, as new_library_default_scan_every_hours; scanner.md: periodic full scans "+
+				"are mandatory even with a perfect watcher"),
 	}
 }
 

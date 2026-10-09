@@ -57,6 +57,9 @@ type jobServices struct {
 	exchanges *nodes.Exchanges
 	// scans run the scans of the nodes' roots: a listing, then the batches it leaves (D240).
 	scans *library.Scans
+	// scanSchedule asks for the scans libraries that notice changes by themselves are due (D27,
+	// D272 §1).
+	scanSchedule *library.ScanSchedule
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
 	// certificates obtains and renews the HTTPS certificate of the server's public name; nil for a
@@ -185,8 +188,8 @@ type jobRunner struct {
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
-// derivedByAScanRequest names what derives a scan's work: a scan asked for by an admin or a node's
-// hello, which a lost scan is asked for again by (D240).
+// derivedByAScanRequest names what derives a scan's work: a scan asked for by an admin, a node's
+// hello or the scan schedule's sweep, which a lost scan is asked for again by (D240).
 func derivedByAScanRequest() []string { return []string{"the next scan asked for"} }
 
 // runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
@@ -257,7 +260,13 @@ const (
 	sweepReadThroughs    = "read-throughs"
 	sweepScheduledBackup = "the scheduled backup"
 	sweepCertificate     = "the certificate's renewal"
+	sweepScheduledScans  = "the scheduled scans"
 )
+
+// scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
+// scan: a bound on how late one starts, against intervals of hours, and a read of persistent.db's
+// roots, nothing more.
+const scheduledScansCheckEvery = 15 * time.Minute
 
 // certificateCheckEvery is how often the certificate's sweep asks whether a renewal is due: daily,
 // against a month's margin before it expires (D243 §6).
@@ -332,6 +341,10 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepScheduledBackup, Derive: services.backups.QueueScheduled,
 			Every: func(context.Context) time.Duration { return scheduledBackupCheckEvery },
+		},
+		{
+			Name: sweepScheduledScans, Derive: services.scanSchedule.QueueDue,
+			Every: func(context.Context) time.Duration { return scheduledScansCheckEvery },
 		},
 		{
 			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,

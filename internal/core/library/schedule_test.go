@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package library
+
+import (
+	"context"
+	"log/slog"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+)
+
+// scheduledRequests are the scans the schedule asked for, and the scans in progress it sees.
+type scheduledRequests struct {
+	asked   []ScanRoot
+	running map[ScanRoot]ScanProgress
+}
+
+func (requests *scheduledRequests) Request(_ context.Context, nodeID int64, root string, priority int64) error {
+	if priority == jobs.PriorityBackground {
+		requests.asked = append(requests.asked, ScanRoot{NodeID: nodeID, RootPath: root})
+	}
+	return nil
+}
+
+func (requests *scheduledRequests) InProgress(context.Context) (map[ScanRoot]ScanProgress, error) {
+	return requests.running, nil
+}
+
+func TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	hoursAgo := func(hours int) *int64 { return new(now.Add(-time.Duration(hours) * time.Hour).UnixMilli()) }
+	every := func(hours int64) *int64 { return &hours }
+	row := func(root, detection string, checkEvery, lastScan *int64) sqlcgen.ListCheckedRootsRow {
+		return sqlcgen.ListCheckedRootsRow{
+			NodeID: 1, RootPath: root, ChangeDetection: detection,
+			CheckEveryHours: checkEvery, LastScanAt: lastScan,
+		}
+	}
+	for _, tc := range []struct {
+		name    string
+		rows    []sqlcgen.ListCheckedRootsRow
+		wantDue []string
+	}{
+		{"never scanned", []sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), nil)}, []string{"/a"}},
+		{
+			"scanned within its interval",
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), hoursAgo(5))},
+			nil,
+		},
+		{
+			"its interval just passed",
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "interval", every(6), hoursAgo(6))},
+			[]string{"/a"},
+		},
+		{
+			"watched, within the watched interval",
+			[]sqlcgen.ListCheckedRootsRow{row("/a", "watch", nil, hoursAgo(23))},
+			nil,
+		},
+		{"watched, past it", []sqlcgen.ListCheckedRootsRow{row("/a", "watch", nil, hoursAgo(24))}, []string{"/a"}},
+		{"two libraries over one root, due by the shorter", []sqlcgen.ListCheckedRootsRow{
+			row("/a", "watch", nil, hoursAgo(3)), row("/a", "interval", every(2), hoursAgo(3)),
+		}, []string{"/a"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var due []string
+			for _, root := range dueRoots(tc.rows, 24*time.Hour, now) {
+				due = append(due, root.RootPath)
+			}
+			if !slices.Equal(due, tc.wantDue) {
+				t.Errorf("due roots %v, want %v", due, tc.wantDue)
+			}
+		})
+	}
+}
+
+func TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	for _, made := range []NewLibrary{
+		{
+			Name: "Checked", ChangeDetection: "interval", CheckEveryHours: new(int64(6)),
+			Roots: []string{"/media/checked"},
+		},
+		{Name: "Watched", ChangeDetection: "watch", Roots: []string{"/media/watched"}},
+		{Name: "Running", ChangeDetection: "watch", Roots: []string{"/media/running"}},
+	} {
+		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+			t.Fatal(err)
+		}
+	}
+	requests := &scheduledRequests{running: map[ScanRoot]ScanProgress{
+		{NodeID: world.nodeID, RootPath: "/media/running"}: {},
+	}}
+	schedule := NewScanSchedule(world.database, requests, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	asked, err := schedule.QueueDue(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ScanRoot{
+		{NodeID: world.nodeID, RootPath: "/media/checked"}, {NodeID: world.nodeID, RootPath: "/media/watched"},
+	}
+	if asked != len(want) || !slices.Equal(requests.asked, want) {
+		t.Errorf("asked for %d scans, %v; want %v: never scanned, and not the manual library's %s nor the one "+
+			"running", asked, requests.asked, want, root)
+	}
+}
