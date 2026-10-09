@@ -172,3 +172,94 @@ func send(tb testing.TB, channel *webrtc.DataChannel, head rtcapi.RequestHead, b
 		tb.Error(err)
 	}
 }
+
+// Messages is a channel a request asked to become a WebSocket on: once accepted, a text message each
+// way is one message, and the core's binary message is its close (rtcapi.CloseMessage).
+type Messages struct {
+	tb       testing.TB
+	channel  *webrtc.DataChannel
+	head     chan rtcapi.ResponseHead
+	received chan string
+	closed   chan rtcapi.CloseMessage
+}
+
+// Upgrade asks for path to become a WebSocket over a channel of its own, and returns once the core
+// has answered the request's head.
+func (client *Client) Upgrade(path string) (*Messages, rtcapi.ResponseHead) {
+	client.tb.Helper()
+	channel, err := client.connection.CreateDataChannel("upgrade", nil)
+	if err != nil {
+		client.tb.Fatal(err)
+	}
+	messages := &Messages{
+		tb: client.tb, channel: channel, head: make(chan rtcapi.ResponseHead, 1),
+		received: make(chan string, 64), closed: make(chan rtcapi.CloseMessage, 1),
+	}
+	isHeadRead := false
+	channel.OnMessage(func(message webrtc.DataChannelMessage) {
+		switch {
+		case message.IsString && !isHeadRead:
+			isHeadRead = true
+			var head rtcapi.ResponseHead
+			if err := json.Unmarshal(message.Data, &head); err != nil {
+				client.tb.Error(err)
+			}
+			messages.head <- head
+		case message.IsString:
+			messages.received <- string(message.Data)
+		default:
+			var closing rtcapi.CloseMessage
+			if err := json.Unmarshal(message.Data, &closing); err != nil {
+				client.tb.Error(err)
+			}
+			messages.closed <- closing
+		}
+	})
+	head := rtcapi.RequestHead{
+		Method: "GET", Path: path, Headers: map[string][]string{"upgrade": {"websocket"}},
+	}
+	channel.OnOpen(func() { send(client.tb, channel, head, nil) })
+	var answered rtcapi.ResponseHead
+	ready := make(chan struct{})
+	go func() {
+		answered = <-messages.head
+		close(ready)
+	}()
+	receive(client.tb, ready, "the answer to the upgrade of "+path)
+	client.tb.Cleanup(func() { _ = channel.Close() }) //nolint:errcheck // the test is over
+	return messages, answered
+}
+
+// Send sends one message.
+func (messages *Messages) Send(text string) {
+	messages.tb.Helper()
+	if err := messages.channel.SendText(text); err != nil {
+		messages.tb.Fatal(err)
+	}
+}
+
+// Next is the core's next message.
+func (messages *Messages) Next() string {
+	messages.tb.Helper()
+	var next string
+	got := make(chan struct{})
+	go func() {
+		next = <-messages.received
+		close(got)
+	}()
+	receive(messages.tb, got, "the core's next message")
+	return next
+}
+
+// Closed is the close the core sent.
+func (messages *Messages) Closed() rtcapi.CloseMessage {
+	messages.tb.Helper()
+	var closing rtcapi.CloseMessage
+	got := make(chan struct{})
+	go func() {
+		closing = <-messages.closed
+		close(got)
+	}()
+	receive(messages.tb, got, "the core's close")
+	return closing
+}

@@ -21,6 +21,10 @@
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is
 //     refused. TestChannel_AHeadThatIsNotOneIsRefused.
+//   - A request asking to become a WebSocket is handed to its handler with a MessageConn in its
+//     context (MessageConnFrom); once accepted, a text message each way is one message and the core's
+//     binary message its close, with the WebSocket's code. internal/core/api's
+//     TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel.
 //   - Only an offer is answered, and none past MaxConnections.
 //     TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit.
 //   - A connection grants nothing: each request carries its own sign-in, and the offer endpoint
@@ -35,5 +39,5 @@
 // # Where to change
 //
 //   - rtcapi.go: offers, connections and their bounds; channel.go: reading a request;
-//     writer.go: sending a response.
+//     writer.go: sending a response; message.go: a request that became a WebSocket.
 package rtcapi

@@ -11,8 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coder/websocket"
+
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
+	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
 // A signed-in client's offer is answered, and its requests over data channels reach the same API, its
@@ -49,5 +52,48 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 	if anonymous.Head.Status != http.StatusUnauthorized {
 		t.Errorf("GET /libraries over a channel with no sign-in = %d; want 401: a connection grants nothing",
 			anonymous.Head.Status)
+	}
+}
+
+// A device reaches its Watch Together session over a data channel as over a WebSocket: welcomed after
+// its hello, and refused with the WebSocket's close code when its first message is not one (D273 §8).
+func TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = rtc.Close() }) //nolint:errcheck // the test is over
+	harness.server.SetRTC(rtc)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	link := rtcapitest.Connect(t, rtc.Answer)
+
+	device, head := link.Upgrade(togetherSocketPath)
+	if head.Status != http.StatusSwitchingProtocols {
+		t.Fatalf("the upgrade was answered %d; want 101", head.Status)
+	}
+	//nolint:gosec // G117: a test's hello, with no session token in it
+	hello, err := json.Marshal(together.Inbound{
+		V: together.ProtocolVersion, Type: together.MessageHello,
+		Credential: opened.Body.MembershipCredential, Role: together.RolePlayback,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	device.Send(string(hello))
+	for {
+		var message together.Outbound
+		if err := json.Unmarshal([]byte(device.Next()), &message); err != nil {
+			t.Fatal(err)
+		}
+		if message.Type == together.MessageWelcome {
+			break
+		}
+	}
+
+	stranger, _ := link.Upgrade(togetherSocketPath)
+	stranger.Send(`{"type":"state"}`)
+	if closing := stranger.Closed(); closing.Code != int(websocket.StatusPolicyViolation) {
+		t.Errorf("a first message that is no hello closed with %d %q; want %d", closing.Code, closing.Reason,
+			websocket.StatusPolicyViolation)
 	}
 }

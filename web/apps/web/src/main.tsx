@@ -13,6 +13,7 @@ import {
   createApi,
   reportFailure,
   SwitchableFetch,
+  type OpenTogetherSocket,
 } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -37,20 +38,32 @@ const routed = new SwitchableFetch();
 const api = createApi({ getToken: session.token, fetch: routed.fetch });
 api.use(watchForSignOut(session, navigation));
 api.use(pageUpdateWatch.middleware(ownScriptOf(document)));
+// The session socket the app opens: the browser's WebSocket, until the WebRTC path takes over.
+let openTogetherSocket = browserTogetherSocket(window.location.origin);
 if (
   wantsWebrtc(
     window.location.search,
     storageIfAllowed(() => window.sessionStorage),
   )
 ) {
-  moveToWebrtcWhenSignedIn({ session, api, routed }, reportFailure);
+  moveToWebrtcWhenSignedIn(
+    {
+      session,
+      api,
+      routed,
+      switchTogetherSocket: (open) => {
+        openTogetherSocket = open;
+      },
+    },
+    reportFailure,
+  );
 }
 const services = {
   api,
   session,
   navigation,
   playableFormats: browserPlayableFormats,
-  openTogetherSocket: browserTogetherSocket(window.location.origin),
+  openTogetherSocket: ((listeners) => openTogetherSocket(listeners)) satisfies OpenTogetherSocket,
   canFollowAGroup,
   voiceDevices: browserVoiceDevices,
   fetchMedia: browserFetch,

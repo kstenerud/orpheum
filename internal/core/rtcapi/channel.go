@@ -61,9 +61,13 @@ func serveChannel(
 	logger *slog.Logger,
 ) {
 	ctx, cancel := context.WithCancel(base)
-	channel.OnClose(cancel)
+	conn := newMessageConn(channel)
+	channel.OnClose(func() {
+		conn.ended()
+		cancel()
+	})
 	credit := newCredit(InitialCreditMessages)
-	reader := &requestReader{done: make(chan struct{}), credit: credit}
+	reader := &requestReader{done: make(chan struct{}), credit: credit, conn: conn}
 	channel.OnMessage(reader.take)
 	go func() {
 		defer cancel()
@@ -78,8 +82,15 @@ func serveChannel(
 			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
+		if reader.isUpgrade {
+			request = request.WithContext(context.WithValue(ctx, messageConnKey{}, conn))
+		}
 		writer := newChannelWriter(ctx, channel, credit)
 		handler.ServeHTTP(writer, request)
+		if conn.accepted() {
+			_ = conn.CloseNow() //nolint:errcheck // the handler is done with it, closed or not
+			return
+		}
 		if err := writer.finish(); err != nil && ctx.Err() == nil {
 			logger.WarnContext(ctx, "a response over WebRTC was cut short", "path", request.URL.Path, "err", err)
 		}
@@ -90,18 +101,27 @@ func serveChannel(
 type requestReader struct {
 	// credit is what the client has granted the response, which its messages after the request add to.
 	credit *credit
-	mutex  sync.Mutex
-	head   *RequestHead
-	body   bytes.Buffer
-	failed error
-	isDone bool
-	done   chan struct{}
+	// conn takes the client's messages after a request that asked to become a WebSocket.
+	conn      *MessageConn
+	isUpgrade bool
+	mutex     sync.Mutex
+	head      *RequestHead
+	body      bytes.Buffer
+	failed    error
+	isDone    bool
+	done      chan struct{}
 }
 
 // take takes one message of the request.
 func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	reader.mutex.Lock()
 	defer reader.mutex.Unlock()
+	if reader.isDone && reader.isUpgrade {
+		if message.IsString {
+			reader.conn.take(message.Data)
+		}
+		return
+	}
 	if reader.isDone {
 		var granted Credit
 		if message.IsString && json.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
@@ -117,6 +137,7 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 			return
 		}
 		reader.head = &head
+		reader.isUpgrade = asksForUpgrade(head.Headers)
 	case len(message.Data) == 0:
 		reader.end(nil)
 	case reader.body.Len()+len(message.Data) > MaxRequestBodyBytes:

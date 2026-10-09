@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { isPlaying, serverUrl, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
+import { endSession, join } from "./together-pages.ts";
 
 /**
  * A tab on the WebRTC path sends nothing of the API over HTTP, its own requests or the loads the
@@ -43,4 +44,57 @@ test("once on the WebRTC path, a tab finds and plays a film with nothing of the 
   await page.getByRole("button", { name: /Built-in speakers/u }).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   expect(overHttp).toEqual([]);
+});
+
+/**
+ * A host on the WebRTC path runs a Watch Together session over a data channel, never a WebSocket,
+ * and a guest on HTTP joins it and follows the host's film (D273 §8, W3).
+ */
+test("a host on the WebRTC path runs a Watch Together session with no WebSocket, and a guest follows it", async ({
+  browser,
+}) => {
+  const host = await (await browser.newContext()).newPage();
+  await signIn(host);
+  const moved = host.waitForEvent("console", (message) =>
+    message.text().includes("media now goes over WebRTC"),
+  );
+  await host.goto(`${serverUrl()}/?transport=webrtc`);
+  await moved;
+  const sockets: string[] = [];
+  host.on("websocket", (socket) => sockets.push(socket.url()));
+
+  await host.getByRole("link", { name: "Watch Together", exact: true }).click();
+  const start = host.getByRole("button", { name: "Start a session" });
+  const end = host.getByRole("button", { name: "End the session" });
+  await expect(start.or(end)).toBeVisible();
+  if (await end.isVisible()) {
+    await end.click();
+    await host.getByRole("button", { name: "End it" }).click();
+  }
+  await start.click();
+  await host.getByLabel("Who it is for (only you see this)").fill("Anna");
+  await host.getByRole("button", { name: "Make a link" }).click();
+  const shown = host.locator("output.share__link");
+  await expect(shown).toContainText("#");
+  const link = (await shown.textContent()) ?? "";
+
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto(link);
+  await join(guest, link);
+
+  await host.getByRole("link", { name: "Films", exact: true }).click();
+  const card = host.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  await expect(card).toBeVisible({ timeout: 60_000 });
+  await card.click();
+  await host.getByRole("link", { name: "Play" }).click();
+  const question = host.getByRole("button", { name: /Built-in speakers/u });
+  const leading = host.getByText("Watch Together is on");
+  await expect(question.or(leading)).toBeVisible({ timeout: 30_000 });
+  if (await question.isVisible()) {
+    await question.click();
+  }
+  await expect(leading).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+  expect(sockets).toEqual([]);
+  await endSession(host);
 });
