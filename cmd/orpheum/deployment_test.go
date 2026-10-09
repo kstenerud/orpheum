@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,5 +74,16 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 	}
 	if _, err = writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.2.0", "nas", -1); err != nil {
 		t.Errorf("writing again over the instances made = %v; want them kept and the files written", err)
+	}
+}
+
+func TestDispatch_WriteDeploymentIsASubcommandThatNeedsItsImage(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	status := dispatch(t.Context(), []string{"write-deployment", "--deployment", "release"}, noEnvironment, &stdout,
+		&stderr)
+	if status != exitUsageError || !strings.Contains(stderr.String(), "docker run --rm") {
+		t.Errorf("write-deployment without --image: status %d, stderr %q; want its usage, saying how the "+
+			"image runs it", status, stderr.String())
 	}
 }

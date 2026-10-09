@@ -51,6 +51,16 @@ class PreEdit(unittest.TestCase):
         self.assertEqual(self.edit("Makefile", ORPHEUM_ALLOW_GATE_EDIT="1"), "")
         self.assertEqual(self.edit("api/openapi.json", ORPHEUM_ALLOW_GATE_EDIT="1"), "deny")
 
+    def test_a_committed_step_is_refused_with_both_routes_a_schema_change_takes(self):
+        """Before production runs a change folds the last step; after, it appends (D228, D272 §5)."""
+        step = next(path for path in sorted((ROOT / "internal/store/migrations").glob("*.sql"))
+                    if "baseline" not in path.name)
+        result = run_hook("pre_edit.py", {"tool_name": "Edit", "tool_input": {"file_path": str(step)}})
+        self.assertEqual(decision(result), "deny")
+        reason = result["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("folds this last step into the baseline", reason)
+        self.assertIn("CHECKPOINT", reason)
+
     def test_outside_the_project_is_not_our_business(self):
         self.assertEqual(self.edit("../elsewhere/Makefile"), "")
 
