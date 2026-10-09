@@ -19145,5 +19145,20 @@ D214, D249 and D272 §1–§2, and D112's refusal.
    haven't upgraded."* Changes are additive wherever they can be; a breaking one raises the
    protocol's major version, the service keeps answering the previous ones for a deprecation
    window, and a core on a deprecated version tells its admin. The window's size is still open.
+7. **The owner's answers to the follow-ups** (*"Agreed with your other recommendations"*), on
+   [reachability-approaches-2026-10-09.md](../design/research/reachability-approaches-2026-10-09.md) §9:
+   - The window of §6: the service answers the previous two major versions, each for at least six
+     months after it is superseded, whichever is longer; a core on a deprecated one says so, with
+     the date its support ends, on the System page.
+   - A client reaches its core by racing every way it has (its IPv6 address, a LAN name, the public
+     IPv4, WebRTC) and keeping the first to answer (§9.1).
+   - Hidden per-core names live under a dedicated domain of the service's, not under
+     orpheum-app.com, with one wildcard certificate per core (*"a separate domain for the hidden
+     cores is acceptable (if it still makes sense to go this route)"*).
+   - The core maps its ports automatically by UPnP, NAT-PMP or PCP by default, says what it
+     mapped and whether the service's outside test passed, and can be told not to (§9.3).
+   - WebRTC data channels are the direct path for a core behind carrier NAT whose client lacks
+     IPv6; *"I approve trying pion/webrtc"*: its throughput and set-up time are measured first,
+     and the module joins the allowlist when the owner accepts the result (AGENTS.md rule 3).
 
 **Status:** Decided 2026-10-09.
