@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  grantEvery,
   maxMessageBytes,
   RtcTransport,
   sendOnChannel,
@@ -91,6 +92,25 @@ describe("the WebRTC transport", () => {
     expect(response.headers.get("content-type")).toBe("text/plain");
     expect(await response.text()).toBe("orpheum");
     expect(channel.isClosed).toBe(true);
+  });
+
+  it("grants the core more of the body only as its reader reads (rtcapi.Credit)", async () => {
+    const channel = new FakeChannel();
+    channel.readyState = "open";
+    const answered = sendOnChannel(channel, new Request("https://app.example/api/v1/film"));
+    await settle();
+    channel.answer(JSON.stringify({ status: 206 }));
+    const reader = (await answered).body?.getReader();
+    for (let index = 0; index < grantEvery * 2; index += 1) {
+      channel.answer(new Uint8Array([index]).buffer);
+    }
+    const grants = (): unknown[] =>
+      channel.sent.filter((message) => typeof message === "string" && message.includes("credit"));
+    expect(grants()).toEqual([]);
+    for (let index = 0; index < grantEvery; index += 1) {
+      await reader?.read();
+    }
+    expect(grants()).toEqual([JSON.stringify({ credit: grantEvery })]);
   });
 
   it("answers a status with no body without one", async () => {

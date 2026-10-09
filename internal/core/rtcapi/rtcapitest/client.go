@@ -97,6 +97,22 @@ func (client *Client) Address() string {
 	return net.JoinHostPort(pair.Local.Address, strconv.Itoa(int(pair.Local.Port)))
 }
 
+// grantEvery is how many body messages the client reads before granting as many more, as the
+// browser's reader does (rtcapi.Credit).
+const grantEvery = 16
+
+// grant grants the core messages more of a response's body.
+func grant(tb testing.TB, channel *webrtc.DataChannel, messages int) {
+	tb.Helper()
+	encoded, err := json.Marshal(rtcapi.Credit{Messages: messages})
+	if err == nil {
+		err = channel.SendText(string(encoded))
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+}
+
 // Reply is a response as the client read it.
 type Reply struct {
 	Head rtcapi.ResponseHead
@@ -113,6 +129,7 @@ func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
 		client.tb.Fatal(err)
 	}
 	var got Reply
+	read := 0
 	done := make(chan struct{})
 	var once sync.Once
 	channel.OnMessage(func(message webrtc.DataChannelMessage) {
@@ -126,6 +143,10 @@ func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
 		default:
 			got.Body = append(got.Body, message.Data...)
 			got.LargestMessageBytes = max(got.LargestMessageBytes, len(message.Data))
+			read++
+			if read%grantEvery == 0 {
+				grant(client.tb, channel, grantEvery)
+			}
 		}
 	})
 	channel.OnOpen(func() { send(client.tb, channel, head, body) })

@@ -35,6 +35,17 @@ type RequestHead struct {
 	Headers http.Header `json:"headers,omitempty"`
 }
 
+// InitialCreditMessages is how many body messages the core sends before the client grants more: 4 MiB
+// in flight, enough to fill a fast link's window while the client reads, little enough that a film
+// asked for from its first byte never sits whole in the browser's memory.
+const InitialCreditMessages = 64
+
+// Credit is a client's grant of more body messages, sent on the channel after its request ends, as
+// its reader takes those it has: {"credit": n}.
+type Credit struct {
+	Messages int `json:"credit"`
+}
+
 // ResponseHead is a response's first message on its channel.
 type ResponseHead struct {
 	Status  int         `json:"status"`
@@ -51,7 +62,8 @@ func serveChannel(
 ) {
 	ctx, cancel := context.WithCancel(base)
 	channel.OnClose(cancel)
-	reader := &requestReader{done: make(chan struct{})}
+	credit := newCredit(InitialCreditMessages)
+	reader := &requestReader{done: make(chan struct{}), credit: credit}
 	channel.OnMessage(reader.take)
 	go func() {
 		defer cancel()
@@ -66,7 +78,7 @@ func serveChannel(
 			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
-		writer := newChannelWriter(ctx, channel)
+		writer := newChannelWriter(ctx, channel, credit)
 		handler.ServeHTTP(writer, request)
 		if err := writer.finish(); err != nil && ctx.Err() == nil {
 			logger.WarnContext(ctx, "a response over WebRTC was cut short", "path", request.URL.Path, "err", err)
@@ -76,6 +88,8 @@ func serveChannel(
 
 // requestReader gathers a request's messages until the empty one that ends it.
 type requestReader struct {
+	// credit is what the client has granted the response, which its messages after the request add to.
+	credit *credit
 	mutex  sync.Mutex
 	head   *RequestHead
 	body   bytes.Buffer
@@ -89,6 +103,10 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 	reader.mutex.Lock()
 	defer reader.mutex.Unlock()
 	if reader.isDone {
+		var granted Credit
+		if message.IsString && json.Unmarshal(message.Data, &granted) == nil && granted.Messages > 0 {
+			reader.credit.grant(granted.Messages)
+		}
 		return
 	}
 	switch {
