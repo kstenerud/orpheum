@@ -3,24 +3,31 @@
 
 -- name: InsertScan :one
 -- A scan of a root, unless one is in progress: then nothing, and no id.
-INSERT INTO scan (node_id, root_path, priority, started_at)
-VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(priority), sqlc.arg(started_at))
+INSERT INTO scan (node_id, root_path, priority, started_at, scope_path)
+VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(priority), sqlc.arg(started_at), sqlc.arg(scope_path))
 ON CONFLICT (node_id, root_path) DO NOTHING
 RETURNING id;
 
 -- name: SetScanAgain :execrows
--- A scan asked for while one of the root runs: one more follows it (D236 section 3).
-UPDATE scan SET is_another_scan_queued = 1 WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
+-- A scan asked for while one of the root runs: one more follows it (D236 section 3), of the scope
+-- that covers every request made meanwhile.
+UPDATE scan SET is_another_scan_queued = 1, again_scope_path = sqlc.arg(again_scope_path)
+WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
+
+-- name: GetScanOfRoot :one
+SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
+       is_another_scan_queued, scope_path, again_scope_path
+FROM scan WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path);
 
 -- name: GetScan :one
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued
+       is_another_scan_queued, scope_path, again_scope_path
 FROM scan WHERE id = sqlc.arg(id);
 
 -- name: ListScans :many
 -- Every scan in progress, oldest first.
 SELECT id, node_id, root_path, priority, started_at, listed_at, listed_count, to_examine_count, examined_count,
-       is_another_scan_queued
+       is_another_scan_queued, scope_path, again_scope_path
 FROM scan ORDER BY id;
 
 -- name: SetScanListed :exec

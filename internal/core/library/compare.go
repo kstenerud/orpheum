@@ -36,11 +36,11 @@ type TakenListing struct {
 // Mounts and errors are taken as a scan's are. A listing that was stopped ends as a scan the node
 // stopped: unreadable, removing nothing (D39).
 func (ingester *Ingester) TakeListing(
-	ctx context.Context, nodeID int64, root string, records []nodeproto.ScanRecord, rules ScanRules,
+	ctx context.Context, nodeID int64, root, scope string, records []nodeproto.ScanRecord, rules ScanRules,
 ) (TakenListing, error) {
 	taken := TakenListing{Complete: nodeproto.ScanComplete{RootPath: root, IsStoppedByErrors: true}}
 	err := ingester.write(ctx, scanKey{nodeID: nodeID, root: root}, func(batch *ingestBatch) error {
-		listing := &listingComparison{batch: batch, rules: rules, taken: &taken}
+		listing := &listingComparison{batch: batch, rules: rules, taken: &taken, scope: cleanScope(scope)}
 		for index, record := range records {
 			if err := listing.take(ctx, cleanRecord(record)); err != nil {
 				return fmt.Errorf("listing record %d (%s): %w", index, record.Type, err)
@@ -56,6 +56,8 @@ type listingComparison struct {
 	batch *ingestBatch
 	rules ScanRules
 	taken *TakenListing
+	// scope is what the listing covers, relative to the root (D272 §9).
+	scope string
 	// stored are the root's library's live files on the node, by the bytes they were reported by,
 	// once the scan has begun.
 	stored map[string]sqlcgen.ListFilesToCompareRow
@@ -71,6 +73,9 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 	case nodeproto.RecordScanBegin:
 		if err := batch.ingestRecord(ctx, record); err != nil {
 			return err
+		}
+		if scan := batch.ingester.scans[batch.key]; scan != nil {
+			scan.scope = listing.scope
 		}
 		return listing.readStored(ctx)
 	case nodeproto.RecordListed:

@@ -2,7 +2,8 @@
 -- Each root's last scan and what it found (D208, D41, D42).
 
 -- name: GetRootState :one
-SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved
+SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved,
+  unavailable_since
 FROM root_state
 WHERE node_id = ? AND root_path = ?;
 

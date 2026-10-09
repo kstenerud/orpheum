@@ -68,7 +68,10 @@ type scanKey struct {
 // scanState is one scan in progress: which root and library, when it began, the moves it has
 // not been able to conclude yet, and the regions it could not read.
 type scanState struct {
-	root               string
+	root string
+	// scope is what the scan lists, relative to root: wholeRoot, or "" for a scan whose records came
+	// whole (IngestScan), or a folder a watcher saw change (D272 §9).
+	scope              string
 	facts              rootFacts
 	libraryID          int64 // 0 when no library covers the root: its records are not stored
 	startedAt          int64

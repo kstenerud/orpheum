@@ -77,27 +77,46 @@ func NewScans(parts ScansParts) *Scans {
 	}
 }
 
-// Request asks for a scan of a node's root at priority. One asked for while the root's scan runs
-// starts none: that one runs once more after it, however many ask (D236 §3).
+// Request asks for a scan of a node's whole root at priority. One asked for while the root's scan
+// runs starts none: that one runs once more after it, however many ask (D236 §3).
 func (scans *Scans) Request(ctx context.Context, nodeID int64, root string, priority int64) error {
-	scans.mutex.Lock()
-	defer scans.mutex.Unlock()
-	return scans.request(ctx, nodeID, root, priority)
+	return scans.RequestUnder(ctx, nodeID, root, wholeRoot, priority)
 }
 
-// request is Request, the mutex held.
-func (scans *Scans) request(ctx context.Context, nodeID int64, root string, priority int64) error {
+// RequestUnder asks for a scan of what is under scope, a folder relative to a node's root, which
+// removes nothing outside it: a watcher's notice that something changed there (D272 §9). One asked
+// for while the root's scan runs starts none: one more runs after it, of a scope that covers every
+// request made meanwhile.
+func (scans *Scans) RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	return scans.request(ctx, nodeID, root, cleanScope(scope), priority)
+}
+
+// request is RequestUnder, the mutex held.
+func (scans *Scans) request(ctx context.Context, nodeID int64, root, scope string, priority int64) error {
 	var scanID int64
 	err := scans.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		id, insertErr := store.OrNotFound(queries.InsertScan(ctx, cachegen.InsertScanParams{
 			NodeID: nodeID, RootPath: root, Priority: priority, StartedAt: scans.clock.Now().UnixMilli(),
+			ScopePath: scope,
 		}))
-		if errors.Is(insertErr, store.ErrNotFound) {
-			_, againErr := queries.SetScanAgain(ctx, cachegen.SetScanAgainParams{NodeID: nodeID, RootPath: root})
-			return againErr
+		if !errors.Is(insertErr, store.ErrNotFound) {
+			scanID = id
+			return insertErr
 		}
-		scanID = id
-		return insertErr
+		running, getErr := queries.GetScanOfRoot(ctx, cachegen.GetScanOfRootParams{NodeID: nodeID, RootPath: root})
+		if getErr != nil {
+			return getErr
+		}
+		again := scope
+		if running.IsAnotherScanQueued != 0 {
+			again = widerScope(ptr.ValueOrZero(running.AgainScopePath), scope)
+		}
+		_, againErr := queries.SetScanAgain(ctx, cachegen.SetScanAgainParams{
+			NodeID: nodeID, RootPath: root, AgainScopePath: &again,
+		})
+		return againErr
 	})
 	if err != nil {
 		return fmt.Errorf("ask for a scan of %s on node %d: %w", root, nodeID, err)
@@ -174,7 +193,7 @@ func (scans *Scans) Resume(ctx context.Context) error {
 		if err := scans.end(ctx, row); err != nil {
 			return err
 		}
-		if err := scans.request(ctx, row.NodeID, row.RootPath, row.Priority); err != nil {
+		if err := scans.request(ctx, row.NodeID, row.RootPath, row.ScopePath, row.Priority); err != nil {
 			return err
 		}
 	}
@@ -244,7 +263,7 @@ func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {
 		return nil
 	}
 	return scans.assigner.Assign(ctx, scan.NodeID, job, nodeproto.Command{Work: nodeproto.Work{
-		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: scan.RootPath, Path: "."},
+		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: scan.RootPath, Path: scan.ScopePath},
 	}})
 }
 
@@ -393,7 +412,7 @@ func (scans *Scans) takeListing(ctx context.Context, scanID int64, records []nod
 	if err != nil {
 		return err
 	}
-	taken, err := scans.ingester.TakeListing(ctx, scan.NodeID, scan.RootPath, records, rules)
+	taken, err := scans.ingester.TakeListing(ctx, scan.NodeID, scan.RootPath, scan.ScopePath, records, rules)
 	if err != nil {
 		return err
 	}
@@ -543,6 +562,15 @@ func (scans *Scans) complete(ctx context.Context, scan cachegen.Scan) error {
 	err := scans.ingester.IngestScan(ctx, scan.NodeID, scan.RootPath, []nodeproto.ScanRecord{{
 		Type: nodeproto.RecordScanComplete, ScanComplete: &complete,
 	}})
+	if errors.Is(err, errScopeNeedsTheRoot) {
+		scans.logger.InfoContext(ctx, "a scan of a folder found what only a scan of its whole root may judge; "+
+			"the root is scanned", "nodeId", scan.NodeID, "rootPath", scan.RootPath, "scopePath", scan.ScopePath,
+			"why", err.Error())
+		if endErr := scans.end(ctx, scan); endErr != nil {
+			return endErr
+		}
+		return scans.request(ctx, scan.NodeID, scan.RootPath, wholeRoot, scan.Priority)
+	}
 	if err != nil {
 		return err
 	}
@@ -563,7 +591,11 @@ func (scans *Scans) endThenAgain(ctx context.Context, scan cachegen.Scan) error 
 	if scan.IsAnotherScanQueued == 0 {
 		return nil
 	}
-	return scans.request(ctx, scan.NodeID, scan.RootPath, scan.Priority)
+	again := wholeRoot
+	if scan.AgainScopePath != nil {
+		again = *scan.AgainScopePath
+	}
+	return scans.request(ctx, scan.NodeID, scan.RootPath, again, scan.Priority)
 }
 
 // end forgets a scan, its batches and what the ingest held of it.
