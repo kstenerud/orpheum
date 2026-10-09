@@ -244,3 +244,18 @@ func TestLoadConfig_TheACMEDirectoryIsTheFilesLetsEncryptsByDefault(t *testing.T
 		t.Errorf("with none named: %q, %v; want Let's Encrypt's", config.HTTPS.ACMEDirectory, err)
 	}
 }
+
+// A node whose kernel lacks Landlock or seccomp runs and says so unless its admin asks it to refuse:
+// confinement is a hardening, not a requirement (D273 §5).
+func TestConfinementPolicy_StartsAtReport(t *testing.T) {
+	t.Parallel()
+	for _, key := range configKeys(kindNode) {
+		if key.name == "confinement_policy" {
+			if key.startingValue != `"report"` {
+				t.Errorf("node.confinement_policy starts at %s, want \"report\"", key.startingValue)
+			}
+			return
+		}
+	}
+	t.Error("the node has no confinement_policy key")
+}

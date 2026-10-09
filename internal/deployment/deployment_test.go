@@ -277,8 +277,8 @@ func TestWrite_TheConfigsServeTheNameRelayThroughTheVPSAndNameTheMedia(t *testin
 		t.Fatal(err)
 	}
 	if string(roots) != `["/mnt/tank/media/video/movies","/srv/a \"b\""]` || node["name"] != "nas" ||
-		node["confinement_policy"] != "require" || node["core_socket"] != "/run/orpheum/core/core.sock" {
-		t.Errorf("the node config is %v; want the media, the machine's name, confinement required and "+
+		node["confinement_policy"] != "report" || node["core_socket"] != "/run/orpheum/core/core.sock" {
+		t.Errorf("the node config is %v; want the media, the machine's name, confinement reported and "+
 			"the core's socket", node)
 	}
 	tunnel := readFile(t, filepath.Join(dir, tunnelConfig))
