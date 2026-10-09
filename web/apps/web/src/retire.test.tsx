@@ -12,6 +12,10 @@ import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
 const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
+const noDiscovery = [
+  200,
+  { baseUrl: "", published: [], probe: [], claimExpiresAt: 0, lastHeartbeatAt: 0 },
+] as const;
 
 let mounted: Mounted | undefined;
 
@@ -133,6 +137,7 @@ it("the System page says since when each folder and disk is offline, and retires
   const services = servedBy(
     {
       "GET /backups": noBackups,
+      "GET /system/discovery": noDiscovery,
       "GET /now-playing": [200, { playbacks: [] }],
       "GET /system": [
         [200, report],

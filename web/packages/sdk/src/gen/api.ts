@@ -1278,6 +1278,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the core stands with its discovery (admin; D273) */
+        get: operations["getDiscovery"];
+        put?: never;
+        /** Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273) */
+        post: operations["connectDiscovery"];
+        /** Take the core out of its discovery (admin; D273) */
+        delete: operations["leaveDiscovery"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/reachability": {
         parameters: {
             query?: never;
@@ -1799,6 +1818,10 @@ export interface components {
             reason?: string;
             remedy?: string;
         };
+        ConnectDiscoveryInputBody: {
+            /** @description The discovery's address: the service's, or the owner's own */
+            baseUrl: string;
+        };
         CreateAccountInputBody: {
             /** @description Who it is for; only the admin sees it */
             adminNote?: string;
@@ -1908,6 +1931,44 @@ export interface components {
         };
         DevicesOutputBody: {
             devices: components["schemas"]["DeviceBody"][] | null;
+        };
+        DiscoveryProbeBody: {
+            candidate: string;
+            result: string;
+        };
+        DiscoveryStatusBody: {
+            /** @description The discovery's address; empty when the core is enrolled with none */
+            baseUrl: string;
+            claimCode?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; 0 when there is no code
+             */
+            claimExpiresAt: number;
+            coreId?: string;
+            /** @description When the discovery stops speaking this core's protocol, when it said so */
+            deprecatedUntil?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; 0 before the first
+             */
+            lastHeartbeatAt: number;
+            probe: components["schemas"]["DiscoveryProbeBody"][] | null;
+            /** @description Why the last call to the discovery failed; empty when it did not */
+            problem?: string;
+            /** @description The addresses the discovery publishes */
+            published: string[] | null;
+            /**
+             * @description As the probe found; absent before it ran
+             * @enum {string}
+             */
+            reachableFrom?: "everywhere" | "ipv6_or_webrtc" | "nowhere";
+            /**
+             * @description Absent before the discovery's first answer
+             * @enum {string}
+             */
+            state?: "pending" | "claimed" | "grace" | "frozen" | "released" | "disabled";
+            zone?: string;
         };
         DiskBody: {
             /**
@@ -6331,6 +6392,104 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SystemOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryStatusBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    connectDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectDiscoveryInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryStatusBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    leaveDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

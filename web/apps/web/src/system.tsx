@@ -16,6 +16,7 @@ import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
 import { NowPlaying } from "./now-playing.tsx";
 import { SystemBackups } from "./system-backups.tsx";
+import { SystemDiscovery } from "./system-discovery.tsx";
 import { SystemReachability } from "./system-reachability.tsx";
 import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
@@ -70,6 +71,7 @@ export function System(): JSX.Element {
       <NowPlaying />
       <SystemBackups />
       <SystemReachability />
+      <SystemDiscovery />
     </>
   );
 }

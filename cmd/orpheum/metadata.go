@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -65,6 +66,8 @@ type jobServices struct {
 	// certificates obtains and renews the HTTPS certificate of the server's public name; nil for a
 	// server with none (D243 §6).
 	certificates *certificate.Service
+	// discovery keeps the core enrolled with its discovery, when an admin connected one (D273).
+	discovery *discovery.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -450,6 +453,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		pruneFinished(loopsContext, services.queue, ticker.C, logger)
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
+	loops.Go(func() { services.discovery.Run(loopsContext) })
 	return func() { cancel(); loops.Wait() }, nil
 }
 

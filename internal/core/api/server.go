@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -81,6 +82,8 @@ type Dependencies struct {
 	Together *together.Hub
 	// Reachability checks the server's public name and voice relay from outside in (D243 §7).
 	Reachability *reachability.Checker
+	// Discovery keeps the core enrolled with its discovery, which an admin connects and leaves (D273).
+	Discovery *discovery.Service
 	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).
 	Relay *turn.Issuer
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).
@@ -173,6 +176,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerNowPlaying()
 	server.registerTogether()
 	server.registerReachability()
+	server.registerDiscovery()
 	server.registerRTC()
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()

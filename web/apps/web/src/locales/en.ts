@@ -498,6 +498,39 @@ export const en = {
       none: "There is no backup yet.",
       backup: "{{name}}, {{size}}, made {{at}}",
     },
+    discovery: {
+      heading: "Discovery",
+      what: "A discovery tells your clients where to find this server, so it can be reached from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
+      address: "The discovery's address",
+      connect: "Connect",
+      at: "Connected to {{address}}.",
+      state: {
+        pending: "Waiting to be claimed.",
+        claimed: "Claimed: clients can find this server.",
+        grace:
+          "The subscription has lapsed; clients can still find this server for a few more days.",
+        frozen:
+          "The subscription has ended: clients cannot find this server through the discovery until it is renewed.",
+        released:
+          "The discovery has let this server go. Leave it, and connect again to start over.",
+        disabled: "The discovery has turned this server off. Its operator can say why.",
+      },
+      claim:
+        "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
+      reachable: {
+        everywhere: "Clients can reach it from anywhere.",
+        ipv6OrWebrtc: "Clients with IPv6 reach it directly; the rest connect over WebRTC.",
+        nowhere: "The discovery could not reach it from outside. Clients at home still can.",
+      },
+      published: "Published as {{names}}.",
+      heartbeat: "Last told the discovery its addresses at {{at}}.",
+      problem: "The last call to the discovery failed: {{problem}}",
+      deprecated:
+        "The discovery stops speaking this server's protocol on {{date}}. Update the server before then.",
+      leave: "Leave the discovery",
+      leaveConsequence: "Clients outside the house will no longer find this server through it.",
+      leaveConfirm: "Leave",
+    },
     reachability: {
       heading: "Reached from outside",
       what: "Checks the way a browser outside the house reaches the server: its public name, through the VPS and the tunnel, and the voice relay's port.",
