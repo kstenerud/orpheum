@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package rtcapitest
+
+import (
+	"context"
+	"encoding/json"
+	"net"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+)
+
+// waitLimit bounds every wait on the connection: loopback answers in milliseconds, so one that does
+// not is a failure, not a slow machine.
+const waitLimit = 30 * time.Second
+
+// receive waits for ready, failing the test after waitLimit. The core's packages never reach os/exec
+// (TestArch_CoreNeverExecs), so testutil.Receive, whose package does, is not open to it.
+func receive[Value any](tb testing.TB, ready <-chan Value, waitingFor string) {
+	tb.Helper()
+	ctx, cancel := context.WithTimeout(tb.Context(), waitLimit)
+	defer cancel()
+	select {
+	case <-ready:
+	case <-ctx.Done():
+		tb.Fatalf("waited %s for %s", waitLimit, waitingFor)
+	}
+}
+
+// Client is one peer connection to a core.
+type Client struct {
+	tb         testing.TB
+	connection *webrtc.PeerConnection
+}
+
+// Answerer takes the client's offer to the core and returns its answer: rtcapi.Server.Answer, or the
+// offer endpoint.
+type Answerer func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
+
+// Connect makes a client on the loopback and connects it through answer.
+func Connect(tb testing.TB, answer Answerer) *Client {
+	tb.Helper()
+	settings := webrtc.SettingEngine{}
+	settings.SetIncludeLoopbackCandidate(true)
+	connection, err := webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test is over
+	// An offer needs something to negotiate: a channel the client opens and never uses.
+	if _, err = connection.CreateDataChannel("hello", nil); err != nil {
+		tb.Fatal(err)
+	}
+	offer, err := connection.CreateOffer(nil)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	gathered := webrtc.GatheringCompletePromise(connection)
+	if err = connection.SetLocalDescription(offer); err != nil {
+		tb.Fatal(err)
+	}
+	receive(tb, gathered, "the client's candidates")
+	local := connection.LocalDescription()
+	answered, err := answer(tb.Context(), rtcapi.Description{Type: local.Type.String(), SDP: local.SDP})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	connected := make(chan struct{})
+	var once sync.Once
+	connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateConnected {
+			once.Do(func() { close(connected) })
+		}
+	})
+	err = connection.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: answered.SDP})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	receive(tb, connected, "the connection")
+	return &Client{tb: tb, connection: connection}
+}
+
+// Address is the client's own end of the candidate pair its connection selected, as the core sees
+// it: host and port.
+func (client *Client) Address() string {
+	client.tb.Helper()
+	pair, err := client.connection.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
+	if err != nil || pair == nil || pair.Local == nil {
+		client.tb.Fatalf("the connection has selected no candidate pair: %v", err)
+	}
+	return net.JoinHostPort(pair.Local.Address, strconv.Itoa(int(pair.Local.Port)))
+}
+
+// Reply is a response as the client read it.
+type Reply struct {
+	Head rtcapi.ResponseHead
+	Body []byte
+	// LargestMessageBytes is the largest body message it came in.
+	LargestMessageBytes int
+}
+
+// Do sends one request on a channel of its own and reads its response whole.
+func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
+	client.tb.Helper()
+	channel, err := client.connection.CreateDataChannel("request", nil)
+	if err != nil {
+		client.tb.Fatal(err)
+	}
+	var got Reply
+	done := make(chan struct{})
+	var once sync.Once
+	channel.OnMessage(func(message webrtc.DataChannelMessage) {
+		switch {
+		case message.IsString:
+			if err := json.Unmarshal(message.Data, &got.Head); err != nil {
+				client.tb.Error(err)
+			}
+		case len(message.Data) == 0:
+			once.Do(func() { close(done) })
+		default:
+			got.Body = append(got.Body, message.Data...)
+			got.LargestMessageBytes = max(got.LargestMessageBytes, len(message.Data))
+		}
+	})
+	channel.OnOpen(func() { send(client.tb, channel, head, body) })
+	receive(client.tb, done, "the response to "+head.Path)
+	_ = channel.Close() //nolint:errcheck // the response is read
+	return got
+}
+
+// send sends a request's head, its body and the empty message that ends it.
+func send(tb testing.TB, channel *webrtc.DataChannel, head rtcapi.RequestHead, body []byte) {
+	tb.Helper()
+	encoded, err := json.Marshal(head)
+	if err == nil {
+		err = channel.SendText(string(encoded))
+	}
+	for start := 0; err == nil && start < len(body); start += rtcapi.MaxMessageBytes {
+		err = channel.Send(body[start:min(len(body), start+rtcapi.MaxMessageBytes)])
+	}
+	if err == nil {
+		err = channel.Send([]byte{})
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+}

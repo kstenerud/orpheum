@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -51,6 +52,10 @@ func serve(
 	server := api.NewServer(logger)
 	clientFiles, hasClient := webclient.Files()
 	serveClient(server, clientFiles, hasClient)
+	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
+	rtc := rtcapi.New(ctx, server.Handler(), logger)
+	server.SetRTC(rtc)
+	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
 		Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
 	}

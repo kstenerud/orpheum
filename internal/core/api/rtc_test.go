@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
+)
+
+// A signed-in client's offer is answered, and its requests over data channels reach the same API, its
+// own sign-in carried in each request's head (D273 §8).
+func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = rtc.Close() }) //nolint:errcheck // the test is over
+	harness.server.SetRTC(rtc)
+	token := harness.createAdminAndSignIn(t)
+	wantError(t, harness.do(t, http.MethodPost, "/rtc/offer", "", map[string]any{"type": "offer", "sdp": "v=0"}),
+		http.StatusUnauthorized, CodeAuthRequired)
+
+	//nolint:contextcheck // the harness's requests carry the test's context
+	link := rtcapitest.Connect(t, func(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+		answered := harness.do(t, http.MethodPost, "/rtc/offer", token, map[string]any{
+			"type": offer.Type, "sdp": offer.SDP,
+		})
+		var answer SessionDescriptionBody
+		if answered.status != http.StatusOK || json.Unmarshal([]byte(answered.body), &answer) != nil {
+			return rtcapi.Description{}, fmt.Errorf("POST /rtc/offer = %d %s", answered.status, answered.body)
+		}
+		return rtcapi.Description{Type: answer.Type, SDP: answer.SDP}, nil
+	})
+	signedIn := link.Do(rtcapi.RequestHead{
+		Method: http.MethodGet, Path: Prefix + "/libraries",
+		Headers: http.Header{"Authorization": {"Bearer " + token}},
+	}, nil)
+	if signedIn.Head.Status != http.StatusOK || !strings.Contains(string(signedIn.Body), `"libraries"`) {
+		t.Errorf("GET /libraries over a channel = %d %s; want the libraries", signedIn.Head.Status, signedIn.Body)
+	}
+	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: Prefix + "/libraries"}, nil)
+	if anonymous.Head.Status != http.StatusUnauthorized {
+		t.Errorf("GET /libraries over a channel with no sign-in = %d; want 401: a connection grants nothing",
+			anonymous.Head.Status)
+	}
+}

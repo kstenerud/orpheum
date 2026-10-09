@@ -184,6 +184,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// The caller's own rows, which say nothing of what a library holds.
 		"unhideProgress", "getMe", "listMyDevices", "changeMyDevice", "removeMyDevice", "signOutElsewhere",
 		"getWaitingCode", "issueDeviceCode", "changePassword", "setMyPreferences", "getClientSettings",
+		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
+		"postRTCOffer",
 		// Signing in and setting up, before there is a caller.
 		"getHealth", "setup", "signIn", "signOut", "signInWithCode", "register", "getLinkKind",
 		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
