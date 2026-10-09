@@ -19151,7 +19151,10 @@ D214, D249 and D272 §1–§2, and D112's refusal.
      months after it is superseded, whichever is longer; a core on a deprecated one says so, with
      the date its support ends, on the System page.
    - A client reaches its core by racing every way it has (its IPv6 address, a LAN name, the public
-     IPv4, WebRTC) and keeping the first to answer (§9.1).
+     IPv4, WebRTC) (§9.1). The owner, the same day: *"first to succeed wins, but if a better method
+     comes back successfully a short while later, we switch to that"*: the client uses the first
+     path that answers, keeps the others trying for a short while, and moves to a better one that
+     answers in that time (better: on the LAN over across the internet, plain HTTPS over WebRTC).
    - Hidden per-core names live under a dedicated domain of the service's, not under
      orpheum-app.com, with one wildcard certificate per core (*"a separate domain for the hidden
      cores is acceptable (if it still makes sense to go this route)"*).
@@ -19160,5 +19163,9 @@ D214, D249 and D272 §1–§2, and D112's refusal.
    - WebRTC data channels are the direct path for a core behind carrier NAT whose client lacks
      IPv6; *"I approve trying pion/webrtc"*: its throughput and set-up time are measured first,
      and the module joins the allowlist when the owner accepts the result (AGENTS.md rule 3).
+8. **pion/webrtc joins the dependencies.** On the measurement (reachability-approaches §9.4: one
+   connection window-bound, four with faster window growth enough for 1080p at every round trip
+   measured and 4K to about 100 ms), the owner: *"Ok let's add webrtc"*. The transport is planned
+   in [webrtc-transport.md](../design/plans/webrtc-transport.md).
 
 **Status:** Decided 2026-10-09.
