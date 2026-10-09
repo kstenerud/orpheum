@@ -9,7 +9,7 @@ export default defineConfig({
   testDir: ".",
   // Browser specs alone: a *.test.ts beside them is a unit test of a helper, vitest's to run.
   testMatch: "*.spec.ts",
-  // M4's acceptance runs for an hour and a half, at a milestone's end (D252 §2).
+  // M4's acceptance runs for two and a half hours, at a milestone's end (D252 §2).
   testIgnore: "acceptance.spec.ts",
   // Traces and screenshots of a failure, beside the dev loop's state and ignored by git.
   outputDir: "../../.dev/browser-results",
