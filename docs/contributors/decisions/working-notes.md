@@ -16593,6 +16593,8 @@ a subtitle file beside the media is converted at first play.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
+> **Revised by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** §10 (2026-10-09): a TV shows a code the core gave it, a signed-in device enters it, and a check code shown on both confirms the pairing; not built yet.
+
 **Decided** (2026-09-25), by the project owner, who set the flow out: *"Admin creates account,
 sends url / qr to user. User clicks / opens link from a phone or computer ... to complete
 registration (selects a new password). User then uses phone/computer's browser/app to ask for a
@@ -19177,5 +19179,18 @@ D214, D249 and D272 §1–§2, and D112's refusal.
      carrying where the core is. *"Another option for device registration would be to have the
      device itself get a qr code from the core, the logged in user scans with his phone to complete
      registration."* No search by name or e-mail: that would be a list of cores (D214 §3).
+10. **A TV joins by a code it shows, and a check code both screens show** (revising D218 §3–§4,
+    whose code a signed-in person makes and types on the TV). The owner: *"For the TV code, there
+    have been multiple approaches tried. I prefer this way: unregistered device connects to the
+    core (though vps or paid), gets a code, the user enters it into a registered device, then the
+    core sends a new check code to both, which the user verifies are the same before accepting the
+    pairing."*
+    - The unregistered device reaches its core by whichever path it has (the owner's VPS, or the
+      discovery) and is given a code, which it shows.
+    - The person types it on a device already signed in.
+    - The core then sends a new check code to both devices; the person sees they match, and only
+      then accepts. A code shown by someone else's device fails at the check.
+    - D218's safe32 shape, single use and short life hold for both codes. Not built: M3 built
+      D218's direction, which this replaces.
 
 **Status:** Decided 2026-10-09.
