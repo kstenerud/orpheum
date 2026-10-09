@@ -43,7 +43,9 @@
 //     baseline is the exception, rewritten by each fold (D228). Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
 //   - Until migrations are live (no migrations/LIVE), the steps are a baseline and at most one
-//     step after it (D228). Enforced by TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive.
+//     step after it (D228); once production runs (migrations/CHECKPOINT), the baseline is the
+//     version it holds, with every step since kept (D272 §5). Enforced by
+//     TestSteps_KeepTheMigrationWindow and TestWindowProblem_HoldsTheBaselineAtTheCheckpointAndOneStepBeforeIt.
 //   - A baseline builds only a new file. A database below its version is refused, and one that
 //     reached its version through the step it folded carries on. Enforced by
 //     TestMigrate_ADatabaseMigratedThroughTheFoldedStepsCarriesOn and

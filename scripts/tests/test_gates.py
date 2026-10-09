@@ -116,6 +116,19 @@ class Migrations(unittest.TestCase):
         self.assertTrue(gate_paths.is_committed_migration(self.STEP, root))
         self.assertFalse(gate_paths.is_committed_migration("internal/store/migrations/0026_new.sql", root))
 
+    def test_while_production_runs_the_baseline_is_frozen_too(self):
+        root = self.repo()
+        (root / gate_paths.MIGRATIONS_CHECKPOINT).write_text("24\n")
+        self.assertTrue(gate_paths.production_runs(root))
+        self.assertFalse(gate_paths.migrations_are_live(root))
+        self.assertTrue(gate_paths.is_committed_migration(self.BASELINE, root))
+        self.assertTrue(gate_paths.is_committed_migration(self.STEP, root))
+        self.assertFalse(gate_paths.is_committed_migration("internal/store/migrations/0026_new.sql", root))
+
+    def test_the_checkpoint_is_the_owners(self):
+        self.assertTrue(gate_paths.is_gate(gate_paths.MIGRATIONS_CHECKPOINT))
+        self.assertFalse(gate_paths.is_gate("internal/store/migrations/0026_new.sql"))
+
     def test_once_live_every_committed_step_is_frozen(self):
         root = self.repo()
         (root / gate_paths.MIGRATIONS_LIVE_MARKER).write_text("")
