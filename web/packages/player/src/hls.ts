@@ -159,10 +159,11 @@ export function measuredKbps(
 /**
  * Tells video what hls.js loads, for a Watch Together player's log: each chunk, by
  * playerLoadedChunkEvent, with how long it took and how fast, and each quality it begins playing,
- * by playerSwitchedQualityEvent, with its link estimate then. A viewer's iPhone froze every few
+ * by playerSwitchedQualityEvent, with its link estimate then, once a chunk measured it. A viewer's iPhone froze every few
  * seconds and nothing said what it loaded, or how fast (staging, 2026-10-06).
  */
 export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchEvent">): void {
+  const linkEstimateKbps = measuredKbps(hls);
   hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
     const { frag } = data;
     const isVideo = frag.type === PlaylistLevelType.MAIN;
@@ -182,7 +183,7 @@ export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchE
   hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
     const switched: QualitySwitched = {
       qualityKbps: (hls.levels[data.level]?.bitrate ?? 0) / 1000,
-      linkEstimateKbps: hls.bandwidthEstimate / 1000,
+      linkEstimateKbps: linkEstimateKbps(),
     };
     video.dispatchEvent(new CustomEvent(playerSwitchedQualityEvent, { detail: switched }));
   });
