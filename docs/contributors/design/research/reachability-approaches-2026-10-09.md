@@ -276,6 +276,87 @@ tier's CGNAT answer after the beta.
 5. **Is P2 (WebRTC data channels for video) worth its size** as the paid tier's answer to CGNAT, or
    is "use IPv6, a port-forward or your own VPS" enough for now?
 
+## 9. Follow-up: the owner's questions (2026-10-09)
+
+### 9.1 A browser at home reaching a core at home
+
+The page is app.orpheum-app.com; the core is on the same LAN. The ways, best first:
+
+| Way | How | Pros | Cons |
+| --- | --- | --- | --- |
+| The core's global IPv6 address | the core's name resolves (AAAA) to its own IPv6 address; on the LAN the packets go straight to it | direct; the address is public, so no Local Network Access prompt and no rebinding block **[I]** | the home network needs IPv6 (DS-Lite homes have it) and the core's port open in the router's IPv6 firewall |
+| A LAN name | `192-168-1-5.<hash>.<zone>` resolves to the private address | direct; no router port needed | many routers and DNS filters drop public answers pointing at private addresses (DNS rebinding protection, on by default in the FRITZ!Box) **[V]**: the name does not resolve; Chrome asks permission first (Local Network Access) **[V]** |
+| The public IPv4 through the router (hairpin) | the client uses the public address; the router turns it back inside | no rebinding block, no prompt | the router must support it (many do, some do not); impossible without a public IPv4 (DS-Lite) |
+| WebRTC on the LAN | the data channel finds the LAN path itself (ICE host candidates) | direct; no DNS, so no rebinding block; WebRTC is not yet under Local Network Access **[V]** | the WebRTC transport must exist (9.4) |
+| Send the browser to the core's own origin | at home, open the core's own page (A1) | simple | plain HTTP on the LAN has no microphone (insecure context); HTTPS needs one of the names above anyway |
+| Split-horizon DNS | the owner's router answers the core's name with its LAN address | clean | needs router configuration few owners can do |
+
+**Rebinding, explained.** DNS rebinding is an attack where a website's name first resolves to the
+attacker's server and then, moments later, to an address on your home network, so the attacker's
+page can talk to your router or NAS. Routers defend by refusing any public DNS answer that points at
+a private address. A LAN name like Plex's is exactly such an answer, so it is refused. The fix is an
+exemption for the zone in the router (Plex documents it) or a different DNS resolver.
+
+**[I] Recommended:** the client races them all and keeps the first to answer; in practice IPv6
+wins in most homes that have it, the LAN name where rebinding protection is off, WebRTC otherwise.
+
+### 9.2 What a dedicated domain for core names costs
+
+- **Certificate Transparency.** Every certificate is published. With one wildcard certificate per
+  core (`*.<hash>.<zone>`), the logs show only the core's random label, never its addresses **[I]**
+  (the addresses live in the names under the wildcard, which are never certified one by one). What
+  leaks is the number of cores and when each was made.
+- **Phishing.** Every customer's core can serve any page under the service's domain with a valid
+  certificate. The names are random labels, which makes them poor phishing names; the service still
+  needs an abuse address and the power to revoke a core.
+- **The domain's own cookies and reputation.** A separate registered domain keeps a core from
+  touching app.orpheum-app.com's sign-in; on the Public Suffix List, cores cannot touch each other
+  either. A domain reported for abuse is blocked as a whole by filters: one bad customer could get
+  every core's names blocked. Mitigation: fast revocation, and the PSL entry (filters treat listed
+  suffixes per name).
+- **The service's DNS is on the path.** No DNS, no names. The addresses are in the names, so the
+  DNS server computes its answers without a database and can run in several places; clients keep
+  the last good addresses.
+- **Alternatives that work:** the owner's own domain (self-hosting only); IP certificates (public
+  addresses only, six days); no CA certificate at all over WebRTC, whose encryption is pinned by
+  fingerprints the service passes along (9.4). A shared certificate copied to every core would be
+  extracted at once: not an option.
+
+### 9.3 Automatic port mapping
+
+A home router lets devices on the LAN ask it to forward an outside port to them, by UPnP IGD,
+NAT-PMP or PCP. The core would ask for one TCP port (HTTPS) and the UDP ports voice needs, renew the
+lease while it runs, and have the service check from outside that the port answers. Plex and most
+game consoles do this.
+
+- **Pros:** no router settings for the owner; the commonest way a public IPv4 home becomes reachable.
+- **Cons:** UPnP's reputation (malware uses it too, and careful owners turn it off); it does nothing
+  without a public IPv4 on the router (carrier NAT, DS-Lite, a second router in front); some
+  routers grant a different outside port than asked, so the address includes the port.
+- **The default:** on, said on the System page with what was mapped and whether the outside check
+  passed, and one switch to turn it off **[I]**.
+
+### 9.4 What the WebRTC transport costs
+
+It is the one direct path for a core behind carrier NAT whose client has no IPv6. Its costs:
+
+- **A new dependency:** pion/webrtc (the TURN relay already uses its siblings), the owner's call.
+- **The core:** a WebRTC peer per connected client; a small request-and-response protocol over data
+  channels carrying API calls, chunks, images and subtitles, with framing (data channel messages are
+  best kept to tens of kilobytes) and flow control; the Watch Together socket's messages too.
+- **The client:** one transport layer under the SDK, so every request goes either over HTTPS or
+  over the channel; an hls.js loader for chunks; images and subtitles through blob URLs.
+- **The service:** signalling: each core holds one open connection to the service, which passes
+  offers and answers between it and its clients; small.
+- **Unknowns to measure first:** a data channel's throughput in each browser (4K needs tens of
+  megabits), and set-up time (ICE takes a second or two before the first chunk).
+- **What it adds:** households behind carrier NAT whose clients have no IPv6, where hole punching
+  works: about 70% of attempts in the 2026 measurement **[V]**. Where both ends are behind NATs that
+  map per destination, nothing direct can work; only a relay could, which is the owner's VPS or
+  nothing (D273 §2).
+- **Size [I]:** a measurement spike of a few days settles the unknowns; the full transport is three
+  to five weeks of agent work with its tests, about the size of a milestone phase.
+
 ## Sources
 
 Checked on 2026-10-09; pages cached in `/yoloai/cache/http/reachability-facts/`.
