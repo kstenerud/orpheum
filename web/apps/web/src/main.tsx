@@ -11,6 +11,8 @@ import {
   browserTogetherSocket,
   browserVoiceDevices,
   createApi,
+  reportFailure,
+  SwitchableFetch,
 } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,6 +24,7 @@ import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { createSession } from "./session.ts";
 import { watchForSignOut } from "./signed-out-watch.ts";
+import { moveToWebrtcWhenSignedIn, wantsWebrtc } from "./transport-choice.ts";
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -30,9 +33,18 @@ if (rootElement === null) {
 
 const session = createSession(storageIfAllowed(() => window.localStorage));
 const navigation = createNavigation(window);
-const api = createApi({ getToken: session.token });
+const routed = new SwitchableFetch();
+const api = createApi({ getToken: session.token, fetch: routed.fetch });
 api.use(watchForSignOut(session, navigation));
 api.use(pageUpdateWatch.middleware(ownScriptOf(document)));
+if (
+  wantsWebrtc(
+    window.location.search,
+    storageIfAllowed(() => window.sessionStorage),
+  )
+) {
+  moveToWebrtcWhenSignedIn({ session, api, routed }, reportFailure);
+}
 const services = {
   api,
   session,

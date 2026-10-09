@@ -15,9 +15,15 @@ const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,t
  * The POSTs no click sends, which carry no key: a film's page and the play page ask how a file
  * plays when they open (D258 §1), and the player reports where it is on its own, each report with
  * its own sequence (D217 §7); a Watch Together viewer's page asks how the group's film plays each
- * time it changes (D246 §3).
+ * time it changes (D246 §3); and a tab on the WebRTC path offers its connections once signed in,
+ * each offer a new connection, so a repeat makes another rather than doing one twice (D273 §8).
  */
-const notSentByAClick = new Set(["./watching.ts", "./play-state.ts", "./together-playback.ts"]);
+const notSentByAClick = new Set([
+  "./watching.ts",
+  "./play-state.ts",
+  "./together-playback.ts",
+  "./transport-choice.ts",
+]);
 
 /** The text of each call that begins at an index in source: from it to its closing parenthesis. */
 function callAt(source: string, start: number): string {

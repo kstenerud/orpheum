@@ -15,6 +15,8 @@ export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
+export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
+export type { Description, FetchRequest, Signaller } from "./rtc-transport.ts";
 export {
   ApiProblem,
   dataOrThrow,
