@@ -46,10 +46,11 @@ export interface UnplayableQuality {
   readonly positionMs: number;
   /**
    * The video as it was when the quality was given up, before its decoding was built anew: its
-   * readyState, what its picture's and sound's buffers held, and its last error. A stall reported
-   * after showed only the rebuilt pipeline refilling (D266).
+   * readyState, whether it was paused, what its picture's and sound's buffers held, and its last
+   * error. A stall reported after showed only the rebuilt pipeline refilling (D266).
    */
   readonly readyState?: number;
+  readonly isPaused?: boolean;
   readonly videoBuffered?: string;
   readonly audioBuffered?: string;
   readonly lastError?: string;
@@ -65,7 +66,7 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
     return undefined;
   }
   const fields = Object.fromEntries(Object.entries(detail));
-  const { qualityKbps, positionMs, readyState } = fields;
+  const { qualityKbps, positionMs, readyState, isPaused } = fields;
   if (typeof qualityKbps !== "number" || typeof positionMs !== "number") {
     return undefined;
   }
@@ -75,6 +76,7 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
     qualityKbps,
     positionMs,
     ...(typeof readyState === "number" ? { readyState } : {}),
+    ...(typeof isPaused === "boolean" ? { isPaused } : {}),
     ...text("videoBuffered"),
     ...text("audioBuffered"),
     ...text("lastError"),
@@ -85,13 +87,14 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
  * Sends video a playerFoundUnplayableEvent for each quality given up, with the video as it was,
  * read before its decoding is built anew, which empties every buffer (D266).
  */
-function sendUnplayable(
-  video: HTMLVideoElement,
+export function sendUnplayable(
+  video: Pick<HTMLVideoElement, "readyState" | "paused" | "error" | "dispatchEvent">,
 ): (unplayable: { readonly qualityKbps: number; readonly positionMs: number }) => void {
   return (unplayable) => {
     const found: UnplayableQuality = {
       ...unplayable,
       readyState: video.readyState,
+      isPaused: video.paused,
       ...diagnosisOf(video),
     };
     video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));

@@ -167,27 +167,31 @@ func TestReport_AStallOnTheLadderIsOfferedNothing(t *testing.T) {
 	}
 }
 
-// A quality a player gave up as one its device cannot play is logged with where, so a film that
+// Each quality a player gave up as one its device cannot play is logged with where, so a film that
 // freezes on one device says why (D266).
-func TestReport_AQualityAPlayerCannotPlayIsLogged(t *testing.T) {
+func TestReport_EachQualityAPlayerCannotPlayIsLogged(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	playing := harness.play(t, user, chrome(1))
 	body := reportBody(1, 420_500, 0)
-	body["unplayable"] = map[string]any{
-		"qualityKbps": 36_208, "positionMs": 420_500, "readyState": 1,
+	body["unplayables"] = []map[string]any{{
+		"qualityKbps": 36_208, "positionMs": 420_500, "readyState": 1, "isPaused": true,
 		"videoBuffered": "416.29-499.62", "audioBuffered": "425.70-499.80", "lastError": "",
-	}
+	}, {"qualityKbps": 20_104, "positionMs": 421_000}}
 	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
 	logged := harness.logs.String()
 	if !strings.Contains(logged, `"msg":"a player found a quality its device cannot play"`) ||
 		!strings.Contains(logged, `"qualityKbps":36208`) || !strings.Contains(logged, `"positionMs":420500`) ||
-		!strings.Contains(logged, `"readyState":1`) || !strings.Contains(logged, `"videoBuffered":"416.29-499.62"`) ||
+		!strings.Contains(logged, `"readyState":1`) || !strings.Contains(logged, `"isPaused":true`) ||
+		!strings.Contains(logged, `"videoBuffered":"416.29-499.62"`) ||
 		!strings.Contains(logged, `"audioBuffered":"425.70-499.80"`) {
-		t.Errorf("the unplayable quality was not logged:\n%s", logged)
+		t.Errorf("the first unplayable quality was not logged:\n%s", logged)
+	}
+	if !strings.Contains(logged, `"qualityKbps":20104`) {
+		t.Errorf("the second unplayable quality was not logged:\n%s", logged)
 	}
 }

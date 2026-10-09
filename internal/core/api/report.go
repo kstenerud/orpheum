@@ -34,9 +34,9 @@ type ReportInput struct {
 		// Startup is how long the playback took to start, sent once, with the report after its
 		// first frame: what makes a slow start show in the log.
 		Startup *StartupBody `json:"startup,omitempty" required:"false"`
-		// Unplayable is a quality the player gave up as one its device cannot play, sent once,
-		// with the report after (D266).
-		Unplayable *UnplayableBody `json:"unplayable,omitempty" required:"false"`
+		// Unplayables are the qualities the player gave up as ones its device cannot play since its
+		// last report, each sent once (D266).
+		Unplayables []UnplayableBody `json:"unplayables,omitempty" required:"false"`
 	}
 	ClientFacts
 }
@@ -46,9 +46,11 @@ type ReportInput struct {
 type UnplayableBody struct {
 	QualityKbps int64 `json:"qualityKbps" minimum:"0"`
 	PositionMs  int64 `json:"positionMs"  minimum:"0"`
-	// ReadyState, VideoBuffered, AudioBuffered and LastError are the video as it was when the
-	// quality was given up, before its decoding was built anew, as a stall's are.
+	// ReadyState, IsPaused, VideoBuffered, AudioBuffered and LastError are the video as it was when
+	// the quality was given up, before its decoding was built anew, as a stall's are: an autoplaying
+	// video stands paused until it can play (D266 §1).
 	ReadyState    int64  `json:"readyState,omitempty"    minimum:"0"       maximum:"4" required:"false"`
+	IsPaused      bool   `json:"isPaused,omitempty"      required:"false"`
 	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
 	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
 	LastError     string `json:"lastError,omitempty"     maxLength:"200" required:"false"`
@@ -176,7 +178,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	server.logReport(ctx, reporter, report, answer, input.Body.Stalls)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
-	server.logUnplayable(ctx, reporter, input.Body.Unplayable)
+	server.logUnplayables(ctx, reporter, input.Body.Unplayables)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -229,17 +231,19 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps)
 }
 
-// logUnplayable says a player gave up a quality its device cannot play, and where: Flow froze in
-// Firefox on macOS at any start but its beginning, and only the owner's test said why (D266).
-func (server *Server) logUnplayable(ctx context.Context, reporter reporter, unplayable *UnplayableBody) {
-	if unplayable == nil {
-		return
+// logUnplayables says each quality a player gave up as one its device cannot play, and where: Flow
+// froze in Firefox on macOS at any start but its beginning, and only the owner's test said why
+// (D266).
+func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unplayables []UnplayableBody) {
+	for _, unplayable := range unplayables {
+		server.logger.InfoContext(ctx, "a player found a quality its device cannot play",
+			"userId", reporter.holder.UserID, "deviceId", reporter.deviceID,
+			"viewerOfFileId", reporter.holder.OnlyFileID,
+			"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs,
+			"readyState", unplayable.ReadyState, "isPaused", unplayable.IsPaused,
+			"videoBuffered", unplayable.VideoBuffered, "audioBuffered", unplayable.AudioBuffered,
+			"lastError", unplayable.LastError)
 	}
-	server.logger.InfoContext(ctx, "a player found a quality its device cannot play", "userId", reporter.holder.UserID,
-		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
-		"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs,
-		"readyState", unplayable.ReadyState, "videoBuffered", unplayable.VideoBuffered,
-		"audioBuffered", unplayable.AudioBuffered, "lastError", unplayable.LastError)
 }
 
 // stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether

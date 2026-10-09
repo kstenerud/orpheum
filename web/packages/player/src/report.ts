@@ -75,7 +75,7 @@ export class PlayReporter {
   private spans: PlaySpan[] = [];
   private stalls: PlayStall[] = [];
   private startup: PlayStartup | undefined;
-  private unplayable: PlayUnplayable | undefined;
+  private unplayables: PlayUnplayable[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
@@ -175,7 +175,7 @@ export class PlayReporter {
 
   /** The player gave up a quality as one its device cannot play; the server is told at once (D266). */
   recordUnplayable(unplayable: PlayUnplayable, positionMs: number): void {
-    this.unplayable = unplayable;
+    this.unplayables.push(unplayable);
     this.flush(positionMs);
   }
 
@@ -196,13 +196,13 @@ export class PlayReporter {
       ...(this.stalls.length === 0 ? {} : { stalls: this.stalls }),
       ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
       ...(this.startup === undefined ? {} : { startup: this.startup }),
-      ...(this.unplayable === undefined ? {} : { unplayable: this.unplayable }),
+      ...(this.unplayables.length === 0 ? {} : { unplayables: this.unplayables }),
     };
     this.events = [];
     this.spans = [];
     this.stalls = [];
     this.startup = undefined;
-    this.unplayable = undefined;
+    this.unplayables = [];
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -219,7 +219,7 @@ export class PlayReporter {
         this.spans = [...report.spans, ...this.spans];
         this.stalls = [...(report.stalls ?? []), ...this.stalls];
         this.startup ??= report.startup ?? undefined;
-        this.unplayable ??= report.unplayable ?? undefined;
+        this.unplayables = [...(report.unplayables ?? []), ...this.unplayables];
       },
     );
   }
