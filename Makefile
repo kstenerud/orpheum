@@ -332,8 +332,9 @@ browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (outs
 
 # The browser tier without installing the web packages: revert-red runs it in a worktree whose
 # packages are links to the working tree's, which an install would replace.
-# M4's acceptance (D252): two browsers for ORPHEUM_ACCEPTANCE_MINUTES (30) under each of the three
-# netem profiles, an hour and a half; at a milestone's end, never in check-pr. It shapes the dev
+# M4's acceptance (D252): two browsers for ORPHEUM_ACCEPTANCE_MINUTES (30) under each of the four
+# netem profiles, each with some four minutes of voice alone after: two and a half hours (2.4 h on
+# 2026-10-08); at a milestone's end, never in check-pr. It shapes the dev
 # container's loopback with tc, so it runs in the development image (./dev make test-acceptance).
 .PHONY: test-acceptance
 test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under each netem profile (D252); at a milestone's end
