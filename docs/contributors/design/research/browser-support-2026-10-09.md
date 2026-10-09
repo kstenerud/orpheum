@@ -13,6 +13,12 @@ repeat them. The iPhone floor is already decided: iOS and iPadOS 17.1 for Watch 
 HLS below it for watching alone (D250 §7). The owner's standing position is that policies may differ per
 browser, chosen by feature detection, and that parity never comes.
 
+**Gaps filled 2026-10-09, in a second pass**, after the owner decided the floors (D271 §1): Disney+
+and Prime Video's browser pages, rendered; Emby's threads; issue trackers in place of Reddit, which
+could not be read; Samsung Internet's forced dark mode and Video Assistant; Firefox's 10-bit HEVC by
+operating system; and Chrome on Android's versions and update speed. "Not tried" lists what is still
+open.
+
 Labels:
 
 - **[sourced]**: a data set, release note, bug, document or issue says it.
@@ -28,6 +34,10 @@ Cache: `/yoloai/cache/browser-support/`. This holds:
 - the Netflix, YouTube and Jellyfin pages;
 - the WebKit preference sources;
 - the WebKit probe and its output, in `probe/`.
+
+The second pass's pages are in `/yoloai/cache/http/browser-support/`: the rendered Disney+ and Prime
+Video pages (`.txt` beside the HTML), Emby topics, GitHub and Bugzilla JSON, Firefox decoder sources
+(`ff-*.cpp`), the chromiumdash schedule and Wikimedia's browser tables (`wikimedia/`).
 
 Clones:
 
@@ -82,6 +92,13 @@ labels for desktop browsers.
   far above its 6 % of the desktop market.
 - The TV rows (webOS, Tizen) are Jellyfin's own TV apps, which are web apps wrapped for the TV. They are
   not people browsing in the TV's browser.
+- **The one Samsung Internet report is a user-agent lesson**
+  ([jellyfin-web #8435](https://github.com/jellyfin/jellyfin-web/issues/8435), 2026-09-08, closed
+  2026-09-21). jellyfin-web 12.0 treats any User-Agent containing "samsungbrowser" as a television
+  (`src/scripts/browser.js`), so on a Galaxy Z Fold 8 the interface was *"comically large and chopped
+  off"*. The phone sent `SamsungBrowser/30.0 Chrome/143.0.0.0 Mobile`. **[inferred]** Deciding a layout
+  from the User-Agent's brand is the trap. Choosing by feature detection and by the window's size, not
+  by the browser's name, avoids it.
 
 ### 1.2 Plex and Emby forums [sourced]
 
@@ -104,6 +121,43 @@ labels for desktop browsers.
 
   The Firefox threads are about HEVC and ASS subtitles, for example `topic/124258-firefox-120-and-hevc`.
 
+  Topic pages fetch fine; only the forum's search returns 403. The second pass read these:
+  - **Firefox 145+ claims Matroska, so Emby direct-plays it, and the start takes minutes**
+    ([topic 145428](https://emby.media/community/topic/145428-firefox-takes-5-to-10-minutes-to-start-playing-and-is-jittery/),
+    2026-01 to 2026-02, Firefox 146 on Kubuntu). Emby's lead developer: *"firefox is now reporting that
+    it supports mkv so the web app is trying to direct play them"*. The user's cure was
+    `media.mkv.enabled=false`. The Mozilla side is in §3.2.
+  - **iOS 26.5 Safari stopped accepting AC-3 and E-AC-3**, "no compatible streams"
+    ([topic 147919](https://emby.media/community/topic/147919-ios-265-broke-safari-web-playback/),
+    2026-05 to 2026-09). Clearing the cache brought AC-3 back but not E-AC-3; the reporter says 26.6
+    fixed it, and a second user still sees E-AC-3 transcoded on iOS 26.6 and on Safari for macOS 12.7.6.
+    Emby chose to wait for Apple rather than force it on.
+  - **iOS needs two taps to start** (topic 119710, 2023): *"due to the browser auto play policy"*.
+  - Emby states no browser list: its page says only *"Emby runs right in your browser"*; staff in 2018
+    called the usual four *"modern browsers ... Chrome will generally be the most advanced"*
+    (topic 56059).
+
+- **Reddit could not be read.** Its JSON API returned 403, a headless Chromium was blocked, old.reddit
+  now needs a login, and a site-restricted web search returned no Reddit pages. The issue trackers stood
+  in for it:
+  - [jellyfin #16604](https://github.com/jellyfin/jellyfin/issues/16604) (2026-04), Firefox 149 on Arch
+    Linux: H.264 **High 10** fails, HEVC **Main 10** 1080p SDR plays directly.
+  - [Mozilla bug 2071317](https://bugzilla.mozilla.org/show_bug.cgi?id=2071317) (2026-09-11, NEW):
+    Jellyfin's 1080p HEVC on macOS loads slowly, freezes after about a minute, and the picture freezes
+    after a seek while sound runs; 720p HEVC and H.264 are fine, and so is Safari. Possibly the same
+    family as the CRA freeze in idiosyncrasies (bug 2065822) **[inferred]**.
+  - [webcompat #234781](https://github.com/webcompat/web-bugs/issues/234781) (2026-09-13): Plex's HEVC
+    failed on Firefox 155 on Windows 10; the triager could not reproduce it on 156.
+  - [jellyfin #18163](https://github.com/jellyfin/jellyfin/issues/18163) (2026-09-22): Jellyfin 12.1
+    refused direct hvc1 HEVC in Safari on iOS 17 and Firefox on Windows; a server profile bug, fixed
+    **[inferred]**.
+  - **Safari 26.x, fixed for a while by clearing the cache**, three times over: Plex on iOS 26.2 (media
+    error s3014, [thread 934847](https://forums.plex.tv/t/934847), 2025-12, came back later); Emby on
+    iOS 26.5 (above); and video stuck on its first frame when a page or web app was reopened on iOS
+    26.0–26.0.2 (Apple discussions 256152107, 2025-09; the reporter says 26.2 fixed it). **[inferred]**
+    Worth one line in idiosyncrasies if Orpheum meets it: "clear Safari's website data" is the first
+    thing to ask a 26.x user to try.
+
 **What the forums show [inferred]:** the trouble is in **Firefox, Safari and Chrome**, roughly in that
 order. Edge and Brave come up now and then. Opera, Vivaldi and Samsung Internet barely appear. Neither
 TV browsers nor Samsung Internet shows up as a browser people use for a media server.
@@ -114,12 +168,15 @@ TV browsers nor Samsung Internet shows up as a browser people use for a media se
 | --- | --- | --- |
 | Jellyfin ([clients](https://jellyfin.org/docs/general/clients/)) | Firefox, Firefox ESR, Chrome, Chrome for Android, Safari on macOS and iOS, Edge | "the two most recent versions"; "Older browsers may be supported … full functionality is not guaranteed". The `package.json` browserslist also pins Chrome 27–63 and Edge 18, probably for TV engines **[inferred]** |
 | Plex Web ([overview](https://support.plex.tv/articles/200289388-overview/)) | Chrome, Edge, Firefox, Safari | "the most recent release versions" |
-| Emby ([web client](https://emby.media/support/articles/Web-Client.html)) | none named | none |
+| Emby ([web client](https://emby.media/support/articles/Web-Client.html)) | none named: *"Emby runs right in your browser"* | none |
 | Netflix ([23742](https://help.netflix.com/en/node/23742)) | Chrome, Edge, Firefox, Opera, Safari | Chrome 117, Edge 118, Firefox 129, Opera 92, Safari 14 (macOS 11+), iPadOS 14. Live events need Safari 15+ |
 | YouTube ([78358](https://support.google.com/youtube/answer/78358), [175292](https://support.google.com/youtube/answer/175292)) | Chrome, Firefox, Safari, Edge, Opera | "Newest version" |
-| Disney+, Prime Video | not read: the help pages are rendered by script, or returned 404 | — |
+| Disney+ ([requirements](https://help.disneyplus.com/article/disneyplus-computer-browser-requirements), rendered by script; read in a headless Chromium) | Windows 10+: Chrome, Firefox, Edge, Opera. macOS 11+: Chrome, Firefox, Edge, Safari. ChromeOS: Chrome | *"the latest versions"*; no numbers, no Linux, no mobile browsers |
+| Prime Video ([system requirements](https://www.amazon.com/gp/help/customer/display.html?nodeId=GUVGB3QMQRYRERYW), rendered the same way) | Chrome, Firefox, Edge, Safari, Opera, on Windows, macOS, ChromeOS or Linux | *"the latest version"*. Outside Windows and macOS, standard definition only; browsers get *"up to HD"* and stereo |
 
-**The field agrees on four: Chrome, Edge, Firefox and Safari.** Only Netflix names numbers. Its
+**The field agrees on four: Chrome, Edge, Firefox and Safari.** Of the six products, only Netflix
+names numbers; Disney+ and Prime Video say "latest", like Plex and YouTube. Both add Opera, Disney+
+only on Windows, and neither names a mobile browser. No product names Samsung Internet. Netflix's
 numbers are about three years behind current: Chrome 117 is from 2023-09.
 
 ### 1.4 The market, September 2026 [sourced: StatCounter CSVs in `sc/`]
@@ -143,10 +200,10 @@ StatCounter has no TV category: `device=tv` silently returns the all-platforms f
 
 | Browser | Engine | Covered by testing the four? | Compelling on its own? |
 | --- | --- | --- | --- |
-| Chrome on Android | Blink, current | Mostly: Chrome desktop shares the engine, but not Android's audio routing, the call mode of echo cancellation, or the touch layout (idiosyncrasies "Chrome and Android") | **Yes.** 62 % of mobile traffic. Already in D190's device list (the S23) |
+| Chrome on Android | Blink, current | Mostly: Chrome desktop shares the engine, but not Android's audio routing, the call mode of echo cancellation, or the touch layout (idiosyncrasies "Chrome and Android") | **Yes.** 62 % of mobile traffic. Already in D190's device list (the S23). It updates fast: a new stable every two weeks since 153, and about half its users move within two weeks (§3.3) |
 | Brave, Opera, Vivaldi | Blink, close to current | **Yes for rendering and media.** Not for their privacy layers: Brave's shields and the microphone refusal on Android (idiosyncrasies "Brave on Android refused the microphone"), Opera's VPN | No (judgement). Brave alone is 1.1 % of the desktop market but 7 % of Jellyfin's bug reports; worth one manual voice check when Watch Together ships |
 | Chrome, Firefox and Edge on iPhone/iPad | WebKit of the installed iOS | **Yes, by iOS Safari**, except that whether ManagedMediaSource is exposed in Chrome's WKWebView is unconfirmed (safari-versions T12) | No: T12 settles it |
-| Samsung Internet | Blink, **lagging**: 28→Chromium 130, 29→136, 30→143, against Chrome 155 ([Wikipedia](https://en.wikipedia.org/wiki/Samsung_Browser)) | Partly. It meets the feature floor of §3 from version 25 (Chromium 121). Its own UI layers (forced dark mode, a video-assistant overlay, permission prompts) are untested **[inferred]** | **The one candidate.** 6.7 % of German mobile traffic, preinstalled on Samsung phones, and 39 % of German mobile devices are Samsung. 10.9 % of German Samsung Internet traffic is below version 27. But it has 1 of 390 Jellyfin reports. Judgement: best-effort, not tested, until someone uses it |
+| Samsung Internet | Blink, **lagging**: 28→Chromium 130, 29→136, 30→143, against Chrome 155 ([Wikipedia](https://en.wikipedia.org/wiki/Samsung_Browser)) | Partly. It meets the feature floor of §3 from version 25 (Chromium 121), and about 99 % of its users are on 25 or later (§3.3). Its own layers are not covered: forced dark mode repaints dark pages, and Video Assistant may offer its own full-screen controls (below) | **The one candidate.** 6.7 % of German mobile traffic, preinstalled on Samsung phones, and 39 % of German mobile devices are Samsung. 10.9 % of German Samsung Internet traffic is below version 27. But it has 1 of 390 Jellyfin reports. Judgement: best-effort, not tested, until someone uses it |
 | Firefox on Android | Gecko (GeckoView) | Engine yes. Not its audio: it makes a "call" of gain control and noise suppression (idiosyncrasies) | No (0.7 % of mobile worldwide, 1.9 % in Germany). VQ25 already touches it |
 | Edge on Xbox | Blink | Engine yes | No: console traffic is a sliver of all traffic |
 | webOS and Tizen TV browsers | Old Blink/WebKit, frozen per model | No | No. Media-server users reach TVs through apps, which for Jellyfin are its own web apps in wrappers. Cut A reaches the TV through the Cast receiver (D124) |
@@ -176,6 +233,46 @@ StatCounter has no TV category: `device=tv` silently returns the all-platforms f
   - The receiver is a stub until M6 (its README), so nothing is broken today. **Whatever M6 builds must
     target the oldest receiver it supports, not the web client's floor.** A device check settles the
     version: read `navigator.userAgent` on the lab's Cast device.
+
+### Samsung Internet's own layers [sourced; inferred where marked]
+
+**Forced dark mode.**
+
+- Samsung's own account (Daniel Appelquist,
+  [Samsung Internet blog, 2020-12-15](https://developer.samsung.com/internet/blog/en-us/2020/12/15/dark-mode-in-samsung-internet)):
+  13.2 beta added `prefers-color-scheme` and the `color-scheme` meta, but behind a flag with three
+  settings. Only "Prefer Media Query Over Force Dark" honours a page's
+  `<meta name="color-scheme" content="light dark">`.
+- MDN browser-compat-data [issue 17408](https://github.com/mdn/browser-compat-data/issues/17408), open
+  since 2022: *"By default in Samsung Internet neither color-scheme nor @media prefers-color-scheme do
+  anything"*. [Issue 29347](https://github.com/mdn/browser-compat-data/issues/29347) (2026-03, open):
+  the meta still does not work. The cure offered is the user turning off "Force Dark mode for web
+  content"; one user says even that did not help.
+- Samsung has an experimental "Enable Adaptive Force Dark" flag (beta 26+) that respects the page's
+  scheme ([v01.io, 2024](https://www.v01.io/posts/2024/04/samsung-internet-dark-mode/)); whether it is now on by default was not found.
+- **A dark page is darkened a second time**
+  ([herdr-web-ui #451](https://github.com/devswha/herdr-web-ui/issues/451), 2026-10-05, Galaxy Tab S7+):
+  a page that declares `color-scheme` was repainted, *"similar shades ran together"* and meter bars
+  looked empty. Only the user's setting fixed it. Chrome leaves such pages alone.
+- Whether video is dimmed is disputed: ctrl.blog (2020, version 11) found that *"videos and canvas ...
+  aren't color filtered"*; v01.io (2024) found *"Videos, Images, and SVGs are toned down"*.
+- **For Orpheum [inferred]:** the app is dark throughout (D271 §3), and no page-side opt-out is known
+  to work in current Samsung Internet. Expect low-contrast pieces to merge: progress bars, buffered
+  ranges, disabled states. The poster, and possibly the picture, may be dimmed. Only a Samsung device
+  shows how much. The known remedy is a help line for users: turn off "Force Dark mode for web
+  content".
+
+**Video Assistant.**
+
+- It offers a pop-up player, its own full screen with extra controls, and casting by Smart View; users
+  can turn it off under Settings › Useful features ([SamMobile, 2019](https://www.sammobile.com/news/video-assistant-returns-butchered-in-latest-samsung-internet-beta/)).
+- The pop-up player needs a plain video URL. Samsung support, quoted in
+  [video.js #7656](https://github.com/videojs/video.js/issues/7656) (2022): *"you can not use videos of
+  MSE type."*
+- **For Orpheum [inferred, unverified]:** playback goes through MSE (hls.js), so the pop-up player
+  cannot take over the video. Video Assistant's own full screen may still be offered, and it would bypass
+  Orpheum's controls. If it drives the media element directly, it fires the same media events, so a
+  Watch Together follower's own seeks might still be reported. No site opt-out was found.
 
 ---
 
@@ -237,7 +334,31 @@ These are about codecs in MSE (fMP4), the path the player takes.
   - **Firefox** 134 on Windows, 136 on macOS, 137 on Linux, where it goes through the system's FFmpeg
     ([Firefox release notes](https://www.mozilla.org/en-US/firefox/137.0/releasenotes/)).
   - macOS Firefox ≥154 drops mid-film HEVC chunks that start on a CRA (idiosyncrasies; D266 handles it).
-  - Whether Firefox plays 10-bit HEVC is unverified.
+  - **Firefox and 10-bit HEVC (Main 10), by operating system** [sourced: Bugzilla and Firefox's source;
+    inferred where marked]. The meta bug ([1842838](https://bugzilla.mozilla.org/show_bug.cgi?id=1842838)) gives the HEVC versions above.
+    - **Windows:** 10-bit HEVC and AV1 through the WMF decoder since **132** ([1866265](https://bugzilla.mozilla.org/show_bug.cgi?id=1866265),
+      with 8- and 10-bit tests). It still needs the HEVC Video Extension, which is not installed on every
+      Windows ([1963910](https://bugzilla.mozilla.org/show_bug.cgi?id=1963910), open). HDR is not right: *"We support HDR on macOS not on
+      Windows"* (a Mozilla engineer, 2025, in [1949088](https://bugzilla.mozilla.org/show_bug.cgi?id=1949088), open: 10-bit HEVC "washed out" on
+      Firefox 137).
+    - **macOS:** VideoToolbox since 136 ([1924066](https://bugzilla.mozilla.org/show_bug.cgi?id=1924066)). Today's source picks a 10-bit pixel
+      format for a 10-bit track and accepts any HEVC when the pref is on (`AppleVTDecoder.cpp`,
+      `AppleDecoderModule.cpp`), so 10-bit is plumbed. When that landed was not established, so
+      whether 140 has it is not proven.
+    - **Linux:** VA-API and FFmpeg since 137 ([1894818](https://bugzilla.mozilla.org/show_bug.cgi?id=1894818)); `FFmpegVideoDecoder.cpp` maps
+      `HEVCMain10` and handles 10-bit output. A user reports HEVC Main 10 1080p SDR playing directly on
+      Firefox 149 ([jellyfin #16604](https://github.com/jellyfin/jellyfin/issues/16604)). On Wayland
+      with compositor HDR, 10-bit SDR video was oversaturated until 157 ([2066333](https://bugzilla.mozilla.org/show_bug.cgi?id=2066333)).
+    - **Android:** fixed in 137 ([1946553](https://bugzilla.mozilla.org/show_bug.cgi?id=1946553)).
+    - No Mozilla test or statement covers 10-bit HEVC **through MSE** on each system. Firefox uses the
+      same platform decoder for MSE and file playback **[inferred]**, so the above should carry over.
+    - **For Orpheum [inferred]:** at the floor of 140, every desktop system decodes 10-bit HEVC,
+      Windows only with the extension. SDR 10-bit is the safe case; HDR renders correctly only on
+      macOS. `isTypeSupported` (D3) cannot catch "plays but washed out", so an HDR original should
+      not go to Firefox on Windows on its answer alone.
+    - Also: Firefox fails 10-bit **H.264** (High 10) on Windows ([1711812](https://bugzilla.mozilla.org/show_bug.cgi?id=1711812), open), and a
+      user reported it failing on Linux 149. The server's H.264 renditions are 8-bit, so this matters
+      only for an original in High 10 **[inferred]**.
 - **AV1:**
   - Chrome 70 and Firefox 67.
   - Safari 17, **hardware only** (M3 Macs, iPhone 15 Pro and later)
@@ -247,6 +368,8 @@ These are about codecs in MSE (fMP4), the path the player takes.
   - not in Firefox;
   - Safari and Edge on Windows and macOS **[inferred, not sourced here]**.
   - The server already transcodes sound (D3, D178), so this sets no floor.
+  - iOS 26.5 Safari stopped accepting AC-3 and E-AC-3 for a while (Emby, §1.2), which is one more
+    reason not to rely on them.
 - **Opus in MP4:**
   - Chrome 70 and Firefox;
   - Safari **17, stereo only**
@@ -261,6 +384,16 @@ These are about codecs in MSE (fMP4), the path the player takes.
 - **Firefox regressions:** they are short-lived because Firefox ships every two weeks (Firefox 149's HLS
   start, fixed in 150; 147's H.265 stutter). A version floor does not help there. Testing the current
   release does.
+- **Firefox claims Matroska from 145 on** ([1991752](https://bugzilla.mozilla.org/show_bug.cgi?id=1991752)), and file playback of Matroska wanted
+  to buffer the whole file until **158** ([2000420](https://bugzilla.mozilla.org/show_bug.cgi?id=2000420), fixed 2026-09-23), so 145–157 are
+  affected. HEVC in Matroska also froze after a seek until 158 ([2006226](https://bugzilla.mozilla.org/show_bug.cgi?id=2006226)) and stuttered
+  until 159 ([2069252](https://bugzilla.mozilla.org/show_bug.cgi?id=2069252)). Emby trusted the claim and direct-played, and starts took minutes
+  (§1.2). Orpheum remuxes to fMP4 for MSE (idiosyncrasies, "Browsers other than Chrome play no
+  Matroska"), so this does not touch the player today. **[inferred]** If a direct-file path is ever
+  added, a browser's "yes" to Matroska is not enough: Firefox said yes from 145 to 157 while it
+  could not stream it well.
+- **Safari 26.x, fixed for a while by clearing the cache:** three reports, on 26.0, 26.2 and 26.5 (§1.2).
+  No version floor answers it; it is a support step.
 
 **Conclusion [inferred]:** no media fact sets a floor above what §3.1's features set, given that the
 server prepares H.264 and AAC for any browser that cannot play the original. Codec support is
@@ -322,12 +455,38 @@ Notes:
   - Edge 155, 2026-10-08;
   - Firefox 157, 2026-09-29;
   - Safari 27.0.1.
+  - **Chrome now ships every two weeks**: 148 to 153 came four weeks apart, then 153 (09-08), 154
+    (09-22), 155 (10-06) and 156 (10-20) two weeks apart (chromiumdash's schedule, fetched 2026-10-09).
+
+**Chrome on Android, from Wikimedia's data** [sourced data, computed by me]. StatCounter gives no
+Android versions; Wikimedia's weekly page views to its mobile sites by browser and major version do
+([mobile_site_by_browser_family_and_major.tsv](https://analytics.wikimedia.org/published/datasets/periodic/reports/metrics/browser/mobile_site_by_browser_family_and_major.tsv),
+cached under `wikimedia/`). "Chrome Mobile" is 43 % of those views, and includes browsers that send its
+User-Agent.
+
+- **Adoption is fast:** about half of users are on a new version two weeks after its release, about
+  80 % after three. 151 went from 9 % to 43 % to 80 % in three weekly steps; 154 reached 45 % in its first
+  full week.
+- **Week of 2026-09-27:** 154 45 %, 153 35 %, 152 5 %, 151 5 %. **Below 120: 1.3 %; below 140: 4.0 %;
+  below 150: 8 %.** Below 120 ran at 1.2–3.3 % across the past year, with an unexplained spike of
+  3.3–5.9 % in July 2026.
+- **The frozen tail:** 138 holds 1.39 %, the last Chrome for Android 8 and 9 (139 needs Android 10,
+  as 9to5Google reported on 2025-06-26); 119 holds 0.13 % (probably the last for Android 7
+  **[inferred]**).
+- **Samsung Internet** (3.1 % of the views): 30 is 90 %, 29 3.5 %, 28 2.1 %, 27 0.8 %, so about 99 % are on
+  25 or later (Chromium 121+).
+- Firefox for Android: 156 is 62 %, 157 21 %. Chrome on iOS is the app's version, not the engine's, and
+  says nothing about a floor.
+- **[inferred]** The Chrome 120 floor costs about 1.3 % of Chrome on Android, nearly all phones on
+  Android 7 or older. Android 8 and 9 phones sit on 138, above it. A floor of 140 would cut them too,
+  about 2.7 % more. Wikimedia's readers are not media-server users, but this is the only versioned
+  Android data found.
 
 ### 3.4 Proposed floors (judgement)
 
 | Browser | Floor | Released | Users below (desktop, DE / worldwide) | Why this number |
 | --- | --- | --- | --- | --- |
-| **Chrome** (desktop and Android) | **120** | 2023-12 | 4.0 % / 9.4 % | The first with every CSS feature M5 wants except anchor positioning: relaxed nesting 120, popover 114, `@scope` 118, `:has()` and container queries 105. It drops Chrome 109 on Windows 7, a system that gets no security fixes |
+| **Chrome** (desktop and Android) | **120** | 2023-12 | 4.0 % / 9.4 %; on Android about 1.3 % (Wikimedia, §3.3) | The first with every CSS feature M5 wants except anchor positioning: relaxed nesting 120, popover 114, `@scope` 118, `:has()` and container queries 105. It drops Chrome 109 on Windows 7, a system that gets no security fixes, and on Android only phones on Android 7 or older |
 | **Edge** | **120** | 2023-12 | 1.0 % / 3.0 % | Same engine and number as Chrome, so one rule |
 | **Firefox** | **140** (the ESR of 2025-06) | 2025-06 | 8.6 % / 25 % (worldwide distorted, §3.3) | Covers popover 125, `:has()` 121, `setCodecPreferences` 128, rVFC 132, HEVC 137. Nothing the client wants lies between 140 and 153, and from 2026-10-13 140 is the last ESR Mozilla has retired, so 140 costs no feature and keeps the laggards: 18.9 % of German desktop Firefox is below 153. Debian 13 already ships `firefox-esr` 153.4 **[measured: `apt-cache policy` in the dev image]** |
 | **Safari, macOS** | **17.1** | 2023-10 | 6.8 % / 9.1 % | The same number as iOS (D250), so one Safari rule. It keeps Monterey Macs (17.6). It has popover (17) and container queries (16) |
@@ -441,7 +600,7 @@ playback, sync and voice behaviour that has bitten us on Safari would still pass
 
 ## 5. Recommendation
 
-**Supported (judgement):**
+**Supported (judgement; decided as written by D271 §1, Samsung Internet as best effort):**
 
 - **Chrome 120+** on desktop and Android;
 - **Edge 120+**;
@@ -461,6 +620,12 @@ Below a floor, the client says so, and watching alone may still work (D250's pat
 (WebKit, pending T12).
 
 **Not supported but likely to work:** Samsung Internet 25+, Firefox on Android, and Edge on Xbox.
+
+The second pass found nothing that moves a floor. It adds three things to the best-effort browsers
+and to support **[inferred]**: Samsung Internet's forced dark mode may darken the already dark app
+(§2), so a help line should say how to turn it off; Firefox 140–157's Matroska claim matters only if
+a direct-file path is added (§3.2); and a Safari 26.x user's first step is clearing website data
+(§1.2).
 
 **Testing (judgement):**
 
@@ -499,19 +664,30 @@ Below a floor, the client says so, and watching alone may still work (D250's pat
   transcodes regardless.
 - **The +25–30 s for a WebKit project** is a share of a measured total, not a run.
 - **Plex's and Emby's counts** are from title searches and a ten-page scan, not full corpora.
+- **Chrome on Android's versions** come from Wikimedia's readers, not media-server users, and its
+  "Chrome Mobile" family includes other browsers that send Chrome's User-Agent.
+- **Samsung Internet's dark mode:** whether it dims video is disputed between two write-ups (2020 and
+  2024), and whether the adaptive flag is now on by default was not found. The Video Assistant
+  conclusions are inferred from a 2022 support answer, not seen on a device.
+- **Firefox's 10-bit HEVC** is read from bugs and source, not played through MSE; when the macOS
+  10-bit path landed is not established.
+- **The Safari 26.x cache reports** are three users on three forums, each helped by clearing the cache.
 
 ## Not tried
+
+What is still open after the second pass, and why:
 
 - **A WebKit run of the browser tier itself.** Only the probe ran. How many of the 13 specs pass in
   WebKit unchanged is unknown.
 - Deleting `window.MediaSource` in Playwright WebKit to force the MMS path.
-- Any real device: no iPhone, Mac, Samsung phone or Cast device was available to this research.
-- **Disney+ and Prime Video** supported-browser pages: the first is rendered by script, the second's URL
-  returned 404.
-- **Emby's forum search** returned 403.
-- **The web search engine** was unavailable: the session's budget was spent, and DuckDuckGo and Bing
-  served captchas. Everything here came from known URLs, APIs and clones, so threads that only a search
-  would find (on Reddit, for instance) were not read.
-- Chrome on Android version shares, and Samsung Internet's own media quirks (forced dark mode,
-  video assistant), beyond noting that they exist.
-- Whether Firefox 140–157 plays 10-bit HEVC through MSE.
+- **Any real device:** no iPhone, Mac, Samsung phone or Cast device was available. A Samsung phone would
+  settle forced dark mode and Video Assistant; a Firefox on each system would settle 10-bit HEVC
+  through MSE (`MediaSource.isTypeSupported('video/mp4; codecs="hvc1.2.4.L120.90"')`, then play).
+- **Reddit:** its API returned 403, a headless browser was blocked, old.reddit needs a login, and a
+  site-restricted web search returned nothing. Issue trackers stood in for it (§1.2).
+- **Emby's forum search** returned 403; topic pages were read instead. Emby's old supported-browser blog
+  post now returns 404.
+- **Disney+'s old version numbers** exist only in third-party copies; every archived capture of its page
+  is the same script shell.
+- **Samsung Internet's adaptive dark flag:** whether it is on by default, and in which version.
+- **When Firefox's macOS decoder gained 10-bit output**, so whether 140 has it.
