@@ -7082,6 +7082,8 @@ its violation would be **silent**.
 
 ## D112 — The node probes its confinement and reports it; the escape test asserts what is in force
 
+> **Revised by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** (2026-10-09): a node without Landlock runs and warns; `node.confinement_policy` starts at `"report"`.
+
 **Decided** (2026-09-20). Research:
 [testing-strategy.md](../design/research/testing-strategy.md) §7.
 
@@ -16392,6 +16394,8 @@ that is down parks its destination), and §1's recheck is derived from the refus
 
 ## D214 — A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 
+> **Refined by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** (2026-10-09): the service is discovery at app.orpheum-app.com, where a web client talks to its core with as much traffic as possible direct; a separate closed-source project.
+
 **Recorded, not scheduled** (2026-09-25), by the project owner, after the study
 [direct-reachability.md](../design/research/direct-reachability.md) found that no combination of
 networks needs a relay we host: wherever a third party is needed, the owner's own VPS serves
@@ -19096,5 +19100,39 @@ builds D249 §5's release mode and revises D228 §3 and §6.
    asked, from where asked (D240). An overflowed event queue asks for the whole root. The library
    page says of each root whether it is watched, or why it is scanned only. The periodic scan
    stays beneath it (§1).
+
+**Status:** Decided 2026-10-09.
+
+## D273 — Clients reach a core through app.orpheum-app.com or the owner's own discovery, by whatever methods work, with no traffic relayed by us; a node without Landlock runs and warns
+
+**Decided** (2026-10-09), by the project owner, planning a closed beta in two weeks. It revisits
+D214, D249 and D272 §1–§2, and D112's refusal.
+
+1. **The goal, not a mechanism.** *"We don't need to be stuck in our ways for how to connect a
+   host to a discovery service. I'm fine with offering multiple methods. The method we have now is
+   just something that happened so that we could start testing. In the end, all that matters is
+   that clients can talk to servers, stream video, and users can voice chat (and eventually text
+   chat as well)."* The WireGuard tunnel to a VPS (D243 §7, D249) is one method among several, not
+   the design. The methods are compared in
+   [reachability-approaches-2026-10-09.md](../design/research/reachability-approaches-2026-10-09.md).
+2. **The paid tier is discovery at app.orpheum-app.com, with no relay** (refining D214): *"owners
+   connect to app.orpheum-app.com, not their own subdomain of orpheum-app.com, and not a custom
+   domain. If they're using web, they go to orpheum-app.com (our homepage) and then click login,
+   which takes them to app.orpheum-app.com, where they are now talking to their core, with as much
+   traffic as possible going direct between them and the core (i.e. I don't want to be relaying
+   traffic)."* It is a separate, closed-source project, specified first in the sandbox's shared
+   files; the agent keeps both projects in step.
+3. **The free alternative is the owner's own discovery, single-target.** *"owners can set up their
+   own discovery service, which we'll make easy for single-target (one VPS points to one core) so
+   that they don't try to set up a competing service to app.orpheum-app.com. This will be
+   expensive (minimum $5 per month), so it will be more economical for them to pay me $3 and just
+   use app.orpheum-app.com."*
+4. **Native clients** will connect through app.orpheum-app.com by default, with a custom domain
+   for those who host it themselves.
+5. **Landlock is a hardening, not a requirement** (revising D112's refusal): *"Landlock is just an
+   enhanced security measure. We don't need to block them if they don't have it, but we should at
+   least warn."* A node runs FFmpeg with what confinement the kernel offers and says what is
+   missing, as the System page already shows; `node.confinement_policy` starts at `"report"`, and
+   `"require"` stays for an admin who wants the refusal.
 
 **Status:** Decided 2026-10-09.
