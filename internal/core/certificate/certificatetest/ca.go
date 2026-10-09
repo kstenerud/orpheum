@@ -16,13 +16,12 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"golang.org/x/crypto/acme"
-
-	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare/cloudflaretest"
 )
 
 // The states an order and its authorization pass through.
@@ -35,12 +34,18 @@ const (
 // challengeToken is the one challenge's token.
 const challengeToken = "the-token"
 
+// TXTRecords is the DNS a challenge is checked against: the TXT record of a name, empty for none;
+// cloudflaretest.Fake, or a test's own.
+type TXTRecords interface {
+	TXT(name string) string
+}
+
 // CA is an ACME CA for tests (RFC 8555), as small as golang.org/x/crypto/acme's client needs: one
 // account, an order of one name at a time with a dns-01 challenge it checks against the fake DNS,
 // and certificates signed by its own root, valid for validFor from now.
 type CA struct {
 	server   *httptest.Server
-	dns      *cloudflaretest.Fake
+	dns      TXTRecords
 	validFor time.Duration
 	now      time.Time
 	rootKey  *ecdsa.PrivateKey
@@ -58,7 +63,7 @@ type CA struct {
 
 // NewCA serves a fake CA checking challenges against dns, issuing certificates valid from now, until
 // the test ends.
-func NewCA(t *testing.T, dns *cloudflaretest.Fake, now time.Time, validFor time.Duration) *CA {
+func NewCA(t *testing.T, dns TXTRecords, now time.Time, validFor time.Duration) *CA {
 	t.Helper()
 	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -134,6 +139,7 @@ type (
 		Status     string          `json:"status"`
 		Identifier identifierBody  `json:"identifier"`
 		Challenges []challengeBody `json:"challenges"`
+		Wildcard   bool            `json:"wildcard,omitempty"`
 	}
 	statusBody struct {
 		Status string `json:"status"`
@@ -226,17 +232,26 @@ func (authority *CA) authorization() authorizationBody {
 	if authority.status == statusPending {
 		status = statusPending
 	}
+	// A wildcard's authorization names the name under it, and says it is for a wildcard (RFC 8555
+	// §7.1.3), as Let's Encrypt's does.
 	return authorizationBody{
-		Status: status, Identifier: identifierBody{Type: "dns", Value: authority.domain},
+		Status: status, Identifier: identifierBody{Type: "dns", Value: authority.provenName()},
 		Challenges: []challengeBody{{Type: "dns-01", URL: authority.url("/challenge/1"), Token: challengeToken}},
+		Wildcard:   authority.provenName() != authority.domain,
 	}
+}
+
+// provenName is the name the order's challenge proves: the name itself, or the one a wildcard
+// stands under.
+func (authority *CA) provenName() string {
+	return strings.TrimPrefix(authority.domain, "*.")
 }
 
 // check answers the challenge: valid when the fake DNS holds the record its token and the
 // account's key make, as RFC 8555 §8.4 says; else it refuses.
 func (authority *CA) check(writer http.ResponseWriter) {
 	digest := sha256.Sum256([]byte(challengeToken + "." + authority.thumbprint))
-	if authority.dns.TXT("_acme-challenge."+authority.domain) != base64.RawURLEncoding.EncodeToString(digest[:]) {
+	if authority.dns.TXT("_acme-challenge."+authority.provenName()) != base64.RawURLEncoding.EncodeToString(digest[:]) {
 		writer.Header().Set("Content-Type", "application/problem+json")
 		writeJSON(writer, http.StatusForbidden, problemBody{
 			Type: "urn:ietf:params:acme:error:unauthorized", Detail: "the TXT record does not match",

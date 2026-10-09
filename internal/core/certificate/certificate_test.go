@@ -77,7 +77,8 @@ func newBench(t *testing.T, token cloudflaretest.Keys) bench {
 	authority := certificatetest.NewCA(t, dns, now, 90*24*time.Hour)
 	parts := Parts{
 		Domain: domain, Contact: "owner@example.org", DirectoryURL: authority.Directory(), HTTP: httpClient,
-		DNS: cloudflare.New(httpClient, dns.Server.URL, token), Files: files, Queue: queue, Clock: fakeClock,
+		DNS:   CloudflareDNS(cloudflare.New(httpClient, dns.Server.URL, token)),
+		Files: files, Queue: queue, Clock: fakeClock,
 		Logger: slog.New(slog.DiscardHandler),
 	}
 	service, err := New(parts)
@@ -172,5 +173,39 @@ func TestHandleRenew_ARefusedTokenFailsForTheAdminToFix(t *testing.T) {
 	if !errors.Is(err, cloudflare.ErrTokenRefused) || bench.authority.Issued() != 0 {
 		t.Errorf("a renewal with no token = %v, %d issued; want ErrTokenRefused and none", err,
 			bench.authority.Issued())
+	}
+}
+
+// A wildcard is obtained by proving the name under it, and is kept under its own prefix, apart from
+// the owner's own name's: each is served again after a restart, and neither is taken for the other
+// (D273).
+func TestObtain_AWildcardIsProvenByTheNameUnderItAndKeptApart(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	wildcard := bench.parts
+	wildcard.Domain, wildcard.FilePrefix = "*.k7xq2.orpheum-app.com", "discovery-"
+	service, err := New(wildcard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if set := bench.dns.EverSet("_acme-challenge.k7xq2.orpheum-app.com"); len(set) != 1 {
+		t.Errorf("the wildcard's challenge set %v; want one record, for the name under it", set)
+	}
+	again, err := New(wildcard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if served, servedErr := again.GetCertificate(nil); servedErr != nil || served.Leaf.DNSNames[0] != wildcard.Domain {
+		t.Errorf("after a restart the wildcard serves %v, %v; want the kept wildcard", served, servedErr)
+	}
+	own, err := New(bench.parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if served, servedErr := own.GetCertificate(nil); !errors.Is(servedErr, ErrNoCertificate) {
+		t.Errorf("the own name's service serves %v, %v; want none, the wildcard kept apart", served, servedErr)
 	}
 }

@@ -12,19 +12,24 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/certificate/certificatetest"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -72,17 +77,23 @@ type fakeDiscovery struct {
 	deprecated   string
 	isLeft       bool
 	sessionCount int
+	// txt are the certificate challenges' records the core had the discovery set, by name.
+	txt map[string]string
 	// signals are the offers the test has the discovery pass on, and replies the core's answers.
 	signals chan discoveryproto.SignalMessage
 	replies chan discoveryproto.SignalMessage
 }
 
-const fakeCoreID = "k7xq2"
+// fakeCoreID and fakeZone are the core's id and zone at the fake discovery.
+const (
+	fakeCoreID = "k7xq2"
+	fakeZone   = "orpheum-core.example"
+)
 
 func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	t.Helper()
 	fake := &fakeDiscovery{
-		t: t, nonces: map[string]bool{}, tokens: map[string]bool{},
+		t: t, nonces: map[string]bool{}, tokens: map[string]bool{}, txt: map[string]string{},
 		signals: make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
 	}
 	server := httptest.NewServer(fake)
@@ -144,7 +155,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	}
 	switch route {
 	case "GET /status":
-		fake.answer(writer, discoveryproto.StatusResponse{State: fake.state, Zone: "orpheum-core.example"})
+		fake.answer(writer, discoveryproto.StatusResponse{State: fake.state, Zone: fakeZone})
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest
 		fake.read(request, &heartbeat)
@@ -156,6 +167,18 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		})
 	case "DELETE /core":
 		fake.isLeft = true
+	case "PUT /acme-challenge", "DELETE /acme-challenge":
+		var challenge discoveryproto.ACMEChallengeRequest
+		fake.read(request, &challenge)
+		if challenge.Name != "_acme-challenge."+fakeCoreID+"."+fakeZone {
+			http.Error(writer, "not this core's name", http.StatusForbidden)
+			return
+		}
+		if request.Method == http.MethodDelete {
+			delete(fake.txt, challenge.Name)
+			return
+		}
+		fake.txt[challenge.Name] = challenge.Value
 	default:
 		http.NotFound(writer, request)
 	}
@@ -184,9 +207,21 @@ func (fake *fakeDiscovery) answer(writer http.ResponseWriter, value any) {
 }
 
 func (fake *fakeDiscovery) claim() {
+	fake.become(discoveryproto.StateClaimed)
+}
+
+// become puts the core in state at the discovery.
+func (fake *fakeDiscovery) become(state discoveryproto.State) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	fake.state = discoveryproto.StateClaimed
+	fake.state = state
+}
+
+// TXT is the record of name the discovery holds, empty for none: certificatetest.TXTRecords.
+func (fake *fakeDiscovery) TXT(name string) string {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	return fake.txt[name]
 }
 
 // world is a core's discovery service against a fake discovery, on a fake clock.
@@ -198,6 +233,8 @@ type world struct {
 	baseURL    string
 	clock      *clocktest.Fake
 	candidates []discoveryproto.Candidate
+	// claimedCount is how many times the service said the core was claimed.
+	claimedCount atomic.Int32
 }
 
 func newWorld(t *testing.T) *world {
@@ -223,6 +260,7 @@ func (built *world) restart(t *testing.T) *Service {
 		Files: built.files, Key: built.key, HTTP: &http.Client{}, Clock: built.clock,
 		Logger: slog.New(slog.DiscardHandler), Version: "v0.1.0", APIMajor: 1,
 		Candidates: func() []discoveryproto.Candidate { return built.candidates },
+		OnClaimed:  func(context.Context) { built.claimedCount.Add(1) },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -431,4 +469,108 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 		!strings.Contains(refused.Reason, "as many connections") {
 		t.Errorf("the offer past the limit was answered %+v; want a refusal saying why", refused)
 	}
+}
+
+// claimedWorld is a world whose core the discovery has claimed, its first heartbeat sent.
+func claimedWorld(t *testing.T) *world {
+	t.Helper()
+	built := newWorld(t)
+	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(t.Context())
+	built.service.step(t.Context())
+	return built
+}
+
+// The core learns its zone when the discovery claims it, says so once, and keeps it, so its
+// certificate's name is known from the start after a restart.
+func TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.service.step(ctx)
+	if count := built.claimedCount.Load(); count != 0 {
+		t.Fatalf("a pending core was said claimed %d times; want none", count)
+	}
+	built.fake.claim()
+	for range 3 {
+		built.clock.Advance(heartbeatEvery)
+		built.service.step(ctx)
+	}
+	want := "*." + fakeCoreID + "." + fakeZone
+	if count, name := built.claimedCount.Load(), built.service.Status().CertificateName(); count != 1 || name != want {
+		t.Errorf("once claimed: said %d times, certificate name %q; want once, %q", count, name, want)
+	}
+	if name := built.restart(t).Status().CertificateName(); name != want {
+		t.Errorf("after a restart the certificate name is %q; want %q, kept", name, want)
+	}
+}
+
+// A claimed core asks how it stands with each heartbeat, and stops sending its addresses once its
+// subscription has ended.
+func TestStep_AClaimedCoreLearnsWhenItsSubscriptionEnds(t *testing.T) {
+	t.Parallel()
+	built := claimedWorld(t)
+	sent := len(built.fake.heartbeats)
+	built.fake.become(discoveryproto.StateFrozen)
+	built.clock.Advance(heartbeatEvery)
+	if wait := built.service.step(t.Context()); wait != endedEvery || len(built.fake.heartbeats) != sent {
+		t.Errorf("a frozen core waited %s, %d heartbeats after %d; want %s and none more", wait,
+			len(built.fake.heartbeats), sent, endedEvery)
+	}
+	if state := built.service.Status().State; state != discoveryproto.StateFrozen {
+		t.Errorf("the core's state is %q; want frozen", state)
+	}
+}
+
+// The certificate of the core's names is obtained through its discovery, which holds the DNS-01
+// record for it: a wildcard for every name under the core's, set and cleared again (the spec's §3.7).
+func TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery(t *testing.T) {
+	t.Parallel()
+	built := claimedWorld(t)
+	now := built.clock.Now()
+	authority := certificatetest.NewCA(t, built.fake, now, 90*24*time.Hour)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := built.service.Status().CertificateName()
+	certificates, err := certificate.New(certificate.Parts{
+		Domain: name, DirectoryURL: authority.Directory(), HTTP: httpClient, DNS: built.service,
+		Files: certificateFiles{}, Clock: built.clock, Logger: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = certificates.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	served, err := certificates.GetCertificate(nil)
+	if err != nil || served.Leaf == nil || !slices.Equal(served.Leaf.DNSNames, []string{name}) {
+		t.Fatalf("GetCertificate = %+v, %v; want a certificate for %s", served, err, name)
+	}
+	if left := built.fake.TXT("_acme-challenge." + fakeCoreID + "." + fakeZone); left != "" {
+		t.Errorf("the challenge's record is still %q; want it cleared", left)
+	}
+}
+
+// certificateFiles keeps a certificate's files in memory.
+type certificateFiles map[string][]byte
+
+func (files certificateFiles) ReadPersistentFile(name string) ([]byte, error) {
+	contents, found := files[name]
+	if !found {
+		return nil, instancedir.ErrNotFound
+	}
+	return contents, nil
+}
+
+func (files certificateFiles) WritePersistentFile(name string, contents []byte) error {
+	files[name] = contents
+	return nil
 }

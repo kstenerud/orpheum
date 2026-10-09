@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/backup"
-	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
@@ -63,9 +61,9 @@ type jobServices struct {
 	scanSchedule *library.ScanSchedule
 	// backups makes the backups, scheduled and asked for, and prunes them (D243 §11).
 	backups *backup.Service
-	// certificates obtains and renews the HTTPS certificate of the server's public name; nil for a
-	// server with none (D243 §6).
-	certificates *certificate.Service
+	// certificates obtains and renews the HTTPS certificates: the server's public name's (D243 §6)
+	// and its discovery's (D273).
+	certificates *servedCertificates
 	// discovery keeps the core enrolled with its discovery, when an admin connected one (D273).
 	discovery *discovery.Service
 	// subtitler fetches subtitles on request (D224).
@@ -275,7 +273,7 @@ const scheduledScansCheckEvery = 15 * time.Minute
 // against a month's margin before it expires (D243 §6).
 const certificateCheckEvery = 24 * time.Hour
 
-// renewCertificate runs a renewal; a server with no public name has none to renew.
+// renewCertificate runs a renewal; a server with no public name and no discovery has none to renew.
 func (services jobServices) renewCertificate(ctx context.Context, job jobs.Job) error {
 	if services.certificates == nil {
 		return jobs.MarkPermanent(errNoPublicName)
@@ -290,9 +288,6 @@ func (services jobServices) queueCertificateRenewal(ctx context.Context) (int, e
 	}
 	return services.certificates.QueueRenewal(ctx)
 }
-
-// errNoPublicName is a renewal asked of a server with no https.domain.
-var errNoPublicName = errors.New("the server has no public name (https.domain), so no certificate to renew")
 
 // scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due: within
 // a quarter of backup_hour_local_tz, whenever in the hour the server started; a look at the backup

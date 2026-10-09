@@ -39,7 +39,9 @@ func TestServeHTTPS_ServesTheNamesCertificate(t *testing.T) {
 	}
 	certificates, err := certificate.New(certificate.Parts{
 		Domain: "media.orpheum-app.com", Contact: "owner@example.org", DirectoryURL: authority.Directory(),
-		HTTP: httpClient, DNS: cloudflare.New(httpClient, dns.Server.URL, cloudflaretest.Keys(cloudflaretest.Token)),
+		HTTP: httpClient,
+		DNS: certificate.CloudflareDNS(
+			cloudflare.New(httpClient, dns.Server.URL, cloudflaretest.Keys(cloudflaretest.Token))),
 		Files: directories, Clock: clocktest.NewFake(now), Logger: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {

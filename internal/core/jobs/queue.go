@@ -313,6 +313,9 @@ const StalledTwice = "stalled on two attempts in a row: "
 // MarkPermanent marks a handler's error as one no retry can fix.
 func MarkPermanent(err error) error { return jobqueue.Permanent(err) }
 
+// IsMarkedPermanent is whether a handler's error was marked as one no retry can fix.
+func IsMarkedPermanent(err error) bool { return jobqueue.IsPermanent(err) }
+
 // FirstProbeDelay is destination_first_probe_delay_seconds.
 func (policy settingsPolicy) FirstProbeDelay(ctx context.Context) (time.Duration, error) {
 	delay, err := policy.settings.Duration(ctx, settings.DestinationFirstProbeDelaySeconds)
