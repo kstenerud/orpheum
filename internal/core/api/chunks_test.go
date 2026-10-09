@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -81,8 +82,9 @@ func TestChunks_AFilmWithNoGridIsTooEarlyAndReadThroughThenListsWhatThePlaybackI
 }
 
 // A film cut before its loudness was measured, as one cut from its file's index is, offers its sound
-// unlevelled, a store of its own; once measured, a new playlist offers it levelled, and a playback
-// that started on the unlevelled sound goes on with it (D259 §2).
+// unlevelled, a store of its own; once measured, a new playback's playlist offers it levelled, and a
+// playback that started on the unlevelled sound goes on with it, its playlist asked again, as a
+// stall's move to a lower quality asks it, naming it still (D259 §2).
 func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -91,6 +93,53 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 	harness.keepFilmOnesTimeline(t)
 	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
+	harness.measureFilmOnesLoudness(t)
+	fresh := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	checkFilmOnesMaster(t, harness.getBytePath(t, fresh+"master.m3u8", user, true, ""), "sound0-96k")
+	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
+	if raw := harness.getBytePath(t, base+"sound0-96k-raw/stream.m3u8", user, true, ""); raw.status != http.StatusOK {
+		t.Errorf("the unlevelled sound's playlist, once the loudness is measured: %d %s; want it still", raw.status,
+			raw.body)
+	}
+}
+
+// A playback whose sound was offered unlevelled keeps it so: once the film's loudness is measured,
+// its stall starts, and its offer waits on, the unlevelled sound its player plays, not a levelled one
+// it never asks for (the M4 closing audit, §6).
+func TestChunks_AStallStartsTheUnlevelledSoundItsPlaybackKept(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	playing := harness.play(t, user, chrome(1))
+	harness.keepFilmOnesTimeline(t)
+	base := Prefix + "/bytes/media/chunks/" + playing.MediaToken + "/"
+	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k-raw")
+	harness.measureFilmOnesLoudness(t)
+	if offered := lowerQualityOf(t, harness.report(t, user, playing, stallReport(1, 21_000))); offered == nil {
+		t.Fatal("the stall was offered no lower quality")
+	}
+	var streams []string
+	for _, run := range harness.openJobs(t, jobs.KindMakeChunks) {
+		if run.ChunkStoreID == nil {
+			continue
+		}
+		store, err := harness.cache.Read().GetChunkStore(t.Context(), *run.ChunkStoreID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		streams = append(streams, store.Stream)
+	}
+	slices.Sort(streams)
+	if !slices.Equal(streams, []string{"q1200k480p", "sound0-96k-raw"}) {
+		t.Errorf("the stall started runs of %v; want the quality's and the unlevelled sound's", streams)
+	}
+}
+
+// measureFilmOnesLoudness records film 1's first audio track's loudness as measured.
+func (harness testHarness) measureFilmOnesLoudness(t *testing.T) {
+	t.Helper()
 	lufs := -20.0
 	if err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
@@ -99,11 +148,6 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 		})
 	}); err != nil {
 		t.Fatal(err)
-	}
-	checkFilmOnesMaster(t, harness.getBytePath(t, base+"master.m3u8", user, true, ""), "sound0-96k")
-	if raw := harness.getBytePath(t, base+"sound0-96k-raw/stream.m3u8", user, true, ""); raw.status != http.StatusOK {
-		t.Errorf("the unlevelled sound's playlist, once the loudness is measured: %d %s; want it still", raw.status,
-			raw.body)
 	}
 }
 

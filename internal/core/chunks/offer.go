@@ -38,6 +38,23 @@ type Playback struct {
 	// IsOnTime is whether it began on its film cut on time, its file having no index of its
 	// keyframes: it stays so to its end, though a read-through finds them meanwhile (D269 §3).
 	IsOnTime bool
+	// IsSoundUnlevelled is whether its first master playlist named its film's sounds unlevelled, the
+	// film's loudness not measured yet: they stay so to its end, though the loudness is measured
+	// meanwhile, so a stall's offer starts and waits on the sound its player plays.
+	IsSoundUnlevelled bool
+}
+
+// Kept is what a playback keeps, to its end, of the first master playlist it was offered, though
+// its film changes meanwhile: whether the film was cut on time, and whether its sounds were named
+// unlevelled.
+type Kept struct {
+	IsOnTime          bool
+	IsSoundUnlevelled bool
+}
+
+// Kept is what the playback keeps already.
+func (playback Playback) Kept() Kept {
+	return Kept{IsOnTime: playback.IsOnTime, IsSoundUnlevelled: playback.IsSoundUnlevelled}
 }
 
 // gridKind is what the playback's film is cut at: on time, once it began so, else on keyframes.
@@ -98,13 +115,13 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 	if err != nil {
 		return offer{}, fmt.Errorf("read chunk_sound_kbps: %w", err)
 	}
-	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+	isUnlevelled, err := service.isSoundUnlevelled(ctx, film, playback)
 	if err != nil {
 		return offer{}, err
 	}
 	offered := offer{
 		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
-		isUnlevelled: len(levels) == 0,
+		isUnlevelled: isUnlevelled,
 	}
 	// A picture copied begins each chunk on a keyframe: a film cut on time has none there (D269 §1).
 	if playback.IsSourcePictureDecodable && film.kind == OnKeyframes {
@@ -218,19 +235,32 @@ func (service *Service) cutForPlay(ctx context.Context, playback Playback) (cutF
 	return film, fmt.Errorf("file %d: %w", fileID, ErrNoGrid)
 }
 
+// isSoundUnlevelled is whether the playback is offered its film's sounds unlevelled: when it kept
+// them so, or while the film's loudness is not measured (D259 §2).
+func (service *Service) isSoundUnlevelled(ctx context.Context, film cutFilm, playback Playback) (bool, error) {
+	if playback.IsSoundUnlevelled {
+		return true, nil
+	}
+	levels, err := service.loudness.Levels(ctx, film.file.PayloadHash)
+	if err != nil {
+		return false, err
+	}
+	return len(levels) == 0, nil
+}
+
 // MasterPlaylist is the master playlist of the playback's film cut into chunks (chunks.md §3): every
 // sound a prepare would make, the playback's starting track's standard mix the default, and every
-// picture it is offered, highest first; and what the film is cut at, which the playback keeps from
-// then on (D269 §3). A film with no grid yet is ErrNoGrid, and is being read through for one; one
-// that cannot be cut is ErrCannotBeCut.
-func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, GridKind, error) {
+// picture it is offered, highest first; and what the playback keeps of it from then on: whether the
+// film is cut on time (D269 §3), and whether its sounds are named unlevelled. A film with no grid
+// yet is ErrNoGrid, and is being read through for one; one that cannot be cut is ErrCannotBeCut.
+func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (string, Kept, error) {
 	film, err := service.cutForPlay(ctx, playback)
 	if err != nil {
-		return "", "", err
+		return "", Kept{}, err
 	}
 	offered, err := service.offerOf(ctx, film, playback)
 	if err != nil {
-		return "", "", err
+		return "", Kept{}, err
 	}
 	sounds := make([]soundMedia, 0, len(offered.sounds))
 	for _, sound := range offered.sounds {
@@ -253,7 +283,8 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	for _, picture := range offered.pictures {
 		variants = append(variants, film.variantOf(picture, offered.soundKbps))
 	}
-	return masterPlaylist(sounds, variants), film.kind, nil
+	kept := Kept{IsOnTime: film.kind == OnTime, IsSoundUnlevelled: offered.isUnlevelled}
+	return masterPlaylist(sounds, variants), kept, nil
 }
 
 // MediaPlaylist is the playlist of one stream the playback is offered, every chunk of the film's

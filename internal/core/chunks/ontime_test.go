@@ -42,10 +42,10 @@ func TestMasterPlaylist_AFilmWhoseFileHasNoIndexIsCutOnTimeWithoutItsPictureCopi
 	service, reader := chunksFixture(t, newFakeQueue(), fakeNode{})
 	reader.noIndex = [][]byte{{0x02}}
 	playback := Playback{FileID: 2, IsSourcePictureDecodable: true}
-	text, kind, err := service.MasterPlaylist(t.Context(), playback)
-	if err != nil || kind != OnTime || strings.Contains(text, "picture/") || !strings.Contains(text, "q1200k480p/") {
-		t.Fatalf("film 2's master playlist =\n%s\n%s, %v; want it cut on time, its qualities and no picture copied",
-			text, kind, err)
+	text, kept, err := service.MasterPlaylist(t.Context(), playback)
+	if err != nil || !kept.IsOnTime || strings.Contains(text, "picture/") || !strings.Contains(text, "q1200k480p/") {
+		t.Fatalf("film 2's master playlist =\n%s\n%+v, %v; want it cut on time, its qualities and no picture copied",
+			text, kept, err)
 	}
 	if len(reader.asked) != 0 || !slices.Equal(reader.readFirst, []int64{2}) {
 		t.Errorf("film 2 was read for play %v and ahead of the sweep %v; want only ahead of the sweep",
@@ -74,20 +74,20 @@ func TestMasterPlaylist_APlaybackThatBeganOnTimeStaysOnTimeOnceTheKeyframesAreKn
 	t.Parallel()
 	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
 	onTime := Playback{FileID: 1, IsSourcePictureDecodable: true, IsOnTime: true}
-	text, kind, err := service.MasterPlaylist(t.Context(), onTime)
-	if err != nil || kind != OnTime || strings.Contains(text, "picture/") {
-		t.Errorf("film 1 to a playback that began on time =\n%s\n%s, %v; want it on time, no picture copied",
-			text, kind, err)
+	text, kept, err := service.MasterPlaylist(t.Context(), onTime)
+	if err != nil || !kept.IsOnTime || strings.Contains(text, "picture/") {
+		t.Errorf("film 1 to a playback that began on time =\n%s\n%+v, %v; want it on time, no picture copied",
+			text, kept, err)
 	}
 	stream, err := service.MediaPlaylist(t.Context(), onTime, "q1200k480p")
 	if err != nil || strings.Count(stream, "#EXTINF:") != filmMinutes*60/2 {
 		t.Errorf("its quality's playlist =\n%s\n%v; want a chunk every 2 s", stream, err)
 	}
 	onKeyframes := Playback{FileID: 1, IsSourcePictureDecodable: true}
-	if text, kind, err = service.MasterPlaylist(t.Context(), onKeyframes); err != nil || kind != OnKeyframes ||
+	if text, kept, err = service.MasterPlaylist(t.Context(), onKeyframes); err != nil || kept.IsOnTime ||
 		!strings.Contains(text, "picture/") {
-		t.Errorf("film 1 to a new playback =\n%s\n%s, %v; want it on its keyframes, its picture copied",
-			text, kind, err)
+		t.Errorf("film 1 to a new playback =\n%s\n%+v, %v; want it on its keyframes, its picture copied",
+			text, kept, err)
 	}
 }
 

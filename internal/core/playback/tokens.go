@@ -85,6 +85,9 @@ type tokenPlayback struct {
 	// isOnTime is whether its film's chunks were first offered to it cut on time, its file having no
 	// index of its keyframes: it keeps that grid to its end (D269 §3).
 	isOnTime bool
+	// isSoundUnlevelled is whether its film's sounds were first offered to it unlevelled, the film's
+	// loudness not measured yet: it keeps them so to its end.
+	isSoundUnlevelled bool
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
@@ -148,12 +151,14 @@ func (all *tokens) use(token string, holder Holder, now time.Time, idle time.Dur
 	return *known, true
 }
 
-// keepOnTime marks a token's playback, when holder holds it, as cut on time to its end (D269 §3).
-func (all *tokens) keepOnTime(token string, holder Holder) {
+// keep marks a token's playback, when holder holds it, with what it keeps to its end of the master
+// playlist it was offered; what it kept already it keeps.
+func (all *tokens) keep(token string, holder Holder, kept chunks.Kept) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	if known, found := all.playbackByToken[token]; found && known.isHeldBy(holder) {
-		known.isOnTime = true
+		known.isOnTime = known.isOnTime || kept.IsOnTime
+		known.isSoundUnlevelled = known.isSoundUnlevelled || kept.IsSoundUnlevelled
 	}
 }
 
