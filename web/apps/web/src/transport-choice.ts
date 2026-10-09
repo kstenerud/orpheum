@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { connectRtc, dataOrThrow, type Api, type SwitchableFetch } from "@orpheum/sdk";
+import {
+  carryMediaOver,
+  connectRtc,
+  dataOrThrow,
+  type Api,
+  type SwitchableFetch,
+} from "@orpheum/sdk";
 
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import type { Session } from "./session.ts";
@@ -30,7 +36,8 @@ export function wantsWebrtc(search: string, tabStorage: StringStorage | undefine
 
 /**
  * Once the session is signed in, connects to the core over WebRTC through its offer endpoint and
- * moves the API's requests onto the data channels; a failure leaves them on HTTPS, and says why.
+ * moves the API's requests onto the data channels, then the loads the browser makes by itself through
+ * the service worker; a failure leaves them on HTTPS, and says why.
  */
 export function moveToWebrtcWhenSignedIn(
   app: { readonly session: Session; readonly api: Api; readonly routed: SwitchableFetch },
@@ -44,8 +51,9 @@ export function moveToWebrtcWhenSignedIn(
     }
     isStarted = true;
     connectRtc(async (offer) => dataOrThrow(await api.POST("/rtc/offer", { body: offer })))
-      .then((transport) => {
+      .then(async (transport) => {
         routed.use(transport.fetch, pathName);
+        await carryMediaOver(transport.fetch, session.token);
       })
       .catch((problem: unknown) => {
         isStarted = false;
