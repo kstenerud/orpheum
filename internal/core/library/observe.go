@@ -56,11 +56,11 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		if listErr != nil {
 			return fmt.Errorf("look for %s's payload elsewhere: %w", seenFile.path, listErr)
 		}
-		// Only a file under this scan's root can be judged absent by it. One in another root was
-		// simply not looked at, so a match there is a duplicate, never a move.
+		// Only a file this scan covers can be judged absent by it. One in another root, or outside
+		// the folder a scan of a folder lists, was simply not looked at, so a match there is a
+		// duplicate, never a move (D272 §9).
 		unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
-			_, under := RelativeToRoot(row.ReportedPathRaw, scan.root)
-			return row.LastSeenAt < scan.startedAt && under
+			return row.LastSeenAt < scan.startedAt && scan.covers(row.ReportedPathRaw)
 		})
 		if unseenIndex >= 0 && len(elsewhere) == 1 {
 			move := pendingMove{seenFile: seenFile, fromFileID: elsewhere[unseenIndex].ID}

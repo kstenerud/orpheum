@@ -41,7 +41,7 @@ func (world *harness) takeListing(records []nodeproto.ScanRecord, isStopped bool
 			Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: world.rootPath},
 		})
 	}
-	taken, err := world.ingester.TakeListing(world.t.Context(), world.nodeID, world.rootPath, all, testRules)
+	taken, err := world.ingester.TakeListing(world.t.Context(), world.nodeID, world.rootPath, wholeRoot, all, testRules)
 	if err != nil {
 		world.t.Fatal(err)
 	}

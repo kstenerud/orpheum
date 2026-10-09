@@ -75,7 +75,8 @@ func (q *Queries) GetRootMount(ctx context.Context, arg GetRootMountParams) (Get
 
 const getRootState = `-- name: GetRootState :one
 
-SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved
+SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved,
+  unavailable_since
 FROM root_state
 WHERE node_id = ? AND root_path = ?
 `
@@ -92,6 +93,7 @@ type GetRootStateRow struct {
 	WithheldScanStartedAt *int64
 	WithheldReason        *string
 	AreRemovalsApproved   int64
+	UnavailableSince      *int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -106,6 +108,7 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 		&i.WithheldScanStartedAt,
 		&i.WithheldReason,
 		&i.AreRemovalsApproved,
+		&i.UnavailableSince,
 	)
 	return i, err
 }

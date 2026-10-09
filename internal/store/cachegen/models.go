@@ -96,6 +96,8 @@ type Scan struct {
 	ToExamineCount      int64
 	ExaminedCount       int64
 	IsAnotherScanQueued int64
+	ScopePath           string
+	AgainScopePath      *string
 }
 
 type ScanBatch struct {

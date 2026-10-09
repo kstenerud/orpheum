@@ -5,7 +5,7 @@
 # Release mode
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Yes start building release
-  mode"*). R1 to R5 are built; R6 to R8 are not.
+  mode"*). R1 to R6 are built; R7 and R8 are not.
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
@@ -45,7 +45,7 @@
 | R3 | The build command for nas.example: from a tag, build `orpheum:<tag>` with its commit in it, then run that image's setup over the deployment directory: `deploy/release/build.sh`, version tags only, so the binary records its version | built |
 | R4 | `deploy/release/README.md`: the LXC container (unprivileged, nesting, the render node, the media bind mount), Docker in it, the Landlock check, install, update, going back, and the swap between staging and nas.example | written; untried, since only nas.example can try it (R8) |
 | R5 | The periodic scan: a sweep, every 15 minutes, asks for the scan of each root whose library checks every N hours, or is watched, once its interval has passed since its last scan; a watched library's interval is the setting `watched_library_scan_every_hours`, 24 | built |
-| R6 | Scoped scans in the core: a scan's scope kept with it; removals and mount checks only within it; a whole-root request supersedes a scoped one | not started |
+| R6 | Scoped scans in the core (`Scans.RequestUnder`): a scan's scope kept with it in cache.db; removals, moves and mount checks only within it, the withhold share judged against the whole root; requests made while one runs widen to the folder holding them all; one that may not judge becomes the whole root's; it never counts as the root's last scan, so the periodic scan stays due | built |
 | R7 | The watcher in the node: inotify on every directory under each root of a watched library, a quiet spell per directory, the nearest existing directory reported, an overflow or a full watch table reported as the root; each root's watch state in the hello and status; the library page shows it | not started |
 | R8 | On nas.example with the owner: install, first run, `CHECKPOINT` committed at the version it runs | not started |
 

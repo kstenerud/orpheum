@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -20,6 +21,9 @@ const (
 	outcomeWithheld   = "withheld"
 )
 
+// outcomeComplete is a root's last scan that completed, as RecordRootComplete writes it.
+const outcomeComplete = "complete"
+
 // completeScan ends a scan: it concludes the moves it held, then either tombstones what the scan did
 // not see — outside the regions it could not read — or withholds that and asks, when the removal
 // looks like a lost disk rather than deleted files (D41, D208 §3). Tombstones, root_scan and
@@ -33,41 +37,81 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 		return err
 	}
 	batch.endedLibraryIDs = append(batch.endedLibraryIDs, scan.libraryID)
+	if scan.isScoped() {
+		if err := batch.checkScopeMayJudge(ctx, scan, complete); err != nil {
+			return err
+		}
+	}
 	if complete.IsStoppedByErrors || scan.isEverythingUnread {
 		batch.ingester.logger.WarnContext(ctx, "a scan could not read its whole root; nothing was removed",
 			"nodeId", batch.nodeID, "rootPath", scan.root, "errorCount", complete.ErrorCount)
 		return batch.recordNotComplete(ctx, scan, outcomeUnreadable, "")
 	}
-	missing, err := batch.missingMounts(ctx, scan)
+	judged, err := batch.judgeRemovals(ctx, scan)
 	if err != nil {
 		return err
 	}
-	unseenFileIDs, liveFileCount, err := batch.unseenUnder(ctx, scan)
-	if err != nil {
-		return err
-	}
-	reason, err := batch.withholdReason(ctx, scan, len(unseenFileIDs), liveFileCount)
-	if err != nil {
-		return err
-	}
-	if reason != "" {
+	if judged.withheldReason != "" {
 		batch.ingester.logger.WarnContext(ctx, "a scan's removals wait for the admin", "nodeId", batch.nodeID,
-			"rootPath", scan.root, "wouldRemove", len(unseenFileIDs), "rootFileCount", liveFileCount, "reason", reason)
-		return batch.recordNotComplete(ctx, scan, outcomeWithheld, reason)
+			"rootPath", scan.root, "wouldRemove", len(judged.unseenFileIDs), "rootFileCount", judged.liveFileCount,
+			"reason", judged.withheldReason)
+		return batch.recordNotComplete(ctx, scan, outcomeWithheld, judged.withheldReason)
 	}
-	for _, gone := range unseenFileIDs {
+	for _, gone := range judged.unseenFileIDs {
 		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: gone}
 		if tombstoneErr := batch.queries.TombstoneFile(ctx, tombstone); tombstoneErr != nil {
 			return fmt.Errorf("tombstone file %d: %w", gone, tombstoneErr)
 		}
 	}
-	if mountsErr := batch.recordMounts(ctx, scan, missing); mountsErr != nil {
+	if mountsErr := batch.recordMounts(ctx, scan, judged.missingMounts); mountsErr != nil {
 		return mountsErr
 	}
 	if attachErr := batch.attachSidecars(ctx, scan); attachErr != nil {
 		return attachErr
 	}
-	err = batch.queries.UpsertRootScan(ctx, sqlcgen.UpsertRootScanParams{
+	return batch.recordComplete(ctx, scan)
+}
+
+// judgedRemovals are what a scan would remove: the live files it covers and did not see, the disks
+// mounted inside the root it did not find, how many live files the root holds, and why the removals
+// wait for the admin, if they do.
+type judgedRemovals struct {
+	unseenFileIDs  []int64
+	missingMounts  map[string]bool
+	liveFileCount  int
+	withheldReason string
+}
+
+// judgeRemovals is what a scan would remove, and whether it must wait. A scan of a folder that would
+// lose a disk or wait for the admin may not judge it: errScopeNeedsTheRoot (D272 §9).
+func (batch *ingestBatch) judgeRemovals(ctx context.Context, scan *scanState) (judgedRemovals, error) {
+	var judged judgedRemovals
+	var err error
+	if judged.missingMounts, err = batch.missingMounts(ctx, scan); err != nil {
+		return judged, err
+	}
+	if len(judged.missingMounts) > 0 && scan.isScoped() {
+		return judged, fmt.Errorf("%w: a disk mounted below it is not there", errScopeNeedsTheRoot)
+	}
+	if judged.unseenFileIDs, judged.liveFileCount, err = batch.unseenUnder(ctx, scan); err != nil {
+		return judged, err
+	}
+	judged.withheldReason, err = batch.withholdReason(ctx, scan, len(judged.unseenFileIDs), judged.liveFileCount)
+	if err == nil && judged.withheldReason != "" && scan.isScoped() {
+		err = fmt.Errorf("%w: its removals would wait for the admin: %s", errScopeNeedsTheRoot, judged.withheldReason)
+	}
+	return judged, err
+}
+
+// recordComplete records a whole scan as the root's last, with its facts as the known-good ones. A
+// folder's scan is not the root's: its last scan and facts stay the last whole scan's, whose
+// schedule a watcher's notices never put off (D272 §9).
+func (batch *ingestBatch) recordComplete(ctx context.Context, scan *scanState) error {
+	if scan.isScoped() {
+		batch.foundPaths = append(batch.foundPaths, path.Join(scan.root, scan.scope))
+		return nil
+	}
+	err := batch.queries.UpsertRootScan(ctx, sqlcgen.UpsertRootScanParams{
 		NodeID: batch.nodeID, RootPath: scan.root, CompletedAt: batch.nowMs,
 	})
 	if err != nil {
@@ -86,6 +130,30 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	return nil
 }
 
+// checkScopeMayJudge refuses, with errScopeNeedsTheRoot, a scan of a folder that may not judge what
+// is gone: one that could not read all of it, or under a root whose last scan was not complete or
+// that is unavailable, which only a scan of the whole root brings back (D208, D241, D272 §9).
+func (batch *ingestBatch) checkScopeMayJudge(
+	ctx context.Context, scan *scanState, complete *nodeproto.ScanComplete,
+) error {
+	if complete.IsStoppedByErrors || scan.isEverythingUnread {
+		return fmt.Errorf("%w: it could not read %s", errScopeNeedsTheRoot, scan.scope)
+	}
+	prior, err := store.OrNotFound(batch.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
+		NodeID: batch.nodeID, RootPath: scan.root,
+	}))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return fmt.Errorf("%w: the root has had no complete scan", errScopeNeedsTheRoot)
+	case err != nil:
+		return err
+	case prior.LastScanOutcome != outcomeComplete || prior.UnavailableSince != nil:
+		return fmt.Errorf("%w: the root's last scan was %s, or it is unavailable", errScopeNeedsTheRoot,
+			prior.LastScanOutcome)
+	}
+	return nil
+}
+
 // missingMounts compares the mount boundaries this scan crossed with those the root's last
 // complete scan recorded. A boundary not seen where it was, or seen on another device, is a disk
 // that is not there — an unplugged disk under /mnt lists as an empty directory — so nothing
@@ -100,6 +168,10 @@ func (batch *ingestBatch) missingMounts(ctx context.Context, scan *scanState) (m
 	}
 	missing := map[string]bool{}
 	for _, mount := range known {
+		_, isBelowScope := RelativeToRoot([]byte(mount.MountPath), path.Join(scan.root, scan.scope))
+		if scan.isScoped() && !isBelowScope {
+			continue // not below the folder this scan listed: not looked at as a mount
+		}
 		device, wasSeen := scan.mounts[mount.MountPath]
 		if wasSeen && int64(device) == mount.FilesystemDevice { //nolint:gosec // a device id fits
 			continue
@@ -140,8 +212,9 @@ func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, mis
 	return nil
 }
 
-// unseenUnder returns the live files under the root that the scan did not see, outside what it
-// could not read, and how many live files the root holds.
+// unseenUnder returns the live files the scan covers that it did not see, outside what it could not
+// read, and how many live files the root holds: a scan of a folder is judged against the whole
+// root, so a deleted folder is not most of what its scan looked at (D208 §3, D272 §9).
 func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) ([]int64, int, error) {
 	files, err := batch.queries.ListLiveFilesOfLibraryOnNode(ctx, sqlcgen.ListLiveFilesOfLibraryOnNodeParams{
 		NodeID: batch.nodeID, LibraryID: scan.libraryID,
@@ -156,7 +229,8 @@ func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) ([]i
 			continue
 		}
 		liveFileCount++
-		if file.LastSeenAt < scan.startedAt && !scan.isUnread(file.ReportedPathRaw) {
+		isCovered := scan.covers(file.ReportedPathRaw)
+		if file.LastSeenAt < scan.startedAt && isCovered && !scan.isUnread(file.ReportedPathRaw) {
 			unseenFileIDs = append(unseenFileIDs, file.ID)
 		}
 	}

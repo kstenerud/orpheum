@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 34
+-- cache schema version 35
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +69,11 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   examined_count INTEGER NOT NULL DEFAULT 0, -- and of those, read
   -- Whether a scan was asked for while this one ran: one more follows it (D236 section 3).
   is_another_scan_queued INTEGER NOT NULL DEFAULT 0 CHECK (is_another_scan_queued IN (0, 1)),
+  -- What it lists, relative to the root: '.' for the whole root, or the folder a watcher saw change,
+  -- whose scan removes nothing outside it (D272 section 9).
+  scope_path  TEXT NOT NULL DEFAULT '.',
+  -- The scope of the one that follows, widened to cover every request made while this one ran.
+  again_scope_path TEXT,
   UNIQUE (node_id, root_path)
 );
 

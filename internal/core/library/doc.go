@@ -52,6 +52,16 @@
 //     never is. TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan,
 //     TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves.
 //
+//   - A scan of a folder, a watcher's notice (D272 §9), removes nothing outside it, counts a copy
+//     there as a second file and never as the file outside it moved, and leaves the root's last
+//     scan and facts the whole scan's. TestScans_AScanOfAFolderRemovesOnlyWhatItCovers,
+//     TestScans_ACopyInTheFolderIsADuplicateNotAMoveOfTheFileOutsideIt. One that could not read its
+//     folder, would wait for the admin, lacks a disk mounted below it, or is under a root whose last
+//     scan was not complete becomes a scan of the whole root, removing nothing itself.
+//     TestScans_AScanOfAFolderThatMayNotJudgeBecomesTheWholeRoots. Folders asked for while a scan
+//     runs are scanned once after it, by the folder holding them all.
+//     TestScans_FoldersAskedForWhileOneRunsAreScannedOnceByTheFolderHoldingThem.
+//
 //   - Every path a scan enumerated has a row with its filing and reason (D163).
 //     TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason.
 //
@@ -191,8 +201,8 @@
 //
 //   - reach.go: whether a person reaches a file, an item or an image (D243 §4).
 //   - scans.go: a scan's jobs, from its request to its end; schedule.go: the scans libraries are
-//     due; compare.go: a listing compared with what is stored, by the library's rules; batches.go:
-//     the batches a scan's node reads;
+//     due; scope.go: a scan of a folder; compare.go: a listing compared with what is stored, by
+//     the library's rules; batches.go: the batches a scan's node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
