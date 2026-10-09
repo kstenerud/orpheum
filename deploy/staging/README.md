@@ -1,7 +1,8 @@
 # Staging: the deployment, from this checkout, beside the dev loop
 
-Staging is Orpheum as it will be deployed (D249): the runtime image and `deploy/compose.yaml`'s
-three services, built from this checkout instead of a published release. It runs beside `./dev`
+Staging is Orpheum as it is deployed (D249, D272): the runtime image and its compose file's
+three services, written by the image's own `orpheum write-deployment` as release is, from an image
+built from this checkout instead of a tag. It runs beside `./dev`
 on the same machine, with its own data in `.staging/` and its own port, and it is what the VPS
 (`deploy/vps/README.md`) forwards the public name to.
 
@@ -21,9 +22,9 @@ browser ─► media.orpheum-app.com ─► VPS ═ WireGuard ═► orpheum-tun
 - **orpheum-node** reads the media, read-only, and runs FFmpeg, confined. It has no network: it
   reaches the core by the sockets in `.staging/run/`.
 
-The files here are templates `./staging` fills in from your values on every start: `core.toml`
-and `node.toml` (the full configs), `wg0.conf` (the tunnel's key and the VPS), and `staging.toml`
-(your values, copied into `.staging/` on the first run). `tunnel.sh` is the tunnel service's.
+The templates are in the binary (`internal/deployment/templates/`): each `./staging` writes the
+compose file, the configs and the tunnel's config into `.staging/` from your values,
+`.staging/values.toml`. `tunnel.sh`, here, is the tunnel service's.
 
 ## What the machine needs
 
@@ -46,7 +47,7 @@ and `node.toml` (the full configs), `wg0.conf` (the tunnel's key and the VPS), a
    and stops, printing the tunnel's **public key**.
 2. On the VPS, put that key in `/etc/wireguard/wg0.conf`, `[Peer]`'s `PublicKey`, and restart the
    tunnel there: `systemctl restart wg-quick@wg0`.
-3. Fill in `.staging/staging.toml`: the contact address; the VPS's endpoint, its address and
+3. Fill in `.staging/values.toml`: the contact address; the VPS's endpoint, its address and
    WireGuard port, IPv4 (`"203.0.113.7:51820"`) where the machine has only IPv4 or reaches the VPS
    through DS-Lite's shared IPv4, or IPv6 in brackets (`"[2a0f:4000:…::1]:51820"`); its public IPv4
    address, for the voice relay; its WireGuard public key (`cat /etc/wireguard/public` on the
@@ -85,7 +86,7 @@ Release will refuse instead.
 
 ## When something is wrong
 
-- **`./staging` stops with what `.staging/staging.toml` needs**: fill in what it names.
+- **`./staging` stops with what `.staging/values.toml` needs**: fill in what it names.
 - **No handshake on the VPS**: the VPS's `wg0.conf` must hold staging's public key
   (`.staging/tunnel/public`), and Hetzner's firewall must let in UDP 51820. `./staging logs`
   shows the tunnel's line naming the VPS's end and the MTU.

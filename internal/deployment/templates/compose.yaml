@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Orpheum's deployment (D235 §4, D249 §2): three services from the one runtime image
-# (deploy/Containerfile, target runtime). Staging runs it through ./staging, which builds the image
-# from the checkout and sets the variables below; release will run it from a published image.
+# Orpheum's deployment (D235 §4, D249 §2, D272 §3): three services from the one runtime image.
+# `orpheum write-deployment` writes this file into the deployment's directory, beside the .env file
+# it reads its variables from and compose.override.yaml, which gives the node this machine's media
+# and GPU; `docker compose up -d` in that directory starts it. Paths are the directory's own.
 #
+#   COMPOSE_PROJECT_NAME  orpheum, or orpheum-staging
 #   ORPHEUM_IMAGE      the runtime image
-#   ORPHEUM_DIR        the deployment's directory: tunnel/ (wg0.conf), core/ and node/ (the
-#                      instances), run/ (their sockets)
-#   ORPHEUM_UID/GID    who the core and the node run as: the owner of ORPHEUM_DIR
+#   ORPHEUM_UID/GID    who the core and the node run as: the owner of the directory
 #   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
 #   ORPHEUM_TUNNEL_MTU the tunnel's MTU
 #
-# The media and the GPU, which differ from machine to machine, are an override file's
-# (./staging writes .staging/compose.media.yaml).
+# The directory holds tunnel/ (wg0.conf and its keys), core/ and node/ (the instances) and run/
+# (their sockets).
 
 services:
   # The core's end of the tunnel to the VPS (D243 §7). The core shares its network, so the tunnel is
@@ -28,7 +28,7 @@ services:
     environment:
       ORPHEUM_TUNNEL_MTU: ${ORPHEUM_TUNNEL_MTU:-1420}
     volumes:
-      - ${ORPHEUM_DIR:?}/tunnel:/etc/orpheum-tunnel:ro
+      - ./tunnel:/etc/orpheum-tunnel:ro
     ports:
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_HTTP_PORT:-8440}:8440"
     networks: [outside]
@@ -47,8 +47,8 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     volumes:
-      - ${ORPHEUM_DIR:?}/core:/var/lib/orpheum/core
-      - ${ORPHEUM_DIR:?}/run:/run/orpheum
+      - ./core:/var/lib/orpheum/core
+      - ./run:/run/orpheum
     depends_on:
       orpheum-tunnel:
         condition: service_healthy
@@ -57,7 +57,7 @@ services:
     healthcheck:
       # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
       # wg0 must be in its network: a restart of the tunnel's container alone gives the tunnel a
-      # new network this core is not in, which ./staging mends by recreating both.
+      # new network this core is not in, which recreating both mends (./staging does).
       test: ["CMD", "bash", "-c", "test -e /sys/class/net/wg0 && exec 3<>/dev/tcp/127.0.0.1/8440 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
       interval: 10s
       start_period: 60s
@@ -72,8 +72,8 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     volumes:
-      - ${ORPHEUM_DIR:?}/node:/var/lib/orpheum/node
-      - ${ORPHEUM_DIR:?}/run:/run/orpheum
+      - ./node:/var/lib/orpheum/node
+      - ./run:/run/orpheum
     depends_on:
       orpheum-core:
         condition: service_healthy

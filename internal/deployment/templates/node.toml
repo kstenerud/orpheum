@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Staging's node config (D249 §3): ./staging writes it over the node instance's
-# persistent/config.toml on every start, filling in the {placeholders} from .staging/staging.toml.
-# The media directories are mounted read-only at their own paths, so a library names the path the
-# owner knows.
+# The deployment's node config (D249, D272 §3): `orpheum write-deployment` writes it over the node
+# instance's persistent/config.toml from the values file, so an edit here is lost. The media
+# directories are mounted read-only at their own paths, so a library names the path the owner knows.
 
 [node]
-name = {node_name}   # staging.toml's [node] name, or this machine's host name
+name = {{toml .Values.Node.Name}}   # the values file's [node] name, or this machine's host name
 core_socket = "/run/orpheum/core/core.sock"
-root_paths = {media_roots}
+root_paths = {{toml .Values.Media.Roots}}
 ffmpeg_dir = "/opt/orpheum/ffmpeg"
 confinement_policy = "require"
 max_errors_per_root = 1000
@@ -25,6 +24,6 @@ remux_slot_count = 2
 slowest_read_mib_per_second = 20
 
 [log]
-level = "debug"
+level = {{if .IsStaging}}"debug"{{else}}"info"{{end}}
 format = "text"
 destination = "stderr"

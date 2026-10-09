@@ -13,7 +13,7 @@
 #              developer's own. `./dev` builds it (--target dev) and runs it.
 #   build      toolchain plus the repository: `make build`, the binary with the web client in it.
 #   runtime    base plus the binary, WireGuard's tools and a non-root user: the image staging and
-#              release run as three services (D249 §2, deploy/compose.yaml). `./staging` builds it.
+#              release run as three services (D249 §2, internal/deployment/templates/compose.yaml). `./staging` builds it.
 #
 # `./dev` builds from the subset of the repository its stages copy (the same relative paths);
 # `./staging` from the repository root, as .dockerignore trims it, with .git, so the binary says
@@ -180,7 +180,7 @@ COPY deploy/staging/tunnel.sh /usr/local/bin/orpheum-tunnel
 RUN ln -s "$(find /opt/orpheum/tools/ffmpeg -mindepth 1 -maxdepth 1 -type d)" /opt/orpheum/ffmpeg \
  && test -x /opt/orpheum/ffmpeg/ffmpeg
 # The user the core and the node run as when compose names none; staging names the host's own, so
-# the files it writes in its directory are the owner's (deploy/compose.yaml).
+# the files it writes in its directory are the owner's (internal/deployment/templates/compose.yaml).
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin orpheum
 USER orpheum
 ENTRYPOINT ["/usr/local/bin/orpheum"]

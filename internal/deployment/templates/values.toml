@@ -1,6 +1,11 @@
-# Staging's values (D249 §3): ./staging copied this file to .staging/staging.toml. Fill in every
-# value marked "fill in", then run ./staging again. Nothing here is secret except what the VPS
-# already knows; the tunnel's private key is .staging/tunnel/private, which ./staging made.
+# The deployment's values (D249, D272 §3): `orpheum write-deployment` wrote this file the first
+# time, and renders the compose file and the configs from it every time. Fill in every value marked
+# "fill in", then write the deployment again. Nothing here is secret except what the VPS already
+# knows; the tunnel's private key is tunnel/private beside it.
+
+# "release", which refuses a database it cannot migrate and logs at info, or "staging", which sets
+# such a database aside, starts again, and logs at debug (D249 §4).
+deployment = "{{.Deployment}}"
 
 # The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2).
 domain = "media.orpheum-app.com"
@@ -32,7 +37,7 @@ roots = []
 # name = "devnas"
 
 [http]
-# Where the house's network reaches staging over plain HTTP: http://<this machine>:8440. "0.0.0.0"
+# Where the house's network reaches the deployment over plain HTTP: http://<this machine>:8440. "0.0.0.0"
 # is every interface; "127.0.0.1" only this machine.
 publish = "0.0.0.0"
 port = 8440

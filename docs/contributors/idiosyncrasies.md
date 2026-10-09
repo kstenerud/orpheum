@@ -1636,7 +1636,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 - **Symptom:** "Large pages or videos stall from outside, small ones load."
 - **What we do:** a tunnel MTU of 1380 over IPv4 and 1420 over IPv6, with 1280 as the fallback.
-  `deploy/staging/README.md:54-55,92-93`; `deploy/staging/staging.toml:21-23`; `deploy/staging/tunnel.sh:17`.
+  `deploy/staging/README.md:55-56,93-94`; `internal/deployment/templates/values.toml:26-28`, `internal/deployment/values.go` (`TunnelMTU`); `deploy/staging/tunnel.sh:17`.
 - **Evidence:** an agent's working note; D243 §7. Whether 1380 was measured is unverified.
   **[web]** [RFC 6333 §5.3](https://www.rfc-editor.org/rfc/rfc6333.txt): DS-Lite's IPv4-in-IPv6 tunnel costs
   40 bytes and path MTU discovery is "not a reliable method" for it. WireGuard's overhead is 60 bytes over
