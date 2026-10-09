@@ -35,6 +35,23 @@ export async function openFilm(page: Page, name: string): Promise<void> {
   await card.click();
 }
 
+/** A request for one of a film's chunks, which a film page makes only for a film on its ladder. */
+export const chunkRequest = /\/bytes\/media\/chunks\/.+\.m4s/u;
+
+/**
+ * Opens a film's page once the film is on its ladder: its page then fills the player's first buffer
+ * (D260 §3). A film whose timeline is not read yet plays as it is, which the server decides at
+ * once after play_ladder_wait_ms, and under a loaded machine its read-through can take longer than
+ * that; so the page is opened again until it preloads a chunk, as a person would come back to it.
+ */
+export async function openFilmOnItsLadder(page: Page, name: string): Promise<void> {
+  await expect(async () => {
+    const preloaded = page.waitForRequest(chunkRequest, { timeout: 5000 });
+    await openFilm(page, name);
+    await preloaded;
+  }).toPass({ timeout: 60_000 });
+}
+
 /** Whether the page's video has started: its picture has moved past the start and is not paused. */
 export async function isPlaying(page: Page): Promise<boolean> {
   try {
