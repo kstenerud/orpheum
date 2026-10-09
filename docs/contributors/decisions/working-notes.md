@@ -19050,9 +19050,15 @@ the new checkpoint. I don't mind if nas has to build the image itself, so whatev
 builds D249 §5's release mode and revises D228 §3 and §6.
 
 1. **Production runs on nas.example**, where the media is: a Proxmox VE host on Debian trixie, with the
-   core and its node on one machine (there are no remote nodes yet). Whether it runs in an LXC
-   container or a VM there is open. Landlock is switched on in the kernel it runs under, since the
-   node runs no FFmpeg unconfined (D112).
+   core and its node on one machine (there are no remote nodes yet), in an LXC container (the
+   owner: *"I'll go with lxc"*), so the media is bind-mounted and the kernel is the host's.
+   Landlock is switched on in the host's kernel, since the node runs no FFmpeg unconfined (D112).
+   - **The GPU is passed through**: the machine is a TerraMaster F4-424, whose Intel N95 encodes
+     and decodes by Quick Sync, its render node given to the container.
+   - **New files in `/tank/media/video` (ZFS) are noticed as they arrive** (the owner: *"it
+     should be able to monitor the fs ... for catching new file additions"*): D27's native
+     filesystem watching, built for production, with the periodic scan kept beneath it, as D27
+     asks, since a watcher fails silently.
 2. **`media.orpheum-app.com` is swapped** between staging, in the agent's sandbox, and nas.example
    while the owner and one other person are the only users: one VPS address fronts one machine's
    voice relay (D249).
