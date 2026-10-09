@@ -12,9 +12,9 @@ where they run: **host** is the Proxmox host, **container** the LXC container.
 
 ## 1. The host, once
 
-**Landlock.** The node confines every FFmpeg run with Landlock and seccomp and refuses to run
-without them (D112). Proxmox's kernel leaves Landlock out of its default LSM list, so add it to the
-kernel's command line (docs/contributors/idiosyncrasies.md, "Whether Landlock is available"):
+**Landlock.** The node confines every FFmpeg run with Landlock and seccomp; without them it runs
+and the System page warns (D273 §5). Proxmox's kernel leaves Landlock out of its default LSM list,
+so to have it, add it to the kernel's command line (docs/contributors/idiosyncrasies.md, "Whether Landlock is available"):
 
 - Booted by systemd-boot (a ZFS root on UEFI): append to the one line of `/etc/kernel/cmdline`
   ` lsm=landlock,lockdown,yama,integrity,apparmor`, then `proxmox-boot-tool refresh`.
@@ -112,8 +112,8 @@ libraries and certificate.
 
 ## When something is wrong
 
-- **The node will not start, saying it cannot confine FFmpeg**: Landlock is not on (§1); its log
-  names the cause.
+- **The System page warns that FFmpeg runs unconfined**: Landlock is not on (§1); the warning names
+  the cause. The node runs anyway.
 - **The core is unhealthy and its log says the database is newer, or below the baseline**: the
   image is older than the database (§5), or the database is older than the oldest version this one
   migrates from, which the checkpoint prevents while it is kept up to date.

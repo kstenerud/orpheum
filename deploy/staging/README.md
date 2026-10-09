@@ -96,7 +96,7 @@ Release will refuse instead.
   own**: the core shares the tunnel's network, and a tunnel container restarted alone has a new one
   the core is not in. `./staging` recreates both, which mends it. (A reboot, or Docker restarting,
   brings all three back together and needs nothing.)
-- **The node will not start, saying it cannot confine FFmpeg**: the node requires Landlock and
-  seccomp (D193 §7), which Docker's default profile allows on a kernel that has them. Its log names
-  which is missing.
+- **The System page warns that FFmpeg runs unconfined**: the kernel lacks Landlock or seccomp,
+  which Docker's default profile allows on a kernel that has them. The node runs anyway and says
+  which is missing (D273 §5); `confinement_policy = "require"` in the node's config would refuse.
 - **Port 8440 is taken**: set `[http] port` to another and run `./staging` again.

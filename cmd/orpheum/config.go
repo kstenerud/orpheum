@@ -266,8 +266,9 @@ func nodeConfigKeys() []configKey {
 		{tableNode, "root_paths", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
-			tableNode, "confinement_policy", `"require"`,
-			`"require" refuses to run FFmpeg unconfined; "report" runs and says so`,
+			tableNode, "confinement_policy", `"report"`,
+			`"report" runs FFmpeg with what confinement the kernel offers and says what is missing; "require" ` +
+				`refuses to run it unconfined (D273 §5)`,
 		},
 		{
 			tableNode, "max_errors_per_root", "1000",
