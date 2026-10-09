@@ -2,28 +2,35 @@
 
 import { expect, test } from "@playwright/test";
 
-import { serverUrl, signIn } from "./pages.ts";
+import { isPlaying, serverUrl, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 
-/** Where the API's paths are, which over the WebRTC path go on data channels and never over HTTP. */
-const apiPrefix = "/api/v1/";
-
-test("once its WebRTC connections are made, a tab sends the API's requests over data channels, not HTTP (D273 §8)", async ({
+/**
+ * A tab on the WebRTC path sends nothing of the API over HTTP, its own requests or the loads the
+ * browser makes by itself, which the service worker hands to the page's transport (D273 §8).
+ */
+test("once on the WebRTC path, a tab finds and plays a film with nothing of the API over HTTP (D273 §8)", async ({
   page,
+  context,
 }) => {
   await signIn(page);
-  // The app says in the console when its requests move, once every connection is made.
-  const switched = page.waitForEvent("console", (message) =>
-    message.text().includes("requests now go over WebRTC"),
+  // The app says in the console when its requests move, and when its media does.
+  const moved = (what: string): Promise<unknown> =>
+    page.waitForEvent("console", (message) =>
+      message.text().includes(`${what} now go over WebRTC`),
+    );
+  const requestsMoved = moved("requests");
+  const mediaMoved = page.waitForEvent("console", (message) =>
+    message.text().includes("media now goes over WebRTC"),
   );
   await page.goto(`${serverUrl()}/?transport=webrtc`);
-  await switched;
+  await Promise.all([requestsMoved, mediaMoved]);
 
+  // What reaches the network: a load the service worker answers through the page never does.
   const overHttp: string[] = [];
-  page.on("request", (request) => {
-    if (request.url().includes(apiPrefix)) {
-      overHttp.push(`${request.method()} ${new URL(request.url()).pathname}`);
-    }
+  await context.route("**/api/v1/**", async (route) => {
+    overHttp.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
+    await route.continue();
   });
   // Within the app, as a person moves about: a reload would start the app again, on HTTP until it
   // connects anew.
@@ -32,5 +39,8 @@ test("once its WebRTC connections are made, a tab sends the API's requests over 
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
   await expect(page.getByRole("heading", { name: warmUpFilm })).toBeVisible();
+  await page.getByRole("link", { name: "Play" }).click();
+  await page.getByRole("button", { name: /Built-in speakers/u }).click();
+  await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   expect(overHttp).toEqual([]);
 });

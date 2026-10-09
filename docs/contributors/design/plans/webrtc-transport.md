@@ -5,8 +5,8 @@
 
 # The WebRTC transport
 
-- **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1 and
-  W2a are built.
+- **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1, W2a
+  and W2b are built.
 - **Depends on:** D273, [reachability-approaches-2026-10-09.md](../research/reachability-approaches-2026-10-09.md)
   §9.4 (the measurement), the discovery service's spec (signalling through it).
 
@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | W1 | The core: `internal/core/rtcapi`, a peer per offer, each request channel handed to the core's handler with streamed, back-pressured responses; an offer endpoint on the core's API for a signed-in client (LAN and tests); bounds on connections. Tested with a pion client peer (`rtcapitest`) | built |
 | W2a | The web client's API over channels: the SDK's `RtcTransport` over four connections and a `SwitchableFetch` the API client sends with; `?transport=webrtc` moves a signed-in tab onto it until W4 signals through the discovery | built |
-| W2b | Media over channels: a service worker on the page passes what the browser loads itself (images, `<video>`, hls.js, subtitle tracks) to the page's transport, so no screen changes | |
+| W2b | Media over channels: a service worker on the page passes what the browser loads itself (images, `<video>`, hls.js, subtitle tracks) to the page's transport, so no screen changes; credit-based flow control end to end (the core sends 4 MiB ahead of what the reader took). Not under Vite's dev server, which serves no `/sw.js` | built |
 | W2c | The race (D273 §7): every path tried, the first to answer used at once, a better one answering a short while later taking over | |
 | W3 | WebSocket over a channel: Watch Together's hub | |
 | W4 | Signalling and STUN through the discovery (the service and the owner's own), so a client reaches a core HTTPS cannot reach | |

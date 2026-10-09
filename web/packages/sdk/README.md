@@ -63,6 +63,13 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.
+- **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
+  service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC
+  page's loads under `/api/v1/` by asking the page over a message port, and the page answers
+  through its transport, signed in with its token, umi no tobira of the body each time the worker's
+  stream pulls; every other load, and every page on HTTP, goes as it would.
+  `src/rtc-media.test.ts`; in Chromium and Firefox, `web/e2e/webrtc.spec.ts` plays a film with no
+  API request reaching the network.
 - **A call's own Authorization wins over the session token**: a Watch Together member's
   requests carry their membership credential (D246 §3). `src/client.test.ts`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and
