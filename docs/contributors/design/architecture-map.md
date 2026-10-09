@@ -94,6 +94,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/readthrough` | R3 | — (borrows prepare's mix filters, loudness.go; was `internal/node/loudness` until 2026-10-05) |
 | `internal/node/scan` | R2 | — |
 | `internal/node/subtitle` | R3 | — |
+| `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
 | `internal/nodeproto` | R8 | — |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |

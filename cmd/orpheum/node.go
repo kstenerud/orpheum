@@ -32,6 +32,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
+	"github.com/kstenerud/orpheum/internal/node/watch"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
@@ -187,13 +188,64 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
-	if directory.root != nil { // a node whose prepared directory opened prepares and makes chunks
-		workers.Preparer, workers.ChunkMaker, workers.PreparedShelf = directory.preparer, directory.chunkMaker,
-			directory.shelf
-		workers.PreparedDirectory = directory.root.Path()
-	}
+	withPreparedDirectory(&workers, directory)
 	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
+	watcher, stopWatching := startWatching(ctx, config, roots, workers.FindDevices, logger)
+	defer stopWatching()
+	workers.Watcher = watcher
 	return agent.New(config.Node.CoreSocket, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+}
+
+// withPreparedDirectory has workers prepare and make chunks in directory, when it opened.
+func withPreparedDirectory(workers *agent.Workers, directory preparedDirectory) {
+	if directory.root == nil {
+		return
+	}
+	workers.Preparer, workers.ChunkMaker, workers.PreparedShelf = directory.preparer, directory.chunkMaker,
+		directory.shelf
+	workers.PreparedDirectory = directory.root.Path()
+}
+
+// startWatching starts the watcher of the node's roots (D272 §9), and returns it with what stops it
+// and waits for it to end.
+func startWatching(
+	ctx context.Context, config Config, roots []*confine.MediaRoot,
+	findDevices func() ([]nodeproto.Device, error), logger *slog.Logger,
+) (*watch.Watcher, func()) {
+	watcher := watch.New(roots, watch.Options{
+		Quiet:        time.Duration(config.Node.WatchQuietSeconds) * time.Second,
+		NetworkRoots: networkRoots(ctx, roots, findDevices, logger),
+	}, clock.System{}, logger)
+	var watching sync.WaitGroup
+	watchCtx, stop := context.WithCancel(ctx)
+	watching.Go(func() { watcher.Run(watchCtx) })
+	return watcher, func() {
+		stop()
+		watching.Wait()
+	}
+}
+
+// networkRoots are the roots on a network filesystem, which the watcher does not watch (D27): it
+// would hear nothing of what another machine changes there.
+func networkRoots(
+	ctx context.Context, roots []*confine.MediaRoot, findDevices func() ([]nodeproto.Device, error),
+	logger *slog.Logger,
+) []string {
+	devices, err := findDevices()
+	if err != nil {
+		logger.WarnContext(ctx, "could not find what the roots are on; each is watched as if local", "err", err)
+	}
+	kinds := map[string]nodeproto.DeviceKind{}
+	for _, device := range devices {
+		kinds[device.Key] = device.Kind
+	}
+	var network []string
+	for _, root := range roots {
+		if kinds[nodeproto.Devices(devices).KeyOf(root.Path())] == nodeproto.DeviceNetwork {
+			network = append(network, root.Path())
+		}
+	}
+	return network
 }
 
 // stuckOf is what the node's status says of the processes runner left running (D233 §10).

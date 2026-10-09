@@ -16,12 +16,16 @@ import (
 // scheduledRequests are the scans the schedule asked for, and the scans in progress it sees.
 type scheduledRequests struct {
 	asked   []ScanRoot
+	scopes  []string
 	running map[ScanRoot]ScanProgress
 }
 
-func (requests *scheduledRequests) Request(_ context.Context, nodeID int64, root string, priority int64) error {
+func (requests *scheduledRequests) RequestUnder(
+	_ context.Context, nodeID int64, root, scope string, priority int64,
+) error {
 	if priority == jobs.PriorityBackground {
 		requests.asked = append(requests.asked, ScanRoot{NodeID: nodeID, RootPath: root})
+		requests.scopes = append(requests.scopes, scope)
 	}
 	return nil
 }
@@ -110,5 +114,36 @@ func TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves(t *test
 	if asked != len(want) || !slices.Equal(requests.asked, want) {
 		t.Errorf("asked for %d scans, %v; want %v: never scanned, and not the manual library's %s nor the one "+
 			"running", asked, requests.asked, want, root)
+	}
+}
+
+func TestScanSchedule_AWatchersNoticeScansTheFolderOnlyForAWatchedLibrary(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	for _, made := range []NewLibrary{
+		{Name: "Watched", ChangeDetection: "watch", Roots: []string{"/media/watched"}},
+		{
+			Name: "Checked", ChangeDetection: "interval", CheckEveryHours: new(int64(6)),
+			Roots: []string{"/media/checked"},
+		},
+	} {
+		made.Kind, made.MetadataSource, made.NodeID = "movies", "nfo", world.nodeID
+		if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+			t.Fatal(err)
+		}
+	}
+	requests := &scheduledRequests{}
+	schedule := NewScanSchedule(world.database, requests, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	for _, notice := range []struct{ root, folder string }{
+		{"/media/watched", "Shows/Dag"}, {"/media/checked", "Films"}, {root, "Films"}, {"/media/elsewhere", "x"},
+	} {
+		if err := schedule.TakeChange(t.Context(), world.nodeID, notice.root, notice.folder); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/watched"}}
+	if !slices.Equal(requests.asked, want) || !slices.Equal(requests.scopes, []string{"Shows/Dag"}) {
+		t.Errorf("the notices asked for %v, of %v; want the watched library's folder alone", requests.asked,
+			requests.scopes)
 	}
 }

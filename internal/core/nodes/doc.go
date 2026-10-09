@@ -167,6 +167,9 @@
 //   - A node an admin retired is removed and forgotten: it is told to say hello first, and its
 //     name, saying hello again, enrols a new node (D231 §7).
 //     TestRemoveNode_ARetiredNodeIsToldToSayHelloAgainAndItsNameEnrolsANewNode.
+//   - A node watcher's notice of a change is handed to what scans it, and each root's watch its
+//     last status said is kept for the libraries page (D272 §9).
+//     TestChanged_AWatchersNoticeIsHandedOnAndItsRootsWatchesKept.
 //
 // # Read before changing
 //

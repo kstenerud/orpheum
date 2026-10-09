@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { enDevices } from "./en-devices.ts";
+import { enLibraries } from "./en-libraries.ts";
 import { enTogether } from "./en-together.ts";
 
 /**
@@ -10,6 +11,7 @@ import { enTogether } from "./en-together.ts";
 export const en = {
   ...enTogether,
   ...enDevices,
+  ...enLibraries,
   nav: {
     films: "Films",
     series: "Series",
@@ -648,68 +650,6 @@ export const en = {
     kindSeries: "Series",
     kindEpisode: "Episode",
     kindExtra: "Extra",
-  },
-  libraries: {
-    heading: "Libraries",
-    none: "No libraries yet. Create one below.",
-    scan: "Scan now",
-    scanAgainAfter: "Scan again when this one ends",
-    scanListing: "Scanning… listing the folders.",
-    scanReading: "Scanning… {{count}} files found, {{read}} of {{total}} new or changed read.",
-    scanThenAgain: "It scans again when this one ends.",
-    scanning: "Asked {{count}} roots to scan.",
-    files: "What the scanner saw",
-    filing: "{{filing}}: {{count}}",
-    root: "{{node}}: {{path}}",
-    outcomeComplete: "scanned",
-    outcomeUnreadable: "could not be read",
-    outcomeWithheld: "removals wait for you",
-    approveRemovals: "Remove what the last scan did not find",
-    diskMissing: "A disk is missing from",
-    diskGone: "This disk is gone for good",
-    retireRoot: "This folder is gone for good…",
-    retireRootConsequence:
-      "Its films leave the library and it is never scanned again; what was watched is kept.",
-    repoint: "This folder moved…",
-    repointTo: "It is now at",
-    repointConsequence:
-      "Its files move there with what was watched; the next scan reads each again to make sure it is the same.",
-    repointConfirm: "Use the new place",
-    repointKeep: "Keep it where it is",
-    repointed: "Now at the new place, with {{count}} files. A scan of it is under way.",
-    retireRootConfirm: "Retire the folder",
-    delete: "Delete the library…",
-    deleteConsequence:
-      "Its films and series are hidden and its folders never scanned again; what was watched is kept, and a film that turns up in another library brings its history back.",
-    deleteConfirm: "Delete it",
-    createHeading: "Create a library",
-    name: "Name",
-    kind: "What it holds",
-    kindMovies: "Films",
-    kindShows: "Series",
-    kindMixed: "Both",
-    metadataSource: "Where information comes from",
-    sourceNfoThenTmdb: "NFO files where there are any, and TMDB for the rest",
-    sourceTmdb: "TMDB only; NFO files are ignored",
-    sourceNfo: "NFO files only; nothing is fetched",
-    changeDetection: "How changes are noticed",
-    changesWatch: "Watch the folders",
-    changesInterval: "Check every so many hours",
-    changesManual: "Only when I ask",
-    checkEvery: "Hours between checks",
-    writable: "May the server write beside the media",
-    writableHelp:
-      "Read-only unless you allow it; while read-only, nothing is saved beside your files.",
-    node: "Machine",
-    nodeAway: "{{name}} (not connected)",
-    roots: "Folders this library reads",
-    rootsHelp:
-      "Tick at least one. Only the folders the node's configuration lists (node.root_paths) appear here; to add one, list it there and restart the node.",
-    noNodes:
-      "No node has connected since the server started. Start one, and its folders show here.",
-    noRootsYet:
-      "{{name}} has not said which folders it offers yet. Reload this page in a moment; if none appear, its configuration lists none (node.root_paths).",
-    create: "Create and scan",
   },
   files: {
     heading: "What the scanner saw",

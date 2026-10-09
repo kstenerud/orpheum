@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -38,6 +39,8 @@ type Nodes interface {
 	NodeConnections
 	ConnectedNodeRoots(ctx context.Context, name string) (int64, []string, bool)
 	RemoveNode(ctx context.Context, nodeID int64) error
+	// RootWatches are whether a node watches each of its roots, as its last status said (D272 §9).
+	RootWatches(nodeID int64) map[string]nodeproto.RootWatch
 }
 
 // ScanRequests are how an admin asks for a root's scan, and sees those in progress: Scans (D240).
@@ -136,6 +139,9 @@ type RootSummary struct {
 	sqlcgen.ListLibraryRootStatesRow
 	Scan              *ScanProgress
 	MissingMountPaths []string
+	// Watch is whether the root's node watches it for changes, absent until the node has said
+	// (D272 §9).
+	Watch *nodeproto.RootWatch
 }
 
 // List is every live library reach reaches, by name (D243 §4).
@@ -161,6 +167,9 @@ func (admin *Admin) List(ctx context.Context, reach auth.Reach) ([]Summary, erro
 		for index, root := range roots {
 			if progress, isScanning := scanning[ScanRoot{NodeID: root.NodeID, RootPath: root.RootPath}]; isScanning {
 				roots[index].Scan = &progress
+			}
+			if watch, isSaid := admin.nodes.RootWatches(root.NodeID)[root.RootPath]; isSaid {
+				roots[index].Watch = &watch
 			}
 		}
 		counts, err := queries.CountLibraryFilings(ctx, library.ID)

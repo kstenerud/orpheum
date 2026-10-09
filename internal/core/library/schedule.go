@@ -20,13 +20,22 @@ type ScheduleSettings interface {
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
 }
 
+// ScheduledScans are how the schedule asks for a scan, of a whole root or of a folder in it, and sees
+// those in progress: Scans.
+type ScheduledScans interface {
+	RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error
+	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
+}
+
 // ScanSchedule asks for the scans that libraries noticing changes by themselves are due: one
 // checked on an interval every check_every_hours, and a watched one every
 // watched_library_scan_every_hours beneath its watching, which can miss a change and never says so
-// (D27, D272 §1). A library that changes only when asked is never scanned by it.
+// (D27, D272 §1); and, when a watched library's node says something changed in a folder of its
+// root, the scan of that folder (D272 §9). A library that changes only when asked is never scanned
+// by it.
 type ScanSchedule struct {
 	database *store.Database
-	scans    ScanRequests
+	scans    ScheduledScans
 	settings ScheduleSettings
 	clock    clock.Clock
 	logger   *slog.Logger
@@ -34,7 +43,7 @@ type ScanSchedule struct {
 
 // NewScanSchedule returns the scan schedule.
 func NewScanSchedule(
-	database *store.Database, scans ScanRequests, scheduleSettings ScheduleSettings, clockSource clock.Clock,
+	database *store.Database, scans ScheduledScans, scheduleSettings ScheduleSettings, clockSource clock.Clock,
 	logger *slog.Logger,
 ) *ScanSchedule {
 	return &ScanSchedule{
@@ -62,7 +71,8 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 		if _, isRunning := running[root]; isRunning {
 			continue
 		}
-		if err := schedule.scans.Request(ctx, root.NodeID, root.RootPath, jobs.PriorityBackground); err != nil {
+		err := schedule.scans.RequestUnder(ctx, root.NodeID, root.RootPath, wholeRoot, jobs.PriorityBackground)
+		if err != nil {
 			return asked, err
 		}
 		asked++
@@ -71,6 +81,24 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 		schedule.logger.InfoContext(ctx, "asked for the scans libraries are due", "count", asked)
 	}
 	return asked, nil
+}
+
+// TakeChange is a node watcher's word that something changed under folder, relative to a root of
+// the node's: the folder is scanned when a watched library covers the root, and the notice is
+// dropped otherwise, since only a watched library asked to be told (D272 §9).
+func (schedule *ScanSchedule) TakeChange(ctx context.Context, nodeID int64, root, folder string) error {
+	rows, err := schedule.database.Read().ListCheckedRoots(ctx)
+	if err != nil {
+		return fmt.Errorf("list the roots libraries check: %w", err)
+	}
+	for _, row := range rows {
+		if row.NodeID == nodeID && row.RootPath == root && row.ChangeDetection == "watch" {
+			schedule.logger.InfoContext(ctx, "a node's watcher saw a change; scanning the folder", "nodeId", nodeID,
+				"rootPath", root, "path", folder)
+			return schedule.scans.RequestUnder(ctx, nodeID, root, folder, jobs.PriorityBackground)
+		}
+	}
+	return nil
 }
 
 // dueRoots are the roots whose last scan is older than their libraries' interval, or that were

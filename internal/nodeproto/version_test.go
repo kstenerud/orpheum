@@ -61,6 +61,9 @@ var wireShapeByVersion = map[int]string{
 	// 30 renames the encoding prepare profile to "h264" (retired-names.md): the shape is the same, the
 	// value is not, and a node of 29 refuses it (D270 §2).
 	30: "f66a79df079cd7e04cdbacee5f2969d3b6402bac42928c3130732c3c9f4f5ce3",
+	// 31 adds the watcher's notice of a change (PathChanged) and each root's watch in the status
+	// (D272 §9); the notice joins the hashed messages from here.
+	31: "030d5c2639c2f1ea6e9ad4e81141f5a33f12c52587ea0661578a90c54a4f7d29",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -81,7 +84,7 @@ func wireShape() string {
 	var fields []string
 	for _, message := range []reflect.Type{
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
-		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](),
+		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

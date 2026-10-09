@@ -163,6 +163,9 @@ type NodeConfig struct {
 	EncodeSlotCount         int64 `toml:"encode_slot_count"`
 	RemuxSlotCount          int64 `toml:"remux_slot_count"`
 	SlowestReadMiBPerSecond int64 `toml:"slowest_read_mib_per_second"`
+	// WatchQuietSeconds is how long a root goes without a change before what its watcher saw is
+	// noticed (D272 §9).
+	WatchQuietSeconds int64 `toml:"watch_quiet_seconds"`
 }
 
 // LogConfig is how the instance logs, and where.
@@ -254,7 +257,7 @@ func coreConfigKeys() []configKey {
 
 // nodeConfigKeys are the file's keys for the media node, in the order the file is written.
 func nodeConfigKeys() []configKey {
-	return []configKey{
+	return append([]configKey{
 		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
 		{
 			tableNode, "core_socket", "",
@@ -312,6 +315,12 @@ func nodeConfigKeys() []configKey {
 			"MiB the prepared directory's disk keeps free, whatever its fullness limit; below it, renditions are " +
 				"evicted, and a prepare with nothing to evict is refused",
 		},
+	}, nodeCapacityConfigKeys()...)
+}
+
+// nodeCapacityConfigKeys are the node's keys for what its machine can do, and how it watches.
+func nodeCapacityConfigKeys() []configKey {
+	return []configKey{
 		{
 			tableNode, "encode_slot_count", "1",
 			"encodes this node runs at once, which its processor or GPU bounds (cut-a §5.3)",
@@ -324,6 +333,13 @@ func nodeConfigKeys() []configKey {
 			tableNode, "slowest_read_mib_per_second", "20",
 			"the slowest this node reads a whole file, a busy spinning disk or a network mount: how long a " +
 				"run that reads one is allowed, and how long the core waits for a file's read-through",
+		},
+		{
+			// Long enough for a download's or a copy's next write to come, short enough that a new film
+			// is in the library soon after it lands; a copy that never pauses is noticed anyway.
+			tableNode, "watch_quiet_seconds", "30",
+			"seconds a root goes without a change before what its watcher saw there is scanned, so a copy " +
+				"in progress settles first (D272 §9)",
 		},
 	}
 }
@@ -499,6 +515,7 @@ func (node NodeConfig) check() error {
 		"node.encode_slot_count":              node.EncodeSlotCount,
 		"node.remux_slot_count":               node.RemuxSlotCount,
 		"node.slowest_read_mib_per_second":    node.SlowestReadMiBPerSecond,
+		"node.watch_quiet_seconds":            node.WatchQuietSeconds,
 	})}
 	// The core stops work its node says has not moved for nodes.MovementWindow, so the node's own
 	// read window, which a probe's timeout lengthens, must end first, or the core stops work the

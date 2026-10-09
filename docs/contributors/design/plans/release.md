@@ -5,7 +5,7 @@
 # Release mode
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Yes start building release
-  mode"*). R1 to R6 are built; R7 and R8 are not.
+  mode"*). R1 to R7 are built; R8, on nas.example, is not.
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
@@ -46,7 +46,7 @@
 | R4 | `deploy/release/README.md`: the LXC container (unprivileged, nesting, the render node, the media bind mount), Docker in it, the Landlock check, install, update, going back, and the swap between staging and nas.example | written; untried, since only nas.example can try it (R8) |
 | R5 | The periodic scan: a sweep, every 15 minutes, asks for the scan of each root whose library checks every N hours, or is watched, once its interval has passed since its last scan; a watched library's interval is the setting `watched_library_scan_every_hours`, 24 | built |
 | R6 | Scoped scans in the core (`Scans.RequestUnder`): a scan's scope kept with it in cache.db; removals, moves and mount checks only within it, the withhold share judged against the whole root; requests made while one runs widen to the folder holding them all; one that may not judge becomes the whole root's; it never counts as the root's last scan, so the periodic scan stays due | built |
-| R7 | The watcher in the node: inotify on every directory under each root of a watched library, a quiet spell per directory, the nearest existing directory reported, an overflow or a full watch table reported as the root; each root's watch state in the hello and status; the library page shows it | not started |
+| R7 | The watcher, `internal/node/watch`: inotify on every folder of every root not on a network filesystem; per root, the folder holding every change is noticed once the root has gone `node.watch_quiet_seconds` (30) quiet, or after 20 of them while changes keep coming; an overflow notices every root whole; a root that cannot be watched whole is not watched and says why. Notices go to `/node/v1/changed` (protocol 31), and the core scans the folder only for a watched library; each root's watch rides in the status, and the library page shows it | built |
 | R8 | On nas.example with the owner: install, first run, `CHECKPOINT` committed at the version it runs | not started |
 
 ## Values to classify
@@ -54,8 +54,10 @@
 Each value a phase adds is classified as a setting, a config key or a justified constant
 (hardcoded-values watch):
 
-- **The quiet spell** (R7): a node config key, `node.watch_quiet_seconds`, since roots and their
-  watching are the node's (D107).
+- **The quiet spell** (R7): a node config key, `node.watch_quiet_seconds` (30), since roots and
+  their watching are the node's (D107).
+- **The longest hold** (R7): a justified constant, 20 quiet spells, so a copy that never pauses is
+  still noticed.
 - **The periodic scan's interval**: the library's own `check_every_hours`, already a column; for a
   watched library, which has none, the setting `watched_library_scan_every_hours` (24).
 - **How often the schedule is checked**: a justified constant, 15 minutes, a bound on lateness

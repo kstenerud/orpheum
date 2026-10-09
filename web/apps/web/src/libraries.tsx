@@ -28,6 +28,14 @@ const outcomeKeys = {
   withheld: "libraries.outcomeWithheld",
 } as const;
 
+/** Why a node does not watch a root, as its status said (D272 §9). */
+const watchCauseKeys = {
+  "network-filesystem": "libraries.watchCauseNetworkFilesystem",
+  "watch-limit": "libraries.watchCauseWatchLimit",
+  unavailable: "libraries.watchCauseUnavailable",
+  unreadable: "libraries.watchCauseUnreadable",
+} as const;
+
 /**
  * An admin's answer about a root (D208): its withheld removals are real, the disk missing from
  * one of the mount points inside it is gone for good, or the root itself is, and is retired
@@ -77,6 +85,8 @@ export function rootAnswerRequest(
  */
 export function RootLine(props: {
   readonly root: Root;
+  /** Whether its library is watched, so whether its node's watching it is worth saying. */
+  readonly isWatched?: boolean;
   readonly onAnswer: (root: Root, answer: RootAnswer) => void;
   /** Where it can move to, and saying it did (D241 §6). */
   readonly places?: readonly Place[];
@@ -89,6 +99,9 @@ export function RootLine(props: {
       <code>{t("libraries.root", { node: root.nodeName, path: root.rootPath })}</code>{" "}
       {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
       {root.scan === undefined ? null : <ScanProgress scan={root.scan} />}
+      {props.isWatched === true && root.watch !== undefined ? (
+        <RootWatch watch={root.watch} />
+      ) : null}
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
       {root.lastScanOutcome === "withheld" ? (
         <button
@@ -127,6 +140,24 @@ export function RootLine(props: {
         onRepoint={(to) => props.onRepoint?.(root, to)}
       />
     </li>
+  );
+}
+
+/**
+ * Whether a watched library's root is watched by its node (D272 §9): if not, why, and that its
+ * periodic scan finds what changes meanwhile.
+ */
+function RootWatch(props: { readonly watch: NonNullable<Root["watch"]> }): JSX.Element {
+  const { t } = useTranslation();
+  const { watch } = props;
+  if (watch.isWatching || watch.cause === "") {
+    return <span>{t("libraries.watching")}</span>;
+  }
+  return (
+    <p>
+      {t(watchCauseKeys[watch.cause])} {t("libraries.watchFallback")}
+      {watch.reason === undefined ? null : <small> {watch.reason}</small>}
+    </p>
   );
 }
 
@@ -175,6 +206,7 @@ export function LibraryCard(props: {
           <RootLine
             key={`${root.nodeName}:${root.rootPath}`}
             root={root}
+            isWatched={props.library.changeDetection === "watch"}
             onAnswer={props.onAnswer}
             places={props.places ?? []}
             {...(props.onRepoint === undefined ? {} : { onRepoint: props.onRepoint })}

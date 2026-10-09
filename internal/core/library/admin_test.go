@@ -33,7 +33,11 @@ type fakeNodes struct {
 	clock    clock.Clock
 	// isAway is whether the node is not connected.
 	isAway bool
+	// watches are the node's roots' watches, as its status said.
+	watches map[string]nodeproto.RootWatch
 }
+
+func (nodes *fakeNodes) RootWatches(int64) map[string]nodeproto.RootWatch { return nodes.watches }
 
 // NodeConnection is the node's: connected unless it is away.
 func (nodes *fakeNodes) NodeConnection(context.Context, int64) (corenodes.Connection, time.Time) {
@@ -126,7 +130,8 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{
 		observedRecord("a.mkv", "a"), skipRecord("notes.txt", nodeproto.SkipExtension),
 	}, true)
-	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}}
+	watch := nodeproto.RootWatch{RootPath: root, Cause: nodeproto.WatchCauseWatchLimit, Reason: "too many folders"}
+	nodes := &fakeNodes{id: world.nodeID, roots: []string{root}, watches: map[string]nodeproto.RootWatch{root: watch}}
 	admin := NewAdmin(world.database, world.clock, nodes, nodes, retirementOf(&fakeWork{}))
 	libraries, err := admin.List(t.Context(), auth.EveryLibrary())
 	if err != nil || len(libraries) != 1 {
@@ -135,6 +140,9 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	films := libraries[0]
 	if len(films.Roots) != 1 || films.Roots[0].LastScanOutcome == nil || *films.Roots[0].LastScanOutcome != "complete" {
 		t.Errorf("roots %+v, want the root complete", films.Roots)
+	}
+	if got := films.Roots[0].Watch; got == nil || *got != watch {
+		t.Errorf("the root's watch is %+v, want %+v, as its node's status said (D272 §9)", got, watch)
 	}
 	if films.FileCountByFiling["skipped"] != 1 || len(films.FileCountByFiling) != 2 {
 		t.Errorf("filings %v, want one skipped and one other", films.FileCountByFiling)

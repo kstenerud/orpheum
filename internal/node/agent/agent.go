@@ -81,6 +81,9 @@ type Workers struct {
 	// Stuck is the work the node gave up on that has not ended, for its status (D233 §10):
 	// StuckOf the runner's. Nil has none.
 	Stuck func() []nodeproto.Stuck
+	// Watcher is what the node's watcher saw change under its roots, which a session posts, and each
+	// root's watch, which the status says (D272 §9); nil watches nothing.
+	Watcher Watcher
 	// ReadStallWindow is how long a listing's or an examining's own reading may go without moving
 	// before the node answers it as stalled on its disk (D233 §10): ReadStallWindowFor the probe's
 	// timeout. Zero is defaultReadStallWindow.
@@ -96,6 +99,12 @@ const defaultReadStallWindow = 5 * time.Minute
 // file, during which an examining does not move: defaultReadStallWindow past it.
 func ReadStallWindowFor(probeTimeout time.Duration) time.Duration {
 	return defaultReadStallWindow + probeTimeout
+}
+
+// Watcher is the node's watcher of its roots: watch.Watcher.
+type Watcher interface {
+	Changes() <-chan nodeproto.Changed
+	States() []nodeproto.RootWatch
 }
 
 // PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5). It lists
@@ -193,6 +202,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	defer cancel(nil)
 	var sessionTasks sync.WaitGroup
 	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, nodeCtx, reply.NodeID)) })
+	if agent.workers.Watcher != nil {
+		sessionTasks.Go(func() { agent.postChanges(ctx, reply.NodeID) })
+	}
 	sessionTasks.Go(func() {
 		for {
 			select {
@@ -473,6 +485,29 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	return holder.ReadFile(holderRelativePath, maxImageBytes)
 }
 
+// postChanges posts what the watcher saw change while the session lasts, and those it held while
+// there was none. A notice the core does not take is not sent again: the root's periodic scan finds
+// what it named (nodeproto.PathChanged).
+func (agent *Agent) postChanges(ctx context.Context, nodeID int64) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case change := <-agent.workers.Watcher.Changes():
+			encoded, err := json.Marshal(change)
+			if err == nil {
+				var answer struct{}
+				err = agent.exchange(ctx, http.MethodPost, nodeproto.PathChanged, nodeID, bytes.NewReader(encoded),
+					&answer)
+			}
+			if err != nil && ctx.Err() == nil {
+				agent.logger.WarnContext(ctx, "the core did not take a change the watcher saw; the root's periodic "+
+					"scan finds it", "rootPath", change.RootPath, "path", change.Path, "err", err)
+			}
+		}
+	}
+}
+
 // postStatus posts the node's status, now (D234 §6).
 func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
 	encoded, err := json.Marshal(agent.status())
@@ -496,6 +531,9 @@ func (agent *Agent) status() nodeproto.Status {
 		status.Stuck = agent.workers.Stuck()
 	}
 	status.Stuck = append(status.Stuck, agent.stuckReads.all()...)
+	if agent.workers.Watcher != nil {
+		status.Watches = agent.workers.Watcher.States()
+	}
 	if agent.workers.PreparedShelf != nil {
 		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
 			status.PreparedUsage = &nodeproto.PreparedUsage{
