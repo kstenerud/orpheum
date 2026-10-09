@@ -58,6 +58,9 @@ type heldAttempt struct {
 	lastHeard time.Time
 	// lastWord is where its node last said it is: waiting, running or paused; empty before it said.
 	lastWord nodeproto.ProgressState
+	// isBeingBumped is an attempt a bump chose, told to stop and resolved after the lock is let go:
+	// no other bump chooses it meanwhile, and so makes room it does not make.
+	isBeingBumped bool
 }
 
 // Handle names how one kind of job given to a node is resolved. Set each before the channel serves.

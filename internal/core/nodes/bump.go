@@ -41,7 +41,8 @@ func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, 
 	all.mutex.Lock()
 	var chosen *heldAttempt
 	for _, held := range all.attempts {
-		if held.NodeID != nodeID || !uses(held.Attempt) || tierOf(held.Work, held.Priority) >= incoming {
+		if held.NodeID != nodeID || held.isBeingBumped || !uses(held.Attempt) ||
+			tierOf(held.Work, held.Priority) >= incoming {
 			continue
 		}
 		if _, isHandled := all.assignees[held.Kind]; !isHandled {
@@ -51,11 +52,13 @@ func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, 
 			chosen = held
 		}
 	}
-	all.mutex.Unlock()
 	if chosen == nil {
+		all.mutex.Unlock()
 		return false
 	}
+	chosen.isBeingBumped = true
 	attempt := chosen.Attempt
+	all.mutex.Unlock()
 	assignee, _ := all.assigneeOf(attempt.Kind)
 	all.stop(ctx, attempt)
 	why := fmt.Errorf("work of a higher priority took its place on node %d", nodeID)
