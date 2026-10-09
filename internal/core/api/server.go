@@ -124,6 +124,8 @@ type Server struct {
 	dependencies atomic.Pointer[Dependencies]
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
+	// rtc answers WebRTC offers; nil takes none (SetRTC).
+	rtc RTCAnswerer
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
 	answers idempotentAnswers
 	// togetherSilence is how long a Watch Together device may send nothing, in nanoseconds:
@@ -171,6 +173,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerNowPlaying()
 	server.registerTogether()
 	server.registerReachability()
+	server.registerRTC()
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
 	return server

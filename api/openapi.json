@@ -4157,6 +4157,28 @@
         ],
         "type": "object"
       },
+      "SessionDescriptionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "sdp": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "offer",
+              "answer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "sdp"
+        ],
+        "type": "object"
+      },
       "SessionOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9302,6 +9324,58 @@
         "summary": "Change a role; a library taken back is gone for its members at their next request (admin; D243 §4)",
         "tags": [
           "Accounts"
+        ]
+      }
+    },
+    "/rtc/offer": {
+      "post": {
+        "operationId": "postRTCOffer",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionDescriptionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDescriptionBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8)",
+        "tags": [
+          "Running it"
         ]
       }
     },

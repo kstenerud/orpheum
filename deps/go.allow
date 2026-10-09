@@ -12,6 +12,7 @@ golang.org/x/image  # decodes and resizes the core's own sanitised WebP base ima
 github.com/coder/websocket  # Watch Together's session WebSocket, the server side of cut-a §5.1; no dependencies of its own (D243 §10)
 github.com/pion/logging  # pion/turn/v4's logger interface, through which the relay logs to slog (D243 §10)
 github.com/pion/turn/v4  # the TURN relay embedded in the binary, which carries Watch Together's voice (D193 §4, D243 §8, §10)
+github.com/pion/webrtc/v4  # WebRTC data channels, the direct path to a core behind carrier NAT whose client lacks IPv6; the owner, 2026-10-09: "Ok let's add webrtc" (D273 §7)
 
 # Indirect: modernc.org/sqlite's closure
 modernc.org/libc  # indirect, modernc.org/sqlite
@@ -31,3 +32,19 @@ github.com/pion/stun/v3  # indirect, github.com/pion/turn/v4; and the reachabili
 github.com/pion/transport/v3  # indirect, github.com/pion/turn/v4
 github.com/pion/transport/v4  # indirect, github.com/pion/turn/v4
 github.com/wlynxg/anet  # indirect, github.com/pion/turn/v4 (through pion/transport)
+
+# Indirect: github.com/pion/webrtc/v4's closure (D273 §7)
+github.com/pion/datachannel  # indirect, github.com/pion/webrtc/v4
+github.com/pion/ice/v4  # indirect, github.com/pion/webrtc/v4
+github.com/pion/interceptor  # indirect, github.com/pion/webrtc/v4
+github.com/pion/mdns/v2  # indirect, github.com/pion/webrtc/v4
+github.com/pion/rtcp  # indirect, github.com/pion/webrtc/v4
+github.com/pion/rtp  # indirect, github.com/pion/webrtc/v4
+github.com/pion/sctp  # indirect, github.com/pion/webrtc/v4
+github.com/pion/sdp/v3  # indirect, github.com/pion/webrtc/v4
+github.com/pion/srtp/v3  # indirect, github.com/pion/webrtc/v4
+github.com/pion/stun/v4  # indirect, github.com/pion/webrtc/v4 (the relay's stun/v3 until it moves to turn/v5)
+github.com/pion/transport/v5  # indirect, github.com/pion/webrtc/v4
+github.com/pion/turn/v5  # indirect, github.com/pion/webrtc/v4 (the relay's turn/v4 until it moves to it)
+golang.org/x/net  # indirect, github.com/pion/webrtc/v4; the Go team's
+golang.org/x/time  # indirect, github.com/pion/webrtc/v4; the Go team's

@@ -1122,6 +1122,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rtc/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a WebRTC offer, after which the client sends its requests over data channels (D273 §8) */
+        post: operations["postRTCOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -2908,6 +2925,11 @@ export interface components {
              * @description Unix milliseconds
              */
             startedAt: number;
+        };
+        SessionDescriptionBody: {
+            sdp: string;
+            /** @enum {string} */
+            type: "offer" | "answer";
         };
         SessionOutputBody: {
             token: string;
@@ -5906,6 +5928,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postRTCOffer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionDescriptionBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDescriptionBody"];
+                };
             };
             /** @description Error */
             default: {

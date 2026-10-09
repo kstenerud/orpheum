@@ -71,6 +71,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
+| `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
+| `internal/core/rtcapi/rtcapitest` | TEST | — |
 | `internal/core/secrets` | R5 (secret custody) | — |
 | `internal/core/settings` | R6a | — (the server's alone: its unused `user` scope was removed on 2026-09-30, F6) |
 | `internal/core/textindex` | R3 (cheap: folding, CLDR keys, search routing) | ⚑ CONTAIN: the one display sanitiser (Line/Prose, used by library/clean.go:22-37, auth, opensubtitles) |
