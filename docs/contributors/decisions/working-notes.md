@@ -19167,5 +19167,15 @@ D214, D249 and D272 §1–§2, and D112's refusal.
    connection window-bound, four with faster window growth enough for 1080p at every round trip
    measured and 4K to about 100 ms), the owner: *"Ok let's add webrtc"*. The transport is planned
    in [webrtc-transport.md](../design/plans/webrtc-transport.md).
+9. **The closed beta, the names' domain, and how a device finds its core**, the owner's answers to
+   the discovery spec's questions:
+   - *"invite only for the closed beta"*; billing comes after it.
+   - The hidden per-core names' domain: *"maybe something like orpheum-core.com? I'll see what I can
+     register"*.
+   - A new device finds its core *"similar to what we do now: invite links and qr codes to create
+     an account, and tv codes for an account holder to add a device like a tv"* (D218), each
+     carrying where the core is. *"Another option for device registration would be to have the
+     device itself get a qr code from the core, the logged in user scans with his phone to complete
+     registration."* No search by name or e-mail: that would be a list of cores (D214 §3).
 
 **Status:** Decided 2026-10-09.
