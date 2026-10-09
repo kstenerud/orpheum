@@ -7,9 +7,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/pion/webrtc/v4"
 )
+
+// credit is how many more body messages a response may send, as its client grants them.
+type credit struct {
+	mutex     sync.Mutex
+	available int
+	granted   chan struct{}
+}
+
+func newCredit(initial int) *credit {
+	return &credit{available: initial, granted: make(chan struct{}, 1)}
+}
+
+// grant adds messages to what may be sent.
+func (credit *credit) grant(messages int) {
+	credit.mutex.Lock()
+	credit.available += messages
+	credit.mutex.Unlock()
+	select {
+	case credit.granted <- struct{}{}:
+	default:
+	}
+}
+
+// take takes one message's credit, waiting for a grant while there is none, until ctx ends.
+func (credit *credit) take(ctx context.Context) error {
+	for {
+		credit.mutex.Lock()
+		if credit.available > 0 {
+			credit.available--
+			credit.mutex.Unlock()
+			return nil
+		}
+		credit.mutex.Unlock()
+		select {
+		case <-credit.granted:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
 
 // channelWriter is an http.ResponseWriter that sends a response over its request's channel, waiting
 // whenever the channel holds bufferedHighBytes until it drains to bufferedLowBytes.
@@ -20,12 +61,13 @@ type channelWriter struct {
 	status     int
 	isHeadSent bool
 	drained    chan struct{}
+	credit     *credit
 	failed     error
 }
 
-func newChannelWriter(ctx context.Context, channel *webrtc.DataChannel) *channelWriter {
+func newChannelWriter(ctx context.Context, channel *webrtc.DataChannel, granted *credit) *channelWriter {
 	writer := &channelWriter{
-		ctx: ctx, channel: channel, headers: http.Header{}, drained: make(chan struct{}, 1),
+		ctx: ctx, channel: channel, headers: http.Header{}, drained: make(chan struct{}, 1), credit: granted,
 	}
 	channel.SetBufferedAmountLowThreshold(bufferedLowBytes)
 	channel.OnBufferedAmountLow(func() {
@@ -55,6 +97,10 @@ func (writer *channelWriter) Write(body []byte) (int, error) {
 	written := 0
 	for len(body) > 0 {
 		size := min(len(body), MaxMessageBytes)
+		if err := writer.credit.take(writer.ctx); err != nil {
+			writer.failed = err
+			return written, err
+		}
 		if err := writer.send(body[:size]); err != nil {
 			return written, err
 		}

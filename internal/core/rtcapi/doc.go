@@ -14,6 +14,9 @@
 //   - A response is sent in messages of at most MaxMessageBytes, which every browser carries, and
 //     waits while its channel holds too much, so no film is held in memory.
 //     TestChannel_ALargeResponseArrivesWholeInMessagesABrowserCarries.
+//   - A response sends InitialCreditMessages messages of its body, then only as many more as its
+//     client grants as it reads ({"credit": n} after the request), so a film asked for from its
+//     first byte never sits whole in the browser. TestCredit_AResponseWaitsForTheClientsNextGrant.
 //   - Requests on their own channels are answered at once, none waiting for another.
 //     TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce.
 //   - A head that is not one, a body over MaxRequestBodyBytes, or a path naming another host is

@@ -152,20 +152,89 @@ export async function sendOnChannel(channel: ChannelLike, request: Request): Pro
 /** What to send once each channel not yet open opens. */
 const onceOpen = new WeakMap<ChannelLike, () => void>();
 
+/**
+ * How many body messages a reader takes before the core is granted as many more: the core sends
+ * rtcapi.InitialCreditMessages before the first grant, so a film asked for from its first byte never
+ * sits whole in the browser.
+ */
+export const grantEvery = 16;
+
+/**
+ * A response's body as its messages arrive, handed to its reader only as it reads: each `grantEvery`
+ * messages handed out grant the core as many more.
+ */
+class BodyQueue {
+  private readonly queued: Uint8Array[] = [];
+  private waiting: (() => void) | undefined;
+  private isFinished = false;
+  private failure: Error | undefined;
+  private handedOut = 0;
+
+  constructor(private readonly grant: (messages: number) => void) {}
+
+  push(chunk: Uint8Array): void {
+    this.queued.push(chunk);
+    this.wake();
+  }
+
+  finish(failure?: Error): void {
+    this.isFinished = true;
+    this.failure = failure;
+    this.wake();
+  }
+
+  /** The body as a stream its reader pulls from, each message only when asked for. */
+  stream(onCancel: () => void): ReadableStream<Uint8Array> {
+    return new ReadableStream<Uint8Array>(
+      {
+        pull: async (controller) => {
+          while (this.queued.length === 0 && !this.isFinished) {
+            await new Promise<void>((resolve) => {
+              this.waiting = resolve;
+            });
+          }
+          const next = this.queued.shift();
+          if (next !== undefined) {
+            controller.enqueue(next);
+            this.handedOut += 1;
+            if (this.handedOut % grantEvery === 0) {
+              this.grant(grantEvery);
+            }
+          } else if (this.failure === undefined) {
+            controller.close();
+          } else {
+            controller.error(this.failure);
+          }
+        },
+        cancel: onCancel,
+      },
+      { highWaterMark: 0 },
+    );
+  }
+
+  private wake(): void {
+    const waiting = this.waiting;
+    this.waiting = undefined;
+    waiting?.();
+  }
+}
+
 /** The response a channel carries: resolved at its head, its body streamed until the empty end. */
 function receiveResponse(channel: ChannelLike, path: string): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
-    let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
     let isEnded = false;
+    const body = new BodyQueue((messages) => {
+      if (!isEnded) {
+        channel.send(JSON.stringify({ credit: messages }));
+      }
+    });
     const end = (failure?: Error): void => {
       if (isEnded) {
         return;
       }
       isEnded = true;
-      if (failure === undefined) {
-        controller?.close();
-      } else {
-        controller?.error(failure);
+      body.finish(failure);
+      if (failure !== undefined) {
         reject(failure);
       }
       channel.close();
@@ -180,13 +249,8 @@ function receiveResponse(channel: ChannelLike, path: string): Promise<Response> 
       }
       const stream = bodylessStatuses.has(answered.status)
         ? null
-        : new ReadableStream<Uint8Array>({
-            start: (started) => {
-              controller = started;
-            },
-            cancel: () => {
-              end();
-            },
+        : body.stream(() => {
+            end();
           });
       resolve(
         new Response(stream, { status: answered.status, headers: toHeaders(answered.headers) }),
@@ -200,7 +264,7 @@ function receiveResponse(channel: ChannelLike, path: string): Promise<Response> 
         } else if (data.byteLength === 0) {
           end();
         } else {
-          controller?.enqueue(new Uint8Array(data));
+          body.push(new Uint8Array(data));
         }
       },
       close: () => {
