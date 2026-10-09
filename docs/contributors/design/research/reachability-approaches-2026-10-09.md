@@ -354,7 +354,28 @@ It is the one direct path for a core behind carrier NAT whose client has no IPv6
   works: about 70% of attempts in the 2026 measurement **[V]**. Where both ends are behind NATs that
   map per destination, nothing direct can work; only a relay could, which is the owner's VPS or
   nothing (D273 §2).
-- **Size [I]:** a measurement spike of a few days settles the unknowns; the full transport is three
+- **Measured** (2026-10-09, after the owner approved trying pion/webrtc; a throwaway program in
+  `.dev/webrtc-spike/`, not committed): pion/webrtc v4.2.23 sending to Chromium and Firefox over a
+  data channel on loopback, with netem adding delay and loss. Throughput in Mbit/s; each connection
+  set up in 0.15 s on bare loopback, about 0.45 s at a 50 ms round trip, 0.7–0.9 s at 100 ms.
+
+  | Round trip, loss | One connection, pion's defaults | One, faster window growth (`SetSCTPCwndCAStep` 64 KiB) | Four in parallel, faster growth |
+  | --- | --- | --- | --- |
+  | none (loopback) | Chromium 313, Firefox 230 | — | — |
+  | 20 ms | Chromium 44, Firefox 55 | — | — |
+  | 50 ms | Chromium 15–20, Firefox 21 | 20 | 58 |
+  | 100 ms | Chromium 8, Firefox 11 | 11 | 30 |
+  | 50 ms, 0.5% loss | under 5 (100 MiB did not finish in 3 minutes) | 11 | 38 |
+
+  One connection is window-bound: its throughput falls with the round trip, and four connections
+  carry three times as much, so the limit is each connection's window, not the processor. Raising
+  pion's minimum window made it worse (4 Mbit/s). **[I]** With faster window growth and four
+  connections, a data channel carries 1080p (8–15 Mbit/s) at every round trip measured and 4K
+  (25–40 Mbit/s) up to about 100 ms; the transport would open several connections per client and
+  spread chunk requests across them. Loopback shares one machine's processor between browser and
+  core, and a real path's loss is burstier than netem's: a measurement over the owner's real link
+  comes before building.
+- **Size [I]:** the measurement above settled the first unknowns; the full transport is three
   to five weeks of agent work with its tests, about the size of a milestone phase.
 
 ## Sources
