@@ -242,6 +242,19 @@ describe("a quality this device cannot play (D266)", () => {
     expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 416_900 }]);
   });
 
+  it("ends hls.js's forcing of it, which would otherwise keep loading it", () => {
+    const { hls, choosing, unplayable } = standingAt(416.9);
+    choosing.setLevel(2); // hls.js forces a switch down after a load error
+    hls.loadLevel = 2;
+    choosing.notHeld(2);
+    choosing.notHeld(2);
+    nowMs = 1000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toHaveLength(1);
+    expect(choosing.forcedLevel()).toBe(-1);
+    expect(choosing.nextLevel()).toBeLessThan(2);
+  });
+
   it("is given up on an autoplaying video, paused until it can play, that never can", () => {
     const { hls, choosing, unplayable } = standingAt(303.98);
     hls.media = { currentTime: 303.98, paused: true, readyState: 1 };

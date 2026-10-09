@@ -330,6 +330,9 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** Gives level up, with every quality above it, and loads again from positionS below it (D266). */
   #giveUpUnplayable(level: number, positionS: number): void {
     this.#unplayableFrom = Math.min(level, this.#unplayableFrom ?? level);
+    if (this.#forced !== undefined && this.#forced >= this.#unplayableFrom) {
+      this.#forced = undefined; // obeyed, it would load the quality given up
+    }
     this.#still = undefined;
     this.#onItsWay = undefined;
     this.#lower(level - 1);
