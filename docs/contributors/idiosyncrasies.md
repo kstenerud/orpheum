@@ -1450,7 +1450,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Symptom:** `landlock_create_ruleset(...) → -1, errno 95` in an ordinary container. D112 first blamed
   Docker, wrongly. Proxmox VE leaves Landlock out of `CONFIG_LSM`, and Synology's kernels predate it (ENOSYS).
 - **What we do:** the errno is mapped to a cause and a remedy. `internal/node/confine/landlock_linux.go:95-118`;
-  `deploy/staging/README.md:101-103`.
+  `deploy/staging/README.md:99-101`.
 - **Evidence:** D112; `research/audit-2026-09-23.md` §4.1 [measured]; VQ9.
   **[web]**
   [landlock_create_ruleset(2)](https://man7.org/linux/man-pages/man2/landlock_create_ruleset.2.html):
