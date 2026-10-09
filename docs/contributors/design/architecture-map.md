@@ -47,6 +47,7 @@ is the evidence. The first column names each package by its path; the check read
 | Package | Resp. | Second job(s) |
 | --- | --- | --- |
 | `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: the six sweeps it registers with the queue (`sweeps`, metadata.go:256; D231 §3), and four loops of its own: `demoteUnwanted` (:391), `pruneFinished` (:423), `maintainArtworkCache` (artwork.go:76) and the silence watch it ticks (`Exchanges.Watch`, metadata.go:361). ⚑ PERSIST: makes an instance's layout and config (instance.go, D242 §4). ⚑ OPS: a whole offline doctor, doctor.go |
+| `internal/deployment` | OPS | — (writes a deployment's directory from its values file: the compose file, the configs, the tunnel's keys; `orpheum write-deployment` runs it in the image, D272 §3) |
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
 | `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
 | `internal/core/auth` | R5 | — |

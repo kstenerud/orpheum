@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"syscall"
+
+	"github.com/kstenerud/orpheum/internal/deployment"
+)
+
+// The deployment's directory and its run directory as the runtime image sees them, where
+// write-deployment is run with them mounted, as the compose file mounts each part of them for its
+// services: the instances it makes name these paths (D272 §3).
+const (
+	deploymentMount = "/var/lib/orpheum"
+	deploymentRun   = "/run/orpheum"
+)
+
+// renderNode is the GPU's render node, whose group the node joins to encode on it.
+const renderNode = "/dev/dri/renderD128"
+
+// writeDeploymentUsage says how the image's setup is run: the build command and ./staging run it so.
+const writeDeploymentUsage = `usage: orpheum write-deployment --image <image> [--deployment release|staging]
+
+Run in the runtime image, as the owner of the deployment's directory, with it mounted at ` +
+	deploymentMount + ` and its run/ at ` + deploymentRun + `, the machine's host name, and /dev/dri
+when the machine has a GPU:
+
+  docker run --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
+    -v DIR:` + deploymentMount + ` -v DIR/run:` + deploymentRun + ` [-v /dev/dri:/dev/dri:ro] \
+    IMAGE write-deployment --image IMAGE
+
+The first time, it writes the values file and the tunnel's keys, and stops. After that it writes the
+compose file and the configs from the values file, and ` + "`docker compose up -d`" + ` in DIR starts them.
+`
+
+// commandWriteDeployment writes the deployment's directory (D272 §3).
+func commandWriteDeployment(_ context.Context, call invocation) int {
+	flags := flag.NewFlagSet("orpheum write-deployment", flag.ContinueOnError)
+	flags.SetOutput(call.stderr)
+	image := flags.String("image", "", "the runtime image the services run, as the .env file names it")
+	kind := flags.String("deployment", string(deployment.Release),
+		"the first time only: the kind the values file starts as, release or staging")
+	if err := flags.Parse(call.arguments); err != nil {
+		return exitUsageError
+	}
+	if flags.NArg() != 0 || *image == "" {
+		return write(call.stderr, writeDeploymentUsage, exitUsageError)
+	}
+	hostName, err := os.Hostname()
+	if err != nil {
+		return call.fail(fmt.Errorf("this machine's host name: %w", err))
+	}
+	message, err := writeDeployment(deploymentMount, deploymentRun, deployment.Kind(*kind), *image, hostName,
+		renderGroup(renderNode))
+	if err != nil {
+		return call.fail(err)
+	}
+	if message.isBegun {
+		return write(call.stderr, message.text, exitFailure)
+	}
+	return write(call.stdout, message.text, exitSuccess)
+}
+
+// deploymentMessage is what write-deployment says it did: begun, with what to fill in, or written.
+type deploymentMessage struct {
+	text    string
+	isBegun bool
+}
+
+// writeDeployment begins the deployment in dir when it has no values file yet, and otherwise makes
+// its instances when they are not there and writes its files. The instances' run directories go
+// in runDir.
+func writeDeployment(dir, runDir string, kind deployment.Kind, image, hostName string, renderGID int,
+) (deploymentMessage, error) {
+	text, err := os.ReadFile(filepath.Join(dir, deployment.ValuesFile)) //nolint:gosec // G304: the deployment's own
+	if errors.Is(err, fs.ErrNotExist) {
+		return beginDeployment(dir, kind)
+	}
+	if err != nil {
+		return deploymentMessage{}, fmt.Errorf("read the values file: %w", err)
+	}
+	values, err := deployment.ParseValues(string(text), hostName)
+	if err != nil {
+		return deploymentMessage{}, err
+	}
+	if problems := values.Check(); problems != nil {
+		return deploymentMessage{}, problems
+	}
+	if makeErr := makeMissingInstances(dir, runDir); makeErr != nil {
+		return deploymentMessage{}, makeErr
+	}
+	err = deployment.Write(dir, values, deployment.Runtime{
+		Image: image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGID,
+	})
+	if err != nil {
+		return deploymentMessage{}, err
+	}
+	return deploymentMessage{text: fmt.Sprintf("wrote the %s deployment for %s, running %s; "+
+		"`docker compose up -d` in its directory starts it\n", values.Deployment, values.Domain, image)}, nil
+}
+
+// beginDeployment writes a new deployment's values file, as kind, and the tunnel's keys, and says
+// what to do before it can start.
+func beginDeployment(dir string, kind deployment.Kind) (deploymentMessage, error) {
+	if kind != deployment.Release && kind != deployment.Staging {
+		return deploymentMessage{}, fmt.Errorf("--deployment %q: want release or staging", kind)
+	}
+	publicKey, err := deployment.Begin(dir, kind)
+	if err != nil {
+		return deploymentMessage{}, err
+	}
+	return deploymentMessage{isBegun: true, text: fmt.Sprintf(`began a %s deployment. Before it can start:
+  1. Fill in %s: every value marked "fill in".
+  2. On the VPS, put this end's public key in /etc/wireguard/wg0.conf's [Peer] PublicKey, and restart
+     the tunnel there (systemctl restart wg-quick@wg0), unless it already holds this key:
+       %s
+  3. Write the deployment again.
+`, kind, deployment.ValuesFile, publicKey)}, nil
+}
+
+// makeMissingInstances makes the core's and the node's instances in dir, each the first time.
+func makeMissingInstances(dir, runDir string) error {
+	for _, kind := range []instanceKind{kindCore, kindNode} {
+		instanceDir := filepath.Join(dir, string(kind))
+		if _, err := os.Stat(filepath.Join(instanceDir, instanceFileName)); err == nil {
+			continue
+		}
+		if _, err := makeInstance(instanceDir, kind, filepath.Join(runDir, string(kind)), version); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// renderGroup is the group of the render node at path, or -1 when there is none.
+func renderGroup(path string) int {
+	info, err := os.Stat(path)
+	if err != nil {
+		return -1
+	}
+	if stat, isUnix := info.Sys().(*syscall.Stat_t); isUnix {
+		return int(stat.Gid)
+	}
+	return -1
+}

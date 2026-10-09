@@ -53,7 +53,8 @@ func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 }
 
 // Every subcommand that runs on an instance needs its directory, and has no default for it (D242
-// §2); default-config needs the directory to make one in.
+// §2); default-config needs the directory to make one in, and write-deployment the image its
+// deployment runs.
 func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 	t.Parallel()
 	for _, planned := range plannedSubcommands() {
@@ -63,6 +64,9 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		want := "--instance is required"
 		if planned.name == "default-config" {
 			want = "usage: orpheum default-config [--node] [--run-dir <dir>] <instance directory>"
+		}
+		if planned.name == "write-deployment" {
+			want = "usage: orpheum write-deployment --image <image>"
 		}
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()

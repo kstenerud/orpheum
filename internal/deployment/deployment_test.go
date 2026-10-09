@@ -1,0 +1,473 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package deployment
+
+import (
+	"crypto/ecdh"
+	"encoding/base64"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/BurntSushi/toml"
+)
+
+// fillIn is what the values file's template says of each value the owner must give.
+const fillIn = "fill in"
+
+// vpsKey is a WireGuard public key: 32 bytes in base64.
+const vpsKey = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+
+// filledValues is a values file with every value given.
+func filledValues(t *testing.T, kind Kind) Values {
+	t.Helper()
+	values, err := ParseValues(`deployment = "`+string(kind)+`"
+domain = "media.orpheum-app.com"
+contact = "owner@example.org"
+[vps]
+endpoint = "[2001:db8::7]:51820"
+public_ipv4 = "203.0.113.7"
+public_key = "`+vpsKey+`"
+[media]
+roots = ["/mnt/tank/media/video/movies", "/srv/a \"b\""]
+`, "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return values
+}
+
+// runtime runs orpheum:v0.1.0 on a machine with a GPU whose render node's group is 105.
+var runtime = Runtime{Image: "orpheum:v0.1.0", UID: 1000, GID: 1001, RenderGID: 105}
+
+// begun is a deployment's directory with its values file filled in and its instances' directories
+// made, as `orpheum write-deployment` finds it the second time.
+func begun(t *testing.T, kind Kind) string {
+	t.Helper()
+	dir := t.TempDir()
+	if _, err := Begin(dir, kind); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"core", "node"} {
+		if err := os.MkdirAll(filepath.Join(dir, kind, "persistent"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+// decodeTOML reads a written TOML file.
+func decodeTOML(t *testing.T, path string) map[string]map[string]any {
+	t.Helper()
+	config := map[string]map[string]any{}
+	if _, err := toml.DecodeFile(path, &config); err != nil {
+		t.Fatalf("%s is not TOML: %v", path, err)
+	}
+	return config
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(text)
+}
+
+func TestValues_TheTemplateAsBegunSaysWhatToFillInAndNothingElse(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if _, err := Begin(dir, Release); err != nil {
+		t.Fatal(err)
+	}
+	values, err := ParseValues(readFile(t, filepath.Join(dir, ValuesFile)), "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values.Deployment != Release || values.Domain != "media.orpheum-app.com" || values.HTTP.Port != 8440 {
+		t.Errorf("the begun values are %+v; want a release for media.orpheum-app.com on 8440", values)
+	}
+	var keys []string
+	for _, problem := range values.Problems() {
+		keys = append(keys, strings.Fields(problem)[0])
+	}
+	want := []string{"contact:", "vps.endpoint:", "vps.public_ipv4", "vps.public_key:", "media.roots:"}
+	if !slices.Equal(keys, want) {
+		t.Errorf("a begun values file needs %v; want %v: what the owner fills in, and nothing else", keys, want)
+	}
+	marked := strings.Count(strings.ToLower(readFile(t, filepath.Join(dir, ValuesFile))), fillIn)
+	if marked < len(want) {
+		t.Errorf("the values file marks %d values %q; want each of the %d to fill in marked", marked, fillIn,
+			len(want))
+	}
+	if _, err = Begin(dir, Release); err == nil {
+		t.Error("Begin over a values file succeeded; want it refused")
+	}
+}
+
+func TestValues_ProblemsNameEachKeyThatLacksAValue(t *testing.T) {
+	t.Parallel()
+	if problems := filledValues(t, Release).Problems(); len(problems) != 0 {
+		t.Errorf("filled values have problems %v; want none", problems)
+	}
+	for _, tc := range []struct {
+		name, change, wantKey string
+	}{
+		{"a deployment of no known kind", `deployment = "prod"`, "deployment"},
+		{"an endpoint with no port", `vps.endpoint = "203.0.113.7"`, "vps.endpoint"},
+		{"an endpoint by name", `vps.endpoint = "vps.example.org:51820"`, "vps.endpoint"},
+		{"an IPv6 endpoint without brackets", `vps.endpoint = "2001:db8::7:51820"`, "vps.endpoint"},
+		{"a public address that is IPv6", `vps.public_ipv4 = "2001:db8::7"`, "vps.public_ipv4"},
+		{"a short key", `vps.public_key = "YWFh"`, "vps.public_key"},
+		{"an MTU out of range", `vps.mtu = 9000`, "vps.mtu"},
+		{"a relative media root", `media.roots = ["movies"]`, "media.roots"},
+		{"the dev loop's port", `http.port = 8432`, "http.port"},
+		{"Vite's port", `http.port = 5173`, "http.port"},
+		{"a publish address by name", `http.publish = "lan"`, "http.publish"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			values := filledValues(t, Release)
+			changed, err := ParseValues(tc.change, "nas")
+			if err != nil {
+				t.Fatal(err)
+			}
+			overlay(&values, changed, tc.change)
+			problems := values.Problems()
+			if len(problems) != 1 || !strings.HasPrefix(problems[0], tc.wantKey) {
+				t.Errorf("problems = %v; want one naming %s", problems, tc.wantKey)
+			}
+		})
+	}
+}
+
+// overlay copies onto values the one value change sets.
+func overlay(values *Values, changed Values, change string) {
+	switch strings.Fields(change)[0] {
+	case "deployment":
+		values.Deployment = changed.Deployment
+	case "vps.endpoint":
+		values.VPS.Endpoint = changed.VPS.Endpoint
+	case "vps.public_ipv4":
+		values.VPS.PublicIPv4 = changed.VPS.PublicIPv4
+	case "vps.public_key":
+		values.VPS.PublicKey = changed.VPS.PublicKey
+	case "vps.mtu":
+		values.VPS.MTU = changed.VPS.MTU
+	case "media.roots":
+		values.Media.Roots = changed.Media.Roots
+	case "http.port":
+		values.HTTP.Port = changed.HTTP.Port
+	case "http.publish":
+		values.HTTP.Publish = changed.HTTP.Publish
+	}
+}
+
+func TestValues_TheMTUFollowsTheEndpointsFamilyUnlessTheOwnerSetsOne(t *testing.T) {
+	t.Parallel()
+	values := filledValues(t, Release)
+	if got := values.TunnelMTU(); got != mtuOverIPv6 {
+		t.Errorf("over IPv6 the MTU is %d, want %d", got, mtuOverIPv6)
+	}
+	values.VPS.Endpoint = "203.0.113.7:51820"
+	if got := values.TunnelMTU(); got != mtuOverIPv4 {
+		t.Errorf("over IPv4 the MTU is %d, want %d, room for DS-Lite", got, mtuOverIPv4)
+	}
+	values.VPS.MTU = 1300
+	if got := values.TunnelMTU(); got != 1300 {
+		t.Errorf("with the owner's MTU it is %d, want 1300", got)
+	}
+}
+
+func TestValues_TheNodeIsNamedByTheValuesFileOrTheMachine(t *testing.T) {
+	t.Parallel()
+	named, err := ParseValues("[node]\nname = \"sandbox\"\n", "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unnamed, err := ParseValues("", "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if named.Node.Name != "sandbox" || unnamed.Node.Name != "nas" {
+		t.Errorf("the node is named %q and, unnamed, %q; want sandbox and the machine's nas",
+			named.Node.Name, unnamed.Node.Name)
+	}
+}
+
+func TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Release)
+	values := filledValues(t, Release)
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	private := readFile(t, filepath.Join(dir, privateKeyFile))
+	valuesText := readFile(t, filepath.Join(dir, ValuesFile))
+	if err := os.WriteFile(filepath.Join(dir, coreConfig), []byte("edited"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(dir, values, Runtime{Image: "orpheum:v0.2.0", UID: 1000, GID: 1001, RenderGID: -1}); err != nil {
+		t.Fatal(err)
+	}
+	if readFile(t, filepath.Join(dir, privateKeyFile)) != private ||
+		readFile(t, filepath.Join(dir, ValuesFile)) != valuesText {
+		t.Error("writing again changed the tunnel's key or the values file; want both kept")
+	}
+	if config := readFile(t, filepath.Join(dir, coreConfig)); config == "edited" {
+		t.Error("writing again kept an edited core config; want it rendered again")
+	}
+	if env := readFile(t, filepath.Join(dir, environmentFile)); !strings.Contains(env,
+		"ORPHEUM_IMAGE=orpheum:v0.2.0\n") {
+		t.Errorf(".env is %q; want it to name the new image", env)
+	}
+	for name, want := range map[string]os.FileMode{
+		privateKeyFile: 0o600, tunnelConfig: 0o600, coreConfig: 0o600, nodeConfig: 0o600,
+		publicKeyFile: 0o644, composeFile: 0o644, overrideFile: 0o644, environmentFile: 0o644,
+	} {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != want {
+			t.Errorf("%s has mode %o, want %o", name, info.Mode().Perm(), want)
+		}
+	}
+}
+
+func TestWrite_NothingIsWrittenWhileTheValuesHaveProblems(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Release)
+	values := filledValues(t, Release)
+	values.Contact = ""
+	err := Write(dir, values, runtime)
+	if err == nil || !strings.Contains(err.Error(), "contact") {
+		t.Errorf("Write = %v; want it refused, naming contact", err)
+	}
+	if _, err = os.Stat(filepath.Join(dir, composeFile)); err == nil {
+		t.Error("a compose file was written; want nothing written")
+	}
+}
+
+func TestWrite_TheConfigsServeTheNameRelayThroughTheVPSAndNameTheMedia(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Release)
+	if err := Write(dir, filledValues(t, Release), runtime); err != nil {
+		t.Fatal(err)
+	}
+	core := decodeTOML(t, filepath.Join(dir, coreConfig))
+	for _, check := range []struct{ table, key, want string }{
+		{"https", "domain", "media.orpheum-app.com"},
+		{"https", "contact", "owner@example.org"},
+		{"turn", "public_address", "203.0.113.7"},
+		{"turn", "listen", "10.77.0.2:3478"},
+		{"server", "listen", "0.0.0.0:8440"},
+	} {
+		if got := core[check.table][check.key]; got != check.want {
+			t.Errorf("the core config's %s.%s is %v, want %s", check.table, check.key, got, check.want)
+		}
+	}
+	node := decodeTOML(t, filepath.Join(dir, nodeConfig))["node"]
+	roots, err := json.Marshal(node["root_paths"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(roots) != `["/mnt/tank/media/video/movies","/srv/a \"b\""]` || node["name"] != "nas" ||
+		node["confinement_policy"] != "require" || node["core_socket"] != "/run/orpheum/core/core.sock" {
+		t.Errorf("the node config is %v; want the media, the machine's name, confinement required and "+
+			"the core's socket", node)
+	}
+	tunnel := readFile(t, filepath.Join(dir, tunnelConfig))
+	for _, want := range []string{
+		"PrivateKey = " + strings.TrimSpace(readFile(t, filepath.Join(dir, privateKeyFile))),
+		"PublicKey = " + vpsKey, "Endpoint = [2001:db8::7]:51820",
+	} {
+		if !strings.Contains(tunnel, want) {
+			t.Errorf("the tunnel config lacks %q", want)
+		}
+	}
+	if strings.Contains(tunnel, "Address") {
+		t.Error("the tunnel config names an Address; wg setconf's format has none, the addresses are tunnel.sh's")
+	}
+}
+
+func TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		kind                Kind
+		wantWhen, wantLevel string
+		wantProject         string
+	}{
+		{Release, "refuse", "info", "orpheum"},
+		{Staging, "start_over", "debug", "orpheum-staging"},
+	} {
+		t.Run(string(tc.kind), func(t *testing.T) {
+			t.Parallel()
+			dir := begun(t, tc.kind)
+			if err := Write(dir, filledValues(t, tc.kind), runtime); err != nil {
+				t.Fatal(err)
+			}
+			core := decodeTOML(t, filepath.Join(dir, coreConfig))
+			if core["database"]["when_unmigratable"] != tc.wantWhen || core["log"]["level"] != tc.wantLevel {
+				t.Errorf("%s's core config: when_unmigratable %v, log level %v; want %s and %s", tc.kind,
+					core["database"]["when_unmigratable"], core["log"]["level"], tc.wantWhen, tc.wantLevel)
+			}
+			if env := readFile(t, filepath.Join(dir, environmentFile)); !strings.Contains(env,
+				"COMPOSE_PROJECT_NAME="+tc.wantProject+"\n") {
+				t.Errorf("%s's .env is %q; want the project %s", tc.kind, env, tc.wantProject)
+			}
+		})
+	}
+}
+
+func TestWrite_ComposeReadsEveryVariableTheEnvironmentFileSets(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Release)
+	if err := Write(dir, filledValues(t, Release), runtime); err != nil {
+		t.Fatal(err)
+	}
+	env := readFile(t, filepath.Join(dir, environmentFile))
+	for _, want := range []string{
+		"ORPHEUM_IMAGE=orpheum:v0.1.0", "ORPHEUM_UID=1000", "ORPHEUM_GID=1001",
+		"ORPHEUM_HTTP_PUBLISH=0.0.0.0", "ORPHEUM_HTTP_PORT=8440", "ORPHEUM_TUNNEL_MTU=1420",
+	} {
+		if !strings.Contains(env, want+"\n") {
+			t.Errorf(".env lacks %s", want)
+		}
+	}
+	compose := readFile(t, filepath.Join(dir, composeFile))
+	for line := range strings.SplitSeq(env, "\n") {
+		name, _, isSetting := strings.Cut(line, "=")
+		if isSetting && strings.HasPrefix(name, "ORPHEUM_") && !strings.Contains(compose, "${"+name) {
+			t.Errorf(".env sets %s, which the compose file never reads", name)
+		}
+	}
+	if strings.Contains(compose, "ORPHEUM_DIR") {
+		t.Error("the compose file names ORPHEUM_DIR; want its paths relative to its own directory")
+	}
+}
+
+func TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		renderGID int
+		wantGPU   bool
+	}{
+		{"with a GPU", 105, true},
+		{"without one", -1, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			text, err := mediaOverride([]string{"/mnt/a b", "/srv/c"}, tc.renderGID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var override struct {
+				Services map[string]struct {
+					Volumes  []string `json:"volumes"`
+					Devices  []string `json:"devices"`
+					GroupAdd []string `json:"group_add"` //nolint:tagliatelle // compose's own key
+				} `json:"services"`
+			}
+			if err = json.Unmarshal(text, &override); err != nil {
+				t.Fatal(err)
+			}
+			node := override.Services["orpheum-node"]
+			if !slices.Equal(node.Volumes, []string{"/mnt/a b:/mnt/a b:ro", "/srv/c:/srv/c:ro"}) {
+				t.Errorf("the node's volumes are %v; want each root read-only at its own path", node.Volumes)
+			}
+			hasGPU := slices.Equal(node.Devices, []string{"/dev/dri:/dev/dri"}) &&
+				slices.Equal(node.GroupAdd, []string{"105"})
+			if hasGPU != tc.wantGPU || !tc.wantGPU && (node.Devices != nil || node.GroupAdd != nil) {
+				t.Errorf("the node's devices are %v and groups %v; want the GPU: %t", node.Devices, node.GroupAdd,
+					tc.wantGPU)
+			}
+		})
+	}
+}
+
+func TestQuoteTOML_QuotesOrRefuses(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		value   any
+		want    string
+		isError bool
+	}{
+		{"a plain string", "nas", `"nas"`, false},
+		{"quotes and a backslash", `a "b" \c`, `"a \"b\" \\c"`, false},
+		{"beyond ASCII", "Médiathèque", `"Médiathèque"`, false},
+		{"a list", []string{"/a", "/b"}, `["/a", "/b"]`, false},
+		{"a newline", "a\nb", "", true},
+		{"bytes that are not UTF-8", "a\xffb", "", true},
+		{"a number", 1, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := quoteTOML(tc.value)
+			if (err != nil) != tc.isError || got != tc.want {
+				t.Errorf("quoteTOML(%q) = %q, %v; want %q, an error: %t", tc.value, got, err, tc.want, tc.isError)
+			}
+			if err == nil {
+				var decoded map[string]any
+				if _, err = toml.Decode("v = "+got, &decoded); err != nil || !equalValue(decoded["v"], tc.value) {
+					t.Errorf("TOML reads %s as %v (%v); want %v", got, decoded["v"], err, tc.value)
+				}
+			}
+		})
+	}
+}
+
+// equalValue reports whether a value TOML decoded is the string or list of strings given.
+func equalValue(decoded, given any) bool {
+	if list, isList := given.([]string); isList {
+		items, isItems := decoded.([]any)
+		if !isItems || len(items) != len(list) {
+			return false
+		}
+		for index, item := range items {
+			if item != list[index] {
+				return false
+			}
+		}
+		return true
+	}
+	return decoded == given
+}
+
+func TestRender_ANameWithNoValueIsAnError(t *testing.T) {
+	t.Parallel()
+	if _, err := render("core.toml", map[string]any{"IsStaging": false}); err == nil {
+		t.Error("rendering the core config without its values succeeded; want an error")
+	}
+}
+
+func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
+	t.Parallel()
+	private, public, err := newKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, err := base64.StdEncoding.DecodeString(private)
+	if err != nil || len(secret) != keyLength {
+		t.Fatalf("the private key %q is not 32 bytes of base64", private)
+	}
+	if secret[0]&7 != 0 || secret[31]&128 != 0 || secret[31]&64 == 0 {
+		t.Errorf("the private key is not clamped: first byte %08b, last %08b", secret[0], secret[31])
+	}
+	key, err := ecdh.X25519().NewPrivateKey(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := base64.StdEncoding.EncodeToString(key.PublicKey().Bytes()); public != want {
+		t.Errorf("the public key is %s, want %s, the private key's", public, want)
+	}
+	if !isWireGuardKey(public) {
+		t.Errorf("the public key %s is not a WireGuard key", public)
+	}
+}
