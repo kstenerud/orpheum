@@ -65,8 +65,10 @@ done. *Standards: makefile.md §4.*
    the handlers) and run `make generate`. *Pre-edit hook; `make check-generated`.*
 8. **Migrations are append-only.** Never edit one that is committed; add the next. Until the
    owner declares migrations live (D228), a schema change instead folds the last step into the
-   baseline and adds the change as the one step after it. *Pre-edit hook;
-   `TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive`; standards: sql.md.*
+   baseline and adds the change as the one step after it; once production runs
+   (`internal/store/migrations/CHECKPOINT`), it appends, and only the owner's move of the
+   checkpoint folds (D272 §5). *Pre-edit hook; `TestSteps_KeepTheMigrationWindow`; standards:
+   sql.md.*
 9. **Cite decisions by ID (`D<n>`) where you write rationale; never invent one.** Archived
    decisions and `design/research/` are history, not specifications. *`make check-claims`,
    `make check-docs`.*

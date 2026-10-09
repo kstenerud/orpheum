@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
 
 // The runner's tests run synthetic steps (migrate_test.go's firstStep and the ones below): until
-// migrations are live the real ones are a baseline and the one step after it (D228), and what the
-// runner does to any step is tested here so it is ready for every step to come.
+// migrations are live the real ones are a baseline and the one step after it (D228), or every step
+// since production's checkpoint (D272 §5), and what the runner does to any step is tested here so
+// it is ready for every step to come.
 
 func TestMigrate_RecordsEveryStepsChecksumAndRefusesOneThatChanged(t *testing.T) {
 	t.Parallel()
@@ -61,6 +63,9 @@ func foldedBaseline(t *testing.T) string {
 
 // fourthStep is the one step after the folded baseline.
 const fourthStep = "CREATE TABLE later (id INTEGER PRIMARY KEY);"
+
+// fifthStep follows fourthStep, for a window of more than one step after the baseline (D272 §5).
+const fifthStep = "CREATE TABLE latest (id INTEGER PRIMARY KEY);"
 
 func TestMigrate_ABaselineBuildsANewDatabaseAtItsVersion(t *testing.T) {
 	t.Parallel()
@@ -252,25 +257,90 @@ func assertRebuiltThingKeptItsIDs(t *testing.T, database *Database) {
 // from then on the baseline is frozen and every schema change is a new step.
 const migrationsLiveMarker = "LIVE"
 
-func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
+// checkpointFile is the file in migrations/ holding the schema version production last ran (D272
+// §6): while it exists, the baseline stays at that version and every step after it is kept.
+const checkpointFile = "CHECKPOINT"
+
+// windowProblem says how steps break the migration window, or "" when they keep it. Live, every
+// step is kept and nothing is held. Before it, while production runs (checkpoint > 0), the baseline
+// is the checkpoint, with any number of steps after it (D272 §5); before production, a baseline and
+// at most one step (D228).
+func windowProblem(steps []Step, isLive bool, checkpoint int) string {
+	switch {
+	case isLive:
+		return ""
+	case len(steps) == 0 || !steps[0].IsBaseline:
+		return "the first step is not a baseline; until migrations are live, the steps start with one (D228)"
+	case checkpoint > 0 && steps[0].Version != checkpoint:
+		return fmt.Sprintf("the baseline is at version %d and the checkpoint at %d; while production runs, the "+
+			"baseline is the version it last ran, and a fold waits for the owner to move the checkpoint (D272 §5, §6)",
+			steps[0].Version, checkpoint)
+	case checkpoint == 0 && len(steps) > 2:
+		return fmt.Sprintf("the steps are a baseline and %d after it; before production runs, a schema change folds "+
+			"the last step into the baseline and adds the change as the one step after it (D228)", len(steps)-1)
+	}
+	return ""
+}
+
+// readCheckpoint is the version migrations/CHECKPOINT holds, or 0 when there is none.
+func readCheckpoint(t *testing.T) int {
+	t.Helper()
+	text, err := os.ReadFile(filepath.Join("migrations", checkpointFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(string(text)))
+	if err != nil || version < 1 {
+		t.Fatalf("migrations/%s holds %q; want the schema version production last ran", checkpointFile, text)
+	}
+	return version
+}
+
+func TestSteps_KeepTheMigrationWindow(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(steps) == 0 {
-		t.Fatal("there is no migration step")
-	}
 	_, err = os.Stat(filepath.Join("migrations", migrationsLiveMarker))
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		if !steps[0].IsBaseline || len(steps) > 2 {
-			t.Errorf("the steps are %d, the first a baseline: %t; until migrations are live, a schema change "+
-				"folds the last step into the baseline and adds the change as the one step after it (D228)",
-				len(steps), steps[0].IsBaseline)
-		}
-	case err != nil:
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		t.Fatal(err)
+	}
+	if problem := windowProblem(steps, err == nil, readCheckpoint(t)); problem != "" {
+		t.Error(problem)
+	}
+}
+
+func TestWindowProblem_HoldsTheBaselineAtTheCheckpointAndOneStepBeforeIt(t *testing.T) {
+	t.Parallel()
+	baselineAndOne := stepsFrom(t, 3, foldedBaseline(t), fourthStep)
+	baselineAndTwo := stepsFrom(t, 3, foldedBaseline(t), fourthStep, fifthStep)
+	noBaseline := syntheticSteps(t, firstStep, secondStep)
+	for _, tc := range []struct {
+		name        string
+		steps       []Step
+		isLive      bool
+		checkpoint  int
+		wantProblem string
+	}{
+		{"before production, a baseline and one step", baselineAndOne, false, 0, ""},
+		{"before production, a second step", baselineAndTwo, false, 0, "folds the last step"},
+		{"before production, no baseline", noBaseline, false, 0, "not a baseline"},
+		{"while production runs, steps since the checkpoint", baselineAndTwo, false, 3, ""},
+		{"while production runs, a baseline past the checkpoint", baselineAndOne, false, 2, "waits for the owner"},
+		{"while production runs, no baseline", noBaseline, false, 1, "not a baseline"},
+		{"live, anything", noBaseline, true, 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			problem := windowProblem(tc.steps, tc.isLive, tc.checkpoint)
+			if tc.wantProblem == "" && problem != "" || !strings.Contains(problem, tc.wantProblem) {
+				t.Errorf("windowProblem = %q; want one saying %q", problem, tc.wantProblem)
+			}
+		})
 	}
 }
 

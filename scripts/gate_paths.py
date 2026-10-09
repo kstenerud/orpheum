@@ -11,7 +11,8 @@ Three classes, each with its own remedy:
   branch, a change needs a `Gate-Changed: <why>` trailer (`check_test_weakening.py`).
 * **Generated** — output of a generator. The remedy is to edit the source and regenerate.
 * **Committed migrations** — append-only (D181). The remedy is the next migration. Until
-  migrations are live (D228) the baseline is the exception: it is rewritten by each fold.
+  migrations are live (D228) the baseline is the exception: it is rewritten by each fold, until
+  production runs (D272 §5). From then on the checkpoint holds it, and only the owner moves that.
 
 Kept in one module so the hooks and the branch gate cannot disagree about the list.
 """
@@ -31,6 +32,8 @@ GATE_PATTERNS = (
     r"^\.githooks/",
     r"^\.github/",
     r"^deps/",
+    # The schema version production last ran: the baseline is held at it (D272 §6).
+    r"^internal/store/migrations/CHECKPOINT$",
     r"^internal/archtest/",
     r"(^|/)testdata/(golden|baselines?)/",
     r"^web/eslint\.config\.[cm]?js$",
@@ -49,6 +52,8 @@ GENERATED_PATTERNS = (
 MIGRATIONS_DIR = "internal/store/migrations/"
 # Its presence says migrations are live (D228); internal/store's steps_test.go names it too.
 MIGRATIONS_LIVE_MARKER = MIGRATIONS_DIR + "LIVE"
+# Its presence says production runs, at the version it holds (D272 §6); steps_test.go names it too.
+MIGRATIONS_CHECKPOINT = MIGRATIONS_DIR + "CHECKPOINT"
 # The line that marks a step as the baseline (internal/store/steps.go).
 BASELINE_DIRECTIVE = "-- orpheum:baseline folds"
 # persistent.db's schema goldens: the baseline's and the current version's (D228).
@@ -83,17 +88,24 @@ def migrations_are_live(root: Path, rev: str | None = None) -> bool:
     return _git_show(root, rev or "HEAD", MIGRATIONS_LIVE_MARKER) is not None
 
 
+def production_runs(root: Path) -> bool:
+    """Whether a checkpoint says production runs (D272 §6), in the working tree or at HEAD. From
+    then the baseline is the version production last ran, frozen until the owner moves it."""
+    return (root / MIGRATIONS_CHECKPOINT).exists() or _git_show(root, "HEAD", MIGRATIONS_CHECKPOINT) is not None
+
+
 def is_committed_migration(rel: str, root: Path) -> bool:
     """A migration step that git already tracks at HEAD; a new one may still be written. Until
-    migrations are live, the baseline is not one: each fold rewrites it (D228). The step after it
-    is, because a development database has applied it."""
+    migrations are live, the baseline is not one before production runs: each fold rewrites it
+    (D228). The steps after it are, because a database has applied them; and while production
+    runs the baseline is too, since production's database recorded it (D272 §5)."""
     if not rel.startswith(MIGRATIONS_DIR) or not rel.endswith(".sql"):
         return False
     committed = _git_show(root, "HEAD", rel)
     if committed is None:
         return False
     is_baseline = any(line.strip().startswith(BASELINE_DIRECTIVE) for line in committed.splitlines())
-    return not is_baseline or migrations_are_live(root)
+    return not is_baseline or migrations_are_live(root) or production_runs(root)
 
 
 def relative(path: str, root: Path) -> str | None:

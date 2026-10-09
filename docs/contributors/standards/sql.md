@@ -121,9 +121,13 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   queries always match the migrated tables.
 - **Until migrations are live, a baseline and one step** ([D228](../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)): `NNNN_baseline.sql` builds a
   new database at its version, and a schema change folds the last step into it and adds the
-  change as the one step after it. **Enforced by:**
-  `TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive`; the owner commits
-  `internal/store/migrations/LIVE` to end it.
+  change as the one step after it. **Once production runs, a sliding window**
+  ([D272](../decisions/working-notes.md#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)
+  §5, §6): `internal/store/migrations/CHECKPOINT` holds the version production last ran, the
+  baseline stays at it, frozen, and a schema change appends a step; when the owner says
+  production has migrated, they move the checkpoint and the steps up to it fold into the
+  baseline. **Enforced by:** `TestSteps_KeepTheMigrationWindow`; the pre-edit hook; the
+  checkpoint is a gate file. The owner commits `internal/store/migrations/LIVE` to end both.
 - **Append only, forward only.** A merged step is never edited, renamed or deleted; a mistake is
   a new step. Until migrations are live, the baseline is the exception, rewritten by each fold.
   There are no down migrations: the `VACUUM INTO` snapshot taken before migrating is the way
