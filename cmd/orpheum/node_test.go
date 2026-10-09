@@ -43,6 +43,8 @@ func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"devices":[{"key":`,
 		`"msg":"a node finished a scan"`,
 		`"listedCount":2,"examinedCount":1,"errorCount":0`,
+		// The node watches its root for changes (D272 §9).
+		`"msg":"watching a root for changes"`,
 		`"msg":"identified a library"`,
 	} {
 		if !strings.Contains(log, want) {

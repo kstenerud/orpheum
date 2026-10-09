@@ -424,6 +424,8 @@ func fullScansAllowed() map[string]string {
 		"ListOfflineRoots":              "a household's libraries have a handful of roots; the System page lists them",
 		"ListOfflineDisks": "a household's libraries have a handful of roots, whose missing disks " +
 			"this lists",
+		"ListCheckedRoots": "a household's libraries have a handful of roots; the scan schedule reads " +
+			"each one's last scan every 15 minutes (D272 section 1)",
 	}
 }
 
