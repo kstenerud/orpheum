@@ -56,6 +56,12 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   person's; the lower device id makes the offer; a device leaving the roster ends its call, and a
   new welcome makes every call again. `src/together-voice.test.ts`. Whether two browsers hear each
   other only a device can show: VQ21.
+- **The API over WebRTC sends each request on a data channel of its own** (D273 §8): a text head,
+  the body in messages of at most 64 KiB, an empty message ending it; the response's body is
+  streamed as its messages arrive, and a channel that closes first fails the request. Requests go
+  to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
+  new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
+  browser against a real core, `web/e2e/webrtc.spec.ts`.
 - **A call's own Authorization wins over the session token**: a Watch Together member's
   requests carry their membership credential (D246 §3). `src/client.test.ts`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and

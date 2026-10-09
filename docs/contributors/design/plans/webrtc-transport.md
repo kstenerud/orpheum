@@ -5,8 +5,8 @@
 
 # The WebRTC transport
 
-- **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1 is
-  built.
+- **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1 and
+  W2a are built.
 - **Depends on:** D273, [reachability-approaches-2026-10-09.md](../research/reachability-approaches-2026-10-09.md)
   §9.4 (the measurement), the discovery service's spec (signalling through it).
 
@@ -36,7 +36,9 @@
 | Phase | What | State |
 | --- | --- | --- |
 | W1 | The core: `internal/core/rtcapi`, a peer per offer, each request channel handed to the core's handler with streamed, back-pressured responses; an offer endpoint on the core's API for a signed-in client (LAN and tests); bounds on connections. Tested with a pion client peer (`rtcapitest`) | built |
-| W2 | The web client: a fetch over channels across four connections under the SDK; the hls.js loader for chunks; images and subtitles through blob URLs; choosing HTTPS or WebRTC per D273 §7's race: the first path to answer is used at once, and a better one answering a short while later takes over | |
+| W2a | The web client's API over channels: the SDK's `RtcTransport` over four connections and a `SwitchableFetch` the API client sends with; `?transport=webrtc` moves a signed-in tab onto it until W4 signals through the discovery | built |
+| W2b | Media over channels: a service worker on the page passes what the browser loads itself (images, `<video>`, hls.js, subtitle tracks) to the page's transport, so no screen changes | |
+| W2c | The race (D273 §7): every path tried, the first to answer used at once, a better one answering a short while later taking over | |
 | W3 | WebSocket over a channel: Watch Together's hub | |
 | W4 | Signalling and STUN through the discovery (the service and the owner's own), so a client reaches a core HTTPS cannot reach | |
 | W5 | A browser-tier test forced onto the WebRTC path; a measurement over a real link | |
