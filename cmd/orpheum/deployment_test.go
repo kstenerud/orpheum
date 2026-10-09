@@ -87,3 +87,33 @@ func TestDispatch_WriteDeploymentIsASubcommandThatNeedsItsImage(t *testing.T) {
 			"image runs it", status, stderr.String())
 	}
 }
+
+// The configs a deployment is written with set every key, so a key added to the binary is added to
+// the deployment's templates too, rather than run on its starting value with a warning at each start.
+func TestWriteDeployment_TheConfigsItWritesSetEveryKey(t *testing.T) {
+	t.Parallel()
+	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
+	if _, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1); err != nil {
+		t.Fatal(err)
+	}
+	fillValues(t, dir)
+	if _, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []instanceKind{kindCore, kindNode} {
+		instance, err := loadInstance(filepath.Join(dir, string(kind)), kind)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, report, err := loadConfig(instance.fullConfigPath(), kind)
+		if err != nil {
+			t.Fatalf("the written %s config: %v", kind, err)
+		}
+		for _, key := range report.OnStartingValue {
+			t.Errorf("the written %s config leaves %s out: add it to internal/deployment/templates", kind, key.path())
+		}
+		if len(report.Unknown) > 0 {
+			t.Errorf("the written %s config sets keys the binary does not know: %v", kind, report.Unknown)
+		}
+	}
+}
