@@ -325,6 +325,29 @@
         ],
         "type": "object"
       },
+      "ChangeDetectionInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "changeDetection": {
+            "enum": [
+              "watch",
+              "interval",
+              "manual"
+            ],
+            "type": "string"
+          },
+          "checkEveryHours": {
+            "description": "Hours between checks; interval only",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changeDetection"
+        ],
+        "type": "object"
+      },
       "ChangeDeviceInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -7785,6 +7808,60 @@
           }
         },
         "summary": "Delete a library: its titles are hidden with their history, its work cancelled (admin; D231 §7)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/change-detection": {
+      "put": {
+        "operationId": "putLibraryChangeDetection",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeDetectionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
         "tags": [
           "Libraries"
         ]

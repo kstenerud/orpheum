@@ -125,6 +125,26 @@ func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, e
 	return id, nil
 }
 
+// SetChangeDetection chooses again how a library notices changes: "watch", "interval" every
+// checkEveryHours, or "manual" (D184). The next scan schedule, and the watcher's next notice, follow
+// it (D272 §1, §9). The schema's checks refuse an answer outside the closed set.
+func (admin *Admin) SetChangeDetection(
+	ctx context.Context, libraryID int64, changeDetection string, checkEveryHours *int64,
+) error {
+	return admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		changed, err := queries.SetLibraryChangeDetection(ctx, sqlcgen.SetLibraryChangeDetectionParams{
+			ChangeDetection: changeDetection, CheckEveryHours: checkEveryHours, ID: libraryID,
+		})
+		if err != nil {
+			return fmt.Errorf("set library %d's change detection: %w", libraryID, err)
+		}
+		if changed == 0 {
+			return fmt.Errorf("library %d: %w", libraryID, ErrNoLibrary)
+		}
+		return nil
+	})
+}
+
 // Summary is a library with its roots' states and its files counted by filing.
 type Summary struct {
 	sqlcgen.ListLibrariesRow

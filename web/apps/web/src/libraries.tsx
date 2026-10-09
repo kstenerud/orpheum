@@ -182,6 +182,92 @@ function ScanProgress(props: { readonly scan: NonNullable<Root["scan"]> }): JSX.
   );
 }
 
+/** The ways a library notices changes (D184). */
+const changeDetections = ["watch", "interval", "manual"] as const;
+
+/** How a library notices changes, as the API takes it (D184). */
+export type ChangeDetection = Pick<Library, "changeDetection" | "checkEveryHours">;
+
+/**
+ * How a library notices changes, chosen again after it was made (the owner, 2026-10-09): watching,
+ * checking every so many hours, or when asked; saved when the admin says so, hours only with an
+ * interval, which the admin gives.
+ */
+export function ChangeDetectionChoice(props: {
+  readonly library: Library;
+  readonly onSave: (choice: ChangeDetection) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { library } = props;
+  const [detection, setDetection] = useState(library.changeDetection);
+  const [hours, setHours] = useState<number | undefined>(library.checkEveryHours);
+  const isInterval = detection === "interval";
+  const isUnchanged =
+    detection === library.changeDetection && (!isInterval || hours === library.checkEveryHours);
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        props.onSave(
+          isInterval && hours !== undefined
+            ? { changeDetection: detection, checkEveryHours: hours }
+            : { changeDetection: detection },
+        );
+      }}
+    >
+      <label>
+        {t("libraries.changeDetection")}{" "}
+        <select
+          value={detection}
+          onChange={(event) => {
+            const chosen = changeDetections.find((each) => each === event.target.value);
+            if (chosen !== undefined) {
+              setDetection(chosen);
+            }
+          }}
+        >
+          <option value="watch">{t("libraries.changesWatch")}</option>
+          <option value="interval">{t("libraries.changesInterval")}</option>
+          <option value="manual">{t("libraries.changesManual")}</option>
+        </select>
+      </label>{" "}
+      {isInterval ? (
+        <label>
+          {t("libraries.checkEvery")}{" "}
+          <input
+            type="number"
+            min={1}
+            required
+            value={hours ?? ""}
+            onChange={(event) => {
+              setHours(event.target.value === "" ? undefined : Number(event.target.value));
+            }}
+          />
+        </label>
+      ) : null}{" "}
+      <button type="submit" disabled={isUnchanged}>
+        {t("libraries.changeDetectionSave")}
+      </button>
+    </form>
+  );
+}
+
+/** A library's files counted by filing, when the admin sees them. */
+function FilingCounts(props: { readonly library: Library }): JSX.Element | null {
+  const { t } = useTranslation();
+  const filingCounts = Object.entries(props.library.fileCountsByFiling ?? {});
+  if (filingCounts.length === 0) {
+    return null;
+  }
+  return (
+    <p>
+      {filingCounts
+        .map(([filing, count]) => t("libraries.filing", { filing: filingName(t, filing), count }))
+        .join(" · ")}
+    </p>
+  );
+}
+
 /**
  * One library: its name, its roots, its files by filing, asking it to scan — again once the scan
  * running ends, while one does (D236 §3) — and deleting it, confirmed first (D231 §7).
@@ -194,10 +280,10 @@ export function LibraryCard(props: {
   readonly onDelete: () => void;
   readonly places?: readonly Place[];
   readonly onRepoint?: (root: Root, to: Place) => void;
+  readonly onChangeDetection?: (choice: ChangeDetection) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
-  const filingCounts = Object.entries(library.fileCountsByFiling ?? {});
   return (
     <article aria-labelledby={`library-${String(library.id)}`}>
       <h2 id={`library-${String(library.id)}`}>{library.name}</h2>
@@ -213,18 +299,12 @@ export function LibraryCard(props: {
           />
         ))}
       </ul>
-      {filingCounts.length === 0 ? null : (
-        <p>
-          {filingCounts
-            .map(([filing, count]) =>
-              t("libraries.filing", {
-                filing: filingName(t, filing),
-                count,
-              }),
-            )
-            .join(" · ")}
-        </p>
-      )}
+      <ChangeDetectionChoice
+        key={`${library.changeDetection}:${String(library.checkEveryHours)}`}
+        library={library}
+        onSave={(choice) => props.onChangeDetection?.(choice)}
+      />
+      <FilingCounts library={library} />
       <p>
         <Link to={{ screen: "files", libraryId: library.id }}>{t("libraries.files")}</Link>{" "}
         <button type="button" onClick={props.onScan}>
@@ -281,6 +361,7 @@ function useLibraryActions(reload: () => void): {
   readonly answerAboutRoot: (libraryId: number, root: Root, answer: RootAnswer) => void;
   readonly deleteLibrary: (libraryId: number) => void;
   readonly repoint: (libraryId: number, root: Root, to: Place) => void;
+  readonly setChangeDetection: (libraryId: number, choice: ChangeDetection) => void;
   /** Whether an action runs, which every library's buttons wait for (D244 §4). */
   readonly isActing: boolean;
 } {
@@ -310,6 +391,18 @@ function useLibraryActions(reload: () => void): {
       act(libraryId, async (idempotencyKey) => {
         const movedFileCount = await repointRoot(api, { libraryId, root, to }, idempotencyKey);
         setNote(libraryId, t("libraries.repointed", { count: movedFileCount }));
+        reload();
+      });
+    },
+    setChangeDetection: (libraryId, choice) => {
+      act(libraryId, async () => {
+        throwIfRefused(
+          await api.PUT("/libraries/{id}/change-detection", {
+            params: { path: { id: libraryId } },
+            body: choice,
+          }),
+        );
+        setNote(libraryId, t("libraries.changeDetectionSaved"));
         reload();
       });
     },
@@ -415,6 +508,9 @@ export function Libraries(): JSX.Element {
       places={placeList}
       onRepoint={(root, to) => {
         actions.repoint(library.id, root, to);
+      }}
+      onChangeDetection={(choice) => {
+        actions.setChangeDetection(library.id, choice);
       }}
     />
   );

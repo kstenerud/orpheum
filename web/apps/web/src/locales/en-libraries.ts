@@ -61,6 +61,8 @@ export const enLibraries = {
     changesInterval: "Check every so many hours",
     changesManual: "Only when I ask",
     checkEvery: "Hours between checks",
+    changeDetectionSave: "Save",
+    changeDetectionSaved: "Saved: changes are noticed as chosen.",
     writable: "May the server write beside the media",
     writableHelp:
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",

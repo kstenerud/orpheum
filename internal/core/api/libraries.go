@@ -99,6 +99,16 @@ type CreatedOutput struct {
 	}
 }
 
+// ChangeDetectionInput chooses again how a library notices changes (D184).
+type ChangeDetectionInput struct {
+	AuthorizationHeader
+	ID   int64 `path:"id"`
+	Body struct {
+		ChangeDetection string `enum:"watch,interval,manual" json:"changeDetection"`
+		CheckEveryHours *int64 `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"`
+	}
+}
+
 // LibraryInput names one library.
 type LibraryInput struct {
 	AuthorizationHeader
@@ -210,6 +220,11 @@ func (server *Server) registerLibraries() {
 		OperationID: "getLibraries", Method: http.MethodGet, Path: "/libraries",
 		Summary: "The libraries; an admin also sees their roots and files by filing", Tags: tags,
 	}, server.getLibraries)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "putLibraryChangeDetection", Method: http.MethodPut, Path: "/libraries/{id}/change-detection",
+		Summary: "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
+		Tags:    tags, DefaultStatus: http.StatusNoContent,
+	}, server.putLibraryChangeDetection)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibraryScan", Method: http.MethodPost, Path: "/libraries/{id}/scan",
 		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it (admin)", Tags: tags,
@@ -468,6 +483,23 @@ func (server *Server) postFileRetire(ctx context.Context, input *ItemInput) (*Re
 		return nil, server.libraryError(ctx, "retire a file", err)
 	}
 	return retiredOutput(retired), nil
+}
+
+func (server *Server) putLibraryChangeDetection(ctx context.Context, input *ChangeDetectionInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	body := input.Body
+	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.checkEveryHours",
+			"checkEveryHours is given with changeDetection interval, and only then")
+	}
+	err = dependencies.Libraries.SetChangeDetection(ctx, input.ID, body.ChangeDetection, body.CheckEveryHours)
+	if err != nil {
+		return nil, server.libraryError(ctx, "set a library's change detection", err)
+	}
+	return &struct{}{}, nil
 }
 
 func (server *Server) deleteLibrary(ctx context.Context, input *LibraryInput) (*RetiredOutput, error) {

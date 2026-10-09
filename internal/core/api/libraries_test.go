@@ -328,6 +328,44 @@ func TestLibraries_AnAdminSeesARootsScanInProgress(t *testing.T) {
 	}
 }
 
+// How a library notices changes is chosen again after it is made, by an admin alone, with hours only
+// for an interval (D184; the owner, 2026-10-09).
+func TestLibraries_AnAdminChoosesAgainHowALibraryNoticesChanges(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/shows")
+	if created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")); created.status !=
+		http.StatusCreated {
+		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
+	}
+	const path = "/libraries/1/change-detection"
+	wantInvalidAt(t, harness.do(t, http.MethodPut, path, admin, map[string]any{"changeDetection": "interval"}),
+		http.StatusUnprocessableEntity, "body.checkEveryHours")
+	wantInvalidAt(t, harness.do(t, http.MethodPut, path, admin,
+		map[string]any{"changeDetection": "watch", "checkEveryHours": 6}),
+		http.StatusUnprocessableEntity, "body.checkEveryHours")
+	for _, change := range []map[string]any{
+		{"changeDetection": "interval", "checkEveryHours": 6}, {"changeDetection": "watch"},
+	} {
+		if answered := harness.do(t, http.MethodPut, path, admin, change); answered.status != http.StatusNoContent {
+			t.Fatalf("PUT %s %v = %d %s", path, change, answered.status, answered.body)
+		}
+	}
+	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
+	if !strings.Contains(listed.body, `"changeDetection":"watch"`) || strings.Contains(listed.body, "checkEveryHours") {
+		t.Errorf("after watching was chosen, GET /libraries = %s; want watch and no hours", listed.body)
+	}
+	wantError(t, harness.do(t, http.MethodPut, "/libraries/9/change-detection", admin,
+		map[string]any{"changeDetection": "manual"}), http.StatusNotFound, CodeNotFound)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodPut, path, harness.signIn(t, "partner", "partner-password"),
+		map[string]any{"changeDetection": "manual"}), http.StatusForbidden, CodeForbidden)
+}
+
 func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

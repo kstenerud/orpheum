@@ -643,6 +643,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/libraries/{id}/change-detection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choose again how a library notices changes: watching, checking every so many hours, or when asked */
+        put: operations["putLibraryChangeDetection"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries/{id}/mounts/gone": {
         parameters: {
             query?: never;
@@ -1680,6 +1697,15 @@ export interface components {
             /** Format: int64 */
             expiresAt?: number;
             name: string;
+        };
+        ChangeDetectionInputBody: {
+            /** @enum {string} */
+            changeDetection: "watch" | "interval" | "manual";
+            /**
+             * Format: int64
+             * @description Hours between checks; interval only
+             */
+            checkEveryHours?: number;
         };
         ChangeDeviceInputBody: {
             /**
@@ -4823,6 +4849,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RetiredOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    putLibraryChangeDetection: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeDetectionInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

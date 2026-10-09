@@ -42,6 +42,12 @@ LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state
 WHERE library_root.library_id = sqlc.arg(library_id) AND library_root.retired_at IS NULL
 ORDER BY library_root.root_path;
 
+-- name: SetLibraryChangeDetection :execrows
+-- How a live library notices changes, chosen again by an admin: watching, checking every so many
+-- hours, or only when asked (D184; the owner, 2026-10-09).
+UPDATE library SET change_detection = sqlc.arg(change_detection), check_every_hours = sqlc.narg(check_every_hours)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
 -- name: ListCheckedRoots :many
 -- Every live root of a library that notices changes by itself, watching or checking every so many
 -- hours, with when it was last scanned: what the scan schedule reads (D27, D272 section 1).

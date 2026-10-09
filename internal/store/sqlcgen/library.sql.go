@@ -371,3 +371,24 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 	}
 	return items, nil
 }
+
+const setLibraryChangeDetection = `-- name: SetLibraryChangeDetection :execrows
+UPDATE library SET change_detection = ?1, check_every_hours = ?2
+WHERE id = ?3 AND removed_at IS NULL
+`
+
+type SetLibraryChangeDetectionParams struct {
+	ChangeDetection string
+	CheckEveryHours *int64
+	ID              int64
+}
+
+// How a live library notices changes, chosen again by an admin: watching, checking every so many
+// hours, or only when asked (D184; the owner, 2026-10-09).
+func (q *Queries) SetLibraryChangeDetection(ctx context.Context, arg SetLibraryChangeDetectionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setLibraryChangeDetection, arg.ChangeDetection, arg.CheckEveryHours, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
