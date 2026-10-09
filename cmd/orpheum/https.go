@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
@@ -25,28 +26,31 @@ import (
 // nothing once every two months (D243 §6).
 const dnsPropagationWait = 30 * time.Second
 
-// openCertificates makes the certificate service of the server's public name, and asks for a
-// certificate at once when there is none; nothing for a server with no https.domain (D243 §6).
+// openCertificates makes the certificates HTTPS serves: the server's public name's, through
+// Cloudflare, for a server with an https.domain (D243 §6); the discovery's is made once the
+// discovery names the core (openReachedFromOutside).
 func openCertificates(
-	ctx context.Context, config Config, opened openedServices, outside wiring, logger *slog.Logger,
+	config Config, opened openedServices, outside wiring, logger *slog.Logger,
 ) (openedServices, error) {
+	parts := certificate.Parts{
+		Contact: config.HTTPS.Contact, DirectoryURL: config.HTTPS.ACMEDirectory,
+		HTTP: opened.jobServices.outboundClient, Files: opened.directories, Queue: opened.jobServices.queue,
+		Clock: clock.System{}, PropagationWait: outside.dnsPropagationWait, Logger: logger,
+	}
+	served := &servedCertificates{discoveryParts: parts}
+	opened.jobServices.certificates = served
 	if !config.HTTPS.isOn() {
 		return opened, nil
 	}
-	service, err := certificate.New(certificate.Parts{
-		Domain: config.HTTPS.Domain, Contact: config.HTTPS.Contact, DirectoryURL: config.HTTPS.ACMEDirectory,
-		HTTP:  opened.jobServices.outboundClient,
-		DNS:   cloudflare.New(opened.jobServices.outboundClient, outside.cloudflareBaseURL, opened.secrets),
-		Files: opened.directories, Queue: opened.jobServices.queue, Clock: clock.System{},
-		PropagationWait: outside.dnsPropagationWait, Logger: logger,
-	})
+	own := parts
+	own.Domain = config.HTTPS.Domain
+	own.DNS = certificate.CloudflareDNS(
+		cloudflare.New(opened.jobServices.outboundClient, outside.cloudflareBaseURL, opened.secrets))
+	service, err := certificate.New(own)
 	if err != nil {
 		return opened, err
 	}
-	opened.jobServices.certificates = service
-	if _, err = service.QueueRenewal(ctx); err != nil {
-		return opened, err
-	}
+	served.own = service
 	renewWhenTokenSet(opened.secrets, service, logger)
 	return opened, nil
 }
@@ -85,25 +89,75 @@ func listenForMedia(ctx context.Context, address string, logger *slog.Logger) (n
 	return listener, nil
 }
 
-// listenAndServeHTTPS serves handler over HTTPS on https.listen, as serveHTTPS says; nothing for a
-// server with no public name. It returns what stops it.
+// listenAndServeHTTPS serves handler over HTTPS on https.listen, as serveHTTPS says: at once for a
+// server with a public name, and for one without, once its discovery's certificate can be served
+// (D273); nothing before. It returns what stops it.
 func listenAndServeHTTPS(
 	ctx context.Context, config Config, opened openedServices, handler http.Handler, logger *slog.Logger,
 ) (func() error, error) {
-	if opened.jobServices.certificates == nil {
-		return func() error { return nil }, nil
+	served := opened.jobServices.certificates
+	listen := func() (func() error, error) {
+		listener, err := listenForMedia(ctx, config.HTTPS.Listen, logger)
+		if err != nil {
+			return nil, fmt.Errorf("listen for HTTPS on %s: %w", config.HTTPS.Listen, err)
+		}
+		return serveHTTPS(ctx, config, listener, served, handler, logger), nil
 	}
-	listener, err := listenForMedia(ctx, config.HTTPS.Listen, logger)
+	if served.own != nil {
+		return listen()
+	}
+	door := &lateDoor{}
+	served.whenServable(func() {
+		if err := door.open(listen); err != nil {
+			logger.ErrorContext(ctx, "HTTPS could not start for the discovery's names", "err", err)
+		}
+	})
+	return door.shut, nil
+}
+
+// lateDoor is a front door opened once something can be served through it, if it has not been
+// closed first.
+type lateDoor struct {
+	mutex    sync.Mutex
+	stop     func() error
+	isClosed bool
+}
+
+// open opens the door with listen, once, unless it is closed.
+func (door *lateDoor) open(listen func() (func() error, error)) error {
+	door.mutex.Lock()
+	defer door.mutex.Unlock()
+	if door.isClosed || door.stop != nil {
+		return nil
+	}
+	stop, err := listen()
 	if err != nil {
-		return nil, fmt.Errorf("listen for HTTPS on %s: %w", config.HTTPS.Listen, err)
+		return err
 	}
-	return serveHTTPS(ctx, config, listener, opened.jobServices.certificates, handler, logger), nil
+	door.stop = stop
+	return nil
+}
+
+// shut closes the door, stopping what open started.
+func (door *lateDoor) shut() error {
+	door.mutex.Lock()
+	defer door.mutex.Unlock()
+	door.isClosed = true
+	if door.stop == nil {
+		return nil
+	}
+	return door.stop()
+}
+
+// certificateSource is what serves a browser the certificate for the name it asks for.
+type certificateSource interface {
+	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
 }
 
 // serveHTTPS serves handler over HTTPS on listener with the certificate service's certificate, a
 // renewed one served as soon as it is kept, until the returned function stops it.
 func serveHTTPS(
-	ctx context.Context, config Config, listener net.Listener, certificates *certificate.Service,
+	ctx context.Context, config Config, listener net.Listener, certificates certificateSource,
 	handler http.Handler, logger *slog.Logger,
 ) func() error {
 	server := &http.Server{
@@ -127,10 +181,10 @@ func serveHTTPS(
 	}
 }
 
-// certificateExpiry is the System page's view of the certificate service: nil for a server with no
-// public name, never a nil service in a non-nil interface.
-func certificateExpiry(certificates *certificate.Service) api.CertificateExpiry {
-	if certificates == nil {
+// certificateExpiry is the System page's view of the certificates: nil for a server with no public
+// name, never a nil service in a non-nil interface.
+func certificateExpiry(certificates *servedCertificates) api.CertificateExpiry {
+	if certificates.own == nil {
 		return nil
 	}
 	return certificates

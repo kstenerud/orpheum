@@ -12,6 +12,12 @@
 //     and every five minutes otherwise. TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
 //   - A session the discovery refuses is replaced by a new one, signed afresh.
 //     TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
+//   - The core's zone, once the discovery claims it, is kept, and the claim is told once, so the
+//     certificate of its names can be asked for. TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone.
+//   - A claimed core asks how it stands with each heartbeat, and stops sending its addresses once
+//     its subscription ends. TestStep_AClaimedCoreLearnsWhenItsSubscriptionEnds.
+//   - The certificate of the core's names is proven through the discovery, which sets and clears
+//     its DNS-01 record. TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery.
 //   - A discovery's deprecation date is kept for the admin to see.
 //     TestCall_KeepsTheDeprecationTheDiscoveryNames.
 //   - Leaving tells the discovery and forgets it. TestLeave_TellsTheDiscoveryAndForgetsIt.

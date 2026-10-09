@@ -24,7 +24,8 @@ const apiMajor = 1
 // beside secret.key, and the service that enrols with a discovery when an admin asks and answers the
 // WebRTC offers it passes on through answerer.
 func newDiscovery(
-	config Config, opened openedServices, answerer discovery.Answerer, logger *slog.Logger,
+	config Config, opened openedServices, answerer discovery.Answerer, onClaimed func(context.Context),
+	logger *slog.Logger,
 ) (*discovery.Service, error) {
 	key, err := identity.LoadOrMake(opened.directories, rand.Reader)
 	if err != nil {
@@ -33,33 +34,48 @@ func newDiscovery(
 	return discovery.New(discovery.Parts{
 		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
-		Candidates: func() []discoveryproto.Candidate { return interfaceCandidates(reachablePort(config)) },
-		Answerer:   answerer,
+		Candidates: func() []discoveryproto.Candidate { return interfaceCandidates(httpsPort(config)) },
+		Answerer:   answerer, OnClaimed: onClaimed,
 	})
 }
 
-// openReachedFromOutside opens what lets the server be reached from outside: the certificate of
-// its public name, and its discovery, which passes the WebRTC offers it is sent on to answerer.
+// openReachedFromOutside opens what lets the server be reached from outside: its discovery, which
+// passes the WebRTC offers it is sent on to answerer, and the certificates of its public name and
+// of the names its discovery gives it, asking at once for each it lacks.
 func openReachedFromOutside(
 	ctx context.Context, config Config, opened openedServices, outside wiring, answerer discovery.Answerer,
 	logger *slog.Logger,
 ) (openedServices, error) {
-	opened, err := openCertificates(ctx, config, opened, outside, logger)
+	opened, err := openCertificates(config, opened, outside, logger)
 	if err != nil {
 		return opened, err
 	}
-	opened.jobServices.discovery, err = newDiscovery(config, opened, answerer, logger)
+	served := opened.jobServices.certificates
+	var discovered *discovery.Service
+	onClaimed := func(ctx context.Context) {
+		if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
+			logger.ErrorContext(ctx, "the certificate of the discovery's names could not be read", "err", useErr)
+		}
+		if _, queueErr := served.QueueRenewal(ctx); queueErr != nil {
+			logger.ErrorContext(ctx, "the certificate of the discovery's names could not be asked for", "err", queueErr)
+		}
+	}
+	discovered, err = newDiscovery(config, opened, answerer, onClaimed, logger)
+	if err != nil {
+		return opened, err
+	}
+	opened.jobServices.discovery, served.discoveryParts.DNS = discovered, discovered
+	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
+		return opened, useErr
+	}
+	_, err = served.QueueRenewal(ctx)
 	return opened, err
 }
 
-// reachablePort is the port a client reaches the core on: HTTPS's when the core serves it, the
-// plain listener's otherwise; zero when neither names one.
-func reachablePort(config Config) int {
-	listen := config.Server.Listen
-	if config.HTTPS.isOn() {
-		listen = config.HTTPS.Listen
-	}
-	_, port, err := net.SplitHostPort(listen)
+// httpsPort is the port a client reaches the core on through its discovery, whose names are served
+// over HTTPS: https.listen's; zero when it names none.
+func httpsPort(config Config) int {
+	_, port, err := net.SplitHostPort(config.HTTPS.Listen)
 	if err != nil {
 		return 0
 	}

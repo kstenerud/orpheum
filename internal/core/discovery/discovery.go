@@ -82,6 +82,9 @@ type Parts struct {
 	TURN func() []discoveryproto.ICEServer
 	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server; nil answers none.
 	Answerer Answerer
+	// OnClaimed is told when the discovery has claimed the core, or moved it to another zone: its
+	// certificate's name (Status.CertificateName) is then known. Nil tells nothing.
+	OnClaimed func(ctx context.Context)
 }
 
 // Answerer answers a client's WebRTC offer: rtcapi.Server.Answer.
@@ -89,10 +92,12 @@ type Answerer interface {
 	Answer(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
 }
 
-// kept is the state file: which discovery, and the core's id there.
+// kept is the state file: which discovery, the core's id there, and its zone once claimed, so its
+// certificate is served from the start.
 type kept struct {
 	BaseURL string `json:"baseUrl"`
 	CoreID  string `json:"coreId"`
+	Zone    string `json:"zone,omitempty"`
 }
 
 // Status is where the core stands with its discovery, for its admin.
@@ -129,6 +134,51 @@ type Service struct {
 	lastSent       []discoveryproto.Candidate
 }
 
+// CertificateName is the wildcard every name the discovery publishes for the core is under,
+// *.<coreId>.<zone>, which its certificate is for; empty before the discovery has given it a zone.
+func (status Status) CertificateName() string {
+	if status.CoreID == "" || status.Zone == "" {
+		return ""
+	}
+	return "*." + status.CoreID + "." + status.Zone
+}
+
+// SetTXT sets the TXT record of name, its certificate's DNS-01 challenge, through the discovery,
+// which holds the record for the core, and returns what clears it again (the spec's §3.7).
+func (service *Service) SetTXT(ctx context.Context, name, value string) (func(context.Context) error, error) {
+	if err := service.setTXT(ctx, name, value); err != nil {
+		return nil, err
+	}
+	return func(ctx context.Context) error { return service.setTXT(ctx, name, "") }, nil
+}
+
+// setTXT sets name's record to value, or clears it when value is empty.
+func (service *Service) setTXT(ctx context.Context, name, value string) error {
+	status := service.Status()
+	if status.BaseURL == "" {
+		return ErrNotEnrolled
+	}
+	token, err := service.session(ctx)
+	if err != nil {
+		return fmt.Errorf("open a session for the certificate's challenge: %w", err)
+	}
+	method := http.MethodPut
+	if value == "" {
+		method = http.MethodDelete
+	}
+	err = service.call(ctx, callOf{
+		base: status.BaseURL, method: method, path: discoveryproto.PathACMEChallenge, token: token,
+		body: discoveryproto.ACMEChallengeRequest{Name: name, Value: value},
+	})
+	if err != nil {
+		return fmt.Errorf("have the discovery set the certificate's challenge: %w", err)
+	}
+	return nil
+}
+
+// ErrNotEnrolled is a call that needs a discovery, on a core enrolled with none.
+var ErrNotEnrolled = errors.New("the core is enrolled with no discovery")
+
 // New returns the service, carrying on with the discovery the core was enrolled with, if any.
 func New(parts Parts) (*Service, error) {
 	service := &Service{parts: parts, wake: make(chan struct{}, 1)}
@@ -143,7 +193,7 @@ func New(parts Parts) (*Service, error) {
 	if err = json.Unmarshal(contents, &state); err != nil {
 		return nil, fmt.Errorf("read %s: %w", StateFileName, err)
 	}
-	service.status.BaseURL, service.status.CoreID = state.BaseURL, state.CoreID
+	service.status.BaseURL, service.status.CoreID, service.status.Zone = state.BaseURL, state.CoreID, state.Zone
 	return service, nil
 }
 
@@ -186,12 +236,8 @@ func (service *Service) Connect(ctx context.Context, baseURL string) (Status, er
 	if err != nil {
 		return Status{}, fmt.Errorf("enrol with %s: %w", baseURL, err)
 	}
-	encoded, err := json.Marshal(kept{BaseURL: baseURL, CoreID: enrolled.CoreID})
-	if err != nil {
-		return Status{}, fmt.Errorf("encode %s: %w", StateFileName, err)
-	}
-	if err = service.parts.Files.WritePersistentFile(StateFileName, encoded); err != nil {
-		return Status{}, fmt.Errorf("keep %s: %w", StateFileName, err)
+	if keepErr := service.keep(kept{BaseURL: baseURL, CoreID: enrolled.CoreID}); keepErr != nil {
+		return Status{}, keepErr
 	}
 	service.mutex.Lock()
 	service.status = Status{
@@ -294,16 +340,14 @@ func (service *Service) askStatus(ctx context.Context, status Status, token stri
 		return service.failed(ctx, "ask the discovery how the core stands", err)
 	}
 	service.mutex.Lock()
-	if answered.State != service.status.State {
-		service.parts.Logger.InfoContext(ctx, "discovery: the core's state changed", "from",
-			string(service.status.State), "to", string(answered.State))
-	}
+	was := service.status
 	service.status.State, service.status.Zone, service.status.Problem = answered.State, answered.Zone, ""
+	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	if answered.ClaimCode != "" {
-		service.status.ClaimCode = answered.ClaimCode
 		service.status.ClaimExpiresAt = time.UnixMilli(answered.ClaimExpiresAt)
 	}
 	service.mutex.Unlock()
+	service.changed(ctx, was, answered)
 	switch answered.State {
 	case discoveryproto.StatePending:
 		return pendingEvery
@@ -313,6 +357,39 @@ func (service *Service) askStatus(ctx context.Context, status Status, token stri
 		return endedEvery
 	}
 	return endedEvery
+}
+
+// changed says what changed in the core's standing: a new state is logged, a new zone kept, and a
+// core newly claimed told to its OnClaimed.
+func (service *Service) changed(ctx context.Context, was Status, answered discoveryproto.StatusResponse) {
+	if answered.State != was.State {
+		service.parts.Logger.InfoContext(ctx, "discovery: the core's state changed", "from", string(was.State),
+			"to", string(answered.State))
+	}
+	if answered.Zone != was.Zone {
+		if err := service.keep(kept{BaseURL: was.BaseURL, CoreID: was.CoreID, Zone: answered.Zone}); err != nil {
+			service.parts.Logger.WarnContext(ctx, "discovery: could not keep the core's zone", "err", err)
+		}
+	}
+	isClaimed := func(state discoveryproto.State) bool {
+		return state == discoveryproto.StateClaimed || state == discoveryproto.StateGrace
+	}
+	if isClaimed(answered.State) && (!isClaimed(was.State) || answered.Zone != was.Zone) &&
+		service.parts.OnClaimed != nil {
+		service.parts.OnClaimed(ctx)
+	}
+}
+
+// keep writes the state file.
+func (service *Service) keep(state kept) error {
+	encoded, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("encode %s: %w", StateFileName, err)
+	}
+	if err = service.parts.Files.WritePersistentFile(StateFileName, encoded); err != nil {
+		return fmt.Errorf("keep %s: %w", StateFileName, err)
+	}
+	return nil
 }
 
 // heartbeat sends the core's addresses when they changed, or every heartbeatEvery, and returns the
@@ -325,6 +402,11 @@ func (service *Service) heartbeat(ctx context.Context, status Status, token stri
 	service.mutex.Unlock()
 	if !isDue {
 		return addressesEvery
+	}
+	// A claimed core's standing can change too, its subscription lapsing or renewed: it asks with
+	// each heartbeat, and sends its addresses only while it is still claimed.
+	if wait := service.askStatus(ctx, status, token); wait != 0 {
+		return wait
 	}
 	request := discoveryproto.AddressesRequest{
 		Protocol: discoveryproto.ProtocolVersion, OrpheumVersion: service.parts.Version,

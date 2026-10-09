@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -29,13 +31,17 @@ import (
 // LetsEncrypt is Let's Encrypt's ACME directory, where the certificate comes from.
 const LetsEncrypt = "https://acme-v02.api.letsencrypt.org/directory"
 
-// The files the certificate is kept in, in the instance's persistent directory: the certificate is
-// costly to lose, since a CA limits how often it issues one for a name, and is backed up.
+// The files the certificate is kept in, in the instance's persistent directory, after the service's
+// Parts.FilePrefix: the certificate is costly to lose, since a CA limits how often it issues one for
+// a name, and is backed up. One ACME account serves every certificate the core holds.
 const (
 	certificateFile = "tls-certificate.pem"
 	keyFile         = "tls-key.pem"
 	accountKeyFile  = "acme-account-key.pem"
 )
+
+// wildcardPrefix begins a name that stands for every name one label under it (RFC 6125 §6.4.3).
+const wildcardPrefix = "*."
 
 // renewBefore is how long before it expires a certificate is renewed: a third of Let's Encrypt's
 // ninety days, as it advises, so a renewal that fails has a month of daily tries before it matters.
@@ -44,10 +50,28 @@ const renewBefore = 30 * 24 * time.Hour
 // ErrNoCertificate is a server with no certificate yet.
 var ErrNoCertificate = errors.New("the server has no certificate for its name yet")
 
-// DNS sets and removes a DNS-01 challenge's TXT record: cloudflare.Client.
+// DNS sets a DNS-01 challenge's TXT record, and returns what removes it again: Cloudflare, through
+// CloudflareDNS (D243 §6), or the discovery the core is enrolled with (D273).
 type DNS interface {
-	SetTXT(ctx context.Context, name, value string) (cloudflare.TXTRecord, error)
-	RemoveTXT(ctx context.Context, record cloudflare.TXTRecord) error
+	SetTXT(ctx context.Context, name, value string) (remove func(context.Context) error, err error)
+}
+
+// CloudflareDNS is Cloudflare as the challenge's DNS.
+func CloudflareDNS(client *cloudflare.Client) DNS {
+	return cloudflareDNS{client: client}
+}
+
+type cloudflareDNS struct {
+	client *cloudflare.Client
+}
+
+// SetTXT sets the record through Cloudflare, and returns what removes it.
+func (dns cloudflareDNS) SetTXT(ctx context.Context, name, value string) (func(context.Context) error, error) {
+	record, err := dns.client.SetTXT(ctx, name, value)
+	if err != nil {
+		return nil, fmt.Errorf("set the challenge's record through Cloudflare: %w", err)
+	}
+	return func(ctx context.Context) error { return dns.client.RemoveTXT(ctx, record) }, nil
 }
 
 // Files keeps the certificate in the persistent directory: instancedir.Directories.
@@ -63,9 +87,13 @@ type Queue interface {
 
 // Parts are what the service is built from.
 type Parts struct {
-	// Domain is the name the certificate is for, media.orpheum-app.com (D243 §6), and Contact the
-	// ACME account's e-mail address.
+	// Domain is the name the certificate is for: media.orpheum-app.com (D243 §6), or a wildcard
+	// such as *.k7xq2.<zone>, every name one label under it (D273). Contact is the ACME account's
+	// e-mail address, empty for none.
 	Domain, Contact string
+	// FilePrefix comes before the names of the files the certificate and its key are kept in, so
+	// two certificates are kept apart: empty for the owner's own name's.
+	FilePrefix string
 	// DirectoryURL is the ACME directory: LetsEncrypt, or a test's fake.
 	DirectoryURL string
 	// HTTP is the client every ACME request goes through, from internal/platform/outbound.
@@ -93,8 +121,8 @@ type Service struct {
 // is asked for at once (M4's audit).
 func New(parts Parts) (*Service, error) {
 	service := &Service{parts: parts}
-	certificatePEM, certificateErr := parts.Files.ReadPersistentFile(certificateFile)
-	keyPEM, keyErr := parts.Files.ReadPersistentFile(keyFile)
+	certificatePEM, certificateErr := parts.Files.ReadPersistentFile(parts.FilePrefix + certificateFile)
+	keyPEM, keyErr := parts.Files.ReadPersistentFile(parts.FilePrefix + keyFile)
 	if errors.Is(certificateErr, instancedir.ErrNotFound) || errors.Is(keyErr, instancedir.ErrNotFound) {
 		return service, nil
 	}
@@ -115,9 +143,16 @@ func New(parts Parts) (*Service, error) {
 	return service, nil
 }
 
-// names is whether leaf is a certificate for domain.
+// names is whether leaf is a certificate for domain; for a wildcard, a certificate for that
+// wildcard.
 func names(leaf *x509.Certificate, domain string) bool {
-	return leaf != nil && leaf.VerifyHostname(domain) == nil
+	if leaf == nil {
+		return false
+	}
+	if strings.HasPrefix(domain, wildcardPrefix) {
+		return slices.Contains(leaf.DNSNames, domain)
+	}
+	return leaf.VerifyHostname(domain) == nil
 }
 
 // GetCertificate is the certificate the HTTPS listener serves: tls.Config's GetCertificate.
@@ -141,7 +176,7 @@ func (service *Service) ExpiresAt() (time.Time, bool) {
 // QueueRenewal asks for the certificate when there is none, or when it expires within renewBefore,
 // and says how many it asked for. A sweep calls it.
 func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
-	if expiresAt, isAny := service.ExpiresAt(); isAny && expiresAt.Sub(service.parts.Clock.Now()) > renewBefore {
+	if !service.IsDue() {
 		return 0, nil
 	}
 	if _, err := service.parts.Queue.Enqueue(ctx, jobs.Request{
@@ -151,6 +186,17 @@ func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("queue the certificate's renewal: %w", err)
 	}
 	return 1, nil
+}
+
+// IsDue is whether there is no certificate, or the one there expires within renewBefore.
+func (service *Service) IsDue() bool {
+	expiresAt, isAny := service.ExpiresAt()
+	return !isAny || expiresAt.Sub(service.parts.Clock.Now()) <= renewBefore
+}
+
+// Domain is the name the certificate is for.
+func (service *Service) Domain() string {
+	return service.parts.Domain
 }
 
 // HandleRenew obtains a certificate, the renewal's job: a refused token is the admin's to fix, so
@@ -221,12 +267,15 @@ func (service *Service) authorize(ctx context.Context, client *acme.Client, auth
 	if err != nil {
 		return fmt.Errorf("make the challenge's record: %w", err)
 	}
-	record, err := service.parts.DNS.SetTXT(ctx, "_acme-challenge."+authorization.Identifier.Value, value)
+	// A wildcard's authorization names the name under it, as RFC 8555 §7.1.3 says; a CA that names
+	// the wildcard itself is read the same way.
+	name := "_acme-challenge." + strings.TrimPrefix(authorization.Identifier.Value, wildcardPrefix)
+	remove, err := service.parts.DNS.SetTXT(ctx, name, value)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if removeErr := service.parts.DNS.RemoveTXT(context.WithoutCancel(ctx), record); removeErr != nil {
+		if removeErr := remove(context.WithoutCancel(ctx)); removeErr != nil {
 			service.parts.Logger.WarnContext(ctx, "could not remove a challenge's TXT record", "err", removeErr)
 		}
 	}()
@@ -322,10 +371,11 @@ func (service *Service) keep(chain [][]byte, key *ecdsa.PrivateKey) error {
 	if err != nil {
 		return fmt.Errorf("the CA's certificate does not match its key: %w", err)
 	}
-	if err = service.parts.Files.WritePersistentFile(keyFile, keyPEM); err != nil {
+	if err = service.parts.Files.WritePersistentFile(service.parts.FilePrefix+keyFile, keyPEM); err != nil {
 		return fmt.Errorf("keep the certificate's key: %w", err)
 	}
-	if err = service.parts.Files.WritePersistentFile(certificateFile, certificatePEM); err != nil {
+	if err = service.parts.Files.WritePersistentFile(service.parts.FilePrefix+certificateFile,
+		certificatePEM); err != nil {
 		return fmt.Errorf("keep the certificate: %w", err)
 	}
 	service.current.Store(&pair)

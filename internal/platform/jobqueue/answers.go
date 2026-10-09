@@ -120,6 +120,12 @@ func Permanent(err error) error { return &permanent{err: err} }
 
 type permanent struct{ err error }
 
+// IsPermanent is whether err answers, anywhere in its chain, that no retry can fix the job.
+func IsPermanent(err error) bool {
+	_, isPermanent := errors.AsType[*permanent](err) //nolint:errcheck // AsType's second value is a bool
+	return isPermanent
+}
+
 func (failure *permanent) Error() string { return failure.err.Error() }
 func (failure *permanent) Unwrap() error { return failure.err }
 

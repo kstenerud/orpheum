@@ -22,6 +22,9 @@ const (
 	PathAddresses = "/addresses"
 	PathSignal    = "/signal"
 	PathCore      = "/core"
+	// PathACMEChallenge is where the core sets and clears its certificate's DNS-01 record, which
+	// the discovery holds for it (the spec's §3.7).
+	PathACMEChallenge = "/acme-challenge"
 )
 
 // The purposes a signature is made for: the protocol, the purpose and the nonce are what is signed,
@@ -164,4 +167,11 @@ type SignalMessage struct {
 	OfferID string `json:"offerId"`
 	SDP     string `json:"sdp,omitempty"`
 	Reason  string `json:"reason,omitempty"`
+}
+
+// ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to
+// value; with no value, it clears it.
+type ACMEChallengeRequest struct {
+	Name  string `json:"name"`
+	Value string `json:"value,omitempty"`
 }
