@@ -354,3 +354,16 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 		t.Errorf("the job is %+v (%v), want it at background priority", again, err)
 	}
 }
+
+func TestSweeps_TheScanScheduleIsASweepCheckedEveryQuarterHour(t *testing.T) {
+	t.Parallel()
+	for _, sweep := range (jobServices{}).sweeps(slog.New(slog.DiscardHandler)) {
+		if sweep.Name == sweepScheduledScans {
+			if every := sweep.Every(t.Context()); every != 15*time.Minute {
+				t.Errorf("the scan schedule is checked every %s, want 15m", every)
+			}
+			return
+		}
+	}
+	t.Error("no sweep asks for the scans libraries are due (D272 §1)")
+}

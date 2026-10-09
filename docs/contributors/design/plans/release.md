@@ -5,7 +5,7 @@
 # Release mode
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Yes start building release
-  mode"*). R1 to R4 are built; R5 to R8 are not.
+  mode"*). R1 to R5 are built; R6 to R8 are not.
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
@@ -44,7 +44,7 @@
 | R2 | `orpheum setup <dir>`: the deployment's directory written by the binary from templates embedded in it (compose file, values file, configs, tunnel keys, media and GPU override, `.env` naming the image); a values file says staging or release and whether there is a tunnel. `./staging` becomes: build the image, run its setup over `.staging/`, `docker compose up`. The tunnel stays required for now: a deployment without one (D272 §3) waits for a machine that needs it | built |
 | R3 | The build command for nas.example: from a tag, build `orpheum:<tag>` with its commit in it, then run that image's setup over the deployment directory: `deploy/release/build.sh`, version tags only, so the binary records its version | built |
 | R4 | `deploy/release/README.md`: the LXC container (unprivileged, nesting, the render node, the media bind mount), Docker in it, the Landlock check, install, update, going back, and the swap between staging and nas.example | written; untried, since only nas.example can try it (R8) |
-| R5 | The periodic scan: a sweep that scans each root whose library checks every N hours, when it is due | not started |
+| R5 | The periodic scan: a sweep, every 15 minutes, asks for the scan of each root whose library checks every N hours, or is watched, once its interval has passed since its last scan; a watched library's interval is the setting `watched_library_scan_every_hours`, 24 | built |
 | R6 | Scoped scans in the core: a scan's scope kept with it; removals and mount checks only within it; a whole-root request supersedes a scoped one | not started |
 | R7 | The watcher in the node: inotify on every directory under each root of a watched library, a quiet spell per directory, the nearest existing directory reported, an overflow or a full watch table reported as the root; each root's watch state in the hello and status; the library page shows it | not started |
 | R8 | On nas.example with the owner: install, first run, `CHECKPOINT` committed at the version it runs | not started |
@@ -56,4 +56,7 @@ Each value a phase adds is classified as a setting, a config key or a justified 
 
 - **The quiet spell** (R7): a node config key, `node.watch_quiet_seconds`, since roots and their
   watching are the node's (D107).
-- **The periodic scan's interval**: the library's own `check_every_hours`, already a column.
+- **The periodic scan's interval**: the library's own `check_every_hours`, already a column; for a
+  watched library, which has none, the setting `watched_library_scan_every_hours` (24).
+- **How often the schedule is checked**: a justified constant, 15 minutes, a bound on lateness
+  against intervals of hours, as the scheduled backup's.

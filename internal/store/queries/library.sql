@@ -42,6 +42,17 @@ LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state
 WHERE library_root.library_id = sqlc.arg(library_id) AND library_root.retired_at IS NULL
 ORDER BY library_root.root_path;
 
+-- name: ListCheckedRoots :many
+-- Every live root of a library that notices changes by itself, watching or checking every so many
+-- hours, with when it was last scanned: what the scan schedule reads (D27, D272 section 1).
+SELECT DISTINCT library_root.node_id, library_root.root_path, library.change_detection,
+  library.check_every_hours, root_state.last_scan_at
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND library.change_detection IN ('watch', 'interval')
+ORDER BY library_root.node_id, library_root.root_path;
+
 -- name: CountLibraryFilings :many
 -- How many live files a library has in each filing: the scanner view's summary (D163).
 SELECT filing, count(*) AS files

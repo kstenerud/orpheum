@@ -153,6 +153,55 @@ func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootPa
 	return err
 }
 
+const listCheckedRoots = `-- name: ListCheckedRoots :many
+SELECT DISTINCT library_root.node_id, library_root.root_path, library.change_detection,
+  library.check_every_hours, root_state.last_scan_at
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND library.change_detection IN ('watch', 'interval')
+ORDER BY library_root.node_id, library_root.root_path
+`
+
+type ListCheckedRootsRow struct {
+	NodeID          int64
+	RootPath        string
+	ChangeDetection string
+	CheckEveryHours *int64
+	LastScanAt      *int64
+}
+
+// Every live root of a library that notices changes by itself, watching or checking every so many
+// hours, with when it was last scanned: what the scan schedule reads (D27, D272 section 1).
+func (q *Queries) ListCheckedRoots(ctx context.Context) ([]ListCheckedRootsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCheckedRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCheckedRootsRow{}
+	for rows.Next() {
+		var i ListCheckedRootsRow
+		if err := rows.Scan(
+			&i.NodeID,
+			&i.RootPath,
+			&i.ChangeDetection,
+			&i.CheckEveryHours,
+			&i.LastScanAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesPage = `-- name: ListFilesPage :many
 SELECT id, library_id, path, filing, filing_reason, error_detail_json, size_bytes, first_seen_at, last_seen_at
 FROM file

@@ -46,6 +46,12 @@
 //     TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt. A scan the core stopped during
 //     after taking its listing starts again. TestScans_AScanTheCoreStoppedDuringStartsAgain.
 //
+//   - A root of a library checked on an interval is scanned once its check_every_hours has passed
+//     since its last scan, and a watched one's once watched_library_scan_every_hours has, beneath
+//     the watching, which can miss a change unseen (D27, D272 §1); a root checked only when asked
+//     never is. TestDueRoots_ARootIsDueOnceItsLibrariesIntervalHasPassedSinceItsLastScan,
+//     TestScanSchedule_AsksForTheDueScansOfLibrariesThatCheckByThemselves.
+//
 //   - Every path a scan enumerated has a row with its filing and reason (D163).
 //     TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason.
 //
@@ -184,8 +190,9 @@
 // # Where to change
 //
 //   - reach.go: whether a person reaches a file, an item or an image (D243 §4).
-//   - scans.go: a scan's jobs, from its request to its end; compare.go: a listing compared with what
-//     is stored, by the library's rules; batches.go: the batches a scan's node reads;
+//   - scans.go: a scan's jobs, from its request to its end; schedule.go: the scans libraries are
+//     due; compare.go: a listing compared with what is stored, by the library's rules; batches.go:
+//     the batches a scan's node reads;
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
