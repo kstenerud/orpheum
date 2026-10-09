@@ -19078,4 +19078,23 @@ builds D249 §5's release mode and revises D228 §3 and §6.
    in for D228 §6's going live until the public beta, when every step is kept for good (D181).
    D228 §5's standing approval for a fold's goldens holds at each new checkpoint.
 
+**Added** (2026-10-09, the same day), by the project owner, choosing among the build's options:
+
+6. **The checkpoint is a file**, `internal/store/migrations/CHECKPOINT`, holding the version nas.example
+   last ran. A test holds the baseline at that version, so no fold happens before the owner moves
+   it; it is a gate file, moved with the owner's `Gate-Changed:`. It is committed when nas.example
+   first runs.
+7. **The build re-renders.** The one build command of §4 builds the tag's image and then runs that
+   image's setup over the deployment's directory, which renders the compose file and the configs
+   from the image's templates and the values file and points them at the new image; then
+   `docker compose up -d`. Going back is the same with an older tag.
+8. **Staging and nas.example share one tunnel key pair**, so the VPS is never touched by a swap: a swap
+   stops one deployment's tunnel and starts the other's. Only one may run its tunnel at a time.
+9. **A change the watcher sees is a scoped scan, after a quiet spell.** The node tells the core which
+   directory changed once events under it have stopped for a while, so a copy in progress settles
+   first; the core lists that directory alone, by the listing that already goes only as deep as
+   asked, from where asked (D240). An overflowed event queue asks for the whole root. The library
+   page says of each root whether it is watched, or why it is scanned only. The periodic scan
+   stays beneath it (§1).
+
 **Status:** Decided 2026-10-09.
