@@ -2815,6 +2815,7 @@ export interface components {
             nodeName: string;
             rootPath: string;
             scan?: components["schemas"]["RootScanBody"];
+            watch?: components["schemas"]["RootWatchBody"];
             /** @description Why the last scan's removals wait for an admin */
             withheldReason?: string;
         };
@@ -2838,6 +2839,13 @@ export interface components {
              * @description Of them, those new or changed, to read
              */
             toExamineCount: number;
+        };
+        RootWatchBody: {
+            /** @enum {string} */
+            cause: "network-filesystem" | "watch-limit" | "unavailable" | "unreadable" | "";
+            isWatching: boolean;
+            /** @description The cause in the node's own words */
+            reason?: string;
         };
         ScanOutputBody: {
             /** Format: int64 */

@@ -84,6 +84,12 @@ func (nodes *fakeNodes) lastSentFor(job int64) nodeproto.Command {
 
 // RemoveNode removes a node an admin retired, as the node service does; node 1 is away from then
 // on.
+func (nodes *fakeNodes) RootWatches(int64) map[string]nodeproto.RootWatch {
+	return map[string]nodeproto.RootWatch{"/media/shows": {
+		RootPath: "/media/shows", Cause: nodeproto.WatchCauseWatchLimit, Reason: "too many folders",
+	}}
+}
+
 func (nodes *fakeNodes) RemoveNode(ctx context.Context, nodeID int64) error {
 	if nodeID == 1 {
 		nodes.isAway.Store(true)
@@ -349,7 +355,7 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 		http.StatusConflict, CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
 	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":"",`+
-		`"missingMountPaths":[]}]`) {
+		`"missingMountPaths":[],"watch":{"isWatching":false,"cause":"watch-limit","reason":"too many folders"}}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
 	scanned := harness.do(t, http.MethodPost, "/libraries/1/scan", admin, nil)

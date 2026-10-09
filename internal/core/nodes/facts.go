@@ -56,6 +56,22 @@ func (service *Service) Facts(name string) (Facts, bool) {
 	return Facts{}, false
 }
 
+// RootWatches are whether a node watches each of its roots for changes, by root, as its last status
+// said; none when it has said none since the core started (D272 §9).
+func (service *Service) RootWatches(nodeID int64) map[string]nodeproto.RootWatch {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.nodesHeardSinceStart[nodeID]
+	if !found || node.status == nil {
+		return nil
+	}
+	watches := make(map[string]nodeproto.RootWatch, len(node.status.Watches))
+	for _, watch := range node.status.Watches {
+		watches[watch.RootPath] = watch
+	}
+	return watches
+}
+
 // keepStatus keeps what a node's status says about it. A prepared directory whose disk is within
 // its limit, and keeps its floor of free space, again brings back the prepares parked on it for want
 // of room (D231 §5).

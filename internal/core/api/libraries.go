@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
@@ -28,6 +29,17 @@ type RootBody struct {
 	MissingMountPaths []string `doc:"Mount points inside the root whose disk a scan found missing; each is what POST /libraries/{id}/mounts/gone takes (D208)" json:"missingMountPaths"` //nolint:lll // one struct tag
 	// Scan is the root's scan in progress, absent when none is (D236 §2).
 	Scan *RootScanBody `json:"scan,omitempty"`
+	// Watch is whether the root's node watches it for changes, absent until the node has said
+	// (D272 §9).
+	Watch *RootWatchBody `json:"watch,omitempty"`
+}
+
+// RootWatchBody is whether a node watches a root's folders for changes, and when it does not, why.
+type RootWatchBody struct {
+	IsWatching bool `json:"isWatching"`
+	// Cause is why the root is not watched, empty while it is.
+	Cause  string `enum:"network-filesystem,watch-limit,unavailable,unreadable," json:"cause"`
+	Reason string `doc:"The cause in the node's own words" json:"reason,omitempty"`
 }
 
 // RootScanBody is how far a root's scan in progress is (D236 §2): listing the root, then reading
@@ -324,13 +336,21 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 					LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
 					LastScanAt:      ptr.ValueOrZero(root.LastScanAt),
 					WithheldReason:  ptr.ValueOrZero(root.WithheldReason), MissingMountPaths: root.MissingMountPaths,
-					Scan: scanBodyOf(root.Scan),
+					Scan: scanBodyOf(root.Scan), Watch: watchBodyOf(root.Watch),
 				})
 			}
 		}
 		output.Body.Libraries = append(output.Body.Libraries, body)
 	}
 	return output, nil
+}
+
+// watchBodyOf is a root's watch as the API says it, or nil before its node has said.
+func watchBodyOf(watch *nodeproto.RootWatch) *RootWatchBody {
+	if watch == nil {
+		return nil
+	}
+	return &RootWatchBody{IsWatching: watch.IsWatching, Cause: string(watch.Cause), Reason: watch.Reason}
 }
 
 // scanBodyOf is a root's scan in progress as the API says it, or nil for none.

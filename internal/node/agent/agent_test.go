@@ -39,14 +39,16 @@ type fakeCore struct {
 	artwork        chan nodeproto.Result
 	prepareReports chan nodeproto.Result
 	// progress is the node's words on where its attempts are, dropped when the test reads none.
-	progress         chan nodeproto.Progress
-	subtitles        chan nodeproto.Result
-	readThroughs     chan nodeproto.Result
-	chunkRuns        chan nodeproto.Result
-	crashes          chan nodeproto.Result
-	refusals         chan nodeproto.Result
-	held             chan nodeproto.Result
-	scans            chan nodeproto.Result
+	progress     chan nodeproto.Progress
+	subtitles    chan nodeproto.Result
+	readThroughs chan nodeproto.Result
+	chunkRuns    chan nodeproto.Result
+	crashes      chan nodeproto.Result
+	refusals     chan nodeproto.Result
+	held         chan nodeproto.Result
+	scans        chan nodeproto.Result
+	// changes are the watcher's notices the node posts.
+	changes          chan nodeproto.Changed
 	statusesToRefuse int                // the first statuses it refuses, as a core that went away would
 	postsToRefuse    map[resultKind]int // by kind, the first results it refuses, as a busy core would
 	refusedPosts     chan struct{}      // sent on, while it has room, at each result it refuses
@@ -99,7 +101,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		subtitles: make(chan nodeproto.Result, 4), readThroughs: make(chan nodeproto.Result, 4),
 		chunkRuns: make(chan nodeproto.Result, 4), crashes: make(chan nodeproto.Result, 4),
 		refusals: make(chan nodeproto.Result, 4), held: make(chan nodeproto.Result, 4),
-		scans:   make(chan nodeproto.Result, 4),
+		scans: make(chan nodeproto.Result, 4), changes: make(chan nodeproto.Changed, 4),
 		stopped: make(chan struct{}), endSession: make(chan struct{}), helloHeard: make(chan struct{}, 8),
 	}
 	mux := http.NewServeMux()
@@ -147,6 +149,15 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	mux.HandleFunc("POST "+nodeproto.PathStatus, core.receiveStatus(t))
 	mux.HandleFunc("POST "+nodeproto.PathResult, core.receiveResult(t))
 	mux.HandleFunc("POST "+nodeproto.PathProgress, core.receiveProgress(t))
+	mux.HandleFunc("POST "+nodeproto.PathChanged, func(writer http.ResponseWriter, request *http.Request) {
+		var changed nodeproto.Changed
+		if err := json.NewDecoder(request.Body).Decode(&changed); isMalformed(err) {
+			t.Error(err)
+		}
+		if handOn(core, core.changes, changed) {
+			_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
+		}
+	})
 	socket := core.serve(t, mux)
 	return core, socket
 }

@@ -74,6 +74,8 @@ type Status struct {
 	TakenCommandSeq int64 `json:"takenCommandSeq"`
 	// Stuck is the work the node gave up on that has not ended, waiting on a device (D233 §10).
 	Stuck []Stuck `json:"stuck,omitempty"`
+	// Watches say, for each root, whether the node watches it for changes (D27, D272 §9).
+	Watches []RootWatch `json:"watches,omitempty"`
 }
 
 // Stuck is work the node answered as stalled that has not ended: a tool's process that outlived

@@ -120,5 +120,10 @@ libraries and certificate.
 - **No GPU encoding**: `ls -l /dev/dri` in the container must show `renderD128` (§2's `dev0`), and
   `compose.override.yaml` must give the node `/dev/dri` and its group; `build.sh` writes both when
   the render node is there, so run it again after adding it.
+- **The libraries page says a folder is not watched, at the watch limit**: the media has more
+  folders than the kernel lets one user watch. On the host, raise it
+  (`sysctl fs.inotify.max_user_watches=1048576`, and the same line in
+  `/etc/sysctl.d/orpheum.conf`), then restart the node. Meanwhile the library's periodic scan
+  (`watched_library_scan_every_hours`) finds what changes.
 - Everything else is as staging's "When something is wrong" says, with `docker compose` in
   `/srv/orpheum` for `./staging`.

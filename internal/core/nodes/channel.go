@@ -169,6 +169,33 @@ func (service *Service) takeProgress(writer http.ResponseWriter, request *http.R
 	}
 }
 
+// maxChangedBytes bounds a watcher's notice: a root and a folder under it.
+const maxChangedBytes = 64 << 10
+
+// takeChanged reads a known node watcher's notice of a change, at most maxChangedBytes of JSON, and
+// hands it on, which scans the folder when its root's library is watched (D272 §9). One that cannot
+// be taken is answered with an error, which the node logs; the root's periodic scan finds the change.
+func (service *Service) takeChanged(writer http.ResponseWriter, request *http.Request) {
+	nodeID, ok := service.knownNodeIDOf(writer, request)
+	if !ok {
+		return
+	}
+	service.noteHeard(nodeID)
+	var changed nodeproto.Changed
+	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, maxChangedBytes)).Decode(&changed); err != nil {
+		http.Error(writer, "a notice of a change is JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if service.changes != nil {
+		ctx := request.Context()
+		if err := service.changes.TakeChange(ctx, nodeID, changed.RootPath, changed.Path); err != nil {
+			service.fail(ctx, writer, "take a watcher's notice", err)
+			return
+		}
+	}
+	writeJSON(writer, struct{}{}) // the node reads a JSON answer
+}
+
 // readPost reads a known node's post to the result sink, at most maxBytes of JSON, and notes that
 // the node was heard. It answers the node itself, and reports false, for an unknown node, a core
 // with no result sink, or a body that is not the JSON it should be.

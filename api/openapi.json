@@ -3920,6 +3920,9 @@
           "scan": {
             "$ref": "#/components/schemas/RootScanBody"
           },
+          "watch": {
+            "$ref": "#/components/schemas/RootWatchBody"
+          },
           "withheldReason": {
             "description": "Why the last scan's removals wait for an admin",
             "type": "string"
@@ -3966,6 +3969,33 @@
           "toExamineCount",
           "examinedCount",
           "isAnotherScanQueued"
+        ],
+        "type": "object"
+      },
+      "RootWatchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "enum": [
+              "network-filesystem",
+              "watch-limit",
+              "unavailable",
+              "unreadable",
+              ""
+            ],
+            "type": "string"
+          },
+          "isWatching": {
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "The cause in the node's own words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "isWatching",
+          "cause"
         ],
         "type": "object"
       },

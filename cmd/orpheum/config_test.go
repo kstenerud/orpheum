@@ -206,6 +206,7 @@ prepared_disk_min_free_mib = 100
 encode_slot_count = 1
 remux_slot_count = 2
 slowest_read_mib_per_second = 20
+watch_quiet_seconds = 30
 
 [log]
 level = "info"

@@ -36,6 +36,12 @@ type ScanRequester interface {
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error
 }
 
+// ChangeTaker takes a node watcher's word that something changed under a root: library.ScanSchedule,
+// which scans the folder when the root's library is watched (D272 §9).
+type ChangeTaker interface {
+	TakeChange(ctx context.Context, nodeID int64, root, folder string) error
+}
+
 // ResultSink receives a node's word on a job, to hand to the job that asked: Exchanges. It is the
 // one way a node's results reach the core; an artwork result, the artwork store's one way in
 // (D212 §8).
@@ -81,6 +87,8 @@ type Service struct {
 	heldResults    HeldResultReader
 	renditionIndex RenditionIndex
 	scans          ScanRequester
+	// changes takes the nodes' watchers' notices; nil drops them.
+	changes ChangeTaker
 
 	mutex                sync.Mutex
 	nodesHeardSinceStart map[int64]*connectedNode
@@ -111,6 +119,12 @@ func (service *Service) SetRenditionIndex(index RenditionIndex) {
 // none set, a hello asks for no scan.
 func (service *Service) SetScans(scans ScanRequester) {
 	service.scans = scans
+}
+
+// SetChanges names what takes the nodes' watchers' notices. Set it before the channel serves; with
+// none set, a notice is taken and dropped.
+func (service *Service) SetChanges(changes ChangeTaker) {
+	service.changes = changes
 }
 
 // SetResultSink names where the nodes' results go. Set it before the channel serves; a result that
@@ -148,6 +162,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
 	mux.HandleFunc("POST "+nodeproto.PathResult, service.takeResult)
 	mux.HandleFunc("POST "+nodeproto.PathProgress, service.takeProgress)
+	mux.HandleFunc("POST "+nodeproto.PathChanged, service.takeChanged)
 	return mux
 }
 

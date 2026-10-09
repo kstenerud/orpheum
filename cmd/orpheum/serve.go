@@ -316,6 +316,7 @@ func openNodeWork(opened openedServices, logger *slog.Logger) openedServices {
 	opened.jobServices.scans = openScans(opened, ingester, logger)
 	opened.jobServices.scanSchedule = library.NewScanSchedule(
 		opened.database, opened.jobServices.scans, opened.settings, clock.System{}, logger)
+	opened.nodes.SetChanges(opened.jobServices.scanSchedule)
 	return opened
 }
 

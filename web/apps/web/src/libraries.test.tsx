@@ -3,6 +3,7 @@
 import "./i18n.ts";
 
 import type { components } from "@orpheum/sdk";
+import type { JSX } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -61,6 +62,51 @@ describe("libraries", () => {
     expect(markup).toContain("Listed: 40 · Could not be read: 2");
     expect(markup).toContain('href="/libraries/3/files"');
     expect(markup).toContain("<output>Asked 1 roots to scan.</output>");
+  });
+
+  it("says whether a watched library's roots are watched, and why not (D272 §9)", () => {
+    const library = (changeDetection: "watch" | "manual"): JSX.Element =>
+      withServices(
+        <LibraryCard
+          note=""
+          onScan={ignore}
+          onAnswer={ignore}
+          onDelete={ignore}
+          library={{
+            id: 3,
+            name: "Films",
+            kind: "movies",
+            metadataSource: "nfo",
+            changeDetection,
+            isWritable: false,
+            createdAt: 1,
+            roots: [
+              {
+                nodeName: "nas",
+                rootPath: "/tank/films",
+                lastScanOutcome: "complete",
+                missingMountPaths: [],
+                watch: { isWatching: true, cause: "" },
+              },
+              {
+                nodeName: "nas",
+                rootPath: "/mnt/share",
+                lastScanOutcome: "complete",
+                missingMountPaths: [],
+                watch: { isWatching: false, cause: "network-filesystem", reason: "nfs4" },
+              },
+            ],
+          }}
+        />,
+      );
+    const watched = renderToStaticMarkup(library("watch"));
+    expect(watched).toContain("watched for changes");
+    expect(watched).toContain("Not watched: it is on a network share");
+    expect(watched).toContain("Its periodic scan finds what changes.");
+    expect(watched).toContain("nfs4");
+    const manual = renderToStaticMarkup(library("manual"));
+    expect(manual).not.toContain("watched for changes");
+    expect(manual).not.toContain("Not watched");
   });
 
   it("shows a root's scan as it runs, and offers one more after it (D236 §2, §3)", () => {
