@@ -113,3 +113,39 @@ func TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree(t *testing.T) 
 	}
 	bench.wantBumped(1, "the person's examining")
 }
+
+// Two works bumping at once bump two attempts: one chosen is not chosen again while it is told to
+// stop and resolved, so the second does not count room the first already took (the M4 closing
+// audit, §6).
+func TestAssign_TwoBumpsAtOnceBumpTwoAttempts(t *testing.T) {
+	t.Parallel()
+	bench := newBumpBench(t)
+	for _, id := range []int64{1, 2} { // tank's one reader and one more
+		if answer := bench.assign(id, jobs.KindReadThrough, jobs.PriorityBackground,
+			readThroughOf("/media")); !jobqueue.IsAssigned(answer) {
+			t.Fatalf("read-through %d within tank's readers was answered %v", id, answer)
+		}
+		bench.now.Advance(time.Second)
+	}
+	// The second examining comes while the first's bump is telling read-through 2 to stop.
+	var during error
+	bench.sender.onWithdraw = func() {
+		during = bench.exchanges.Assign(t.Context(), 1, jobs.Job{
+			ID: 4, Kind: jobs.KindExamine,
+			Priority: jobs.PriorityBackground,
+		}, examineOf())
+	}
+	if answer := bench.assign(3, jobs.KindExamine, jobs.PriorityBackground, examineOf()); !jobqueue.IsAssigned(answer) {
+		t.Fatalf("the first examining on full tank was answered %v; want it given", answer)
+	}
+	if !jobqueue.IsAssigned(during) {
+		t.Fatalf("the examining during the first's bump was answered %v; want it given", during)
+	}
+	stopped := map[int64]bool{}
+	for _, stop := range bench.stops {
+		stopped[stop.JobID] = true
+	}
+	if !stopped[1] || !stopped[2] || len(bench.stops) != 2 {
+		t.Errorf("the node was told to stop %+v; want read-throughs 1 and 2, once each", bench.stops)
+	}
+}

@@ -42,6 +42,8 @@ type recordingSender struct {
 	startID string
 	// willSend are the attempts said to be on their way before their commands were queued, by token.
 	willSend []string
+	// onWithdraw, when set, runs at the next withdrawal, once: what happens while a stop is sent.
+	onWithdraw func()
 }
 
 func (sender *recordingSender) StartOf(int64) string { return sender.startID }
@@ -64,6 +66,10 @@ func (*recordingSender) ParkUnlessConnected(context.Context, int64) error { retu
 // Withdraw says the work is still queued when the test made it so: the node has not taken it.
 func (sender *recordingSender) Withdraw(_ int64, token string) bool {
 	sender.withdrawn = append(sender.withdrawn, token)
+	if then := sender.onWithdraw; then != nil {
+		sender.onWithdraw = nil
+		then()
+	}
 	return sender.isQueued
 }
 
