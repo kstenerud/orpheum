@@ -9285,6 +9285,8 @@ re-examined against it.
 
 ## D138 — The UI is judged on click depth and focus latency; theming is a seam we ship or one they force
 
+> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §4's theming seam is not shipped. There is no user-facing theming; what themes are used for is built in.
+
 **Decided** (2026-09-21). Research: [ui-sentiment.md](../design/research/ui-sentiment.md), from
 Plex's forum API, four Jellyfin trackers by reaction count, and GitHub repository search.
 
@@ -17947,6 +17949,8 @@ leaves Cut A, and a polished UI takes its place.
 
 ## D246 — What a person may do is their role's, an invite names who it is for, and a Watch Together viewer is an ephemeral account that sees only the host's playback
 
+> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §8's host-only control is revised: a guest may play and pause and change the position unless the host withholds it in the invite.
+
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): §4's signed-in guest history is deferred as a nice-to-have, no longer in M4's acceptance.
 
 > **§3–§5 refined by [D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)** (2026-10-08): a guest's membership is kept by their browser, a signed-in person's follows their account, one member may be on several devices, and §4's signed-in recipient is brought forward for the session alone.
@@ -18303,6 +18307,8 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
 **Status:** Decided 2026-10-06; §7 amended the same day.
 
 ## D251 — The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
+
+> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §1's later light palette is dropped; the app is dark throughout.
 
 **Decided** (2026-10-06), by the project owner, ahead of a week of demonstrating Orpheum one to
 one, mostly on a phone, Watch Together above all (a guest scans the host's QR code and joins). It
@@ -18864,6 +18870,8 @@ the same person, and having it back on one device replaced the credential of the
 
 ## D268 — A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
 
+> **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §5's later guest rights are decided: play and pause, and changing the position, granted by default and withheld per invite.
+
 **Decided** (2026-10-08), by the project owner, on the review of Watch Together's synchronisation
 (design/research/sync-review-2026-10-08.md): *"ok, agreed"*, to its four recommendations that
 change the design; and *"at a future time I want to be able to grant guests play/pause rights, and
@@ -18984,3 +18992,41 @@ run) wait for the owner.
    explains, not on a later commit.
 
 **Status:** Decided 2026-10-08.
+
+## D271 — M5's first questions answered: four browsers, no user-facing theming or light palette, and guests who may pause and seek unless the host withholds it
+
+**Decided** (2026-10-09), by the project owner, on M5's questions (design/plans/m5.md) and the
+research made for them (design/research/browser-support-2026-10-09.md, theming-2026-10-09.md):
+*"Browsers: Agree on the four with those floors."* *"Theming: Drop it. I'm also not sure that a
+light palette would be a good idea in a media player, since you're almost certainly going to be
+using it in a darkened room."* On guests' controls, from the owner's first tests of Watch Together
+with five guests, two of whom asked why they could not pause: *"I think we need to allow it."*
+
+1. **Four browsers are supported, from these versions:** Chrome and Edge 120, Firefox 140, and
+   Safari 17.1 on macOS, iOS and iPadOS, the iPhone's floor D250 already set. Browsers on the
+   same engines (Brave, Opera, Vivaldi, every iOS browser) come with them; Samsung Internet is
+   best effort. Nothing more is supported without a compelling reason, as each adds to the test
+   cycle. `@scope` is not used: it needs Safari 26.4 and Firefox 146. The Cast receiver's engine
+   is checked on a device and gets a floor of its own when M6 builds it.
+2. **There is no user-facing theming:** no third-party themes, no custom CSS, and no promise that
+   class names or tokens stay stable, which stay free to change as M5 iterates. What themes are
+   used for is built in instead and tested: the system's reduced-motion and contrast settings,
+   forced colours, density and poster size as a person's settings, sizes that follow the
+   browser's zoom. This revises D138 §4.
+3. **There is no light palette.** The player is watched in a darkened room; the app is dark
+   throughout. This revises D251 §1's later light palette.
+4. **A guest may play and pause, and may change the position, unless the host withholds it.**
+   - The rights are granular: play and pause is one, changing the position the other.
+   - Both are granted by default. The host withholds either with a checkbox when creating the
+     invite.
+   - A right granted lasts as long as the invite. The host already removes a person during
+     playback.
+
+   This revises D246 §8 and D268 §5, which kept control with the host alone in Cut A. D246 §8's
+   later form is kept, granular rights given per invite, with one change: every invite starts with
+   every right, not with the rights of the last one issued. D268 §5's shape
+   holds: a command carries no privilege of its own, and the hub asks whether the member who sent
+   it may give it, now by the rights of that member's invite. It rides on D268 §4, a guest's
+   player sending commands from its controls.
+
+**Status:** Decided 2026-10-09.
