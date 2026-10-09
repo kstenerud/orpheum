@@ -17014,6 +17014,8 @@ version 19.
 
 ## D228 — Until migrations are live, library.db's schema is a baseline and one step, and a schema change folds the last step into the baseline
 
+> **Revised by [D272](#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): once production runs, the steps since the version nas.example last ran are all kept, and they fold into the baseline when the owner says nas.example has migrated; this replaces §3's one step behind, and stands in for §6 until the public beta.
+
 **Decided** (2026-09-29), by the project owner. **Suspends, until migrations are live,
 [D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform) §2's *"every step kept, forever"*
 and [D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval) §4's golden for every step**; the rest of D181 (the two integers, the runner and its checks, the
@@ -18192,6 +18194,8 @@ FFmpeg could crash the node and have other crashes blamed on the film.
 
 ## D249 — Three ways to run: dev as it is, staging from the checkout beside it, and release from a tagged image; the tunnel is a container of the deployment's own
 
+> **Built out by [D272](#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran)** (2026-10-09): release mode runs on nas.example from an image built there, set up by the image's own command; the name swaps between staging and nas.example.
+
 **Decided** (2026-10-06), by the project owner, setting up the VPS of D243 §7 and finding the
 deployment it fronts unbuilt: *"Yes. I want to test deployment. Ideally we'd have dev mode, staging
 mode (which I'll test as soon as it's ready), and release mode. There are no real users yet, and
@@ -19029,5 +19033,43 @@ with five guests, two of whom asked why they could not pause: *"I think we need 
    holds: a command carries no privilege of its own, and the hub asks whether the member who sent
    it may give it, now by the rights of that member's invite. It rides on D268 §4, a guest's
    player sending commands from its controls.
+
+**Status:** Decided 2026-10-09.
+
+## D272 — Production runs on nas.example from an image it builds, and migrations keep every step since the version it last ran
+
+**Decided** (2026-10-09), by the project owner, before M5: *"at some point I'll want to actually use
+this software to watch TV and movies with my gf, so before we begin the new dev cycle style on m5,
+I want to make sure the production deployment procedure for the core and nodes is simple and
+painless (which it will have to be anyway once I open up the first public beta)."* Then: *"I'd want
+to run it on nas.example, since that's where the files are. While it's just me and my gf, I don't mind
+swapping between media.orpheum-app.com pointing things to your staging server or nas.example."* And:
+*"Once I start using this for real, we'll need to support migrations in a sliding window: keep
+migration fully intact from the last checkpoint until I say that I've migrated nas, then make that
+the new checkpoint. I don't mind if nas has to build the image itself, so whatever's easiest."* It
+builds D249 §5's release mode and revises D228 §3 and §6.
+
+1. **Production runs on nas.example**, where the media is: a Proxmox VE host on Debian trixie, with the
+   core and its node on one machine (there are no remote nodes yet). Whether it runs in an LXC
+   container or a VM there is open. Landlock is switched on in the kernel it runs under, since the
+   node runs no FFmpeg unconfined (D112).
+2. **`media.orpheum-app.com` is swapped** between staging, in the agent's sandbox, and nas.example
+   while the owner and one other person are the only users: one VPS address fronts one machine's
+   voice relay (D249).
+3. **Release mode is built before M5's live iteration**, as D249 §5 designed it: the same runtime
+   image and compose file as staging, with no source tree, Python or build needed by the
+   deployment beyond the image. Installing is the image's setup command, which writes the
+   deployment's directory (the compose file, a short values file, the tunnel's keys), then
+   `docker compose up -d`; updating is a new image, then `docker compose up -d`. The tunnel is
+   optional, for a host reached without the VPS. Staging is set up the same way, so the one path
+   stays tested.
+4. **The image is built on nas.example** from a tagged checkout, by one command. Publishing it to a
+   registry waits for the public beta (D235 §5).
+5. **Migrations keep a sliding window.** The checkpoint is the schema version nas.example last ran.
+   Every step after it is kept as committed and never edited; a schema change appends a step. When
+   the owner says nas.example has migrated to a version, the steps up to it fold into the baseline,
+   which becomes the new checkpoint. This revises D228 §3's rule of one step behind, and stands
+   in for D228 §6's going live until the public beta, when every step is kept for good (D181).
+   D228 §5's standing approval for a fold's goldens holds at each new checkpoint.
 
 **Status:** Decided 2026-10-09.
