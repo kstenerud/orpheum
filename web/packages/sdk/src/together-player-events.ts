@@ -49,10 +49,14 @@ export interface ChunkLoaded {
  */
 export const playerSwitchedQualityEvent = "orpheumplayerswitchedquality";
 
-/** A quality a player began playing, as playerSwitchedQualityEvent tells it. */
+/**
+ * A quality a player began playing, as playerSwitchedQualityEvent tells it, with the link's
+ * estimate then: undefined before a chunk measured it, when the estimate is only hls.js's starting
+ * value.
+ */
 export interface QualitySwitched {
   readonly qualityKbps: number;
-  readonly linkEstimateKbps: number;
+  readonly linkEstimateKbps: number | undefined;
 }
 
 /** The detail an event carries, when it is a CustomEvent whose detail has every one of fields. */
@@ -82,9 +86,9 @@ export function chunkLoadedOf(event: Event): ChunkLoaded | undefined {
 
 /** A playerSwitchedQualityEvent's quality, or undefined when the event carries none. */
 export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
-  const { qualityKbps, linkEstimateKbps } =
-    detailWith(event, ["qualityKbps", "linkEstimateKbps"]) ?? {};
-  return typeof qualityKbps === "number" && typeof linkEstimateKbps === "number"
+  const { qualityKbps, linkEstimateKbps } = detailWith(event, ["qualityKbps"]) ?? {};
+  return typeof qualityKbps === "number" &&
+    (linkEstimateKbps === undefined || typeof linkEstimateKbps === "number")
     ? { qualityKbps, linkEstimateKbps }
     : undefined;
 }

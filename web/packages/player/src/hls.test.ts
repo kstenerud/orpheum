@@ -78,13 +78,18 @@ describe("playing a prepared rendition", () => {
   });
 
   it("tells the video each chunk hls.js loads, how fast, and each quality it switches to", () => {
-    const listeners = new Map<string, (event: unknown, data: unknown) => void>();
+    const listeners = new Map<string, ((event: unknown, data: unknown) => void)[]>();
+    const fire = (event: string, data: unknown): void => {
+      for (const listener of listeners.get(event) ?? []) {
+        listener(undefined, data);
+      }
+    };
     tellLoading(
       {
         levels: [{ bitrate: 800_000 }, { bitrate: 1_200_000 }],
         bandwidthEstimate: 2_500_000,
         on: ((event: string, listener: (event: unknown, data: unknown) => void) => {
-          listeners.set(event, listener);
+          listeners.set(event, [...(listeners.get(event) ?? []), listener]);
         }) as Hls["on"],
       },
       {
@@ -96,15 +101,21 @@ describe("playing a prepared rendition", () => {
     );
     const told: { type: string; detail: unknown }[] = [];
     const loaded = (type: string, level: number): void => {
-      listeners.get(Hls.Events.FRAG_LOADED)?.(undefined, {
+      fire(Hls.Events.FRAG_LOADED, {
         frag: { type, level, stats: { loading: { start: 100, end: 2100 }, total: 500_000 } },
       });
     };
+    // Before a chunk loaded, hls.js's estimate is its starting value, measuring nothing.
+    fire(Hls.Events.LEVEL_SWITCHED, { level: 1 });
     loaded("main", 1);
     loaded("audio", 0);
     loaded("subtitle", 0); // not a chunk of film
-    listeners.get(Hls.Events.LEVEL_SWITCHED)?.(undefined, { level: 0 });
+    fire(Hls.Events.LEVEL_SWITCHED, { level: 0 });
     expect(told).toEqual([
+      {
+        type: playerSwitchedQualityEvent,
+        detail: { qualityKbps: 1200, linkEstimateKbps: undefined },
+      },
       {
         type: playerLoadedChunkEvent,
         detail: { track: "video", loadMs: 2000, loadedKbps: 2000, qualityKbps: 1200 },
