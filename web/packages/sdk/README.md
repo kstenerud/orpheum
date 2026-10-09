@@ -70,6 +70,10 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
   stream pulls; every other load, and every page on HTTP, goes as it would.
   `src/rtc-media.test.ts`; in Chromium and Firefox, `web/e2e/webrtc.spec.ts` plays a film with no
   API request reaching the network.
+- **On the WebRTC path the session socket is a data channel** (W3): it asks to become a WebSocket,
+  opens on 101, carries one text message per message both ways, and closes with the code the core's
+  binary close message names, or 1006 when the channel just ends. `src/rtc-together.test.ts`; in
+  both browsers, `web/e2e/webrtc.spec.ts` runs a session whose host opens no WebSocket.
 - **A call's own Authorization wins over the session token**: a Watch Together member's
   requests carry their membership credential (D246 §3). `src/client.test.ts`.
 - **Generated code under `src/gen/` is never edited by hand**; it is excluded from lint and

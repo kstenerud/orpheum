@@ -4,7 +4,9 @@ import {
   carryMediaOver,
   connectRtc,
   dataOrThrow,
+  rtcTogetherSocket,
   type Api,
+  type OpenTogetherSocket,
   type SwitchableFetch,
 } from "@orpheum/sdk";
 
@@ -40,7 +42,13 @@ export function wantsWebrtc(search: string, tabStorage: StringStorage | undefine
  * the service worker; a failure leaves them on HTTPS, and says why.
  */
 export function moveToWebrtcWhenSignedIn(
-  app: { readonly session: Session; readonly api: Api; readonly routed: SwitchableFetch },
+  app: {
+    readonly session: Session;
+    readonly api: Api;
+    readonly routed: SwitchableFetch;
+    /** Moves the session sockets the app opens from now on to open. */
+    readonly switchTogetherSocket: (open: OpenTogetherSocket) => void;
+  },
   report: (problem: unknown) => void,
 ): void {
   const { session, api, routed } = app;
@@ -53,6 +61,7 @@ export function moveToWebrtcWhenSignedIn(
     connectRtc(async (offer) => dataOrThrow(await api.POST("/rtc/offer", { body: offer })))
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
+        app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
         await carryMediaOver(transport.fetch, session.token);
       })
       .catch((problem: unknown) => {

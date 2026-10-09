@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -55,24 +57,23 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		http.Error(writer, "the server is not ready", http.StatusServiceUnavailable)
 		return
 	}
-	connection, err := websocket.Accept(writer, request, nil)
+	connection, err := acceptTogetherSocket(writer, request)
 	if err != nil {
-		return // Accept has answered
+		return // the refusal is answered
 	}
-	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // closing what may be closed
-	connection.SetReadLimit(maxTogetherMessageBytes)
+	defer func() { _ = connection.closeNow() }() //nolint:errcheck // closing what may be closed
 	ctx, cancel := context.WithCancel(request.Context())
 	defer cancel()
 	hello, err := readHello(ctx, connection)
 	if err != nil {
-		_ = connection.Close(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
+		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
 		return
 	}
 	person, err := signedInPerson(ctx, dependencies, hello.SessionToken)
 	if err != nil {
 		// Could not be checked: the server's failure, and the device comes again (the M4 closing audit).
 		server.logger.ErrorContext(ctx, "watch together: a device's sign-in could not be checked", "err", err)
-		_ = connection.Close(websocket.StatusInternalError, "try again") //nolint:errcheck // closing
+		_ = connection.closeWith(websocket.StatusInternalError, "try again") //nolint:errcheck // closing
 		return
 	}
 	outbox := make(chan together.Outbound, outboxSize)
@@ -112,13 +113,13 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 // attachDevice attaches the device that said hello, welcomed with how to follow its group as the
 // settings say now; when it cannot, it closes the socket saying why and reports false.
 func (server *Server) attachDevice(
-	ctx context.Context, connection *websocket.Conn, dependencies *Dependencies, hello together.Inbound,
+	ctx context.Context, connection togetherSocket, dependencies *Dependencies, hello together.Inbound,
 	person *together.Person, send together.Sender,
 ) (together.Attachment, bool) {
 	tuning, err := server.togetherTuning(ctx, dependencies)
 	if err != nil {
 		const why = "the settings could not be read"
-		_ = connection.Close(websocket.StatusInternalError, why) //nolint:errcheck // closing
+		_ = connection.closeWith(websocket.StatusInternalError, why) //nolint:errcheck // closing
 		return together.Attachment{}, false
 	}
 	attachment, err := dependencies.Together.Attach(
@@ -126,7 +127,7 @@ func (server *Server) attachDevice(
 	if err != nil {
 		server.logger.InfoContext(ctx, "watch together: a device's hello named no session or member",
 			"role", string(hello.Role), "err", err)
-		_ = connection.Close(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
+		_ = connection.closeWith(websocket.StatusPolicyViolation, "no such session") //nolint:errcheck // closing
 		return together.Attachment{}, false
 	}
 	return attachment, true
@@ -176,12 +177,12 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 }
 
 // readHello reads a device's first message, which must be a hello, within helloWait.
-func readHello(ctx context.Context, connection *websocket.Conn) (together.Inbound, error) {
+func readHello(ctx context.Context, connection togetherSocket) (together.Inbound, error) {
 	helloContext, cancel := context.WithTimeout(ctx, helloWait)
 	defer cancel()
 	var hello together.Inbound
-	if err := wsjson.Read(helloContext, connection, &hello); err != nil {
-		return hello, err //nolint:wrapcheck // the socket's, to close on
+	if err := connection.readJSON(helloContext, &hello); err != nil {
+		return hello, err
 	}
 	if hello.Type != together.MessageHello || hello.Credential == "" {
 		return hello, errors.New("the first message is not a hello with a credential")
@@ -193,20 +194,20 @@ func readHello(ctx context.Context, connection *websocket.Conn) (together.Inboun
 // device sends nothing for silence, and says why it ended: the close the device sent, the
 // connection lost, its silence, or the server closing it.
 func readInto(
-	ctx context.Context, connection *websocket.Conn, hub *together.Hub, attachment together.Attachment,
+	ctx context.Context, connection togetherSocket, hub *together.Hub, attachment together.Attachment,
 	silence time.Duration,
 ) error {
 	for {
 		var message together.Inbound
 		readContext, cancel := context.WithTimeoutCause(ctx, silence, errSilent)
-		err := wsjson.Read(readContext, connection, &message)
+		err := connection.readJSON(readContext, &message)
 		isSilent := errors.Is(context.Cause(readContext), errSilent)
 		cancel()
 		if isSilent {
 			return fmt.Errorf("sent nothing for %s: %w", silence, errSilent)
 		}
 		if err != nil {
-			return err //nolint:wrapcheck // the socket's own words are the why
+			return err
 		}
 		hub.Handle(ctx, attachment, message)
 	}
@@ -215,16 +216,89 @@ func readInto(
 // writeOutbox writes the hub's messages to the device until the outbox closes; an ended session's
 // last message closes the socket after it.
 func writeOutbox(
-	ctx context.Context, connection *websocket.Conn, outbox <-chan together.Outbound, cancel context.CancelFunc,
+	ctx context.Context, connection togetherSocket, outbox <-chan together.Outbound, cancel context.CancelFunc,
 ) {
 	for message := range outbox {
-		if err := wsjson.Write(ctx, connection, message); err != nil {
+		if err := connection.writeJSON(ctx, message); err != nil {
 			cancel()
 			continue // drain, so the hub's sends never block
 		}
 		if message.Type == together.MessageEnded {
-			_ = connection.Close(websocket.StatusNormalClosure, message.Reason) //nolint:errcheck // closing
+			_ = connection.closeWith(websocket.StatusNormalClosure, message.Reason) //nolint:errcheck // closing
 			cancel()
 		}
 	}
+}
+
+// togetherSocket is a device's connection to its session: a WebSocket, or a request over a WebRTC
+// data channel that asked to become one (D273 §8), each message one JSON object.
+type togetherSocket interface {
+	readJSON(ctx context.Context, into any) error
+	writeJSON(ctx context.Context, value any) error
+	closeWith(code websocket.StatusCode, reason string) error
+	closeNow() error
+}
+
+// acceptTogetherSocket accepts a device's connection: the message connection a request over a data
+// channel asked to become, else a WebSocket. A refusal is answered by the time it returns.
+func acceptTogetherSocket(writer http.ResponseWriter, request *http.Request) (togetherSocket, error) {
+	if conn, isChannel := rtcapi.MessageConnFrom(request.Context()); isChannel {
+		if err := conn.Accept(); err != nil {
+			return nil, err //nolint:wrapcheck // the channel's own words; nothing reads them
+		}
+		return channelSocket{conn: conn}, nil
+	}
+	connection, err := websocket.Accept(writer, request, nil)
+	if err != nil {
+		return nil, err //nolint:wrapcheck // Accept has answered
+	}
+	connection.SetReadLimit(maxTogetherMessageBytes)
+	return webSocket{conn: connection}, nil
+}
+
+// webSocket is a device's WebSocket.
+type webSocket struct{ conn *websocket.Conn }
+
+func (socket webSocket) readJSON(ctx context.Context, into any) error {
+	return wsjson.Read(ctx, socket.conn, into) //nolint:wrapcheck // the socket's own words are the why
+}
+
+func (socket webSocket) writeJSON(ctx context.Context, value any) error {
+	return wsjson.Write(ctx, socket.conn, value) //nolint:wrapcheck // the socket's own words
+}
+
+func (socket webSocket) closeWith(code websocket.StatusCode, reason string) error {
+	return socket.conn.Close(code, reason) //nolint:wrapcheck // closing
+}
+
+func (socket webSocket) closeNow() error {
+	return socket.conn.CloseNow() //nolint:wrapcheck // closing
+}
+
+// channelSocket is a device's connection over a data channel: a message is at most
+// rtcapi.MaxMessageBytes, as maxTogetherMessageBytes holds a WebSocket's to.
+type channelSocket struct{ conn *rtcapi.MessageConn }
+
+func (socket channelSocket) readJSON(ctx context.Context, into any) error {
+	message, err := socket.conn.Read(ctx)
+	if err != nil {
+		return err //nolint:wrapcheck // the channel's own words are the why
+	}
+	return json.Unmarshal(message, into) //nolint:wrapcheck // not JSON: the device's fault, said as it is
+}
+
+func (socket channelSocket) writeJSON(ctx context.Context, value any) error {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("encode a message: %w", err)
+	}
+	return socket.conn.Write(ctx, encoded) //nolint:wrapcheck // the channel's own words
+}
+
+func (socket channelSocket) closeWith(code websocket.StatusCode, reason string) error {
+	return socket.conn.Close(int(code), reason) //nolint:wrapcheck // closing
+}
+
+func (socket channelSocket) closeNow() error {
+	return socket.conn.CloseNow() //nolint:wrapcheck // closing
 }

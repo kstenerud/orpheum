@@ -343,6 +343,17 @@ export class RtcTransport {
     }
   };
 
+  /**
+   * A channel of its own on the connection with the fewest under way, for a request that holds it
+   * open: a WebSocket's messages (rtc-together.ts).
+   */
+  openChannel(): ChannelLike {
+    const link = this.links.reduce((least, each) =>
+      each.underWay < least.underWay ? each : least,
+    );
+    return link.peer.createDataChannel("upgrade");
+  }
+
   /** Closes every connection. */
   close(): void {
     for (const link of this.links) {
