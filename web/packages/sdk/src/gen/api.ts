@@ -2742,7 +2742,7 @@ export interface components {
             spans: components["schemas"]["SpanBody"][] | null;
             stalls?: components["schemas"]["StallBody"][] | null;
             startup?: components["schemas"]["StartupBody"];
-            unplayable?: components["schemas"]["UnplayableBody"];
+            unplayables?: components["schemas"]["UnplayableBody"][] | null;
         };
         ReportOutputBody: {
             /** @description The lower quality the first stall started, ready or not (D253 §1) */
@@ -3182,6 +3182,7 @@ export interface components {
         };
         UnplayableBody: {
             audioBuffered?: string;
+            isPaused?: boolean;
             lastError?: string;
             /** Format: int64 */
             positionMs: number;

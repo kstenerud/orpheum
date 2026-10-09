@@ -3637,8 +3637,14 @@
           "startup": {
             "$ref": "#/components/schemas/StartupBody"
           },
-          "unplayable": {
-            "$ref": "#/components/schemas/UnplayableBody"
+          "unplayables": {
+            "items": {
+              "$ref": "#/components/schemas/UnplayableBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -5138,6 +5144,9 @@
           "audioBuffered": {
             "maxLength": 400,
             "type": "string"
+          },
+          "isPaused": {
+            "type": "boolean"
           },
           "lastError": {
             "maxLength": 200,

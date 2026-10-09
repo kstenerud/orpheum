@@ -179,17 +179,22 @@ describe("reporting play state", () => {
     expect(stall?.videoBuffered?.endsWith("590.00-595.00")).toBe(true);
   });
 
-  it("tells a quality its device cannot play at once, once, and again after a report that failed (D266)", async () => {
+  it("tells each quality its device cannot play at once, once, and again after a report that failed (D266)", async () => {
     const { reporter, sent, failNext } = fakeReporter();
     failNext();
     reporter.recordUnplayable({ qualityKbps: 36_208, positionMs: 420_500 }, 420_500);
+    // A second, while the first's report is still on its way: kept, not in the first's place.
+    reporter.recordUnplayable({ qualityKbps: 20_104, positionMs: 421_000 }, 421_000);
     await settled();
-    reporter.flush(420_500);
-    await settled();
-    expect(sent[0]?.unplayable).toEqual({ qualityKbps: 36_208, positionMs: 420_500 });
     reporter.flush(421_000);
     await settled();
-    expect(sent[1]).not.toHaveProperty("unplayable");
+    expect(sent[0]?.unplayables).toEqual([
+      { qualityKbps: 36_208, positionMs: 420_500 },
+      { qualityKbps: 20_104, positionMs: 421_000 },
+    ]);
+    reporter.flush(421_500);
+    await settled();
+    expect(sent[1]).not.toHaveProperty("unplayables");
   });
 
   it("sends nothing more once a report is refused for good", async () => {

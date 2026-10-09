@@ -12,6 +12,7 @@ import {
   chunkedHlsConfig,
   paceHeader,
   playerFoundUnplayableEvent,
+  sendUnplayable,
   settledAtBps,
   unplayableOf,
 } from "./chunked.ts";
@@ -106,6 +107,7 @@ describe("a quality given up as unplayable, as its event tells it (D266)", () =>
       qualityKbps: 25_991,
       positionMs: 382_111,
       readyState: 1,
+      isPaused: true,
       videoBuffered: "378.59-501.83",
       audioBuffered: "387.95-508.10",
       lastError: "",
@@ -114,5 +116,19 @@ describe("a quality given up as unplayable, as its event tells it (D266)", () =>
     expect(
       unplayableOf(new CustomEvent(playerFoundUnplayableEvent, { detail: { qualityKbps: 1 } })),
     ).toBeUndefined();
+  });
+
+  it("is sent with the video's readyState and whether it stood paused (D266 §1)", () => {
+    const sent: Event[] = [];
+    const video = {
+      readyState: 1,
+      paused: true,
+      error: null,
+      dispatchEvent: (event: Event) => sent.push(event) > 0,
+    };
+    sendUnplayable(video)({ qualityKbps: 25_991, positionMs: 382_111 });
+    expect(sent.map(unplayableOf)).toEqual([
+      { qualityKbps: 25_991, positionMs: 382_111, readyState: 1, isPaused: true },
+    ]);
   });
 });
