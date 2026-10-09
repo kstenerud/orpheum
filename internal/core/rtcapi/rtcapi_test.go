@@ -43,12 +43,14 @@ func newServer(t *testing.T) *rtcapi.Server {
 	return server
 }
 
+// The header is named in lower case, as a browser names it, and the handler reads it by its canonical
+// name.
 func TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole(t *testing.T) {
 	t.Parallel()
 	link := rtcapitest.Connect(t, newServer(t).Answer)
 	got := link.Do(rtcapi.RequestHead{
 		Method: http.MethodPost, Path: "/api/v1/things?x=1",
-		Headers: http.Header{"Authorization": {"Bearer t"}},
+		Headers: http.Header{"authorization": {"Bearer t"}},
 	}, []byte(`{"a":1}`))
 	parts := strings.Split(string(got.Body), "|")
 	if got.Head.Status != http.StatusTeapot || got.Head.Headers.Get("X-Echo") != "Bearer t" || len(parts) != 4 {
