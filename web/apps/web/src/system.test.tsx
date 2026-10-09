@@ -11,6 +11,10 @@ import { withServices } from "./test-services.tsx";
 
 /** The backups section's answer when there are none (D242 §5). */
 const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
+const noDiscovery = [
+  200,
+  { baseUrl: "", published: [], probe: [], claimExpiresAt: 0, lastHeartbeatAt: 0 },
+] as const;
 
 let mounted: Mounted | undefined;
 
@@ -106,6 +110,7 @@ async function shown(node: SystemNode): Promise<string> {
       servedBy({
         "GET /system": [200, report(node)],
         "GET /backups": noBackups,
+        "GET /system/discovery": noDiscovery,
         "GET /now-playing": [200, { playbacks: [] }],
       }),
     ),
@@ -240,6 +245,7 @@ it("the System page says what is not answering, and each outside service's limit
       <System />,
       servedBy({
         "GET /backups": noBackups,
+        "GET /system/discovery": noDiscovery,
         "GET /now-playing": [200, { playbacks: [] }],
         "GET /system": [
           200,
@@ -296,6 +302,7 @@ it("the System page says when the public name's certificate expires, or that the
         servedBy({
           "GET /system": [200, shownReport],
           "GET /backups": noBackups,
+          "GET /system/discovery": noDiscovery,
           "GET /now-playing": [200, { playbacks: [] }],
         }),
       ),

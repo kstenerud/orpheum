@@ -591,6 +591,21 @@
         ],
         "type": "object"
       },
+      "ConnectDiscoveryInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "baseUrl": {
+            "description": "The discovery's address: the service's, or the owner's own",
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseUrl"
+        ],
+        "type": "object"
+      },
       "CreateAccountInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -914,6 +929,106 @@
         },
         "required": [
           "devices"
+        ],
+        "type": "object"
+      },
+      "DiscoveryProbeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate",
+          "result"
+        ],
+        "type": "object"
+      },
+      "DiscoveryStatusBody": {
+        "additionalProperties": false,
+        "properties": {
+          "baseUrl": {
+            "description": "The discovery's address; empty when the core is enrolled with none",
+            "type": "string"
+          },
+          "claimCode": {
+            "type": "string"
+          },
+          "claimExpiresAt": {
+            "description": "Unix milliseconds; 0 when there is no code",
+            "format": "int64",
+            "type": "integer"
+          },
+          "coreId": {
+            "type": "string"
+          },
+          "deprecatedUntil": {
+            "description": "When the discovery stops speaking this core's protocol, when it said so",
+            "type": "string"
+          },
+          "lastHeartbeatAt": {
+            "description": "Unix milliseconds; 0 before the first",
+            "format": "int64",
+            "type": "integer"
+          },
+          "probe": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryProbeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "problem": {
+            "description": "Why the last call to the discovery failed; empty when it did not",
+            "type": "string"
+          },
+          "published": {
+            "description": "The addresses the discovery publishes",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reachableFrom": {
+            "description": "As the probe found; absent before it ran",
+            "enum": [
+              "everywhere",
+              "ipv6_or_webrtc",
+              "nowhere"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "description": "Absent before the discovery's first answer",
+            "enum": [
+              "pending",
+              "claimed",
+              "grace",
+              "frozen",
+              "released",
+              "disabled"
+            ],
+            "type": "string"
+          },
+          "zone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseUrl",
+          "claimExpiresAt",
+          "published",
+          "probe",
+          "lastHeartbeatAt"
         ],
         "type": "object"
       },
@@ -9884,6 +9999,131 @@
           }
         },
         "summary": "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/discovery": {
+      "delete": {
+        "operationId": "leaveDiscovery",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Take the core out of its discovery (admin; D273)",
+        "tags": [
+          "Running it"
+        ]
+      },
+      "get": {
+        "operationId": "getDiscovery",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryStatusBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Where the core stands with its discovery (admin; D273)",
+        "tags": [
+          "Running it"
+        ]
+      },
+      "post": {
+        "operationId": "connectDiscovery",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectDiscoveryInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryStatusBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273)",
         "tags": [
           "Running it"
         ]

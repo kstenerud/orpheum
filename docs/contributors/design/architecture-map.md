@@ -72,6 +72,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
+| `internal/core/discovery` | OPS (the core's standing with its discovery, D273) | ⚑ R1: calls the discovery through the outbound client; ⚑ R9: hands the offers it passes on to rtcapi |
+| `internal/core/identity` | PERSIST (the core's identity key, identity.key, D273) | — |
 | `internal/core/rtcapi/rtcapitest` | TEST | — |
 | `internal/core/secrets` | R5 (secret custody) | — |
 | `internal/core/settings` | R6a | — (the server's alone: its unused `user` scope was removed on 2026-09-30, F6) |
@@ -98,6 +100,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/subtitle` | R3 | — |
 | `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
 | `internal/nodeproto` | R8 | — |
+| `internal/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (kept apart to move to a shared protocol module) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |

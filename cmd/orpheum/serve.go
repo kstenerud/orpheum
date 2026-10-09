@@ -220,7 +220,7 @@ func openAndWire(
 		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err == nil {
-		opened, err = openCertificates(ctx, config, opened, outside, logger)
+		opened, err = openReachedFromOutside(ctx, config, opened, outside, server.RTC(), logger)
 	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
@@ -233,9 +233,9 @@ func openAndWire(
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
-	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork, dependencies.Chunks =
+	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork, dependencies.Chunks, dependencies.Discovery =
 		opened.jobServices.subtitles, opened.jobServices.renditions, opened.jobServices.artwork,
-		opened.jobServices.chunks
+		opened.jobServices.chunks, opened.jobServices.discovery
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	opened = wireJobsInto(&dependencies, opened, logger)

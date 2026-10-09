@@ -23,6 +23,12 @@ func (server *Server) SetRTC(answerer RTCAnswerer) {
 	server.rtc = answerer
 }
 
+// RTC is what answers WebRTC offers, nil when nothing does: the discovery passes it the offers it
+// is sent (D273).
+func (server *Server) RTC() RTCAnswerer {
+	return server.rtc
+}
+
 // SessionDescriptionBody is a WebRTC session description: an offer or an answer, and its SDP.
 type SessionDescriptionBody struct {
 	Type string `enum:"offer,answer" json:"type"`

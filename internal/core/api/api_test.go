@@ -22,8 +22,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -188,8 +190,19 @@ func newHarness(t *testing.T) testHarness {
 	if secretErr := turn.EnsureSecret(t.Context(), secretStore, rand.Reader); secretErr != nil {
 		t.Fatal(secretErr)
 	}
+	identityKey, keyErr := identity.GenerateKey(rand.Reader)
+	if keyErr != nil {
+		t.Fatal(keyErr)
+	}
+	discoveryService, discoveryErr := discovery.New(discovery.Parts{
+		Files: directories, Key: identityKey, HTTP: &http.Client{}, Clock: now,
+		Logger: slog.New(slog.DiscardHandler), Version: "test", APIMajor: 1,
+	})
+	if discoveryErr != nil {
+		t.Fatal(discoveryErr)
+	}
 	server.Ready(Dependencies{
-		Auth: service, Settings: seeded,
+		Auth: service, Settings: seeded, Discovery: discoveryService,
 		Secrets: secretStore, SetupCodes: codes,
 		Relay:     &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:   identify.NewChooser(matcher, pass),
