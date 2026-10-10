@@ -14,7 +14,14 @@ import { withServices } from "./test-services.tsx";
 const noBackups = [200, { directory: "/srv/orpheum/backups", backups: [] }] as const;
 const noDiscovery = [
   200,
-  { baseUrl: "", published: [], probe: [], claimExpiresAt: 0, lastHeartbeatAt: 0 },
+  {
+    baseUrl: "",
+    published: [],
+    probe: [],
+    claimExpiresAt: 0,
+    lastHeartbeatAt: 0,
+    portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
+  },
 ] as const;
 
 let mounted: Mounted | undefined;

@@ -251,7 +251,8 @@ func openAndWire(
 	return opened, nil
 }
 
-// wireJobsInto gives the API the job queue and the outside hosts' provider services, and makes a
+// wireJobsInto gives the API the job queue, the outside hosts' provider services and the port
+// mapping's report, and makes a
 // backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions, whose
 // host may change what plays only to what they reach (D243 §4).
 func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger *slog.Logger) openedServices {
@@ -263,6 +264,7 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
 	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
+	dependencies.PortMapping = opened.jobServices.portMapping
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
 	return opened

@@ -73,6 +73,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/rtcapi` | R9 (the API over WebRTC data channels, D273 §8) | — |
 | `internal/core/discovery` | OPS (the core's standing with its discovery, D273) | ⚑ R1: calls the discovery through the outbound client; ⚑ R9: hands the offers it passes on to rtcapi |
+| `internal/core/portmap` | OPS (the home router's port mapping, D273 §7) | ⚑ R1: speaks PCP, NAT-PMP and UPnP to the LAN's router |
 | `internal/core/identity` | PERSIST (the core's identity key, identity.key, D273) | — |
 | `internal/core/rtcapi/rtcapitest` | TEST | — |
 | `internal/core/secrets` | R5 (secret custody) | — |

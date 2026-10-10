@@ -5,13 +5,17 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/netip"
+	"os"
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -25,7 +29,7 @@ const apiMajor = 1
 // WebRTC offers it passes on through answerer.
 func newDiscovery(
 	config Config, opened openedServices, answerer discovery.Answerer, onClaimed func(context.Context),
-	logger *slog.Logger,
+	mapped *portmap.Service, logger *slog.Logger,
 ) (*discovery.Service, error) {
 	key, err := identity.LoadOrMake(opened.directories, rand.Reader)
 	if err != nil {
@@ -34,8 +38,10 @@ func newDiscovery(
 	return discovery.New(discovery.Parts{
 		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
-		Candidates: func() []discoveryproto.Candidate { return interfaceCandidates(httpsPort(config)) },
-		Answerer:   answerer, OnClaimed: onClaimed,
+		Candidates: func() []discoveryproto.Candidate {
+			return append(interfaceCandidates(httpsPort(config)), mapped.Candidates()...)
+		},
+		Answerer: answerer, OnClaimed: onClaimed,
 	})
 }
 
@@ -60,16 +66,55 @@ func openReachedFromOutside(
 			logger.ErrorContext(ctx, "the certificate of the discovery's names could not be asked for", "err", queueErr)
 		}
 	}
-	discovered, err = newDiscovery(config, opened, answerer, onClaimed, logger)
+	mapped, err := newPortMapping(config, opened, func() discovery.Status { return discovered.Status() }, logger)
 	if err != nil {
 		return opened, err
 	}
-	opened.jobServices.discovery, served.discoveryParts.DNS = discovered, discovered
+	discovered, err = newDiscovery(config, opened, answerer, onClaimed, mapped, logger)
+	if err != nil {
+		return opened, err
+	}
+	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
+	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
 		return opened, useErr
 	}
 	_, err = served.QueueRenewal(ctx)
 	return opened, err
+}
+
+// newPortMapping keeps the core's HTTPS port open at the home router while its discovery publishes
+// it and should_map_ports is on (D273 §7).
+func newPortMapping(
+	config Config, opened openedServices, standing func() discovery.Status, logger *slog.Logger,
+) (*portmap.Service, error) {
+	return portmap.New(portmap.Parts{
+		HTTP: opened.jobServices.outboundClient, Clock: clock.System{}, Logger: logger, Port: httpsPort(config),
+		IsWanted: func(ctx context.Context) bool {
+			if !standing().IsPublished() {
+				return false
+			}
+			isOn, err := opened.settings.Bool(ctx, settings.ShouldMapPorts)
+			if err != nil {
+				logger.WarnContext(ctx, "port mapping: could not read should_map_ports; not mapping", "err", err)
+			}
+			return isOn
+		},
+		Gateway: defaultGateway, IPv6Addresses: portmap.GlobalIPv6Addresses,
+		GatewayPort: portmap.GatewayPort, SearchAddress: portmap.SSDPAddress,
+	})
+}
+
+// routesFile is Linux's IPv4 routing table.
+const routesFile = "/proc/net/route"
+
+// defaultGateway is the router of the machine's default IPv4 route, which port mapping asks.
+func defaultGateway() (netip.Addr, error) {
+	table, err := os.ReadFile(routesFile)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("read the routing table: %w", err)
+	}
+	return portmap.GatewayOf(string(table))
 }
 
 // httpsPort is the port a client reaches the core on through its discovery, whose names are served

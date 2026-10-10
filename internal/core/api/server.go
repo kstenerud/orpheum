@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
@@ -84,6 +85,8 @@ type Dependencies struct {
 	Reachability *reachability.Checker
 	// Discovery keeps the core enrolled with its discovery, which an admin connects and leaves (D273).
 	Discovery *discovery.Service
+	// PortMapping says what the home router opened for the discovery's addresses (D273 §7).
+	PortMapping *portmap.Service
 	// Relay hands Watch Together's members their voice relay credentials; nil serves none (D243 §8).
 	Relay *turn.Issuer
 	// Backups makes and lists the backups of the server's persistent directory (D242 §5).

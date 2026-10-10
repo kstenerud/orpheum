@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 )
 
 // DiscoveryProbeBody is what the discovery's outside probe found of one of the core's addresses, or
@@ -36,6 +37,25 @@ type DiscoveryStatusBody struct {
 	LastHeartbeatAt int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
 	Problem         string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                //nolint:lll // one struct tag
 	DeprecatedUntil string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"` //nolint:lll // one struct tag
+	PortMapping     PortMappingBody      `json:"portMapping"`
+}
+
+// PortMappingBody is what the home router opened for the core while its discovery publishes it
+// (D273 §7): each opening, and why each way that failed failed.
+type PortMappingBody struct {
+	IsWanted  bool                  `doc:"Whether the core is asking: should_map_ports on and a discovery publishing it" json:"isWanted"` //nolint:lll // one struct tag
+	CheckedAt int64                 `doc:"Unix milliseconds; 0 before the first" json:"checkedAt"`
+	Mappings  []PortMappingItemBody `json:"mappings"`
+	Problems  []string              `json:"problems"`
+}
+
+// PortMappingItemBody is one opening: a public IPv4 address and port forwarded to the core, or an
+// IPv6 address of the core the router's firewall lets through.
+type PortMappingItemBody struct {
+	Method    string `enum:"pcp,natpmp,upnp" json:"method"`
+	Internal  string `doc:"The core's address and port" json:"internal"`
+	External  string `doc:"Where the internet reaches it" json:"external"`
+	ExpiresAt int64  `doc:"Unix milliseconds; 0 for one the router made for good" json:"expiresAt"`
 }
 
 // DiscoveryStatusOutput is the core's standing with its discovery.
@@ -76,7 +96,9 @@ func (server *Server) getDiscovery(ctx context.Context, input *AuthorizationHead
 	if err != nil {
 		return nil, err
 	}
-	return &DiscoveryStatusOutput{Body: discoveryStatusBody(dependencies.Discovery.Status())}, nil
+	body := discoveryStatusBody(dependencies.Discovery.Status())
+	body.PortMapping = portMappingBody(dependencies.PortMapping.Report())
+	return &DiscoveryStatusOutput{Body: body}, nil
 }
 
 // connectDiscovery enrols the core: an address that is not a discovery's is refused, as is a core
@@ -100,7 +122,9 @@ func (server *Server) connectDiscovery(
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return nil, failure
 	}
-	return &DiscoveryStatusOutput{Body: discoveryStatusBody(status)}, nil
+	body := discoveryStatusBody(status)
+	body.PortMapping = portMappingBody(dependencies.PortMapping.Report())
+	return &DiscoveryStatusOutput{Body: body}, nil
 }
 
 func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHeader) (*struct{}, error) {
@@ -130,6 +154,26 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	}
 	for _, probe := range status.Probe {
 		body.Probe = append(body.Probe, DiscoveryProbeBody{Candidate: probe.Candidate, Result: probe.Result})
+	}
+	return body
+}
+
+// portMappingBody is a port mapping report as the API sends it.
+func portMappingBody(report portmap.Report) PortMappingBody {
+	body := PortMappingBody{
+		IsWanted: report.IsWanted, Mappings: []PortMappingItemBody{}, Problems: append([]string{}, report.Problems...),
+	}
+	if !report.CheckedAt.IsZero() {
+		body.CheckedAt = report.CheckedAt.UnixMilli()
+	}
+	for _, mapping := range report.Mappings {
+		item := PortMappingItemBody{
+			Method: mapping.Method, Internal: mapping.Internal.String(), External: mapping.External.String(),
+		}
+		if !mapping.ExpiresAt.IsZero() {
+			item.ExpiresAt = mapping.ExpiresAt.UnixMilli()
+		}
+		body.Mappings = append(body.Mappings, item)
 	}
 	return body
 }
