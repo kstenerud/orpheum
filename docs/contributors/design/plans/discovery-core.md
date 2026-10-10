@@ -49,3 +49,18 @@ A signature is Ed25519 over `orpheum-discovery-v1:<purpose>:<nonce>`, the purpos
   private ones. The heartbeat's `interface` candidates are only real under host networking. Until a
   deployment without the tunnel (D272 §3) chooses its network, a containerised core reports its
   configured addresses and the discovery's observed one; which is the spec's to say (§3.4).
+
+## After C5: what the network research found (D274)
+
+[homelab-networks-2026-10-10.md](../research/homelab-networks-2026-10-10.md) §6 read against
+miniupnpd's source, none yet tried on a real router. Since D274 port mapping is an upgrade, not the
+way in, so these wait behind W4:
+
+- **IPv6 pinholes are refused by miniupnpd** unless asked over IPv6 from the address opened, and
+  for a port of 1024 or more; OpenWrt advertises IGD 1, which has no IPv6 firewall control. Ask
+  over IPv6 (UPnP or PCP), on a high port.
+- **Map a high port** of the core's choosing (D274 §2): stock OpenWrt maps only 1024–65535.
+- **miniupnpd maps nothing for IPv4 when its own WAN address is private**: every inner router of a
+  double NAT. Say so on the System page rather than retry.
+- **The candidates carry addresses no one outside can use:** 100.64.0.0/10 (carrier NAT, and
+  Tailscale), IPv6 temporary addresses, a bridge network's. Leave them out, or scope them.
