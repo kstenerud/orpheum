@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // DiscoveryProbeBody is what the discovery's outside probe found of one of the core's addresses, or
@@ -38,6 +39,8 @@ type DiscoveryStatusBody struct {
 	Problem         string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                //nolint:lll // one struct tag
 	DeprecatedUntil string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"` //nolint:lll // one struct tag
 	PortMapping     PortMappingBody      `json:"portMapping"`
+	// WebRTCPaths are how many WebRTC connections took each path since the core started (D274 §3).
+	WebRTCPaths []WebRTCPathBody `json:"webrtcPaths"`
 }
 
 // PortMappingBody is what the home router opened for the core while its discovery publishes it
@@ -56,6 +59,12 @@ type PortMappingItemBody struct {
 	Internal  string `doc:"The core's address and port" json:"internal"`
 	External  string `doc:"Where the internet reaches it" json:"external"`
 	ExpiresAt int64  `doc:"Unix milliseconds; 0 for one the router made for good" json:"expiresAt"`
+}
+
+// WebRTCPathBody is how many connections took one path.
+type WebRTCPathBody struct {
+	Path  string `enum:"direct_ipv6,direct_ipv4,punched_ipv6,punched_ipv4,relayed,failed" json:"path"`
+	Count int    `json:"count"`
 }
 
 // DiscoveryStatusOutput is the core's standing with its discovery.
@@ -98,6 +107,7 @@ func (server *Server) getDiscovery(ctx context.Context, input *AuthorizationHead
 	}
 	body := discoveryStatusBody(dependencies.Discovery.Status())
 	body.PortMapping = portMappingBody(dependencies.PortMapping.Report())
+	body.WebRTCPaths = server.webrtcPathsBody()
 	return &DiscoveryStatusOutput{Body: body}, nil
 }
 
@@ -124,6 +134,7 @@ func (server *Server) connectDiscovery(
 	}
 	body := discoveryStatusBody(status)
 	body.PortMapping = portMappingBody(dependencies.PortMapping.Report())
+	body.WebRTCPaths = server.webrtcPathsBody()
 	return &DiscoveryStatusOutput{Body: body}, nil
 }
 
@@ -176,4 +187,17 @@ func portMappingBody(report portmap.Report) PortMappingBody {
 		body.Mappings = append(body.Mappings, item)
 	}
 	return body
+}
+
+// webrtcPathsBody are the paths WebRTC connections took, each with its count, every path listed.
+func (server *Server) webrtcPathsBody() []WebRTCPathBody {
+	counts := map[rtcapi.Path]int{}
+	if server.rtc != nil {
+		counts = server.rtc.PathCounts()
+	}
+	paths := make([]WebRTCPathBody, 0, len(rtcapi.Paths()))
+	for _, path := range rtcapi.Paths() {
+		paths = append(paths, WebRTCPathBody{Path: string(path), Count: counts[path]})
+	}
+	return paths
 }

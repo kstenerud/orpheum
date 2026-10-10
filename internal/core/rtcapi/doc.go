@@ -25,6 +25,11 @@
 //     context (MessageConnFrom); once accepted, a text message each way is one message and the core's
 //     binary message its close, with the WebSocket's code. internal/core/api's
 //     TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel.
+//   - With its discovery's STUN servers (UseICEServers), an answer carries the public address the
+//     core's NAT gives it. TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
+//   - Each connection's path (direct, punched or relayed, by family; or failed) is counted and
+//     logged, told by the core's end of its selected pair (D274 §3).
+//     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.
 //   - Only an offer is answered, and none past MaxConnections.
 //     TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit.
 //   - A connection grants nothing: each request carries its own sign-in, and the offer endpoint
@@ -38,6 +43,7 @@
 //
 // # Where to change
 //
-//   - rtcapi.go: offers, connections and their bounds; channel.go: reading a request;
+//   - rtcapi.go: offers, connections and their bounds; path.go: the paths connections take;
+//     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket.
 package rtcapi

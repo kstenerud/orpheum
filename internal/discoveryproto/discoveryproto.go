@@ -93,6 +93,9 @@ type StatusResponse struct {
 	Zone           string `json:"zone,omitempty"`
 	ClaimCode      string `json:"claimCode,omitempty"`
 	ClaimExpiresAt int64  `json:"claimExpiresAt,omitempty"`
+	// ICEServers are the STUN servers the core gathers its WebRTC candidates through, so its
+	// answers carry the public address its NAT gives it (D274): the discovery's own.
+	ICEServers []ICEServer `json:"iceServers,omitempty"`
 }
 
 // The sources of a candidate address.

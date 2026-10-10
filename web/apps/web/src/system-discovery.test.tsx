@@ -71,6 +71,11 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         reachableFrom: "ipv6_or_webrtc",
         published: ["k7xq2.orpheum-core.com"],
         deprecatedUntil: "2027-03-01",
+        webrtcPaths: [
+          { path: "direct_ipv6", count: 0 },
+          { path: "punched_ipv4", count: 3 },
+          { path: "failed", count: 1 },
+        ],
         portMapping: {
           isWanted: true,
           checkedAt: 1_790_000_000_000,
@@ -95,4 +100,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
   expect(text).toContain("[2a0f:1000:1::20]:443 reaches [2a0f:1000:1::20]:443, by UPnP.");
   expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
+  expect(text).toContain("through the router's NAT over IPv4: 3");
+  expect(text).toContain("failed to connect: 1");
+  expect(text).not.toContain("directly over IPv6");
 });

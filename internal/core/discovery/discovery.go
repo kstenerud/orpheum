@@ -118,6 +118,8 @@ type Status struct {
 	Problem string
 	// DeprecatedUntil is the date the discovery stops answering this protocol, when it said so.
 	DeprecatedUntil string
+	// ICEServers are the STUN servers the discovery names for the core's WebRTC candidates.
+	ICEServers []discoveryproto.ICEServer
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -210,6 +212,7 @@ func (service *Service) Status() Status {
 	status := service.status
 	status.Published = slices.Clone(status.Published)
 	status.Probe = slices.Clone(status.Probe)
+	status.ICEServers = slices.Clone(status.ICEServers)
 	return status
 }
 
@@ -349,6 +352,7 @@ func (service *Service) askStatus(ctx context.Context, status Status, token stri
 	was := service.status
 	service.status.State, service.status.Zone, service.status.Problem = answered.State, answered.Zone, ""
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
+	service.status.ICEServers = answered.ICEServers
 	if answered.ClaimCode != "" {
 		service.status.ClaimExpiresAt = time.UnixMilli(answered.ClaimExpiresAt)
 	}

@@ -59,6 +59,9 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if status.BaseURL != fake.URL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" {
 		t.Errorf("connected = %+v; want pending at %s with its claim code", status, fake.URL)
 	}
+	if len(status.WebRTCPaths) != 6 || status.WebRTCPaths[0].Path != "direct_ipv6" || status.WebRTCPaths[0].Count != 0 {
+		t.Errorf("the WebRTC paths = %+v; want every path listed, none taken yet", status.WebRTCPaths)
+	}
 	if status.PortMapping.IsWanted || status.PortMapping.Mappings == nil {
 		t.Errorf("a pending core's port mapping = %+v; want none asked for, said as an empty list",
 			status.PortMapping)
