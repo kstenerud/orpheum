@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -54,9 +55,15 @@ type Server struct {
 	api     *webrtc.API
 	logger  *slog.Logger
 
+	// iceServers are the STUN and TURN servers a connection gathers its candidates through: its
+	// discovery's (D274); none gathers only the core's own addresses.
+	iceServers atomic.Pointer[func() []webrtc.ICEServer]
+
 	mutex sync.Mutex
-	// connections are the peer connections held now. Guarded by mutex.
+	// Guarded by mutex: connections are the peer connections held now, and paths how many
+	// connections took each path.
 	connections map[*webrtc.PeerConnection]bool
+	paths       map[Path]int
 }
 
 // New returns a server whose channels' requests handler serves, until ctx ends.
@@ -65,8 +72,14 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 	settings.SetSCTPCwndCAStep(cwndStepBytes)
 	return &Server{
 		ctx: ctx, handler: handler, api: webrtc.NewAPI(webrtc.WithSettingEngine(settings)), logger: logger,
-		connections: map[*webrtc.PeerConnection]bool{},
+		connections: map[*webrtc.PeerConnection]bool{}, paths: map[Path]int{},
 	}
+}
+
+// UseICEServers has each new connection gather its candidates through the servers source names
+// then: the discovery's STUN, so an answer carries the public address the core's NAT gives it.
+func (server *Server) UseICEServers(source func() []webrtc.ICEServer) {
+	server.iceServers.Store(&source)
 }
 
 // Answer takes a client's offer and returns the core's answer, with every candidate gathered. The
@@ -94,12 +107,23 @@ func (server *Server) open() (*webrtc.PeerConnection, error) {
 	if len(server.connections) >= MaxConnections {
 		return nil, ErrTooManyConnections
 	}
-	connection, err := server.api.NewPeerConnection(webrtc.Configuration{})
+	configuration := webrtc.Configuration{}
+	if source := server.iceServers.Load(); source != nil {
+		configuration.ICEServers = (*source)()
+	}
+	connection, err := server.api.NewPeerConnection(configuration)
 	if err != nil {
 		return nil, fmt.Errorf("make a peer connection: %w", err)
 	}
 	server.connections[connection] = true
+	var isConnected atomic.Bool
 	connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
+			server.recordPath(connection, selectedPath(connection))
+		}
+		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
+			server.recordPath(connection, PathFailed)
+		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			server.forget(connection)
 			_ = connection.Close() //nolint:errcheck // a failed or closed connection, gone either way

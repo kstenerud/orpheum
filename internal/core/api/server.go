@@ -28,6 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -131,7 +132,7 @@ type Server struct {
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
 	// rtc answers WebRTC offers; nil takes none (SetRTC).
-	rtc RTCAnswerer
+	rtc *rtcapi.Server
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
 	answers idempotentAnswers
 	// togetherSilence is how long a Watch Together device may send nothing, in nanoseconds:

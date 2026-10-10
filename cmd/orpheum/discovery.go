@@ -12,9 +12,12 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/pion/webrtc/v4"
+
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -49,7 +52,7 @@ func newDiscovery(
 // passes the WebRTC offers it is sent on to answerer, and the certificates of its public name and
 // of the names its discovery gives it, asking at once for each it lacks.
 func openReachedFromOutside(
-	ctx context.Context, config Config, opened openedServices, outside wiring, answerer discovery.Answerer,
+	ctx context.Context, config Config, opened openedServices, outside wiring, rtc *rtcapi.Server,
 	logger *slog.Logger,
 ) (openedServices, error) {
 	opened, err := openCertificates(config, opened, outside, logger)
@@ -70,10 +73,11 @@ func openReachedFromOutside(
 	if err != nil {
 		return opened, err
 	}
-	discovered, err = newDiscovery(config, opened, answerer, onClaimed, mapped, logger)
+	discovered, err = newDiscovery(config, opened, rtc, onClaimed, mapped, logger)
 	if err != nil {
 		return opened, err
 	}
+	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
@@ -81,6 +85,17 @@ func openReachedFromOutside(
 	}
 	_, err = served.QueueRenewal(ctx)
 	return opened, err
+}
+
+// iceServersOf are the discovery's STUN servers as a WebRTC connection takes them.
+func iceServersOf(servers []discoveryproto.ICEServer) []webrtc.ICEServer {
+	converted := make([]webrtc.ICEServer, 0, len(servers))
+	for _, server := range servers {
+		converted = append(converted, webrtc.ICEServer{
+			URLs: server.URLs, Username: server.Username, Credential: server.Credential,
+		})
+	}
+	return converted
 }
 
 // newPortMapping keeps the core's HTTPS port open at the home router while its discovery publishes

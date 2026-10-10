@@ -12,20 +12,15 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
-// RTCAnswerer answers a client's WebRTC offer, after which the client sends its requests over data
-// channels (webrtc-transport.md): rtcapi.Server.
-type RTCAnswerer interface {
-	Answer(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
-}
-
-// SetRTC names what answers WebRTC offers; with none, the offer endpoint says the server takes none.
-func (server *Server) SetRTC(answerer RTCAnswerer) {
-	server.rtc = answerer
+// SetRTC names what answers WebRTC offers, after which a client sends its requests over data
+// channels (webrtc-transport.md); with none, the offer endpoint says the server takes none.
+func (server *Server) SetRTC(rtc *rtcapi.Server) {
+	server.rtc = rtc
 }
 
 // RTC is what answers WebRTC offers, nil when nothing does: the discovery passes it the offers it
-// is sent (D273).
-func (server *Server) RTC() RTCAnswerer {
+// is sent, and gives it its STUN servers (D273, D274).
+func (server *Server) RTC() *rtcapi.Server {
 	return server.rtc
 }
 

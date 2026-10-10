@@ -88,6 +88,7 @@ type fakeDiscovery struct {
 const (
 	fakeCoreID = "k7xq2"
 	fakeZone   = "orpheum-core.example"
+	fakeSTUN   = "stun:discovery.orpheum-core.example:3478"
 )
 
 func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
@@ -155,7 +156,9 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	}
 	switch route {
 	case "GET /status":
-		fake.answer(writer, discoveryproto.StatusResponse{State: fake.state, Zone: fakeZone})
+		fake.answer(writer, discoveryproto.StatusResponse{
+			State: fake.state, Zone: fakeZone, ICEServers: []discoveryproto.ICEServer{{URLs: []string{fakeSTUN}}},
+		})
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest
 		fake.read(request, &heartbeat)
@@ -505,6 +508,9 @@ func TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone(t *testing.T) {
 	want := "*." + fakeCoreID + "." + fakeZone
 	if count, name := built.claimedCount.Load(), built.service.Status().CertificateName(); count != 1 || name != want {
 		t.Errorf("once claimed: said %d times, certificate name %q; want once, %q", count, name, want)
+	}
+	if servers := built.service.Status().ICEServers; len(servers) != 1 || servers[0].URLs[0] != fakeSTUN {
+		t.Errorf("the STUN servers kept are %+v; want the discovery's, %s", servers, fakeSTUN)
 	}
 	if name := built.restart(t).Status().CertificateName(); name != want {
 		t.Errorf("after a restart the certificate name is %q; want %q, kept", name, want)

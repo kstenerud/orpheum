@@ -1969,6 +1969,7 @@ export interface components {
              * @enum {string}
              */
             state?: "pending" | "claimed" | "grace" | "frozen" | "released" | "disabled";
+            webrtcPaths: components["schemas"]["WebRTCPathBody"][] | null;
             zone?: string;
         };
         DiskBody: {
@@ -3390,6 +3391,12 @@ export interface components {
             titlesWatchedCount: number;
             /** Format: int64 */
             watchedMs: number;
+        };
+        WebRTCPathBody: {
+            /** Format: int64 */
+            count: number;
+            /** @enum {string} */
+            path: "direct_ipv6" | "direct_ipv4" | "punched_ipv6" | "punched_ipv4" | "relayed" | "failed";
         };
     };
     responses: never;

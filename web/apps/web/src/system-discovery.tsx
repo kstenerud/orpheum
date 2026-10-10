@@ -18,6 +18,7 @@ import { useResource } from "./use-resource.ts";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
 type PortMapping = components["schemas"]["PortMappingBody"];
+type WebRTCPath = components["schemas"]["WebRTCPathBody"];
 
 /** The paid discovery's address, the one an admin is offered first (D273 §2). */
 export const serviceDiscoveryUrl = "https://api.orpheum-app.com/core/v1";
@@ -137,6 +138,7 @@ function StandingView(props: {
         <p>{t("system.discovery.problem", { problem: standing.problem })}</p>
       )}
       <PortMappingView mapping={standing.portMapping} />
+      <WebRTCPaths paths={standing.webrtcPaths ?? []} />
       {standing.deprecatedUntil === undefined ? null : (
         <p role="alert">{t("system.discovery.deprecated", { date: standing.deprecatedUntil })}</p>
       )}
@@ -190,6 +192,30 @@ function PortMappingView(props: { readonly mapping: PortMapping }): JSX.Element 
           </ul>
         </details>
       )}
+    </>
+  );
+}
+
+/**
+ * How the WebRTC connections since the core started reached it (D274 §3): directly, punched
+ * through its NAT, relayed, or not at all; nothing before the first.
+ */
+function WebRTCPaths(props: { readonly paths: readonly WebRTCPath[] }): JSX.Element | null {
+  const { t } = useTranslation();
+  const taken = props.paths.filter((each) => each.count > 0);
+  if (taken.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      <p>{t("system.discovery.paths.heading")}</p>
+      <ul>
+        {taken.map((each) => (
+          <li key={each.path}>
+            {t(`system.discovery.paths.path.${camelKey(each.path)}`, { count: each.count })}
+          </li>
+        ))}
+      </ul>
     </>
   );
 }

@@ -534,6 +534,17 @@ export const en = {
         method: { pcp: "PCP", natpmp: "NAT-PMP", upnp: "UPnP" },
         problems: "What the router said",
       },
+      paths: {
+        heading: "How clients' WebRTC connections reached the server since it started:",
+        path: {
+          directIpv6: "directly over IPv6: {{count}}",
+          directIpv4: "directly over IPv4: {{count}}",
+          punchedIpv6: "through the router's firewall over IPv6: {{count}}",
+          punchedIpv4: "through the router's NAT over IPv4: {{count}}",
+          relayed: "through a relay: {{count}}",
+          failed: "failed to connect: {{count}}",
+        },
+      },
       leave: "Leave the discovery",
       leaveConsequence: "Clients outside the house will no longer find this server through it.",
       leaveConfirm: "Leave",
