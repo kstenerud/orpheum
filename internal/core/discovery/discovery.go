@@ -134,6 +134,12 @@ type Service struct {
 	lastSent       []discoveryproto.Candidate
 }
 
+// IsPublished is whether the discovery publishes the core's addresses: it has claimed the core, and
+// its subscription has not ended.
+func (status Status) IsPublished() bool {
+	return status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace
+}
+
 // CertificateName is the wildcard every name the discovery publishes for the core is under,
 // *.<coreId>.<zone>, which its certificate is for; empty before the discovery has given it a zone.
 func (status Status) CertificateName() string {
@@ -371,9 +377,7 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 			service.parts.Logger.WarnContext(ctx, "discovery: could not keep the core's zone", "err", err)
 		}
 	}
-	isClaimed := func(state discoveryproto.State) bool {
-		return state == discoveryproto.StateClaimed || state == discoveryproto.StateGrace
-	}
+	isClaimed := func(state discoveryproto.State) bool { return Status{State: state}.IsPublished() }
 	if isClaimed(answered.State) && (!isClaimed(was.State) || answered.Zone != was.Zone) &&
 		service.parts.OnClaimed != nil {
 		service.parts.OnClaimed(ctx)

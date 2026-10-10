@@ -59,6 +59,10 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if status.BaseURL != fake.URL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" {
 		t.Errorf("connected = %+v; want pending at %s with its claim code", status, fake.URL)
 	}
+	if status.PortMapping.IsWanted || status.PortMapping.Mappings == nil {
+		t.Errorf("a pending core's port mapping = %+v; want none asked for, said as an empty list",
+			status.PortMapping)
+	}
 	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL}),
 		http.StatusConflict, CodeConflict)
 	if left := harness.do(t, http.MethodDelete, "/system/discovery", admin, nil); left.status != http.StatusNoContent {

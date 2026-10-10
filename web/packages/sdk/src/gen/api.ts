@@ -1953,6 +1953,7 @@ export interface components {
              * @description Unix milliseconds; 0 before the first
              */
             lastHeartbeatAt: number;
+            portMapping: components["schemas"]["PortMappingBody"];
             probe: components["schemas"]["DiscoveryProbeBody"][] | null;
             /** @description Why the last call to the discovery failed; empty when it did not */
             problem?: string;
@@ -2621,6 +2622,30 @@ export interface components {
              * @description Shows the subtitles this much later, or earlier when negative
              */
             subtitleOffsetMs: number;
+        };
+        PortMappingBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds; 0 before the first
+             */
+            checkedAt: number;
+            /** @description Whether the core is asking: should_map_ports on and a discovery publishing it */
+            isWanted: boolean;
+            mappings: components["schemas"]["PortMappingItemBody"][] | null;
+            problems: string[] | null;
+        };
+        PortMappingItemBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds; 0 for one the router made for good
+             */
+            expiresAt: number;
+            /** @description Where the internet reaches it */
+            external: string;
+            /** @description The core's address and port */
+            internal: string;
+            /** @enum {string} */
+            method: "pcp" | "natpmp" | "upnp";
         };
         PreparedBody: {
             /** Format: int64 */

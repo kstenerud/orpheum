@@ -22,6 +22,7 @@ const none = {
   probe: [],
   claimExpiresAt: 0,
   lastHeartbeatAt: 0,
+  portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
 };
 
 it("connects to the paid discovery by default and shows the code to claim the server by (D273)", async () => {
@@ -70,6 +71,19 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         reachableFrom: "ipv6_or_webrtc",
         published: ["k7xq2.orpheum-core.com"],
         deprecatedUntil: "2027-03-01",
+        portMapping: {
+          isWanted: true,
+          checkedAt: 1_790_000_000_000,
+          mappings: [
+            {
+              method: "upnp",
+              internal: "[2a0f:1000:1::20]:443",
+              external: "[2a0f:1000:1::20]:443",
+              expiresAt: 0,
+            },
+          ],
+          problems: ["pcp: the router at 192.168.1.1:5351 did not answer"],
+        },
       },
     ],
   });
@@ -79,4 +93,6 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
+  expect(text).toContain("[2a0f:1000:1::20]:443 reaches [2a0f:1000:1::20]:443, by UPnP.");
+  expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
 });

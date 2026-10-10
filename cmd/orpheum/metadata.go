@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
@@ -66,6 +67,9 @@ type jobServices struct {
 	certificates *servedCertificates
 	// discovery keeps the core enrolled with its discovery, when an admin connected one (D273).
 	discovery *discovery.Service
+	// portMapping keeps the core's HTTPS port open at the home router while the discovery publishes
+	// it (D273 §7).
+	portMapping *portmap.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
 	// outboundClient is the one client every call to another host goes through: TMDB's API and
@@ -449,6 +453,7 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
 	loops.Go(func() { services.discovery.Run(loopsContext) })
+	loops.Go(func() { services.portMapping.Run(loopsContext) })
 	return func() { cancel(); loops.Wait() }, nil
 }
 

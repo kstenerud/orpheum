@@ -17,6 +17,7 @@ import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 type Standing = components["schemas"]["DiscoveryStatusBody"];
+type PortMapping = components["schemas"]["PortMappingBody"];
 
 /** The paid discovery's address, the one an admin is offered first (D273 §2). */
 export const serviceDiscoveryUrl = "https://api.orpheum-app.com/core/v1";
@@ -135,6 +136,7 @@ function StandingView(props: {
       {standing.problem === undefined ? null : (
         <p>{t("system.discovery.problem", { problem: standing.problem })}</p>
       )}
+      <PortMappingView mapping={standing.portMapping} />
       {standing.deprecatedUntil === undefined ? null : (
         <p role="alert">{t("system.discovery.deprecated", { date: standing.deprecatedUntil })}</p>
       )}
@@ -144,6 +146,50 @@ function StandingView(props: {
         confirmLabel={t("system.discovery.leaveConfirm")}
         onConfirm={props.onLeave}
       />
+    </>
+  );
+}
+
+/**
+ * What the home router opened for the core (D273 §7): each opening, and why each way that failed
+ * failed; nothing while the core is not asking.
+ */
+function PortMappingView(props: { readonly mapping: PortMapping }): JSX.Element | null {
+  const { t } = useTranslation();
+  const { mapping } = props;
+  if (!mapping.isWanted) {
+    return null;
+  }
+  const mappings = mapping.mappings ?? [];
+  const problems = mapping.problems ?? [];
+  return (
+    <>
+      <p>
+        {mappings.length === 0
+          ? t("system.discovery.portMapping.none")
+          : t("system.discovery.portMapping.opened")}
+      </p>
+      <ul>
+        {mappings.map((each) => (
+          <li key={`${each.method} ${each.internal}`}>
+            {t("system.discovery.portMapping.mapping", {
+              method: t(`system.discovery.portMapping.method.${each.method}`),
+              external: each.external,
+              internal: each.internal,
+            })}
+          </li>
+        ))}
+      </ul>
+      {problems.length === 0 ? null : (
+        <details>
+          <summary>{t("system.discovery.portMapping.problems")}</summary>
+          <ul>
+            {problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </>
   );
 }

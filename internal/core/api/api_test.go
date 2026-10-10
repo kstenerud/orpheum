@@ -33,6 +33,7 @@ import (
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
@@ -201,8 +202,14 @@ func newHarness(t *testing.T) testHarness {
 	if discoveryErr != nil {
 		t.Fatal(discoveryErr)
 	}
+	portMapping, mappingErr := portmap.New(portmap.Parts{
+		Clock: now, Logger: slog.New(slog.DiscardHandler), IsWanted: func(context.Context) bool { return false },
+	})
+	if mappingErr != nil {
+		t.Fatal(mappingErr)
+	}
 	server.Ready(Dependencies{
-		Auth: service, Settings: seeded, Discovery: discoveryService,
+		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
 		Relay:     &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:   identify.NewChooser(matcher, pass),

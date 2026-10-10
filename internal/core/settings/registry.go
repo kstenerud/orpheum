@@ -38,6 +38,7 @@ const (
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
+	ShouldMapPorts                                 Key = "should_map_ports"
 	SpinningDiskReaderLimit                        Key = "spinning_disk_reader_limit"
 	SSDReaderLimit                                 Key = "ssd_reader_limit"
 	NetworkShareReaderLimit                        Key = "network_share_reader_limit"
@@ -233,6 +234,12 @@ func buildRegistry() []Definition {
 		sourced(durationSetting(AssignedJobLimitHours, time.Hour, "24", 1, 24*30,
 			"hours a job given to a node may stay without its outcome before it is its own failure (D234 §7)"),
 			"the owner, 2026-10-02: a backstop; silence and the node's own list find a lost job first"),
+		{
+			Key: ShouldMapPorts, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Description: "whether the core asks the home router to open its HTTPS port to the internet, by PCP, " +
+				"NAT-PMP or UPnP, while a discovery publishes it (D273 §7)",
+			StartSource: "D273 §7, the owner: on by default, said on the System page, and can be turned off",
+		},
 		{
 			Key: ShouldScanOnNodeHello, Kind: KindBool, StartJSON: json.RawMessage("true"),
 			Description: "whether a node is asked to scan each of its roots a library covers each time it says hello",

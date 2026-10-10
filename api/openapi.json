@@ -975,6 +975,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "portMapping": {
+            "$ref": "#/components/schemas/PortMappingBody"
+          },
           "probe": {
             "items": {
               "$ref": "#/components/schemas/DiscoveryProbeBody"
@@ -1028,7 +1031,8 @@
           "claimExpiresAt",
           "published",
           "probe",
-          "lastHeartbeatAt"
+          "lastHeartbeatAt",
+          "portMapping"
         ],
         "type": "object"
       },
@@ -3086,6 +3090,78 @@
           "subtitleOffsetMs",
           "isDialogueBoostOn",
           "isLevellingOn"
+        ],
+        "type": "object"
+      },
+      "PortMappingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "checkedAt": {
+            "description": "Unix milliseconds; 0 before the first",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isWanted": {
+            "description": "Whether the core is asking: should_map_ports on and a discovery publishing it",
+            "type": "boolean"
+          },
+          "mappings": {
+            "items": {
+              "$ref": "#/components/schemas/PortMappingItemBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "isWanted",
+          "checkedAt",
+          "mappings",
+          "problems"
+        ],
+        "type": "object"
+      },
+      "PortMappingItemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "description": "Unix milliseconds; 0 for one the router made for good",
+            "format": "int64",
+            "type": "integer"
+          },
+          "external": {
+            "description": "Where the internet reaches it",
+            "type": "string"
+          },
+          "internal": {
+            "description": "The core's address and port",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "pcp",
+              "natpmp",
+              "upnp"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "internal",
+          "external",
+          "expiresAt"
         ],
         "type": "object"
       },

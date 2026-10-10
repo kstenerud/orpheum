@@ -527,6 +527,13 @@ export const en = {
       problem: "The last call to the discovery failed: {{problem}}",
       deprecated:
         "The discovery stops speaking this server's protocol on {{date}}. Update the server before then.",
+      portMapping: {
+        opened: "The home router opened the server's port:",
+        none: "The home router did not open the server's port. Turn on UPnP, NAT-PMP or PCP on it, or forward the port by hand.",
+        mapping: "{{external}} reaches {{internal}}, by {{method}}.",
+        method: { pcp: "PCP", natpmp: "NAT-PMP", upnp: "UPnP" },
+        problems: "What the router said",
+      },
       leave: "Leave the discovery",
       leaveConsequence: "Clients outside the house will no longer find this server through it.",
       leaveConfirm: "Leave",
