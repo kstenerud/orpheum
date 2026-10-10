@@ -548,3 +548,23 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 		t.Fatal(err)
 	}
 }
+
+// A server with no discovery says so, and that it asks its router for nothing: the System page's
+// Discovery section is wired to the discovery and the port mapping (D273 §7).
+func TestServe_TheDiscoverySectionSaysNoDiscoveryAndNoPortMapping(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	token := signedInOwner(t, server, path)
+	answered := requestAPI(t, http.MethodGet, server.baseURL+"/system/discovery", token, nil)
+	var standing api.DiscoveryStatusBody
+	if err := json.Unmarshal([]byte(answered.body), &standing); err != nil || answered.status != http.StatusOK {
+		t.Fatalf("/system/discovery: %d %s", answered.status, answered.body)
+	}
+	if standing.BaseURL != "" || standing.PortMapping.IsWanted || standing.PortMapping.Mappings == nil {
+		t.Errorf("/system/discovery = %+v; want no discovery and no port mapping asked for", standing)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+}
