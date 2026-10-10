@@ -19194,3 +19194,40 @@ D214, D249 and D272 §1–§2, and D112's refusal.
       D218's direction, which this replaces.
 
 **Status:** Decided 2026-10-09.
+
+## D274 — A core is reached first by what needs nothing from its owner, WebRTC through the discovery; direct paths are upgrades, and a relay waits for demand
+
+**Decided** (2026-10-10), by the project owner, after the homelab network research
+([homelab-networks-2026-10-10.md](../design/research/homelab-networks-2026-10-10.md)). It orders
+D273 §7's methods; it revisits nothing D273 decided.
+
+1. **The aim.** *"Ultimately what I want is maximum coverage for typical homelab setups. The idea
+   is for this system to be very easy to set up when using our discovery server, and not
+   unnecessarily complex when setting up their own. I'm not too hung up on which ports are
+   open."*
+2. **Three layers.** The owner: *"That sounds good."*
+   - **The baseline needs nothing from the owner:** the core holds its connection out to the
+     discovery, which passes on clients' WebRTC offers and runs STUN, and the client and the core
+     punch through their NATs (W4). Nothing is opened inbound, so carrier NAT, DS-Lite, double NAT
+     and a container on a bridge network do not stop it.
+   - **Direct paths are upgrades, found by themselves:** an open IPv6 address, a port the router
+     mapped, the LAN at home. D273 §7's race takes them when they answer; none is required. Port
+     mapping may therefore use a high port of the core's choosing.
+   - **A relay is the last resort:** the self-hoster's own TURN or VPS. For the paid tier, a relay
+     of only the connections that fail, through TURN, encrypted end to end, with credentials the
+     discovery issues per session, is open in principle but not built: *"I'm open to the idea of a
+     relay, but I'd want to see how much demand there is before trying it."* A WireGuard tunnel
+     from every customer's home through the service, relaying everything, is not the way: its cost
+     scales with all streaming, it puts a path into every home on the service's machines, and it
+     makes the service the carrier of every stream.
+3. **Measure before deciding the relay.** Every connection records which path it took (direct
+   over IPv6, direct over IPv4, punched, relayed, failed) and what the client's network was, for
+   the System page and the log, so the closed beta says how often direct fails, mobile carriers
+   above all. The owner's mobile tests so far went through the VPS, a relay, and measured nothing
+   about punching.
+4. **IPv6 first.** Over IPv6 there is no translation, only stateful firewalls, so punching between
+   two IPv6 ends almost always works; mobile carriers mostly give phones IPv6. Cores are steered to
+   IPv6 (a router mode that delegates a prefix, not NAT6), and the System page says when a core has
+   none.
+
+**Status:** Decided 2026-10-10.

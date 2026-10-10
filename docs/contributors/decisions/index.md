@@ -278,7 +278,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D270](working-notes.md#d270--m4s-closing-audits-questions-answered) M4's closing audit's questions, answered
 - [D271](working-notes.md#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it) M5's first questions answered: four browsers, no user-facing theming or light palette, and guests who may pause and seek unless the host withholds it
 - [D272](working-notes.md#d272--production-runs-on-naslan-from-an-image-it-builds-and-migrations-keep-every-step-since-the-version-it-last-ran) Production runs on nas.example from an image it builds, and migrations keep every step since the version it last ran
-- [D273](working-notes.md#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns) Clients reach a core through app.orpheum-app.com or the owner's own discovery, by whatever methods work, with no traffic relayed by us; a node without Landlock runs and warns
+- [D273](working-notes.md#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns) Clients reach a core through app.orpheum-app.com or the owner's own discovery, by whatever methods work, with no traffic relayed by us; a node without Landlock runs and warns — *revisited by D274*
+- [D274](working-notes.md#d274--a-core-is-reached-first-by-what-needs-nothing-from-its-owner-webrtc-through-the-discovery-direct-paths-are-upgrades-and-a-relay-waits-for-demand) A core is reached first by what needs nothing from its owner, WebRTC through the discovery; direct paths are upgrades, and a relay waits for demand
 
 ## Archived
 
