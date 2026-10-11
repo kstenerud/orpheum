@@ -79,6 +79,8 @@ test("a host on the WebRTC path runs a Watch Together session with no WebSocket,
   const shown = host.locator("output.share__link");
   await expect(shown).toContainText("#");
   const link = (await shown.textContent()) ?? "";
+  // The link's dialog is modal (D281 §5): it is closed before the page is used again.
+  await host.locator(".watch-together__dialog").getByRole("button", { name: "Close" }).click();
 
   const guest = await (await browser.newContext()).newPage();
   await guest.goto(link);
