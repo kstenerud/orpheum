@@ -286,11 +286,16 @@ def git_subcommand(words: list[str]) -> str:
 
 
 def hooks_installed(root: Path) -> bool:
-    """Whether git runs this project's hooks in root: core.hooksPath is .githooks, as `make setup`
-    sets it. Without them a commit records whatever the tree holds, the gate passed or not."""
+    """Whether git runs this project's hooks in root: core.hooksPath is its .githooks, as `make setup`
+    sets it, or the same directory by its absolute path, as a tool that adds a worktree rewrites it.
+    Without them a commit records whatever the tree holds, the gate passed or not."""
     done = subprocess.run(["git", "-C", str(root), "config", "--get", "core.hooksPath"], capture_output=True,
                           text=True, check=False)
-    return done.stdout.strip() == ".githooks"
+    hooks_path = done.stdout.strip()
+    if hooks_path == ".githooks":
+        return True
+    return bool(hooks_path) and Path(hooks_path).is_absolute() and \
+        Path(hooks_path).resolve() == (root / ".githooks").resolve()
 
 
 def main() -> None:
