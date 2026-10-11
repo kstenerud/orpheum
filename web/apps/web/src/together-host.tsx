@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { followGroup, startingTuning, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
+import {
+  everyRight,
+  followGroup,
+  startingTuning,
+  type CannotKeepUp,
+  type GroupCommand,
+} from "@orpheum/sdk";
 import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -90,7 +96,7 @@ function HostLeading(
     () =>
       video === null || connection === undefined
         ? undefined
-        : followGroup(video, connection, { fileId, isLeading: true, monotonicMs }),
+        : followGroup(video, connection, { fileId, leads: everyRight, monotonicMs }),
     [connection, fileId, video],
   );
   useToldCannotKeepUp(connection, props.cannotKeepUp);

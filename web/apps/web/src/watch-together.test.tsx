@@ -27,6 +27,10 @@ import { keepMembership } from "./together-storage.ts";
 import { WatchTogether } from "./watch-together.tsx";
 
 const karl = { id: 1, name: "Karl", isHost: true };
+/** A link's rights, every one (D271 §4). */
+const allRights = { canPlayPause: true, canSeek: true };
+/** A link's rights with moving the position withheld. */
+const pauseOnly = { canPlayPause: true, canSeek: false };
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -50,8 +54,16 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
           { sessionId: 3, membershipCredential: "host-credential", isNew: true },
         ],
         "GET /together/3": [
-          [200, { sessionId: 3, links: [], members: [karl] }],
-          [200, { sessionId: 3, links: [{ id: 4, hostNote: "Grandma" }], members: [karl] }],
+          [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl] }],
+          [
+            200,
+            {
+              sessionId: 3,
+              nextRights: allRights,
+              links: [{ id: 4, rights: pauseOnly, hostNote: "Grandma" }],
+              members: [karl],
+            },
+          ],
         ],
         "POST /together/3/links": [201, { linkId: 4, secret: "s3cret" }],
       },
@@ -63,6 +75,11 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("host-credential");
     expect(mounted.container.textContent).toContain("No one is invited yet.");
     await enter(mounted.container.querySelector("input"), "Grandma");
+    // The first link starts with every right; the host withholds moving the position (D271 §4).
+    const [mayPause, maySeek] =
+      mounted.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect([mayPause?.checked, maySeek?.checked]).toEqual([true, true]);
+    await click(maySeek);
     await submit(mounted.container.querySelector("form"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "POST /together",
@@ -70,7 +87,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       "POST /together/3/links",
       "GET /together/3",
     ]);
-    expect(heard[2]?.body).toEqual({ hostNote: "Grandma" });
+    expect(heard[2]?.body).toEqual({ hostNote: "Grandma", rights: pauseOnly });
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#s3cret",
     );
@@ -78,7 +95,9 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       mounted.container.querySelector('img[alt="The link for Grandma, as a QR code"]'),
     ).not.toBeNull();
     expect(mounted.container.textContent).toContain("while the session lasts");
-    expect(mounted.container.textContent).toContain("A link for Grandma, not used yet");
+    expect(mounted.container.textContent).toContain(
+      "A link for Grandma, not used yet, may play and pause",
+    );
     mounted.unmount();
   });
 
@@ -93,11 +112,12 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
             200,
             {
               sessionId: 3,
-              links: [{ id: 4, hostNote: "Grandma", usedByMemberId: 2 }],
+              nextRights: allRights,
+              links: [{ id: 4, rights: allRights, hostNote: "Grandma", usedByMemberId: 2 }],
               members: [karl, gran],
             },
           ],
-          [200, { sessionId: 3, links: [], members: [karl] }],
+          [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl] }],
         ],
         "POST /together/3/eject/2": [204, undefined],
       },
@@ -120,8 +140,16 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     const services = servedBy(
       {
         "GET /together/3": [
-          [200, { sessionId: 3, links: [], members: [karl, gran] }],
-          [200, { sessionId: 3, links: [{ id: 5, hostNote: "Grandma" }], members: [karl] }],
+          [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl, gran] }],
+          [
+            200,
+            {
+              sessionId: 3,
+              nextRights: allRights,
+              links: [{ id: 5, rights: allRights, hostNote: "Grandma" }],
+              members: [karl],
+            },
+          ],
         ],
         "POST /together/3/eject/2": [204, undefined],
         "POST /together/3/links": [201, { linkId: 5, secret: "n3w" }],
@@ -146,7 +174,12 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
 
   it("shows the session had back from the server after it drew, started on another device (D267 §2)", async () => {
     const services = servedBy(
-      { "GET /together/3": [200, { sessionId: 3, links: [], members: [karl] }] },
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [], members: [karl] },
+        ],
+      },
       [],
       "token",
     );
@@ -169,9 +202,16 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
           200,
           {
             sessionId: 3,
+            nextRights: allRights,
             links: [
-              { id: 4, hostNote: "Grandma", secret: "gran-s3cret", usedByMemberId: 2 },
-              { id: 5, hostNote: "a cousin", secret: "cousin-s3cret" },
+              {
+                id: 4,
+                rights: allRights,
+                hostNote: "Grandma",
+                secret: "gran-s3cret",
+                usedByMemberId: 2,
+              },
+              { id: 5, rights: allRights, hostNote: "a cousin", secret: "cousin-s3cret" },
             ],
             members: [karl, gran],
           },

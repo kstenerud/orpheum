@@ -457,3 +457,42 @@ func TestTogether_EachMemberIsHandedRelayCredentialsOfTheirOwn(t *testing.T) {
 		membership.Body.MembershipCredential, nil), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, path, "not-a-credential", nil), http.StatusNotFound, CodeNotFound)
 }
+
+// The host gives each link its rights, which the session's details show beside it; a link made
+// without saying starts with the last one's, the first with every right (D271 §4).
+func TestTogether_ALinkCarriesTheRightsTheHostGaveIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	readDetails := func() TogetherDetailsOutput {
+		var details TogetherDetailsOutput
+		read := harness.do(t, http.MethodGet, path, admin, nil)
+		if err := json.Unmarshal([]byte(read.body), &details.Body); err != nil {
+			t.Fatal(err)
+		}
+		return details
+	}
+	if next := readDetails().Body.NextRights; next != (TogetherRightsBody{CanPlayPause: true, CanSeek: true}) {
+		t.Errorf("the first link starts with %+v; want every right", next)
+	}
+	for _, body := range []map[string]any{
+		{"hostNote": "Grandma", "rights": map[string]bool{"canPlayPause": true, "canSeek": false}},
+		{"hostNote": "a cousin"},
+	} {
+		if made := harness.do(t, http.MethodPost, path+"/links", admin, body); made.status != http.StatusCreated {
+			t.Fatalf("POST %s/links = %d %s", path, made.status, made.body)
+		}
+	}
+	details := readDetails()
+	pauseOnly := TogetherRightsBody{CanPlayPause: true}
+	if details.Body.NextRights != pauseOnly {
+		t.Errorf("after a link given play and pause alone, the next starts with %+v", details.Body.NextRights)
+	}
+	for _, each := range details.Body.Links {
+		if each.Rights != pauseOnly {
+			t.Errorf("the link for %s has %+v; want play and pause alone", each.HostNote, each.Rights)
+		}
+	}
+}

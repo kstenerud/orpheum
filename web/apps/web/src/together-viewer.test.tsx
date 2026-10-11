@@ -194,6 +194,55 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("gives a viewer the player's controls their link allows, and full screen however it is (D271 §4)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const shown: string[] = [];
+    for (const rights of [
+      { canPlayPause: false, canSeek: false },
+      { canPlayPause: true, canSeek: false },
+    ]) {
+      const { services, server } = viewerServices("/together", {
+        "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+      });
+      const mounted = await mount(withServices(<TogetherViewer />, services));
+      await server.accept();
+      await server.say({ ...welcome, rights });
+      await server.say({
+        type: "group",
+        seq: 2,
+        group: {
+          state: "Paused",
+          positionMs: 0,
+          rate: 1,
+          fileId: 5,
+          event: "paused",
+          byMemberId: 1,
+        },
+      });
+      const video = mounted.container.querySelector("video");
+      const fullscreen = buttonWithText(mounted.container, "Full screen");
+      shown.push(
+        `controls: ${String(video?.controls)}, full screen: ${String(fullscreen !== undefined)}`,
+      );
+      if (video !== null && fullscreen !== undefined) {
+        const requestFullscreen = vi.fn(() => Promise.resolve());
+        video.requestFullscreen = requestFullscreen;
+        await click(fullscreen);
+        expect(requestFullscreen).toHaveBeenCalled();
+      }
+      mounted.unmount();
+    }
+    // Watching only, the player's own controls would offer what the group undoes: full screen alone.
+    expect(shown).toEqual([
+      "controls: false, full screen: true",
+      "controls: true, full screen: false",
+    ]);
+  });
+
   it("offers the sound at a tap when the browser would only play the film muted", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(

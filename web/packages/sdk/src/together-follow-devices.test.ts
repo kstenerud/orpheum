@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
-import { startingTuning } from "./together.ts";
+import { noRight, startingTuning } from "./together.ts";
 import { checkDriftEveryMs, followGroup } from "./together-follow.ts";
 
 let monotonicNowMs = 0;
@@ -34,7 +34,7 @@ describe("a following player the browser will not start with sound", () => {
       return Promise.resolve();
     };
     const { connection } = fakeConnection({ ...paused, state: "Playing" });
-    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     await vi.waitFor(() => {
       expect(media.paused).toBe(false);
     });
@@ -57,7 +57,7 @@ describe("a following player that loses time whenever its rate goes back to its 
       },
     });
     const { connection, setGroup, notes } = fakeConnection(paused);
-    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
     setGroup({ ...paused, state: "Playing" }, 1000);
     media.currentTime = 59.6; // 400 ms behind
@@ -103,7 +103,7 @@ describe("a following player whose rate's returns cost it more than the drift le
     });
     const expectedS = (): number => 60 + Math.max(0, monotonicNowMs - 1000) / 1000;
     const { connection, setGroup, notes } = fakeConnection(paused);
-    followGroup(media, connection, { fileId: 5, isLeading: false, monotonicMs });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     monotonicNowMs = 1000;
     setGroup({ ...paused, state: "Playing" }, 1000);
     positionS = 59.6; // 400 ms behind

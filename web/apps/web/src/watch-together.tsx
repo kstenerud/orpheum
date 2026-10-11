@@ -177,12 +177,13 @@ function SessionView(props: {
       <p>{t("watchTogether.onExplain")}</p>
       <BusyGroup isBusy={isBusy}>
         <MakeLink
-          onMake={(hostNote) => {
+          nextRights={props.details.nextRights}
+          onMake={(hostNote, rights) => {
             runRequest(async (idempotencyKey) => {
               const made = dataOrThrow(
                 await api.POST("/together/{id}/links", {
                   params: { path: { id } },
-                  body: { hostNote },
+                  body: { hostNote, rights },
                   ...idempotent(idempotencyKey),
                 }),
               );
@@ -227,10 +228,10 @@ type SessionMember = NonNullable<SessionDetails["members"]>[number];
  */
 async function relink(
   api: ReturnType<typeof useServices>["api"],
-  member: SessionMember & { readonly sessionId: number },
+  member: SessionMember & { readonly sessionId: number; readonly rights: Rights | undefined },
   idempotencyKey: string,
 ): Promise<{ readonly note: string; readonly secret: string }> {
-  const { sessionId: id } = member;
+  const { sessionId: id, rights } = member;
   const hostNote = member.hostNote ?? member.name;
   throwIfRefused(
     await api.POST("/together/{id}/eject/{member}", {
@@ -241,21 +242,43 @@ async function relink(
   const made = dataOrThrow(
     await api.POST("/together/{id}/links", {
       params: { path: { id } },
-      body: { hostNote },
+      // The new link gives what the one it replaces gave (D271 §4).
+      body: rights === undefined ? { hostNote } : { hostNote, rights },
       ...idempotent(`${idempotencyKey}-link`),
     }),
   );
   return { note: hostNote, secret: made.secret };
 }
 
-/** Making one person's link: the host's note of who it is for, which only the host sees. */
-function MakeLink(props: { readonly onMake: (hostNote: string) => void }): JSX.Element {
+/** What a guest may do to playback, as a link gives it (D271 §4). */
+type Rights = SessionDetails["nextRights"];
+
+/** What rights give, in a few words for the host's list of people. */
+function rightsText(t: (key: string) => string, rights: Rights): string {
+  if (rights.canPlayPause && rights.canSeek) {
+    return t("watchTogether.rights.both");
+  }
+  if (rights.canPlayPause) {
+    return t("watchTogether.rights.playPause");
+  }
+  return t(rights.canSeek ? "watchTogether.rights.seek" : "watchTogether.rights.none");
+}
+
+/**
+ * Making one person's link: the host's note of who it is for, which only the host sees, and what
+ * they may do to playback, starting with what the last link gave (D271 §4).
+ */
+function MakeLink(props: {
+  readonly nextRights: Rights;
+  readonly onMake: (hostNote: string, rights: Rights) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const [hostNote, setHostNote] = useState("");
+  const [rights, setRights] = useState(props.nextRights);
   return (
     <FormRow
       onSubmit={() => {
-        props.onMake(hostNote);
+        props.onMake(hostNote, rights);
       }}
     >
       <h2>{t("watchTogether.makeLinkHeading")}</h2>
@@ -270,6 +293,26 @@ function MakeLink(props: { readonly onMake: (hostNote: string) => void }): JSX.E
             setHostNote(event.target.value);
           }}
         />
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={rights.canPlayPause}
+          onChange={(event) => {
+            setRights({ ...rights, canPlayPause: event.target.checked });
+          }}
+        />{" "}
+        {t("watchTogether.mayPlayPause")}
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={rights.canSeek}
+          onChange={(event) => {
+            setRights({ ...rights, canSeek: event.target.checked });
+          }}
+        />{" "}
+        {t("watchTogether.maySeek")}
       </label>
       <button type="submit">{t("watchTogether.makeLink")}</button>
     </FormRow>
@@ -320,7 +363,7 @@ function LinkRow(props: PeopleActions & { readonly link: SessionLink }): JSX.Ele
   const { link } = props;
   return (
     <li>
-      {t("watchTogether.waitingLink", { note: link.hostNote })}{" "}
+      {t("watchTogether.waitingLink", { note: link.hostNote })}, {rightsText(t, link.rights)}{" "}
       <button
         type="button"
         onClick={() => {
@@ -360,7 +403,8 @@ function MemberRow(
   const { member, joinedBy, sessionId } = props;
   return (
     <li>
-      {t("watchTogether.member", { name: member.name, note: member.hostNote ?? "" })}{" "}
+      {t("watchTogether.member", { name: member.name, note: member.hostNote ?? "" })}
+      {joinedBy === undefined ? null : `, ${rightsText(t, joinedBy.rights)}`}{" "}
       {joinedBy === undefined ? null : (
         <>
           <button
@@ -390,7 +434,9 @@ function MemberRow(
         type="button"
         onClick={() => {
           props.run(async (idempotencyKey) => {
-            props.onIssued(await relink(api, { ...member, sessionId }, idempotencyKey));
+            props.onIssued(
+              await relink(api, { ...member, sessionId, rights: joinedBy?.rights }, idempotencyKey),
+            );
             props.onChanged();
           });
         }}

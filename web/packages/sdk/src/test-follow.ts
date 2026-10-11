@@ -5,7 +5,7 @@
  * sets and reads them. Not exported by the package (index.ts).
  */
 
-import { type GroupView, startingTuning, type SyncTuning } from "./together.ts";
+import { type GroupView, noRight, startingTuning, type SyncTuning } from "./together.ts";
 import type {
   GroupCommand,
   PlayerNote,
@@ -86,6 +86,7 @@ function snapshotOf(group: GroupView, tuning: SyncTuning, minimumRttMs?: number)
     status: "connected",
     memberId: 1,
     isHost: false,
+    rights: noRight,
     group,
     groupReceivedAtMs: 0,
     groupPlacedByRttMs: undefined,

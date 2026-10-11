@@ -338,13 +338,15 @@ type Outbound struct {
 	// Welcome's: the session, the device's own member, whether it is the host's, who alone
 	// controls playback (D246 §8), and the roster; every group message's group; and each pong's,
 	// where the group is as the server answers (D264).
-	SessionID int64        `json:"sessionId,omitempty"`
-	MemberID  int64        `json:"memberId,omitempty"`
-	DeviceID  int64        `json:"deviceId,omitempty"`
-	IsHost    bool         `json:"isHost,omitempty"`
-	Group     *GroupView   `json:"group,omitempty"`
-	Roster    []MemberView `json:"roster,omitempty"`
-	TMono     int64        `json:"tMono,omitempty"`
+	SessionID int64 `json:"sessionId,omitempty"`
+	MemberID  int64 `json:"memberId,omitempty"`
+	DeviceID  int64 `json:"deviceId,omitempty"`
+	IsHost    bool  `json:"isHost,omitempty"`
+	// Rights is welcome's: what the device's member may do to playback (D271 §4).
+	Rights *Rights      `json:"rights,omitempty"`
+	Group  *GroupView   `json:"group,omitempty"`
+	Roster []MemberView `json:"roster,omitempty"`
+	TMono  int64        `json:"tMono,omitempty"`
 	// Rejected's: the command's basedOnSeq, and why.
 	BasedOnSeq int64  `json:"basedOnSeq,omitempty"`
 	Code       string `json:"code,omitempty"`
@@ -438,6 +440,16 @@ const (
 	// never stops for one member (D250 §2).
 	EventContinuedWithout EventKind = "continuedWithout"
 )
+
+// Rights are what a guest may do to playback, each given or withheld by the host in their link
+// (D271 §4). Changing what plays, stopping it and its rate stay the host's.
+type Rights struct {
+	CanPlayPause bool `json:"canPlayPause"`
+	CanSeek      bool `json:"canSeek"`
+}
+
+// everyRight is the host's rights, and what a session's first link starts with (D271 §4).
+func everyRight() Rights { return Rights{CanPlayPause: true, CanSeek: true} }
 
 // MemberView is one member in the roster: a person, with their devices.
 type MemberView struct {

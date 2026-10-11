@@ -19048,7 +19048,7 @@ with five guests, two of whom asked why they could not pause: *"I think we need 
    it may give it, now by the rights of that member's invite. It rides on D268 §4, a guest's
    player sending commands from its controls.
 
-**Status:** Decided 2026-10-09.
+**Status:** Decided 2026-10-09. §4 built 2026-10-11: a checkbox each in the invite, the server's check of each command, and a guest's player that offers the controls its link gives and full screen always.
 
 ## D272 — Production runs on nas.example from an image it builds, and migrations keep every step since the version it last ran
 

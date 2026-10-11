@@ -45,6 +45,15 @@
   transform: translate(-50%, -50%);
 }
 
+/* A viewer without the player's own controls still has full screen, at the film's corner. */
+.together-viewer__fullscreen {
+  position: absolute;
+  inset-block-end: var(--space-2);
+  inset-inline-end: var(--space-2);
+  z-index: 2;
+  opacity: 0.85;
+}
+
 .together-viewer__volume {
   display: flex;
   gap: var(--space-3);

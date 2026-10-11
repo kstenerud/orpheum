@@ -3,6 +3,7 @@
 import { expectedPositionMs, startsAtMs } from "./together-drift.ts";
 import type { VoiceCallStats } from "./together-voice-stats.ts";
 import {
+  noRight,
   parseTogetherMessage,
   startingTuning,
   togetherProtocolVersion,
@@ -10,6 +11,7 @@ import {
   type DeviceRole,
   type GroupView,
   type OpenTogetherSocket,
+  type PlaybackRights,
   type RosterMember,
   type SyncTuning,
   type TogetherEndReason,
@@ -203,6 +205,8 @@ export interface TogetherSnapshot {
    */
   readonly deviceId?: number | undefined;
   readonly isHost: boolean;
+  /** What this device's member may do to playback, as the welcome said (D271 §4). */
+  readonly rights: PlaybackRights;
   readonly group: GroupView | undefined;
   /** The monotonic time at which group arrived: a playing group has moved on from it since. */
   readonly groupReceivedAtMs: number;
@@ -265,6 +269,7 @@ const startingSnapshot: TogetherSnapshot = {
   memberId: undefined,
   deviceId: undefined,
   isHost: false,
+  rights: noRight,
   group: undefined,
   groupReceivedAtMs: 0,
   groupPlacedByRttMs: undefined,
@@ -397,6 +402,7 @@ function afterMessage(
         memberId: message.memberId,
         deviceId: message.deviceId,
         isHost: message.isHost,
+        rights: message.rights,
         group: message.group,
         groupReceivedAtMs: nowMs,
         groupPlacedByRttMs: undefined,
