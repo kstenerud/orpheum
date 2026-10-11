@@ -193,7 +193,7 @@ function useTalkRing(
   }, [ref, isTalking, voice]);
 }
 
-/** Opens the microphone, processed as the session says: Talk's press, or Talk anyway's. */
+/** Opens the microphone, processed as the session says, at Talk's press. */
 function startTalking(props: VoiceInUse): void {
   void props.voice.start({
     shouldCancelEcho: props.snapshot.tuning.shouldCancelMicrophoneEcho,
@@ -202,14 +202,12 @@ function startTalking(props: VoiceInUse): void {
 }
 
 /**
- * Before an iPhone without headphones talks: while its microphone is open, iOS sends the film's
+ * As an iPhone without headphones first talks: while its microphone is open, iOS sends the film's
  * sound to the earpiece, and only headphones carry the film and the voices together (the owner,
- * 2026-10-11; idiosyncrasies.md). Talk anyway opens the microphone, from its own press.
+ * 2026-10-11; idiosyncrasies.md). The microphone is already on; OK closes the notice, and Talk
+ * turns it off for whoever would rather hear the film (the owner: "just have OK").
  */
-function HeadphonesWarning(props: {
-  readonly onTalk: () => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
+function HeadphonesWarning(props: { readonly onRead: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
     <dialog
@@ -220,14 +218,9 @@ function HeadphonesWarning(props: {
     >
       <h2>{t("together.voice.headphonesHeading")}</h2>
       <p>{t("together.voice.earpiece")}</p>
-      <div className="together-voice__buttons">
-        <button type="button" onClick={props.onTalk}>
-          {t("together.voice.talkAnyway")}
-        </button>
-        <button type="button" onClick={props.onCancel}>
-          {t("together.voice.cancel")}
-        </button>
-      </div>
+      <button type="button" onClick={props.onRead}>
+        {t("together.voice.ok")}
+      </button>
     </dialog>
   );
 }
@@ -266,9 +259,10 @@ function TalkToggle(
         onClick={() => {
           if (isTalking) {
             voice.stop();
-          } else if (props.shouldWarnFirst && warning === "none") {
-            setWarning("shown");
           } else {
+            if (props.shouldWarnFirst && warning === "none") {
+              setWarning("shown");
+            }
             startTalking(props);
           }
         }}
@@ -277,12 +271,8 @@ function TalkToggle(
       </button>
       {warning === "shown" ? (
         <HeadphonesWarning
-          onTalk={() => {
+          onRead={() => {
             setWarning("read");
-            startTalking(props);
-          }}
-          onCancel={() => {
-            setWarning("none");
           }}
         />
       ) : null}
