@@ -100,6 +100,11 @@ export interface LevelledMicrophone {
   readonly sentTrack: () => MediaStreamTrack;
   /** Has sender send sentTrack, switching as Web Audio stops and starts. */
   readonly follow: (sender: RTCRtpSender) => void;
+  /**
+   * The level it sends, as it last looked: the microphone's level raised by its gain, from 0 to 1,
+   * which the Talk button's ring shows (D281 §7).
+   */
+  readonly sentLevel: () => number;
   readonly close: () => void;
 }
 
@@ -131,9 +136,12 @@ export function levelMicrophone(
   source.connect(analyser);
   source.connect(gainNode).connect(limiter).connect(destination);
   const samples = new Float32Array(analyser.fftSize);
+  let sent = 0;
   const looking = setInterval(() => {
     analyser.getFloatTimeDomainData(samples);
-    gainNode.gain.value = nextVoiceGain(gainNode.gain.value, levelOf(samples));
+    const level = levelOf(samples);
+    gainNode.gain.value = nextVoiceGain(gainNode.gain.value, level);
+    sent = Math.min(1, level * gainNode.gain.value);
   }, voiceLevelLookEveryMs);
   const levelled = destination.stream.getAudioTracks()[0];
   const senders = new Set<RTCRtpSender>();
@@ -147,6 +155,7 @@ export function levelMicrophone(
   context.addEventListener("statechange", switchTracks);
   return {
     sentTrack,
+    sentLevel: () => sent,
     follow: (sender) => {
       senders.add(sender);
     },

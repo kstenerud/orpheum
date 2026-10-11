@@ -416,6 +416,23 @@ export function resumeAtTaps(
 }
 
 /**
+ * What the Talk button's ring reads of the microphone (D281 §7). Levelled here, what the levelling
+ * measured and sends: a second analyser on the same microphone read zeros on Firefox for Android,
+ * hosting, while the levelling's heard the voice, which the iPhone heard at 0.1 (the owner's test,
+ * 2026-10-11). Levelled by the browser, an analyser of its own.
+ */
+function ringMeterOf(
+  microphone: MediaStream,
+  context: AudioContext | undefined,
+  level: LevelledMicrophone | undefined,
+): ReturnType<typeof meterMicrophone> {
+  if (level !== undefined) {
+    return { read: level.sentLevel, close: () => undefined };
+  }
+  return context === undefined ? undefined : meterMicrophone(microphone, context);
+}
+
+/**
  * The louder of the microphone's meter, while its audio context runs, and the level a call's
  * statistics give, while one is up: the meter reads zeros on iOS (the owner's test, 2026-10-11, the
  * Talk ring still while the call's statistics gave 0.173), whose audio context is also interrupted as
@@ -483,7 +500,7 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
           : levelMicrophone(microphone, context);
       levelled = level === undefined ? undefined : { microphone, level };
       meter?.close();
-      meter = context === undefined ? undefined : meterMicrophone(microphone, context);
+      meter = ringMeterOf(microphone, context, level);
       sent.start();
       return microphone;
     },
