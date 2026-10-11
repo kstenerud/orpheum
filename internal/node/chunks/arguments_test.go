@@ -110,8 +110,8 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	})
 	sound.SoundLeadInMs = 88_839
 	arguments := Arguments("/a", "/r", sound, prepare.EncoderX264)
-	if start := valueOf(arguments, "-ss"); start != "88.839" {
-		t.Errorf("the sound starts at %s, want its lead-in, 88.839", start)
+	if start := valueOf(arguments, "-ss"); start != "86.839" {
+		t.Errorf("the sound's decode starts at %s, want two seconds before its lead-in, 86.839", start)
 	}
 	if first := valueOf(arguments, "-segment_start_number"); first != "9" {
 		t.Errorf("the first raw file is %s, want 9, the lead-in's", first)
@@ -120,10 +120,27 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 		t.Errorf("the cuts are %s, want 10.010,20.020,23.774,33.742", cuts)
 	}
 	if mapped, mix := valueOf(arguments, "-map"), valueOf(arguments, "-filter:a"); mapped != "0:a:1" ||
-		mix != prepare.MixFilter(*sound.Stream.Sound, true) {
-		t.Errorf("the sound is %s mixed by %q; want track 1's boosted mix", mapped, mix)
+		mix != "atrim=start=2.000,asetpts=PTS-STARTPTS,"+prepare.MixFilter(*sound.Stream.Sound, true) {
+		t.Errorf("the sound is %s filtered by %q; want the two seconds before its lead-in dropped, then "+
+			"track 1's boosted mix", mapped, mix)
 	}
 	if rate := valueOf(arguments, "-b:a"); rate != "96k" {
 		t.Errorf("the sound is encoded at %s; want the run's 96k (chunk_sound_kbps)", rate)
+	}
+}
+
+// A sound starting less than two seconds into the film decodes from its start, and drops only what
+// comes before its run.
+func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
+	t.Parallel()
+	sound := run(nodeproto.ChunkStream{
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.PrepareAudio{ChannelCount: 2},
+	})
+	sound.BoundsMs = []int64{1_500, 11_500}
+	sound.FirstChunk = 0
+	arguments := Arguments("/a", "/r", sound, prepare.EncoderX264)
+	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "0.000" ||
+		!strings.HasPrefix(filter, "atrim=start=1.500,asetpts=PTS-STARTPTS,") {
+		t.Errorf("the sound decodes from %s filtered by %q; want from 0.000, dropping 1.500 s", start, filter)
 	}
 }

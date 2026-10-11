@@ -98,6 +98,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt` | [Each output file starts its fMP4 times at zero, and upstream has no flag for absolute `tfdt`](#each-output-file-starts-its-fmp4-times-at-zero-and-upstream-has-no-flag-for-absolute-tfdt) |
 | FMP4 init segments differ between runs unless the edit list is off | [fMP4 init segments differ between runs unless the edit list is off](#fmp4-init-segments-differ-between-runs-unless-the-edit-list-is-off) |
 | An 8.7 ms seam where two runs meet. | [The AAC encoder adds 1024 priming samples at each run's start](#the-aac-encoder-adds-1024-priming-samples-at-each-runs-start) |
+| The sound hiccuped every five minutes, where one run of chunks met the next. | [An input seek of an Opus track to a keyframe decodes it without its pre-roll](#an-input-seek-of-an-opus-track-to-a-keyframe-decodes-it-without-its-pre-roll) |
 | Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder | [Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder](#forced-keyframes-x264-needs--sc_threshold-0-and-hardware-encoders-need-forced-idr-spelt-differently-per-encoder) |
 | The first segment is as long as the source's first GOP (*Flow*: 10.43 s with `-hls_init_time 1`). | [`-hls_init_time` does nothing for copied video](#-hls_init_time-does-nothing-for-copied-video) |
 | `[af#0:0] Task finished with error: Invalid argument` / `[out#0/chromaprint] Nothing was written into output file`. | [Chromaprint refuses a 5.1 input](#chromaprint-refuses-a-51-input) |
@@ -1163,6 +1164,28 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   fails to signal audio encoder delay": new; with `empty_moov` (as ours) no edit list says to drop the 1024
   priming samples. [Ticket 11031](https://trac.ffmpeg.org/ticket/11031) fixed the same gap for `cmaf` only
   (checked 2026-10-08).
+
+
+### An input seek of an Opus track to a keyframe decodes it without its pre-roll
+
+- **Symptom:** watching *Bram the Wanderer* (Opus 5.1 in Matroska) on staging, the sound hiccuped
+  every five minutes, at each run of chunks' start. Run 1's sound was 86.0 ms later than its
+  timestamps, run 2's 135.3 ms: a 49 ms jump, and a 65 ms gap in the timestamps, where they met.
+- **Cause:** a run starts on a keyframe, and `-ss` before `-i` lands at a keyframe there. Opus
+  needs 80 ms of what came before it to be settled (its seek pre-roll); the demuxers record it,
+  but nothing in `fftools` uses it, so a decode from there comes out 60 to 90 ms later than the
+  time it is labelled with. Away from a keyframe the same seek is exact (−1 ms against a decode
+  that never seeks, at 4680, 4690, 4697.111, 4700.010, 4708.777 s; +87, +60, +89, +90, +91 ms
+  at 4694.273, 4694.300, 4704.491, 4714.710, 4724.929 s, each on or just after a keyframe).
+- **What we do:** a sound's decode starts two seconds early and trims to its run's start after
+  decoding (`atrim`, then `asetpts=PTS-STARTPTS`): `internal/node/chunks/arguments.go`
+  (`soundSeekEarlyMs`). Every start measured −1 ms, and a run holds exactly the samples its span
+  has. `TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds`.
+- **Evidence:** measured 2026-10-11 with the node's own command on the staging film. **[web]**
+  [FFmpeg's matroskadec.c](https://www.ffmpeg.org/doxygen/trunk/matroskadec_8c_source.html) sets
+  `seek_preroll` from the track; others met the same, e.g.
+  [onixlabs-media-player#58](https://github.com/onix-labs/onixlabs-media-player/pull/58), "audio
+  running ahead of video after seeking" (read 2026-10-11).
 
 
 ### Forced keyframes: x264 needs `-sc_threshold 0`, and hardware encoders need "forced IDR", spelt differently per encoder
