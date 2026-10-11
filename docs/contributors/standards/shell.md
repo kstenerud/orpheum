@@ -36,14 +36,14 @@ and why it exists:
 
 ```bash
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Prints the next free decision number by scanning every file that can define one.
 # ABOUTME: A hand-written grep that misses a file is what mints duplicate IDs.
 set -euo pipefail
 ```
 
 The licence identifier is the one the directory requires ([D80](../decisions/working-notes.md)):
-MPL-2.0 under `web/`, GPL-3.0-or-later elsewhere. The ABOUTME says **why**, not a restatement
+MPL-2.0 under `web/`, AGPL-3.0-or-later elsewhere. The ABOUTME says **why**, not a restatement
 of the filename.
 
 **Enforced by:** `scripts/check_source.py` requires the SPDX line within the first five lines

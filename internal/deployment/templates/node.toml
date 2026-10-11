@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # The deployment's node config (D249, D272 §3): `orpheum write-deployment` writes it over the node
 # instance's persistent/config.toml from the values file, so an edit here is lost. The media
 # directories are mounted read-only at their own paths, so a library names the path the owner knows.

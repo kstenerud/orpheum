@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
 // (fetches, artwork, prepares, subtitles, loudness, a scan's listing and examining, backups), their

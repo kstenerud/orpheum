@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package together is Watch Together's sessions (cut-a §5.1): who is in each, what their devices
 // report, the group's state, and the messages each device is sent. Sessions live in memory; a

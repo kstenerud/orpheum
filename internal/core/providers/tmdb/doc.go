@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package tmdb is TMDB behind identify's provider interface: search, find by an IMDb id or a
 // series' TVDB id, fetch a film's details with its credits or a series' record and its season

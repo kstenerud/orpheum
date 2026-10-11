@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: PR gate (`make check-pr`): lists every way a branch made the tests weaker —
 # ABOUTME: deleted tests, new skips, fewer assertions, changed goldens, retired names let go —
 # ABOUTME: and fails unless a commit that touched that file explains it with a `Test-Weakened:`

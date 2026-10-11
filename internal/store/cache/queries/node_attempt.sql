@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Work given to a node (schema.md, cache.db; D234 section 7): each attempt by its token, so the
 -- node's word on it resolves its assigned job, after a restart too.
 

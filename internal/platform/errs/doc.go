@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package errs says what was being done when an error happened, and passes success through
 // untouched: the one helper for the deferred Close and the trailing rows.Err() both the store and

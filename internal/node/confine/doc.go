@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package confine confines each FFmpeg run (cut-a §7). orpheum re-executes itself as the shim
 // (Shim), which sets no_new_privs, restricts itself with Landlock to the run's Access where the

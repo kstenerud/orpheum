@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package container reads the structure of a video's container without reading its media: the
 // elements of a Matroska file and the boxes of an MP4, through an io.ReaderAt, so the caller

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package slogx builds the process's *slog.Logger. It is the one sanctioned way to log:
 // cmd/orpheum calls New once, and every other package takes the logger as a constructor

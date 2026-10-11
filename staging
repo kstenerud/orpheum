@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Staging (D249 §3): builds the runtime image from this checkout and runs the deployment
 # ABOUTME: (deploy/compose.yaml) beside the dev loop, with its own data in .staging/.
 """Run Orpheum's staging deployment on this machine, from this checkout (D249, D272 §3).

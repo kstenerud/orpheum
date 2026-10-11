@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Prepared renditions (schema.md, cache.db; D217 section 5): what each node was asked to
 -- prepare, and how far it is.
 

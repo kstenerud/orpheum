@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for scripts/fetch_tools.py: every gate tool is pinned by hash on each platform
 # ABOUTME: FFmpeg is, a fetched one is verified, and .tools/bin follows the pin.
 import hashlib

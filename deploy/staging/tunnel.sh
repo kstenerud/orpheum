@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # orpheum-tunnel: the core's end of the WireGuard tunnel to the VPS (D243 §7, D249 §2), the entry
 # point of the deployment's tunnel service. The core shares this service's network, so the tunnel
 # is in the core's network and nowhere else: nothing on the host is configured.

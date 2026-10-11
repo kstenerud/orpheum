@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package langtag normalises a language code to BCP 47, the one form the library stores (D24,
 // D206): a container's tag, which the node reads, and a subtitle file's name, which the core

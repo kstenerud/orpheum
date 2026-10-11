@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package jobqueuetest gives tests of internal/platform/jobqueue, and of the programs built on it,
 // Memory, a job storage held in memory, and Random, a random source whose jitter a test knows. It

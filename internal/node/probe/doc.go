@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package probe runs ffprobe on one file, through execx, and turns its output into the probe
 // record the core stores verbatim. Hostile bytes stop here: the core receives only the parsed

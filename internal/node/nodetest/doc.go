@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package nodetest gives the node's tests what they share: a media root opened for a test, and the
 // payload hash of a file's contents, as a command names the file. It is imported only by tests.

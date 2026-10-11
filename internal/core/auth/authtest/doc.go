@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package authtest gives tests of auth and of the packages that use it SetupCodes, the state
 // directory's setup-code file held in memory. It is imported only by tests.

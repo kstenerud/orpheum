@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package bounded reads at most a bound of bytes and refuses anything larger: the one way to take
 // in a body whose size another party decides, a provider's answer or a file beside the media,

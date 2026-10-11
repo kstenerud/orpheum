@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package diskspace measures the filesystem that holds a path: its size and what a user who is
 // not root may still write; and what the files under a directory take. It is the one way to ask

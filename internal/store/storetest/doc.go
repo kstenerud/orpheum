@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package storetest opens real, migrated databases, and cache.db, for other packages' tests. It
 // is imported only by tests; production code opens the database once, in cmd/orpheum.

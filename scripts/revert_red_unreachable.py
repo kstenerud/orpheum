@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Whether a Go file's change only removed declarations nothing could reach, so reverting
 # ABOUTME: it restores dead code no test could notice (check_revert_red.py reports it UNREACHABLE).
 """Removed code nothing reached, which revert-red reports rather than probes.

@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
 
 -- name: InsertGrant :exec

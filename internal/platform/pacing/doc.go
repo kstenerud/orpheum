@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package pacing is how the server's media connections send. Their listeners ask for BBR, which does
 // not read random loss as congestion (D263 §3; ListenConfig). And a response's sender can pace its

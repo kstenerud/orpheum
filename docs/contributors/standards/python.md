@@ -27,7 +27,7 @@ import or a newer-only feature fails `make check` there.
 
 ```python
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Source hygiene gate run by `make check`: every source file carries the SPDX
 # ABOUTME: licence identifier its directory requires, and no file outgrows one read.
 """Check licence headers and file sizes across the tracked source tree.

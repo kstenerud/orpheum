@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Generated-code gate run by `make check`: regenerates, and fails if any generated
 # ABOUTME: file differs from what was there before — stale or hand-edited output.
 """Check that the committed generated code is exactly what its sources generate.

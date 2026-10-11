@@ -313,7 +313,7 @@ type ListLiveArtworkRow struct {
 	RefusedAt    *int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // An item's images (schema.md, artwork; D212): which it has, where each came from, and the hash
 // its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLiveArtworkRow, error) {

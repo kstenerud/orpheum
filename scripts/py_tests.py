@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Runs the Python tests, one process per test module and as many at once as there are
 # ABOUTME: CPUs: the one way make check and revert-red's probes run them.
 """Run scripts/tests, each module in its own process, in parallel.

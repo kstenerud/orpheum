@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the branch gates: the base check-pr compares against, trailers tied to the
 # ABOUTME: commits that touched a file, Python tests and moves in test-weakening, and revert-red's
 # ABOUTME: kinds, units, UNCHECKED list and Refactor-Only; each is shown failing on a case built to

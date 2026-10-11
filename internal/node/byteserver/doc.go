@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package byteserver serves the node's read-only socket (/run/orpheum/node.sock): GET only, file ranges
 // by path and payload hash, and prepared-output files. It carries no commands. A request whose

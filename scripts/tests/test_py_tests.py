@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for py_tests.py: every module runs, a failure fails the run and is shown, and a
 # ABOUTME: pass prints one line.
 import os

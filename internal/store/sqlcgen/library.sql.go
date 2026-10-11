@@ -120,7 +120,7 @@ type InsertLibraryParams struct {
 	CreatedAt       int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Libraries and the node roots they cover (schema.md, Libraries; D184, D107).
 func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertLibrary,

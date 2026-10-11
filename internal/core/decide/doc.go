@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package decide is the playback decision: given a file's streams, the device's playable formats
 // (its prioritised list per axis of the menu), and nothing of where it is (D247 §11), it answers

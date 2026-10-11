@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Says whether check-pr's browser tier has anything to check: whether a file changed since
 # ABOUTME: the base is one the tier's server, node or client is built or run from.
 """Whether the browser tier can see what changed since a base.

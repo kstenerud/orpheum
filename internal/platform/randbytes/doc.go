@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package randbytes reads random bytes from the source a service is given, and writes the one
 // form a bearer secret takes: the one way to do each, where auth and playback had each grown

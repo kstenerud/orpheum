@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Runs a gate target (`make check`, `make check-docs`) where the tools are: directly in the
 # ABOUTME: development image or on a host with Go and Node, otherwise through `./dev` (D235).
 """Where the hooks run the gate.

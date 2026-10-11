@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package library is the library model: Title, Edition, Version and File, extras, collections, and
 // what the scanner saw. It runs the scans of the nodes' roots, a listing it compares and the batches

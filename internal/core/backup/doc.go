@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package backup writes and restores backups of an instance's persistent directory (D242 §5): a
 // tarball in the backups directory of its files, its database a VACUUM INTO snapshot. A backup is

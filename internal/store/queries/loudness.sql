@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Each audio track's loudness, as the node measured it (D226 sections 1 and 2).
 
 -- name: ListLoudnessOfPayload :many

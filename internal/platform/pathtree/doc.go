@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package pathtree says whether one absolute path is at or under another: which root, mount or
 // directory holds a path. It is the one test of it, where copies had grown in the node's hardware,

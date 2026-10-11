@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package providerstest is what tests of a provider service and its clients share: the health
 // the services keep their hosts' states in, as the job queue keeps them, over no database.

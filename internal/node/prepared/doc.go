@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package prepared keeps a node's prepared renditions within their budget (D217 §5): the node
 // alone deletes in its prepared directory, and this is where it does. A rendition's run

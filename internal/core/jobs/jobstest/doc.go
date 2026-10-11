@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package jobstest gives the tests of packages that queue work Queue, the job queue as a list of
 // what was asked of it. It is imported only by tests.

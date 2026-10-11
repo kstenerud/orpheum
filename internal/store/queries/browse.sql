@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Browse (cut-a section 5, Browse): lists in a locale's order (D47), a title's detail and a
 -- series' episodes. Search's three routes are in search.go: sqlc cannot parse FTS5's MATCH. Only what has a live file is
 -- listed: a film whose files are all gone is kept, with its history, but not shown. The live-file

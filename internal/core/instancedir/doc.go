@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package instancedir is the only core package that touches the filesystem: a core instance's
 // directories, as its top-level config names them (D242 §3). The persistent directory holds what a

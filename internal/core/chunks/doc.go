@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package chunks cuts a film into chunks made when a player first asks for one, so a slow link
 // gets lower qualities, among which the player's own bitrate controller chooses (D247 §10, D265,

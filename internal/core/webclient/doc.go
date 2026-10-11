@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package webclient serves the built web client at `/`: its files as they are, and its own
 // addresses (`/films`, `/titles/…`) with its index.html, so a reload or a shared link opens the

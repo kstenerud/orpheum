@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the development image (D235 §2): its Go and Node follow the repository's pins,
 # ABOUTME: every download is pinned by hash, and the fetch scripts use the tools baked into it.
 import os

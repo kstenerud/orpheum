@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # The Go lint gate. docs/contributors/standards/go.md explains every rule here and is the place
 # to read *why*; this file is the mechanism. Agents may not edit it (the pre-edit hook blocks
@@ -162,7 +162,7 @@ linters:
 
     # ---------------------------------------------------------------- licence header
     goheader:
-      template: "SPDX-License-Identifier: GPL-3.0-or-later"
+      template: "SPDX-License-Identifier: AGPL-3.0-or-later"
 
     # ---------------------------------------------------------------- naming and readability
     varnamelen:

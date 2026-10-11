@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: A fingerprint of the working tree, which check-pr takes as it starts and compares as it
 # ABOUTME: ends: a file changed while it ran makes its verdict about another tree than HEAD's.
 """A fingerprint of the working tree: HEAD, every tracked file's change from it, and every untracked

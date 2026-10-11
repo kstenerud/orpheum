@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Orpheum's deployment (D235 §4, D249 §2, D272 §3): three services from the one runtime image.
 # `orpheum write-deployment` writes this file into the deployment's directory, beside the .env file
 # it reads its variables from and compose.override.yaml, which gives the node this machine's media

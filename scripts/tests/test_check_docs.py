@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for check_docs.py — pins GitHub's slug rules, the code-span and fence
 # ABOUTME: exclusions, and each gate on a small synthetic tree, so a broken gate fails loudly.
 import sys

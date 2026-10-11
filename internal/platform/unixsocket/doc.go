@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package unixsocket is HTTP over a unix socket: the one way the node dials the core's socket and
 // the core dials a node's byte socket, where each had written its own (AGENTS.md rule 11), and

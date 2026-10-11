@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package identifytest gives tests Provider, TMDB behind identify.Provider: films, search
 // results, other sources' ids and season listings held in maps, and every call recorded. It is

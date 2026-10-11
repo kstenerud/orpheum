@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Runs one step of make check only when what it reads changed since it last passed:
 # ABOUTME: the web tests on a Go-only turn, or the gate scripts' tests on a web-only one.
 """Run a gate step unless its inputs are unchanged since it last passed.

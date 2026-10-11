@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package artwork re-encodes images for the core (D212): a provider's download, a file beside
 // the media, an image in a container. Every image the core stores is one this package's run of

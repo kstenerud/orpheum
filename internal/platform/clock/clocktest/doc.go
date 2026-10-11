@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package clocktest provides Fake, the clock.Clock that tests control: its time moves only when a
 // test moves it, and its timers fire when it moves past them. It is imported only by tests;

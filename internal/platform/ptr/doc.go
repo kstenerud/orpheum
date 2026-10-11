@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package ptr reads and writes an optional value, such as a nullable column sqlc gives as a
 // pointer: the one helper for each direction, where copies had grown in several packages

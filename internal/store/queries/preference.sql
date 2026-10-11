@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- A person's preferences (schema.md, preference; D24, D90, D230): one value per axis at a scope.
 -- A value set equal to the starting one is still a choice, so it is stored, never deleted.
 

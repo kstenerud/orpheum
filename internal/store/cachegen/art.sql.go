@@ -58,7 +58,7 @@ type MarkArtServedParams struct {
 	LastServedEpochDay int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // When each image was last served, to the day: what the artwork ceiling evicts first within a
 // class, D212 section 6. Written hourly in a batch, never on the request path.
 func (q *Queries) MarkArtServed(ctx context.Context, arg MarkArtServedParams) error {

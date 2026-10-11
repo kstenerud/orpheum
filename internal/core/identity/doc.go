@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package identity is the core's identity key (D273): an Ed25519 key made on first start and kept in
 // identity.key in the persistent directory, beside secret.key, by which the core proves to its

@@ -31,8 +31,8 @@ The reasons are in [principles](../principles/README.md); tests have their own s
   party, then this module. `make fmt` applies them. **Enforced by:** `golangci-lint fmt --diff`
   in `make check`.
 - **Lines are at most 120 columns.** A line that long is two ideas. **Enforced by:** lll.
-- **Every Go file starts with `// SPDX-License-Identifier: GPL-3.0-or-later`**; everything
-  outside `web/` is GPL (D80). **Enforced by:** goheader, and `scripts/check_source.py`.
+- **Every Go file starts with `// SPDX-License-Identifier: AGPL-3.0-or-later`**; everything
+  outside `web/` is AGPL (D80, D275). **Enforced by:** goheader, and `scripts/check_source.py`.
 
 ## 2. The lint gate
 

@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Libraries and the node roots they cover (schema.md, Libraries; D184, D107).
 
 -- name: InsertLibrary :one

@@ -89,7 +89,7 @@ type InsertFetchedSubtitleParams struct {
 	ReleaseName     *string
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Subtitles fetched on request (schema.md, fetched_subtitle; D224): kept in persistent.db, gzipped,
 // because each cost one of the account's daily downloads.
 func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSubtitleParams) (int64, error) {

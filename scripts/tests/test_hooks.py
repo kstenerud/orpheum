@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the Claude Code hooks: each refusal fires on the case it exists for and
 # ABOUTME: stays quiet on ordinary work, run as Claude Code runs them (JSON on stdin).
 import json

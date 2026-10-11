@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: `./dev`: runs a command, or a shell, in the development image (D235 §3), building the
 # ABOUTME: image first when it is missing or its inputs changed. The host needs only git and Docker.
 """Run a command in the development container.

@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- The identification pass (identification.md): it reads stored observations and writes titles.
 
 -- name: ListLibraryRoots :many

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package build says what a binary was built from, as Go recorded it at build time: the release
 // tag its commit carries, or "dev" and the commit, and whether the tree had uncommitted changes.

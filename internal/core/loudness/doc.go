@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package loudness says the gains that level each file's sounds (D226), from the measurements a
 // read-through keeps by the file's payload hash (internal/core/readthrough, which owns the job that

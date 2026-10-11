@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package execx is the only place a shipping process starts. It runs the bundled ffmpeg and
 // ffprobe, and nothing else, with hardened arguments, an empty environment, the root directory as its

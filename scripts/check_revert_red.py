@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Adapted from yoloAI's scripts/check_revert_red.py (MIT, same author).
 # ABOUTME: CI gate. For each source file a branch changes, reverts it to the base
 # ABOUTME: version and asserts some test goes red — the mechanical form of AGENTS.md

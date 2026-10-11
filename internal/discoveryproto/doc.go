@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package discoveryproto is the wire between a core and its discovery (D273): the paid service at
 // app.orpheum-app.com, or the owner's own. Types only, as nodeproto is, kept apart from the core so

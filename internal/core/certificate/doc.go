@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package certificate obtains and renews an HTTPS certificate by ACME DNS-01: the server's public
 // name's (D243 §6), its challenge's TXT record set through Cloudflare with the admin's scoped token,

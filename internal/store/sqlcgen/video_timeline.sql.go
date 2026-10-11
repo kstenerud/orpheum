@@ -43,7 +43,7 @@ type GetVideoTimelineParams struct {
 	VideoStreamIndex int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Each picture's timeline, as a read-through found it (D247 section 10): its keyframes and its bytes
 // in each second, by the bytes it was read from.
 func (q *Queries) GetVideoTimeline(ctx context.Context, arg GetVideoTimelineParams) (VideoTimeline, error) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Fetches the pinned MKVToolNix AppImage into .tools/, verifies its SHA-256, extracts
 # ABOUTME: it, and prints the directory holding usr/bin/mkvmerge and usr/bin/mkvpropedit.
 """Download the one MKVToolNix the integration tier edits Matroska files with (D203, M2-3).

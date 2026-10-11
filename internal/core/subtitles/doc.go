@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package subtitles offers a played video's text subtitle tracks, has their text made by the
 // video's node and kept, serves it as ASS or WebVTT, and fetches a subtitle on request (D217 §6,

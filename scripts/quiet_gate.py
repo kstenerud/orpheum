@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Runs a make target with its full output kept in a log, and prints only what needs
 # ABOUTME: reading: one line when it passes, the failures and no passing noise when it does not.
 """Run a gate quietly.

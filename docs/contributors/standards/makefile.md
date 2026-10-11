@@ -31,7 +31,7 @@ The file opens with its licence line and ABOUTME, then settings that turn Make's
 failure modes into loud ones:
 
 ```make
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The one entry point for building, generating and checking Orpheum; CI and the
 # ABOUTME: agent Stop hook run these same targets, so local and CI results mean the same thing.
 

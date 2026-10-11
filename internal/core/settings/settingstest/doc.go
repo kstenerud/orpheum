@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package settingstest gives other packages' tests a settings service over a real database, with
 // every starting value written and argon2id's costs lowered so a unit test hashes in

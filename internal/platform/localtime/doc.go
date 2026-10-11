@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package localtime is the one place a moment becomes wall-clock time in a time zone, and back.
 // The server's times are UTC (D204); only a few things are about a wall clock, such as the hour a

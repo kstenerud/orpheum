@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Generates the development library: a small, synthetic set of films and episodes
 # ABOUTME: that exercises every Cut A playback path, the scanner's filings and NFO identity.
 """Build `.dev/media` with the pinned FFmpeg: nothing copyrighted, nothing downloaded.

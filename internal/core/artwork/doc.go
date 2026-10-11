@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under

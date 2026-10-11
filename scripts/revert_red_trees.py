@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Gives revert-red's probe worktrees the web packages the working tree installed, as
 # ABOUTME: links, so the web suite runs in them without an install (check_revert_red.py).
 """The installed web packages, mirrored into a probe worktree as links."""

@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Media nodes (schema.md, node; D207): enrolled by name on their first hello.
 
 -- name: GetLiveNodeByName :one

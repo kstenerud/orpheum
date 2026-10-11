@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package hash computes a file's identity: a SHA-256 over the first and last megabyte of its
 // media payload and the payload's length (D179), not over the whole file's bytes, so a metadata

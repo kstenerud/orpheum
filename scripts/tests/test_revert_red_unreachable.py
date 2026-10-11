@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for revert_red_unreachable.py: dropping declarations nothing reaches is reported
 # ABOUTME: UNREACHABLE, and every change that might reach something is still probed.
 import sys

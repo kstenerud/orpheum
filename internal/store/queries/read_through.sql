@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- The sweep for videos to read through: whose loudness (D226 section 2) or picture's timeline (D247
 -- section 10) a read of the whole file would learn.
 

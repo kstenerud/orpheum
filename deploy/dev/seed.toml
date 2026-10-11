@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # What `orpheum dev seed` puts into an empty dev database, so the app opens on a working
 # library with Cut A's two people already in it. Dev builds only (-tags dev): these passwords
 # are public, and a release binary has no command that could create them.
