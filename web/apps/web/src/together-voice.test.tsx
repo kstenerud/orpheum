@@ -305,22 +305,25 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     mounted.unmount();
   });
 
-  it("turns off saying so when its call fails, and connects again at a press", async () => {
+  it("shows it connecting, a moving status line, while a call is made again after a failure (D281 §6)", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
     const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say(welcome);
+    const status = (): Element | null => mounted.container.querySelector(".together-voice__status");
+    expect(status()?.hasAttribute("data-connecting")).toBe(true);
+    act(() => {
+      devices.calls[0]!.setup.events.onState("connected");
+    });
+    expect(status()?.hasAttribute("data-connecting")).toBe(false);
     act(() => {
       devices.calls[0]!.setup.events.onState("failed");
     });
-    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Voice could not connect to the others and is off.",
-    );
-    expect(talkButton(mounted.container, "Stop talking")).toBeUndefined();
-    await click(buttonWithText(mounted.container, "Connect voice again"));
-    expect(server.openedCount()).toBe(2);
+    // No error and no button: the call is made again by itself, and the line says so as it moves.
     expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+    expect(status()?.hasAttribute("data-connecting")).toBe(true);
+    expect(status()?.textContent).toBe("Voice: connecting to Karl…");
     mounted.unmount();
   });
 

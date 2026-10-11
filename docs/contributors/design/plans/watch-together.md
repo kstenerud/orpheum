@@ -198,7 +198,8 @@ those calls, making none again; then **Mute**, which stops only one's own sendin
 talking**, which closes the microphone and still hears everyone. Each person's voice has a volume of
 its own, from silent to four times as loud as it came, apart from the film's. A microphone that will
 not open says why, the browser's own words beside a refused one, and Talk tries again; a call that
-cannot connect or drops turns voice off with the reason, and a button connects again.
+cannot connect, or drops, is made again by itself after a short wait, its microphone on as it was,
+the status line moving meanwhile (D281 §6).
 
 **Echo.** The film plays out loud while the microphone is open, and a browser cannot cancel audio
 it has no reference for. **Headphones on at least one side are the supported setup**

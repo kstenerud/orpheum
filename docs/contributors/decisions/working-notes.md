@@ -19451,8 +19451,14 @@ longer attaches the voice device.
    person's voice volume, and the film's volume. Inviting is a button that opens a dialog of its
    own; a person in the list opens a dialog of what may be done with them (show their link again,
    a new link, remove them, their voice's volume).
-6. **A call that fails is told, and voice is tried again by a button**, as before (the owner,
-   2026-10-06), now one that hears again rather than one that opens the microphone.
+6. **A call that fails reconnects by itself** (the owner, later the same day, after a locked phone
+   and a sleeping iPhone each left voice off until someone pressed a button: *"Yes, auto-reconnect
+   until the user turns off the voice button. We should probably have some kind of animation to show
+   that it's connecting."*). A call that fails, or does not connect within a while, is made again,
+   waiting a little longer each time up to a few seconds, for as long as the other's voice device
+   is in the session; a microphone that was talking stays on until its person turns Talk off. The
+   status line moves while any call connects. This revises the owner's 2026-10-06 rule, kept here
+   until then, that a failed call turned voice off with a button to try again.
 7. **Talk is one toggle, and §2's Mute and Stop talking are one press** (the owner, later the same
    day): *"Rather than having stop talking and mute as separate buttons, let's simplify: A talk
    toggle button. They press it to turn on their microphone, and then press it again to stop

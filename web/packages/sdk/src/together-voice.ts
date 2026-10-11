@@ -28,11 +28,10 @@ import {
 export type MicrophoneFailure = "refused" | "none" | "busy" | "unsupported" | "failed";
 
 /**
- * Why voice turned itself off: its microphone did not open, which stops talking alone, or a call
- * with another device could not connect, or dropped and could not connect again, which stops
- * hearing too, until it is tried again (the owner, 2026-10-06; D281 §6).
+ * Why talking stopped: its microphone did not open. A call that fails is made again, whatever its
+ * failure (D281 §6).
  */
-export type VoiceFailure = MicrophoneFailure | "unreachable";
+export type VoiceFailure = MicrophoneFailure;
 
 /** Which failure an error from opening the microphone is, by the DOMException's name. */
 export function microphoneFailureOf(error: unknown): MicrophoneFailure {
@@ -255,6 +254,15 @@ const offSnapshot: VoiceSnapshot = {
  */
 export const iceServersFreshForMs = 12 * 60 * 60 * 1000;
 
+/**
+ * How long a failed call waits before it is made again, by how many times in a row it has failed;
+ * the last wait for every one after (D281 §6). A call that connects starts the count again.
+ */
+export const callRetryWaitsMs: readonly number[] = [1000, 2000, 4000, 8000, 10_000];
+
+/** How long a call may take to connect before it is failed and made again (D281 §6). */
+export const callConnectsWithinMs = 15_000;
+
 /** The roles of devices that carry a person's voice (D120). */
 const voiceRoles: ReadonlySet<string> = new Set(["voice", "both"]);
 
@@ -286,6 +294,10 @@ class CallEntry {
   #state: VoiceCallState = "connecting";
   call: VoiceCall | undefined;
   isClosed = false;
+  /** Whether it answered an offer: another offer after that is a new call, made afresh. */
+  hasAnswered = false;
+  /** Fails the call that has not connected in time (callConnectsWithinMs). */
+  connectTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #onFailed: () => void;
   #work: Promise<void> = Promise.resolve();
 
@@ -315,6 +327,7 @@ class CallEntry {
 
   close(): void {
     this.isClosed = true;
+    clearTimeout(this.connectTimer);
     this.call?.close();
   }
 
@@ -355,6 +368,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   #iceServersAskedAtMs = 0;
   #lastIceServers: readonly RTCIceServer[] = [];
   #measuring: ReturnType<typeof setInterval> | undefined;
+  /** How many times in a row each partner device's call has failed (D281 §6). */
+  readonly #failures = new Map<number, number>();
 
   constructor(options: TogetherVoiceOptions<Microphone>) {
     this.#options = options;
@@ -444,12 +459,12 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
 
   /** Turns voice off: the page is done with it, told to the core's log as left. */
   readonly leave = (): void => {
-    this.#end("left");
+    this.#end();
   };
 
-  /** Turns voice off, telling the core's log why: the person left, or a call could not connect. */
-  #end(why: "left" | "unreachable"): void {
-    this.#connection?.note({ kind: "voiceOff", why });
+  /** Turns voice off, telling the core's log the person left. */
+  #end(): void {
+    this.#connection?.note({ kind: "voiceOff", why: "left" });
     this.#generation += 1;
     this.#closeMicrophone();
     this.#closeCalls();
@@ -621,17 +636,29 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
   }
 
-  /** A call with partner, made once the ICE servers are known; the lower device id offers. */
-  #startCall(partner: PartnerDevice): CallEntry {
+  /**
+   * A call with partner, made once the ICE servers are known, after waitMs when it is made again;
+   * the lower device id offers. Signalling heard meanwhile waits its turn on it. One not connected
+   * within callConnectsWithinMs is failed, and so made again (D281 §6).
+   */
+  #startCall(partner: PartnerDevice, waitMs = 0): CallEntry {
     const entry = new CallEntry(partner, (this.#ownDeviceId ?? 0) < partner.deviceId, () => {
       this.#setState(entry, "failed");
     });
+    entry.connectTimer = setTimeout(() => {
+      if (entry.partner().state !== "connected") {
+        this.#setState(entry, "failed");
+      }
+    }, waitMs + callConnectsWithinMs);
     // A call made long after the last ask asks again: the relay's credentials last a day (D243 §8).
     if (this.#options.monotonicMs() - this.#iceServersAskedAtMs > iceServersFreshForMs) {
       this.#askForIceServers();
     }
     const iceServers = this.#iceServers;
     entry.run(async () => {
+      if (waitMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
       const servers = await iceServers;
       if (entry.isClosed) {
         return;
@@ -661,25 +688,33 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
 
   /** Signalling from another device, taken in turn on its call; none from a device not called. */
   #hear(fromDeviceId: number, signal: VoiceSignal): void {
-    const entry = this.#calls.get(fromDeviceId);
+    let entry = this.#calls.get(fromDeviceId);
     if (entry === undefined) {
       this.#noteStep(fromDeviceId, "signalDropped");
       return;
     }
-    entry.run(async () => {
-      const call = entry.call;
+    if ("sdp" in signal && !entry.isOffering && entry.hasAnswered) {
+      // The other made the call again, after a failure this side did not see: so does this one.
+      entry.close();
+      entry = this.#startCall(entry);
+      this.#calls.set(fromDeviceId, entry);
+    }
+    const heard = entry;
+    heard.run(async () => {
+      const call = heard.call;
       if (call === undefined) {
         return;
       }
       if ("candidate" in signal) {
         // A candidate that does not fit is one path fewer, never a failed call.
         await call.addCandidate(signal.candidate).catch(() => undefined);
-      } else if (entry.isOffering) {
+      } else if (heard.isOffering) {
         await call.accept(signal.sdp);
-        this.#noteStep(entry.deviceId, "accepted");
+        this.#noteStep(heard.deviceId, "accepted");
       } else {
-        this.#send(entry, { sdp: await call.answer(signal.sdp) });
-        this.#noteStep(entry.deviceId, "answered");
+        heard.hasAnswered = true;
+        this.#send(heard, { sdp: await call.answer(signal.sdp) });
+        this.#noteStep(heard.deviceId, "answered");
       }
     });
   }
@@ -695,7 +730,11 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
   }
 
-  /** A call's new state; a call that failed turns voice off, saying so (the owner, 2026-10-06). */
+  /**
+   * A call's new state. A call that failed is made again after a wait that grows with each failure
+   * in a row, its microphone sent on the new one as it was (D281 §6, the owner: "auto-reconnect
+   * until the user turns off the voice button").
+   */
   #setState(entry: CallEntry, state: VoiceCallState): void {
     if (entry.isClosed) {
       return;
@@ -712,12 +751,26 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       }
     }
     if (state === "failed") {
-      this.#end("unreachable");
-      // Hearing stops too, said so, until it is tried again (D281 §6).
-      this.#change({ ...this.#snapshot, status: "failed", failure: "unreachable" });
+      this.#makeAgain(entry);
       return;
     }
+    if (state === "connected") {
+      this.#failures.delete(entry.deviceId);
+    }
     entry.setState(state);
+    this.#change({ ...this.#snapshot, partners: this.#partners() });
+  }
+
+  /** Makes a failed call again, after its wait, in its place; it shows as connecting meanwhile. */
+  #makeAgain(failed: CallEntry): void {
+    failed.close();
+    if (this.#calls.get(failed.deviceId) !== failed) {
+      return; // already replaced, or its device gone
+    }
+    const failures = (this.#failures.get(failed.deviceId) ?? 0) + 1;
+    this.#failures.set(failed.deviceId, failures);
+    const waitMs = callRetryWaitsMs[Math.min(failures, callRetryWaitsMs.length) - 1] ?? 0;
+    this.#calls.set(failed.deviceId, this.#startCall(failed, waitMs));
     this.#change({ ...this.#snapshot, partners: this.#partners() });
   }
 
@@ -735,8 +788,8 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
  * one audio call with every other person's voice device in the roster, the lower device id making
  * the offer, through the relay's ICE servers. Talk opens the microphone and sends it on those calls,
  * and stopping closes it, neither making a call again. A device leaving the roster ends its call; a
- * new welcome, after the voice socket connects again, makes every call again; a call that fails
- * turns voice off, saying so, until it is tried again. Muting switches the microphone's tracks off;
+ * new welcome, after the voice socket connects again, makes every call again; a call that fails,
+ * or does not connect in time, is made again after a wait that grows to callRetryWaitsMs's last. Muting switches the microphone's tracks off;
  * each person's gain sets how loud their voice plays.
  */
 export function createTogetherVoice<Microphone extends VoiceMicrophone>(
