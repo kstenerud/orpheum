@@ -228,6 +228,8 @@ class GroupFollower {
   #startTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
+  /** The command pendingCommand will send, while one waits. */
+  #pendingKind: GroupCommand["command"] | undefined = undefined;
   /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
   #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
   /** Film loaded per second of the link, as last measured; undefined until it has been. */
@@ -331,11 +333,30 @@ class GroupFollower {
     }
     clearTimeout(this.#pendingCommand);
     this.#awaitAnswer();
+    this.#pendingKind = command.command;
     this.#pendingCommand = setTimeout(() => {
       this.#pendingCommand = undefined;
+      this.#pendingKind = undefined;
       this.#send(command);
     }, scrubPauseWindowMs);
   }
+
+  /**
+   * An iPhone's own full-screen player closed. iOS pauses the video as it closes: that pause is the
+   * browser's, not its person's, and was sent as a pause for everyone each time a guest left full
+   * screen (the owner's test, 2026-10-11). A pause waiting to be sent is dropped, one still to come
+   * is taken for the player's own, and the video is put back where the group is.
+   */
+  readonly leftFullscreen = (): void => {
+    if (this.#pendingKind === "pause") {
+      clearTimeout(this.#pendingCommand);
+      this.#pendingCommand = undefined;
+      this.#pendingKind = undefined;
+      this.#isAwaitingGroup = false;
+    }
+    this.#ownMoves.mark("pause", this.#options.monotonicMs());
+    this.apply();
+  };
 
   /**
    * Each checkDriftEveryMs: applies the group, and while it waits tells it this player's state, by
@@ -738,6 +759,8 @@ export function followGroup(
     ),
     ["progress", follower.loaded] as const,
     [playerMovedItselfEvent, follower.playerMovedItself] as const,
+    // An iPhone's own full-screen player, which pauses the video as it closes.
+    ["webkitendfullscreen", follower.leftFullscreen] as const,
     [
       playerLoadedChunkEvent,
       (event: Event) => {
