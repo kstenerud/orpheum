@@ -43,11 +43,26 @@ type Client struct {
 // offer endpoint.
 type Answerer func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
 
+// Option changes how Connect's client gathers its candidates.
+type Option func(*webrtc.SettingEngine)
+
+// OverIPv4 holds the client to IPv4 candidates, for a test of which path a connection took: a
+// machine with other addresses (a container network's IPv6, say) otherwise gave it an IPv6 pair,
+// and the path depended on the machine, not the code.
+func OverIPv4() Option {
+	return func(settings *webrtc.SettingEngine) {
+		settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	}
+}
+
 // Connect makes a client on the loopback and connects it through answer.
-func Connect(tb testing.TB, answer Answerer) *Client {
+func Connect(tb testing.TB, answer Answerer, options ...Option) *Client {
 	tb.Helper()
 	settings := webrtc.SettingEngine{}
 	settings.SetIncludeLoopbackCandidate(true)
+	for _, option := range options {
+		option(&settings)
+	}
 	connection, err := webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		tb.Fatal(err)
