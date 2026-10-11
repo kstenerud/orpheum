@@ -49,7 +49,6 @@ export const enTogether = {
       connectingTo: "Voice: connecting to {{names, list}}…",
       browserReason: "The browser said: {{reason}}",
       connectedTo: "Voice: hearing {{names, list}}",
-      again: "Connect voice again",
       failure: {
         refused:
           "Your microphone was not allowed. Allow it for this site in the browser's settings. On a phone, the browser app itself must also be allowed the microphone, in the phone's settings (Apps, then the browser, then Permissions). Then press Talk again.",
@@ -58,7 +57,6 @@ export const enTogether = {
         unsupported:
           "This page cannot use a microphone. Voice needs the https:// address, in a browser that supports it.",
         failed: "Your microphone could not start. Press Talk to try again.",
-        unreachable: "Voice could not connect to the others and is off.",
       },
     },
     over: {

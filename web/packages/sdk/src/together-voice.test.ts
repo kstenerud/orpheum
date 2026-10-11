@@ -11,6 +11,8 @@ import {
 } from "./together-voice-stats.ts";
 import { isVoiceLive } from "./voice-live.ts";
 import {
+  callConnectsWithinMs,
+  callRetryWaitsMs,
   createTogetherVoice,
   iceServersFreshForMs,
   partnerGainMost,
@@ -473,15 +475,18 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(ended).toEqual([0]);
   });
 
-  it("tells the core's log why voice turned off: the person left, or a call could not connect", async () => {
+  it("tells the core's log voice turned off as its person left, and never for a call that failed", async () => {
     const left = await talking();
     left.voice.leave();
     expect(notesOf(left.server, "voiceOff")).toEqual([{ kind: "voiceOff", why: "left" }]);
-    const unreachable = await talking();
-    unreachable.calls[0]!.setup.events.onState("failed");
-    expect(notesOf(unreachable.server, "voiceOff")).toEqual([
-      { kind: "voiceOff", why: "unreachable" },
-    ]);
+    const failed = await talking();
+    failed.calls[0]!.setup.events.onState("failed");
+    expect(notesOf(failed.server, "voiceOff")).toEqual([]);
+    expect(notesOf(failed.server, "voiceCall")).toContainEqual({
+      kind: "voiceCall",
+      partnerDeviceId: 30,
+      why: "failed",
+    });
   });
 
   it("tells the core's log each step a call takes, and a signal it drops", async () => {
@@ -546,30 +551,67 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(calls.at(-1)!.gain).toBe(0.4);
   });
 
-  it("turns itself off, saying so, when a call fails, and Talk tries again (the owner, 2026-10-06)", async () => {
+  it("makes a failed call again after a wait growing with each failure, talking on (D281 §6)", async () => {
+    vi.useFakeTimers();
     const { voice, server, microphone, calls } = await talking();
     calls[0]!.setup.events.onState("failed");
-    expect(voice.snapshot()).toMatchObject({
-      status: "failed",
-      failure: "unreachable",
-      partners: [],
-      isConnected: false,
-    });
-    expect(microphone.isStopped()).toBe(true);
-    expect(server.closedHere).toEqual([0]);
-    expect(calls.every((call) => call.isClosed)).toBe(true);
-    await voice.start(levelled);
-    expect(voice.snapshot()).toMatchObject({ status: "on", failure: undefined });
-    expect(server.sockets).toHaveLength(2);
+    // It shows as connecting, voice on, the microphone still open: no button to press.
+    expect(voice.snapshot()).toMatchObject({ status: "on", failure: undefined, isConnected: true });
+    expect(voice.snapshot().partners[0]).toMatchObject({ deviceId: 30, state: "connecting" });
+    expect(calls[0]!.isClosed).toBe(true);
+    expect(microphone.isStopped()).toBe(false);
+    expect(server.closedHere).toEqual([]);
+    await vi.advanceTimersByTimeAsync(callRetryWaitsMs[0]! - 1);
+    expect(calls).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls).toHaveLength(3);
+    // Made again, it sends the microphone from the start, and offers again to the higher device.
+    expect(calls[2]!.setup.microphone).toBe(microphone);
+    expect(calls[2]!.steps).toEqual(["offer"]);
+    // A second failure in a row waits longer; one that connects starts the count again.
+    calls[2]!.setup.events.onState("failed");
+    await vi.advanceTimersByTimeAsync(callRetryWaitsMs[1]! - 1);
+    expect(calls).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls).toHaveLength(4);
+    calls[3]!.setup.events.onState("connected");
+    calls[3]!.setup.events.onState("failed");
+    await vi.advanceTimersByTimeAsync(callRetryWaitsMs[0]!);
+    expect(calls).toHaveLength(5);
   });
 
-  it("turns itself off when a step of a call fails", async () => {
+  it("fails and makes again a call that has not connected in time", async () => {
+    vi.useFakeTimers();
+    const { calls } = await talking();
+    await vi.advanceTimersByTimeAsync(callConnectsWithinMs);
+    expect(calls[0]!.isClosed).toBe(true);
+    expect(calls[1]!.isClosed).toBe(true);
+    await vi.advanceTimersByTimeAsync(callRetryWaitsMs[0]!);
+    expect(calls).toHaveLength(4);
+  });
+
+  it("makes a call afresh when the other offers it again after a failure this side did not see", async () => {
+    const { server, calls } = await talking();
+    // Ann's device, 15, is lower than this one's 20: she offers, and this one answers.
+    server.tell({ type: "rtc", fromDeviceId: 15, sdp: "ann-offer" });
+    await settle();
+    expect(calls[1]!.steps).toEqual(["answer ann-offer"]);
+    server.tell({ type: "rtc", fromDeviceId: 15, sdp: "ann-offer-again" });
+    await settle();
+    expect(calls[1]!.isClosed).toBe(true);
+    expect(calls[2]!.steps).toEqual(["answer ann-offer-again"]);
+  });
+
+  it("makes a call again when a step of it fails", async () => {
+    vi.useFakeTimers();
     const { voice, server, calls } = await talking();
     // Karl's voice device, 30, is higher than this one's 20: this one offered, and takes his answer.
     calls[0]!.isAnswerRefused = true;
     server.tell({ type: "rtc", fromDeviceId: 30, sdp: "answer-sdp" });
-    await settle();
-    expect(voice.snapshot()).toMatchObject({ status: "failed", failure: "unreachable" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(voice.snapshot()).toMatchObject({ status: "on", failure: undefined });
+    await vi.advanceTimersByTimeAsync(callRetryWaitsMs[0]!);
+    expect(calls).toHaveLength(3);
   });
 
   it("asks for the relay's servers again for a call made long after it last asked (D243 §8)", async () => {

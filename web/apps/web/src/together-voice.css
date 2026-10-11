@@ -97,3 +97,35 @@
   color: var(--color-on-status);
   font-weight: var(--font-weight-strong);
 }
+
+/* While voice connects, or a call is made again (D281 §6), a dot before the status line pulses. */
+.together-voice__status[data-connecting]::before {
+  content: "";
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-status);
+  vertical-align: middle;
+  animation: together-voice-connecting 1.2s ease-in-out infinite;
+}
+
+@keyframes together-voice-connecting {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .together-voice__status[data-connecting]::before {
+    animation: none;
+  }
+}

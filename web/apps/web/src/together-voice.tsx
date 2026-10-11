@@ -155,7 +155,7 @@ function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   if (connected.length > 0) {
     return t("together.voice.connectedTo", { names: connected });
   }
-  // A call that fails turns voice off, so every call not connected is still connecting.
+  // A call that fails is made again (D281 §6), so every call not connected is connecting.
   return t("together.voice.connectingTo", { names: namesIn("connecting") });
 }
 
@@ -202,6 +202,16 @@ function useTalkRing(
       button.style.removeProperty("--level");
     };
   }, [ref, isTalking, voice]);
+}
+
+/**
+ * Whether voice is connecting: its own connection, or a call, made for the first time or again
+ * after a failure (D281 §6); the status line moves meanwhile.
+ */
+function isConnecting(snapshot: VoiceSnapshot): boolean {
+  return (
+    !snapshot.isConnected || snapshot.partners.some((partner) => partner.state !== "connected")
+  );
 }
 
 /** Opens the microphone, processed as the session says, at Talk's press. */
@@ -360,7 +370,12 @@ export function VoiceControls(
   return (
     <section className="together-voice" aria-label={t("together.voice.label")}>
       {snapshot.isHearing ? (
-        <output className="together-voice__status">{voiceStatusText(t, snapshot)}</output>
+        <output
+          className="together-voice__status"
+          data-connecting={isConnecting(snapshot) ? "" : undefined}
+        >
+          {voiceStatusText(t, snapshot)}
+        </output>
       ) : null}
       {snapshot.isHearing && props.tap.isWaiting ? (
         <button type="button" className="together-voice__tap" onClick={props.tap.play}>
@@ -375,16 +390,6 @@ export function VoiceControls(
           {t("together.voice.browserReason", { reason: snapshot.browserReason })}
         </p>
       )}
-      {snapshot.failure === "unreachable" ? (
-        <button
-          type="button"
-          onClick={() => {
-            voice.hear();
-          }}
-        >
-          {t("together.voice.again")}
-        </button>
-      ) : null}
       <TalkToggle
         voice={voice}
         snapshot={snapshot}
