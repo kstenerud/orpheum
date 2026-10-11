@@ -38,3 +38,17 @@ func TestCandidatesOf_SendsGlobalAddressesAndMarksPrivateOnesAsHome(t *testing.T
 		}
 	}
 }
+
+// The discovery's STUN and TURN servers reach the core's WebRTC connections whole: each URL, and a
+// TURN server's credentials (D274).
+func TestICEServersOf_PassesTheDiscoverysServersWhole(t *testing.T) {
+	t.Parallel()
+	got := iceServersOf([]discoveryproto.ICEServer{
+		{URLs: []string{"stun:discovery.example:3478"}},
+		{URLs: []string{"turn:discovery.example:3478"}, Username: "user", Credential: "secret"},
+	})
+	if len(got) != 2 || got[0].URLs[0] != "stun:discovery.example:3478" || got[1].Username != "user" ||
+		got[1].Credential != "secret" {
+		t.Errorf("iceServersOf = %+v; want both servers, the TURN one with its credentials", got)
+	}
+}
