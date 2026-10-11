@@ -16133,6 +16133,8 @@ are the authentication ([D107](#d107--the-node-channel-is-mutually-authenticated
 
 ## D208 — The scenario walk's answers: re-identify on rename unless confirmed, a Title follows its files between libraries, withhold removals past half and twenty, and a returning payload revives its tombstone
 
+> **Revised by [D277](#d277--a-scan-held-back-for-the-admin-leaves-its-root-playable-unless-it-saw-none-of-it-and-the-admin-is-told-what-waits-and-what-could-not-be-read-with-the-fix)** (2026-10-11): §3's held-back scan leaves its root playable unless it saw none of it.
+
 > **Revised by [D276](#d276--a-scan-that-removes-nothing-never-waits-for-the-admin-though-its-root-moved-to-another-device)** (2026-10-11): §3's changed device or mount holds back only a scan that would remove something.
 
 **Decided** (2026-09-24), by the project owner, answering the four questions of
@@ -17156,6 +17158,8 @@ choice carried to a file only where the file was started; a started file with no
 follows the work until its next play.
 
 ## D231 — Work is derived from state, the job queue is a regenerable cache, and a destination that is down parks its work
+
+> **Revised by [D277](#d277--a-scan-held-back-for-the-admin-leaves-its-root-playable-unless-it-saw-none-of-it-and-the-admin-is-told-what-waits-and-what-could-not-be-read-with-the-fix)** (2026-10-11): §5's missing root is not one whose scan is merely held back for the admin.
 
 **Decided** (2026-09-30), by the project owner, after M3's closing audit (audit-2026-09-29 §9 A4,
 A8), research into how queues handle unreliable destinations and a survey of Go queue libraries
@@ -19315,3 +19319,27 @@ file it knew is not that, so:
 
 **Status:** Decided and built 2026-10-11 (`library.withholdReason`;
 `TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice`).
+
+## D277 — A scan held back for the admin leaves its root playable unless it saw none of it, and the admin is told what waits and what could not be read, with the fix
+
+**Decided** (2026-10-11), by the project owner (*"yes to all of those"*), after a replaced season
+on the NAS, its new folder unreadable to the node, held back staging's Series library: the whole
+library showed as offline and its files as unavailable, the banner led to a page with no action on
+it, and that the node could not read the new folder was said only deep in the Libraries page. The
+owner: *"We need a mechanism in place to deal with this kind of situation."*
+
+1. **A held-back scan is not a missing root.** A scan whose removals wait for the admin
+   ([D208](#d208--the-scenario-walks-answers-re-identify-on-rename-unless-confirmed-a-title-follows-its-files-between-libraries-withhold-removals-past-half-and-twenty-and-a-returning-payload-revives-its-tombstone) §3) leaves its root available: what the scan saw plays, and only
+   the removals wait. A scan that saw none of the root's files still makes it unavailable, as a lost
+   disk does ([D231](#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work) §5), and a scan that could not read the root at all
+   still does.
+2. **What waits is said where the admin is sent.** The System page, and the reminder above every
+   page, say for each held-back root how many files its scan would remove, name the first of them,
+   say why it waits, and carry the button that removes them (D208 §3's approval, which scans again).
+   Putting the files back and scanning again is the other answer; nothing else is offered.
+3. **What could not be read is said, with the fix.** The node reports which user and group it
+   reads as. The System page, and the reminder, list each file or folder a scan could not read,
+   with the library, the platform's error, its owner, group and mode (D163 §8), and what to do:
+   make it readable by the node's user.
+
+**Status:** Decided 2026-10-11.
