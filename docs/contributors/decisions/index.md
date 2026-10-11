@@ -283,6 +283,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D275](working-notes.md#d275--orpheums-discovery-is-public-building-blocks-that-a-closed-multi-core-service-imports-and-the-server-moves-to-the-agpl-with-a-contributor-agreement) Orpheum's discovery is public building blocks that a closed multi-core service imports, and the server moves to the AGPL with a contributor agreement
 - [D276](working-notes.md#d276--a-scan-that-removes-nothing-never-waits-for-the-admin-though-its-root-moved-to-another-device) A scan that removes nothing never waits for the admin, though its root moved to another device
 - [D277](working-notes.md#d277--a-scan-held-back-for-the-admin-leaves-its-root-playable-unless-it-saw-none-of-it-and-the-admin-is-told-what-waits-and-what-could-not-be-read-with-the-fix) A scan held back for the admin leaves its root playable unless it saw none of it, and the admin is told what waits and what could not be read, with the fix
+- [D278](working-notes.md#d278--a-problem-is-shown-beside-what-it-affects-by-a-yellow-warning-sign-that-opens-what-is-wrong-yellow-means-something-needs-fixing-bright-red-that-an-action-cannot-be-undone) A problem is shown beside what it affects, by a yellow warning sign that opens what is wrong; yellow means something needs fixing, bright red that an action cannot be undone
 
 ## Archived
 

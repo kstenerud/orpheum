@@ -19345,3 +19345,28 @@ owner: *"We need a mechanism in place to deal with this kind of situation."*
 **Status:** Decided and built 2026-10-11 (`library.Admin.Waiting`, `UnreadPaths`; the System
 page's *Waiting for you* and *Could not be read*; the reminder's counts). The node already
 reported its user and group in its hello.
+
+## D278 — A problem is shown beside what it affects, by a yellow warning sign that opens what is wrong; yellow means something needs fixing, bright red that an action cannot be undone
+
+**Decided** (2026-10-11), by the project owner, as a general UI principle ahead of the UI revamp.
+
+1. **Beside what it affects.** *"When there's something wrong (files missing, unmounted
+   filesystem, corruption, whatever), any affected user-selectable part in the UI should have a
+   yellow warning icon (the triangular one with an exclamation point inside) beside it to indicate
+   that it has issues that will affect its functionality."* A problem is said as close to the
+   affected item as possible: a title, a library, a folder, a person, a device.
+2. **The sign opens the detail.** *"Selecting that icon will bring up a detail view to say what's
+   wrong, and hopefully how to fix it."* Shortcuts to where it is fixed, or a button that fixes it,
+   may come later; not before the UI revamp.
+3. **A non-admin sees the generic words.** *"For a non-admin user, the view will only display
+   generic information and ask them to tell the administrator."*
+4. **Two colours with one meaning each.** *"Yellow means something's wrong that needs to be fixed,
+   or something couldn't be accomplished because of a problem. Bright red means the action the user
+   is about to take is irreversible."* The exact shades are the owner's choice, from samples. Today's
+   crimson `--color-problem` gives way to the yellow.
+5. **Not perfect yet.** *"We don't have to make this perfect yet, as we haven't done the full UI
+   revamp sweep yet (i.e. there can be gaps if it's too much trouble, but the principle should be
+   there for when we do the new UI)."*
+
+**Status:** Decided 2026-10-11; the shades wait for the owner's choice from
+`/yoloai/files/colour-samples.html`.
