@@ -18,7 +18,7 @@ export const enStatus = {
       "Everything that needs fixing will be summed up here. For now, this counts it, and the pages below have each with what fixes it.",
     nothing: "Nothing needs your attention.",
     offlineFolders: "{{count}} library folders are offline.",
-    missingDisks: "{{count}} disks inside library folders are missing.",
+    missingDisks: "{{count}} folders mounted inside library folders are missing.",
     waitingFolders: "{{count}} library folders' scans wait for you before removing files.",
     unreadPaths: "{{count}} files or folders could not be read.",
     toSystem: "The System page",

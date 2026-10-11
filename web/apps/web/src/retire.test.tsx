@@ -159,7 +159,7 @@ it("the System page says since when each folder and disk is offline, and retires
   mounted = await mount(withServices(<System />, services));
   const text = mounted.container.textContent;
   expect(text).toContain("local: /media/films, in Films: offline since");
-  expect(text).toContain("The disk at local: /media/films/disk1, in Films: missing since");
+  expect(text).toContain("What was mounted at local: /media/films/disk1, in Films: missing since");
   await click(buttonWithText(mounted.container, "This machine is gone for good…"));
   await click(buttonWithText(mounted.container, "Retire the machine"));
   expect(heard.filter((each) => each.methodAndPath.startsWith("POST"))).toEqual([
