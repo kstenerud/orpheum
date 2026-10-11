@@ -6,22 +6,32 @@ import {
   createTogetherVoice,
   partnerGainMost,
   type Api,
-  type SyncTuning,
   type TogetherVoice,
   type VoiceSnapshot,
 } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
-import { useEffect, useMemo, useSyncExternalStore, type JSX } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import type { AudioOutput } from "./accounts.ts";
 import { dataOrThrow } from "./problem.ts";
-import { useServices } from "./services.tsx";
+import { useServices, useToken } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs } from "./use-together.ts";
 
 /** The relay's ICE servers for a membership (D243 §8), as the browser's RTCPeerConnection takes them. */
-async function iceServersFor(api: Api, membership: Membership): Promise<readonly RTCIceServer[]> {
+async function iceServersFor(
+  api: Api,
+  membership: Pick<Membership, "sessionId" | "credential">,
+): Promise<readonly RTCIceServer[]> {
   const answer = dataOrThrow(
     await api.GET("/together/{id}/ice", {
       params: { path: { id: membership.sessionId } },
@@ -35,39 +45,86 @@ async function iceServersFor(api: Api, membership: Membership): Promise<readonly
   }));
 }
 
-/** This person's voice in their session, by their membership, ended as the component goes. */
-function useVoice(
+/** A person's voice, and what it knows now. */
+export interface VoiceInUse {
+  readonly voice: TogetherVoice;
+  readonly snapshot: VoiceSnapshot;
+}
+
+/**
+ * This person's voice in their session, by their membership: hearing everyone from the start
+ * (D281 §1), once isReady, and left as the component goes. Made again only for another membership.
+ */
+export function useVoice(
   membership: Membership,
   sessionToken: string | undefined,
-): { readonly voice: TogetherVoice; readonly snapshot: VoiceSnapshot } {
+  isReady = true,
+): VoiceInUse {
   const { api, openTogetherSocket, voiceDevices } = useServices();
   const devices = useMemo(() => voiceDevices(), [voiceDevices]);
+  const { sessionId, credential } = membership;
   const voice = useMemo(
     () =>
       createTogetherVoice({
-        credential: membership.credential,
+        credential,
         sessionToken,
         openSocket: openTogetherSocket,
         monotonicMs,
-        fetchIceServers: () => iceServersFor(api, membership),
+        fetchIceServers: () => iceServersFor(api, { sessionId, credential }),
         devices,
       }),
-    [api, membership, sessionToken, openTogetherSocket, devices],
+    [api, sessionId, credential, sessionToken, openTogetherSocket, devices],
   );
   useEffect(
     () => () => {
-      voice.stop();
+      voice.leave();
       devices.close();
     },
     [voice, devices],
   );
+  useEffect(() => {
+    if (isReady) {
+      voice.hear();
+    }
+  }, [voice, isReady]);
   const snapshot = useSyncExternalStore(voice.subscribe, voice.snapshot);
   return { voice, snapshot };
 }
 
 /**
- * Where voice stands, in a line: connecting, alone, or who it carries voice to (watch-together.md:
- * What each person sees).
+ * The host's voice in the session this tab hosts, one for the whole tab, so the status tray's
+ * pop-up and the player share it (D281 §5); undefined while the tab hosts none.
+ */
+const HostVoiceContext = createContext<VoiceInUse | undefined>(undefined);
+
+/** The host's voice, from HostVoiceProvider; undefined while this tab hosts no session. */
+export function useHostVoice(): VoiceInUse | undefined {
+  return use(HostVoiceContext);
+}
+
+/** Keeps the host's voice while this tab hosts membership, for every screen under it. */
+export function HostVoiceProvider(props: {
+  readonly membership: Membership | undefined;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return props.membership === undefined ? (
+    <>{props.children}</>
+  ) : (
+    <HostVoiceOf membership={props.membership}>{props.children}</HostVoiceOf>
+  );
+}
+
+function HostVoiceOf(props: {
+  readonly membership: Membership;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const voice = useVoice(props.membership, useToken());
+  return <HostVoiceContext value={voice}>{props.children}</HostVoiceContext>;
+}
+
+/**
+ * Where voice stands, in a line: connecting, alone, or whom it hears (watch-together.md: What each
+ * person sees).
  */
 function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   if (!snapshot.isConnected) {
@@ -86,16 +143,15 @@ function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   return t("together.voice.connectingTo", { names: namesIn("connecting") });
 }
 
-/** While voice is on: who it reaches, mute, leave, and the partners' volume. */
-function VoiceOn(props: {
-  readonly voice: TogetherVoice;
-  readonly snapshot: VoiceSnapshot;
-}): JSX.Element {
+/** While this person talks: whether the others hear them, Mute, and Stop talking. */
+function Talking(props: VoiceInUse): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = props;
   return (
     <>
-      <output className="together-voice__status">{voiceStatusText(t, snapshot)}</output>
+      <output className="together-voice__talking">
+        {snapshot.isMuted ? t("together.voice.muted") : t("together.voice.talking")}
+      </output>
       <div className="together-voice__buttons">
         <button
           type="button"
@@ -112,22 +168,49 @@ function VoiceOn(props: {
             voice.stop();
           }}
         >
-          {t("together.voice.leave")}
+          {t("together.voice.stopTalking")}
         </button>
       </div>
-      <label className="together-voice__partner">
-        {t("together.voice.partner")}{" "}
-        <input
-          type="range"
-          min={0}
-          max={partnerGainMost * 100}
-          value={Math.round(snapshot.partnerGain * 100)}
-          onChange={(event) => {
-            voice.setPartnerGain(Number(event.target.value) / 100);
-          }}
-        />
-      </label>
     </>
+  );
+}
+
+/** How loud one person's voice plays, apart from the film's volume and everyone else's (D281 §4). */
+export function PersonVoiceVolume(
+  props: VoiceInUse & { readonly memberId: number; readonly name: string },
+): JSX.Element {
+  const { t } = useTranslation();
+  const gain = props.snapshot.partnerGains[props.memberId] ?? 1;
+  return (
+    <label className="together-voice__partner">
+      {t("together.voice.personVolume", { name: props.name })}{" "}
+      <input
+        type="range"
+        min={0}
+        max={partnerGainMost * 100}
+        value={Math.round(gain * 100)}
+        onChange={(event) => {
+          props.voice.setPartnerGain(props.memberId, Number(event.target.value) / 100);
+        }}
+      />
+    </label>
+  );
+}
+
+/** Each other person's voice volume, one per person whatever their devices. */
+export function VoiceVolumes(props: VoiceInUse): JSX.Element | null {
+  const { t } = useTranslation();
+  const people = new Map(props.snapshot.partners.map((each) => [each.memberId, each.name]));
+  if (people.size === 0) {
+    return null;
+  }
+  return (
+    <fieldset className="together-voice__volumes">
+      <legend>{t("together.voice.volumes")}</legend>
+      {[...people].map(([memberId, name]) => (
+        <PersonVoiceVolume key={memberId} {...props} memberId={memberId} name={name} />
+      ))}
+    </fieldset>
   );
 }
 
@@ -144,40 +227,26 @@ export function movesSoundToTheEarpiece(
 }
 
 /**
- * Voice in a Watch Together session, for the host and every viewer (watch-together.md, Voice):
- * Talk turns it on, from the press the microphone needs; then mute, leave, and the partners'
- * volume, apart from the film's. Headphones are the supported way to keep the film out of the
+ * Voice in a Watch Together session, for the host and every viewer (watch-together.md, Voice;
+ * D281): everyone is heard from the start; Talk opens the microphone, from the press it needs, then
+ * Mute and Stop talking; and each person's volume, apart from the film's. A call that fails is said,
+ * with a button to connect again. Headphones are the supported way to keep the film out of the
  * microphone (D63), so the controls say so. A microphone that cannot open says why.
  */
-export function VoiceControls(props: {
-  readonly membership: Membership;
-  /** A signed-in person's session token, sent in the voice device's hello too (D243 §2). */
-  readonly sessionToken?: string | undefined;
-  /** The session's tuning, which says what the browser does to the microphone. */
-  readonly tuning: SyncTuning;
-  /** How this device makes sound: an iPhone without headphones is warned before Talk. */
-  readonly audioOutput: AudioOutput | undefined;
-}): JSX.Element {
+export function VoiceControls(
+  props: VoiceInUse & {
+    /** How this device makes sound: an iPhone without headphones is warned before Talk. */
+    readonly audioOutput: AudioOutput | undefined;
+  },
+): JSX.Element {
   const { t } = useTranslation();
-  const { voice, snapshot } = useVoice(props.membership, props.sessionToken);
-  const isOn = snapshot.status === "on";
+  const { voice, snapshot } = props;
+  const isTalking = snapshot.status === "on";
   return (
     <section className="together-voice" aria-label={t("together.voice.label")}>
-      {isOn ? null : (
-        <button
-          type="button"
-          disabled={snapshot.status === "starting"}
-          onClick={() => {
-            void voice.start({
-              shouldCancelEcho: props.tuning.shouldCancelMicrophoneEcho,
-              shouldLevel: props.tuning.shouldBrowserLevelMicrophone,
-            });
-          }}
-        >
-          {t("together.voice.talk")}
-        </button>
-      )}
-      {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
+      {snapshot.isHearing ? (
+        <output className="together-voice__status">{voiceStatusText(t, snapshot)}</output>
+      ) : null}
       {snapshot.failure === undefined ? null : (
         <p role="alert">{t(`together.voice.failure.${snapshot.failure}`)}</p>
       )}
@@ -186,10 +255,37 @@ export function VoiceControls(props: {
           {t("together.voice.browserReason", { reason: snapshot.browserReason })}
         </p>
       )}
-      {isOn ? <VoiceOn voice={voice} snapshot={snapshot} /> : null}
-      {!isOn && props.audioOutput !== "headphones" && movesSoundToTheEarpiece() ? (
+      {snapshot.failure === "unreachable" ? (
+        <button
+          type="button"
+          onClick={() => {
+            voice.hear();
+          }}
+        >
+          {t("together.voice.again")}
+        </button>
+      ) : null}
+      {isTalking ? (
+        <Talking voice={voice} snapshot={snapshot} />
+      ) : (
+        <button
+          type="button"
+          disabled={snapshot.status === "starting"}
+          onClick={() => {
+            void voice.start({
+              shouldCancelEcho: snapshot.tuning.shouldCancelMicrophoneEcho,
+              shouldLevel: snapshot.tuning.shouldBrowserLevelMicrophone,
+            });
+          }}
+        >
+          {t("together.voice.talk")}
+        </button>
+      )}
+      {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
+      {!isTalking && props.audioOutput !== "headphones" && movesSoundToTheEarpiece() ? (
         <p className="together-voice__warning">{t("together.voice.earpiece")}</p>
       ) : null}
+      <VoiceVolumes voice={voice} snapshot={snapshot} />
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
   );

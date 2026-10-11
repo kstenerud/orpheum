@@ -15,7 +15,11 @@ export interface FakeTogetherServer {
   readonly openedCount: () => number;
   /** The last socket opening, and its renders. */
   readonly accept: () => Promise<void>;
-  /** The server sending message to the last socket, and its renders. */
+  /**
+   * The server sending message to the page's own device, and its renders: the last socket that
+   * said hello as anything but voice, which every page now attaches beside it (D281 §1); the last
+   * socket opened where there is none.
+   */
   readonly say: (message: Readonly<Record<string, unknown>>) => Promise<void>;
 }
 
@@ -23,6 +27,8 @@ export interface FakeTogetherServer {
 export function fakeTogetherServer(): FakeTogetherServer {
   const heard: Record<string, unknown>[] = [];
   const opened: Parameters<OpenTogetherSocket>[0][] = [];
+  // The role each socket said hello with, by its place in opened.
+  const roles: (string | undefined)[] = [];
   const last = (): Parameters<OpenTogetherSocket>[0] => {
     const listeners = opened.at(-1);
     if (listeners === undefined) {
@@ -30,16 +36,26 @@ export function fakeTogetherServer(): FakeTogetherServer {
     }
     return listeners;
   };
+  const device = (): Parameters<OpenTogetherSocket>[0] => {
+    const index = roles.findLastIndex((role) => role !== undefined && role !== "voice");
+    return index === -1 ? last() : (opened[index] ?? last());
+  };
   return {
     heard,
     openedCount: () => opened.length,
     openSocket: (listeners) => {
       opened.push(listeners);
+      roles.push(undefined);
+      const index = opened.length - 1;
       return {
         send: (text) => {
           const parsed: unknown = JSON.parse(text);
           if (typeof parsed === "object" && parsed !== null) {
-            heard.push(Object.fromEntries(Object.entries(parsed)));
+            const message = Object.fromEntries(Object.entries(parsed));
+            heard.push(message);
+            if (message["type"] === "hello") {
+              roles[index] = typeof message["role"] === "string" ? message["role"] : "playback";
+            }
           }
         },
         close: () => undefined,
@@ -53,7 +69,7 @@ export function fakeTogetherServer(): FakeTogetherServer {
     },
     say: async (message) => {
       await act(async () => {
-        last().onMessage(JSON.stringify({ v: 2, ...message }));
+        device().onMessage(JSON.stringify({ v: 2, ...message }));
         for (let turn = 0; turn < 5; turn += 1) {
           await new Promise((resolve) => setTimeout(resolve, 0));
         }

@@ -7,7 +7,6 @@ import {
   followGroup,
   playedMutedEvent,
   soundOnAtTap,
-  startingTuning,
   type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherEndReason,
@@ -48,7 +47,7 @@ import { SoundChoices, SoundLine } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
-import { VoiceControls } from "./together-voice.tsx";
+import { useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetMembership,
   keepMembership,
@@ -236,6 +235,9 @@ function ViewerSession(props: {
   const [audioOutput, setAudioOutput] = useState(() => readViewerAudioOutput(browserStorage()));
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
+  // Everyone in the session is heard from the start, once the page's own device is welcomed; Talk
+  // only opens the microphone (D281 §1).
+  const voice = useVoice(props.membership, undefined, snapshot?.status === "connected");
   const { onOver } = props;
   const keep = (output: AudioOutput): void => {
     keepViewerAudioOutput(browserStorage(), output);
@@ -266,11 +268,7 @@ function ViewerSession(props: {
         </>
       )}
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls
-        membership={props.membership}
-        tuning={snapshot?.tuning ?? startingTuning}
-        audioOutput={audioOutput}
-      />
+      <VoiceControls {...voice} audioOutput={audioOutput} />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
@@ -345,8 +343,10 @@ function ViewingArea(props: {
   const fileId = props.snapshot?.group?.fileId ?? 0;
   const { connection } = props;
   return (
-    <section className="together-viewer__stage" aria-label={t("together.stage")}>
-      {fileId === 0 || connection === undefined ? null : (
+    <section className="together-viewer__viewing" aria-label={t("together.stage")}>
+      {fileId === 0 || connection === undefined ? (
+        <div className="together-viewer__stage" />
+      ) : (
         <GroupFilm
           key={`${String(fileId)}/${props.audioOutput}`}
           fileId={fileId}
@@ -414,7 +414,7 @@ function GroupFilm(props: {
             {value.titleName === undefined ? null : (
               <p className="together-viewer__title">{value.titleName}</p>
             )}
-            {film}
+            <div className="together-viewer__stage">{film}</div>
           </>
         );
       }}

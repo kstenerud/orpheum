@@ -9,6 +9,7 @@ import {
 } from "./together-voice-stats.ts";
 import type {
   MicrophoneProcessing,
+  VoiceMicrophone,
   VoiceCall,
   VoiceCallSetup,
   VoiceCallState,
@@ -216,26 +217,38 @@ async function measureCall(
   return voiceCallStatsOf(reports, playback);
 }
 
-/** One call over the browser's RTCPeerConnection, sending the microphone, playing what comes. */
+/** Sends microphone on sender, raised to a speaking level where the browser's levelling is off; or nothing. */
+function sendOn(
+  sender: RTCRtpSender,
+  microphone: VoiceMicrophone | undefined,
+  levelOf: (microphone: VoiceMicrophone) => LevelledMicrophone | undefined,
+): void {
+  const levelled = microphone === undefined ? undefined : levelOf(microphone);
+  levelled?.follow(sender);
+  const track = levelled?.sentTrack() ?? microphone?.getAudioTracks()[0] ?? null;
+  void sender.replaceTrack(track).catch(() => undefined);
+}
+
+/**
+ * One call over the browser's RTCPeerConnection, playing what comes from the start and sending the
+ * microphone while its person talks: one audio transceiver that sends and receives, whose sender's
+ * track is put and taken away with no new offer (D281 §1, §2).
+ */
 function startBrowserCall(
   setup: VoiceCallSetup<MediaStream>,
   context: AudioContext | undefined,
-  levelled: LevelledMicrophone | undefined,
+  levelOf: (microphone: VoiceMicrophone) => LevelledMicrophone | undefined,
 ): VoiceCall {
   const peer = new RTCPeerConnection({
     iceServers: [...setup.iceServers],
     iceTransportPolicy: "all", // standard ICE picks the path: direct, or through the relay (D193 §4)
   });
-  // The microphone raised to a speaking level where the browser's levelling is off, else its own.
-  const senders =
-    levelled === undefined
-      ? setup.microphone.getAudioTracks().map((track) => peer.addTrack(track, setup.microphone))
-      : [peer.addTrack(levelled.sentTrack(), setup.microphone)];
-  if (levelled !== undefined) {
-    for (const sender of senders) {
-      levelled.follow(sender);
-    }
-  }
+  const { sender } = peer.addTransceiver("audio", { direction: "sendrecv" });
+  const senders = [sender];
+  const send = (microphone: VoiceMicrophone | undefined): void => {
+    sendOn(sender, microphone, levelOf);
+  };
+  send(setup.microphone);
   preferRed(peer);
   let gain = 1;
   let played: PlayedVoice | undefined;
@@ -271,6 +284,7 @@ function startBrowserCall(
       gain = next;
       played?.setGain(next);
     },
+    send,
     measure: async () => await measureCall(peer, played?.playback() ?? playbackOf(context)),
     close: () => {
       played?.stop();
@@ -317,21 +331,26 @@ export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
 
 /**
  * The browser's microphone and RTCPeerConnection for voice, its voices played through one Web
- * Audio context. The context is made as the microphone is first asked for, which voice does from
- * a person's gesture (the Talk button): that is what lets it play.
+ * Audio context. The context is made as voice is first heard, as the page opens, and resumed at
+ * once where the browser lets it, else at the person's next tap (resumeAtTaps); its voices play
+ * through their elements meanwhile (D281 §1).
  */
 export function browserVoiceDevices(): BrowserVoiceDevices {
   let context: AudioContext | undefined;
   // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
   let levelled:
     { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
+  const prepareToHear = (): void => {
+    if (context === undefined && "AudioContext" in window) {
+      context = new AudioContext();
+      resumeAtTaps(context, document);
+      void context.resume().catch(() => undefined);
+    }
+  };
   return {
+    prepareToHear,
     openMicrophone: async (processing) => {
-      if (context === undefined && "AudioContext" in window) {
-        context = new AudioContext();
-        resumeAtTaps(context, document);
-        void context.resume().catch(() => undefined);
-      }
+      prepareToHear();
       startCallAudio();
       const microphone = await openBrowserMicrophone(processing);
       // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
@@ -349,16 +368,14 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
       levelled = level === undefined ? undefined : { microphone, level };
       return microphone;
     },
-    voiceEnded: () => {
+    microphoneClosed: () => {
       levelled?.level.close();
       levelled = undefined;
       endCallAudio();
     },
     startCall: (setup) =>
-      startBrowserCall(
-        setup,
-        context,
-        levelled?.microphone === setup.microphone ? levelled.level : undefined,
+      startBrowserCall(setup, context, (microphone) =>
+        levelled?.microphone === microphone ? levelled.level : undefined,
       ),
     close: () => {
       levelled?.level.close();
@@ -386,7 +403,7 @@ function startCallAudio(): void {
 }
 
 /**
- * Once voice is over: the session told it plays only, so iOS leaves the call it made of voice at
+ * Once the microphone closes: the session told it plays only, so iOS leaves the call it made of voice at
  * once, the film's sound back on the speaker, rather than some 20 s later (the owner's test,
  * 2026-10-08; unconfirmed on a phone, VQ26).
  */

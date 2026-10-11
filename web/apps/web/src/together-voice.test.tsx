@@ -10,8 +10,9 @@ import {
   type SyncTuning,
   type VoiceCall,
   type VoiceCallSetup,
+  type VoiceMicrophone,
 } from "@orpheum/sdk";
-import { act } from "react";
+import { act, type JSX } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { buttonWithText, click, enter, mount, servedBy, type Heard } from "./test-dom.tsx";
@@ -19,12 +20,20 @@ import { withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
-import { movesSoundToTheEarpiece, VoiceControls } from "./together-voice.tsx";
+import {
+  HostVoiceProvider,
+  movesSoundToTheEarpiece,
+  useVoice,
+  VoiceControls,
+} from "./together-voice.tsx";
+import type { AudioOutput } from "./accounts.ts";
 
 /** A call as a test sees it. */
 interface FakeCall extends VoiceCall {
   readonly setup: VoiceCallSetup<MediaStream>;
   gain: number | undefined;
+  /** What it was told to send since it was made: the microphone, or nothing. */
+  readonly sent: (VoiceMicrophone | undefined)[];
 }
 
 /** Stand-in devices for voice: a microphone of one track, and the calls made. */
@@ -54,6 +63,10 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
         const call: FakeCall = {
           setup,
           gain: undefined,
+          sent: [],
+          send: (sent) => {
+            call.sent.push(sent);
+          },
           offer: () => Promise.resolve("offer"),
           answer: () => Promise.resolve("answer"),
           accept: () => Promise.resolve(),
@@ -67,7 +80,8 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
         calls.push(call);
         return call;
       },
-      voiceEnded: () => undefined,
+      prepareToHear: () => undefined,
+      microphoneClosed: () => undefined,
       close: () => undefined,
     },
   };
@@ -87,6 +101,7 @@ const relay = { urls: ["turn:orpheum.test:443"], username: "u", credential: "p",
 /** The welcome of this person's voice device 8; Karl's voice device 4 is in the session too. */
 const welcome = {
   type: "welcome",
+  tuning: echoCancelledTuning,
   seq: 1,
   sessionId: 1,
   memberId: 2,
@@ -128,30 +143,24 @@ function voiceServices(
   };
 }
 
+/** A person's voice and its controls, as a page has them. */
+function Voice(props: { readonly audioOutput: AudioOutput }): JSX.Element {
+  const voice = useVoice(membership, undefined);
+  return <VoiceControls {...voice} audioOutput={props.audioOutput} />;
+}
+
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
 });
 
-describe("voice controls in a Watch Together session (watch-together.md, Voice)", () => {
-  it("talks: attaches for voice, asks for the relay, and says who it is connected to", async () => {
+describe("voice controls in a Watch Together session (watch-together.md, Voice; D281)", () => {
+  it("hears everyone from the start: attaches for voice with no microphone, asks for the relay, and says whom it hears", async () => {
     const devices = fakeDevices();
     const heard: Heard[] = [];
     const { services, server } = voiceServices(devices, heard);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     expect(mounted.container.textContent).toContain("Use headphones");
-    expect(server.openedCount()).toBe(0);
-    await click(buttonWithText(mounted.container, "Talk"));
-    expect(devices.processedAsked).toEqual([{ shouldCancelEcho: true, shouldLevel: false }]);
     await server.accept();
     expect(server.heard[0]).toEqual({
       v: 2,
@@ -159,10 +168,12 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
       credential: "viewer-credential",
       role: "voice",
     });
+    expect(devices.processedAsked).toEqual([]); // no microphone until Talk
     expect(mounted.container.textContent).toContain("Voice: connecting…");
     await server.say(welcome);
     expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /together/1/ice"]);
     expect(devices.calls).toHaveLength(1);
+    expect(devices.calls[0]!.setup.microphone).toBeUndefined();
     expect(devices.calls[0]!.setup.iceServers).toEqual([
       { urls: relay.urls, username: "u", credential: "p" },
     ]);
@@ -170,24 +181,29 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     act(() => {
       devices.calls[0]!.setup.events.onState("connected");
     });
-    expect(mounted.container.textContent).toContain("Voice: connected to Karl");
+    expect(mounted.container.textContent).toContain("Voice: hearing Karl");
     mounted.unmount();
   });
 
-  it("says no one hears them while no one else has voice on, as Karl found talking alone", async () => {
+  it("talks on the call already up, the microphone processed as the session says", async () => {
+    const devices = fakeDevices();
+    const { services, server } = voiceServices(devices);
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    await server.accept();
+    await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Talk"));
+    expect(devices.processedAsked).toEqual([{ shouldCancelEcho: true, shouldLevel: false }]);
+    expect(devices.calls).toHaveLength(1);
+    expect(devices.calls[0]!.sent).toHaveLength(1);
+    expect(server.openedCount()).toBe(1);
+    expect(mounted.container.textContent).toContain("The others hear you.");
+    mounted.unmount();
+  });
+
+  it("says when no one else is here to hear", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices, []);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
-    await click(buttonWithText(mounted.container, "Talk"));
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say({
       ...welcome,
@@ -197,86 +213,59 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
       })),
     });
     expect(devices.calls).toHaveLength(0);
-    expect(mounted.container.textContent).toContain("no one hears you yet");
+    expect(mounted.container.textContent).toContain("Voice: no one else is here yet.");
     mounted.unmount();
   });
 
-  it("mutes the microphone, sets the partner's volume, and leaves voice", async () => {
+  it("mutes only its own microphone, sets each person's voice volume, and stops talking still hearing", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
-    await click(buttonWithText(mounted.container, "Talk"));
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Talk"));
     await click(buttonWithText(mounted.container, "Mute"));
     expect(devices.track.enabled).toBe(false);
     expect(buttonWithText(mounted.container, "Unmute")?.getAttribute("aria-pressed")).toBe("true");
+    expect(mounted.container.textContent).toContain("you still hear them");
     await click(buttonWithText(mounted.container, "Unmute"));
     expect(devices.track.enabled).toBe(true);
-    const partner = [...mounted.container.querySelectorAll("label")].find((label) =>
-      label.textContent.startsWith("Partner"),
+    const karl = [...mounted.container.querySelectorAll("label")].find((label) =>
+      label.textContent.startsWith("Karl's voice"),
     );
-    await enter(partner?.querySelector("input"), "40");
+    await enter(karl?.querySelector("input"), "40");
     expect(devices.calls[0]!.gain).toBe(0.4);
-    await click(buttonWithText(mounted.container, "Leave voice"));
+    await click(buttonWithText(mounted.container, "Stop talking"));
     expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
-    expect(mounted.container.textContent).not.toContain("Voice: connect");
+    expect(devices.calls[0]!.sent.at(-1)).toBeUndefined();
+    expect(mounted.container.textContent).toContain("Voice: connecting to Karl…");
     mounted.unmount();
   });
 
-  it("starts off, and turns off saying so when its call fails, Talk trying again", async () => {
+  it("turns off saying so when its call fails, and connects again at a press", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
-    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
-    expect(server.openedCount()).toBe(0);
-    await click(buttonWithText(mounted.container, "Talk"));
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say(welcome);
     act(() => {
       devices.calls[0]!.setup.events.onState("failed");
     });
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Voice could not connect to the others and is off. Press Talk to try again.",
+      "Voice could not connect to the others and is off.",
     );
     expect(buttonWithText(mounted.container, "Mute")).toBeUndefined();
-    await click(buttonWithText(mounted.container, "Talk"));
+    await click(buttonWithText(mounted.container, "Connect voice again"));
     expect(server.openedCount()).toBe(2);
     expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
     mounted.unmount();
   });
 
-  it("says the microphone was not allowed when it is refused, and Talk tries again", async () => {
+  it("says the microphone was not allowed when it is refused, still hearing, and Talk tries again", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    await server.accept();
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Your microphone was not allowed",
@@ -284,23 +273,14 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     // The browser's own words, to read out to whoever is helping.
     expect(mounted.container.textContent).toContain("The browser said: NotAllowedError: no");
     expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
-    expect(server.openedCount()).toBe(0);
+    expect(server.openedCount()).toBe(1);
     mounted.unmount();
   });
 
   it("says this page cannot use a microphone where the browser offers none", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotSupportedError")));
     const { services } = voiceServices(devices);
-    const mounted = await mount(
-      withServices(
-        <VoiceControls
-          membership={membership}
-          tuning={echoCancelledTuning}
-          audioOutput="headphones"
-        />,
-        services,
-      ),
-    );
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await click(buttonWithText(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "needs the https:// address",
@@ -308,13 +288,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     mounted.unmount();
   });
 
-  it("is on the viewer's page and with the host's player", async () => {
+  it("is on the viewer's page and with the host's player, the host's one voice for the tab", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "headphones");
     window.localStorage.setItem("orpheum.together.viewer", JSON.stringify(membership));
-    window.sessionStorage.setItem(
-      "orpheum.together.host",
-      JSON.stringify({ sessionId: 1, credential: "host-credential" }),
-    );
+    const hostMembership = { sessionId: 1, credential: "host-credential" };
+    window.sessionStorage.setItem("orpheum.together.host", JSON.stringify(hostMembership));
     const { services } = voiceServices(fakeDevices());
     const viewer = await mount(withServices(<TogetherViewer />, services));
     expect(viewer.container.querySelector('section[aria-label="Voice"] button')?.textContent).toBe(
@@ -323,13 +301,15 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice)"
     viewer.unmount();
     const host = await mount(
       withServices(
-        <HostPlaysTogether
-          fileId={5}
-          video={null}
-          startPositionMs={0}
-          cannotKeepUp={undefined}
-          audioOutput="headphones"
-        />,
+        <HostVoiceProvider membership={hostMembership}>
+          <HostPlaysTogether
+            fileId={5}
+            video={null}
+            startPositionMs={0}
+            cannotKeepUp={undefined}
+            audioOutput="headphones"
+          />
+        </HostVoiceProvider>,
         services,
       ),
     );
@@ -356,16 +336,7 @@ describe("voice on an iPhone without headphones", () => {
         ["headphones", false],
       ] as const) {
         const { services } = voiceServices(fakeDevices());
-        const mounted = await mount(
-          withServices(
-            <VoiceControls
-              membership={membership}
-              tuning={echoCancelledTuning}
-              audioOutput={audioOutput}
-            />,
-            services,
-          ),
-        );
+        const mounted = await mount(withServices(<Voice audioOutput={audioOutput} />, services));
         expect(mounted.container.textContent.includes("moves all sound to the earpiece")).toBe(
           isWarned,
         );

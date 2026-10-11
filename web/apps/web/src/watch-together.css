@@ -27,6 +27,94 @@
   margin-block-start: 0;
 }
 
+/* The session's controls, on the screen or in the status tray's pop-up: each part apart (D281 §5). */
+.watch-together__controls {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.watch-together__controls h2 {
+  margin: 0;
+}
+
+.watch-together__people-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.watch-together__volume {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.watch-together__volume input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Each person a row the width of the list, which opens what is done with them. */
+.watch-together__people {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.watch-together__people button {
+  width: 100%;
+  text-align: start;
+}
+
+/* Ending the session stands apart from the people above it, so it is never pressed for theirs. */
+.watch-together__end {
+  margin-block-start: var(--space-5);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
+/* A dialog over the controls, in the middle of the screen whatever opened it (D281 §5). */
+.watch-together__dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  width: min(26rem, 92vw);
+  height: fit-content;
+  max-height: 85vh;
+  margin: auto;
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-block-start: 3px solid var(--color-status);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.watch-together__dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-3);
+}
+
+.watch-together__dialog-head h2 {
+  margin: 0;
+}
+
+.watch-together__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+}
+
 /* Who is in the session and the links not used yet, one row each, its button at the end. */
 .watch-together ul {
   display: grid;

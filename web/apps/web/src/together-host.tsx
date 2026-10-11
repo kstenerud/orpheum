@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import {
-  everyRight,
-  followGroup,
-  startingTuning,
-  type CannotKeepUp,
-  type GroupCommand,
-} from "@orpheum/sdk";
+import { everyRight, followGroup, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
 import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -16,7 +10,8 @@ import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { forgetMembership, type Membership } from "./together-storage.ts";
-import { VoiceControls } from "./together-voice.tsx";
+import { followFilmVolume } from "./film-volume.ts";
+import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
 /** What the host's player is given: the film, its video, and where it starts. */
@@ -75,6 +70,8 @@ function HostLeading(
     commandOnLeaving: stopForEveryone,
   });
   const { fileId, video, startPositionMs, onOver } = props;
+  // The tab's one voice for the session, shared with the status tray's pop-up (D281 §5).
+  const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
   const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;
   const hasPutOnRef = useRef(false);
@@ -99,6 +96,8 @@ function HostLeading(
         : followGroup(video, connection, { fileId, leads: everyRight, monotonicMs }),
     [connection, fileId, video],
   );
+  // The film plays at the tab's volume, which the status tray's pop-up sets too (D281 §5).
+  useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
   useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
     if (isOver) {
@@ -109,12 +108,9 @@ function HostLeading(
     <div className="together-host">
       <p>{t("together.hostPlaying")}</p>
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls
-        membership={props.membership}
-        sessionToken={token}
-        tuning={snapshot?.tuning ?? startingTuning}
-        audioOutput={props.audioOutput}
-      />
+      {hostVoice === undefined ? null : (
+        <VoiceControls {...hostVoice} audioOutput={props.audioOutput} />
+      )}
     </div>
   );
 }

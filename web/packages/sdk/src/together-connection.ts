@@ -97,6 +97,8 @@ export interface PlayerState {
  *   never connects says how far it got (a browser tier's run, 2026-10-07, where nothing did);
  * - voiceOff: voice turned off, why: the person left ("left") or a call could not connect
  *   ("unreachable");
+ * - voiceTalk: the person's microphone opened ("talking"), closed ("stopped"), muted or unmuted
+ *   (D281 §2, §3);
  * - ponged: a pong of roundTripMs said where the group is, aheadOfExpectedMs ahead of where the device
  *   expected it (behind when negative), and placed the group anew ("placed") or not ("kept"): the
  *   residuals of a placing kept for minutes are the two clocks' skew (D264, D268 §1);
@@ -144,6 +146,7 @@ export type PlayerNote =
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
   | { readonly kind: "voiceOff"; readonly why: "left" | "unreachable" }
+  | { readonly kind: "voiceTalk"; readonly why: "talking" | "stopped" | "muted" | "unmuted" }
   | {
       readonly kind: "ponged";
       readonly roundTripMs: number;

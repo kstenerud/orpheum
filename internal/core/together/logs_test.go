@@ -239,6 +239,29 @@ func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {
 	}
 }
 
+// A person's microphone opening, closing, muting and unmuting is logged at INFO, so a voice no one
+// heard says whether its person was talking (D281 §2, §3); an unknown why is refused.
+func TestHub_LogsAPersonsMicrophoneChanging(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+	talk := func(why string) Inbound {
+		return Inbound{Type: MessageNote, Note: &PlayerNote{Kind: NoteVoiceTalk, Why: why}}
+	}
+	for _, why := range []string{"talking", "muted", "unmuted", "stopped"} {
+		stage.hub.Handle(t.Context(), device, talk(why))
+		logged := stage.logs.String()
+		if !strings.Contains(logged, `msg="watch together: a person's microphone changed"`) ||
+			!strings.Contains(logged, "microphone="+why) {
+			t.Errorf("the log does not say the microphone was %s:\n%s", why, logged)
+		}
+	}
+	stage.hub.Handle(t.Context(), device, talk("shouting"))
+	if rejected := box.last(MessageRejected); rejected.Code != codeInvalid {
+		t.Errorf("an unknown why answered %+v; want rejected as invalid", rejected)
+	}
+}
+
 // What a player holds as it moved itself over a gap, or stalled, is logged at INFO: an iPhone that
 // jumped 10 s on its own and then sat waiting said nothing of what it held (the owner's test,
 // 2026-10-08). An unknown why, or text past diagnosisTextMost, is refused.

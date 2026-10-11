@@ -186,11 +186,11 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "/api/v1/bytes/media/direct/abc",
     );
     expect(mounted.container.textContent).toContain("Karl paused at 41:12");
-    // The film's name is over the picture, inside the stage.
-    expect(
-      mounted.container.querySelector(".together-viewer__stage .together-viewer__title")
-        ?.textContent,
-    ).toBe("Metropolis");
+    // The film's name is above the picture, outside the stage, where it hides none of the film.
+    const title = mounted.container.querySelector(".together-viewer__title");
+    expect(title?.textContent).toBe("Metropolis");
+    expect(title?.closest(".together-viewer__stage")).toBeNull();
+    expect(title?.nextElementSibling?.querySelector("video")).not.toBeNull();
     mounted.unmount();
   });
 

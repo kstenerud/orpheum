@@ -12,7 +12,13 @@ import {
   type TogetherConnection,
   type VoiceCallStep,
 } from "./together-connection.ts";
-import type { OpenTogetherSocket, RosterMember, VoiceSignal } from "./together.ts";
+import {
+  startingTuning,
+  type OpenTogetherSocket,
+  type RosterMember,
+  type SyncTuning,
+  type VoiceSignal,
+} from "./together.ts";
 
 /**
  * Why the microphone did not open: the person or the browser refused it, there is none, another
@@ -22,8 +28,9 @@ import type { OpenTogetherSocket, RosterMember, VoiceSignal } from "./together.t
 export type MicrophoneFailure = "refused" | "none" | "busy" | "unsupported" | "failed";
 
 /**
- * Why voice turned itself off: its microphone did not open, or a call with another device could
- * not connect, or dropped and could not connect again. Talk tries again (the owner, 2026-10-06).
+ * Why voice turned itself off: its microphone did not open, which stops talking alone, or a call
+ * with another device could not connect, or dropped and could not connect again, which stops
+ * hearing too, until it is tried again (the owner, 2026-10-06; D281 §6).
  */
 export type VoiceFailure = MicrophoneFailure | "unreachable";
 
@@ -77,8 +84,13 @@ export interface VoiceCallEvents {
   readonly onState: (state: VoiceCallState) => void;
 }
 
-/** One audio call with one other device (a browser's RTCPeerConnection), sending the microphone. */
+/**
+ * One audio call with one other device (a browser's RTCPeerConnection): it hears the other from
+ * the start, and sends the microphone only while its person talks (D281 §1, §2).
+ */
 export interface VoiceCall {
+  /** Sends microphone on the call, or nothing when undefined: the call is not made again. */
+  readonly send: (microphone: VoiceMicrophone | undefined) => void;
   /** Makes the offer and takes it as its own: the session description to send. */
   readonly offer: () => Promise<string>;
   /** Takes the other's offer and makes the answer: the session description to send back. */
@@ -97,7 +109,8 @@ export interface VoiceCall {
 /** What a call is made with. */
 export interface VoiceCallSetup<Microphone extends VoiceMicrophone> {
   readonly iceServers: readonly RTCIceServer[];
-  readonly microphone: Microphone;
+  /** The microphone it sends from the start, while its person talks; undefined while they do not. */
+  readonly microphone: Microphone | undefined;
   readonly events: VoiceCallEvents;
 }
 
@@ -121,23 +134,30 @@ export interface VoiceDevices<Microphone extends VoiceMicrophone> {
   readonly openMicrophone: (processing: MicrophoneProcessing) => Promise<Microphone>;
   readonly startCall: (setup: VoiceCallSetup<Microphone>) => VoiceCall;
   /**
-   * Voice is over, the microphone stopped: what the devices did for it is undone, the microphone's
-   * levelling and, on iOS, the call it made of the browser's sound (the owner's test, 2026-10-08).
+   * Readies the others' voices to play, before any microphone: the page's audio, which plays from
+   * its person's next tap where the browser waits for one (D281 §1).
    */
-  readonly voiceEnded: () => void;
+  readonly prepareToHear: () => void;
+  /**
+   * The microphone stopped: what the devices did for it is undone, the microphone's levelling and,
+   * on iOS, the call it made of the browser's sound (the owner's test, 2026-10-08).
+   */
+  readonly microphoneClosed: () => void;
 }
 
 /** One other person's voice device this one has a call with, and how it goes. */
 export interface VoicePartner {
   readonly deviceId: number;
+  /** Its member, by whom its volume is kept (D281 §4). */
+  readonly memberId: number;
   /** The name its member chose. */
   readonly name: string;
   readonly state: VoiceCallState;
 }
 
 /**
- * Whether voice is off, opening the microphone, on, or turned off by a failure (the snapshot's
- * failure says which).
+ * Whether this person talks: not, opening the microphone, talking, or stopped by a failure (the
+ * snapshot's failure says which). They hear the others whatever it is, while isHearing (D281 §1).
  */
 export type VoiceStatus = "off" | "starting" | "on" | "failed";
 
@@ -150,16 +170,21 @@ export interface VoiceSnapshot {
    * read out to whoever is helping; undefined for any other failure.
    */
   readonly browserReason: string | undefined;
+  /** Whether this person hears the others: from the start, until voice fails or is left. */
+  readonly isHearing: boolean;
+  /** Whether the microphone, open, sends nothing: the others are heard as ever (D281 §3). */
   readonly isMuted: boolean;
   /**
-   * How loud the others' voices play, from 0 to partnerGainMost, 1 as they came: apart from the
-   * film's volume.
+   * How loud each other person's voice plays, by their member id, from 0 to partnerGainMost, 1 as
+   * it came: apart from the film's volume, and 1 for one not set (D281 §4).
    */
-  readonly partnerGain: number;
+  readonly partnerGains: Readonly<Record<number, number>>;
   /** Whether the voice device's own connection to the session is up. */
   readonly isConnected: boolean;
   /** Every other person's voice device, in the roster's order. */
   readonly partners: readonly VoicePartner[];
+  /** How the session says the microphone is processed, as its welcome said (D250 §1). */
+  readonly tuning: SyncTuning;
 }
 
 /** A person's voice in their Watch Together session (watch-together.md, Voice). */
@@ -168,14 +193,22 @@ export interface TogetherVoice {
   /** Calls listener whenever the snapshot changes; returns the unsubscribing. */
   readonly subscribe: (listener: () => void) => () => void;
   /**
-   * Opens the microphone, processed as processing says (the welcome's tuning), and attaches this
-   * device for voice: from a person's gesture.
+   * Attaches this device for voice with no microphone, keeping a call with every other person's
+   * voice device, hearing them (D281 §1); again after a failure, it tries again.
+   */
+  readonly hear: () => void;
+  /**
+   * Talk: opens the microphone, processed as processing says (the welcome's tuning), and sends it
+   * on every call, hearing first if it was not: from a person's gesture (D281 §2).
    */
   readonly start: (processing: MicrophoneProcessing) => Promise<void>;
-  /** Ends every call, detaches, and closes the microphone. */
+  /** Stop talking: closes the microphone and sends nothing, still hearing everyone (D281 §2). */
   readonly stop: () => void;
+  /** Ends every call, detaches, and closes the microphone: the page is done with voice. */
+  readonly leave: () => void;
   readonly setMuted: (isMuted: boolean) => void;
-  readonly setPartnerGain: (gain: number) => void;
+  /** How loud memberId's voice plays, from 0 to partnerGainMost (D281 §4). */
+  readonly setPartnerGain: (memberId: number, gain: number) => void;
 }
 
 /** What voice needs. */
@@ -201,10 +234,12 @@ const offSnapshot: VoiceSnapshot = {
   status: "off",
   failure: undefined,
   browserReason: undefined,
+  isHearing: false,
   isMuted: false,
-  partnerGain: 1,
+  partnerGains: {},
   isConnected: false,
   partners: [],
+  tuning: startingTuning,
 };
 
 /**
@@ -217,23 +252,28 @@ export const iceServersFreshForMs = 12 * 60 * 60 * 1000;
 /** The roles of devices that carry a person's voice (D120). */
 const voiceRoles: ReadonlySet<string> = new Set(["voice", "both"]);
 
+/** A person's voice device: its id, and its member's id and name. */
+interface PartnerDevice {
+  readonly deviceId: number;
+  readonly memberId: number;
+  readonly name: string;
+}
+
 /** Every other person's voice device in roster: none of this member's own. */
-function partnersIn(
-  roster: readonly RosterMember[],
-  ownMemberId: number,
-): { readonly deviceId: number; readonly name: string }[] {
+function partnersIn(roster: readonly RosterMember[], ownMemberId: number): PartnerDevice[] {
   return roster
     .filter((member) => member.id !== ownMemberId)
     .flatMap((member) =>
       member.devices
         .filter((device) => voiceRoles.has(device.role))
-        .map((device) => ({ deviceId: device.id, name: member.name })),
+        .map((device) => ({ deviceId: device.id, memberId: member.id, name: member.name })),
     );
 }
 
 /** A call this device keeps with another, and the work done on it, one step after another. */
 class CallEntry {
   readonly deviceId: number;
+  readonly memberId: number;
   readonly name: string;
   /** Whether this device makes the offer: the lower device id does, so both never offer at once. */
   readonly isOffering: boolean;
@@ -243,12 +283,9 @@ class CallEntry {
   readonly #onFailed: () => void;
   #work: Promise<void> = Promise.resolve();
 
-  constructor(
-    partner: { readonly deviceId: number; readonly name: string },
-    isOffering: boolean,
-    onFailed: () => void,
-  ) {
+  constructor(partner: PartnerDevice, isOffering: boolean, onFailed: () => void) {
     this.deviceId = partner.deviceId;
+    this.memberId = partner.memberId;
     this.name = partner.name;
     this.isOffering = isOffering;
     this.#onFailed = onFailed;
@@ -280,7 +317,12 @@ class CallEntry {
   }
 
   partner(): VoicePartner {
-    return { deviceId: this.deviceId, name: this.name, state: this.#state };
+    return {
+      deviceId: this.deviceId,
+      memberId: this.memberId,
+      name: this.name,
+      state: this.#state,
+    };
   }
 }
 
@@ -319,13 +361,33 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     return () => this.#listeners.delete(listener);
   };
 
+  readonly hear = (): void => {
+    if (this.#connection !== undefined) {
+      return;
+    }
+    this.#options.devices.prepareToHear();
+    this.#change({
+      ...this.#snapshot,
+      isHearing: true,
+      failure: undefined,
+      browserReason: undefined,
+    });
+    this.#attach();
+  };
+
   readonly start = async (processing: MicrophoneProcessing): Promise<void> => {
     if (this.#snapshot.status === "starting" || this.#snapshot.status === "on") {
       return;
     }
+    this.hear();
     this.#generation += 1;
     const generation = this.#generation;
-    this.#change({ ...offSnapshot, status: "starting", partnerGain: this.#snapshot.partnerGain });
+    this.#change({
+      ...this.#snapshot,
+      status: "starting",
+      failure: undefined,
+      browserReason: undefined,
+    });
     let microphone: Microphone;
     try {
       microphone = await this.#options.devices.openMicrophone(processing);
@@ -345,12 +407,37 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       return;
     }
     this.#microphone = microphone;
-    this.#change({ ...this.#snapshot, status: "on" });
-    this.#attach();
+    for (const entry of this.#calls.values()) {
+      entry.call?.send(microphone);
+    }
+    this.#connection?.note({ kind: "voiceTalk", why: "talking" });
+    this.#change({ ...this.#snapshot, status: "on", isMuted: false });
   };
 
-  /** Turns voice off: the person's Leave voice, told to the core's log as left. */
   readonly stop = (): void => {
+    this.#generation += 1;
+    if (this.#microphone !== undefined) {
+      this.#connection?.note({ kind: "voiceTalk", why: "stopped" });
+    }
+    this.#closeMicrophone();
+    this.#change({ ...this.#snapshot, status: "off", isMuted: false });
+  };
+
+  /** Closes the microphone, the calls sending nothing; the others are still heard. */
+  #closeMicrophone(): void {
+    if (this.#microphone === undefined) {
+      return;
+    }
+    for (const entry of this.#calls.values()) {
+      entry.call?.send(undefined);
+    }
+    stopTracks(this.#microphone);
+    this.#microphone = undefined;
+    this.#options.devices.microphoneClosed();
+  }
+
+  /** Turns voice off: the page is done with it, told to the core's log as left. */
+  readonly leave = (): void => {
     this.#end("left");
   };
 
@@ -358,6 +445,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   #end(why: "left" | "unreachable"): void {
     this.#connection?.note({ kind: "voiceOff", why });
     this.#generation += 1;
+    this.#closeMicrophone();
     this.#closeCalls();
     for (const unsubscribe of this.#unsubscribes) {
       unsubscribe();
@@ -368,28 +456,37 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     this.#connection?.close();
     this.#connection = undefined;
     this.#ownDeviceId = undefined;
-    if (this.#microphone !== undefined) {
-      stopTracks(this.#microphone);
-      this.#options.devices.voiceEnded();
-    }
-    this.#microphone = undefined;
-    this.#change({ ...offSnapshot, partnerGain: this.#snapshot.partnerGain });
+    this.#change({ ...offSnapshot, partnerGains: this.#snapshot.partnerGains });
   }
 
   readonly setMuted = (isMuted: boolean): void => {
-    for (const track of this.#microphone?.getAudioTracks() ?? []) {
+    if (this.#microphone === undefined) {
+      return;
+    }
+    for (const track of this.#microphone.getAudioTracks()) {
       track.enabled = !isMuted;
     }
+    this.#connection?.note({ kind: "voiceTalk", why: isMuted ? "muted" : "unmuted" });
     this.#change({ ...this.#snapshot, isMuted });
   };
 
-  readonly setPartnerGain = (gain: number): void => {
+  readonly setPartnerGain = (memberId: number, gain: number): void => {
     const partnerGain = Math.min(partnerGainMost, Math.max(0, gain));
     for (const entry of this.#calls.values()) {
-      entry.call?.setGain(partnerGain);
+      if (entry.memberId === memberId) {
+        entry.call?.setGain(partnerGain);
+      }
     }
-    this.#change({ ...this.#snapshot, partnerGain });
+    this.#change({
+      ...this.#snapshot,
+      partnerGains: { ...this.#snapshot.partnerGains, [memberId]: partnerGain },
+    });
   };
+
+  /** How loud memberId's voice plays: as set, else as it came. */
+  #gainOf(memberId: number): number {
+    return this.#snapshot.partnerGains[memberId] ?? 1;
+  }
 
   #change(next: VoiceSnapshot): void {
     this.#snapshot = next;
@@ -469,7 +566,12 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     } else if (isConnected && session.memberId !== undefined) {
       this.#keepCallsWith(partnersIn(session.roster, session.memberId));
     }
-    this.#change({ ...this.#snapshot, isConnected, partners: this.#partners() });
+    this.#change({
+      ...this.#snapshot,
+      isConnected,
+      partners: this.#partners(),
+      tuning: session.tuning,
+    });
   }
 
   /** The relay's ICE servers, or the last ones given when asking fails. */
@@ -487,7 +589,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     return this.#lastIceServers;
   }
 
-  #keepCallsWith(partners: readonly { readonly deviceId: number; readonly name: string }[]): void {
+  #keepCallsWith(partners: readonly PartnerDevice[]): void {
     const wanted = new Set(partners.map((partner) => partner.deviceId));
     for (const [deviceId, entry] of this.#calls) {
       if (!wanted.has(deviceId)) {
@@ -503,11 +605,10 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   }
 
   /** A call with partner, made once the ICE servers are known; the lower device id offers. */
-  #startCall(partner: { readonly deviceId: number; readonly name: string }): CallEntry {
+  #startCall(partner: PartnerDevice): CallEntry {
     const entry = new CallEntry(partner, (this.#ownDeviceId ?? 0) < partner.deviceId, () => {
       this.#setState(entry, "failed");
     });
-    const microphone = this.#microphone;
     // A call made long after the last ask asks again: the relay's credentials last a day (D243 §8).
     if (this.#options.monotonicMs() - this.#iceServersAskedAtMs > iceServersFreshForMs) {
       this.#askForIceServers();
@@ -515,12 +616,13 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     const iceServers = this.#iceServers;
     entry.run(async () => {
       const servers = await iceServers;
-      if (entry.isClosed || microphone === undefined) {
+      if (entry.isClosed) {
         return;
       }
       const call = this.#options.devices.startCall({
         iceServers: servers,
-        microphone,
+        // Its person talking by the time the call is made sends from the start.
+        microphone: this.#microphone,
         events: {
           onCandidate: (candidate) => {
             this.#send(entry, { candidate });
@@ -531,7 +633,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
         },
       });
       entry.call = call;
-      call.setGain(this.#snapshot.partnerGain);
+      call.setGain(this.#gainOf(entry.memberId));
       if (entry.isOffering) {
         this.#send(entry, { sdp: await call.offer() });
         this.#noteStep(entry.deviceId, "offered");
@@ -594,6 +696,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
     }
     if (state === "failed") {
       this.#end("unreachable");
+      // Hearing stops too, said so, until it is tried again (D281 §6).
       this.#change({ ...this.#snapshot, status: "failed", failure: "unreachable" });
       return;
     }
@@ -610,13 +713,14 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
 }
 
 /**
- * A person's voice in their session (watch-together.md, Voice; D68, D193 §4): turned on, it opens
- * the microphone and attaches a second device of the membership with the voice role, then keeps
+ * A person's voice in their session (watch-together.md, Voice; D68, D193 §4, D281): hearing, it
+ * attaches a second device of the membership with the voice role, with no microphone, then keeps
  * one audio call with every other person's voice device in the roster, the lower device id making
- * the offer, through the relay's ICE servers. A device leaving the roster ends its call; a new
- * welcome, after the voice socket connects again, makes every call again; a call that fails turns
- * voice off, saying so, and Talk tries again. Muting switches the
- * microphone's tracks off; the partners' gain sets how loud their voices play.
+ * the offer, through the relay's ICE servers. Talk opens the microphone and sends it on those calls,
+ * and stopping closes it, neither making a call again. A device leaving the roster ends its call; a
+ * new welcome, after the voice socket connects again, makes every call again; a call that fails
+ * turns voice off, saying so, until it is tried again. Muting switches the microphone's tracks off;
+ * each person's gain sets how loud their voice plays.
  */
 export function createTogetherVoice<Microphone extends VoiceMicrophone>(
   options: TogetherVoiceOptions<Microphone>,
