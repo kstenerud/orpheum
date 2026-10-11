@@ -26,6 +26,7 @@
   width: 100%;
 }
 
+/* A job that failed: the warning yellow (D278 §4). */
 .jobs__job .jobs__failure {
   color: var(--color-warning);
 }

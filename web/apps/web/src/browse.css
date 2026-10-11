@@ -86,7 +86,8 @@
   text-align: center;
 }
 
-/* A title that cannot be played now carries the warning sign over its poster's corner (D278). */
+/* A title that cannot be played now carries the warning sign over its poster's corner, on a dark
+   patch so the yellow reads on any art (D278; looked at, VQ28). */
 .poster-grid__item {
   position: relative;
 }

@@ -175,6 +175,7 @@ hr {
   border-block-start: 1px solid var(--color-border);
 }
 
+/* What could not be done is said in the warning yellow (D278 §4; looked at, VQ28). */
 [role="alert"] {
   color: var(--color-warning);
 }
