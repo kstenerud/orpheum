@@ -143,35 +143,34 @@ function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   return t("together.voice.connectingTo", { names: namesIn("connecting") });
 }
 
-/** While this person talks: whether the others hear them, Mute, and Stop talking. */
-function Talking(props: VoiceInUse): JSX.Element {
+/**
+ * Talk, one toggle (the owner, 2026-10-11): a press opens the microphone, from the press it needs,
+ * and the next closes it, still hearing everyone. Its look is provisional until the owner chooses
+ * one (talk-toggle-options).
+ */
+function TalkToggle(props: VoiceInUse): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = props;
+  const isTalking = snapshot.status === "on";
   return (
-    <>
-      <output className="together-voice__talking">
-        {snapshot.isMuted ? t("together.voice.muted") : t("together.voice.talking")}
-      </output>
-      <div className="together-voice__buttons">
-        <button
-          type="button"
-          aria-pressed={snapshot.isMuted}
-          onClick={() => {
-            voice.setMuted(!snapshot.isMuted);
-          }}
-        >
-          {snapshot.isMuted ? t("together.voice.unmute") : t("together.voice.mute")}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            voice.stop();
-          }}
-        >
-          {t("together.voice.stopTalking")}
-        </button>
-      </div>
-    </>
+    <button
+      type="button"
+      className="together-voice__talk"
+      aria-pressed={isTalking}
+      disabled={snapshot.status === "starting"}
+      onClick={() => {
+        if (isTalking) {
+          voice.stop();
+        } else {
+          void voice.start({
+            shouldCancelEcho: snapshot.tuning.shouldCancelMicrophoneEcho,
+            shouldLevel: snapshot.tuning.shouldBrowserLevelMicrophone,
+          });
+        }
+      }}
+    >
+      {isTalking ? t("together.voice.stopTalking") : t("together.voice.talk")}
+    </button>
   );
 }
 
@@ -228,8 +227,8 @@ export function movesSoundToTheEarpiece(
 
 /**
  * Voice in a Watch Together session, for the host and every viewer (watch-together.md, Voice;
- * D281): everyone is heard from the start; Talk opens the microphone, from the press it needs, then
- * Mute and Stop talking; and each person's volume, apart from the film's. A call that fails is said,
+ * D281): everyone is heard from the start; Talk, one toggle, opens the microphone and closes it
+ * again; and each person's volume, apart from the film's. A call that fails is said,
  * with a button to connect again. Headphones are the supported way to keep the film out of the
  * microphone (D63), so the controls say so. A microphone that cannot open says why.
  */
@@ -265,22 +264,10 @@ export function VoiceControls(
           {t("together.voice.again")}
         </button>
       ) : null}
+      <TalkToggle voice={voice} snapshot={snapshot} />
       {isTalking ? (
-        <Talking voice={voice} snapshot={snapshot} />
-      ) : (
-        <button
-          type="button"
-          disabled={snapshot.status === "starting"}
-          onClick={() => {
-            void voice.start({
-              shouldCancelEcho: snapshot.tuning.shouldCancelMicrophoneEcho,
-              shouldLevel: snapshot.tuning.shouldBrowserLevelMicrophone,
-            });
-          }}
-        >
-          {t("together.voice.talk")}
-        </button>
-      )}
+        <output className="together-voice__talking">{t("together.voice.talking")}</output>
+      ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
       {!isTalking && props.audioOutput !== "headphones" && movesSoundToTheEarpiece() ? (
         <p className="together-voice__warning">{t("together.voice.earpiece")}</p>
