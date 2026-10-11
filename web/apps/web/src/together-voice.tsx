@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 
 import type { AudioOutput } from "./accounts.ts";
 import { ownScriptOf } from "./app-update.ts";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
@@ -210,18 +211,17 @@ function startTalking(props: VoiceInUse): void {
 function HeadphonesWarning(props: { readonly onRead: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <dialog
-      open
+    <ModalDialog
       className="together-voice__headphones"
       role="alertdialog"
-      aria-label={t("together.voice.headphonesHeading")}
+      label={t("together.voice.earpiece")}
+      onClose={props.onRead}
     >
-      <h2>{t("together.voice.headphonesHeading")}</h2>
       <p>{t("together.voice.earpiece")}</p>
       <button type="button" onClick={props.onRead}>
         {t("together.voice.ok")}
       </button>
-    </dialog>
+    </ModalDialog>
   );
 }
 

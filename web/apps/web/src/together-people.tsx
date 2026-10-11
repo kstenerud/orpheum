@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { FormRow } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
@@ -60,7 +61,7 @@ export function ActionDialog(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <dialog open className="watch-together__dialog" aria-label={props.heading}>
+    <ModalDialog className="watch-together__dialog" label={props.heading} onClose={props.onClose}>
       <div className="watch-together__dialog-head">
         <h2>{props.heading}</h2>
         <button type="button" onClick={props.onClose}>
@@ -68,7 +69,7 @@ export function ActionDialog(props: {
         </button>
       </div>
       {props.children}
-    </dialog>
+    </ModalDialog>
   );
 }
 

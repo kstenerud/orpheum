@@ -387,9 +387,9 @@ describe("voice on an iPhone without headphones", () => {
         expect(warning()).toBeNull();
         await click(talkButton(mounted.container, "Talk"));
         expect(warning() !== null).toBe(isWarned);
-        expect(
-          mounted.container.textContent.includes("the film's sound moves to the earpiece"),
-        ).toBe(isWarned);
+        expect(mounted.container.textContent.includes("please connect your headphones")).toBe(
+          isWarned,
+        );
         // The microphone opens at the press either way; OK only closes the notice.
         expect(devices.processedAsked).toHaveLength(1);
         if (isWarned) {
