@@ -4,7 +4,7 @@
 import "./i18n.ts";
 
 import { act } from "react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { NeedsAttention } from "./needs-attention.tsx";
 import { StatusTray } from "./status-tray.tsx";
@@ -35,6 +35,7 @@ it("shows nothing to someone who neither hosts nor runs the server", async () =>
 });
 
 it("shows the host Watch Together is on, and opens its controls over the screen without leaving it (D280)", async () => {
+  const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
   mounted = await mount(
     withServices(<StatusTray isHostingTogether isAdmin={false} />, servedBy({})),
   );
@@ -46,11 +47,31 @@ it("shows the host Watch Together is on, and opens its controls over the screen 
   await click(sign);
   expect(mounted.container.querySelector("dialog")?.textContent).toContain("Watch Together");
   expect(sign?.getAttribute("aria-expanded")).toBe("true");
+  // A modal drop-down: the page takes no press while it is open (the owner, 2026-10-11).
+  expect(showModal).toHaveBeenCalled();
+  // Escape, which the browser tells a modal as cancel, shuts it.
   await act(async () => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    mounted?.container
+      .querySelector("dialog")
+      ?.dispatchEvent(new Event("cancel", { cancelable: true }));
     await Promise.resolve();
   });
   expect(mounted.container.querySelector("dialog")).toBeNull();
+  // A press outside it, on its backdrop, shuts it; one inside does not.
+  await click(sign);
+  const panel = mounted.container.querySelector("dialog");
+  panel!.getBoundingClientRect = () => new DOMRect(100, 50, 300, 400);
+  await act(async () => {
+    panel?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 200, clientY: 100 }));
+    await Promise.resolve();
+  });
+  expect(mounted.container.querySelector("dialog")).not.toBeNull();
+  await act(async () => {
+    panel?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 20, clientY: 600 }));
+    await Promise.resolve();
+  });
+  expect(mounted.container.querySelector("dialog")).toBeNull();
+  showModal.mockRestore();
 });
 
 it("shows an admin the yellow sign when something needs them, leading to the page of it, and not otherwise", async () => {

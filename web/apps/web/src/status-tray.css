@@ -5,8 +5,7 @@
 .status-tray {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  margin-inline-start: auto;
+  gap: 0;
 }
 
 .status-tray__item {
@@ -17,9 +16,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--size-control);
+  /* Narrower than other controls, so the signs and the menu sit close together (the owner,
+     2026-10-11), still a comfortable target at 36 px. */
+  min-width: 2.25rem;
   min-height: var(--size-control);
-  padding: var(--space-2);
+  padding: var(--space-1);
   border: 0;
   border-radius: var(--radius-control);
   background: none;
@@ -47,24 +48,15 @@
 }
 
 .status-tray__panel {
-  position: absolute;
+  /* A modal drop-down in the browser's top layer, placed from the screen's top end, not from its
+     sign: hung from the sign, it ran off a phone's start once the menu sat after it (the owner,
+     2026-10-11). It stays clear of the screen's edges at every width. */
+  position: fixed;
+  inset-block: 3.5rem auto;
+  inset-inline: auto var(--space-page);
+  width: min(30rem, calc(100vw - 2 * var(--space-page)));
+  max-height: calc(100vh - 5rem);
   margin: 0;
-  color: var(--color-text);
-  z-index: 4;
-  inset-block-start: 100%;
-  /* A dialog's own stylesheet pins it at both sides; with its width set, the start side won and it
-     hung off the screen's end. It hangs from the tray's end, back across the page. */
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  width: min(30rem, 92vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-block-start: 3px solid var(--color-status);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card-hover);
 }
 
 .status-tray__panel-head {

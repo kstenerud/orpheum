@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import { act, useState, type JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -28,5 +29,33 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     mounted.unmount();
     document.removeEventListener("keydown", pageHeard);
     showModal.mockRestore();
+  });
+
+  it("stays open as its page renders again with a new onClose, its focus kept", async () => {
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
+    const close = vi.spyOn(HTMLDialogElement.prototype, "close");
+    let renderAgain: () => void = () => undefined;
+    function Page(): JSX.Element {
+      const [count, setCount] = useState(0);
+      renderAgain = () => {
+        setCount(count + 1);
+      };
+      return (
+        <ModalDialog label="Gran" onClose={() => undefined}>
+          <p>{count}</p>
+        </ModalDialog>
+      );
+    }
+    const mounted = await mount(<Page />);
+    await act(async () => {
+      renderAgain();
+      await Promise.resolve();
+    });
+    expect(mounted.container.querySelector("p")?.textContent).toBe("1");
+    expect(showModal).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    mounted.unmount();
+    showModal.mockRestore();
+    close.mockRestore();
   });
 });
