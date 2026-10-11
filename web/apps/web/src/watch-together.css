@@ -77,25 +77,6 @@
   border-block-start: 1px solid var(--color-border);
 }
 
-/* A dialog over the controls, in the middle of the screen whatever opened it (D281 §5). */
-.watch-together__dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  width: min(26rem, 92vw);
-  height: fit-content;
-  max-height: 85vh;
-  margin: auto;
-  overflow-y: auto;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-block-start: 3px solid var(--color-status);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  box-shadow: var(--shadow-card-hover);
-}
-
 .watch-together__dialog-head {
   display: flex;
   align-items: center;

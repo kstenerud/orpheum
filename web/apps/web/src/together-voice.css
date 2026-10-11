@@ -84,23 +84,7 @@
   fill: currentColor;
 }
 
-/* Before an iPhone without headphones talks, in the middle of the screen (the owner, 2026-10-11). */
+/* As an iPhone without headphones talks: a notice, its edge the warning yellow (the owner, 2026-10-11). */
 .together-voice__headphones {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  width: min(24rem, 92vw);
-  height: fit-content;
-  margin: auto;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-block-start: 3px solid var(--color-warning);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  box-shadow: var(--shadow-card-hover);
-}
-
-.together-voice__headphones h2 {
-  margin-block-start: 0;
+  border-block-start-color: var(--color-warning);
 }

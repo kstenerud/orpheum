@@ -270,7 +270,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Talk; the guest's Talk is one round microphone button, blue with a ring that grows as they speak: pressed again, it stops only the guest's voice reaching the host,
   the guest still hearing the host, and on the iPhone gives the film's sound back to the speaker; each person's voice slider in the host's pop-up changes only that person's loudness;
   the pop-up's Film volume moves the host's film on a computer; Invite and a person's row each open
-  a dialog in the middle of the screen; End the session stands clear below the people; and the
+  a modal dialog in the middle of the screen, the page darkened behind it and taking no press, as
+  is the iPhone's one-line headphones notice with its OK; End the session stands clear below the people; and the
   guest's film title sits above the picture, not over it. Only real devices carry voice and show an
   iPhone's audio session (D281). (`web/packages/sdk/src/together-voice-browser.ts`,
   `web/apps/web/src/watch-together.css`, `together-viewer.css`)

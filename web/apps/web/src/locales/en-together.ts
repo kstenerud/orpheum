@@ -36,9 +36,7 @@ export const enTogether = {
       label: "Voice",
       talk: "Talk",
       headphones: "Use headphones, so the film does not reach your microphone.",
-      headphonesHeading: "Use headphones to hear the film while you talk",
-      earpiece:
-        "On an iPhone or iPad, while your microphone is on, the film's sound moves to the earpiece and goes very quiet. With headphones you hear the film and everyone's voices together. Press the microphone again to turn it off.",
+      earpiece: "To hear the video while the microphone is on, please connect your headphones.",
       ok: "OK",
       starting: "Asking for your microphone…",
       stopTalking: "Stop talking",
