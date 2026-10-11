@@ -93,6 +93,9 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
       },
       readMicrophoneLevel: () => 0.1,
       prepareToHear: () => undefined,
+      isWaitingForATap: () => false,
+      subscribeToTapWaiting: () => () => undefined,
+      playAtTap: () => undefined,
       microphoneClosed: () => undefined,
       close: () => undefined,
     },
@@ -214,6 +217,36 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(devices.calls[0]!.sent).toHaveLength(1);
     expect(server.openedCount()).toBe(1);
     expect(mounted.container.textContent).toContain("The others hear you.");
+    mounted.unmount();
+  });
+
+  it("asks for a tap while the browser refuses to play the voices, and plays them at it (the owner, 2026-10-11)", async () => {
+    const devices = fakeDevices();
+    let isWaiting = true;
+    let taps = 0;
+    const listeners = new Set<() => void>();
+    const waitingDevices = {
+      ...devices.devices,
+      isWaitingForATap: () => isWaiting,
+      subscribeToTapWaiting: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      playAtTap: () => {
+        taps += 1;
+        isWaiting = false;
+        for (const listener of listeners) {
+          listener();
+        }
+      },
+    };
+    const { services, server } = voiceServices({ ...devices, devices: waitingDevices });
+    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    await server.accept();
+    await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Tap to hear everyone's voices"));
+    expect(taps).toBe(1);
+    expect(buttonWithText(mounted.container, "Tap to hear everyone's voices")).toBeUndefined();
     mounted.unmount();
   });
 

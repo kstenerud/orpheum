@@ -190,8 +190,10 @@ type VoiceStats struct {
 	// ReceivedLevel and SentLevel are how loud, on average from 0 to 1, what the receiver got and
 	// what its microphone sent were; Playback, how it plays what it gets: "webAudio", or its audio
 	// element while Web Audio is "elementSuspended", "elementInterrupted", "elementClosed", or absent
-	// ("element"). A call that carries silence, or plays to no one, says so (the owner's test,
-	// 2026-10-08, where an iPhone and an Android phone connected and neither heard the other).
+	// ("element"); or "elementBlocked", its element refused for want of a tap while Web Audio does not
+	// run, so no one hears it (the owner's test, 2026-10-11). A call that carries silence, or plays
+	// to no one, says so (the owner's test, 2026-10-08, where an iPhone and an Android phone
+	// connected and neither heard the other).
 	ReceivedLevel float64 `json:"receivedLevel"`
 	SentLevel     float64 `json:"sentLevel"`
 	Playback      string  `json:"playback"`
@@ -287,7 +289,7 @@ func (note PlayerNote) isKnownDiagnosis() bool {
 // VoicePlayback names them.
 func isVoicePlayback(word string) bool {
 	switch word {
-	case "webAudio", "elementSuspended", "elementInterrupted", "elementClosed", "element":
+	case "webAudio", "elementSuspended", "elementInterrupted", "elementClosed", "element", "elementBlocked":
 		return true
 	}
 	return false

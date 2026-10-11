@@ -6,7 +6,13 @@
  * opens; WebKit 273511), closed, or absent ("element").
  */
 export type VoicePlayback =
-  "webAudio" | "elementSuspended" | "elementInterrupted" | "elementClosed" | "element";
+  | "webAudio"
+  | "elementSuspended"
+  | "elementInterrupted"
+  | "elementClosed"
+  | "element"
+  /** Its element refused to play for want of a tap, Web Audio not running: no one hears it. */
+  | "elementBlocked";
 
 /**
  * A voice call as its receiver measured it since it began (D262 §1): how far its sound came (the

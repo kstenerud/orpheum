@@ -54,6 +54,11 @@ async function iceServersFor(
 export interface VoiceInUse {
   readonly voice: TogetherVoice;
   readonly snapshot: VoiceSnapshot;
+  /**
+   * Whether the others' voices wait for a tap, the browser having refused to play them, and the
+   * tap's play (the owner's test, 2026-10-11, where an iPhone heard no one until it tapped).
+   */
+  readonly tap: { readonly isWaiting: boolean; readonly play: () => void };
 }
 
 /**
@@ -94,7 +99,12 @@ export function useVoice(
     }
   }, [voice, isReady]);
   const snapshot = useSyncExternalStore(voice.subscribe, voice.snapshot);
-  return { voice, snapshot };
+  const isWaiting = useSyncExternalStore(
+    devices.subscribeToTapWaiting,
+    devices.isWaitingForATap,
+    devices.isWaitingForATap,
+  );
+  return { voice, snapshot, tap: { isWaiting, play: devices.playAtTap } };
 }
 
 /**
@@ -352,6 +362,11 @@ export function VoiceControls(
       {snapshot.isHearing ? (
         <output className="together-voice__status">{voiceStatusText(t, snapshot)}</output>
       ) : null}
+      {snapshot.isHearing && props.tap.isWaiting ? (
+        <button type="button" className="together-voice__tap" onClick={props.tap.play}>
+          {t("together.voice.tapToHear")}
+        </button>
+      ) : null}
       {snapshot.failure === undefined ? null : (
         <p role="alert">{t(`together.voice.failure.${snapshot.failure}`)}</p>
       )}
@@ -373,13 +388,14 @@ export function VoiceControls(
       <TalkToggle
         voice={voice}
         snapshot={snapshot}
+        tap={props.tap}
         shouldWarnFirst={props.audioOutput !== "headphones" && movesSoundToTheEarpiece()}
       />
       {isTalking ? (
         <output className="together-voice__talking">{t("together.voice.talking")}</output>
       ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
-      <VoiceVolumes voice={voice} snapshot={snapshot} />
+      <VoiceVolumes voice={voice} snapshot={snapshot} tap={props.tap} />
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
   );
