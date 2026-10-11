@@ -1956,9 +1956,14 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls
 
-- **What we do:** the guest's video is placed on its stage with `position: absolute; inset: 0`, not sized
-  by a percentage of the stage's `aspect-ratio` height, and the film's title sits above the stage, not
-  over it. `web/apps/web/src/together-viewer.css`.
+(The heading names the first suspect; see What we do.)
+
+- **What we do:** the guest's video is laid out as the Play page's is, in the flow at the page's width
+  with nothing clipping it, and the film's title sits above it, not over it.
+  `web/apps/web/src/together-viewer.css`. Placing the video with `position: absolute; inset: 0` in the
+  clipping `aspect-ratio` stage, the first fix, did not bring the controls back (the owner, 2026-10-11),
+  so the cause may be the stage's clipping (`overflow: hidden` with `border-radius`) rather than its
+  percentage height; unconfirmed until VQ29 runs.
 - **Evidence:** the owner's test, 2026-10-11: on an iPhone on iOS 18.5 a guest saw none of the player's
   controls, which Chrome and Firefox showed, and the title lay over the picture (VQ29).
   **[web]** [WebKit 261556](https://bugs.webkit.org/show_bug.cgi?id=261556) and [a write-up of the

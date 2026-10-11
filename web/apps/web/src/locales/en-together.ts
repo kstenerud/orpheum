@@ -39,11 +39,8 @@ export const enTogether = {
       earpiece:
         "On this device, voice moves all sound to the earpiece: the film goes quiet until a while after voice is off. Use headphones.",
       starting: "Asking for your microphone…",
-      mute: "Mute",
-      unmute: "Unmute",
       stopTalking: "Stop talking",
       talking: "The others hear you.",
-      muted: "Muted: the others do not hear you, and you still hear them.",
       personVolume: "{{name}}'s voice",
       volumes: "Voices",
       connecting: "Voice: connecting…",

@@ -43,10 +43,18 @@ interface FakeDevices {
   readonly calls: FakeCall[];
   /** Whether each opening of the microphone asked for the browser's processing. */
   readonly processedAsked: MicrophoneProcessing[];
+  /** How many times the microphone's track was stopped. */
+  readonly stoppedTracks: () => number;
 }
 
 function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
-  const track = { enabled: true, stop: () => undefined } as unknown as MediaStreamTrack;
+  let stopped = 0;
+  const track = {
+    enabled: true,
+    stop: () => {
+      stopped += 1;
+    },
+  } as unknown as MediaStreamTrack;
   const microphone = { getAudioTracks: () => [track] } as unknown as MediaStream;
   const calls: FakeCall[] = [];
   const processedAsked: MicrophoneProcessing[] = [];
@@ -54,6 +62,7 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
     track,
     calls,
     processedAsked,
+    stoppedTracks: () => stopped,
     devices: {
       openMicrophone: (processing) => {
         processedAsked.push(processing);
@@ -217,28 +226,36 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     mounted.unmount();
   });
 
-  it("mutes only its own microphone, sets each person's voice volume, and stops talking still hearing", async () => {
+  it("talks by one toggle, closing the microphone and opening it again, still hearing, and sets each person's voice volume", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
     const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say(welcome);
-    await click(buttonWithText(mounted.container, "Talk"));
-    await click(buttonWithText(mounted.container, "Mute"));
-    expect(devices.track.enabled).toBe(false);
-    expect(buttonWithText(mounted.container, "Unmute")?.getAttribute("aria-pressed")).toBe("true");
-    expect(mounted.container.textContent).toContain("you still hear them");
-    await click(buttonWithText(mounted.container, "Unmute"));
-    expect(devices.track.enabled).toBe(true);
+    const talk = (): Element | undefined =>
+      mounted.container.querySelector(".together-voice__talk") ?? undefined;
+    expect(talk()?.getAttribute("aria-pressed")).toBe("false");
+    await click(talk());
+    expect(talk()?.getAttribute("aria-pressed")).toBe("true");
+    expect(talk()?.textContent).toBe("Stop talking");
+    expect(buttonWithText(mounted.container, "Mute")).toBeUndefined();
+    expect(devices.calls[0]!.sent).toHaveLength(1);
     const karl = [...mounted.container.querySelectorAll("label")].find((label) =>
       label.textContent.startsWith("Karl's voice"),
     );
     await enter(karl?.querySelector("input"), "40");
     expect(devices.calls[0]!.gain).toBe(0.4);
-    await click(buttonWithText(mounted.container, "Stop talking"));
-    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
+    // The second press closes the microphone, rather than muting it, and the call stays up.
+    await click(talk());
+    expect(devices.stoppedTracks()).toBe(1);
     expect(devices.calls[0]!.sent.at(-1)).toBeUndefined();
+    expect(talk()?.getAttribute("aria-pressed")).toBe("false");
+    expect(talk()?.textContent).toBe("Talk");
     expect(mounted.container.textContent).toContain("Voice: connecting to Karl…");
+    // And a third opens it again.
+    await click(talk());
+    expect(devices.processedAsked).toHaveLength(2);
+    expect(talk()?.getAttribute("aria-pressed")).toBe("true");
     mounted.unmount();
   });
 
@@ -254,7 +271,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
       "Voice could not connect to the others and is off.",
     );
-    expect(buttonWithText(mounted.container, "Mute")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Stop talking")).toBeUndefined();
     await click(buttonWithText(mounted.container, "Connect voice again"));
     expect(server.openedCount()).toBe(2);
     expect(mounted.container.querySelector('[role="alert"]')).toBeNull();

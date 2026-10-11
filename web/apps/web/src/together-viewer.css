@@ -26,25 +26,28 @@
   gap: var(--space-2);
 }
 
-/* Black while nothing plays: the viewer sees only the host's playback (D246 §5). */
+/* The stage is laid out as the Play page's player is: the video in the flow at the width of the
+   page, its corners its own, nothing clipping it. A stage that clipped it (overflow: hidden,
+   aspect-ratio, border-radius) showed an iPhone on iOS 18.5 none of the player's controls, and
+   placing the video absolutely in it did not bring them back (the owner, 2026-10-11); whether an
+   iPhone shows them now is VQ29's (idiosyncrasies.md). */
 .together-viewer__stage {
   position: relative;
-  overflow: hidden;
+}
+
+/* Black while nothing plays: the viewer sees only the host's playback (D246 §5). */
+.together-viewer__stage:empty {
   aspect-ratio: 16 / 9;
   max-height: 80vh;
   border-radius: var(--radius-card);
   background: var(--color-video-background);
 }
 
-/* Placed on the stage's box, not sized by a percentage of it: Safari resolved the height against
-   the stage's aspect-ratio wrongly, the picture overflowed the stage and its controls were cut off
-   below it (WebKit 261556; idiosyncrasies.md). */
 .together-viewer__video {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  max-height: 80vh;
+  border-radius: var(--radius-card);
   background: var(--color-video-background);
 }
 

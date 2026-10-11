@@ -19453,5 +19453,13 @@ longer attaches the voice device.
    a new link, remove them, their voice's volume).
 6. **A call that fails is told, and voice is tried again by a button**, as before (the owner,
    2026-10-06), now one that hears again rather than one that opens the microphone.
+7. **Talk is one toggle, and §2's Mute and Stop talking are one press** (the owner, later the same
+   day): *"Rather than having stop talking and mute as separate buttons, let's simplify: A talk
+   toggle button. They press it to turn on their microphone, and then press it again to stop
+   talking. How we make it "stop talking" is implementation defined. If we can easily just turn off
+   the microphone and then restart it when they turn talk back on, do that. If we encounter problems
+   and need to mute instead, do that. Prefer turning the microphone off."* The second press closes
+   the microphone; muting (§3) is kept in the SDK as the fallback, not offered. The toggle's look
+   waits for the owner's choice (`talk-toggle-options.html`, shared files).
 
 **Status:** Decided 2026-10-11.
