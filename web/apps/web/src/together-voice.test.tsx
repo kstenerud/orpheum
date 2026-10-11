@@ -390,11 +390,12 @@ describe("voice on an iPhone without headphones", () => {
         expect(
           mounted.container.textContent.includes("the film's sound moves to the earpiece"),
         ).toBe(isWarned);
-        expect(devices.processedAsked).toHaveLength(isWarned ? 0 : 1);
+        // The microphone opens at the press either way; OK only closes the notice.
+        expect(devices.processedAsked).toHaveLength(1);
         if (isWarned) {
-          await click(buttonWithText(mounted.container, "Talk anyway"));
-          expect(devices.processedAsked).toHaveLength(1);
+          await click(buttonWithText(mounted.container, "OK"));
           expect(warning()).toBeNull();
+          expect(devices.processedAsked).toHaveLength(1);
           // Read once, it does not come back at the next press.
           await click(talkButton(mounted.container, "Stop talking"));
           await click(talkButton(mounted.container, "Talk"));
