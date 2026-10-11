@@ -52,6 +52,9 @@
   color: var(--color-text);
   z-index: 4;
   inset-block-start: 100%;
+  /* A dialog's own stylesheet pins it at both sides; with its width set, the start side won and it
+     hung off the screen's end. It hangs from the tray's end, back across the page. */
+  inset-inline-start: auto;
   inset-inline-end: 0;
   width: min(30rem, 92vw);
   max-height: 80vh;

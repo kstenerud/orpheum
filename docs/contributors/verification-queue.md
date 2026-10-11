@@ -257,3 +257,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   the ones chosen and read as meant (D278 §4, §6).
   (`web/apps/web/src/tokens.css`, `base.css`, `browse.css`, `credentials-form.css`, `jobs.css`,
   `offline-reminder.css`, `title.css`) — done 2026-10-11 by the owner: *"Looks good."*
+- [ ] **VQ29** — Against staging, a host in a desktop browser and on a phone opens the Watch
+  Together sign in the status tray; then two guests join, one by a link with every right, one by
+  a link with both boxes cleared. Passes when the tray's pop-up opens wholly on screen, hanging
+  left from the sign, at both widths; the guest with every right has the player's own controls,
+  pauses and moves the position for everyone, and enters full screen from them; and the guest
+  with none has no player controls but a Full screen button at the film's corner, which fills
+  the screen, on an iPhone too. Only a browser lays out a dialog and shows its own full screen
+  (D271 §4, D280). (`web/apps/web/src/status-tray.css`, `together-viewer.css`)
