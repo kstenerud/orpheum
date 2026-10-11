@@ -37,7 +37,7 @@
 | Step | What | State |
 | --- | --- | --- |
 | W4b.1 | The public tree: `discovery/discoveryproto` (moved from `internal/discoveryproto`) and `discovery/proof`, the core signing with it; the architecture tests that load `cmd/...` and `internal/...` load `discovery/...` too, and `TestArch_PublicPackagesImportNothingInternal` holds the tree free of `internal/` | BUILT 2026-10-11 |
-| W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`), whose fake in its tests it replaces as the reference; the state in one file; `orpheum discovery` and `orpheum discovery claim <code>` | |
+| W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`), whose fake in its tests it replaces as the reference; the state in one file; `orpheum discovery` and `orpheum discovery claim <code>` | the package BUILT 2026-10-11 (`discovery/single`, with `discovery/safe32code` moved out of `internal/core/auth` for its claim code): enrolment, claiming, sessions, status, heartbeat, the certificate's record through a DNS provider when given one, leaving, and the core's signalling, the core's own client tested against it end to end. The command waits on Q5 |
 | W4b.3 | STUN: the discovery's `iceServers` in its status answer point at its own STUN, the embedded relay's | |
 | W4b.4 | The client-facing protocol (§8): paths and offer for the one core, passing the client's offer on the signalling connection; locate once the core registers its link hashes (Q4 below) | |
 | W4b.5 | Serving the web app at the owner's domain, its files taken from the core (D274 §5) | waits on Q3 |
@@ -60,3 +60,8 @@
    core could answer `paths` to anyone who asks, since it serves that core alone and its owner chose
    to publish it. Keep the hashes, which hide the core's addresses from strangers, or answer
    anyone?
+5. **How `orpheum discovery` runs on the VPS:** the core speaks only to an `https://` discovery. Does
+   the discovery get its own certificate for its name (by ACME, through the same DNS provider as Q2),
+   or sit behind a reverse proxy or the tunnel the VPS already runs, listening on plain HTTP on the
+   loopback? And are its settings (its zone, its listen address, where its record is kept) a config
+   file in the core's form, made by `orpheum default-config --discovery`, or flags?
