@@ -32,8 +32,8 @@ interface Destination {
   /** Who it shows to: everyone, an admin, or a person whose role may host Watch Together. */
   readonly audience: "everyone" | "admin" | "host";
   /**
-   * Where in the banner it is: the places for watching, always in view; the admin's area, under
-   * Manage; or the person's own, under their name (ui-design-practice-2026-10-05.md §5.1 item 5).
+   * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
+   * banner's end, the admin's area under Manage, or the person's own (the owner, 2026-10-11).
    */
   readonly group: "watching" | "manage" | "own";
 }
@@ -66,9 +66,10 @@ const destinations: readonly Destination[] = [
 
 /**
  * The frame every screen renders in: a banner with the product's name and the menu, and one
- * main landmark holding the screen. The places for watching are always in view; the admin's
- * destinations are under Manage, shown to an admin only; the person's account, About and Sign out
- * are under their name. Watch Together shows to a person whose role may host. The server refuses
+ * main landmark holding the screen. The places for watching are always in view; everything else is
+ * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
+ * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
+ * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Watch Together shows to a person whose role may host. The server refuses
  * a destination to anyone else whatever the menu shows.
  */
 export function AppShell(props: {
@@ -118,12 +119,14 @@ export function AppShell(props: {
         </p>
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
-          {inGroup("manage").length === 0 ? null : (
-            <BannerMenu label={t("nav.manage")} isCurrent={isIn("manage")}>
-              {links("manage")}
-            </BannerMenu>
-          )}
-          <BannerEnd shell={props} isOwnCurrent={isIn("own")}>
+          <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("own")}>
+            {inGroup("manage").length === 0 ? null : (
+              <>
+                <li className="app-shell__section">{t("nav.manage")}</li>
+                {links("manage")}
+                <li className="app-shell__divider" aria-hidden="true" />
+              </>
+            )}
             {links("own")}
           </BannerEnd>
         </nav>
@@ -133,24 +136,33 @@ export function AppShell(props: {
   );
 }
 
-/** The banner's end: the status tray (D280), then the person's own menu with its places. */
+/** The banner's end: the status tray (D280), then the one menu with its places. */
 function BannerEnd(props: {
   readonly shell: Parameters<typeof AppShell>[0];
-  readonly isOwnCurrent: boolean;
+  readonly isMenuCurrent: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { shell } = props;
   return (
     <>
       <StatusTray isHostingTogether={shell.isHostingTogether === true} isAdmin={shell.isAdmin} />
-      <OwnMenu
+      <MainMenu
         signedInAs={shell.signedInAs}
-        isCurrent={props.isOwnCurrent}
+        isCurrent={props.isMenuCurrent}
         onSignOut={shell.onSignOut}
       >
         {props.children}
-      </OwnMenu>
+      </MainMenu>
     </>
+  );
+}
+
+/** Three lines: the menu's mark, its name for a screen reader. */
+function MenuIcon(): JSX.Element {
+  return (
+    <svg className="app-shell__menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" />
+    </svg>
   );
 }
 
@@ -173,8 +185,10 @@ function Place(props: {
   );
 }
 
-/** The person's own menu, under their name: who is signed in where, their places, and Sign out. */
-function OwnMenu(props: {
+/**
+ * The one menu, behind its icon: who is signed in where, the places it is given, and Sign out.
+ */
+function MainMenu(props: {
   readonly signedInAs:
     { readonly name: string; readonly deviceName: string | undefined } | undefined;
   readonly isCurrent: boolean;
@@ -184,7 +198,7 @@ function OwnMenu(props: {
   const { t } = useTranslation();
   const { signedInAs } = props;
   return (
-    <BannerMenu label={signedInAs?.name ?? t("nav.you")} isCurrent={props.isCurrent} modifier="own">
+    <BannerMenu label={t("nav.menu")} isCurrent={props.isCurrent}>
       {signedInAs === undefined ? null : (
         <li className="app-shell__who">
           {signedInAs.deviceName === undefined
@@ -219,15 +233,15 @@ function closesMenu(event: Event, menu: HTMLDetailsElement): boolean {
 }
 
 /**
- * A menu in the banner: its name, which opens a list below it. It is the page's own disclosure,
+ * A menu in the banner: its icon, which opens a list below it. It is the page's own disclosure,
  * so it works without script and by keyboard; it closes when one of its places is chosen, when
  * the person presses or taps outside it, and on Escape.
  */
 function BannerMenu(props: {
+  /** Its name, for a screen reader and a pointer's hover: the eye sees the menu icon. */
   readonly label: string;
-  /** Whether the current screen is one of its places: its name is then marked as where one is. */
+  /** Whether the current screen is one of its places: its icon is then marked as where one is. */
   readonly isCurrent: boolean;
-  readonly modifier?: "own";
   readonly children: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -248,15 +262,14 @@ function BannerMenu(props: {
     };
   }, []);
   const classes = ["app-shell__menu"];
-  if (props.modifier !== undefined) {
-    classes.push(`app-shell__menu--${props.modifier}`);
-  }
   if (props.isCurrent) {
     classes.push("app-shell__menu--current");
   }
   return (
     <details ref={ref} className={classes.join(" ")}>
-      <summary>{props.label}</summary>
+      <summary aria-label={props.label} title={props.label}>
+        <MenuIcon />
+      </summary>
       <ul>{props.children}</ul>
     </details>
   );
