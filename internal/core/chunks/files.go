@@ -95,12 +95,20 @@ func (file StoreFile) WantedChunk() int { return file.runFrom }
 func (file StoreFile) IsInit() bool { return file.isInit }
 
 // Served records a file of a store its node served: a chunk is known made, so no run is queued for
-// it, and a store a run is making stays wanted while its player reads it (D234 §3).
+// it, and a store a run is making stays wanted while its player reads it (D234 §3). A chunk whose
+// next is known made or on its way, inside a run of this server's, looks a minute ahead as a chunk
+// asked for before it was made does (Ensure), so the next run starts before the player reaches it:
+// a run made faster than played otherwise made the player wait at each run's start (D247 §10).
+// After a restart nothing past a served chunk is known, and nothing the node already has is made
+// again.
 func (service *Service) Served(ctx context.Context, file StoreFile) error {
 	if !file.isInit {
 		service.runs.served(file.storeDir, file.chunk)
 	}
 	service.runs.asked(file.storeDir, service.clock.Now())
+	if !file.isInit && service.runs.isCovered(file.storeDir, file.chunk+1) {
+		return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.chunk)
+	}
 	storeID, isMaking := service.runs.making(file.storeDir)
 	if !isMaking || storeID == 0 {
 		return nil

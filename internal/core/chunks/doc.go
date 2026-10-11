@@ -89,6 +89,11 @@
 //     TestEnsure_AFilmWithNoGridYetIsSaidSo; through the API by
 //     TestChunks_AChunkTheNodeHasNotMadeIsAskedForAndRelayedOnceItIs (internal/core/api).
 //
+//   - A chunk the node served, whose next is known made or on its way, looks the same minute ahead,
+//     so a run made faster than played has the next on its way before the player reaches it; after a
+//     restart nothing past a served chunk is known, and nothing is queued over it. Enforced by
+//     TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReachesIt.
+//
 //   - A seek starts a run where it lands; catching up never does (D250 §5). A chunk asked for more
 //     than chunk_new_run_beyond_seconds of film past the chunk a run of its store makes next cancels
 //     that run, queued or running, and its run is queued; one nearer waits for the run. Enforced by

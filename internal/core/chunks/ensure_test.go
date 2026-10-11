@@ -221,3 +221,36 @@ func TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun(t *testing.T) {
 		}
 	}
 }
+
+// D247 §10: a run made faster than it is played is made long before the player reaches its end; a
+// chunk the node serves from it looks a minute ahead, so the next run is on its way before the
+// player asks for its first chunk. After a restart nothing past a served chunk is known, and no run
+// is queued over what the node may already have.
+func TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReachesIt(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	ensured(t, service, picture, 3)
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	service.runs.madeThrough(dir, 3, 32)
+	service.runs.forget(dir, 3) // the run ended, every chunk made
+	served := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, chunk: 28}
+	if err := service.Served(t.Context(), served); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 2 || runs[1].firstChunk != 33 {
+		t.Fatalf("the runs asked for = %+v; want a second from chunk 33, a minute before chunk 28's player gets there",
+			runs)
+	}
+
+	restarted := newFakeQueue()
+	fresh, _ := chunksFixture(t, restarted, fakeNode{})
+	unknown := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, chunk: 40}
+	if err := fresh.Served(t.Context(), unknown); err != nil {
+		t.Fatal(err)
+	}
+	if runs := restarted.runs(t, fresh); len(runs) != 0 {
+		t.Errorf("after a restart, serving chunk 40 queued %+v; want nothing: the node may have what follows", runs)
+	}
+}
