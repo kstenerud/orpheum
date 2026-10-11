@@ -200,3 +200,13 @@ func TestPlayState_ARemovedPersonsWatchingGoesWithThemAndOthersStays(t *testing.
 		t.Errorf("the admin's place after removing someone else: %d, want 90000", resumed.ResumePositionMs)
 	}
 }
+
+// A playback the server does not have, as after it restarted, is said to be gone, not removed, so
+// the player can say the server restarted and offer to carry on.
+func TestPlayState_AReportOnAPlaybackTheServerDoesNotHaveSaysItIsGone(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	gone := harness.do(t, http.MethodPost, "/playback/never-issued-token/report", user, reportBody(1, 60_000, 0))
+	wantError(t, gone, http.StatusNotFound, CodePlaybackGone)
+}

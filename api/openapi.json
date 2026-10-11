@@ -3417,6 +3417,7 @@
                   "preparing",
                   "prepare_failed",
                   "no_room_to_make",
+                  "playback_gone",
                   "migrating",
                   "internal"
                 ],

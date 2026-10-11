@@ -54,7 +54,7 @@ func TestNowPlaying_TheAdminSeesAPlaybackAndStopsItWithAMessage(t *testing.T) {
 	if told.status != http.StatusOK || !strings.Contains(told.body, `"stop":{"message":"The server is going down`) {
 		t.Errorf("the next report's answer = %d %s; want the stop and its message", told.status, told.body)
 	}
-	wantError(t, harness.report(t, partner, playing, reportBody(3, 80_000, 0)), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.report(t, partner, playing, reportBody(3, 80_000, 0)), http.StatusNotFound, CodePlaybackGone)
 	if after := harness.do(t, http.MethodGet, "/now-playing", admin, nil); strings.Contains(after.body, `"fileId":1`) {
 		t.Errorf("now playing after the stop = %s; want it gone", after.body)
 	}
