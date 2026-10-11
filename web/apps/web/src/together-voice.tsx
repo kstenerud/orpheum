@@ -23,6 +23,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import type { AudioOutput } from "./accounts.ts";
+import { ownScriptOf } from "./app-update.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
@@ -68,6 +69,7 @@ export function useVoice(
     () =>
       createTogetherVoice({
         credential,
+        client: ownScriptOf(document),
         sessionToken,
         openSocket: openTogetherSocket,
         monotonicMs,

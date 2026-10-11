@@ -1960,10 +1960,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 - **What we do:** the guest's video is laid out as the Play page's is, in the flow at the page's width
   with nothing clipping it, and the film's title sits above it, not over it.
-  `web/apps/web/src/together-viewer.css`. Placing the video with `position: absolute; inset: 0` in the
-  clipping `aspect-ratio` stage, the first fix, did not bring the controls back (the owner, 2026-10-11),
-  so the cause may be the stage's clipping (`overflow: hidden` with `border-radius`) rather than its
-  percentage height; unconfirmed until VQ29 runs.
+  `web/apps/web/src/together-viewer.css`. Neither this nor the first fix, placing the video absolutely
+  in the clipping stage, has been seen on the phone: its guest tab most likely ran an older client
+  through both (agent-failures A28). Unconfirmed until VQ29 runs on a freshly loaded page.
 - **Evidence:** the owner's test, 2026-10-11: on an iPhone on iOS 18.5 a guest saw none of the player's
   controls, which Chrome and Firefox showed, and the title lay over the picture (VQ29).
   **[web]** [WebKit 261556](https://bugs.webkit.org/show_bug.cgi?id=261556) and [a write-up of the

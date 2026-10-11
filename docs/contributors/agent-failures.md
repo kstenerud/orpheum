@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A28 — Judged a device fix by a phone that never ran it (2026-10-11)
+
+- **What happened:** an iPhone guest saw no player controls. The agent changed the guest's video
+  layout, and when the owner said the controls were still missing, it told him the first fix "did
+  not help" and changed the layout again. The phone's tab had joined each new session by a pasted
+  link, which loads no new page, and a guest's page never reloaded for an update while on it: the
+  iPhone very likely ran the morning's client all along. The false belief came from the deploy:
+  the server ran the new build, so the agent took the phone to run it too, never checking which
+  client the page ran.
+- **Caught by:** the owner, seeing the host's new Talk button and the guest's old one: *"on the
+  guest side it still looks the old way."*
+- **Gate:** `ReloadWhenOutdated` now reloads a guest's page at once while no film shows on it
+  (reload-when-outdated.test.tsx). Nothing yet says which client a device ran when it reported:
+  a device's hello does not carry its script, so the log cannot answer.
+
 ### A27 — Blamed the owner's tool for a fault it had not traced (2026-10-08)
 
 - **What happened:** twice in one day the sandbox's whole working tree turned up staged, with no
