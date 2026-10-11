@@ -254,7 +254,12 @@ func changedFactsReason(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 // not: the root's device or mount changed since its last complete scan, or it would lose all of
 // its files, or more than scan_withhold_removals_over_percent of them and more than
 // scan_withhold_removals_over_files (D208 §3) — unless the admin approved this root's removals.
+// A scan that removes nothing never waits: a root that moved to another device with every file
+// still in it is not an unmounted disk, and its new device is recorded (D276).
 func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
+	if removing == 0 {
+		return "", nil
+	}
 	prior, err := store.OrNotFound(batch.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
 		NodeID: batch.nodeID, RootPath: scan.root,
 	}))
@@ -267,9 +272,6 @@ func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, r
 		}
 	case !errors.Is(err, store.ErrNotFound):
 		return "", err
-	}
-	if removing == 0 {
-		return "", nil
 	}
 	if removing == total {
 		return fmt.Sprintf("the scan saw none of the root's %d files", total), nil
