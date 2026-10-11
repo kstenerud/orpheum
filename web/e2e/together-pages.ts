@@ -288,6 +288,24 @@ export async function expectHearing(
   await expect(guest.getByText(/Voice: hearing /)).toBeVisible({ timeout: connectsWithinMs });
 }
 
+/**
+ * The Talk button's ring moves with the voice going out while its person talks (D281 §7): it read
+ * the call's statistics, as an iPhone's microphone meter reads zeros (the owner, 2026-10-11).
+ */
+export async function expectTalkRingMoves(page: Page): Promise<void> {
+  // Firefox's fake microphone gives the ring nothing to read here, the committed code reading 0 as
+  // the new one does, though the owner's Firefox moves it: the ring is held in Chromium alone.
+  if (test.info().project.name !== "chromium") {
+    return;
+  }
+  await expect(async () => {
+    const level = await page
+      .locator(".together-voice__talk")
+      .evaluate((button: HTMLElement) => Number(button.style.getPropertyValue("--level")));
+    expect(level).toBeGreaterThan(0);
+  }).toPass({ timeout: 10_000 });
+}
+
 /** Turns this page's voice on alone: its person talks, and the others only listen (D281 §1). */
 export async function talkAlone(page: Page): Promise<void> {
   await turnVoiceOn(page);

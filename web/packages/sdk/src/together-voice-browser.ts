@@ -352,9 +352,10 @@ class BrowserCall implements VoiceCall {
 function sentLevelReader(sending: ReadonlySet<RTCRtpSender>): {
   readonly start: () => void;
   readonly stop: () => void;
-  readonly level: () => number;
+  /** The level last read; undefined while no call's statistics have given one, as Firefox's do not. */
+  readonly level: () => number | undefined;
 } {
-  let level = 0;
+  let level: number | undefined;
   let reading: ReturnType<typeof setInterval> | undefined;
   const read = (): void => {
     const [sender] = sending;
@@ -378,7 +379,7 @@ function sentLevelReader(sending: ReadonlySet<RTCRtpSender>): {
     stop: () => {
       clearInterval(reading);
       reading = undefined;
-      level = 0;
+      level = undefined;
     },
     level: () => level,
   };
@@ -414,6 +415,22 @@ export function resumeAtTaps(
   follow();
 }
 
+/**
+ * The louder of the microphone's meter, while its audio context runs, and the level a call's
+ * statistics give, while one is up: the meter reads zeros on iOS (the owner's test, 2026-10-11, the
+ * Talk ring still while the call's statistics gave 0.173), whose audio context is also interrupted as
+ * the microphone opens (WebKit 273511), and Firefox's statistics give no level, its meter reading the
+ * voice.
+ */
+function louderLevel(
+  context: AudioContext | undefined,
+  meter: { readonly read: () => number } | undefined,
+  sent: { readonly level: () => number | undefined } | undefined,
+): number {
+  const metered = context?.state === "running" && meter !== undefined ? meter.read() : 0;
+  return Math.max(metered, sent?.level() ?? 0);
+}
+
 /** How often the sent level is read from a call's statistics while the microphone is open, in ms. */
 const sentLevelEveryMs = 200;
 
@@ -434,8 +451,8 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
   // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
   let levelled:
     { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
-  // The open microphone's meter, which the Talk button shows (D281 §7), and the level the calls
-  // send, for while iOS has interrupted the audio context the meter reads through.
+  // The level the calls send, which the Talk button shows (D281 §7), and the open microphone's
+  // meter, for when there is no call.
   let meter: ReturnType<typeof meterMicrophone>;
   const sending = new Set<RTCRtpSender>();
   const sent = sentLevelReader(sending);
@@ -470,8 +487,7 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
       sent.start();
       return microphone;
     },
-    readMicrophoneLevel: () =>
-      context?.state === "running" && meter !== undefined ? meter.read() : sent.level(),
+    readMicrophoneLevel: () => louderLevel(context, meter, sending.size > 0 ? sent : undefined),
     microphoneClosed: () => {
       levelled?.level.close();
       levelled = undefined;
