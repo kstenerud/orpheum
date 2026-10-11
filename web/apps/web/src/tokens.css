@@ -39,6 +39,8 @@
   --color-irreversible-text: #ff4d4d;
   /* What is on, shown in the status tray (D280): a light blue, apart from the accent and both. */
   --color-status: #7cc8ff;
+  /* Words and icons on the status blue (D281 §7's Talk button, on). */
+  --color-on-status: #04263d;
   --color-video-background: #000000;
   --color-qr-background: #ffffff;
   --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);

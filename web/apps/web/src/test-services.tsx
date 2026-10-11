@@ -89,6 +89,7 @@ export function testServices(
       startCall: () => {
         throw new Error("a test of voice passes its own stand-in devices");
       },
+      readMicrophoneLevel: () => 0,
       prepareToHear: () => undefined,
       microphoneClosed: () => undefined,
       close: () => undefined,

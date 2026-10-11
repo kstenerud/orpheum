@@ -272,7 +272,9 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       ),
     );
     expect(mounted.container.querySelector('section[aria-label="Voice"]')).not.toBeNull();
-    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
+    expect(
+      mounted.container.querySelector('.together-voice__talk[aria-label="Talk"]'),
+    ).not.toBeNull();
     setFilmVolume(1);
     const film = [...mounted.container.querySelectorAll("label")].find((label) =>
       label.textContent.startsWith("Film volume"),

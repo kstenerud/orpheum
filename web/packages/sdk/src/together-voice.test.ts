@@ -207,6 +207,7 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
         calls.push(call);
         return call;
       },
+      readMicrophoneLevel: () => 0.05,
       prepareToHear: () => {
         prepared.push(prepared.length);
       },
@@ -329,6 +330,15 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(microphone.isStopped()).toBe(true);
     expect(calls.every((call) => !call.isClosed)).toBe(true);
     expect(voice.snapshot()).toMatchObject({ status: "off", isHearing: true });
+  });
+
+  it("reads the voice going out only while its person talks, for the Talk button's ring (D281 §7)", async () => {
+    const { voice } = await hearing();
+    expect(voice.readMicrophoneLevel()).toBe(0);
+    await voice.start(levelled);
+    expect(voice.readMicrophoneLevel()).toBe(0.05);
+    voice.stop();
+    expect(voice.readMicrophoneLevel()).toBe(0);
   });
 
   it("tells the core's log as its person talks, mutes, unmutes and stops (D281 §2, §3)", async () => {

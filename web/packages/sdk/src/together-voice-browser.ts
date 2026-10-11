@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
-import { levelMicrophone, mixToMono, type LevelledMicrophone } from "./together-voice-level.ts";
+import {
+  levelMicrophone,
+  meterMicrophone,
+  mixToMono,
+  type LevelledMicrophone,
+} from "./together-voice-level.ts";
 import {
   voiceCallStatsOf,
   type VoiceCallStats,
@@ -340,6 +345,8 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
   // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
   let levelled:
     { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
+  // The open microphone's meter, which the Talk button shows (D281 §7).
+  let meter: ReturnType<typeof meterMicrophone>;
   const prepareToHear = (): void => {
     if (context === undefined && "AudioContext" in window) {
       context = new AudioContext();
@@ -366,11 +373,16 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
           ? undefined
           : levelMicrophone(microphone, context);
       levelled = level === undefined ? undefined : { microphone, level };
+      meter?.close();
+      meter = context === undefined ? undefined : meterMicrophone(microphone, context);
       return microphone;
     },
+    readMicrophoneLevel: () => meter?.read() ?? 0,
     microphoneClosed: () => {
       levelled?.level.close();
       levelled = undefined;
+      meter?.close();
+      meter = undefined;
       endCallAudio();
     },
     startCall: (setup) =>
@@ -380,6 +392,8 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
     close: () => {
       levelled?.level.close();
       levelled = undefined;
+      meter?.close();
+      meter = undefined;
       void context?.close().catch(() => undefined);
       context = undefined;
     },

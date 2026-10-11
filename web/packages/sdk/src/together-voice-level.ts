@@ -68,6 +68,32 @@ export function mixToMono(
   });
 }
 
+/**
+ * Reads microphone's level through context, a root-mean-square from 0 to 1, for the Talk button to
+ * show the person their voice going out (D281 §7); undefined for a microphone with no track.
+ */
+export function meterMicrophone(
+  microphone: MediaStream,
+  context: AudioContext,
+): { readonly read: () => number; readonly close: () => void } | undefined {
+  if (microphone.getAudioTracks().length === 0) {
+    return undefined;
+  }
+  const source = context.createMediaStreamSource(microphone);
+  const analyser = context.createAnalyser();
+  source.connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+  return {
+    read: () => {
+      analyser.getFloatTimeDomainData(samples);
+      return levelOf(samples);
+    },
+    close: () => {
+      source.disconnect();
+    },
+  };
+}
+
 /** A microphone raised to a speaking level, and the track a call sends now. */
 export interface LevelledMicrophone {
   /** The levelled track while Web Audio runs, the microphone's own while it does not. */
