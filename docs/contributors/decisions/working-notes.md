@@ -16133,6 +16133,8 @@ are the authentication ([D107](#d107--the-node-channel-is-mutually-authenticated
 
 ## D208 — The scenario walk's answers: re-identify on rename unless confirmed, a Title follows its files between libraries, withhold removals past half and twenty, and a returning payload revives its tombstone
 
+> **Revised by [D276](#d276--a-scan-that-removes-nothing-never-waits-for-the-admin-though-its-root-moved-to-another-device)** (2026-10-11): §3's changed device or mount holds back only a scan that would remove something.
+
 **Decided** (2026-09-24), by the project owner, answering the four questions of
 [scenarios.md](../design/plans/scenarios.md)'s first walk, which the owner asked for: *"We
 haven't done user story scenarios yet to test our model."*
@@ -19291,3 +19293,20 @@ server.
    being first.
 
 **Status:** Decided 2026-10-11. §1 shapes W4b; §2's relicensing is not done.
+
+## D276 — A scan that removes nothing never waits for the admin, though its root moved to another device
+
+**Decided** (2026-10-11), by the project owner (*"yes"*), after the rebuilt sandbox's staging
+showed both its library folders "offline": the bind mounts it reads came back on another
+filesystem device, every file still in them.
+[D208](#d208--the-scenario-walks-answers-re-identify-on-rename-unless-confirmed-a-title-follows-its-files-between-libraries-withhold-removals-past-half-and-twenty-and-a-returning-payload-revives-its-tombstone) §3 held back any scan whose root's device or mount had changed since its last
+complete scan, as an unmounted disk leaves its empty mount point behind. A scan that finds every
+file it knew is not that, so:
+
+1. **A scan that would remove nothing completes**, whatever its root's device: nothing waits for
+   the admin, the root is not offline, and the new device and mount are recorded, so a later
+   unplugging is judged against them.
+2. A changed device or mount still holds back a scan that would remove anything, as before; one
+   that would remove all of a root's files waits in any case.
+
+**Status:** Decided 2026-10-11.
