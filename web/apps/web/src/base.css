@@ -176,5 +176,31 @@ hr {
 }
 
 [role="alert"] {
-  color: var(--color-problem);
+  color: var(--color-warning);
+}
+
+/*
+ * What cannot be undone is red (D278 §4): a button that asks first is outlined in the bright red,
+ * the button that does it is filled with the deep red under white words, and the words that say so
+ * are the bright red.
+ */
+button.irreversible-outline {
+  border-color: var(--color-irreversible-text);
+  background: transparent;
+  color: var(--color-irreversible-text);
+}
+
+button.irreversible {
+  border-color: var(--color-irreversible);
+  background: var(--color-irreversible);
+  color: var(--color-on-irreversible);
+}
+
+button.irreversible:hover:not(:disabled) {
+  border-color: var(--color-irreversible-text);
+  background: var(--color-irreversible);
+}
+
+.irreversible-words {
+  color: var(--color-irreversible-text);
 }

@@ -85,3 +85,20 @@
   color: var(--color-muted);
   text-align: center;
 }
+
+/* A title that cannot be played now carries the warning sign over its poster's corner (D278). */
+.poster-grid__item {
+  position: relative;
+}
+
+.poster-grid__warning {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  border-radius: var(--radius-control);
+  background: rgb(0 0 0 / 55%);
+}
+
+.poster-grid__warning .warning-sign__detail {
+  inset-inline: auto 0;
+}

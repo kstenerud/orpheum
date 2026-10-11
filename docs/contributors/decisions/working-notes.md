@@ -19368,5 +19368,16 @@ reported its user and group in its hello.
    revamp sweep yet (i.e. there can be gaps if it's too much trouble, but the principle should be
    there for when we do the new UI)."*
 
-**Status:** Decided 2026-10-11; the shades wait for the owner's choice from
-`/yoloai/files/colour-samples.html`.
+6. **The shades**, the owner's choices from samples (*"Y3 looks good"*, then *"I like D1 and T5"*,
+   then *"Adopt this color scheme"*): the warning yellow `#ffcc00` with a near-black mark; the
+   irreversible red `#b91c1c` to fill a button under white words, and `#ff4d4d` for its words and
+   outlines. The coral accent stays the ordinary action's.
+
+**Status:** Decided and built 2026-10-11, with gaps the UI revamp closes: the tokens
+(`--color-warning`, `--color-irreversible`, `--color-irreversible-text`), the warning sign that
+opens its detail (`warning-sign.tsx`), beside a title, a Continue Watching row and a film that
+cannot be played now, a library folder whose scan could not read it, waits for the admin or misses
+a disk, and a role that reaches no library; the plain sign beside the System page's offline,
+waiting and unread entries and the reminder; and the red on every confirming button and the System
+page's removal. Not yet: a role's deletion asks nothing first, and an episode, a person and a device
+carry no sign.

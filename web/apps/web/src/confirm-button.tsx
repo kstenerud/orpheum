@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 
 /**
  * A button for what cannot be undone: pressed, it says what will happen and asks again, and only
- * the second press acts; "Keep it" puts things back as they were.
+ * the second press acts; "Keep it" puts things back as they were. Both it and what it says are in
+ * the irreversible red (D278 §4): outlined first, filled to confirm.
  */
 export function ConfirmButton(props: {
   /** What the first button says. */
@@ -22,6 +23,7 @@ export function ConfirmButton(props: {
     return (
       <button
         type="button"
+        className="irreversible-outline"
         onClick={() => {
           setIsAsking(true);
         }}
@@ -32,9 +34,10 @@ export function ConfirmButton(props: {
   }
   return (
     <span>
-      {props.consequence}{" "}
+      <span className="irreversible-words">{props.consequence}</span>{" "}
       <button
         type="button"
+        className="irreversible"
         onClick={() => {
           setIsAsking(false);
           props.onConfirm();

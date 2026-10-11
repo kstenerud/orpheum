@@ -15,6 +15,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
+import { UnplayableSign } from "./unplayable-sign.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -73,7 +74,9 @@ export function TitleView(props: {
         <TitleFacts title={title} />
       </div>
       {title.unavailable === undefined ? null : (
-        <output className="title__unavailable">{unavailableText(t, title.unavailable)}</output>
+        <output className="title__unavailable">
+          <UnplayableSign unavailable={title.unavailable} /> {unavailableText(t, title.unavailable)}
+        </output>
       )}
       <Versions
         versions={title.versions ?? []}

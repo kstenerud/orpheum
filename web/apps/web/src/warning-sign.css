@@ -1,0 +1,67 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* D278: the warning yellow's triangle beside what has a problem, opening what is wrong. */
+
+.warning-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.warning-icon__triangle {
+  fill: var(--color-warning);
+  stroke: rgb(0 0 0 / 35%);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
+
+.warning-icon__mark {
+  fill: var(--color-on-warning);
+}
+
+.warning-sign {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.warning-sign__button {
+  min-height: auto;
+  padding: var(--space-1);
+  border: 0;
+  background: none;
+  line-height: 0;
+}
+
+.warning-sign__button:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+}
+
+.warning-sign__detail {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  display: grid;
+  gap: var(--space-2);
+  width: min(22rem, 80vw);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-inline-start: 4px solid var(--color-warning);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-weight: normal;
+  text-align: start;
+  white-space: normal;
+}
+
+.warning-sign__summary {
+  font-weight: var(--font-weight-strong);
+}
+
+.warning-sign__body {
+  display: block;
+}
