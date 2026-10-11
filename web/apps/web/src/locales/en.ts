@@ -35,7 +35,7 @@ export const en = {
     signOut: "Sign out",
     manage: "Manage",
     togetherOn: "on now",
-    you: "You",
+    menu: "Menu",
     signedInAs: "{{name}}",
     signedInAsOn: "{{name}} on {{device}}",
     label: "Main",

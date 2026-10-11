@@ -98,7 +98,7 @@ describe("AppShell", () => {
     expect(markup).toContain('href="/films"');
   });
 
-  it("keeps the places for watching in view, the admin's under Manage, and the person's under their name", () => {
+  it("keeps the places for watching in view, and the admin's, under Manage, and the person's in one menu at the end", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <AppShell
@@ -116,11 +116,13 @@ describe("AppShell", () => {
     expect(watching).toContain('href="/films"');
     expect(watching).toContain('href="/watch-together"');
     expect(watching).not.toContain('href="/jobs"');
+    // One menu, behind its icon, marked as where one is (the owner, 2026-10-11).
+    expect(markup.match(/<details/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<details class="app-shell__menu app-shell__menu--current"><summary>Manage<\/summary><ul>.*href="\/jobs"/u,
+      /<details class="app-shell__menu app-shell__menu--current"><summary aria-label="Menu" title="Menu"><svg/u,
     );
     expect(markup).toMatch(
-      /<details class="app-shell__menu app-shell__menu--own"><summary>karl<\/summary><ul>.*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
+      /<ul><li class="app-shell__who">karl<\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
     );
   });
 
@@ -139,7 +141,8 @@ describe("AppShell", () => {
       ),
     );
     expect(markup).not.toContain("Manage");
-    expect(markup).toContain("<summary>You</summary>");
+    expect(markup).not.toContain("app-shell__divider");
+    expect(markup).toContain('<summary aria-label="Menu" title="Menu">');
   });
 
   it("closes a menu when one of its places is chosen, on a press outside it, and on Escape", async () => {
