@@ -26,6 +26,8 @@ export async function startSessionWithLink(host: Page): Promise<string> {
     await host.getByRole("button", { name: "End it" }).click();
   }
   await start.click();
+  // Inviting is a button that opens a dialog of its own (D281 §5).
+  await host.getByRole("button", { name: "Invite someone" }).click();
   await host.getByLabel("Who it is for (only you see this)").fill("Anna");
   await host.getByRole("button", { name: "Make a link" }).click();
   const link = host.locator("output.share__link");
@@ -255,7 +257,7 @@ async function turnVoiceOn(page: Page): Promise<void> {
     if (await talk.isVisible()) {
       await talk.click();
     }
-    await expect(page.getByRole("button", { name: "Leave voice" })).toBeVisible({ timeout: 2000 });
+    await expect(page.getByRole("button", { name: "Stop talking" })).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30_000 });
 }
 
@@ -270,8 +272,23 @@ export async function talkBothWays(
 ): Promise<void> {
   await turnVoiceOn(host);
   await turnVoiceOn(guest);
-  await expect(host.getByText("Voice: connected to Anna")).toBeVisible({
-    timeout: connectsWithinMs,
-  });
-  await expect(guest.getByText(/Voice: connected to /)).toBeVisible({ timeout: connectsWithinMs });
+  await expectHearing(host, guest, connectsWithinMs);
+}
+
+/**
+ * Each page hears the other connected within connectsWithinMs: every page hears voice from the
+ * start, whoever talks (D281 §1).
+ */
+export async function expectHearing(
+  host: Page,
+  guest: Page,
+  connectsWithinMs = 30_000,
+): Promise<void> {
+  await expect(host.getByText("Voice: hearing Anna")).toBeVisible({ timeout: connectsWithinMs });
+  await expect(guest.getByText(/Voice: hearing /)).toBeVisible({ timeout: connectsWithinMs });
+}
+
+/** Turns this page's voice on alone: its person talks, and the others only listen (D281 §1). */
+export async function talkAlone(page: Page): Promise<void> {
+  await turnVoiceOn(page);
 }

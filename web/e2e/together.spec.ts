@@ -13,11 +13,13 @@ import { isPlaying, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import {
   endSession,
+  expectHearing,
   expectVoiceWithinBounds,
   hostPlays,
   join,
   pageWithMicrophone,
   startSessionWithLink,
+  talkAlone,
   talkBothWays,
 } from "./together-pages.ts";
 
@@ -124,6 +126,37 @@ test("an invitation works once, only once joined, and no credential is ever in a
     }
   }
 });
+
+/**
+ * One person talks alone, the other never pressing Talk, and the other hears them (D281 §1). The
+ * host's page loads again to play, so its voice device comes after the guest's: the guest offers
+ * each call and the host's answers. An answerer's microphone must go out on the transceiver the
+ * offer made, and an iPhone's went nowhere (the owner's test, 2026-10-11).
+ */
+for (const talker of ["the guest, offering", "the host, answering"] as const) {
+  test(`${talker} the call, who alone talks, is heard by one who never pressed Talk (D281 §1)`, async ({
+    browser,
+  }) => {
+    const hosting = await pageWithMicrophone(browser);
+    const joining = await pageWithMicrophone(browser);
+    const host = hosting.page;
+    const guest = joining.page;
+    await signIn(host);
+    const link = await startSessionWithLink(host);
+    await guest.goto(link);
+    await join(guest, link);
+    await hostPlays(host, warmUpFilm);
+    await expectHearing(host, guest);
+    const [speaker, listener] = talker === "the host, answering" ? [host, guest] : [guest, host];
+    await talkAlone(speaker);
+    await speaker.waitForTimeout(talkForMs);
+
+    await expectVoiceWithinBounds([["the listener", listener]], true);
+    await endSession(host);
+    await hosting.context.close();
+    await joining.context.close();
+  });
+}
 
 test("voice between two fake microphones arrives one-way under 300 ms with under 2% concealed (D243 §9)", async ({
   browser,
