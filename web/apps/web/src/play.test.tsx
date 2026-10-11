@@ -5,7 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { audioRenditionIndex, playbackFailureText, PlayView, positionToMoveFrom } from "./play.tsx";
+import { audioRenditionIndex, playbackFailureText } from "./film-player.tsx";
+import { PlayView, positionToMoveFrom } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";

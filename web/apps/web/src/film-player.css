@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * The one player's stage and video, on every page that plays a film (the owner, 2026-10-11). The
+ * video is in the flow at the page's width, its corners its own, nothing clipping it: an iPhone
+ * showed a guest's player no controls in a stage that clipped it (idiosyncrasies.md).
+ */
+
+/* JASSUB places its canvas over the video, in the nearest positioned box; so do a page's overlays. */
+.film-player__stage {
+  position: relative;
+}
+
+/* Black, the stage's size, before any film plays (D246 §5). */
+.film-player__stage--empty {
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
+  border-radius: var(--radius-card);
+  background: var(--color-video-background);
+}
+
+.film-player__video {
+  display: block;
+  width: 100%;
+  max-height: 80vh;
+  border-radius: var(--radius-card);
+  background: var(--color-video-background);
+}

@@ -2,22 +2,30 @@
 
 import "./together-viewer.css";
 
-import { mediaErrorFailure, type PlaybackFailure } from "@orpheum/player";
 import {
   followGroup,
   playedMutedEvent,
   soundOnAtTap,
+  type CannotKeepUp,
   type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherEndReason,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type JSX,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
-import { startingAudioTrack } from "./audio-tracks.tsx";
 import { browserStorage } from "./browser-storage.ts";
 import {
   CredentialsField,
@@ -26,14 +34,7 @@ import {
   CredentialsProblem,
 } from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
-import {
-  LadderNotes,
-  audioRenditionIndex,
-  playbackFailureText,
-  useBufferMeter,
-  useChunkedPlayback,
-  usePreparedPlayback,
-} from "./play.tsx";
+import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
@@ -346,7 +347,7 @@ function ViewingArea(props: {
   return (
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? (
-        <div className="together-viewer__stage" />
+        <EmptyStage />
       ) : (
         <GroupFilm
           key={`${String(fileId)}/${props.audioOutput}`}
@@ -366,7 +367,13 @@ interface Following {
   readonly volume: number;
 }
 
-/** The group's film, asked for afresh each time it changes, playing as the server decided. */
+/**
+ * The group's film, asked for afresh each time it changes, playing as the server decided, in the one
+ * player every page composes: following the group, with the player's own controls where the guest's
+ * rights give them (D271 §4), Tap for sound and Full screen over it, and its stalls told by the
+ * membership. A guest may not ask why the host's file cannot be read: the player's own words are
+ * told.
+ */
 function GroupFilm(props: {
   readonly fileId: number;
   readonly credential: string;
@@ -383,55 +390,113 @@ function GroupFilm(props: {
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
   // An update waits while the film shows, and reloads the page as soon as it stops.
   useShowsAFilm();
+  const { connection } = props.following;
+  // A film on its ladder starts where the group is; following it moves it on from there.
+  const [ladderStartMs] = useState(() => connection.snapshot().group?.positionMs ?? 0);
   // The lower quality the viewer's player moved to once it was ready (D253), per playback.
-  const [moved, setMoved] = useState<
-    { readonly mediaToken: string; readonly offer: LadderOffer } | undefined
-  >(undefined);
+  const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
+  const { canPlayPause, canSeek } = connection.snapshot().rights;
   return (
     <Loaded
       resource={decision}
       render={(value) => {
-        const films = {
-          fileId: props.fileId,
-          decision: value,
-          following: props.following,
-          headers,
-        };
         const onLowerQuality = (offer: LadderOffer): void => {
-          setMoved((already) => already ?? { mediaToken: value.mediaToken, offer });
+          const positionMs = connection.snapshot().group?.positionMs ?? 0;
+          setMoved((already) => already ?? { mediaToken: value.mediaToken, offer, positionMs });
         };
-        let film: JSX.Element;
-        const onLadder = value.onLadder ?? undefined;
-        if (moved?.mediaToken === value.mediaToken) {
-          film = <ChunkedFilm {...films} offer={moved.offer} />;
-        } else if (onLadder !== undefined) {
-          // A film cut into chunks plays from its ladder from the start (D260).
-          film = <ChunkedFilm {...films} offer={onLadder} isOnLadder />;
-        } else if (value.delivery === "direct") {
-          film = <DirectFilm {...films} onLowerQuality={onLowerQuality} />;
-        } else {
-          film = <PreparedFilm {...films} onLowerQuality={onLowerQuality} />;
-        }
         return (
-          <>
+          <GuestFilmContext
+            value={{
+              fileId: props.fileId,
+              following: props.following,
+              decision: value,
+              headers,
+              onLowerQuality,
+            }}
+          >
             {value.titleName === undefined ? null : (
               <p className="together-viewer__title">{value.titleName}</p>
             )}
-            <div className="together-viewer__stage">{film}</div>
-          </>
+            <FilmPlayer
+              decision={value}
+              moved={moved}
+              ladderStartMs={ladderStartMs}
+              composition={{
+                hasControls: canPlayPause || canSeek,
+                isAutoPlay: false,
+                askAbout: undefined,
+                over: FollowingGroup,
+                under: GuestStalls,
+              }}
+            />
+          </GuestFilmContext>
         );
       }}
     />
   );
 }
 
-/** What a viewer's film is given: the film, how it plays, the group it follows, and its membership. */
-interface FilmProps {
+/** What the guest's pieces of the player need of its page: the film, the group, the membership. */
+interface GuestFilm {
   readonly fileId: number;
-  readonly decision: PlaybackDecision;
   readonly following: Following;
+  readonly decision: PlaybackDecision;
   /** The membership's authorization, by which the viewer's player reports its stalls. */
   readonly headers: Readonly<Record<string, string>>;
+  readonly onLowerQuality: (offer: LadderOffer) => void;
+}
+
+const GuestFilmContext = createContext<GuestFilm | undefined>(undefined);
+
+/** The guest's page, as GroupFilm gives it to the player's pieces. */
+function useGuestFilm(): GuestFilm {
+  const film = use(GuestFilmContext);
+  if (film === undefined) {
+    throw new Error("a guest's piece of the player outside its GroupFilm");
+  }
+  return film;
+}
+
+/**
+ * Under the guest's film: its stalls reported by the membership, the original's or a prepared
+ * copy's (useMovingDown), or a ladder's word that even its lowest cannot keep up (D247 §8).
+ */
+function GuestStalls(props: FilmParts): JSX.Element {
+  const film = useGuestFilm();
+  const { ladder } = props;
+  return ladder === undefined ? (
+    <ReportsStalls {...film} videoRef={props.videoRef} readLinkKbps={props.readLinkKbps} />
+  ) : (
+    <TellsCannotKeepUp connection={film.following.connection} cannotKeepUp={ladder.cannotKeepUp} />
+  );
+}
+
+/** Over the guest's film: the video following the group, and Tap for sound and Full screen. */
+function FollowingGroup(props: FilmParts): JSX.Element {
+  const { fileId, following } = useGuestFilm();
+  const muted = useFollowing(props.videoRef, fileId, following);
+  return <FilmButtons {...muted} videoRef={props.videoRef} />;
+}
+
+/** A ladder's word that even its lowest quality cannot keep up, told the group (D247 §8). */
+function TellsCannotKeepUp(props: {
+  readonly connection: TogetherConnection & TellsCannotKeepUp;
+  readonly cannotKeepUp: CannotKeepUp | undefined;
+}): null {
+  useToldCannotKeepUp(props.connection, props.cannotKeepUp);
+  return null;
+}
+
+/** The original or a prepared copy: its stalls reported by the membership (useMovingDown). */
+function ReportsStalls(props: {
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly readLinkKbps: () => number | undefined;
+  readonly decision: PlaybackDecision;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly onLowerQuality: (offer: LadderOffer) => void;
+}): null {
+  useMovingDown(props.videoRef, props, props.readLinkKbps);
+  return null;
 }
 
 /**
@@ -440,7 +505,11 @@ interface FilmProps {
  */
 function useMovingDown(
   videoRef: RefObject<HTMLVideoElement | null>,
-  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
+  props: {
+    readonly decision: PlaybackDecision;
+    readonly headers: Readonly<Record<string, string>>;
+    readonly onLowerQuality: (offer: LadderOffer) => void;
+  },
   readLinkKbps: () => number | undefined,
 ): void {
   const { api } = useServices();
@@ -562,124 +631,4 @@ function enterFullscreen(video: (HTMLVideoElement & WebKitVideo) | null): void {
   } else {
     video.webkitEnterFullscreen?.();
   }
-}
-
-/** The original file, following the group; it plays when the group does, never on its own. */
-function DirectFilm(
-  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
-): JSX.Element {
-  const { t } = useTranslation();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = useState<string | undefined>(undefined);
-  const muted = useFollowing(videoRef, props.fileId, props.following);
-  useMovingDown(videoRef, props, useBufferMeter(videoRef, props.decision.fileBitRateKbps));
-  return (
-    <>
-      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
-      <video
-        className="together-viewer__video"
-        ref={videoRef}
-        src={props.decision.url}
-        controls={muted.hasControls}
-        playsInline
-        onError={(event) => {
-          setFailure(
-            t("play.directFailed", {
-              reason: playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)),
-            }),
-          );
-        }}
-      />
-      <FilmButtons {...muted} videoRef={videoRef} />
-      {failure === undefined ? null : <p role="alert">{failure}</p>}
-    </>
-  );
-}
-
-/** A prepared copy, following the group once its first part is made. */
-function PreparedFilm(
-  props: FilmProps & { readonly onLowerQuality: (offer: LadderOffer) => void },
-): JSX.Element {
-  const { t } = useTranslation();
-  const { decision } = props;
-  const [startIndex] = useState(() =>
-    audioRenditionIndex(
-      decision,
-      startingAudioTrack(decision)?.audioTrackIndex ?? 0,
-      decision.preferences.isDialogueBoostOn,
-    ),
-  );
-  // A viewer may not ask why the host's file cannot be read: the player's own words are told.
-  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
-    undefined,
-    decision,
-    startIndex,
-  );
-  const muted = useFollowing(videoRef, props.fileId, props.following);
-  useMovingDown(videoRef, props, () => playbackRef.current?.estimateKbps());
-  return (
-    <>
-      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
-      <video
-        className="together-viewer__video"
-        ref={videoRef}
-        controls={muted.hasControls}
-        playsInline
-      />
-      <FilmButtons {...muted} videoRef={videoRef} />
-      {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
-      {failure === undefined ? null : (
-        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
-      )}
-    </>
-  );
-}
-
-/**
- * The film on its ladder, every quality of it cut into chunks, following the group: from the start
- * (D260), or moved to by the viewer's stalling player (D247 §2, §10), from the quality offered.
- */
-function ChunkedFilm(
-  props: Pick<FilmProps, "fileId" | "following"> & {
-    readonly offer: LadderOffer;
-    readonly isOnLadder?: boolean;
-  },
-): JSX.Element {
-  const { t } = useTranslation();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = useState<string | undefined>(undefined);
-  const onFailed = useCallback(
-    (seen: PlaybackFailure) => {
-      setFailure(t("play.preparedFailed", { reason: playbackFailureText(t, seen) }));
-    },
-    [t],
-  );
-  // It starts where the group is; following it moves it on from there.
-  const [startMs] = useState(() => props.following.connection.snapshot().group?.positionMs ?? 0);
-  const { playing, cannotKeepUp } = useChunkedPlayback(
-    videoRef,
-    { offer: props.offer, positionMs: startMs },
-    onFailed,
-  );
-  const muted = useFollowing(videoRef, props.fileId, props.following);
-  useToldCannotKeepUp(props.following.connection, cannotKeepUp);
-  return (
-    <>
-      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
-      <video
-        className="together-viewer__video"
-        ref={videoRef}
-        controls={muted.hasControls}
-        playsInline
-      />
-      <FilmButtons {...muted} videoRef={videoRef} />
-      <LadderNotes
-        offer={props.offer}
-        playing={playing}
-        cannotKeepUp={cannotKeepUp}
-        isOnLadder={props.isOnLadder === true}
-      />
-      {failure === undefined ? null : <p role="alert">{failure}</p>}
-    </>
-  );
 }

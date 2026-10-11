@@ -20,35 +20,10 @@
   margin: 0;
 }
 
-/* The film's name above the stage, which is black while nothing plays. */
+/* The film's name above the stage (film-player.css), which is black while nothing plays. */
 .together-viewer__viewing {
   display: grid;
   gap: var(--space-2);
-}
-
-/* The stage is laid out as the Play page's player is: the video in the flow at the width of the
-   page, its corners its own, nothing clipping it. A stage that clipped it (overflow: hidden,
-   aspect-ratio, border-radius) showed an iPhone on iOS 18.5 none of the player's controls, and
-   placing the video absolutely in it did not bring them back (the owner, 2026-10-11); whether an
-   iPhone shows them now is VQ29's (idiosyncrasies.md). */
-.together-viewer__stage {
-  position: relative;
-}
-
-/* Black while nothing plays: the viewer sees only the host's playback (D246 §5). */
-.together-viewer__stage:empty {
-  aspect-ratio: 16 / 9;
-  max-height: 80vh;
-  border-radius: var(--radius-card);
-  background: var(--color-video-background);
-}
-
-.together-viewer__video {
-  display: block;
-  width: 100%;
-  max-height: 80vh;
-  border-radius: var(--radius-card);
-  background: var(--color-video-background);
 }
 
 /* Over a film the browser would only play muted, in its middle: the one tap its sound needs. */
