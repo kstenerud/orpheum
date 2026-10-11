@@ -3,12 +3,12 @@
 package identity
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 )
 
@@ -54,10 +54,10 @@ func TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother(t *testing.T) {
 		t.Fatal(err)
 	}
 	signature := key.Sign("enrol", "n0nce")
-	if !ed25519.Verify(key.Public(), SignedMessage("enrol", "n0nce"), signature) {
+	if !proof.Verify(key.Public(), "enrol", "n0nce", signature) {
 		t.Error("the signature does not verify for its own purpose")
 	}
-	if ed25519.Verify(key.Public(), SignedMessage("session", "n0nce"), signature) {
+	if proof.Verify(key.Public(), "session", "n0nce", signature) {
 		t.Error("an enrolment's signature verifies as a session's")
 	}
 }

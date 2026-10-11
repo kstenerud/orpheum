@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
 )
 
 // enrollingDiscovery answers a challenge and an enrolment with a claim code, as a discovery does;

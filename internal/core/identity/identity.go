@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 )
 
@@ -20,10 +21,6 @@ const KeyFileName = "identity.key"
 // keyFileHeader is the key file's first line: its format and version, so a later format can still
 // read this one.
 const keyFileHeader = "orpheum-identity-key v1"
-
-// signaturePrefix separates the core's signatures from any other use of the key: a signature names
-// the protocol and its purpose, so one made for enrolling cannot open a session (discovery-core.md).
-const signaturePrefix = "orpheum-discovery-v1:"
 
 // Key is the core's identity: an Ed25519 key pair made on its first start that never changes for the
 // life of the instance. A discovery knows the core by its public key, and a client can pin it
@@ -52,12 +49,7 @@ func (key Key) Public() ed25519.PublicKey {
 
 // Sign signs a discovery's nonce for purpose: "enrol" or "session".
 func (key Key) Sign(purpose, nonce string) []byte {
-	return ed25519.Sign(key.private, SignedMessage(purpose, nonce))
-}
-
-// SignedMessage is what a signature for purpose over nonce signs, for a discovery to check it by.
-func SignedMessage(purpose, nonce string) []byte {
-	return []byte(signaturePrefix + purpose + ":" + nonce)
+	return ed25519.Sign(key.private, proof.Message(purpose, nonce))
 }
 
 // EncodeKeyFile renders the key as identity.key's contents: the seed, from which both halves follow.

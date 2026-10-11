@@ -101,7 +101,8 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/subtitle` | R3 | — |
 | `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
 | `internal/nodeproto` | R8 | — |
-| `internal/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (kept apart to move to a shared protocol module) |
+| `discovery/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (public: the closed service imports it, D275 §1) |
+| `discovery/proof` | R1 (what a core's signature to its discovery covers, and its check, D273) | — (public: the closed service imports it, D275 §1) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |

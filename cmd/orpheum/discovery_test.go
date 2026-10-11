@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 )
 
 // The heartbeat's own candidates are the machine's global addresses, a private one marked as

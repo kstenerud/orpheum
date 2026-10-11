@@ -13,8 +13,8 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
 )
 
 // signalCheckEvery is how often the signalling loop looks whether the core is claimed and so should

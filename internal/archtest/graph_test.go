@@ -42,7 +42,7 @@ type sourceFile struct {
 func loadModulePackages(t *testing.T) []listedPackage {
 	t.Helper()
 	command := exec.CommandContext(t.Context(), "go", "list", "-json",
-		modulePath+"/cmd/...", modulePath+"/internal/...")
+		modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 	output, err := command.Output()

@@ -18,8 +18,8 @@
 - **Public packages under `discovery/`** at the module's root, not `internal/` (D275 §1), so the
   closed service imports them. Each has a `doc.go` with the same headings as every package's, and
   the gates that walk `cmd/` and `internal/` walk `discovery/` too.
-  - `discovery/wire`: the wire types, moved from `internal/discoveryproto`, which the core and the
-    discovery both speak.
+  - `discovery/discoveryproto`: the wire types, moved from `internal/discoveryproto`, which the core
+    and the discovery both speak; its name kept, so it reads at every use as it did.
   - `discovery/proof`: what a signature is over, and its check: Ed25519 over
     `orpheum-discovery-v1:<purpose>:<nonce>`, a nonce working once.
   - `discovery/single`: the core-facing protocol answered for one core (challenge, enrol, session,
@@ -36,7 +36,7 @@
 
 | Step | What | State |
 | --- | --- | --- |
-| W4b.1 | The public tree: `discovery/wire` (moved from `internal/discoveryproto`) and `discovery/proof`, the core signing with it; the architecture tests that load `cmd/...` and `internal/...` load `discovery/...` too | |
+| W4b.1 | The public tree: `discovery/discoveryproto` (moved from `internal/discoveryproto`) and `discovery/proof`, the core signing with it; the architecture tests that load `cmd/...` and `internal/...` load `discovery/...` too, and `TestArch_PublicPackagesImportNothingInternal` holds the tree free of `internal/` | BUILT 2026-10-11 |
 | W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`), whose fake in its tests it replaces as the reference; the state in one file; `orpheum discovery` and `orpheum discovery claim <code>` | |
 | W4b.3 | STUN: the discovery's `iceServers` in its status answer point at its own STUN, the embedded relay's | |
 | W4b.4 | The client-facing protocol (§8): paths and offer for the one core, passing the client's offer on the signalling connection; locate once the core registers its link hashes (Q4 below) | |

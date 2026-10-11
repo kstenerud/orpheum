@@ -217,7 +217,7 @@ func functionsUsed(
 func loadExportFiles(t *testing.T) map[string]string {
 	t.Helper()
 	command := exec.CommandContext(t.Context(), "go", "list", "-export", "-deps", "-json=ImportPath,Export",
-		modulePath+"/cmd/...", modulePath+"/internal/...")
+		modulePath+"/cmd/...", modulePath+"/internal/...", publicPath+"/...")
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 	output, err := command.Output()
