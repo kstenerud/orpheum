@@ -104,6 +104,7 @@ is the evidence. The first column names each package by its path; the check read
 | `discovery/discoveryproto` | R1 (the wire between a core and its discovery, D273) | — (public: the closed service imports it, D275 §1) |
 | `discovery/proof` | R1 (what a core's signature to its discovery covers, and its check, D273) | — (public: the closed service imports it, D275 §1) |
 | `discovery/safe32code` | R1 (the codes a person types, written one way: a core's device and setup codes, a discovery's claim code, D218 §3, D223 §2) | — (public: the closed service writes the same codes, D275 §1) |
+| `discovery/single` | R1 (a discovery for one core: the core-facing protocol, its record, and the core's signalling, W4b) | — (public: the closed service assembles the same blocks for many cores, D275 §1) |
 | `internal/platform/outbound`, `internal/platform/bounded` | R1 support | — |
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |
