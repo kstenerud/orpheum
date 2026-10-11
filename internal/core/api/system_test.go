@@ -419,3 +419,44 @@ func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
 		t.Errorf("no public name = %+v (%v); want no certificate shown", facts.Certificate, err)
 	}
 }
+
+func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, filing_reason, error_detail_json,
+		 first_seen_at, last_seen_at) VALUES
+		 (4, 1, 1, '/media/Locked', CAST('/media/Locked' AS BLOB), 'errored', 'permission_denied',
+		  '{"text":"permission denied","ownerUid":0,"groupGid":0,"modeText":"drwxr-x---","occurrenceCount":1}',
+		  7000, 9000)`,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
+		 VALUES (5, 1, 1, '/media/Locked/Inside.mkv', CAST('/media/Locked/Inside.mkv' AS BLOB), 'listed', 1, 1)`,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
+		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 3 of 5 files')`)
+	got := harness.do(t, http.MethodGet, "/system", admin, nil)
+	var system SystemOutput
+	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
+		t.Fatalf("GET /system = %d %s", got.status, got.body)
+	}
+	if len(system.Body.Offline) != 0 {
+		t.Errorf("offline = %+v while only removals wait; want nothing (D277 §1)", system.Body.Offline)
+	}
+	wantPaths := []string{"/media/Film (2001).mp4", "/media/Film (2002).mkv", "/media/notes.txt"}
+	if len(system.Body.Waiting) != 1 || system.Body.Waiting[0].FileCount != 3 ||
+		!slices.Equal(system.Body.Waiting[0].FirstPaths, wantPaths) || system.Body.Waiting[0].WaitingAt != 5000 {
+		t.Errorf("waiting = %+v; want /media's 3 unseen files, not what is under the folder it could not read",
+			system.Body.Waiting)
+	}
+	if len(system.Body.Unread) != 1 || system.Body.Unread[0].Path != "/media/Locked" ||
+		system.Body.Unread[0].ErrorDetail.ModeText != "drwxr-x---" || system.Body.Unread[0].FoundAt != 7000 {
+		t.Errorf("unread = %+v; want /media/Locked with its mode", system.Body.Unread)
+	}
+	reminder := harness.do(t, http.MethodGet, "/offline-reminder", admin, nil)
+	if !strings.Contains(reminder.body, `"isShown":true`) || !strings.Contains(reminder.body, `"waitingRootCount":1`) ||
+		!strings.Contains(reminder.body, `"unreadCount":1`) {
+		t.Errorf("GET /offline-reminder = %s; want it shown, with one folder waiting and one path unread",
+			reminder.body)
+	}
+}

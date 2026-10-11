@@ -25,6 +25,7 @@ import { Link } from "./link.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { WhatWaits } from "./system-waiting.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -65,7 +66,9 @@ export function System(): JSX.Element {
       <BusyGroup isBusy={retiring.isBusy}>
         <Loaded
           resource={report}
-          render={(value) => <SystemView report={value} onRetireNode={retireNode} />}
+          render={(value) => (
+            <SystemView report={value} onRetireNode={retireNode} onChanged={reload} />
+          )}
         />
       </BusyGroup>
       <NowPlaying />
@@ -84,6 +87,8 @@ export function System(): JSX.Element {
 export function SystemView(props: {
   readonly report: SystemReport;
   readonly onRetireNode: (nodeName: string) => void;
+  /** Something the admin did here changed the report: read it again. */
+  readonly onChanged?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { server } = props.report;
@@ -113,6 +118,7 @@ export function SystemView(props: {
       <DownDestinations destinations={props.report.destinations ?? []} />
       <OutsideServices providers={props.report.providers ?? []} />
       <OfflineStorage offline={props.report.offline ?? []} />
+      <WhatWaits report={props.report} onChanged={props.onChanged} />
       {(props.report.nodes ?? []).map((node) => (
         <NodeFacts
           key={node.name}

@@ -107,6 +107,8 @@ function report(node: SystemNode): SystemReport {
     providers: [],
     queue: [],
     offline: [],
+    waiting: [],
+    unread: [],
   };
 }
 

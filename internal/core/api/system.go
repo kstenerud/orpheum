@@ -93,6 +93,10 @@ type SystemOutput struct {
 		// offline never ends without an admin, who retires one, or a scan that finds it (D41,
 		// D231 §7).
 		Offline []OfflineBody `json:"offline"`
+		// Waiting are the library folders whose scans wait for the admin before removing files, the
+		// longest waiting first; Unread what scans could not read (D277).
+		Waiting []WaitingBody `json:"waiting"`
+		Unread  []UnreadBody  `json:"unread"`
 		// Queue is how each kind of job is doing: queued, the oldest waiting, and failed in the last
 		// day (D233 §8).
 		Queue []QueueKindBody `json:"queue"`
@@ -394,6 +398,9 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 			LibraryID: missing.LibraryID, LibraryName: missing.LibraryName, NodeName: missing.NodeName,
 			RootPath: missing.RootPath, MountPath: missing.MountPath, OfflineAt: missing.Since.UnixMilli(),
 		})
+	}
+	if waitsErr := server.fillWhatWaits(ctx, dependencies, output); waitsErr != nil {
+		return nil, waitsErr
 	}
 	health, err := dependencies.Jobs.Health(ctx)
 	if err != nil {

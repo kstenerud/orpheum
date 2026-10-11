@@ -589,6 +589,20 @@ export const en = {
     offlineHelp:
       "Nothing of theirs is removed until they come back or you say they are gone for good.",
     offlineWhere: "Libraries",
+    waiting: "Waiting for you",
+    waitingExplain:
+      "A scan found files gone and holds back removing them until you say they are: a disk that is not mounted looks the same. Everything else in the folder plays meanwhile. If the files should be there, put them back and scan again.",
+    waitingRoot:
+      "{{node}}: {{path}}, in {{library}}: its scan of {{since}} would remove {{count}} files, because {{reason}}.",
+    waitingMore: "and {{count}} more",
+    waitingRemove: "Remove these {{count}} files",
+    unread: "Could not be read",
+    unreadWhere: "in {{library}}, on {{node}}:",
+    unreadWhy: "{{text}}. It belongs to user {{owner}} and group {{group}}, with mode {{mode}}.",
+    unreadFix:
+      "The node reads as user {{uid}} and group {{gid}}. On the machine that holds it, give it to that user (chown -R {{uid}}:{{gid}}) or let everyone read it (chmod -R a+rX), then scan the library again.",
+    unreadFixUnknownNode:
+      "Make it readable to the user the node runs as, which its System entry shows once it connects, then scan the library again.",
     silentSince: "Not answering. Last heard from at {{at}}.",
     ffmpeg: "FFmpeg",
     runsAs: "Runs as",
@@ -766,17 +780,6 @@ export const en = {
     changed: "Changed; the starting value is {{start}}",
     reset: "Reset to the starting value",
     on: "On",
-  },
-  offlineReminder: {
-    label: "Offline storage",
-    oneFolder: "1 library folder",
-    folders: "{{count}} library folders",
-    oneDisk: "1 disk",
-    disks: "{{count}} disks",
-    foldersAndDisks: "{{folders}} and {{disks}}",
-    offlineSince: "{{what}} offline since {{since}}.",
-    see: "See the System page",
-    dismiss: "Remind me later",
   },
   shell: {
     notFound: "There is nothing at this address.",

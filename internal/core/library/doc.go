@@ -101,14 +101,20 @@
 //     the new one is recorded (D276).
 //     TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice.
 //
+//   - A scan held back for the admin that read the root leaves it available; only its removals
+//     wait, and Waiting names them for the System page, as UnreadPaths names what scans could not
+//     read (D277).
+//     TestScenario_AHeldBackScanThatReadTheRootLeavesItPlayableAndOneThatSawNoneDoesNot,
+//     TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead.
+//
 //   - A disk missing from a mount point inside a root — found by comparing the mount boundaries a
 //     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //
-//   - A file under a root the last scan could not read or withheld, or under a disk missing from a
-//     mount point inside one, is not there to read: UnavailableUnder names that root or disk, and
-//     work that reads the file parks on it; a complete scan says which root and disks it found, so
-//     that work resumes (D231 §5, §6).
+//   - A file under a root the last scan could not read, or whose held-back scan saw none of it, or
+//     under a disk missing from a mount point inside one, is not there to read: UnavailableUnder
+//     names that root or disk, and work that reads the file parks on it; a complete scan says which
+//     root and disks it found, so that work resumes (D231 §5, §6).
 //     TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo.
 //
 //   - Work that stalls waiting on a root's disk makes the root unavailable from then, and asks for a

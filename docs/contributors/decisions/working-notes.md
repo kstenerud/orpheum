@@ -19342,4 +19342,6 @@ owner: *"We need a mechanism in place to deal with this kind of situation."*
    with the library, the platform's error, its owner, group and mode (D163 §8), and what to do:
    make it readable by the node's user.
 
-**Status:** Decided 2026-10-11.
+**Status:** Decided and built 2026-10-11 (`library.Admin.Waiting`, `UnreadPaths`; the System
+page's *Waiting for you* and *Could not be read*; the reminder's counts). The node already
+reported its user and group in its hello.
