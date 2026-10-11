@@ -15,6 +15,7 @@ import {
   use,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
   type JSX,
   type ReactNode,
@@ -143,20 +144,64 @@ function voiceStatusText(t: TFunction, snapshot: VoiceSnapshot): string {
   return t("together.voice.connectingTo", { names: namesIn("connecting") });
 }
 
+/** How often the Talk button's ring follows the voice going out, in ms. */
+export const talkRingEveryMs = 100;
+
 /**
- * Talk, one toggle (the owner, 2026-10-11): a press opens the microphone, from the press it needs,
- * and the next closes it, still hearing everyone. Its look is provisional until the owner chooses
- * one (talk-toggle-options).
+ * How far the Talk button's ring reaches for a voice's level, from 0 to 1: a speaking voice
+ * (voiceTargetLevel, 0.1) fills it, and a quiet one still shows, the scale a square root's.
+ */
+export function talkRingOf(level: number): number {
+  return Math.min(1, Math.sqrt(Math.max(0, level) / 0.1));
+}
+
+/** A microphone, struck through while off. */
+function MicrophoneIcon(props: { readonly isOn: boolean }): JSX.Element {
+  return (
+    <svg className="together-voice__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {props.isOn ? (
+        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z" />
+      ) : (
+        <path d="M19 11h-2a5 5 0 0 1-.6 2.4l1.5 1.5A7 7 0 0 0 19 11zM15 5a3 3 0 0 0-6 0v.2l6 6V5zM4.3 3 3 4.3l6 6V11a3 3 0 0 0 4.4 2.6l1.6 1.6A5 5 0 0 1 7 11H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 3.4-1.3l3.3 3.3 1.3-1.3z" />
+      )}
+    </svg>
+  );
+}
+
+/**
+ * Talk, one toggle (D281 §7), a round microphone button, the owner's choice B: struck through
+ * while off; in the status blue while on, a ring around it growing with the voice going out. A
+ * press opens the microphone, from the press it needs, and the next closes it, still hearing
+ * everyone. Its name is for screen readers and a pointer's hover.
  */
 function TalkToggle(props: VoiceInUse): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = props;
   const isTalking = snapshot.status === "on";
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const button = ref.current;
+    if (!isTalking || button === null) {
+      return undefined;
+    }
+    const follow = setInterval(() => {
+      button.style.setProperty("--level", String(talkRingOf(voice.readMicrophoneLevel())));
+    }, talkRingEveryMs);
+    return () => {
+      clearInterval(follow);
+      button.style.removeProperty("--level");
+    };
+  }, [isTalking, voice]);
+  const name = isTalking ? t("together.voice.stopTalking") : t("together.voice.talk");
   return (
     <button
+      ref={ref}
       type="button"
       className="together-voice__talk"
       aria-pressed={isTalking}
+      aria-label={name}
+      title={name}
+      data-starting={snapshot.status === "starting" ? "" : undefined}
       disabled={snapshot.status === "starting"}
       onClick={() => {
         if (isTalking) {
@@ -169,7 +214,7 @@ function TalkToggle(props: VoiceInUse): JSX.Element {
         }
       }}
     >
-      {isTalking ? t("together.voice.stopTalking") : t("together.voice.talk")}
+      <MicrophoneIcon isOn={isTalking} />
     </button>
   );
 }

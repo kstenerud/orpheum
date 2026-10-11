@@ -34,3 +34,52 @@
   color: var(--color-muted);
   font-size: var(--font-size-small);
 }
+
+/* Talk, the owner's choice B (D281 §7): a round microphone button, struck through while off; in the
+   status blue while on, its ring growing with the voice going out (--level, 0 to 1). */
+.together-voice__talk {
+  display: inline-grid;
+  place-items: center;
+  justify-self: start;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  color: var(--color-muted);
+  transition: box-shadow 0.08s linear;
+}
+
+.together-voice__talk[aria-pressed="true"] {
+  border-color: var(--color-status);
+  background: var(--color-status);
+  color: var(--color-on-status);
+  box-shadow: 0 0 0 calc(var(--level, 0) * 0.65rem) rgb(124 200 255 / 35%);
+}
+
+.together-voice__talk[data-starting] {
+  animation: together-voice-opening 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .together-voice__talk {
+    transition: none;
+  }
+
+  .together-voice__talk[data-starting] {
+    animation: none;
+  }
+}
+
+@keyframes together-voice-opening {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.together-voice__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: currentColor;
+}

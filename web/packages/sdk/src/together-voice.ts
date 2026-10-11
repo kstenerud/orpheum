@@ -138,6 +138,8 @@ export interface VoiceDevices<Microphone extends VoiceMicrophone> {
    * its person's next tap where the browser waits for one (D281 §1).
    */
   readonly prepareToHear: () => void;
+  /** The open microphone's level now, a root-mean-square from 0 to 1; 0 with none open. */
+  readonly readMicrophoneLevel: () => number;
   /**
    * The microphone stopped: what the devices did for it is undone, the microphone's levelling and,
    * on iOS, the call it made of the browser's sound (the owner's test, 2026-10-08).
@@ -209,6 +211,8 @@ export interface TogetherVoice {
   readonly setMuted: (isMuted: boolean) => void;
   /** How loud memberId's voice plays, from 0 to partnerGainMost (D281 §4). */
   readonly setPartnerGain: (memberId: number, gain: number) => void;
+  /** This person's voice going out now, a root-mean-square from 0 to 1; 0 while not talking. */
+  readonly readMicrophoneLevel: () => number;
 }
 
 /** What voice needs. */
@@ -482,6 +486,11 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       partnerGains: { ...this.#snapshot.partnerGains, [memberId]: partnerGain },
     });
   };
+
+  readonly readMicrophoneLevel = (): number =>
+    this.#microphone === undefined || this.#snapshot.isMuted
+      ? 0
+      : this.#options.devices.readMicrophoneLevel();
 
   /** How loud memberId's voice plays: as set, else as it came. */
   #gainOf(memberId: number): number {

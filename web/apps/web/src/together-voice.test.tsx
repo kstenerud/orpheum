@@ -23,6 +23,8 @@ import { TogetherViewer } from "./together-viewer.tsx";
 import {
   HostVoiceProvider,
   movesSoundToTheEarpiece,
+  talkRingEveryMs,
+  talkRingOf,
   useVoice,
   VoiceControls,
 } from "./together-voice.tsx";
@@ -89,6 +91,7 @@ function fakeDevices(openMicrophone?: () => Promise<MediaStream>): FakeDevices {
         calls.push(call);
         return call;
       },
+      readMicrophoneLevel: () => 0.1,
       prepareToHear: () => undefined,
       microphoneClosed: () => undefined,
       close: () => undefined,
@@ -152,6 +155,11 @@ function voiceServices(
   };
 }
 
+/** The Talk button, found by its name, which is for screen readers: it shows only an icon. */
+function talkButton(container: Element, name: string): Element | undefined {
+  return container.querySelector(`.together-voice__talk[aria-label="${name}"]`) ?? undefined;
+}
+
 /** A person's voice and its controls, as a page has them. */
 function Voice(props: { readonly audioOutput: AudioOutput }): JSX.Element {
   const voice = useVoice(membership, undefined);
@@ -200,7 +208,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
     await server.say(welcome);
-    await click(buttonWithText(mounted.container, "Talk"));
+    await click(talkButton(mounted.container, "Talk"));
     expect(devices.processedAsked).toEqual([{ shouldCancelEcho: true, shouldLevel: false }]);
     expect(devices.calls).toHaveLength(1);
     expect(devices.calls[0]!.sent).toHaveLength(1);
@@ -237,9 +245,14 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(talk()?.getAttribute("aria-pressed")).toBe("false");
     await click(talk());
     expect(talk()?.getAttribute("aria-pressed")).toBe("true");
-    expect(talk()?.textContent).toBe("Stop talking");
+    expect(talk()?.getAttribute("aria-label")).toBe("Stop talking");
     expect(buttonWithText(mounted.container, "Mute")).toBeUndefined();
     expect(devices.calls[0]!.sent).toHaveLength(1);
+    // Its ring grows with the voice going out: the fake microphone's 0.1, a speaking voice, fills it.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, talkRingEveryMs + 50));
+    });
+    expect((talk() as HTMLElement | undefined)?.style.getPropertyValue("--level")).toBe("1");
     const karl = [...mounted.container.querySelectorAll("label")].find((label) =>
       label.textContent.startsWith("Karl's voice"),
     );
@@ -250,7 +263,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(devices.stoppedTracks()).toBe(1);
     expect(devices.calls[0]!.sent.at(-1)).toBeUndefined();
     expect(talk()?.getAttribute("aria-pressed")).toBe("false");
-    expect(talk()?.textContent).toBe("Talk");
+    expect(talk()?.getAttribute("aria-label")).toBe("Talk");
     expect(mounted.container.textContent).toContain("Voice: connecting to Karl…");
     // And a third opens it again.
     await click(talk());
@@ -271,7 +284,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toBe(
       "Voice could not connect to the others and is off.",
     );
-    expect(buttonWithText(mounted.container, "Stop talking")).toBeUndefined();
+    expect(talkButton(mounted.container, "Stop talking")).toBeUndefined();
     await click(buttonWithText(mounted.container, "Connect voice again"));
     expect(server.openedCount()).toBe(2);
     expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
@@ -283,13 +296,13 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     const { services, server } = voiceServices(devices);
     const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
     await server.accept();
-    await click(buttonWithText(mounted.container, "Talk"));
+    await click(talkButton(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Your microphone was not allowed",
     );
     // The browser's own words, to read out to whoever is helping.
     expect(mounted.container.textContent).toContain("The browser said: NotAllowedError: no");
-    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
+    expect(talkButton(mounted.container, "Talk")).toBeDefined();
     expect(server.openedCount()).toBe(1);
     mounted.unmount();
   });
@@ -298,7 +311,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotSupportedError")));
     const { services } = voiceServices(devices);
     const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
-    await click(buttonWithText(mounted.container, "Talk"));
+    await click(talkButton(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "needs the https:// address",
     );
@@ -312,9 +325,11 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     window.sessionStorage.setItem("orpheum.together.host", JSON.stringify(hostMembership));
     const { services } = voiceServices(fakeDevices());
     const viewer = await mount(withServices(<TogetherViewer />, services));
-    expect(viewer.container.querySelector('section[aria-label="Voice"] button')?.textContent).toBe(
-      "Talk",
-    );
+    expect(
+      viewer.container
+        .querySelector('section[aria-label="Voice"] button')
+        ?.getAttribute("aria-label"),
+    ).toBe("Talk");
     viewer.unmount();
     const host = await mount(
       withServices(
@@ -330,10 +345,21 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
         services,
       ),
     );
-    expect(host.container.querySelector('section[aria-label="Voice"] button')?.textContent).toBe(
-      "Talk",
-    );
+    expect(
+      host.container
+        .querySelector('section[aria-label="Voice"] button')
+        ?.getAttribute("aria-label"),
+    ).toBe("Talk");
     host.unmount();
+  });
+});
+
+describe("the Talk button's ring (D281 §7)", () => {
+  it("is full for a speaking voice, still shows a quiet one, and is empty in silence", () => {
+    expect(talkRingOf(0.1)).toBe(1);
+    expect(talkRingOf(0.4)).toBe(1);
+    expect(talkRingOf(0.004)).toBeCloseTo(0.2);
+    expect(talkRingOf(0)).toBe(0);
   });
 });
 

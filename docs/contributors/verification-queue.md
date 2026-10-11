@@ -267,7 +267,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   (D271 §4, D280). (`web/apps/web/src/status-tray.css`, `together-viewer.css`)
 - [ ] **VQ30** — Against staging, a host on a computer and a guest on an iPhone, neither pressing
   anything: the host presses Talk and speaks. Passes when the guest hears the host without pressing
-  Talk; the guest's Talk is one toggle: pressed again, it stops only the guest's voice reaching the host,
+  Talk; the guest's Talk is one round microphone button, blue with a ring that grows as they speak: pressed again, it stops only the guest's voice reaching the host,
   the guest still hearing the host, and on the iPhone gives the film's sound back to the speaker; each person's voice slider in the host's pop-up changes only that person's loudness;
   the pop-up's Film volume moves the host's film on a computer; Invite and a person's row each open
   a dialog in the middle of the screen; End the session stands clear below the people; and the

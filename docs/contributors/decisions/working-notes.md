@@ -19459,7 +19459,9 @@ longer attaches the voice device.
    talking. How we make it "stop talking" is implementation defined. If we can easily just turn off
    the microphone and then restart it when they turn talk back on, do that. If we encounter problems
    and need to mute instead, do that. Prefer turning the microphone off."* The second press closes
-   the microphone; muting (§3) is kept in the SDK as the fallback, not offered. The toggle's look
-   waits for the owner's choice (`talk-toggle-options.html`, shared files).
+   the microphone; muting (§3) is kept in the SDK as the fallback, not offered. Its look is the
+   owner's choice B of five samples (`talk-toggle-options.html`, shared files): *"B looks good for
+   the toggle."* A round microphone button, struck through while off; in the status blue while on,
+   with a ring that grows with the voice going out.
 
 **Status:** Decided 2026-10-11.
