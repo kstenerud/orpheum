@@ -9,6 +9,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { UnplayableSign } from "./unplayable-sign.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Poster } from "./poster.tsx";
@@ -149,6 +150,7 @@ function ContinueWatchingRowView(props: {
           />
         )}
       </Link>
+      {row.unavailable === undefined ? null : <UnplayableSign unavailable={row.unavailable} />}
       <button
         type="button"
         onClick={() => {

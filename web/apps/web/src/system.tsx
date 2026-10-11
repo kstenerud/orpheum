@@ -26,6 +26,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { WhatWaits } from "./system-waiting.tsx";
+import { WarningIcon } from "./warning-sign.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -315,6 +316,7 @@ function OfflineStorage(props: { readonly offline: readonly Offline[] }): JSX.El
           const place = { library: missing.libraryName, node: missing.nodeName, since };
           return (
             <li key={`${missing.nodeName}:${missing.rootPath}:${missing.mountPath ?? ""}`}>
+              <WarningIcon />
               {missing.mountPath === undefined
                 ? t("system.offlineRoot", { ...place, path: missing.rootPath })
                 : t("system.offlineDisk", { ...place, path: missing.mountPath })}

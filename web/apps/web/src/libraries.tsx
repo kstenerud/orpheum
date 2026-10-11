@@ -4,6 +4,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { RootWarning } from "./root-warning.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -96,6 +97,7 @@ export function RootLine(props: {
   const { root } = props;
   return (
     <li>
+      <RootWarning root={root} />
       <code>{t("libraries.root", { node: root.nodeName, path: root.rootPath })}</code>{" "}
       {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
       {root.scan === undefined ? null : <ScanProgress scan={root.scan} />}
@@ -106,6 +108,7 @@ export function RootLine(props: {
       {root.lastScanOutcome === "withheld" ? (
         <button
           type="button"
+          className="irreversible"
           onClick={() => {
             props.onAnswer(root, { kind: "approveRemovals" });
           }}

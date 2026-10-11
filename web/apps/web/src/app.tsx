@@ -10,6 +10,7 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
@@ -90,23 +91,25 @@ function SignedIn(): JSX.Element {
     void haveBackMySessions(api).catch(() => undefined);
   }, [api]);
   return (
-    <BackgroundChangesContext value={poller}>
-      <AppShell
-        isAdmin={isAdmin}
-        canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-        isHostingTogether={isHostingTogether}
-        signedInAs={
-          me.state === "loaded"
-            ? { name: me.value.name, deviceName: me.value.device?.name }
-            : undefined
-        }
-        currentScreen={route.screen}
-        onSignOut={signOut}
-      >
-        {isAdmin ? <OfflineReminder /> : null}
-        <Screen route={route} />
-      </AppShell>
-    </BackgroundChangesContext>
+    <IsAdminContext value={isAdmin}>
+      <BackgroundChangesContext value={poller}>
+        <AppShell
+          isAdmin={isAdmin}
+          canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+          isHostingTogether={isHostingTogether}
+          signedInAs={
+            me.state === "loaded"
+              ? { name: me.value.name, deviceName: me.value.device?.name }
+              : undefined
+          }
+          currentScreen={route.screen}
+          onSignOut={signOut}
+        >
+          {isAdmin ? <OfflineReminder /> : null}
+          <Screen route={route} />
+        </AppShell>
+      </BackgroundChangesContext>
+    </IsAdminContext>
   );
 }
 

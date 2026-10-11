@@ -7,6 +7,7 @@ import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
+import { UnplayableSign } from "./unplayable-sign.tsx";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
@@ -42,7 +43,7 @@ export function PosterGrid(props: {
   return (
     <ul className="poster-grid">
       {props.entries.map((entry) => (
-        <li key={entry.id}>
+        <li key={entry.id} className="poster-grid__item">
           <Link
             to={itemRoute(props.kind, entry.id)}
             className={
@@ -65,6 +66,11 @@ export function PosterGrid(props: {
               </span>
             )}
           </Link>
+          {entry.unavailable === undefined ? null : (
+            <span className="poster-grid__warning">
+              <UnplayableSign unavailable={entry.unavailable} />
+            </span>
+          )}
         </li>
       ))}
     </ul>

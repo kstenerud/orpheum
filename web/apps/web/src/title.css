@@ -67,7 +67,7 @@
 .title__unavailable {
   display: block;
   margin-block-end: var(--space-4);
-  color: var(--color-problem);
+  color: var(--color-warning);
 }
 
 /* Each file: Play first, as the page's one primary action, then what the file holds. */

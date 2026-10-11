@@ -3,6 +3,7 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { WarningSign } from "./warning-sign.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
 import { listLibraries, type Library } from "./libraries.tsx";
@@ -142,8 +143,7 @@ function RoleEditor(props: {
   };
   return (
     <FormRow onSubmit={save}>
-      <h3>{roleLabel(t, role.name)}</h3>
-      <p>{t("roles.holders", { count: role.holderCount })}</p>
+      <RoleHeading role={role} />
       {role.isBuiltin ? null : <NameField value={name} onChange={setName} />}
       <Checklist
         legend={t("roles.capabilities")}
@@ -275,4 +275,19 @@ export function NoLibraryNote(props: {
     return null;
   }
   return <p>{t("roles.noLibraryChosen")}</p>;
+}
+
+/** A role's name and how many hold it, with the warning sign when it reaches no library (D278). */
+function RoleHeading(props: { readonly role: Role }): JSX.Element {
+  const { t } = useTranslation();
+  const { role } = props;
+  return (
+    <>
+      <h3>{roleLabel(t, role.name)}</h3>
+      {isWithoutLibrary(role) ? (
+        <WarningSign summary={t("warning.roleWithoutLibrary")} forAdmin={t("roles.noLibrary")} />
+      ) : null}
+      <p>{t("roles.holders", { count: role.holderCount })}</p>
+    </>
+  );
 }

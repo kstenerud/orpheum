@@ -9,6 +9,7 @@ import { useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
+import { WarningIcon } from "./warning-sign.tsx";
 import { dateText } from "./date-time-text.ts";
 import { Link } from "./link.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
@@ -45,6 +46,7 @@ export function OfflineReminder(): JSX.Element | null {
   };
   return (
     <aside className="offline-reminder" aria-label={t("offlineReminder.label")}>
+      <WarningIcon />
       <p className="offline-reminder__text">
         {lines.join(" ")} <Link to={{ screen: "system" }}>{t("offlineReminder.see")}</Link>
       </p>

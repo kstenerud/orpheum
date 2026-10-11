@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { WarningIcon } from "./warning-sign.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { idempotent } from "./idempotent.ts";
@@ -108,6 +109,7 @@ function UnreadPaths(props: {
           return (
             <li key={`${path.nodeName}:${path.path}`}>
               <p>
+                <WarningIcon />
                 <code>{path.path}</code>{" "}
                 {t("system.unreadWhere", { library: path.libraryName, node: path.nodeName })}{" "}
                 {t("system.unreadWhy", {
@@ -141,6 +143,7 @@ function WaitingRoot(props: {
   return (
     <li>
       <p>
+        <WarningIcon />
         {t("system.waitingRoot", {
           node: root.nodeName,
           path: root.rootPath,
@@ -160,7 +163,7 @@ function WaitingRoot(props: {
       {root.fileCount > named.length ? (
         <p>{t("system.waitingMore", { count: root.fileCount - named.length })}</p>
       ) : null}
-      <button type="button" onClick={props.onRemove}>
+      <button type="button" className="irreversible" onClick={props.onRemove}>
         {t("system.waitingRemove", { count: root.fileCount })}
       </button>
     </li>

@@ -26,8 +26,17 @@
   --color-accent: #ffa891;
   --color-accent-hover: #ffc2b2;
   --color-on-accent: #2e0e06;
-  /* Crimson, a hue apart from the coral accent: a problem never reads as the primary action. */
-  --color-problem: #ff4d6d;
+  /*
+   * Two colours with one meaning each (D278 §4, the owner's choices from samples): yellow, signal
+   * yellow, for something wrong that needs fixing or could not be done, which never reads as the
+   * coral accent; and red for what cannot be undone, deep to fill its button under white words,
+   * bright for its words and outlines.
+   */
+  --color-warning: #ffcc00;
+  --color-on-warning: #111111;
+  --color-irreversible: #b91c1c;
+  --color-on-irreversible: #ffffff;
+  --color-irreversible-text: #ff4d4d;
   --color-video-background: #000000;
   --color-qr-background: #ffffff;
   --shadow-raised: 0 2px 8px rgb(0 0 0 / 45%);
