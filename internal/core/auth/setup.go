@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kstenerud/orpheum/discovery/safe32code"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -57,7 +58,7 @@ func (service *Service) EnsureSetupCode(ctx context.Context, codes SetupCodes) (
 		return "", fmt.Errorf("read the setup code: %w", err)
 	}
 	// A code an earlier release stored in another alphabet is replaced: safe32 cannot read it.
-	if canonical, readErr := readSafe32(code, setupCodeChars); err == nil && readErr == nil && canonical == code {
+	if canonical, readErr := safe32code.Read(code, setupCodeChars); err == nil && readErr == nil && canonical == code {
 		return code, nil
 	}
 	code, err = newSetupCode(service.random)
@@ -83,7 +84,7 @@ func (service *Service) CompleteSetup(
 	if err != nil {
 		return 0, fmt.Errorf("read the setup code: %w", err)
 	}
-	given, err := readSafe32(code, setupCodeChars)
+	given, err := safe32code.Read(code, setupCodeChars)
 	if err != nil || subtle.ConstantTimeCompare([]byte(given), []byte(stored)) != 1 {
 		return 0, ErrWrongSetupCode
 	}
@@ -113,5 +114,5 @@ func newSetupCode(random io.Reader) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("make a setup code: %w", err)
 	}
-	return safe32Code(binary.BigEndian.Uint64(raw), setupCodeChars), nil
+	return safe32code.Write(binary.BigEndian.Uint64(raw), setupCodeChars), nil
 }
