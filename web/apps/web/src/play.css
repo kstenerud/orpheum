@@ -13,18 +13,6 @@
   font-size: var(--font-size-h2);
 }
 
-/* JASSUB places its canvas over the video, in the nearest positioned box. */
-.play__stage {
-  position: relative;
-}
-
-.play__video {
-  width: 100%;
-  max-height: 80vh;
-  border-radius: var(--radius-card);
-  background: var(--color-video-background);
-}
-
 .play__reason {
   color: var(--color-muted);
 }

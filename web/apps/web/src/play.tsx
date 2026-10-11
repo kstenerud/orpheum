@@ -2,34 +2,23 @@
 
 import "./play.css";
 
+import { seekTo, type HlsPlayback } from "@orpheum/player";
+import type { CannotKeepUp } from "@orpheum/sdk";
 import {
-  mediaErrorFailure,
-  meterBufferGrowth,
-  playChunked,
-  playHls,
-  seekTo,
-  watchStalls,
-  type ChunkedPlayback,
-  type HlsPlayback,
-  type LinkMeter,
-  type PlaybackFailure,
-  type PlayedLevel,
-} from "@orpheum/player";
-import { whenReady, type Api, type CannotKeepUp, type components } from "@orpheum/sdk";
-import {
+  createContext,
+  use,
   useCallback,
   useEffect,
-  useRef,
+  useMemo,
   useState,
   type JSX,
   type RefObject,
-  type SyntheticEvent,
 } from "react";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
-import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
+import { audioRenditionIndex, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
+import { problemText } from "./problem.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
@@ -40,9 +29,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { HostPlaysTogether } from "./together-host.tsx";
-import { rateText } from "./rate-text.ts";
 import { useResource } from "./use-resource.ts";
-import { monotonicMs } from "./use-together.ts";
 import { watchingOf, type PlaybackDecision } from "./watching.ts";
 
 /**
@@ -57,10 +44,7 @@ export function PlayView(props: {
   readonly onDecideAgain: () => void;
 }): JSX.Element {
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
-  const [moved, setMoved] = useState<
-    | { readonly mediaToken: string; readonly offer: LadderOffer; readonly positionMs: number }
-    | undefined
-  >(undefined);
+  const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
   // The video playing now, which the host's Watch Together session follows: kept here, above the
   // way of playing, so a move to a lower quality is no film stopped and put on again for everyone
   // (the owner's test, 2026-10-05).
@@ -74,31 +58,37 @@ export function PlayView(props: {
     },
     [mediaToken],
   );
-  const ways = { ...props, onLowerQuality, onVideo: setVideo, onCannotKeepUp: setCannotKeepUp };
-  let playing: JSX.Element;
-  const onLadder = props.decision.onLadder ?? undefined;
-  if (moved?.mediaToken === mediaToken) {
-    playing = <ChunkedVideo {...ways} offer={moved.offer} positionMs={moved.positionMs} />;
-  } else if (onLadder !== undefined) {
-    // A film cut into chunks plays from its ladder from the start (D260).
-    playing = (
-      <ChunkedVideo
-        {...ways}
-        offer={onLadder}
-        positionMs={props.decision.resumePositionMs}
-        isOnLadder
-      />
-    );
-  } else if (props.decision.delivery === "direct") {
-    playing = <DirectVideo {...ways} />;
-  } else {
-    playing = <PreparedVideo {...ways} />;
-  }
+  const { fileId, decision, onDecideAgain } = props;
+  const ways = useMemo(
+    () => ({
+      fileId,
+      decision,
+      onDecideAgain,
+      onLowerQuality,
+      onVideo: setVideo,
+      onCannotKeepUp: setCannotKeepUp,
+    }),
+    [fileId, decision, onDecideAgain, onLowerQuality],
+  );
   const { titleName } = props.decision;
   return (
     <>
       {titleName === undefined ? null : <h1 className="play__title">{titleName}</h1>}
-      {playing}
+      <PlayContext value={ways}>
+        <div className="play">
+          <FilmPlayer
+            decision={props.decision}
+            moved={moved}
+            ladderStartMs={props.decision.resumePositionMs}
+            composition={{
+              hasControls: true,
+              isAutoPlay: true,
+              askAbout: props.fileId,
+              under: PlayUnderOfPage,
+            }}
+          />
+        </div>
+      </PlayContext>
       <HostPlaysTogether
         fileId={props.fileId}
         video={video}
@@ -229,70 +219,83 @@ function UnderTheVideo(
   );
 }
 
-/**
- * The audio rendition that plays a track of a prepared copy: its boosted mix when the boost is on
- * and it has one, else its standard mix; undefined when the copy has no such track.
- */
-export function audioRenditionIndex(
-  decision: Pick<PlaybackDecision, "audioRenditions">,
-  audioTrackIndex: number,
-  isBoostOn: boolean,
-): number | undefined {
-  const mixes = mixIndices(decision, audioTrackIndex);
-  return isBoostOn && mixes?.boosted !== undefined ? mixes.boosted : mixes?.standard;
+/** What the Play page gives what it draws under the film: PlayView's props and its ways. */
+const PlayContext = createContext<PlayProps | undefined>(undefined);
+
+/** PlayUnder, with the page's props from PlayContext: the player's Under piece. */
+function PlayUnderOfPage(props: FilmParts): JSX.Element | null {
+  const ways = use(PlayContext);
+  return ways === undefined ? null : <PlayUnder {...ways} {...props} />;
 }
 
 /**
- * A prepared copy, playing: it waits while the copy's first part is made, then plays it, starting
- * with the audio track the playback starts with, with a switch for the dialogue boost where that
- * track has a centre to raise (D217 §3). Another track chosen plays at once (D23).
+ * What the Play page draws under the film, by the way it plays: what sits under every video, and
+ * the original's reason, a prepared copy's reasons, audio tracks and dialogue boost, or a ladder's
+ * word that it cannot keep up, which a host's session tells everyone (D247 §8).
  */
-function PreparedVideo(props: PlayProps): JSX.Element {
+function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
+  if (props.preparedRef !== undefined) {
+    return <PreparedUnder {...props} preparedRef={props.preparedRef} />;
+  }
+  if (props.ladder !== undefined) {
+    return <LadderUnder {...props} ladder={props.ladder} />;
+  }
+  return <DirectUnder {...props} />;
+}
+
+/** Under the original: what sits under every video, and why it plays as it is. */
+function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <UnderTheVideo
+        {...props}
+        level={soundLevelOf(props.decision, undefined)}
+        onAudioChosen={props.onDecideAgain}
+      />
+      {props.failure === undefined ? <p className="play__reason">{t("play.direct")}</p> : null}
+    </>
+  );
+}
+
+/**
+ * Under a prepared copy: what sits under every video, why a copy plays, and a switch for the
+ * dialogue boost where the track playing has a centre to raise (D217 §3). Another track chosen plays
+ * at once (D23).
+ */
+function PreparedUnder(
+  props: PlayProps &
+    FilmParts & {
+      readonly preparedRef: RefObject<HlsPlayback | undefined>;
+    },
+): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
   const [audioTrackIndex, setAudioTrackIndex] = useState(
     () => startingAudioTrack(decision)?.audioTrackIndex ?? 0,
   );
   const [isBoostOn, setIsBoostOn] = useState(decision.preferences.isDialogueBoostOn);
-  const [startIndex] = useState(() =>
-    audioRenditionIndex(decision, audioTrackIndex, decision.preferences.isDialogueBoostOn),
-  );
-  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
-    props.fileId,
-    decision,
-    startIndex,
-  );
   const boostMixes = mixIndices(decision, audioTrackIndex);
   const play = (trackIndex: number, isBoosted: boolean): void => {
     const index = audioRenditionIndex(decision, trackIndex, isBoosted);
     if (index !== undefined) {
-      playbackRef.current?.setAudioRendition(index);
+      props.preparedRef.current?.setAudioRendition(index);
     }
   };
   const reasons = (decision.notDirectReasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
     .join(", ");
   return (
-    <div className="play">
-      <div className="play__stage">
-        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
-        <video className="play__video" ref={videoRef} controls autoPlay playsInline />
-      </div>
+    <>
       <UnderTheVideo
         {...props}
-        videoRef={videoRef}
         level={soundLevelOf(decision, audioTrackIndex)}
-        readLinkKbps={() => playbackRef.current?.estimateKbps()}
         onAudioChosen={(track) => {
           setAudioTrackIndex(track.audioTrackIndex);
           play(track.audioTrackIndex, isBoostOn);
         }}
       />
       <p className="play__reason">{t("play.prepared", { reasons })}</p>
-      {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
-      {failure === undefined ? null : (
-        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
-      )}
       {boostMixes?.boosted === undefined ? null : (
         <BoostSwitch
           isInitiallyOn={isBoostOn}
@@ -302,328 +305,44 @@ function PreparedVideo(props: PlayProps): JSX.Element {
           }}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
- * starting with the audio rendition startAudioRenditionIndex when one is given. A failure asks the
- * server why the file askedAbout cannot be read; undefined asks nothing, for a Watch Together
- * viewer, who may not ask of the host's files and is told the player's own words.
- */
-export function usePreparedPlayback(
-  askedAbout: number | undefined,
-  decision: PlaybackDecision,
-  startAudioRenditionIndex: number | undefined,
-): {
-  videoRef: RefObject<HTMLVideoElement | null>;
-  playbackRef: RefObject<HlsPlayback | undefined>;
-  isWaiting: boolean;
-  failure: string | undefined;
-} {
-  const { t } = useTranslation();
-  const { fetchMedia } = useServices();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<HlsPlayback | undefined>(undefined);
-  const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = usePlaybackFailure(askedAbout);
-  useEffect(() => {
-    const element = videoRef.current;
-    if (element === null) {
-      return undefined;
-    }
-    const aborter = new AbortController();
-    whenReady(decision.url, { fetch: fetchMedia, signal: aborter.signal }).then(
-      () => {
-        if (!aborter.signal.aborted) {
-          setIsWaiting(false);
-          playbackRef.current = playHls(element, decision.url, {
-            onFailed: (failure) => {
-              setFailure(playbackFailureText(t, failure));
-            },
-            ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
-          });
-        }
-      },
-      (cause: unknown) => {
-        if (!aborter.signal.aborted) {
-          setFailure(problemText(t, cause));
-        }
-      },
-    );
-    return () => {
-      aborter.abort();
-      playbackRef.current?.destroy();
-      playbackRef.current = undefined;
-    };
-  }, [decision.url, startAudioRenditionIndex, t, setFailure, fetchMedia]);
-  return { videoRef, playbackRef, isWaiting, failure };
-}
-
-/**
- * What the viewer is told when playback fails: what the player saw, at once, and, when the server
- * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
- * (D241 §7). A file that can be read leaves the player's words.
- */
-function usePlaybackFailure(
-  fileId: number | undefined,
-): [string | undefined, (seen: string) => void] {
-  const { api } = useServices();
-  const { t } = useTranslation();
-  const [failure, setFailure] = useState<string | undefined>(undefined);
-  const fail = useCallback(
-    (seen: string) => {
-      setFailure(seen);
-      if (fileId === undefined) {
-        return;
-      }
-      fetchUnavailability(api, fileId).then(
-        (unavailable) => {
-          if (unavailable !== undefined) {
-            setFailure(unavailableText(t, unavailable));
-          }
-        },
-        () => undefined, // the player's own words stand
-      );
-    },
-    [api, fileId, t],
-  );
-  return [failure, fail];
-}
-
-/** Why a file cannot be read now, as the server says, or undefined when it can. */
-async function fetchUnavailability(
-  api: Api,
-  fileId: number,
-): Promise<components["schemas"]["UnavailableBody"] | undefined> {
-  const answer = dataOrThrow(
-    await api.GET("/files/{id}/availability", { params: { path: { id: fileId } } }),
-  );
-  return answer.unavailable;
-}
-
-/**
- * Measures the link of a video playing a file of fileBitRateKbps as it is, from how fast its buffer
- * grows (D247 §1); none for a file whose bit rate is not known.
- */
-export function useBufferMeter(
-  videoRef: RefObject<HTMLVideoElement | null>,
-  fileBitRateKbps: number,
-): () => number | undefined {
-  const meterRef = useRef<LinkMeter | undefined>(undefined);
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null || fileBitRateKbps <= 0) {
-      return undefined;
-    }
-    const meter = meterBufferGrowth(video, { fileBitRateKbps, monotonicMs });
-    meterRef.current = meter;
-    return () => {
-      meter.stop();
-      meterRef.current = undefined;
-    };
-  }, [videoRef, fileBitRateKbps]);
-  return () => meterRef.current?.estimateKbps();
-}
-
-/** The original file, playing; when the browser cannot play it, why, in words. */
-function DirectVideo(props: PlayProps): JSX.Element {
-  const { t } = useTranslation();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = usePlaybackFailure(props.fileId);
-  const readLinkKbps = useBufferMeter(videoRef, props.decision.fileBitRateKbps);
-  const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
-    setFailure(playbackFailureText(t, mediaErrorFailure(event.currentTarget.error)));
-  };
-  return (
-    <div className="play">
-      <div className="play__stage">
-        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
-        <video
-          className="play__video"
-          ref={videoRef}
-          src={props.decision.url}
-          controls
-          autoPlay
-          playsInline
-          onError={showMediaError}
-        />
-      </div>
-      <UnderTheVideo
-        {...props}
-        videoRef={videoRef}
-        level={soundLevelOf(props.decision, undefined)}
-        onAudioChosen={props.onDecideAgain}
-        readLinkKbps={readLinkKbps}
-      />
-      {failure === undefined ? (
-        <p className="play__reason">{t("play.direct")}</p>
-      ) : (
-        <p role="alert">{t("play.directFailed", { reason: failure })}</p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
- * and, once its lowest quality stalls, that the link cannot keep up (D247 §8).
- */
-export function useChunkedPlayback(
-  videoRef: RefObject<HTMLVideoElement | null>,
-  starting: { readonly offer: LadderOffer; readonly positionMs: number },
-  onFailed: (failure: PlaybackFailure) => void,
-): {
-  readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
-  readonly playing: PlayedLevel | undefined;
-  readonly cannotKeepUp: CannotKeepUp | undefined;
-} {
-  const { offer, positionMs } = starting;
-  const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
-  const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
-  const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video === null) {
-      return undefined;
-    }
-    const playback = playChunked(video, offer.url, {
-      onFailed,
-      startAtBps: offer.startAtBps,
-      startPositionS: positionMs / 1000,
-      monotonicMs,
-    });
-    playbackRef.current = playback;
-    const looking = setInterval(() => {
-      setPlaying(playback.playing());
-    }, 1000);
-    const stopWatching = watchStalls(video, () => {
-      const beyond = playback.beyondTheLink();
-      if (beyond !== undefined) {
-        setCannotKeepUp(beyond);
-      }
-    });
-    return () => {
-      clearInterval(looking);
-      stopWatching();
-      playback.destroy();
-      playbackRef.current = undefined;
-    };
-  }, [videoRef, offer.url, offer.startAtBps, positionMs, onFailed]);
-  return { playbackRef, playing, cannotKeepUp };
-}
-
-/** What a chunked playback says: the quality playing, and when even the lowest cannot keep up. */
-export function LadderNotes(props: {
-  readonly offer: LadderOffer;
-  readonly playing: PlayedLevel | undefined;
-  readonly cannotKeepUp: CannotKeepUp | undefined;
-  /** Whether the playback started on its film's ladder (D260), rather than moved to it after a stall (D253). */
-  readonly isOnLadder?: boolean;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { offer, playing, cannotKeepUp } = props;
-  const isOnLadder = props.isOnLadder === true;
-  const startingKey = isOnLadder ? "play.ladderStarting" : "play.lowerQualityStarting";
-  const playingKey = isOnLadder ? "play.ladderPlaying" : "play.lowerQuality";
-  const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
-  const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
-  return (
-    <>
-      <p className="play__reason">
-        {playing === undefined
-          ? t(startingKey, {
-              height: offer.height,
-              rate: rateText(offer.qualityKbps),
-            })
-          : t(playingKey, {
-              height: playing.height,
-              rate: rateText(playing.averageBitrate / 1000),
-            })}
-      </p>
-      {isBeyondTheLink ? (
-        <p role="alert">
-          {cannotKeepUp?.linkKbps === undefined
-            ? t("play.cannotKeepUpUnmeasured", { lowest })
-            : t("play.cannotKeepUp", { link: rateText(cannotKeepUp.linkKbps), lowest })}
-        </p>
-      ) : null}
     </>
   );
 }
 
 /**
- * A chunked playback, on its film's ladder: every quality of the film cut into chunks, starting at
- * the one offered, stepping down by itself and back up with care, from where the playback resumes
- * (D260) or where a stalled player moved to it (D247 §2, §10). Its sound carries its levelling, as a
- * prepared copy's does.
+ * Under the film on its ladder: what sits under every video, its play state kept from where it
+ * started, not where the person last left the file; its sound carries its levelling, as a prepared
+ * copy's does. Its lowest quality's word that it cannot keep up goes to a host's session (D247 §8).
  */
-function ChunkedVideo(
-  props: PlayProps & {
-    readonly offer: LadderOffer;
-    readonly positionMs: number;
-    readonly isOnLadder?: boolean;
-  },
-): JSX.Element {
-  const { t } = useTranslation();
-  const { offer } = props;
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = usePlaybackFailure(props.fileId);
-  const onFailed = useCallback(
-    (seen: PlaybackFailure) => {
-      setFailure(playbackFailureText(t, seen));
+function LadderUnder(
+  props: PlayProps &
+    FilmParts & {
+      readonly ladder: NonNullable<FilmParts["ladder"]>;
     },
-    [setFailure, t],
-  );
-  const { playbackRef, playing, cannotKeepUp } = useChunkedPlayback(
-    videoRef,
-    { offer, positionMs: props.positionMs },
-    onFailed,
-  );
-  const { onCannotKeepUp } = props;
+): JSX.Element {
+  const { ladder, onCannotKeepUp } = props;
   useEffect(() => {
-    onCannotKeepUp(cannotKeepUp);
+    onCannotKeepUp(ladder.cannotKeepUp);
     return () => {
       onCannotKeepUp(undefined);
     };
-  }, [cannotKeepUp, onCannotKeepUp]);
-  // It starts where the player stalled, not where the person last left the file.
-  const decision = { ...props.decision, resumePositionMs: Math.round(props.positionMs) };
+  }, [ladder.cannotKeepUp, onCannotKeepUp]);
+  const decision = { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
   const level: SoundLevel = {
-    levelling: { isMeasured: offer.soundCarriedGainDb !== 0, gainDb: offer.soundCarriedGainDb },
-    carriedGainDb: offer.soundCarriedGainDb,
+    levelling: {
+      isMeasured: ladder.offer.soundCarriedGainDb !== 0,
+      gainDb: ladder.offer.soundCarriedGainDb,
+    },
+    carriedGainDb: ladder.offer.soundCarriedGainDb,
   };
   return (
-    <div className="play">
-      <div className="play__stage">
-        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
-        <video className="play__video" ref={videoRef} controls autoPlay playsInline />
-      </div>
-      <UnderTheVideo
-        {...props}
-        decision={decision}
-        videoRef={videoRef}
-        level={level}
-        onAudioChosen={props.onDecideAgain}
-        readLinkKbps={() => playbackRef.current?.estimateKbps()}
-      />
-      <LadderNotes
-        offer={offer}
-        playing={playing}
-        cannotKeepUp={cannotKeepUp}
-        isOnLadder={props.isOnLadder === true}
-      />
-      {failure === undefined ? null : (
-        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
-      )}
-    </div>
+    <UnderTheVideo
+      {...props}
+      decision={decision}
+      level={level}
+      onAudioChosen={props.onDecideAgain}
+    />
   );
-}
-
-/** Why a video could not play, in the viewer's words, by the player's code for it. */
-export function playbackFailureText(t: TFunction, failure: PlaybackFailure): string {
-  return t(`play.failure.${camelKey(failure)}`);
 }
 
 /**
