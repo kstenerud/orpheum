@@ -344,6 +344,30 @@ describe("a player following its group", () => {
     expect(seeking.commands).toEqual([{ command: "seek", positionMs: 600_000 }]);
   });
 
+  it("takes the pause an iPhone makes as its full-screen player closes for no pause, whichever comes first", () => {
+    for (const order of [
+      ["pause", "webkitendfullscreen"],
+      ["webkitendfullscreen", "pause"],
+    ] as const) {
+      const media = new FakeMedia();
+      const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+      followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
+      media.fire("seeked"); // the follower's own seek to the group's position
+      vi.advanceTimersByTime(scrubPauseWindowMs);
+      expect(media.paused).toBe(false);
+      for (const event of order) {
+        if (event === "pause") {
+          media.paused = true;
+        }
+        media.fire(event);
+      }
+      vi.advanceTimersByTime(scrubPauseWindowMs * 2);
+      expect(commands, order.join(" then ")).toEqual([]);
+      // And it plays on with the group.
+      expect(media.paused, order.join(" then ")).toBe(false);
+    }
+  });
+
   it("takes the host's player stepping a fraction of a second over a gap for no seek", () => {
     const media = new FakeMedia();
     const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });

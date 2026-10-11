@@ -154,6 +154,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Go's standard library reads the process's TZ | [Go's standard library reads the process's TZ](#gos-standard-library-reads-the-processs-tz) |
 | Vitest strips types without type-checking, so a types-only change can never fail a test | [Vitest strips types without type-checking, so a types-only change can never fail a test](#vitest-strips-types-without-type-checking-so-a-types-only-change-can-never-fail-a-test) |
 | Happy-dom does not carry a disabled `<fieldset>` to its controls | [happy-dom does not carry a disabled `<fieldset>` to its controls](#happy-dom-does-not-carry-a-disabled--to-its-controls) |
+| An iPhone pauses a video as its own full-screen player closes | [An iPhone pauses a video as its own full-screen player closes](#an-iphone-pauses-a-video-as-its-own-full-screen-player-closes) |
 | Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
 | Playwright grants "microphone" only on Chromium; | [Playwright grants "microphone" only on Chromium; Firefox needs prefs](#playwright-grants-microphone-only-on-chromium-firefox-needs-prefs) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
@@ -1953,6 +1954,18 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   #2386](https://github.com/capricorn86/happy-dom/pull/2386), open, last updated 2026-09-13; the related
   [happy-dom#2184](https://github.com/capricorn86/happy-dom/issues/2184) (FormData keeps disabled controls) is
   open too (checked 2026-10-08). Re-check when #2386 merges.
+
+
+### An iPhone pauses a video as its own full-screen player closes
+
+- **What we do:** a following player takes the pause near `webkitendfullscreen` for its own, not its
+  person's: a pause waiting to be sent is dropped, one still to come is marked, and the video is put
+  back where the group is. `web/packages/sdk/src/together-follow.ts` (`leftFullscreen`).
+- **Evidence:** the owner's test, 2026-10-11: each time an iPhone guest with the right to pause left
+  full screen by its X, the log showed its player send a pause, and the group paused for everyone.
+  An iPhone has no element Fullscreen API, only a video's own full-screen player
+  (`webkitEnterFullscreen`, Apple Developer Forums thread 770080, searched 2026-10-11); which comes
+  first, the pause or `webkitendfullscreen`, is not documented, so both orders are handled.
 
 
 ### Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls
