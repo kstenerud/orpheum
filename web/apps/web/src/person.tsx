@@ -8,6 +8,7 @@ import {
   issueDeviceCode,
   issueRegistrationInvitation,
   listPersonDevices,
+  removePerson,
   removePersonDevice,
   renamePerson,
   setAdminNote,
@@ -15,6 +16,7 @@ import {
   type Person,
 } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { dateText } from "./date-time-text.ts";
 import { NewDeviceCodeForm } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
@@ -25,8 +27,9 @@ import {
   registrationText,
   type IssuedInvitation,
 } from "./people.tsx";
-import { fieldProblemText } from "./problem.ts";
+import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
+import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useRequest } from "./use-request.ts";
@@ -36,11 +39,14 @@ import { DeviceList } from "./your-devices.tsx";
 /**
  * One person, for the admin: their name, which can be changed; a new registration invitation or a
  * code for one of their devices; their devices, which can be removed or signed back in by a code;
- * and what they have watched (the owner, 2026-09-27).
+ * what they have watched (the owner, 2026-09-27); and removing them, which an admin cannot do to
+ * themselves (S40).
  */
 export function PersonPage(props: { readonly userId: number }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
+  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const isRemovable = me.state === "loaded" && me.value.id !== props.userId;
   const [person, reloadPerson] = useResource(`person/${String(props.userId)}`, () =>
     getPerson(api, props.userId),
   );
@@ -73,6 +79,14 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
             />
           )}
         />
+        {isRemovable && person.state === "loaded" ? (
+          <ConfirmButton
+            label={t("person.remove", { name: person.value.account.name })}
+            consequence={t("person.removeConsequence", { name: person.value.account.name })}
+            confirmLabel={t("person.removeConfirm")}
+            onConfirm={actions.removePerson}
+          />
+        ) : null}
       </section>
     </BusyGroup>
   );
@@ -86,6 +100,7 @@ interface PersonActions {
   readonly issueLink: (name: string) => void;
   readonly issueCode: (name: string, device: { deviceName: string } | { deviceId: number }) => void;
   readonly remove: (device: Device) => void;
+  readonly removePerson: () => void;
 }
 
 /** What the admin does to a person, one request at a time, and what it issued and why one failed. */
@@ -99,7 +114,7 @@ function usePersonActions(
   readonly problem: string | undefined;
 } {
   const { t } = useTranslation();
-  const { api } = useServices();
+  const { api, navigation } = useServices();
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
@@ -137,6 +152,12 @@ function usePersonActions(
       runRequest(async () => {
         await removePersonDevice(api, userId, device.id);
         reloads.reloadDevices();
+      });
+    },
+    removePerson: (): void => {
+      runRequest(async () => {
+        await removePerson(api, userId);
+        navigation.go({ screen: "people" });
       });
     },
   };
@@ -234,6 +255,10 @@ function RoleChoice(props: {
         </select>
       </label>
       <button type="submit">{t("person.changeRole")}</button>
+      <NoLibraryNote
+        roles={roles.state === "loaded" ? roles.value.roles : undefined}
+        roleName={role}
+      />
     </FormRow>
   );
 }

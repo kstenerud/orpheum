@@ -32,6 +32,9 @@ type UserBody struct {
 	// CanHostWatchTogether is whether the person's role may host Watch Together, so a client offers
 	// it only to them.
 	CanHostWatchTogether bool `json:"canHostWatchTogether"`
+	// HasNoLibrary is a person whose role the admin has given no library yet, so a client tells
+	// them why their lists are empty (D243 §4).
+	HasNoLibrary bool `json:"hasNoLibrary"`
 	// Device is the device this session is on, so a person can see who is signed in where.
 	Device *CurrentDeviceBody `json:"device,omitempty"`
 }
@@ -244,6 +247,7 @@ func (server *Server) userBody(
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
 		IsAdmin: principal.IsAdmin(), CanHostWatchTogether: principal.CanHostWatchTogether(),
+		HasNoLibrary: principal.Reach.ReachesNone(),
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)

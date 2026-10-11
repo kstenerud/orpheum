@@ -70,6 +70,10 @@
 //     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest,
 //     TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
 //     TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed.
+//   - An admin removes a person, never themselves (so an admin remains): every credential of
+//     theirs ends, their devices leave the list, their own watching, positions, lists, ratings and
+//     preferences are deleted (D173 §4.6), and the row stays as a tombstone whose name is free
+//     (S40). Enforced by TestRemoveUser_EndsTheirAccessDeletesTheirOwnRowsAndFreesTheName.
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
 //   - Its opinions — argon2id's costs, the failure limit and window, idle expiry — are settings

@@ -16,7 +16,7 @@ import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { usePages, type Page } from "./use-pages.ts";
-import type { Resource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 
 /** One film or series in a list, as the server sends it. */
 export type Entry = components["schemas"]["EntryBody"];
@@ -143,13 +143,12 @@ export function BrowseView(props: {
   readonly isLoadingMore: boolean;
   readonly onLoadMore: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   return (
     <Loaded
       resource={props.loadedEntries}
       render={(page) =>
         page.items.length === 0 ? (
-          <p className="browse__empty">{t("browse.empty")}</p>
+          <EmptyList />
         ) : (
           <>
             <PosterGrid kind={props.kind} entries={page.items} />
@@ -160,5 +159,19 @@ export function BrowseView(props: {
         )
       }
     />
+  );
+}
+
+/**
+ * Why a list is empty: nothing scanned yet, or, for someone whose role the admin has given no
+ * library, that they have been given none (D243 §4), which only the admin can change.
+ */
+function EmptyList(): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const isGivenNoLibrary = me.state === "loaded" && me.value.hasNoLibrary;
+  return (
+    <p className="browse__empty">{t(isGivenNoLibrary ? "browse.noLibrary" : "browse.empty")}</p>
   );
 }

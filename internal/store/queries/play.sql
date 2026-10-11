@@ -69,3 +69,17 @@ ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at;
 
 -- name: UnhideProgress :exec
 DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id) AND item_id = sqlc.arg(item_id);
+
+-- A removed person's own watching goes with them (D173 section 4.6).
+
+-- name: DeletePlaySpansOfUser :exec
+DELETE FROM play_span WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeletePlayEventsOfUser :exec
+DELETE FROM play_event WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeletePlayPositionsOfUser :exec
+DELETE FROM play_position WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeleteProgressHidesOfUser :exec
+DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id);

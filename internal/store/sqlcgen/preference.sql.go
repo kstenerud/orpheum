@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const deletePreferencesOfUser = `-- name: DeletePreferencesOfUser :exec
+DELETE FROM preference WHERE user_id = ?1
+`
+
+// A removed person's preferences go with them (D173 section 4.6).
+func (q *Queries) DeletePreferencesOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePreferencesOfUser, userID)
+	return err
+}
+
 const getWorkOfFile = `-- name: GetWorkOfFile :one
 SELECT CAST(coalesce((
   SELECT collection_member.collection_id FROM collection_member

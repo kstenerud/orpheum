@@ -40,6 +40,8 @@ var (
 	ErrBadInvitation = errors.New("the link or code is not valid; ask for a new one")
 	// ErrNoUser is a person who is not there.
 	ErrNoUser = errors.New("no such person")
+	// ErrRemoveSelf is an admin removing themselves, which would also leave the server without one.
+	ErrRemoveSelf = errors.New("you cannot remove yourself; another admin can")
 )
 
 // IssuedSecret is a registration invitation's secret or a device code, and when it stops working.
@@ -362,5 +364,45 @@ func (service *Service) RenameUser(ctx context.Context, userID int64, name strin
 			return err
 		}
 		return queries.RenameUser(ctx, sqlcgen.RenameUserParams{Name: name, ID: userID})
+	})
+}
+
+// Forget deletes what was a removed person's alone from tables another package writes, through
+// queries, the transaction that removes them: playback.ForgetWatchingOf, say.
+type Forget func(ctx context.Context, queries *sqlcgen.Queries, userID int64) error
+
+// RemoveUser removes a person, for an admin who is not them (S40). Every credential of theirs ends
+// at its next request and their devices leave the list (D154); each of forgets deletes what was
+// theirs alone, in the same transaction (D173 §4.6); the row stays as a tombstone, so what they
+// set for everyone still says who, and their name is free for someone new.
+func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, forgets ...Forget) error {
+	if byUserID == userID {
+		return ErrRemoveSelf
+	}
+	now := service.clock.Now().UnixMilli()
+	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		removed, err := queries.RemoveUser(ctx, sqlcgen.RemoveUserParams{RemovedAt: &now, ID: userID})
+		if err != nil {
+			return fmt.Errorf("remove user %d: %w", userID, err)
+		}
+		if removed == 0 {
+			return ErrNoUser
+		}
+		if err = queries.RevokeLiveGrantsOfRemovedUser(ctx, sqlcgen.RevokeLiveGrantsOfRemovedUserParams{
+			RevokedAt: &now, UserID: &userID,
+		}); err != nil {
+			return fmt.Errorf("end user %d's credentials: %w", userID, err)
+		}
+		if err = queries.RemoveDevicesOfRemovedUser(ctx, sqlcgen.RemoveDevicesOfRemovedUserParams{
+			RemovedAt: &now, UserID: &userID,
+		}); err != nil {
+			return fmt.Errorf("remove user %d's devices: %w", userID, err)
+		}
+		for _, forget := range forgets {
+			if forgetErr := forget(ctx, queries, userID); forgetErr != nil {
+				return forgetErr
+			}
+		}
+		return nil
 	})
 }

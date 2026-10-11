@@ -323,6 +323,8 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 		return newError(http.StatusConflict, CodeConflict, "someone already has that name")
 	case errors.Is(err, auth.ErrNoUser):
 		return newError(http.StatusNotFound, CodeNotFound, "no such person")
+	case errors.Is(err, auth.ErrRemoveSelf):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrRemoveSelf.Error())
 	case errors.Is(err, auth.ErrNoDevice):
 		return newError(http.StatusNotFound, CodeNotFound, "no such device")
 	}

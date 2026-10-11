@@ -9,6 +9,44 @@ import (
 	"context"
 )
 
+const deletePlayEventsOfUser = `-- name: DeletePlayEventsOfUser :exec
+DELETE FROM play_event WHERE user_id = ?1
+`
+
+func (q *Queries) DeletePlayEventsOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePlayEventsOfUser, userID)
+	return err
+}
+
+const deletePlayPositionsOfUser = `-- name: DeletePlayPositionsOfUser :exec
+DELETE FROM play_position WHERE user_id = ?1
+`
+
+func (q *Queries) DeletePlayPositionsOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePlayPositionsOfUser, userID)
+	return err
+}
+
+const deletePlaySpansOfUser = `-- name: DeletePlaySpansOfUser :exec
+
+DELETE FROM play_span WHERE user_id = ?1
+`
+
+// A removed person's own watching goes with them (D173 section 4.6).
+func (q *Queries) DeletePlaySpansOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePlaySpansOfUser, userID)
+	return err
+}
+
+const deleteProgressHidesOfUser = `-- name: DeleteProgressHidesOfUser :exec
+DELETE FROM progress_hide WHERE user_id = ?1
+`
+
+func (q *Queries) DeleteProgressHidesOfUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProgressHidesOfUser, userID)
+	return err
+}
+
 const getPlayPosition = `-- name: GetPlayPosition :one
 
 SELECT position_ms, report_seq, device_id, updated_at, position_read_at

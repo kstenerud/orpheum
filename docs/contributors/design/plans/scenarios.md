@@ -256,7 +256,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     end access at the next request: the admin removes the person (their grants are revoked,
     D154), or takes a library back from their role, after which every answer treats it as absent
     (§4).
-  - **Status:** holds on paper; m4.md Phase A.
+  - **Status:** built: the person's page removes them (`DELETE /users/{id}`), which also deletes
+    their own watching (D173 §4); the People page and a role warn when a role reaches no library,
+    and a person given none is told why their lists are empty (2026-10-11).
 - **S41** — Watch Together across two houses for a whole film: one pauses, the other's network
   drops for a minute, they rejoin and stay in sync.
   - **Design:** the pause is a command the server serialises and names ("Karl paused at

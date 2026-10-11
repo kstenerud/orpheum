@@ -9,6 +9,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 )
 
 const tagAccounts = "Accounts"
@@ -294,17 +296,25 @@ type WatchStatsBody struct {
 	LastWatchedAt      int64 `doc:"Unix milliseconds; absent when nothing was watched" json:"lastWatchedAt,omitempty"`
 }
 
+// pathPerson is one person's address, which their page, a rename and a removal share.
+const pathPerson = "/users/{id}"
+
 func (server *Server) registerPerson() {
 	tags := []string{tagAccounts}
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "getPerson", Method: http.MethodGet, Path: "/users/{id}",
+		OperationID: "getPerson", Method: http.MethodGet, Path: pathPerson,
 		Summary: "A person's page, for the admin: who they are and what they have watched", Tags: tags,
 	}, server.getPerson)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "renamePerson", Method: http.MethodPut, Path: "/users/{id}",
+		OperationID: "renamePerson", Method: http.MethodPut, Path: pathPerson,
 		Summary: "Rename a person; names are for display and sign-in, and stay unique", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
 	}, server.renamePerson)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "removePerson", Method: http.MethodDelete, Path: pathPerson,
+		Summary: "Remove a person: their sessions and devices end, and their own watching is deleted (S40)",
+		Tags:    tags, DefaultStatus: http.StatusNoContent,
+	}, server.removePerson)
 }
 
 func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*PersonOutput, error) {
@@ -344,6 +354,19 @@ func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput
 	err = dependencies.Auth.RenameUser(ctx, input.UserID, input.Body.Name)
 	if err != nil {
 		return nil, server.authError(ctx, "rename a person", err)
+	}
+	return &struct{}{}, nil
+}
+
+func (server *Server) removePerson(ctx context.Context, input *PersonInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	err = dependencies.Auth.RemoveUser(ctx, principal.UserID, input.UserID,
+		playback.ForgetWatchingOf, preferences.ForgetPreferencesOf)
+	if err != nil {
+		return nil, server.authError(ctx, "remove a person", err)
 	}
 	return &struct{}{}, nil
 }
