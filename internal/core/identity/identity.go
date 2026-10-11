@@ -47,7 +47,8 @@ func (key Key) Public() ed25519.PublicKey {
 	return public
 }
 
-// Sign signs a discovery's nonce for purpose: "enrol" or "session".
+// Sign signs a discovery's nonce for purpose, "enrol" or "session": discovery/proof's message,
+// which a discovery checks with proof.Verify.
 func (key Key) Sign(purpose, nonce string) []byte {
 	return ed25519.Sign(key.private, proof.Message(purpose, nonce))
 }
