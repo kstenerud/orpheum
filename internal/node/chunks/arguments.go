@@ -30,14 +30,32 @@ func runStartMs(command nodeproto.MakeChunks) int64 {
 	return command.BoundsMs[0]
 }
 
+// soundSeekEarlyMs is how long before its run a sound's decode starts, trimmed after decoding: a
+// run starts on a keyframe, and FFmpeg seeking an Opus track (and any with a seek pre-roll) to one
+// decodes it without the pre-roll before it, which put the sound 60 to 90 ms later than its
+// timestamps and made a seam at every run's start (idiosyncrasies.md). Two seconds is many
+// pre-rolls; the decode trims to the run's start by its decoded timestamps.
+const soundSeekEarlyMs = 2_000
+
 // seekMs is where FFmpeg is told to seek: a copied picture's seek, past its first keyframe, so
-// FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); otherwise the run's start, which a
-// decode trims to exactly.
+// FFmpeg lands on it (nodeproto.MakeChunks.PictureSeekMs); a sound's soundSeekEarlyMs before its
+// run's start, which its filter trims to (soundTrimMs); otherwise the run's start, which a decode
+// trims to exactly.
 func seekMs(command nodeproto.MakeChunks) int64 {
-	if command.Stream.Kind == nodeproto.StreamPicture {
+	switch command.Stream.Kind {
+	case nodeproto.StreamPicture:
 		return command.PictureSeekMs
+	case nodeproto.StreamSound:
+		return max(0, runStartMs(command)-soundSeekEarlyMs)
+	case nodeproto.StreamQuality:
+		return runStartMs(command)
 	}
 	return runStartMs(command)
+}
+
+// soundTrimMs is how much a sound's decode drops before its run's start: what it was decoded early.
+func soundTrimMs(command nodeproto.MakeChunks) int64 {
+	return runStartMs(command) - seekMs(command)
 }
 
 // firstRawNumber is the number of the run's first raw file: its first chunk's, or one before it
@@ -101,7 +119,8 @@ func Arguments(sourcePath, rawPath string, command nodeproto.MakeChunks, encoder
 	case nodeproto.StreamSound:
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
-			"-filter:a", prepare.MixFilter(*sound, command.Stream.IsBoosted),
+			"-filter:a", "atrim=start="+seconds(soundTrimMs(command))+",asetpts=PTS-STARTPTS,"+
+				prepare.MixFilter(*sound, command.Stream.IsBoosted),
 			"-c:a", "aac", "-b:a", strconv.Itoa(command.Stream.SoundKbps)+"k", "-ac", "2")
 	}
 	return append(arguments, "-sn", "-dn",
