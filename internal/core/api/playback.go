@@ -422,7 +422,8 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	case errors.Is(err, library.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
 	case errors.Is(err, playback.ErrNoToken):
-		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
+		return newError(http.StatusNotFound, CodePlaybackGone,
+			"no such playback: the server restarted since it began, or it ended; start it again")
 	case errors.Is(err, subtitles.ErrNoSubtitle):
 		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	case errors.Is(err, playback.ErrNoItem), errors.Is(err, library.ErrNoItem): // one not reached too

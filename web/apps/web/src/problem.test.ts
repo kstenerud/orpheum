@@ -107,3 +107,13 @@ describe("a provider not answering (D231 §12)", () => {
     );
   });
 });
+
+describe("a playback the server no longer has", () => {
+  it("says the server restarted and to press play, not that the film was removed", () => {
+    const gone = new ApiProblem({ code: "playback_gone", message: "no such playback" });
+    const text = problemText(t, gone);
+    expect(text).toContain("The server restarted");
+    expect(text).toContain("Press play to carry on");
+    expect(text).not.toContain("removed");
+  });
+});

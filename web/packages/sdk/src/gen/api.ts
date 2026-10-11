@@ -2732,7 +2732,7 @@ export interface components {
             message: string;
         } | {
             /** @enum {string} */
-            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "no_room_to_make" | "migrating" | "internal";
+            code: "setup_required" | "forbidden" | "not_found" | "conflict" | "stale" | "node_silent" | "file_unavailable" | "preparing" | "prepare_failed" | "no_room_to_make" | "playback_gone" | "migrating" | "internal";
             /**
              * @description The leg of the request that failed, for reachability errors
              * @enum {string}

@@ -56,6 +56,8 @@ export const en = {
     },
     forbidden: "Only an administrator can do that.",
     notFound: "That is no longer here: it may have been removed. Go back and try again.",
+    playbackGone:
+      "The server restarted, or ended this playback, so it stopped. Press play to carry on from where you were.",
     invalidRequest: "The server could not accept that. Check what was entered and try again.",
     invalidFields:
       "The server did not accept what was entered in {{fields, list}}. Correct what is there and try again.",

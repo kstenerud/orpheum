@@ -40,6 +40,9 @@ const (
 	// CodeNoRoomToMake is a chunk of a quality whose run was evicted to keep its machine's other runs
 	// faster than playback (D250 §6): the player's playback stops, and says why.
 	CodeNoRoomToMake Code = "no_room_to_make"
+	// CodePlaybackGone is a playback the server no longer has: it restarted since the playback began,
+	// which ends every playback, or the playback ended. The player starts it again from where it is.
+	CodePlaybackGone Code = "playback_gone"
 	CodeMigrating    Code = "migrating"
 	CodeInternal     Code = "internal"
 )
@@ -50,7 +53,8 @@ func codes() []Code {
 	return []Code{
 		CodeSetupRequired, CodeAuthRequired, CodeForbidden, CodeNotFound, CodeInvalidRequest, CodeConflict,
 		CodeStale, CodeRateLimited, CodeQuotaExhausted, CodeProviderError, CodeNodeSilent, CodeFileUnavailable,
-		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeNoRoomToMake, CodeMigrating, CodeInternal,
+		CodeMediaUnreachable, CodePreparing, CodePrepareFailed, CodeNoRoomToMake, CodePlaybackGone, CodeMigrating,
+		CodeInternal,
 	}
 }
 
