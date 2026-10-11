@@ -6,6 +6,7 @@ import { useEffect, useRef, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
+import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
@@ -122,17 +123,34 @@ export function AppShell(props: {
               {links("manage")}
             </BannerMenu>
           )}
-          <OwnMenu
-            signedInAs={props.signedInAs}
-            isCurrent={isIn("own")}
-            onSignOut={props.onSignOut}
-          >
+          <BannerEnd shell={props} isOwnCurrent={isIn("own")}>
             {links("own")}
-          </OwnMenu>
+          </BannerEnd>
         </nav>
       </header>
       <main className="app-shell__main">{props.children}</main>
     </div>
+  );
+}
+
+/** The banner's end: the status tray (D280), then the person's own menu with its places. */
+function BannerEnd(props: {
+  readonly shell: Parameters<typeof AppShell>[0];
+  readonly isOwnCurrent: boolean;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const { shell } = props;
+  return (
+    <>
+      <StatusTray isHostingTogether={shell.isHostingTogether === true} isAdmin={shell.isAdmin} />
+      <OwnMenu
+        signedInAs={shell.signedInAs}
+        isCurrent={props.isOwnCurrent}
+        onSignOut={shell.onSignOut}
+      >
+        {props.children}
+      </OwnMenu>
+    </>
   );
 }
 

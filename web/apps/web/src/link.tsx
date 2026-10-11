@@ -9,6 +9,8 @@ import { useServices } from "./services.tsx";
 export function Link(props: {
   readonly to: Route;
   readonly className?: string;
+  /** Its name for a screen reader, when its content is only an icon. */
+  readonly label?: string;
   readonly children: ReactNode;
 }): JSX.Element {
   const { navigation } = useServices();
@@ -21,7 +23,12 @@ export function Link(props: {
     }
   };
   return (
-    <a href={routeHref(props.to)} className={props.className} onClick={follow}>
+    <a
+      href={routeHref(props.to)}
+      className={props.className}
+      aria-label={props.label}
+      onClick={follow}
+    >
       {props.children}
     </a>
   );
