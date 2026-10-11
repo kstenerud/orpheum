@@ -2,10 +2,11 @@
 
 import "./status-tray.css";
 
-import { useEffect, useRef, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Link } from "./link.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
@@ -49,34 +50,20 @@ function TogetherIcon(): JSX.Element {
   );
 }
 
-/** The Watch Together sign, which opens the session's controls over whatever screen is shown. */
+/**
+ * The Watch Together sign, which opens the session's controls over whatever screen is shown: a
+ * modal drop-down, the page behind it taking no press, so a control under it half hidden is never
+ * pressed by mistake on a small screen; a press anywhere outside it, Escape or Close shuts it (the
+ * owner, 2026-10-11).
+ */
 function TogetherStatus(): JSX.Element {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-    const close = (event: Event): void => {
-      const isOutside =
-        event.target instanceof Node && !(ref.current?.contains(event.target) ?? false);
-      if (
-        (event instanceof KeyboardEvent && event.key === "Escape") ||
-        (event.type === "pointerdown" && isOutside)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [isOpen]);
+  const close = (): void => {
+    setIsOpen(false);
+  };
   return (
-    <div className="status-tray__item" ref={ref}>
+    <div className="status-tray__item">
       <button
         type="button"
         className="status-tray__button"
@@ -89,20 +76,20 @@ function TogetherStatus(): JSX.Element {
         <TogetherIcon />
       </button>
       {isOpen ? (
-        <dialog open className="status-tray__panel" aria-label={t("watchTogether.heading")}>
+        <ModalDialog
+          className="status-tray__panel modal-dialog--drop-down"
+          label={t("watchTogether.heading")}
+          onClose={close}
+          shouldCloseOnOutsidePress
+        >
           <div className="status-tray__panel-head">
             <h2>{t("watchTogether.heading")}</h2>
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-              }}
-            >
+            <button type="button" onClick={close}>
               {t("status.close")}
             </button>
           </div>
           <WatchTogetherControls />
-        </dialog>
+        </ModalDialog>
       ) : null}
     </div>
   );

@@ -127,7 +127,7 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1);
+  gap: 0;
   margin-inline-start: auto;
 }
 
@@ -141,6 +141,11 @@
   display: flex;
   align-items: center;
   list-style: none;
+}
+
+/* The menu's icon as close to the status tray's signs as they are to each other. */
+.app-shell__end .app-shell__menu > summary {
+  padding-inline: var(--space-2);
 }
 
 .app-shell__menu > summary::-webkit-details-marker {
