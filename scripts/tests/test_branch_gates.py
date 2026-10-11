@@ -489,15 +489,16 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
         return [rr.Change(self.OLD, "M"), rr.Change(self.CLAIMED, "M"), rr.Change(self.UNCLAIMED, "M"),
                 rr.Change(self.ADDED, "A")]
 
-    def test_a_pass_with_every_sheet_reverted_settles_the_claimed_and_leaves_the_rest_to_their_own_runs(self):
+    def test_a_pass_with_every_sheet_reverted_settles_every_sheet_and_an_unclaimed_one_is_green(self):
         repo, base = self.repo()
         with repo.cwd():
             settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60,
                                               self.ALL_REVERTED)
         self.assertEqual({path: outcome.verdict for path, outcome in settled.items()},
-                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.ADDED: "CLAIMED"})
+                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.ADDED: "CLAIMED", self.UNCLAIMED: "GREEN"})
         self.assertIn("Verified-By: VQ7", settled[self.OLD].detail)
-        self.assertNotIn(self.UNCLAIMED, settled, "a sheet with no claim is owed its own run")
+        self.assertTrue(settled[self.UNCLAIMED].is_failure, "a sheet nothing noticed and nothing claims fails, "
+                        "with no browser run of its own (D279)")
         self.assertEqual(repo.git("status", "--porcelain"), "", "every sheet is put back")
 
     def test_a_failing_run_settles_nothing_and_one_sheet_alone_is_not_batched(self):

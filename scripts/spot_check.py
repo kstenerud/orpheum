@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# ABOUTME: `make spot`: the tests of what the working tree changed, and of what imports it, in
+# ABOUTME: about 30 seconds, for checking a small change while working (D279, principles §23).
+"""The spot check: run only what a change can affect, within 30 seconds (D279).
+
+A small change is checked in seconds; `make check` waits for the commit and `make check-pr` for an
+accumulated batch (testing.md §10). This finds what changed since `--base` (by default HEAD, with
+the working tree's uncommitted and untracked files), and runs, at once:
+
+* **Go:** `go test` of each package a changed Go file is in, and of every package that imports one
+  of them directly (its tests included). What imports those in turn is `make check`'s.
+* **Web:** the changed test files, and the tests that import a changed source directly, by the
+  relative imports (revert_red_web.py). vitest's `related` follows every importer and took 44 s
+  for one player file; the tests further out are `make check`'s. A stylesheet only a browser
+  renders, so the spot check names it and runs nothing for it.
+* **Python:** the gates' tests (`scripts/py_tests.py`), when a script, a hook, ./dev or the
+  Makefile changed.
+* **Documentation:** the docs gate (`scripts/check_docs.py`), when Markdown changed.
+
+What it cannot run in the time (the type check, lint, generated code, the integration and browser
+tiers) it names, so a green is never read as `make check`'s.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from revert_red_web import VITEST_RUN, importing_tests
+
+BUDGET_S = 30
+# How many of its runs go at once, by default: two, so a spot check beside staging or another
+# agent's gate does not take the machine (the owner's staging at a load of 46, 2026-10-11).
+DEFAULT_JOBS = 2
+HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+
+WEB_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/(src|e2e)/.*\.tsx?$")
+WEB_STYLE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
+PYTHON_GATES = re.compile(r"^(scripts/.*\.py|\.claude/hooks/.*\.py|dev|Makefile|\.githooks/.*)$")
+GENERATED_FROM = re.compile(r"^(internal/store/(cache/)?queries/.*\.sql|internal/core/api/.*\.go)$")
+
+
+@dataclass
+class Plan:
+    """What the spot check runs, and what it names as left to `make check`."""
+
+    go_packages: list[str] = field(default_factory=list)
+    web_files: list[str] = field(default_factory=list)
+    python: bool = False
+    docs: bool = False
+    not_run: list[str] = field(default_factory=list)
+
+
+def changed_paths(base: str) -> list[str]:
+    """The paths changed since base, the working tree's uncommitted and untracked ones included."""
+    def git(*args: str) -> list[str]:
+        out = subprocess.run(["git", *args], capture_output=True, text=True, check=False).stdout
+        return [line for line in out.splitlines() if line]
+    paths = git("diff", "--name-only", base) + git("ls-files", "--others", "--exclude-standard")
+    return sorted(set(paths))
+
+
+def plan(paths: list[str], module: str, importers: dict[str, set[str]]) -> Plan:
+    """What to run for `paths`: `module` is go.mod's module path, and `importers` maps each Go package
+    to the packages that import it directly, their tests included."""
+    result = Plan()
+    changed_packages: set[str] = set()
+    styles = []
+    for path in paths:
+        if path.endswith(".go"):
+            directory = str(Path(path).parent)
+            changed_packages.add(module if directory == "." else f"{module}/{directory}")
+            if GENERATED_FROM.match(path) and "/api/" in path:
+                result.not_run.append("the API document and SDK types `make generate` writes from the handlers")
+        elif GENERATED_FROM.match(path):
+            result.not_run.append(f"{path}: sqlc's code from it (`make generate`)")
+        elif WEB_SOURCE.match(path):
+            result.web_files.append(path)
+        elif WEB_STYLE.match(path):
+            styles.append(path)
+        elif PYTHON_GATES.match(path):
+            result.python = True
+        elif path.endswith(".md"):
+            result.docs = True
+        elif path in ("go.mod", "go.sum") or path.startswith("web/package"):
+            result.not_run.append(f"{path}: a dependency change is `make check`'s")
+    packages = set(changed_packages)
+    for package in changed_packages:
+        packages |= importers.get(package, set())
+    result.go_packages = sorted(packages)
+    if styles:
+        result.not_run.append("stylesheets, which only the browser tier renders: " + ", ".join(styles))
+    if result.web_files:
+        result.not_run.append("the web type check and lint (`make check`)")
+    if result.go_packages:
+        result.not_run.append("what imports the importers, the dev build's tests and Go lint (`make check`)")
+    result.not_run = list(dict.fromkeys(result.not_run))
+    return result
+
+
+def go_importers() -> tuple[str, dict[str, set[str]]]:
+    """go.mod's module, and each package's direct importers, tests included, by `go list`."""
+    module = ""
+    for line in Path("go.mod").read_text().splitlines():
+        if line.startswith("module "):
+            module = line.split()[1]
+    listed = subprocess.run(
+        ["go", "list", "-e", "-f",
+         "{{.ImportPath}}{{range .Imports}} {{.}}{{end}}{{range .TestImports}} {{.}}{{end}}"
+         "{{range .XTestImports}} {{.}}{{end}}", "./..."],
+        capture_output=True, text=True, check=False, env={**os.environ, **HERMETIC}).stdout
+    importers: dict[str, set[str]] = {}
+    for line in listed.splitlines():
+        package, *imports = line.split()
+        for imported in imports:
+            if imported != package:
+                importers.setdefault(imported, set()).add(package)
+    return module, importers
+
+
+@dataclass
+class Run:
+    label: str
+    command: list[str]
+
+
+def runs(spot: Plan, module: str) -> list[Run]:
+    out = []
+    if spot.go_packages:
+        relative = ["./" + p.removeprefix(module).lstrip("/") if p != module else "." for p in spot.go_packages]
+        out.append(Run(f"go test, {len(relative)} package(s)", ["go", "test", *relative]))
+    tests = web_tests(spot.web_files)
+    if tests:
+        out.append(Run(f"vitest, {len(tests)} test file(s)", [*VITEST_RUN, *tests]))
+    if spot.python:
+        out.append(Run("the gates' Python tests", [sys.executable, "scripts/py_tests.py"]))
+    if spot.docs:
+        out.append(Run("the docs gate", [sys.executable, "scripts/check_docs.py"]))
+    return out
+
+
+def web_tests(paths: list[str]) -> list[str]:
+    """The test files to run for changed web files: each changed test, and the tests importing a
+    changed source directly; relative to web/, as vitest's root takes them."""
+    tests: set[str] = set()
+    for path in paths:
+        if re.search(r"\.test\.tsx?$", path) and Path(path).exists():
+            tests.add(str(Path(path).relative_to("web")))
+        else:
+            tests.update(importing_tests(".", path, depth=1))
+    return sorted(tests)
+
+
+def execute(run: Run) -> tuple[Run, int, float, str]:
+    started = time.monotonic()
+    done = subprocess.run(run.command, capture_output=True, text=True, check=False, env={**os.environ, **HERMETIC})
+    return run, done.returncode, time.monotonic() - started, done.stdout + done.stderr
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--base", default="HEAD", help="compare against this commit (default: HEAD, so the "
+                    "uncommitted changes)")
+    ap.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help=f"runs at once (default {DEFAULT_JOBS})")
+    args = ap.parse_args()
+    started = time.monotonic()
+    paths = changed_paths(args.base)
+    if not paths:
+        print(f"spot: nothing changed since {args.base}; give --base to check commits (e.g. --base HEAD~1)")
+        return 0
+    module, importers = go_importers() if any(p.endswith(".go") for p in paths) else ("", {})
+    spot = plan(paths, module, importers)
+    planned = runs(spot, module)
+    with ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(planned)))) as pool:
+        results = list(pool.map(execute, planned))
+    failed = False
+    for run, status, seconds, output in results:
+        print(f"spot: {run.label}: {'passed' if status == 0 else 'FAILED'} in {seconds:.0f} s")
+        if status != 0:
+            failed = True
+            print(output[-4000:])
+    for gap in spot.not_run:
+        print(f"spot: not run here: {gap}")
+    took = time.monotonic() - started
+    over = f", over its {BUDGET_S} s budget (D279)" if took > BUDGET_S else ""
+    print(f"spot: {len(paths)} changed path(s), {'FAILED' if failed else 'passed'} in {took:.0f} s{over}. "
+          "Not make check: run it before the commit.")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
