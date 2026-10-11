@@ -451,7 +451,11 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     vi.useFakeTimers();
     const { server, calls } = await talking();
     calls[0]!.setup.events.onState("connected"); // with Karl's device 30; Ann's, 15, connecting
-    const measured = { kind: "voiceStats", voice: { partnerDeviceId: 30, ...measuredCall } };
+    // The ring's reading rides along: talking, the fake microphone's 0.05 (the owner's test, 2026-10-11).
+    const measured = {
+      kind: "voiceStats",
+      voice: { partnerDeviceId: 30, ...measuredCall, ringLevel: 0.05 },
+    };
     vi.advanceTimersByTime(voiceFirstStatsAfterMs);
     await settle();
     expect(notesOf(server, "voiceStats")).toEqual([measured]);

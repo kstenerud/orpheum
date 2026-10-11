@@ -195,6 +195,10 @@ type VoiceStats struct {
 	ReceivedLevel float64 `json:"receivedLevel"`
 	SentLevel     float64 `json:"sentLevel"`
 	Playback      string  `json:"playback"`
+	// RingLevel is what the device's Talk button's ring read of its voice going out, from 0 to 1, as
+	// the call was measured: a ring that stayed still on an Android phone hosting said nothing of
+	// whether it read nothing or showed nothing (the owner's test, 2026-10-11).
+	RingLevel float64 `json:"ringLevel,omitempty"`
 }
 
 // positionMsAttribute names a position, in ms, in a log line.
